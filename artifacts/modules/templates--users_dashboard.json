@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "UsersDashboard",
+  "file": "templates/users_dashboard.html",
+  "purpose": "<!-- Describe what UsersDashboard does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "d491df4d349a9035",
+  "file_mtime": 1782636659453.411,
+  "file_size": 65168,
+  "file_birthtime": 1782634284296.3708,
+  "generated_at": "2026-06-30T10:44:51.050Z",
+  "stale": false
+}

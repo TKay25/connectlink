@@ -283,6 +283,67 @@ def initialize_database_tables():
                     whatsapp INT
                 );
             """)
+
+            # ===== UNIFIED ADMIN USERS TABLE =====
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS admin_users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL UNIQUE,
+                    password VARCHAR(100) NOT NULL,
+                    full_name VARCHAR(200) NOT NULL,
+                    email VARCHAR(200),
+                    whatsapp VARCHAR(50),
+                    source_system VARCHAR(20) DEFAULT 'projects',
+                    source_id INT,
+                    role VARCHAR(50) DEFAULT 'operator',
+                    is_active BOOLEAN DEFAULT TRUE,
+                    must_reset_password BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            connection.commit()
+
+            # Add must_reset_password column if missing (existing databases)
+            try:
+                cursor.execute("""
+                    ALTER TABLE admin_users
+                    ADD COLUMN IF NOT EXISTS must_reset_password BOOLEAN DEFAULT FALSE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add must_reset_password column: {e}")
+
+            # Migrate existing users from connectlinkusers to admin_users (if not already there)
+            try:
+                cursor.execute("""
+                    INSERT INTO admin_users (username, password, full_name, email, whatsapp, source_system, source_id, role, created_at)
+                    SELECT email, password, name, email, CAST(whatsapp AS VARCHAR), 'projects', id, 'admin', COALESCE(datecreated::timestamp, NOW())
+                    FROM connectlinkusers
+                    WHERE email IS NOT NULL AND email != ''
+                    ON CONFLICT (username) DO NOTHING
+                """)
+                migrated_cl = cursor.rowcount
+            except Exception as e:
+                migrated_cl = 0
+                print(f"Note: connectlinkusers migration: {e}")
+
+            try:
+                cursor.execute("""
+                    INSERT INTO admin_users (username, password, full_name, email, source_system, source_id, role, created_at)
+                    SELECT username, password, full_name, username, 'hardware', id, role, COALESCE(created_at, NOW())
+                    FROM hardware_users
+                    WHERE username IS NOT NULL AND username != ''
+                    ON CONFLICT (username) DO NOTHING
+                """)
+                migrated_hw = cursor.rowcount
+            except Exception as e:
+                migrated_hw = 0
+                print(f"Note: hardware_users migration: {e}")
+
+            if migrated_cl + migrated_hw > 0:
+                print(f"✅ Migrated {migrated_cl} projects + {migrated_hw} hardware users to admin_users")
+            connection.commit()
             
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS whatsapp_messages (
@@ -1231,6 +1292,317 @@ def initialize_database_tables():
                 print("✅ Bad date cleanup complete!")
             except Exception as cleanup_err:
                 print(f"Note: Date cleanup error: {cleanup_err}")
+
+            # ===== USER PERMISSIONS TABLE =====
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_permissions (
+                    id SERIAL PRIMARY KEY,
+                    user_type VARCHAR(20) NOT NULL,
+                    user_id INT NOT NULL,
+                    can_manage_projects BOOLEAN DEFAULT FALSE,
+                    can_manage_hardware BOOLEAN DEFAULT FALSE,
+                    can_manage_hr BOOLEAN DEFAULT FALSE,
+                    can_add_users BOOLEAN DEFAULT FALSE,
+                    can_edit_users BOOLEAN DEFAULT FALSE,
+                    can_delete_users BOOLEAN DEFAULT FALSE,
+                    can_export_data BOOLEAN DEFAULT FALSE,
+                    can_view_audit BOOLEAN DEFAULT FALSE,
+                    can_manage_roles BOOLEAN DEFAULT FALSE,
+                    can_view_payments BOOLEAN DEFAULT FALSE,
+                    is_super_admin BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_type, user_id)
+                );
+            """)
+            connection.commit()
+            # Add can_view_payments column if it doesn't exist (for existing tables)
+            try:
+                cursor.execute("""
+                    ALTER TABLE user_permissions
+                    ADD COLUMN IF NOT EXISTS can_view_payments BOOLEAN DEFAULT FALSE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add can_view_payments column: {e}")
+            print("✅ User permissions table initialized!")
+
+            # ========== HR MODULE TABLES ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_employees (
+                    id SERIAL PRIMARY KEY,
+                    user_id INT REFERENCES connectlinkusers(id) ON DELETE SET NULL,
+                    first_name VARCHAR(100) NOT NULL,
+                    last_name VARCHAR(100) NOT NULL,
+                    whatsapp VARCHAR(50),
+                    email VARCHAR(200),
+                    address TEXT,
+                    password VARCHAR(100),
+                    role VARCHAR(50) DEFAULT 'Ordinary User',
+                    department VARCHAR(100),
+                    designation VARCHAR(100),
+                    gender VARCHAR(10),
+                    dob DATE,
+                    marital_status VARCHAR(50),
+                    nationality VARCHAR(100),
+                    date_joined DATE,
+                    leave_approver_name VARCHAR(200),
+                    leave_approver_id INT,
+                    leave_approver_email VARCHAR(200),
+                    leave_approver_whatsapp VARCHAR(50),
+                    current_leave_balance DECIMAL(10,2) DEFAULT 21,
+                    monthly_accumulation DECIMAL(5,2) DEFAULT 1.75,
+                    bank_holder_name VARCHAR(100),
+                    bank_holder_surname VARCHAR(100),
+                    bank_name VARCHAR(100),
+                    bank_account_number VARCHAR(50),
+                    bank_branch VARCHAR(100),
+                    bank_branch_code VARCHAR(20),
+                    basic_salary DECIMAL(12,2) DEFAULT 0,
+                    usd_percent DECIMAL(5,2) DEFAULT 100,
+                    zwg_percent DECIMAL(5,2) DEFAULT 0,
+                    exchange_rate DECIMAL(12,4) DEFAULT 1,
+                    currency VARCHAR(10) DEFAULT 'USD',
+                    c8_number VARCHAR(50),
+                    c8_type VARCHAR(20),
+                    employment_type VARCHAR(50) DEFAULT 'Permanent',
+                    status VARCHAR(20) DEFAULT 'Active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_leave_applications (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    employee_name VARCHAR(300) NOT NULL,
+                    leave_type VARCHAR(50) NOT NULL,
+                    from_date DATE NOT NULL,
+                    to_date DATE NOT NULL,
+                    days INT NOT NULL,
+                    reason TEXT,
+                    status VARCHAR(20) DEFAULT 'Pending',
+                    approved_by VARCHAR(200),
+                    approved_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Employee leave type balances (per-employee, per-leave-type)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_employee_leave_balances (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT NOT NULL REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    leave_type VARCHAR(50) NOT NULL,
+                    current_balance DECIMAL(10,2) DEFAULT 0,
+                    monthly_accrual DECIMAL(10,2) DEFAULT 0,
+                    annual_accrual DECIMAL(10,2) DEFAULT 0,
+                    carry_forward DECIMAL(10,2) DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(employee_id, leave_type)
+                );
+            """)
+            connection.commit()
+            print("✅ Employee leave balances table initialized")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_leave_approved (
+                    id SERIAL PRIMARY KEY,
+                    application_id INT REFERENCES hr_leave_applications(id) ON DELETE CASCADE,
+                    employee_id INT,
+                    employee_name VARCHAR(300),
+                    leave_type VARCHAR(50),
+                    from_date DATE,
+                    to_date DATE,
+                    days INT,
+                    approved_by VARCHAR(200),
+                    approved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_leave_declined (
+                    id SERIAL PRIMARY KEY,
+                    application_id INT,
+                    employee_id INT,
+                    employee_name VARCHAR(300),
+                    leave_type VARCHAR(50),
+                    from_date DATE,
+                    to_date DATE,
+                    days INT,
+                    reason TEXT,
+                    declined_by VARCHAR(200),
+                    declined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # ===== PASSWORD RESET CODES TABLE =====
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS password_reset_codes (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) NOT NULL,
+                    code VARCHAR(6) NOT NULL,
+                    whatsapp VARCHAR(50),
+                    expires_at TIMESTAMP NOT NULL,
+                    used BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            connection.commit()
+            print("✅ Password reset codes table initialized")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_attendance (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    date DATE DEFAULT CURRENT_DATE,
+                    check_in TIME,
+                    check_out TIME,
+                    status VARCHAR(20) DEFAULT 'Present',
+                    notes TEXT,
+                    UNIQUE(employee_id, date)
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_payroll (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    period VARCHAR(20) NOT NULL,
+                    basic_pay DECIMAL(12,2) DEFAULT 0,
+                    allowances DECIMAL(12,2) DEFAULT 0,
+                    deductions DECIMAL(12,2) DEFAULT 0,
+                    net_pay DECIMAL(12,2) DEFAULT 0,
+                    status VARCHAR(20) DEFAULT 'Pending',
+                    processed_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_assets (
+                    id SERIAL PRIMARY KEY,
+                    asset_tag VARCHAR(50) UNIQUE,
+                    asset_name VARCHAR(200) NOT NULL,
+                    category VARCHAR(100),
+                    assigned_to INT REFERENCES hr_employees(id) ON DELETE SET NULL,
+                    value DECIMAL(12,2) DEFAULT 0,
+                    purchase_date DATE,
+                    status VARCHAR(20) DEFAULT 'In Service',
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            connection.commit()
+            print("✅ HR module tables initialized!")
+
+            # ========== PAYE TAX TABLES ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS paye_tax_tables (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    filename VARCHAR(255),
+                    period VARCHAR(20),
+                    is_active BOOLEAN DEFAULT FALSE,
+                    uploaded_by VARCHAR(100),
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS paye_tax_brackets (
+                    id SERIAL PRIMARY KEY,
+                    table_id INT NOT NULL REFERENCES paye_tax_tables(id) ON DELETE CASCADE,
+                    band VARCHAR(100),
+                    income_from DECIMAL(15,2) DEFAULT 0,
+                    income_to DECIMAL(15,2) DEFAULT 0,
+                    tax_rate DECIMAL(5,2) DEFAULT 0,
+                    cumulative_tax DECIMAL(15,2) DEFAULT 0,
+                    bracket_order INT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Ensure at most one active table
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_paye_active_unique
+                ON paye_tax_tables ((true)) WHERE is_active = true;
+            """)
+
+            connection.commit()
+            print("✅ PAYE tax tables initialized!")
+
+            # ========== PAYROLL DEDUCTION CONFIG ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS payroll_deduction_config (
+                    id SERIAL PRIMARY KEY,
+                    deduction_code VARCHAR(50) UNIQUE NOT NULL,
+                    deduction_name VARCHAR(200) NOT NULL,
+                    description TEXT,
+                    rate DECIMAL(10,4) DEFAULT 0,
+                    rate_type VARCHAR(30) DEFAULT 'percentage_of_paye',
+                    ceiling_amount DECIMAL(15,2) DEFAULT 0,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    is_employee_deduction BOOLEAN DEFAULT TRUE,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Seed default Zimbabwe statutory deductions
+            cursor.execute("SELECT COUNT(*) FROM payroll_deduction_config")
+            if cursor.fetchone()[0] == 0:
+                seed_deductions = [
+                    ('AIDS_LEVY', 'AIDS Levy', '3% of PAYE tax amount', 3.0, 'percentage_of_paye', 0, True, True),
+                    ('NSSA_EMPLOYEE', 'NSSA (Employee)', 'NSSA employee pension contribution', 4.5, 'percentage_of_gross', 0, True, True),
+                    ('NSSA_EMPLOYER', 'NSSA (Employer)', 'NSSA employer pension contribution', 4.5, 'percentage_of_gross', 0, True, False),
+                    ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, True),
+                ]
+                for dc in seed_deductions:
+                    cursor.execute("""
+                        INSERT INTO payroll_deduction_config
+                            (deduction_code, deduction_name, description, rate, rate_type, ceiling_amount, is_active, is_employee_deduction)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (deduction_code) DO NOTHING
+                    """, dc)
+                connection.commit()
+                print("✅ Default payroll deductions seeded!")
+
+            # Add deduction breakdown columns to hr_payroll if not present
+            for col in [
+                "paye_tax DECIMAL(12,2) DEFAULT 0",
+                "aids_levy DECIMAL(12,2) DEFAULT 0",
+                "nssa DECIMAL(12,2) DEFAULT 0",
+                "zimdef DECIMAL(12,2) DEFAULT 0",
+                "gross_pay DECIMAL(12,2) DEFAULT 0"
+            ]:
+                try:
+                    cursor.execute(f"ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS {col}")
+                except Exception:
+                    pass
+            connection.commit()
+            print("✅ Payroll deduction columns added!")
+
+            # ========== PAYROLL ARCHIVES TABLE ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS payroll_archives (
+                    id SERIAL PRIMARY KEY,
+                    period VARCHAR(20) NOT NULL,
+                    filename VARCHAR(255) NOT NULL,
+                    file_data BYTEA NOT NULL,
+                    file_size INT DEFAULT 0,
+                    employee_count INT DEFAULT 0,
+                    total_gross DECIMAL(15,2) DEFAULT 0,
+                    total_net DECIMAL(15,2) DEFAULT 0,
+                    generated_by VARCHAR(100),
+                    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(period)
+                );
+            """)
+            connection.commit()
+            print("✅ Payroll archives table initialized!")
+
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
 
@@ -11557,11 +11929,16 @@ def Dashboard():
 
             try:
 
-                results = run1(userid)  
+                results = run1(userid)
+
+                # Check user permissions for Payments tab
+                perms = get_user_permissions('projects', userid)
+                can_view_payments = perms.get('can_view_payments', False) or perms.get('is_super_admin', False)
 
                 print("Back from adventures")
 
-                return render_template('adminpage.html', **results, userid = userid, user_name=user_name)
+                return render_template('adminpage.html', **results, userid=userid, user_name=user_name,
+                                       can_view_payments=can_view_payments)
                     
             except Exception as e:
 
@@ -11583,6 +11960,252 @@ def whatsapp_app():
         return render_template('whatsapp_app.html', user_name=user_name, userid=userid)
     return render_template('mainindex.html')
 
+
+@app.route('/api/request-reset-code', methods=['POST'])
+def request_reset_code():
+    """Send a 6-digit verification code to the user's WhatsApp for password reset"""
+    try:
+        data = request.get_json()
+        username_or_email = data.get('username', '').strip()
+        if not username_or_email:
+            return jsonify({'success': False, 'message': 'Please enter your username or email.'}), 400
+
+        with get_db() as (cursor, connection):
+            # Look up user in admin_users
+            cursor.execute("""
+                SELECT id, username, full_name, email, whatsapp
+                FROM admin_users WHERE (username = %s OR email = %s) AND is_active = TRUE
+            """, (username_or_email, username_or_email))
+            user = cursor.fetchone()
+
+            if not user:
+                # Fallback to connectlinkusers
+                cursor.execute("""
+                    SELECT id, name, email, whatsapp FROM connectlinkusers WHERE email = %s OR name = %s
+                """, (username_or_email, username_or_email))
+                user_row = cursor.fetchone()
+                if user_row:
+                    user_id = user_row[0]
+                    user_name = user_row[1]
+                    user_email = user_row[2] or ''
+                    user_whatsapp = str(user_row[3] or '')
+                else:
+                    return jsonify({'success': False, 'message': 'User not found. Please check your email/username.'}), 404
+            else:
+                user_id = user[0]
+                user_name = user[2] or user[1]
+                user_email = user[3] or ''
+                user_whatsapp = user[4] or ''
+
+            if not user_whatsapp:
+                return jsonify({'success': False, 'message': 'No WhatsApp number found for this account. Contact your administrator.'}), 400
+
+            # Generate 6-digit code
+            code = str(random.randint(100000, 999999))
+            expires_at = datetime.now() + timedelta(minutes=10)
+
+            # Save code to DB
+            cursor.execute("""
+                INSERT INTO password_reset_codes (username, code, whatsapp, expires_at)
+                VALUES (%s, %s, %s, %s)
+            """, (username_or_email, code, user_whatsapp, expires_at))
+            connection.commit()
+
+            # Send code via WhatsApp
+            recipient_clean = re.sub(r'[^0-9]', '', user_whatsapp)
+            if recipient_clean.startswith('0'):
+                recipient_clean = '263' + recipient_clean[1:]
+            elif not recipient_clean.startswith('263'):
+                recipient_clean = '263' + recipient_clean
+
+            message_text = (
+                f"🔐 *ConnectLink Password Reset*\n\n"
+                f"Hi {user_name},\n\n"
+                f"Your verification code is:\n\n"
+                f"*{code}*\n\n"
+                f"This code expires in 10 minutes.\n\n"
+                f"If you did not request this, please ignore this message."
+            )
+
+            try:
+                from urllib.parse import urlencode
+                import urllib.request
+                whatsapp_text = message_text.replace('*', '')
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": recipient_clean,
+                    "type": "text",
+                    "text": {"body": whatsapp_text}
+                }
+                payload_json = json.dumps(payload)
+                headers = {
+                    "Authorization": f"Bearer {ACCESS_TOKEN}",
+                    "Content-Type": "application/json"
+                }
+                req = urllib.request.Request(WHATSAPP_API_URL, data=payload_json.encode(), headers=headers, method='POST')
+                resp = urllib.request.urlopen(req)
+                resp_data = json.loads(resp.read().decode())
+                wa_status = 'sent' if resp_data.get('messages') else 'failed'
+
+                # Log to whatsapp_messages
+                try:
+                    cursor.execute("""
+                        INSERT INTO whatsapp_messages (sender_phone, sender_name, message_text, message_type, direction, status)
+                        VALUES (%s, %s, %s, 'text', 'outgoing', %s)
+                    """, (recipient_clean, 'System', f"Password reset code sent to {username_or_email}", wa_status))
+                    connection.commit()
+                except Exception:
+                    pass
+            except Exception as wa_err:
+                print(f"WhatsApp send error: {wa_err}")
+                # Still return success to the user (code is in DB)
+                pass
+
+            return jsonify({
+                'success': True,
+                'message': f'A verification code has been sent to the WhatsApp number on file for {username_or_email}.',
+                'whatsapp_masked': user_whatsapp[:3] + '****' + user_whatsapp[-3:] if len(user_whatsapp) > 6 else '****'
+            }), 200
+
+    except Exception as e:
+        print(f"Request reset code error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/verify-reset-code', methods=['POST'])
+def verify_reset_code():
+    """Verify the code and reset the password"""
+    try:
+        data = request.get_json()
+        username_or_email = data.get('username', '').strip()
+        code = data.get('code', '').strip()
+        new_password = data.get('new_password', '')
+
+        if not username_or_email or not code or not new_password:
+            return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+        if len(new_password) < 4:
+            return jsonify({'success': False, 'message': 'Password must be at least 4 characters.'}), 400
+
+        with get_db() as (cursor, connection):
+            # Find valid code
+            cursor.execute("""
+                SELECT id, code, expires_at, used FROM password_reset_codes
+                WHERE username = %s AND used = FALSE
+                ORDER BY created_at DESC LIMIT 1
+            """, (username_or_email,))
+            row = cursor.fetchone()
+
+            if not row:
+                return jsonify({'success': False, 'message': 'No verification code found. Please request a new one.'}), 400
+
+            code_id = row[0]
+            stored_code = row[1]
+            expires_at = row[2]
+            used = row[3]
+
+            if used:
+                return jsonify({'success': False, 'message': 'This code has already been used. Please request a new one.'}), 400
+
+            if datetime.now() > expires_at:
+                return jsonify({'success': False, 'message': 'Code has expired. Please request a new one.'}), 400
+
+            if code != stored_code:
+                return jsonify({'success': False, 'message': 'Incorrect verification code. Please try again.'}), 400
+
+            # Mark code as used
+            cursor.execute("UPDATE password_reset_codes SET used = TRUE WHERE id = %s", (code_id,))
+
+            # Reset password in admin_users
+            cursor.execute("""
+                UPDATE admin_users SET password = %s, must_reset_password = FALSE, updated_at = NOW()
+                WHERE username = %s
+            """, (new_password, username_or_email))
+            updated = cursor.rowcount
+
+            if updated == 0:
+                # Fallback: try connectlinkusers
+                cursor.execute("""
+                    UPDATE connectlinkusers SET password = %s WHERE email = %s OR name = %s
+                """, (new_password, username_or_email, username_or_email))
+                # Also try hardware_users
+                cursor.execute("""
+                    UPDATE hardware_users SET password = %s WHERE username = %s
+                """, (new_password, username_or_email))
+
+            connection.commit()
+            log_activity('password_reset', f'Password reset via WhatsApp code for: {username_or_email}', 'user', 0)
+            return jsonify({'success': True, 'message': '✅ Password reset successfully! You can now log in with your new password.'}), 200
+
+    except Exception as e:
+        print(f"Verify reset code error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password for any user (checks admin_users, connectlinkusers, hardware_users)"""
+    try:
+        data = request.get_json()
+        username_or_email = data.get('username', '').strip()
+        old_password = data.get('old_password', '')
+        new_password = data.get('new_password', '')
+
+        if not username_or_email or not old_password or not new_password:
+            return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+        if len(new_password) < 4:
+            return jsonify({'success': False, 'message': 'New password must be at least 4 characters.'}), 400
+
+        with get_db() as (cursor, connection):
+            # Try admin_users first
+            cursor.execute("SELECT id, password, must_reset_password FROM admin_users WHERE username = %s", (username_or_email,))
+            row = cursor.fetchone()
+            if row:
+                if row[1] != old_password:
+                    return jsonify({'success': False, 'message': 'Current password is incorrect.'}), 401
+                cursor.execute("UPDATE admin_users SET password = %s, must_reset_password = FALSE, updated_at = NOW() WHERE id = %s", (new_password, row[0]))
+                connection.commit()
+                log_activity('password_reset', f'Password reset for admin user: {username_or_email}', 'user', row[0])
+                return jsonify({'success': True, 'message': 'Password reset successfully!', 'must_reset': bool(row[2])}), 200
+
+            # Fallback: try connectlinkusers
+            cursor.execute("SELECT id, password FROM connectlinkusers WHERE email = %s OR name = %s", (username_or_email, username_or_email))
+            row = cursor.fetchone()
+            if row:
+                if row[1] != old_password:
+                    return jsonify({'success': False, 'message': 'Current password is incorrect.'}), 401
+                cursor.execute("UPDATE connectlinkusers SET password = %s WHERE id = %s", (new_password, row[0]))
+                # Also update admin_users if it exists there
+                try:
+                    cursor.execute("UPDATE admin_users SET password = %s, updated_at = NOW() WHERE username = %s", (new_password, username_or_email))
+                except Exception:
+                    pass
+                connection.commit()
+                log_activity('password_reset', f'Password reset for projects user: {username_or_email}', 'user', row[0])
+                return jsonify({'success': True, 'message': 'Password reset successfully!'}), 200
+
+            # Fallback: try hardware_users
+            cursor.execute("SELECT id, password FROM hardware_users WHERE username = %s", (username_or_email,))
+            row = cursor.fetchone()
+            if row:
+                if row[1] != old_password:
+                    return jsonify({'success': False, 'message': 'Current password is incorrect.'}), 401
+                cursor.execute("UPDATE hardware_users SET password = %s WHERE id = %s", (new_password, row[0]))
+                # Also update admin_users if it exists there
+                try:
+                    cursor.execute("UPDATE admin_users SET password = %s, updated_at = NOW() WHERE username = %s", (new_password, username_or_email))
+                except Exception:
+                    pass
+                connection.commit()
+                log_activity('password_reset', f'Password reset for hardware user: {username_or_email}', 'user', row[0])
+                return jsonify({'success': True, 'message': 'Password reset successfully!'}), 200
+
+            return jsonify({'success': False, 'message': 'User not found.'}), 404
+
+    except Exception as e:
+        print(f"Password reset error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/login', methods=['POST'])
 def login():
     if request.method == 'POST':
@@ -11602,42 +12225,75 @@ def login():
                 if not email_or_username or not password:
                     return jsonify({'success': False, 'message': 'Username/Email and password are required.'}), 400
 
-                # Debug: Check if hardware_users table exists
+                # ===== TRY UNIFIED admin_users TABLE FIRST =====
                 try:
-                    cursor.execute("SELECT id, username, password, full_name, role FROM hardware_users WHERE username = %s", (email_or_username,))
-                    hw_rows = cursor.fetchall()
-                    print(f"🔍 DEBUG: Hardware users query returned {len(hw_rows) if hw_rows else 0} rows for username: {email_or_username}")
-                    
-                    if hw_rows:
-                        hw_user = hw_rows[0]
-                        print(f"🔍 DEBUG: Found hardware user: {hw_user[1]}, checking password...")
-                        print(f"🔍 DEBUG: Database password: '{hw_user[2]}' | Submitted password: '{password}' | Match: {hw_user[2] == password}")
-                        
-                        if hw_user[2] == password:  # password matches
+                    cursor.execute("""
+                        SELECT id, username, password, full_name, email, role, source_system, source_id, must_reset_password
+                        FROM admin_users WHERE username = %s AND is_active = TRUE
+                    """, (email_or_username,))
+                    au_row = cursor.fetchone()
+                    if au_row:
+                        if au_row[2] == password:
+                            # Check if password reset is required
+                            if au_row[8]:  # must_reset_password
+                                return jsonify({
+                                    'success': False,
+                                    'must_reset': True,
+                                    'message': 'You must reset your password before continuing.',
+                                    'username': email_or_username
+                                }), 403
+
                             user_uuid = uuid.uuid4()
                             session['user_uuid'] = str(user_uuid)
                             session.permanent = True
                             user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-                            
-                            # Set session for hardware user with role
+                            session['user_id'] = int(au_row[0])
+                            session['username'] = au_row[1]
+                            session['full_name'] = au_row[3]
+                            session['user_name'] = au_row[3]
+                            session['role'] = au_row[5]
+                            session['userid'] = int(au_row[0])
+                            session['source_system'] = au_row[6]
+                            session['source_id'] = au_row[7]
+
+                            # This is the Building Projects login route - always redirect to dashboard
+                            redirect_to = '/dashboard'
+
+                            log_activity('user_login', f'Admin user {email_or_username} logged in (source: {au_row[6]})', 'user', au_row[0], {'username': email_or_username, 'source': au_row[6], 'role': au_row[5]})
+                            print(f"✅ Admin user {email_or_username} logged in from {au_row[6]}")
+                            return jsonify({'success': True, 'message': 'Login successful', 'redirect': redirect_to}), 200
+                        else:
+                            print(f"❌ Incorrect password for admin user {email_or_username}")
+                            return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
+                except Exception as au_error:
+                    print(f"⚠️  Error querying admin_users: {au_error}")
+
+                # ===== FALLBACK: Check hardware_users =====
+                try:
+                    cursor.execute("SELECT id, username, password, full_name, role FROM hardware_users WHERE username = %s", (email_or_username,))
+                    hw_rows = cursor.fetchall()
+                    if hw_rows:
+                        hw_user = hw_rows[0]
+                        if hw_user[2] == password:
+                            user_uuid = uuid.uuid4()
+                            session['user_uuid'] = str(user_uuid)
+                            session.permanent = True
+                            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
                             session['user_id'] = int(hw_user[0])
                             session['username'] = hw_user[1]
                             session['full_name'] = hw_user[3]
                             session['role'] = hw_user[4]
-                            session['userid'] = int(hw_user[0])  # For backward compatibility
+                            session['userid'] = int(hw_user[0])
                             session['user_name'] = hw_user[3]
-                            
                             log_activity('user_login', f'Hardware user {email_or_username} logged in with role {hw_user[4]}', 'user', hw_user[0], {'username': email_or_username, 'role': hw_user[4]})
                             print(f"✅ Hardware user {email_or_username} logged in successfully with role: {hw_user[4]}")
                             return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/pos-system.html'}), 200
                         else:
-                            print(f"❌ Incorrect password for hardware user {email_or_username}")
                             return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
                 except Exception as hw_error:
                     print(f"⚠️  Error querying hardware_users: {hw_error}")
-                    # Continue to connectlinkusers check
                 
-                # If not hardware user, try connectlinkusers (for building projects)
+                # ===== FALLBACK: Try connectlinkusers =====
                 # Try to find user by email OR username
                 search_query = "SELECT id, datecreated, name, password, email, whatsapp FROM connectlinkusers WHERE email = %s OR name = %s;"
                 cursor.execute(search_query, (email_or_username, email_or_username))
@@ -11651,13 +12307,42 @@ def login():
                     ])
 
                     if table_df.iat[0, 3] == password:
+                        userid = table_df.iat[0, 0]
+                        user_name = table_df.iat[0,2]
+
+                        # Check permissions for Building Projects portal
+                        cursor.execute("""
+                            SELECT can_manage_projects, is_super_admin
+                            FROM user_permissions WHERE user_type='projects' AND user_id=%s
+                        """, (int(np.int64(userid)),))
+                        perm_row = cursor.fetchone()
+                        if perm_row:
+                            has_access = perm_row[0] or perm_row[1]
+                        else:
+                            # No permissions row yet — check if this is the first user (auto-grant super admin)
+                            cursor.execute("SELECT COUNT(*) FROM user_permissions")
+                            perm_count = cursor.fetchone()[0]
+                            if perm_count == 0:
+                                # First user ever — auto-create as super admin
+                                cursor.execute("""
+                                    INSERT INTO user_permissions (user_type, user_id, is_super_admin,
+                                        can_manage_projects, can_manage_hardware, can_manage_hr,
+                                        can_add_users, can_edit_users, can_delete_users,
+                                        can_export_data, can_view_audit, can_manage_roles, can_view_payments)
+                                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                                """, ('projects', int(np.int64(userid))))
+                                connection.commit()
+                                has_access = True
+                            else:
+                                has_access = False
+                        if not has_access:
+                            print(f"❌ Access denied for {user_name}: no Building Projects permission")
+                            return jsonify({'success': False, 'message': 'Access denied: You do not have permission to access the Building Projects portal. Contact an administrator.'}), 403
+
                         user_uuid = uuid.uuid4()
                         session['user_uuid'] = str(user_uuid)
                         session.permanent = True
                         user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-
-                        userid = table_df.iat[0, 0]
-                        user_name = table_df.iat[0,2]
                         
                         session['userid'] = int(np.int64(userid))
                         session['user_name'] = user_name
@@ -11682,6 +12367,2076 @@ def login():
             print("Done")
 
     return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
+
+
+@app.route('/hr-login', methods=['POST'])
+def hr_login():
+    """HR portal login - everyone in admin_users can login (basic access).
+    Users with can_manage_hr get Administrator role (full access)."""
+    try:
+        email_or_username = request.form.get('emaillogin', '').strip()
+        password = request.form.get('passwordlogin', '').strip()
+
+        if not email_or_username or not password:
+            return jsonify({'success': False, 'message': 'Email/Username and password are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            # 1. Try admin_users (unified table)
+            cursor.execute("""
+                SELECT id, username, password, full_name, source_system, source_id, must_reset_password
+                FROM admin_users WHERE username = %s AND is_active = TRUE
+            """, (email_or_username,))
+            au = cursor.fetchone()
+            if au and au[2] == password:
+                # Check if password reset is required
+                if au[6]:  # must_reset_password
+                    return jsonify({
+                        'success': False,
+                        'must_reset': True,
+                        'message': 'You must reset your password before continuing.',
+                        'username': email_or_username
+                    }), 403
+
+                userid = int(au[0])
+                user_name = au[3]
+                source_sys = au[4]
+                source_id = au[5]
+
+                # Check HR permission level
+                perm_lookup_type = source_sys if source_sys else 'projects'
+                perm_lookup_id = source_id if source_id else userid
+                cursor.execute("""
+                    SELECT can_manage_hr, is_super_admin
+                    FROM user_permissions WHERE user_type=%s AND user_id=%s
+                """, (perm_lookup_type, perm_lookup_id))
+                perm_row = cursor.fetchone()
+
+                is_hr_admin = perm_row and (perm_row[0] or perm_row[1])
+
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+
+                session['userid'] = userid
+                session['user_name'] = user_name
+                session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
+                session['can_manage_hr'] = is_hr_admin
+
+                # Auto-create hr_employee record if not exists
+                cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
+                if not cursor.fetchone():
+                    full_name = user_name or ''
+                    parts = full_name.split(' ', 1)
+                    first = parts[0] if parts else full_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    hr_role_db = 'Administrator' if is_hr_admin else 'Ordinary User'
+                    cursor.execute("""
+                        INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                        VALUES (%s, %s, %s, %s, %s, 'Active', CURRENT_DATE)
+                        ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
+                    """, (userid, first, last, email_or_username, hr_role_db))
+                    connection.commit()
+                session['hr_employee_id'] = userid
+
+                log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': email_or_username, 'role': session['hr_role']})
+                print(f"✅ HR login: {user_name} as {session['hr_role']}")
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
+
+            # 2. Fallback: try connectlinkusers (legacy)
+            cursor.execute("""
+                SELECT id, datecreated, name, password, email, whatsapp
+                FROM connectlinkusers WHERE email = %s OR name = %s
+            """, (email_or_username, email_or_username))
+            rows = cursor.fetchall()
+
+            if rows and rows[0][3] == password:
+                user_row = rows[0]
+                userid = int(user_row[0])
+                user_name = user_row[2]
+
+                # Everyone in connectlinkusers gets basic HR access
+                cursor.execute("""
+                    SELECT can_manage_hr, is_super_admin
+                    FROM user_permissions WHERE user_type='projects' AND user_id=%s
+                """, (userid,))
+                perm_row = cursor.fetchone()
+                is_hr_admin = perm_row and (perm_row[0] or perm_row[1])
+
+                if not is_hr_admin:
+                    # First-time user: auto-create permission with basic access
+                    cursor.execute("SELECT COUNT(*) FROM user_permissions")
+                    if cursor.fetchone()[0] == 0:
+                        cursor.execute("""
+                            INSERT INTO user_permissions (user_type, user_id, is_super_admin,
+                                can_manage_projects, can_manage_hardware, can_manage_hr,
+                                can_add_users, can_edit_users, can_delete_users,
+                                can_export_data, can_view_audit, can_manage_roles, can_view_payments)
+                            VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                        """, ('projects', userid))
+                        connection.commit()
+                        is_hr_admin = True
+
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+
+                session['userid'] = userid
+                session['user_name'] = user_name
+                session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
+                session['can_manage_hr'] = is_hr_admin
+
+                # Auto-create hr_employee record if not exists
+                cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
+                if not cursor.fetchone():
+                    parts = (user_name or '').split(' ', 1)
+                    first = parts[0] if parts else user_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    hr_role_db = 'Administrator' if is_hr_admin else 'Ordinary User'
+                    cursor.execute("""
+                        INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                        VALUES (%s, %s, %s, %s, %s, 'Active', CURRENT_DATE)
+                        ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
+                    """, (userid, first, last, user_row[4] or '', hr_role_db))
+                    connection.commit()
+                session['hr_employee_id'] = userid
+
+                log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': email_or_username, 'role': session['hr_role']})
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
+
+            return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
+
+    except Exception as e:
+        print(f"HR login error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/hr-dashboard')
+def hr_dashboard():
+    """HR Portal - Employee management dashboard"""
+    user_uuid = session.get('user_uuid')
+    user_name = session.get('user_name')
+    userid = session.get('userid')
+    hr_role = session.get('hr_role', 'Ordinary User')
+    hr_employee_id = session.get('hr_employee_id')
+    can_manage_hr = session.get('can_manage_hr', False)
+
+    if not user_uuid:
+        return render_template('mainindex.html')
+
+    return render_template('hr_dashboard.html', user_name=user_name, userid=userid,
+                           hr_role=hr_role, hr_employee_id=hr_employee_id,
+                           can_manage_hr=can_manage_hr)
+
+
+# ==================== HR API ENDPOINTS ====================
+
+@app.route('/api/hr/employees', methods=['GET', 'POST'])
+def hr_employees_api():
+    """HR: List all employees (GET) or create a new employee (POST)"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                # Get registered hr_employees
+                cursor.execute("""
+                    SELECT id, user_id, first_name, last_name, whatsapp, email, address,
+                           role, department, designation, gender, dob, marital_status,
+                           nationality, date_joined, current_leave_balance, monthly_accumulation,
+                           basic_salary, employment_type, status
+                    FROM hr_employees ORDER BY last_name, first_name
+                """)
+                rows = cursor.fetchall()
+                employee_ids = set()
+                employees = []
+                for r in rows:
+                    employee_ids.add(r[1] or r[0])
+                    employees.append({
+                        'id': r[0], 'user_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'whatsapp': r[4], 'email': r[5], 'address': r[6],
+                        'role': r[7], 'department': r[8], 'designation': r[9],
+                        'gender': r[10], 'dob': str(r[11]) if r[11] else None,
+                        'marital_status': r[12], 'nationality': r[13],
+                        'date_joined': str(r[14]) if r[14] else None,
+                        'leave_balance': float(r[15] or 0), 'monthly_accrual': float(r[16] or 0),
+                        'salary': float(r[17] or 0), 'employment_type': r[18], 'status': r[19],
+                        'source': 'hr_employees'
+                    })
+
+                # Also include admin_users not yet in hr_employees
+                cursor.execute("""
+                    SELECT id, username, full_name, email, source_system, created_at
+                    FROM admin_users WHERE is_active = TRUE ORDER BY full_name
+                """)
+                for au in cursor.fetchall():
+                    au_id = au[0]
+                    if au_id in employee_ids:
+                        continue
+                    full_name = au[2] or ''
+                    parts = full_name.split(' ', 1)
+                    first = parts[0] if parts else full_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    employees.append({
+                        'id': au_id, 'user_id': None, 'first_name': first, 'last_name': last,
+                        'whatsapp': '', 'email': au[3] or '', 'address': '',
+                        'role': 'Ordinary User', 'department': '', 'designation': '',
+                        'gender': '', 'dob': None, 'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(au[5])[:10] if au[5] else None,
+                        'leave_balance': 21, 'monthly_accrual': 1.75,
+                        'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'source': 'admin_users'
+                    })
+                    employee_ids.add(au_id)
+
+                # Also include connectlinkusers not yet in hr_employees or admin_users
+                cursor.execute("""
+                    SELECT id, name, email, datecreated
+                    FROM connectlinkusers ORDER BY name
+                """)
+                for clu in cursor.fetchall():
+                    clu_id = clu[0]
+                    if clu_id in employee_ids:
+                        continue
+                    full_name = clu[1] or ''
+                    parts = full_name.split(' ', 1)
+                    first = parts[0] if parts else full_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    employees.append({
+                        'id': clu_id, 'user_id': None, 'first_name': first, 'last_name': last,
+                        'whatsapp': '', 'email': clu[2] or '', 'address': '',
+                        'role': 'Ordinary User', 'department': '', 'designation': '',
+                        'gender': '', 'dob': None, 'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(clu[3])[:10] if clu[3] else None,
+                        'leave_balance': 21, 'monthly_accrual': 1.75,
+                        'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'source': 'connectlinkusers'
+                    })
+                    employee_ids.add(clu_id)
+
+                return jsonify({'success': True, 'data': employees})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_employees
+                        (first_name, last_name, whatsapp, email, address, role, department,
+                         designation, gender, dob, marital_status, nationality, date_joined,
+                         current_leave_balance, monthly_accumulation, basic_salary, employment_type, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (
+                    data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
+                    data.get('email'), data.get('address'), data.get('role', 'Ordinary User'),
+                    data.get('department'), data.get('designation'), data.get('gender'),
+                    data.get('dob'), data.get('marital_status'), data.get('nationality'),
+                    data.get('date_joined'), data.get('leave_balance', 21),
+                    data.get('monthly_accrual', 1.75), data.get('salary', 0),
+                    data.get('employment_type', 'Permanent'), data.get('status', 'Active')
+                ))
+                emp_id = cursor.fetchone()[0]
+
+                # Sync to admin_users if not already there
+                email = data.get('email', '') or ''
+                whatsapp = data.get('whatsapp', '') or ''
+                first = (data.get('first_name', '') or '').strip()
+                last = (data.get('last_name', '') or '').strip()
+                full_name = f"{first} {last}".strip()
+                # Generate a unique username if no email provided
+                username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
+                if full_name:
+                    try:
+                        cursor.execute("""
+                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
+                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW())
+                            ON CONFLICT (username) DO NOTHING
+                        """, (username, full_name, email))
+                    except Exception:
+                        pass
+
+                connection.commit()
+                return jsonify({'success': True, 'id': emp_id, 'message': 'Employee added successfully'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/employees/<int:emp_id>', methods=['GET', 'PUT', 'DELETE'])
+def hr_employee_detail(emp_id):
+    """HR: Get, update, or delete a single employee"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT * FROM hr_employees WHERE id = %s", (emp_id,))
+                r = cursor.fetchone()
+                if r:
+                    cols = [desc[0] for desc in cursor.description]
+                    emp = dict(zip(cols, r))
+                    for k, v in emp.items():
+                        if hasattr(v, 'isoformat'):
+                            emp[k] = v.isoformat()
+                        elif hasattr(v, 'strftime'):
+                            emp[k] = v.strftime('%Y-%m-%d')
+                    emp['source'] = 'hr_employees'
+                    return jsonify({'success': True, 'data': emp})
+                
+                # Fallback: try admin_users (for auto-created employees)
+                cursor.execute("SELECT id, username, full_name, email, source_system, created_at FROM admin_users WHERE id = %s", (emp_id,))
+                au = cursor.fetchone()
+                if au:
+                    full_name = au[2] or ''
+                    parts = full_name.split(' ', 1)
+                    emp = {
+                        'id': au[0], 'user_id': None, 'first_name': parts[0] if parts else full_name,
+                        'last_name': parts[1] if len(parts) > 1 else '', 'whatsapp': '',
+                        'email': au[3] or '', 'address': '', 'role': 'Ordinary User',
+                        'department': '', 'designation': '', 'gender': '', 'dob': None,
+                        'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(au[5])[:10] if au[5] else None,
+                        'current_leave_balance': 21, 'monthly_accumulation': 1.75,
+                        'basic_salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
+                        'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
+                        'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
+                        'c8_number': '', 'c8_type': '', 'source': 'admin_users'
+                    }
+                    return jsonify({'success': True, 'data': emp})
+
+                # Fallback: try connectlinkusers
+                cursor.execute("SELECT id, name, email, datecreated FROM connectlinkusers WHERE id = %s", (emp_id,))
+                clu = cursor.fetchone()
+                if clu:
+                    full_name = clu[1] or ''
+                    parts = full_name.split(' ', 1)
+                    emp = {
+                        'id': clu[0], 'user_id': None, 'first_name': parts[0] if parts else full_name,
+                        'last_name': parts[1] if len(parts) > 1 else '', 'whatsapp': '',
+                        'email': clu[2] or '', 'address': '', 'role': 'Ordinary User',
+                        'department': '', 'designation': '', 'gender': '', 'dob': None,
+                        'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(clu[3])[:10] if clu[3] else None,
+                        'current_leave_balance': 21, 'monthly_accumulation': 1.75,
+                        'basic_salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
+                        'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
+                        'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
+                        'c8_number': '', 'c8_type': '', 'source': 'connectlinkusers'
+                    }
+                    return jsonify({'success': True, 'data': emp})
+                
+                return jsonify({'success': False, 'error': 'Employee not found'}), 404
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'PUT':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                # Try updating hr_employees first
+                cursor.execute("UPDATE hr_employees SET id=id WHERE id=%s", (emp_id,))
+                exists = cursor.rowcount > 0
+                if not exists:
+                    # Employee not in hr_employees — check admin_users and auto-create
+                    cursor.execute("SELECT id, username, full_name, email FROM admin_users WHERE id=%s", (emp_id,))
+                    au = cursor.fetchone()
+                    if au:
+                        full_name = au[2] or ''
+                        parts = full_name.split(' ', 1)
+                        first = parts[0] if parts else full_name
+                        last = parts[1] if len(parts) > 1 else ''
+                        email = au[3] or data.get('email', '')
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name
+                        """, (emp_id, first, last, email))
+                    else:
+                        # Fallback: try connectlinkusers
+                        cursor.execute("SELECT id, name, email FROM connectlinkusers WHERE id=%s", (emp_id,))
+                        clu = cursor.fetchone()
+                        if clu:
+                            full_name = clu[1] or ''
+                            parts = full_name.split(' ', 1)
+                            first = parts[0] if parts else full_name
+                            last = parts[1] if len(parts) > 1 else ''
+                            email = clu[2] or data.get('email', '')
+                            cursor.execute("""
+                                INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                                VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                                ON CONFLICT (id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name
+                            """, (emp_id, first, last, email))
+                cursor.execute("""
+                    UPDATE hr_employees SET
+                        first_name=%s, last_name=%s, whatsapp=%s, email=%s, address=%s,
+                        role=%s, department=%s, designation=%s, gender=%s, dob=%s,
+                        marital_status=%s, nationality=%s, date_joined=%s,
+                        current_leave_balance=%s, monthly_accumulation=%s,
+                        basic_salary=%s, employment_type=%s, status=%s,
+                        bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
+                        bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
+                        usd_percent=%s, zwg_percent=%s, exchange_rate=%s,
+                        leave_approver_name=%s, leave_approver_id=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (
+                    data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
+                    data.get('email'), data.get('address'), data.get('role', 'Ordinary User'),
+                    data.get('department'), data.get('designation'), data.get('gender'),
+                    data.get('dob'), data.get('marital_status'), data.get('nationality'),
+                    data.get('date_joined'), data.get('current_leave_balance', 21),
+                    data.get('monthly_accumulation', 1.75), data.get('basic_salary', 0),
+                    data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
+                    data.get('bank_holder_name'), data.get('bank_holder_surname'),
+                    data.get('bank_name'), data.get('bank_account_number'),
+                    data.get('bank_branch'), data.get('bank_branch_code'),
+                    data.get('usd_percent', 100), data.get('zwg_percent', 0),
+                    data.get('exchange_rate', 1), data.get('leave_approver_name'),
+                    data.get('leave_approver_id'), emp_id
+                ))
+                # Sync changes to admin_users
+                try:
+                    first = (data.get('first_name', '') or '').strip()
+                    last = (data.get('last_name', '') or '').strip()
+                    full_name = f"{first} {last}".strip()
+                    email = data.get('email', '') or ''
+                    whatsapp = data.get('whatsapp', '') or ''
+                    username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
+                    if full_name:
+                        cursor.execute("""
+                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
+                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW())
+                            ON CONFLICT (username) DO UPDATE SET
+                                full_name = EXCLUDED.full_name,
+                                email = EXCLUDED.email,
+                                updated_at = NOW()
+                        """, (username, full_name, email))
+                except Exception:
+                    pass
+
+                # Sync role ↔ user_permissions.can_manage_hr
+                try:
+                    new_role = data.get('role', 'Ordinary User')
+                    is_admin = (new_role == 'Administrator')
+                    # Try both user_type='projects' and user_type='hr' for the emp_id
+                    for utype in ('projects', 'hr'):
+                        cursor.execute("""
+                            INSERT INTO user_permissions (user_type, user_id, can_manage_hr, is_super_admin)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (user_type, user_id) DO UPDATE SET can_manage_hr = EXCLUDED.can_manage_hr
+                        """, (utype, emp_id, is_admin, False))
+                except Exception:
+                    pass
+
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Employee updated successfully'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'DELETE':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("DELETE FROM hr_employees WHERE id = %s", (emp_id,))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Employee removed'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave-balances/<int:emp_id>', methods=['GET', 'POST'])
+def hr_leave_balances(emp_id):
+    """Get or update per-leave-type balances for an employee"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT leave_type, current_balance, monthly_accrual, annual_accrual, carry_forward
+                    FROM hr_employee_leave_balances WHERE employee_id=%s
+                """, (emp_id,))
+                rows = cursor.fetchall()
+                balances = [{
+                    'leave_type': r[0], 'current_balance': float(r[1] or 0),
+                    'monthly_accrual': float(r[2] or 0),
+                    'annual_accrual': float(r[3] or 0),
+                    'carry_forward': float(r[4] or 0)
+                } for r in rows]
+                return jsonify({'success': True, 'data': balances})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            balances = data.get('balances', [])
+            with get_db() as (cursor, connection):
+                # Ensure employee exists in hr_employees first (FK constraint)
+                cursor.execute("UPDATE hr_employees SET id=id WHERE id=%s", (emp_id,))
+                if cursor.rowcount == 0:
+                    # Auto-create from admin_users if available
+                    cursor.execute("SELECT id, username, full_name, email FROM admin_users WHERE id=%s", (emp_id,))
+                    au = cursor.fetchone()
+                    if au:
+                        full_name = au[2] or ''
+                        parts = full_name.split(' ', 1)
+                        first = parts[0] if parts else full_name
+                        last = parts[1] if len(parts) > 1 else ''
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO NOTHING
+                        """, (emp_id, first, last, au[3] or ''))
+                    else:
+                        # Create a minimal placeholder
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, 'Employee', '', '', 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO NOTHING
+                        """, (emp_id,))
+                for b in balances:
+                    cursor.execute("""
+                        INSERT INTO hr_employee_leave_balances
+                            (employee_id, leave_type, current_balance, monthly_accrual, annual_accrual, carry_forward)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (employee_id, leave_type) DO UPDATE SET
+                            current_balance=EXCLUDED.current_balance,
+                            monthly_accrual=EXCLUDED.monthly_accrual,
+                            annual_accrual=EXCLUDED.annual_accrual,
+                            carry_forward=EXCLUDED.carry_forward,
+                            updated_at=NOW()
+                    """, (
+                        emp_id, b.get('leave_type'),
+                        b.get('current_balance', 0), b.get('monthly_accrual', 0),
+                        b.get('annual_accrual', 0), b.get('carry_forward', 0)
+                    ))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Leave balances updated'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave', methods=['GET', 'POST'])
+def hr_leave_api():
+    """HR: List leave applications or create a new one"""
+    if request.method == 'GET':
+        try:
+            status_filter = request.args.get('status', '')
+            with get_db() as (cursor, connection):
+                query = """
+                    SELECT id, employee_id, employee_name, leave_type, from_date, to_date,
+                           days, reason, status, approved_by, approved_at, created_at
+                    FROM hr_leave_applications
+                """
+                params = []
+                if status_filter:
+                    query += " WHERE status = %s"
+                    params.append(status_filter)
+                query += " ORDER BY created_at DESC"
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                leaves = []
+                for r in rows:
+                    leaves.append({
+                        'id': r[0], 'employee_id': r[1], 'employee_name': r[2],
+                        'leave_type': r[3], 'from_date': str(r[4]) if r[4] else None,
+                        'to_date': str(r[5]) if r[5] else None, 'days': r[6],
+                        'reason': r[7], 'status': r[8], 'approved_by': r[9],
+                        'approved_at': str(r[10]) if r[10] else None,
+                        'created_at': str(r[11]) if r[11] else None
+                    })
+                return jsonify({'success': True, 'data': leaves})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_leave_applications
+                        (employee_id, employee_name, leave_type, from_date, to_date, days, reason, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,'Pending')
+                    RETURNING id
+                """, (
+                    data.get('employee_id'), data.get('employee_name'),
+                    data.get('leave_type'), data.get('from_date'),
+                    data.get('to_date'), data.get('days'), data.get('reason', '')
+                ))
+                lid = cursor.fetchone()[0]
+                connection.commit()
+                return jsonify({'success': True, 'id': lid, 'message': 'Leave request submitted'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/approve', methods=['POST'])
+def hr_leave_approve(leave_id):
+    """Approve a leave application"""
+    try:
+        data = request.get_json() or {}
+        approver = data.get('approved_by', session.get('user_name', 'Admin'))
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET status = 'Approved', approved_by = %s, approved_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND status = 'Pending'
+                RETURNING id, employee_id, employee_name, leave_type, from_date, to_date, days
+            """, (approver, leave_id))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'error': 'Leave not found or already processed'}), 400
+
+            # Insert into approved table
+            cursor.execute("""
+                INSERT INTO hr_leave_approved
+                    (application_id, employee_id, employee_name, leave_type, from_date, to_date, days, approved_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, result)
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave approved successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/decline', methods=['POST'])
+def hr_leave_decline(leave_id):
+    """Decline a leave application"""
+    try:
+        data = request.get_json() or {}
+        decliner = data.get('declined_by', session.get('user_name', 'Admin'))
+        reason = data.get('reason', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET status = 'Declined'
+                WHERE id = %s AND status = 'Pending'
+                RETURNING id, employee_id, employee_name, leave_type, from_date, to_date, days
+            """, (leave_id,))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'error': 'Leave not found or already processed'}), 400
+
+            cursor.execute("""
+                INSERT INTO hr_leave_declined
+                    (application_id, employee_id, employee_name, leave_type, from_date, to_date, days, reason, declined_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (*result, reason, decliner))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave declined'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/update', methods=['POST'])
+def hr_leave_update(leave_id):
+    """Update a pending leave application (only the applicant can edit their own pending leave)"""
+    try:
+        data = request.get_json() or {}
+        user_name = session.get('user_name', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT employee_name, status FROM hr_leave_applications WHERE id = %s", (leave_id,))
+            existing = cursor.fetchone()
+            if not existing:
+                return jsonify({'success': False, 'error': 'Leave not found'}), 404
+            if existing[1] != 'Pending':
+                return jsonify({'success': False, 'error': 'Only pending leave can be edited'}), 400
+            if existing[0] != user_name:
+                return jsonify({'success': False, 'error': 'You can only edit your own leave'}), 403
+
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET leave_type=%s, from_date=%s, to_date=%s, days=%s, reason=%s
+                WHERE id=%s AND status='Pending'
+            """, (
+                data.get('leave_type'), data.get('from_date'),
+                data.get('to_date'), data.get('days'), data.get('reason', ''),
+                leave_id
+            ))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave updated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/cancel', methods=['POST'])
+def hr_leave_cancel(leave_id):
+    """Cancel a pending leave application (applicant cancels their own leave)"""
+    try:
+        user_name = session.get('user_name', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT employee_name, status FROM hr_leave_applications WHERE id = %s", (leave_id,))
+            existing = cursor.fetchone()
+            if not existing:
+                return jsonify({'success': False, 'error': 'Leave not found'}), 404
+            if existing[1] != 'Pending':
+                return jsonify({'success': False, 'error': 'Only pending leave can be cancelled'}), 400
+            if existing[0] != user_name:
+                return jsonify({'success': False, 'error': 'You can only cancel your own leave'}), 403
+
+            cursor.execute("""
+                UPDATE hr_leave_applications SET status = 'Cancelled'
+                WHERE id=%s AND status='Pending'
+            """, (leave_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave cancelled successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/attendance', methods=['GET', 'POST'])
+def hr_attendance_api():
+    """HR: Get today's attendance or record check-in/check-out"""
+    if request.method == 'GET':
+        try:
+            att_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT a.id, a.employee_id, e.first_name, e.last_name, e.department,
+                           a.check_in, a.check_out, a.status, a.notes
+                    FROM hr_attendance a
+                    JOIN hr_employees e ON a.employee_id = e.id
+                    WHERE a.date = %s
+                    ORDER BY a.check_in NULLS LAST
+                """, (att_date,))
+                rows = cursor.fetchall()
+                records = []
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'employee_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'department': r[4], 'check_in': str(r[5]) if r[5] else None,
+                        'check_out': str(r[6]) if r[6] else None, 'status': r[7], 'notes': r[8]
+                    })
+                return jsonify({'success': True, 'data': records, 'date': att_date})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            emp_id = data.get('employee_id')
+            action = data.get('action', 'check_in')  # check_in or check_out
+            with get_db() as (cursor, connection):
+                if action == 'check_in':
+                    cursor.execute("""
+                        INSERT INTO hr_attendance (employee_id, date, check_in, status)
+                        VALUES (%s, CURRENT_DATE, CURRENT_TIME, 'Present')
+                        ON CONFLICT (employee_id, date) DO UPDATE
+                        SET check_in = COALESCE(hr_attendance.check_in, CURRENT_TIME),
+                            status = 'Present'
+                    """, (emp_id,))
+                else:
+                    cursor.execute("""
+                        INSERT INTO hr_attendance (employee_id, date, check_out, status)
+                        VALUES (%s, CURRENT_DATE, CURRENT_TIME, 'Present')
+                        ON CONFLICT (employee_id, date) DO UPDATE
+                        SET check_out = CURRENT_TIME
+                    """, (emp_id,))
+                connection.commit()
+                return jsonify({'success': True, 'message': f'Attendance {action} recorded'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll', methods=['GET', 'POST'])
+def hr_payroll_api():
+    """HR: List payroll records or process payroll for a period"""
+    if request.method == 'GET':
+        try:
+            period = request.args.get('period', datetime.now().strftime('%Y-%m'))
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
+                           p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
+                           p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
+                           p.nssa, p.zimdef
+                    FROM hr_payroll p
+                    JOIN hr_employees e ON p.employee_id = e.id
+                    WHERE p.period = %s
+                    ORDER BY e.last_name
+                """, (period,))
+                rows = cursor.fetchall()
+                records = []
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'employee_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'department': r[4], 'period': r[5], 'basic_pay': float(r[6] or 0),
+                        'allowances': float(r[7] or 0), 'deductions': float(r[8] or 0),
+                        'net_pay': float(r[9] or 0), 'status': r[10],
+                        'processed_at': str(r[11]) if r[11] else None,
+                        'gross_pay': float(r[12] or 0),
+                        'paye_tax': float(r[13] or 0), 'aids_levy': float(r[14] or 0),
+                        'nssa': float(r[15] or 0), 'zimdef': float(r[16] or 0)
+                    })
+                return jsonify({'success': True, 'data': records, 'period': period})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            period = data.get('period', datetime.now().strftime('%Y-%m'))
+            with get_db() as (cursor, connection):
+                # Load active PAYE tax brackets
+                paye_brackets = []
+                cursor.execute("""
+                    SELECT b.income_from, b.income_to, b.tax_rate, b.cumulative_tax
+                    FROM paye_tax_brackets b
+                    JOIN paye_tax_tables t ON b.table_id = t.id
+                    WHERE t.is_active = TRUE
+                    ORDER BY b.bracket_order, b.income_from
+                """)
+                bracket_rows = cursor.fetchall()
+                for br in bracket_rows:
+                    paye_brackets.append({
+                        'from': float(br[0] or 0),
+                        'to': float(br[1] or 0),
+                        'rate': float(br[2] or 0),
+                        'cumulative': float(br[3] or 0)
+                    })
+
+                def calc_paye_tax(annual_salary, brackets):
+                    """Calculate PAYE tax using progressive tax brackets."""
+                    if not brackets:
+                        return 0
+                    tax = 0
+                    remaining = annual_salary
+                    for b in brackets:
+                        if remaining <= 0:
+                            break
+                        bracket_income = b['to'] - b['from']
+                        taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                        if taxable > 0:
+                            tax += taxable * (b['rate'] / 100)
+                        remaining -= taxable
+                        if b['to'] <= 0:  # top bracket (open-ended)
+                            break
+                    return tax
+
+                # Load deduction configs
+                cursor.execute("""
+                    SELECT deduction_code, rate, rate_type, ceiling_amount
+                    FROM payroll_deduction_config WHERE is_active = TRUE
+                """)
+                deduction_configs = {}
+                for dc in cursor.fetchall():
+                    deduction_configs[dc[0]] = {
+                        'rate': float(dc[1]), 'rate_type': dc[2],
+                        'ceiling': float(dc[3] or 0)
+                    }
+
+                def calc_statutory_deductions(monthly_salary, monthly_paye):
+                    """Calculate all Zimbabwe statutory deductions."""
+                    aids_config = deduction_configs.get('AIDS_LEVY', {})
+                    aids_rate = aids_config.get('rate', 3.0)
+                    aids_levy = monthly_paye * (aids_rate / 100) if aids_config.get('rate_type') == 'percentage_of_paye' else 0
+
+                    nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+                    nssa_rate = nssa_config.get('rate', 4.5)
+                    nssa_ceiling = nssa_config.get('ceiling', 0)
+                    nssa_gross = monthly_salary
+                    if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
+                        nssa_gross = nssa_ceiling
+                    nssa = nssa_gross * (nssa_rate / 100)
+
+                    zimdef_config = deduction_configs.get('ZIMDEF', {})
+                    zimdef_rate = zimdef_config.get('rate', 1.0)
+                    zimdef = monthly_salary * (zimdef_rate / 100)
+
+                    return {
+                        'paye': monthly_paye,
+                        'aids_levy': aids_levy,
+                        'nssa': nssa,
+                        'zimdef': zimdef,
+                        'total': monthly_paye + aids_levy + nssa + zimdef
+                    }
+
+                # Process payroll for all active employees
+                cursor.execute("""
+                    SELECT id, first_name, last_name, basic_salary, usd_percent, zwg_percent, exchange_rate
+                    FROM hr_employees WHERE status = 'Active'
+                """)
+                employees = cursor.fetchall()
+                processed = 0
+                for emp in employees:
+                    emp_id = emp[0]
+                    basic = float(emp[3] or 0)
+                    allowances = 0
+                    gross = basic + allowances
+
+                    # Calculate PAYE tax (annualize salary, compute tax, then monthly)
+                    annual_salary = basic * 12
+                    annual_paye = calc_paye_tax(annual_salary, paye_brackets)
+                    monthly_paye = annual_paye / 12
+
+                    # Calculate all statutory deductions
+                    stats = calc_statutory_deductions(basic, monthly_paye)
+                    total_deductions = stats['total']
+                    net = max(0, gross - total_deductions)
+
+                    cursor.execute("""
+                        INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, gross_pay,
+                            deductions, paye_tax, aids_levy, nssa, zimdef, net_pay, status, processed_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP)
+                        ON CONFLICT DO NOTHING
+                    """, (emp_id, period, basic, allowances, gross,
+                          round(total_deductions, 2), round(monthly_paye, 2),
+                          round(stats['aids_levy'], 2), round(stats['nssa'], 2),
+                          round(stats['zimdef'], 2), round(net, 2)))
+                    processed += 1
+
+                # Generate payroll archive Excel
+                try:
+                    # Re-fetch the processed payroll with employee details for the Excel
+                    cursor.execute("""
+                        SELECT e.first_name, e.last_name, e.department, e.designation,
+                               e.basic_salary, e.bank_holder_name, e.bank_holder_surname,
+                               e.bank_name, e.bank_account_number, e.bank_branch, e.bank_branch_code,
+                               e.usd_percent, e.zwg_percent, e.exchange_rate, e.currency,
+                               e.c8_number, e.c8_type, e.nationality,
+                               p.basic_pay, p.allowances, p.gross_pay,
+                               p.paye_tax, p.aids_levy, p.nssa, p.zimdef,
+                               p.deductions, p.net_pay, p.status
+                        FROM hr_payroll p
+                        JOIN hr_employees e ON p.employee_id = e.id
+                        WHERE p.period = %s
+                        ORDER BY e.last_name, e.first_name
+                    """, (period,))
+                    payroll_rows = cursor.fetchall()
+
+                    emp_count = len(payroll_rows)
+                    total_gross = sum(float(r[20] or 0) for r in payroll_rows)
+                    total_net = sum(float(r[26] or 0) for r in payroll_rows)
+                    user_name = session.get('user_name', 'System')
+
+                    from openpyxl import Workbook
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.title = f"Payroll {period}"
+
+                    # Styles
+                    from openpyxl.styles import Font as XlFont, PatternFill as XlFill, Alignment as XlAlign, Border as XlBorder, Side as XlSide
+                    header_fill = XlFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+                    header_font = XlFont(bold=True, color='FFFFFF', size=10)
+                    title_font = XlFont(bold=True, size=14, color='1E2A56')
+                    subtitle_font = XlFont(size=9, color='64748B')
+                    thin_border = XlBorder(
+                        left=XlSide(style='thin', color='CBD5E1'),
+                        right=XlSide(style='thin', color='CBD5E1'),
+                        top=XlSide(style='thin', color='CBD5E1'),
+                        bottom=XlSide(style='thin', color='CBD5E1')
+                    )
+
+                    # Title section
+                    ws.merge_cells('A1:U1')
+                    ws['A1'].value = f"ConnectLink — Payroll Register ({period})"
+                    ws['A1'].font = title_font
+                    ws['A1'].alignment = XlAlign(horizontal='left')
+
+                    ws.merge_cells('A2:U2')
+                    ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {emp_count} | Total Gross: ${total_gross:,.2f} | Total Net: ${total_net:,.2f}"
+                    ws['A2'].font = subtitle_font
+
+                    # Headers (row 4)
+                    headers = [
+                        '#', 'First Name', 'Last Name', 'Department', 'Designation',
+                        'Basic Pay', 'Allowances', 'Gross Pay',
+                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'ZIMDEF', 'Total Deductions',
+                        'Net Pay', 'Status',
+                        'Bank Holder', 'Bank Name', 'Account Number', 'Branch', 'Branch Code',
+                        'Currency'
+                    ]
+                    for col_idx, h in enumerate(headers, 1):
+                        cell = ws.cell(row=4, column=col_idx, value=h)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = XlAlign(horizontal='center', vertical='center', wrap_text=True)
+                        cell.border = thin_border
+
+                    # Data rows
+                    data_font = XlFont(size=9)
+                    for row_idx, r in enumerate(payroll_rows, 5):
+                        values = [
+                            row_idx - 4,
+                            r[0] or '', r[1] or '', r[2] or '', r[3] or '',
+                            float(r[18] or 0), float(r[19] or 0), float(r[20] or 0),
+                            float(r[21] or 0), float(r[22] or 0), float(r[23] or 0), float(r[24] or 0),
+                            float(r[25] or 0), float(r[26] or 0), r[27] or '',
+                            r[5] or '', r[7] or '', r[8] or '', r[9] or '', r[10] or '',
+                            r[14] or 'USD'
+                        ]
+                        for col_idx, val in enumerate(values, 1):
+                            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                            cell.font = data_font
+                            cell.border = thin_border
+                            if isinstance(val, float):
+                                cell.number_format = '#,##0.00'
+                                cell.alignment = XlAlign(horizontal='right')
+
+                    # Column widths
+                    widths = [5, 16, 16, 18, 18, 12, 10, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
+                    for i, w in enumerate(widths, 1):
+                        col_letter = ws.cell(row=1, column=i).column_letter
+                        ws.column_dimensions[col_letter].width = w
+
+                    # Banking Info Summary section
+                    summary_row = len(payroll_rows) + 7
+                    ws.merge_cells(f'A{summary_row}:U{summary_row}')
+                    ws.cell(row=summary_row, column=1).value = "Employee Banking Details"
+                    ws.cell(row=summary_row, column=1).font = XlFont(bold=True, size=11, color='1E2A56')
+
+                    bank_headers = ['#', 'Employee', 'Bank', 'Account Number', 'Branch', 'Branch Code', 'Net Pay']
+                    for col_idx, h in enumerate(bank_headers, 1):
+                        cell = ws.cell(row=summary_row + 1, column=col_idx, value=h)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.border = thin_border
+
+                    for row_idx, r in enumerate(payroll_rows, summary_row + 2):
+                        emp_name = f"{r[0] or ''} {r[1] or ''}".strip()
+                        bank_vals = [
+                            row_idx - summary_row - 1,
+                            emp_name,
+                            r[7] or '',
+                            r[8] or '',
+                            r[9] or '',
+                            r[10] or '',
+                            float(r[26] or 0)
+                        ]
+                        for col_idx, val in enumerate(bank_vals, 1):
+                            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                            cell.font = data_font
+                            cell.border = thin_border
+                            if isinstance(val, float):
+                                cell.number_format = '#,##0.00'
+
+                    # Save to bytes
+                    output = io.BytesIO()
+                    wb.save(output)
+                    excel_bytes = output.getvalue()
+                    file_size = len(excel_bytes)
+
+                    # Store in payroll_archives
+                    filename = f"Payroll_{period}.xlsx"
+                    cursor.execute("""
+                        INSERT INTO payroll_archives (period, filename, file_data, file_size, employee_count, total_gross, total_net, generated_by)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (period) DO UPDATE SET
+                            file_data = EXCLUDED.file_data,
+                            file_size = EXCLUDED.file_size,
+                            employee_count = EXCLUDED.employee_count,
+                            total_gross = EXCLUDED.total_gross,
+                            total_net = EXCLUDED.total_net,
+                            generated_by = EXCLUDED.generated_by,
+                            generated_at = CURRENT_TIMESTAMP
+                    """, (period, filename, psycopg2.Binary(excel_bytes), file_size, emp_count,
+                          round(total_gross, 2), round(total_net, 2), user_name))
+
+                    connection.commit()
+                    archive_saved = True
+                    archive_filename = filename
+                    archive_id = None
+                    # Get the archive id
+                    cursor.execute("SELECT id FROM payroll_archives WHERE period = %s", (period,))
+                    row = cursor.fetchone()
+                    if row:
+                        archive_id = row[0]
+
+                except Exception as excel_err:
+                    print(f"Note: Could not generate payroll archive: {excel_err}")
+                    connection.commit()
+                    archive_saved = False
+                    archive_filename = None
+                    archive_id = None
+
+                return jsonify({
+                    'success': True,
+                    'message': f'Payroll processed for {processed} employees',
+                    'processed': processed,
+                    'archive_saved': archive_saved if 'archive_saved' in dir() else False,
+                    'archive_id': archive_id if 'archive_id' in dir() else None,
+                    'archive_filename': archive_filename if 'archive_filename' in dir() else None
+                })
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# PAYE TAX TABLE MANAGEMENT
+# ============================================================
+
+ALLOWED_PAYE_EXTENSIONS = {'pdf'}
+
+def parse_paye_pdf(file_bytes):
+    """Parse a PAYE tax table PDF and extract brackets."""
+    import re
+    from PyPDF2 import PdfReader
+    import io
+
+    reader = PdfReader(io.BytesIO(file_bytes))
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+
+    brackets = []
+    lines = text.split('\n')
+    
+    # Common patterns in PAYE tables:
+    # Pattern 1: "Up to $X" or "1 - $X" → rate
+    # Pattern 2: "$X - $Y" → rate
+    # Pattern 3: "Above $X" or "Over $X" → rate
+    # Try to extract tabular data
+    
+    # Pattern: look for lines with dollar amounts and percentages
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Match: "1 - 5,000 0%" or "5,001 - 10,000 20%" etc.
+        m = re.match(r'^[\d\.]+\s*[-–—to]+\s*([\d,]+)\s+([\d\.]+)\s*%?', line.replace(',','').replace(' ',''))
+        if m:
+            # This might be numbered bracket, skip as first num might be index
+            continue
+            
+        # Match: ranges like "0 - 5,000" or "$0 - $5,000"
+        m = re.search(r'(?:Up to)\s*\$?([\d,]+)', line, re.I)
+        if m:
+            upper = float(m.group(1).replace(',', ''))
+            brackets.append({'from': 0, 'to': upper, 'rate': 0})
+            continue
+            
+        m = re.search(r'(?:Over|Above|Beyond)\s*\$?([\d,]+)', line, re.I)
+        if m:
+            lower = float(m.group(1).replace(',', ''))
+            # Check if there's a percentage on this line
+            rate_m = re.search(r'([\d\.]+)\s*%', line)
+            rate = float(rate_m.group(1)) if rate_m else 0
+            brackets.append({'from': lower, 'to': -1, 'rate': rate})
+            continue
+    
+    # If we didn't find structured brackets, try harder parsing
+    if len(brackets) < 2:
+        brackets = []
+        # Find all lines with percentages
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            # Look for percentage
+            pct_m = re.search(r'([\d\.]+)\s*%', line)
+            if not pct_m:
+                continue
+            rate = float(pct_m.group(1))
+            
+            # Look for range: X - Y or X–Y or X to Y
+            range_m = re.search(r'\$?([\d,]+)\s*[-–—to]+\s*\$?([\d,]+)', line, re.I)
+            if range_m:
+                frm = float(range_m.group(1).replace(',', ''))
+                to = float(range_m.group(2).replace(',', ''))
+                brackets.append({'from': frm, 'to': to, 'rate': rate})
+                continue
+            
+            # Look for "Up to X"
+            up_m = re.search(r'(?:Up to|First|Below)\s*\$?([\d,]+)', line, re.I)
+            if up_m:
+                upper = float(up_m.group(1).replace(',', ''))
+                brackets.append({'from': 0, 'to': upper, 'rate': rate})
+                continue
+            
+            # Look for "Over X" or "Above X"
+            over_m = re.search(r'(?:Over|Above|Beyond|Exceeding)\s*\$?([\d,]+)', line, re.I)
+            if over_m:
+                lower = float(over_m.group(1).replace(',', ''))
+                brackets.append({'from': lower, 'to': -1, 'rate': rate})
+                continue
+        
+        # Sort by from
+        brackets.sort(key=lambda b: b['from'])
+        
+        # Fill in 'to' values based on next bracket's 'from'
+        for i in range(len(brackets) - 1):
+            if brackets[i]['to'] == -1 or brackets[i]['to'] == 0:
+                brackets[i]['to'] = brackets[i + 1]['from']
+        if brackets and brackets[-1]['to'] <= 0:
+            brackets[-1]['to'] = -1  # open-ended top bracket
+    
+    # Calculate cumulative tax for each bracket
+    cumulative = 0
+    for b in brackets:
+        if b['to'] > 0 and b['rate'] > 0:
+            bracket_income = b['to'] - b['from']
+            if bracket_income > 0:
+                cumulative += bracket_income * (b['rate'] / 100)
+        b['cumulative'] = cumulative
+    
+    return brackets
+
+
+@app.route('/api/hr/paye/upload', methods=['POST'])
+def hr_paye_upload():
+    """Upload a PAYE tax table PDF, parse it, and store brackets."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.pdf'):
+            return jsonify({'success': False, 'error': 'Only PDF files are accepted'}), 400
+        
+        name = request.form.get('name', file.filename)
+        period = request.form.get('period', '')
+        description = request.form.get('description', '')
+        user_name = session.get('user_name', 'Unknown')
+        
+        file_bytes = file.read()
+        
+        # Parse the PDF
+        brackets = parse_paye_pdf(file_bytes)
+        
+        if not brackets or len(brackets) < 1:
+            return jsonify({'success': False, 'error': 'Could not parse tax brackets from PDF. Please check the file format.'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Insert the tax table
+            cursor.execute("""
+                INSERT INTO paye_tax_tables (name, description, filename, period, is_active, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (name, description, file.filename, period, False, user_name))
+            table_id = cursor.fetchone()[0]
+            
+            # Insert brackets
+            for i, b in enumerate(brackets):
+                cursor.execute("""
+                    INSERT INTO paye_tax_brackets (table_id, income_from, income_to, tax_rate, cumulative_tax, bracket_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (table_id, b['from'], b['to'], b['rate'], b.get('cumulative', 0), i))
+            
+            connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'PAYE tax table "{name}" uploaded with {len(brackets)} bracket(s)',
+            'table_id': table_id,
+            'brackets': brackets
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/tables', methods=['GET'])
+def hr_paye_list_tables():
+    """List all uploaded PAYE tax tables."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT t.id, t.name, t.description, t.filename, t.period,
+                       t.is_active, t.uploaded_by, t.uploaded_at,
+                       COALESCE((SELECT COUNT(*) FROM paye_tax_brackets WHERE table_id = t.id), 0) as bracket_count
+                FROM paye_tax_tables t
+                ORDER BY t.uploaded_at DESC
+            """)
+            rows = cursor.fetchall()
+            tables = []
+            for r in rows:
+                tables.append({
+                    'id': r[0], 'name': r[1], 'description': r[2],
+                    'filename': r[3], 'period': r[4], 'is_active': r[5],
+                    'uploaded_by': r[6], 'uploaded_at': str(r[7]) if r[7] else None,
+                    'bracket_count': r[8]
+                })
+            return jsonify({'success': True, 'data': tables})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/table/<int:table_id>', methods=['GET'])
+def hr_paye_get_table(table_id):
+    """Get a specific PAYE tax table with its brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, description, filename, period, is_active, uploaded_by, uploaded_at
+                FROM paye_tax_tables WHERE id = %s
+            """, (table_id,))
+            t = cursor.fetchone()
+            if not t:
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            
+            cursor.execute("""
+                SELECT id, income_from, income_to, tax_rate, cumulative_tax, bracket_order
+                FROM paye_tax_brackets WHERE table_id = %s
+                ORDER BY bracket_order, income_from
+            """, (table_id,))
+            bracket_rows = cursor.fetchall()
+            brackets = []
+            for b in bracket_rows:
+                brackets.append({
+                    'id': b[0], 'income_from': float(b[1]), 'income_to': float(b[2]),
+                    'tax_rate': float(b[3]), 'cumulative_tax': float(b[4] or 0),
+                    'bracket_order': b[5]
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': t[0], 'name': t[1], 'description': t[2],
+                    'filename': t[3], 'period': t[4], 'is_active': t[5],
+                    'uploaded_by': t[6], 'uploaded_at': str(t[7]) if t[7] else None,
+                    'brackets': brackets
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/activate/<int:table_id>', methods=['POST'])
+def hr_paye_activate(table_id):
+    """Activate a PAYE tax table (deactivates all others)."""
+    try:
+        with get_db() as (cursor, connection):
+            # Deactivate all
+            cursor.execute("UPDATE paye_tax_tables SET is_active = FALSE")
+            # Activate the selected one
+            cursor.execute("UPDATE paye_tax_tables SET is_active = TRUE WHERE id = %s", (table_id,))
+            if cursor.rowcount == 0:
+                connection.rollback()
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            connection.commit()
+            return jsonify({'success': True, 'message': 'PAYE tax table activated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/table/<int:table_id>', methods=['DELETE'])
+def hr_paye_delete_table(table_id):
+    """Delete a PAYE tax table and its brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM paye_tax_tables WHERE id = %s", (table_id,))
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            connection.commit()
+            return jsonify({'success': True, 'message': 'PAYE tax table deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/active', methods=['GET'])
+def hr_paye_get_active():
+    """Get the currently active PAYE tax table with brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, description, filename, period, uploaded_by, uploaded_at
+                FROM paye_tax_tables WHERE is_active = TRUE
+                LIMIT 1
+            """)
+            t = cursor.fetchone()
+            if not t:
+                return jsonify({'success': True, 'data': None, 'message': 'No active PAYE tax table'})
+            
+            cursor.execute("""
+                SELECT income_from, income_to, tax_rate, cumulative_tax, bracket_order
+                FROM paye_tax_brackets WHERE table_id = %s
+                ORDER BY bracket_order, income_from
+            """, (t[0],))
+            bracket_rows = cursor.fetchall()
+            brackets = []
+            for b in bracket_rows:
+                brackets.append({
+                    'income_from': float(b[0]), 'income_to': float(b[1]),
+                    'tax_rate': float(b[2]), 'cumulative_tax': float(b[3] or 0)
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': t[0], 'name': t[1], 'description': t[2],
+                    'filename': t[3], 'period': t[4],
+                    'uploaded_by': t[5], 'uploaded_at': str(t[6]) if t[6] else None,
+                    'brackets': brackets
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/calculate', methods=['POST'])
+def hr_paye_calculate():
+    """Calculate PAYE tax for a given annual salary using active table."""
+    try:
+        data = request.get_json()
+        salary = float(data.get('salary', 0))
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT b.income_from, b.income_to, b.tax_rate, b.cumulative_tax
+                FROM paye_tax_brackets b
+                JOIN paye_tax_tables t ON b.table_id = t.id
+                WHERE t.is_active = TRUE
+                ORDER BY b.bracket_order, b.income_from
+            """)
+            bracket_rows = cursor.fetchall()
+            if not bracket_rows:
+                return jsonify({'success': False, 'error': 'No active PAYE tax table'}), 400
+            
+            brackets = []
+            for br in bracket_rows:
+                brackets.append({
+                    'from': float(br[0] or 0), 'to': float(br[1] or 0),
+                    'rate': float(br[2] or 0), 'cumulative': float(br[3] or 0)
+                })
+            
+            # Calculate tax
+            tax = 0
+            remaining = salary
+            details = []
+            for b in brackets:
+                if remaining <= 0:
+                    break
+                bracket_income = b['to'] - b['from']
+                taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                bracket_tax = taxable * (b['rate'] / 100)
+                if taxable > 0:
+                    tax += bracket_tax
+                    range_str = f"${b['from']:,.2f} - $"
+                    if b['to'] <= 0:
+                        range_str += "∞"
+                    else:
+                        range_str += f"{b['to']:,.2f}"
+                    details.append({
+                        'range': range_str,
+                        'taxable': round(taxable, 2),
+                        'rate': b['rate'],
+                        'tax': round(bracket_tax, 2)
+                    })
+                remaining -= taxable
+                if b['to'] <= 0:
+                    break
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'salary': salary,
+                    'annual_tax': round(tax, 2),
+                    'monthly_tax': round(tax / 12, 2),
+                    'effective_rate': round((tax / salary * 100) if salary > 0 else 0, 2),
+                    'details': details
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYE TAX TABLE MANAGEMENT
+# ============================================================
+
+
+# ============================================================
+# PAYROLL DEDUCTIONS CONFIG (AIDS Levy, NSSA, ZIMDEF, etc.)
+# ============================================================
+
+@app.route('/api/hr/payroll/deductions-config', methods=['GET', 'POST'])
+def hr_payroll_deductions_config():
+    """Get or update payroll deduction configuration."""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT id, deduction_code, deduction_name, description,
+                           rate, rate_type, ceiling_amount, is_active, is_employee_deduction, updated_at
+                    FROM payroll_deduction_config
+                    ORDER BY deduction_code
+                """)
+                rows = cursor.fetchall()
+                configs = []
+                for r in rows:
+                    configs.append({
+                        'id': r[0], 'deduction_code': r[1], 'deduction_name': r[2],
+                        'description': r[3], 'rate': float(r[4]),
+                        'rate_type': r[5], 'ceiling_amount': float(r[6] or 0),
+                        'is_active': bool(r[7]), 'is_employee_deduction': bool(r[8]),
+                        'updated_at': str(r[9]) if r[9] else None
+                    })
+                return jsonify({'success': True, 'data': configs})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                for item in data if isinstance(data, list) else [data]:
+                    code = item.get('deduction_code')
+                    if not code:
+                        continue
+                    cursor.execute("""
+                        INSERT INTO payroll_deduction_config
+                            (deduction_code, deduction_name, description, rate, rate_type, ceiling_amount, is_active, is_employee_deduction)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (deduction_code) DO UPDATE SET
+                            rate = EXCLUDED.rate,
+                            ceiling_amount = EXCLUDED.ceiling_amount,
+                            is_active = EXCLUDED.is_active,
+                            is_employee_deduction = EXCLUDED.is_employee_deduction,
+                            description = EXCLUDED.description,
+                            deduction_name = EXCLUDED.deduction_name,
+                            rate_type = EXCLUDED.rate_type,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (
+                        code,
+                        item.get('deduction_name', ''),
+                        item.get('description', ''),
+                        float(item.get('rate', 0)),
+                        item.get('rate_type', 'percentage_of_paye'),
+                        float(item.get('ceiling_amount', 0)),
+                        bool(item.get('is_active', True)),
+                        bool(item.get('is_employee_deduction', True))
+                    ))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Deduction config saved'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/calculate-full', methods=['POST'])
+def hr_payroll_calculate_full():
+    """Calculate full Zimbabwe statutory deductions for a given salary."""
+    try:
+        data = request.get_json()
+        salary = float(data.get('salary', 0))
+        annual_salary = salary * 12
+
+        with get_db() as (cursor, connection):
+            # 1. Load active PAYE brackets
+            paye_brackets = []
+            cursor.execute("""
+                SELECT b.income_from, b.income_to, b.tax_rate
+                FROM paye_tax_brackets b
+                JOIN paye_tax_tables t ON b.table_id = t.id
+                WHERE t.is_active = TRUE
+                ORDER BY b.bracket_order, b.income_from
+            """)
+            for br in cursor.fetchall():
+                paye_brackets.append({
+                    'from': float(br[0] or 0), 'to': float(br[1] or 0),
+                    'rate': float(br[2] or 0)
+                })
+
+            # 2. Load deduction configs
+            cursor.execute("""
+                SELECT deduction_code, rate, rate_type, ceiling_amount, is_active, is_employee_deduction
+                FROM payroll_deduction_config WHERE is_active = TRUE
+            """)
+            deduction_configs = {}
+            for dc in cursor.fetchall():
+                deduction_configs[dc[0]] = {
+                    'rate': float(dc[1]), 'rate_type': dc[2],
+                    'ceiling': float(dc[3] or 0),
+                    'is_employee': bool(dc[5])
+                }
+
+        # 3. Calculate PAYE
+        def calc_paye(salary, brackets):
+            if not brackets:
+                return 0
+            tax = 0
+            remaining = salary
+            for b in brackets:
+                if remaining <= 0:
+                    break
+                bracket_income = b['to'] - b['from']
+                taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                if taxable > 0:
+                    tax += taxable * (b['rate'] / 100)
+                remaining -= taxable
+                if b['to'] <= 0:
+                    break
+            return tax
+
+        annual_paye = calc_paye(annual_salary, paye_brackets)
+        monthly_paye = annual_paye / 12
+
+        # 4. Calculate other deductions
+        deductions = {}
+
+        # AIDS Levy = 3% of PAYE
+        aids_config = deduction_configs.get('AIDS_LEVY', {})
+        if aids_config.get('rate_type') == 'percentage_of_paye':
+            aids_levy = monthly_paye * (aids_config['rate'] / 100)
+            deductions['AIDS_LEVY'] = {
+                'name': 'AIDS Levy',
+                'amount': round(aids_levy, 2),
+                'rate': aids_config['rate'],
+                'basis': 'PAYE tax'
+            }
+        else:
+            deductions['AIDS_LEVY'] = {'name': 'AIDS Levy', 'amount': 0, 'rate': 0, 'basis': 'PAYE tax'}
+
+        # NSSA Employee = % of gross up to ceiling
+        nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+        nssa_rate = nssa_config.get('rate', 4.5)
+        nssa_ceiling = nssa_config.get('ceiling', 0)
+        nssa_gross = salary
+        if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
+            nssa_gross = nssa_ceiling
+        nssa_amount = nssa_gross * (nssa_rate / 100)
+        deductions['NSSA_EMPLOYEE'] = {
+            'name': 'NSSA (Employee)',
+            'amount': round(nssa_amount, 2),
+            'rate': nssa_rate,
+            'basis': f"{'Ceiling: $' + str(nssa_ceiling) if nssa_ceiling > 0 else 'Gross'}"
+        }
+
+        # ZIMDEF = % of gross
+        zimdef_config = deduction_configs.get('ZIMDEF', {})
+        zimdef_rate = zimdef_config.get('rate', 1.0)
+        zimdef_amount = salary * (zimdef_rate / 100)
+        deductions['ZIMDEF'] = {
+            'name': 'ZIMDEF Levy',
+            'amount': round(zimdef_amount, 2),
+            'rate': zimdef_rate,
+            'basis': 'Gross salary'
+        }
+
+        total_deductions = monthly_paye + sum(d['amount'] for d in deductions.values())
+        net_pay = max(0, salary - total_deductions)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'gross_salary': salary,
+                'annual_salary': annual_salary,
+                'paye': {
+                    'monthly': round(monthly_paye, 2),
+                    'annual': round(annual_paye, 2),
+                    'effective_rate': round((annual_paye / annual_salary * 100) if annual_salary > 0 else 0, 2)
+                },
+                'deductions': deductions,
+                'total_deductions': round(total_deductions, 2),
+                'net_pay': round(net_pay, 2),
+                'net_pay_annual': round((salary - total_deductions) * 12, 2)
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYROLL DEDUCTIONS CONFIG
+# ============================================================
+
+
+# ============================================================
+# PAYROLL ARCHIVES (Excel Export & Storage)
+# ============================================================
+
+@app.route('/api/hr/payroll/archives', methods=['GET'])
+def hr_payroll_archives():
+    """List all payroll archive periods."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, period, filename, file_size, employee_count,
+                       total_gross, total_net, generated_by, generated_at
+                FROM payroll_archives
+                ORDER BY period DESC
+            """)
+            rows = cursor.fetchall()
+            archives = []
+            for r in rows:
+                file_size_str = str(round(r[3] / 1024, 1)) + ' KB' if r[3] else '0 KB'
+                archives.append({
+                    'id': r[0], 'period': r[1], 'filename': r[2],
+                    'file_size': r[3], 'file_size_str': file_size_str,
+                    'employee_count': r[4],
+                    'total_gross': float(r[5] or 0), 'total_net': float(r[6] or 0),
+                    'generated_by': r[7], 'generated_at': str(r[8]) if r[8] else None
+                })
+            return jsonify({'success': True, 'data': archives})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/archives/<int:archive_id>/download', methods=['GET'])
+def hr_payroll_archive_download(archive_id):
+    """Download a payroll archive Excel file."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT filename, file_data, period FROM payroll_archives WHERE id = %s
+            """, (archive_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Archive not found'}), 404
+
+            filename = row[0]
+            file_data = bytes(row[1])
+            period = row[2]
+
+            return send_file(
+                io.BytesIO(file_data),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/archives/<period>/download', methods=['GET'])
+def hr_payroll_archive_download_by_period(period):
+    """Download a payroll archive by period string (e.g. 2026-07)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, filename, file_data FROM payroll_archives WHERE period = %s
+            """, (period,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': f'No archive for period {period}'}), 404
+
+            filename = row[1]
+            file_data = bytes(row[2])
+
+            return send_file(
+                io.BytesIO(file_data),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYROLL ARCHIVES
+# ============================================================
+
+
+@app.route('/api/hr/assets', methods=['GET', 'POST'])
+def hr_assets_api():
+    """HR: List or register assets"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT a.id, a.asset_tag, a.asset_name, a.category,
+                           COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as assigned_to,
+                           a.value, a.purchase_date, a.status, a.notes
+                    FROM hr_assets a
+                    LEFT JOIN hr_employees e ON a.assigned_to = e.id
+                    ORDER BY a.asset_name
+                """)
+                rows = cursor.fetchall()
+                assets = []
+                for r in rows:
+                    assets.append({
+                        'id': r[0], 'asset_tag': r[1], 'asset_name': r[2], 'category': r[3],
+                        'assigned_to': r[4], 'value': float(r[5] or 0),
+                        'purchase_date': str(r[6]) if r[6] else None, 'status': r[7], 'notes': r[8]
+                    })
+                return jsonify({'success': True, 'data': assets})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_assets (asset_tag, asset_name, category, assigned_to, value, purchase_date, status, notes)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (
+                    data.get('asset_tag'), data.get('asset_name'), data.get('category'),
+                    data.get('assigned_to'), data.get('value', 0), data.get('purchase_date'),
+                    data.get('status', 'In Service'), data.get('notes', '')
+                ))
+                aid = cursor.fetchone()[0]
+                connection.commit()
+                return jsonify({'success': True, 'id': aid, 'message': 'Asset registered'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+import io
+from openpyxl.styles import Font as ExcelFont, PatternFill as ExcelFill, Alignment as ExcelAlign, Border as ExcelBorder, Side as ExcelSide
+
+@app.route('/api/hr/export-assets', methods=['POST'])
+def hr_export_assets():
+    """Export Asset Register as Excel (.xlsx) or PDF"""
+    try:
+        fmt = request.get_json().get('format', 'excel') if request.is_json else request.form.get('format', 'excel')
+        user_name = session.get('user_name', 'Employee')
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT a.asset_tag, a.asset_name, a.category, a.value, a.purchase_date, a.status,
+                       COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as assigned_to, a.notes
+                FROM hr_assets a
+                LEFT JOIN hr_employees e ON a.assigned_to = e.id
+                ORDER BY a.asset_name
+            """)
+            rows = cursor.fetchall()
+            cols = ['Asset Tag', 'Asset Name', 'Category', 'Value (USD)', 'Purchase Date', 'Status', 'Assigned To', 'Notes']
+
+        if fmt == 'pdf':
+            # Build PDF with contract-style design
+            now_str = datetime.now().strftime('%d %B %Y')
+            rows_html = ''
+            total_val = 0
+            for r in rows:
+                total_val += float(r[3] or 0)
+                status_color = '#166534' if r[5] == 'In Service' else '#92400e' if r[5] == 'Under Repair' else '#1e40af'
+                rows_html += f'''
+                <tr>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[0] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;font-weight:600;">{r[1]}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[2] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;text-align:right;">${float(r[3] or 0):,.2f}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{str(r[4] or '')[:10]}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;color:{status_color};font-weight:600;">{r[5] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[6]}</td>
+                </tr>'''
+
+            html = f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+@page {{ size: A4 landscape; margin: 30px 35px; }}
+body {{ font-family: 'Roboto', 'Helvetica', sans-serif; color: #1E2A56; font-size: 10px; }}
+.watermark {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-45deg);
+    font-size: 120px; opacity: 0.03; color: #1E2A56; font-weight: 900; pointer-events: none; z-index: -1; }}
+.header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1E2A56; padding-bottom: 10px; margin-bottom: 14px; }}
+.header .logo {{ font-size: 20px; font-weight: 800; color: #1E2A56; letter-spacing: -0.5px; }}
+.header .logo span {{ color: #C12B3E; }}
+.header .meta {{ text-align: right; font-size: 9px; color: #475569; }}
+h2 {{ font-size: 14px; margin: 0 0 4px 0; color: #1E2A56; text-transform: uppercase; letter-spacing: 1px; }}
+.subtitle {{ font-size: 9px; color: #64748B; margin-bottom: 12px; }}
+table {{ width: 100%; border-collapse: collapse; margin-top: 6px; }}
+th {{ background: linear-gradient(135deg, #1E2A56, #2A3A78); color: #fff; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }}
+th:not(:last-child) {{ border-right: 1px solid rgba(255,255,255,0.15); }}
+td {{ padding: 5px 6px; border: 1px solid #e2e8f0; font-size: 9px; }}
+tr:nth-child(even) td {{ background: #F8FAFC; }}
+.summary {{ display: flex; gap: 20px; margin-top: 14px; padding: 10px 14px; background: #F1F5F9; border-radius: 6px; }}
+.summary .item {{ font-size: 9px; }}
+.summary .item strong {{ font-size: 12px; color: #1E2A56; }}
+.footer {{ position: fixed; bottom: 0; left: 35px; right: 35px; text-align: center; font-size: 8px; color: #94A3B8; border-top: 1px solid #e2e8f0; padding-top: 6px; }}
+</style></head><body>
+<div class="watermark">ASSET REGISTER</div>
+<div class="header">
+    <div><div class="logo">Connect<span>Link</span></div></div>
+    <div class="meta"><strong>Asset Register</strong><br>{now_str}<br>Prepared by: {user_name}</div>
+</div>
+<h2>Asset Register</h2>
+<div class="subtitle">Complete inventory of company assets and equipment</div>
+<table>
+<thead><tr>
+    <th>Tag</th><th>Name</th><th>Category</th><th>Value</th><th>Purchase</th><th>Status</th><th>Assigned To</th>
+</tr></thead>
+<tbody>{rows_html}</tbody>
+</table>
+<div class="summary">
+    <div class="item">Total Assets<br><strong>{len(rows)}</strong></div>
+    <div class="item">Total Value<br><strong>${total_val:,.2f}</strong></div>
+    <div class="item">Generated<br><strong>{now_str}</strong></div>
+</div>
+<div class="footer">ConnectLink Properties &amp; Hardware — Asset Register — Generated {now_str}</div>
+</body></html>'''
+
+            try:
+                pdf_bytes = HTML(string=html).write_pdf()
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    as_attachment=True,
+                    download_name=f"{user_name}_asset_register.pdf",
+                    mimetype='application/pdf'
+                )
+            except Exception as pdf_err:
+                # Fallback to Playwright
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    browser = p.chromium.launch()
+                    page = browser.new_page()
+                    page.set_content(html)
+                    pdf_bytes = page.pdf(format='A4', landscape=True, print_background=True)
+                    browser.close()
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    as_attachment=True,
+                    download_name=f"{user_name}_asset_register.pdf",
+                    mimetype='application/pdf'
+                )
+
+        else:
+            # Excel export
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Asset Register"
+
+            # Title row
+            ws.merge_cells('A1:H1')
+            title_cell = ws['A1']
+            title_cell.value = f"Asset Register — {user_name}"
+            title_cell.font = ExcelFont(bold=True, size=13, color='1E2A56')
+            title_cell.alignment = ExcelAlign(horizontal='left')
+
+            # Header row
+            header_fill = ExcelFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+            header_font = ExcelFont(bold=True, color='FFFFFF', size=10)
+            thin_border = ExcelBorder(
+                left=ExcelSide(style='thin', color='CBD5E1'),
+                right=ExcelSide(style='thin', color='CBD5E1'),
+                top=ExcelSide(style='thin', color='CBD5E1'),
+                bottom=ExcelSide(style='thin', color='CBD5E1')
+            )
+
+            for col_idx, col_name in enumerate(cols, 1):
+                cell = ws.cell(row=3, column=col_idx, value=col_name)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = ExcelAlign(horizontal='center', vertical='center')
+                cell.border = thin_border
+
+            # Data rows
+            total_val = 0
+            for row_idx, r in enumerate(rows, 4):
+                total_val += float(r[3] or 0)
+                for col_idx, val in enumerate(r, 1):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=val if val is not None else '')
+                    cell.font = ExcelFont(size=9)
+                    cell.border = thin_border
+                    if col_idx == 4:  # Value column
+                        cell.number_format = '#,##0.00'
+                        cell.alignment = ExcelAlign(horizontal='right')
+
+            # Totals row
+            total_row = len(rows) + 4
+            ws.cell(row=total_row, column=1, value='TOTAL').font = ExcelFont(bold=True, size=10)
+            ws.cell(row=total_row, column=4, value=total_val).font = ExcelFont(bold=True, size=10)
+            ws.cell(row=total_row, column=4).number_format = '#,##0.00'
+            for col_idx in range(1, len(cols) + 1):
+                ws.cell(row=total_row, column=col_idx).border = thin_border
+
+            # Column widths
+            widths = [14, 28, 18, 14, 14, 14, 24, 30]
+            for i, w in enumerate(widths, 1):
+                ws.column_dimensions[chr(64 + i)].width = w
+
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=f"{user_name}_asset_register.xlsx",
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+
+    except Exception as e:
+        print(f"Export assets error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/stats')
+def hr_stats_api():
+    """HR: Get dashboard statistics"""
+    try:
+        with get_db() as (cursor, connection):
+            today = datetime.now().strftime('%Y-%m-%d')
+            period = datetime.now().strftime('%Y-%m')
+
+            cursor.execute("SELECT COUNT(*) FROM hr_employees WHERE status = 'Active'")
+            hr_active = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE")
+            admin_active = cursor.fetchone()[0]
+            total_active = hr_active + admin_active
+
+            present_today = 0
+
+            cursor.execute("SELECT COUNT(*) FROM hr_leave_applications WHERE status = 'Pending'")
+            pending_leave = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COUNT(*) FROM hr_leave_applications
+                WHERE status = 'Approved' AND %s BETWEEN from_date AND to_date
+            """, (today,))
+            on_leave_today = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COALESCE(SUM(net_pay), 0) FROM hr_payroll WHERE period = %s
+            """, (period,))
+            payroll_total = float(cursor.fetchone()[0])
+
+            cursor.execute("SELECT COUNT(*) FROM hr_employees")
+            hr_total = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE")
+            admin_total = cursor.fetchone()[0]
+            total_employees = hr_total + admin_total
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total_employees': total_employees,
+                    'active_employees': total_active,
+                    'present_today': present_today,
+                    'on_leave_today': on_leave_today,
+                    'pending_leave': pending_leave,
+                    'payroll_total': payroll_total,
+                    'period': period,
+                    'today': today
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/employee-stats')
+def hr_employee_stats_api():
+    """Get detailed employee statistics for admin dashboard"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT department, COUNT(*) as cnt,
+                       SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
+                       SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male,
+                       SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female
+                FROM hr_employees
+                GROUP BY department
+                ORDER BY department
+            """)
+            rows = cursor.fetchall()
+            departments = []
+            total = 0
+            for r in rows:
+                departments.append({
+                    'name': r[0], 'count': r[1], 'active': r[2], 'male': r[3], 'female': r[4]
+                })
+                total += r[1]
+
+            cursor.execute("""
+                SELECT employment_type, COUNT(*) FROM hr_employees GROUP BY employment_type
+            """)
+            types = {r[0]: r[1] for r in cursor.fetchall()}
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total': total,
+                    'departments': departments,
+                    'employment_types': types
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/profile')
 def profile():
@@ -18054,6 +20809,166 @@ def get_installments_count():
         return jsonify({'total': 0, 'paid': 0, 'due': 0, 'error': str(e)}), 500
 
 
+@app.route('/get_installments_data')
+def get_installments_data():
+    """Get installment data as JSON with both project start and due month filters"""
+    def clean_html(text):
+        if not text or not isinstance(text, str):
+            return text
+        import re
+        text = re.sub(r'<[^>]+>', '', text)
+        replacements = {
+            '&amp;': '&', '&lt;': '<', '&gt;': '>',
+            '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+            '&rsquo;': "'", '&lsquo;': "'",
+            '&rdquo;': '"', '&ldquo;': '"'
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        text = ' '.join(text.split())
+        return text
+    
+    try:
+        with get_db() as (cursor, connection):
+            project_start_month = request.args.get('datedepositorbullet')
+            due_month = request.args.get('due_month')
+            
+            due_year = None
+            due_month_num = None
+            if due_month and due_month != 'all':
+                due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
+            
+            where_clauses = []
+            params = []
+            
+            if project_start_month and project_start_month != 'all':
+                year, month_num = project_start_month.split('-')
+                where_clauses.append(
+                    "EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                )
+                params.extend([year, month_num])
+            
+            if due_month and due_month != 'all':
+                due_condition = """
+                    (
+                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment7duedate) = %s AND EXTRACT(MONTH FROM installment7duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment8duedate) = %s AND EXTRACT(MONTH FROM installment8duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment9duedate) = %s AND EXTRACT(MONTH FROM installment9duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
+                    )
+                """
+                where_clauses.append(due_condition)
+                params.extend([due_year, due_month_num] * 10)
+            
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+            
+            query = f"""
+                SELECT 
+                    id, clientname, clientwanumber, clientemail, projectname,
+                    projectdescription, momid, projectstartdate,
+                    installment1amount, installment1duedate, installment1date,
+                    installment2amount, installment2duedate, installment2date,
+                    installment3amount, installment3duedate, installment3date,
+                    installment4amount, installment4duedate, installment4date,
+                    installment5amount, installment5duedate, installment5date,
+                    installment6amount, installment6duedate, installment6date,
+                    installment7amount, installment7duedate, installment7date,
+                    installment8amount, installment8duedate, installment8date,
+                    installment9amount, installment9duedate, installment9date,
+                    installment10amount, installment10duedate, installment10date
+                FROM connectlinkdatabase 
+                {where_clause}
+                ORDER BY momid ASC
+            """
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            # Deduplicate
+            seen = set()
+            deduped = []
+            for row in rows:
+                row_key = row[:8]
+                if row_key not in seen:
+                    seen.add(row_key)
+                    deduped.append(row)
+            
+            columns = [
+                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                'projectdescription', 'momid', 'projectstartdate',
+                'installment1amount', 'installment1duedate', 'installment1date',
+                'installment2amount', 'installment2duedate', 'installment2date',
+                'installment3amount', 'installment3duedate', 'installment3date',
+                'installment4amount', 'installment4duedate', 'installment4date',
+                'installment5amount', 'installment5duedate', 'installment5date',
+                'installment6amount', 'installment6duedate', 'installment6date',
+                'installment7amount', 'installment7duedate', 'installment7date',
+                'installment8amount', 'installment8duedate', 'installment8date',
+                'installment9amount', 'installment9duedate', 'installment9date',
+                'installment10amount', 'installment10duedate', 'installment10date'
+            ]
+            
+            all_installments = []
+            from datetime import datetime
+            today = datetime.now().date()
+            
+            for row in deduped:
+                row_dict = dict(zip(columns, row))
+                
+                momid = clean_html(str(row_dict['momid'])) if row_dict['momid'] else ''
+                
+                for i in range(1, 11):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    due_date = row_dict.get(f'installment{i}duedate')
+                    payment_date = row_dict.get(f'installment{i}date')
+                    
+                    if not amount or float(amount) <= 0:
+                        continue
+                    
+                    if due_month and due_month != 'all':
+                        if not due_date:
+                            continue
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                            continue
+                    
+                    due_date_str = ''
+                    if due_date:
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        due_date_str = due_date_date.strftime('%Y-%m-%d') if hasattr(due_date_date, 'strftime') else str(due_date_date)
+                    
+                    status = 'Paid' if payment_date else ('Overdue' if due_date and (due_date.date() if hasattr(due_date, 'date') else due_date) < today else 'Due')
+                    
+                    all_installments.append({
+                        'momid': momid,
+                        'client_name': clean_html(str(row_dict['clientname'])) if row_dict['clientname'] else '',
+                        'phone': clean_html(str(row_dict['clientwanumber'])) if row_dict['clientwanumber'] else '',
+                        'project_name': clean_html(str(row_dict['projectname'])) if row_dict['projectname'] else '',
+                        'installment_num': i,
+                        'due_date': due_date_str,
+                        'amount': float(amount),
+                        'status': status
+                    })
+            
+            return jsonify(all_installments)
+        
+    except Exception as e:
+        print(f"Error fetching installments data: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify([]), 500
+
+
 @app.route('/download_installments')
 def download_installments():
     """Download installments data with both project start and due month filters"""
@@ -18234,17 +21149,6 @@ def download_installments():
                     if not amount or float(amount) <= 0:
                         continue
                     
-                    # Apply due month filter at INSTALLMENT level
-                    if due_month and due_month != 'all':
-                        if not due_date:
-                            continue  # Can't match filter without due date
-                        
-                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
-                        
-                        # Check if this installment is in selected month
-                        if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
-                            continue  # Skip - not in selected month
-                    
                     # Get due date for display
                     due_date_str = ''
                     if due_date:
@@ -18253,9 +21157,15 @@ def download_installments():
                     
                     installment_info = f"Installment {i}"
                     
-                    # Check payment status for THIS specific installment
+                    # ---- PAID INSTALLMENTS: respect due month filter ----
                     if payment_date:
-                        # PAID installment
+                        if due_month and due_month != 'all':
+                            if not due_date:
+                                continue
+                            due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                            if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                                continue
+                        
                         paid_data.append({
                             'id': row_dict['id'],
                             'momid': momid,
@@ -18269,44 +21179,51 @@ def download_installments():
                             'installment_info': installment_info,
                             'amount_paid': float(amount) if amount else 0
                         })
+                        continue
                     
-                    elif due_date and not payment_date:  # UNPAID installment
-                        # Check if overdue
-                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                    # ---- UNPAID INSTALLMENTS ----
+                    if not due_date:
+                        continue
+                    
+                    due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                    
+                    if due_date_date < today:
+                        # ---- OVERDUE: NEVER filter by due month ----
+                        days_overdue = (today - due_date_date).days
+                        overdue_data.append({
+                            'id': row_dict['id'],
+                            'momid': momid,
+                            'clientname': client_name,
+                            'phone': phone,
+                            'email': email,
+                            'projectname': project_name,
+                            'projectdescription': project_description,
+                            'project_start_date': project_start_str,
+                            'due_date': due_date_str,
+                            'installment_info': installment_info,
+                            'days_info': f"Overdue by {days_overdue} days",
+                            'amount_due': float(amount) if amount else 0
+                        })
+                    else:
+                        # ---- FUTURE DUE: respect due month filter ----
+                        if due_month and due_month != 'all':
+                            if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                                continue
                         
-                        if due_date_date < today:
-                            # OVERDUE installment
-                            days_overdue = (today - due_date_date).days
-                            overdue_data.append({
-                                'id': row_dict['id'],
-                                'momid': momid,
-                                'clientname': client_name,
-                                'phone': phone,
-                                'email': email,
-                                'projectname': project_name,
-                                'projectdescription': project_description,
-                                'project_start_date': project_start_str,
-                                'due_date': due_date_str,
-                                'installment_info': installment_info,
-                                'days_info': f"Overdue by {days_overdue} days",
-                                'amount_due': float(amount) if amount else 0
-                            })
-                        else:
-                            # FUTURE DUE installment (not yet overdue)
-                            due_data.append({
-                                'id': row_dict['id'],
-                                'momid': momid,
-                                'clientname': client_name,
-                                'phone': phone,
-                                'email': email,
-                                'projectname': project_name,
-                                'projectdescription': project_description,
-                                'project_start_date': project_start_str,
-                                'due_date': due_date_str,
-                                'installment_info': installment_info,
-                                'days_info': 'Not yet due',
-                                'amount_due': float(amount) if amount else 0
-                            })
+                        due_data.append({
+                            'id': row_dict['id'],
+                            'momid': momid,
+                            'clientname': client_name,
+                            'phone': phone,
+                            'email': email,
+                            'projectname': project_name,
+                            'projectdescription': project_description,
+                            'project_start_date': project_start_str,
+                            'due_date': due_date_str,
+                            'installment_info': installment_info,
+                            'days_info': 'Not yet due',
+                            'amount_due': float(amount) if amount else 0
+                        })
             
             # Create Excel file
             import pandas as pd
@@ -18350,11 +21267,7 @@ def download_installments():
                     paid_display_df = paid_df.copy()
                     
                     # Determine which columns to include
-                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date']
-                    
-                    # Add due date column if due month filter is applied
-                    if due_month and due_month != 'all':
-                        display_columns.extend(['due_date', 'installment_info'])
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info']
                     
                     display_columns.append('amount_paid_formatted')
                     
@@ -18394,11 +21307,7 @@ def download_installments():
                     due_display_df = due_df.copy()
                     
                     # Determine which columns to include
-                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date']
-                    
-                    # Add due date and info columns if due month filter is applied
-                    if due_month and due_month != 'all':
-                        display_columns.extend(['due_date', 'installment_info', 'days_info'])
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info', 'days_info']
                     
                     display_columns.append('amount_due_formatted')
                     
@@ -18439,11 +21348,7 @@ def download_installments():
                     overdue_display_df = overdue_df.copy()
                     
                     # Determine which columns to include
-                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date']
-                    
-                    # Add due date and info columns if due month filter is applied
-                    if due_month and due_month != 'all':
-                        display_columns.extend(['due_date', 'installment_info', 'days_info'])
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info', 'days_info']
                     
                     display_columns.append('amount_due_formatted')
                     
@@ -21716,6 +24621,487 @@ def logout():
 def close_db(error):
     """Close any remaining connections on app shutdown"""
     pass  # No-op now since you're using context managers everywhere
+
+
+# ==================== USER MANAGEMENT PORTAL ====================
+
+def get_user_permissions(user_type, user_id):
+    """Get permissions for a user, creating default super admin if first user"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT can_manage_projects, can_manage_hardware, can_manage_hr,
+                       can_add_users, can_edit_users, can_delete_users,
+                       can_export_data, can_view_audit, can_manage_roles,
+                       is_super_admin, can_view_payments
+                FROM user_permissions WHERE user_type=%s AND user_id=%s
+            """, (user_type, user_id))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'can_manage_projects': row[0], 'can_manage_hardware': row[1],
+                    'can_manage_hr': row[2], 'can_add_users': row[3],
+                    'can_edit_users': row[4], 'can_delete_users': row[5],
+                    'can_export_data': row[6], 'can_view_audit': row[7],
+                    'can_manage_roles': row[8], 'is_super_admin': row[9],
+                    'can_view_payments': row[10]
+                }
+            # If no permissions set, check if this is the first user - make them super admin
+            cursor.execute("SELECT COUNT(*) FROM user_permissions")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                cursor.execute("""
+                    INSERT INTO user_permissions (user_type, user_id, is_super_admin,
+                        can_manage_projects, can_manage_hardware, can_manage_hr,
+                        can_add_users, can_edit_users, can_delete_users,
+                        can_export_data, can_view_audit, can_manage_roles, can_view_payments)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                """, (user_type, user_id))
+                connection.commit()
+                return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
+                    'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments']}
+            # Default: no permissions
+            return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
+                'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments']}
+    except Exception as e:
+        print(f"Permissions error: {e}")
+        return {}
+
+
+@app.route('/api/user-management/permissions', methods=['GET', 'POST'])
+def um_permissions_api():
+    """Get or update user permissions"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT up.id, up.user_type, up.user_id,
+                           CASE WHEN up.user_type='projects' THEN cl.name
+                                WHEN up.user_type='hardware' THEN hw.full_name
+                                ELSE 'Unknown' END as user_name,
+                           up.is_super_admin, up.can_manage_projects, up.can_manage_hardware,
+                           up.can_manage_hr, up.can_add_users, up.can_edit_users,
+                           up.can_delete_users, up.can_export_data, up.can_view_audit,
+                           up.can_manage_roles, up.can_view_payments
+                    FROM user_permissions up
+                    LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
+                    LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
+                    ORDER BY up.id
+                """)
+                rows = cursor.fetchall()
+                perms = []
+                for r in rows:
+                    perms.append({
+                        'id': r[0], 'user_type': r[1], 'user_id': r[2], 'user_name': r[3],
+                        'is_super_admin': r[4], 'can_manage_projects': r[5],
+                        'can_manage_hardware': r[6], 'can_manage_hr': r[7],
+                        'can_add_users': r[8], 'can_edit_users': r[9],
+                        'can_delete_users': r[10], 'can_export_data': r[11],
+                        'can_view_audit': r[12], 'can_manage_roles': r[13],
+                        'can_view_payments': r[14] if len(r) > 14 else False
+                    })
+                return jsonify({'success': True, 'data': perms})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        # Permission check: need can_manage_roles to modify permissions
+        perms = session.get('um_permissions', {})
+        if not perms.get('is_super_admin', False) and not perms.get('can_manage_roles', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to manage roles.'}), 403
+        try:
+            data = request.get_json()
+            user_type = data.get('user_type')
+            user_id = data.get('user_id')
+            fields = ['is_super_admin', 'can_manage_projects', 'can_manage_hardware',
+                      'can_manage_hr', 'can_add_users', 'can_edit_users', 'can_delete_users',
+                      'can_export_data', 'can_view_audit', 'can_manage_roles',
+                      'can_view_payments']
+
+            with get_db() as (cursor, connection):
+                # Upsert
+                set_clauses = ', '.join([f"{f}=%s" for f in fields])
+                values = [data.get(f, False) for f in fields]
+                cursor.execute(f"""
+                    INSERT INTO user_permissions (user_type, user_id, {', '.join(fields)})
+                    VALUES (%s, %s, {', '.join(['%s']*len(fields))})
+                    ON CONFLICT (user_type, user_id) DO UPDATE SET
+                    {set_clauses}
+                """, [user_type, user_id] + values + values)
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Permissions updated'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/user-management-login', methods=['POST'])
+def user_management_login():
+    """Login for User Management portal - checks admin_users first, then falls back"""
+    try:
+        email_or_username = request.form.get('emaillogin', '').strip()
+        password = request.form.get('passwordlogin', '').strip()
+
+        if not email_or_username or not password:
+            return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            # First try unified admin_users table
+            cursor.execute("""
+                SELECT id, username, password, full_name, source_system, source_id, role, must_reset_password
+                FROM admin_users WHERE username = %s AND is_active = TRUE
+            """, (email_or_username,))
+            au_row = cursor.fetchone()
+            if au_row and au_row[2] == password:
+                # Check if password reset is required
+                if au_row[7]:  # must_reset_password
+                    return jsonify({
+                        'success': False,
+                        'must_reset': True,
+                        'message': 'You must reset your password before continuing.',
+                        'username': email_or_username
+                    }), 403
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                session['userid'] = int(au_row[0])
+                session['user_name'] = au_row[3]
+                session['um_user_type'] = au_row[4]  # 'projects' or 'hardware'
+                session['um_source_id'] = au_row[5]
+
+                # Load permissions
+                perms = get_user_permissions(au_row[4], au_row[5] if au_row[5] else au_row[0])
+                session['um_permissions'] = perms
+
+                log_activity('user_login', f'User Management: {au_row[3]} logged in (source: {au_row[4]})', 'user', au_row[0])
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
+
+            # Fallback: try connectlinkusers (Building Projects users)
+
+                # Load permissions
+                perms = get_user_permissions('projects', user_row[0])
+                session['um_permissions'] = perms
+
+                log_activity('user_login', f'User Management: {user_row[2]} logged in', 'user', user_row[0])
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
+
+            # Then try hardware_users (POS users - for mrsgadmin etc.)
+            cursor.execute("""
+                SELECT id, username, password, full_name, role
+                FROM hardware_users WHERE username = %s
+            """, (email_or_username,))
+            hw_rows = cursor.fetchall()
+
+            if hw_rows and hw_rows[0][2] == password:
+                hw_user = hw_rows[0]
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                session['userid'] = int(hw_user[0])
+                session['user_name'] = hw_user[3]
+                session['um_user_type'] = 'hardware'
+
+                # Load permissions
+                perms = get_user_permissions('hardware', hw_user[0])
+                session['um_permissions'] = perms
+
+                log_activity('user_login', f'User Management: {hw_user[3]} logged in via POS', 'user', hw_user[0])
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
+
+            return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/user-management')
+def user_management_dashboard():
+    """User Management portal dashboard"""
+    user_uuid = session.get('user_uuid')
+    user_name = session.get('user_name')
+    perms = session.get('um_permissions', {})
+    if not user_uuid:
+        return render_template('mainindex.html')
+    return render_template('users_dashboard.html', user_name=user_name, perms=perms)
+
+
+@app.route('/api/user-management/projects-users')
+def um_projects_users():
+    """Get all Building Projects users (connectlinkusers)"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, datecreated, name, email, whatsapp FROM connectlinkusers ORDER BY id DESC")
+            rows = cursor.fetchall()
+            users = [{'id': r[0], 'datecreated': str(r[1]) if r[1] else None, 'name': r[2], 'email': r[3], 'whatsapp': r[4]} for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/admin-users')
+def um_admin_users():
+    """Get all unified admin users"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, username, full_name, email, whatsapp, source_system, source_id, role, is_active, created_at
+                FROM admin_users ORDER BY id DESC
+            """)
+            rows = cursor.fetchall()
+            users = [{
+                'id': r[0], 'username': r[1], 'full_name': r[2], 'email': r[3],
+                'whatsapp': r[4], 'source_system': r[5], 'source_id': r[6],
+                'role': r[7], 'is_active': r[8],
+                'created_at': str(r[9]) if r[9] else None
+            } for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/save-admin-user', methods=['POST'])
+def um_save_admin_user():
+    """Create or update a unified admin user"""
+    perms = session.get('um_permissions', {})
+    is_super = perms.get('is_super_admin', False)
+    try:
+        data = request.get_json()
+        edit_id = data.get('edit_id')
+        if edit_id:
+            if not is_super and not perms.get('can_edit_users', False):
+                return jsonify({'success': False, 'error': 'Access denied: cannot edit users.'}), 403
+        else:
+            if not is_super and not perms.get('can_add_users', False):
+                return jsonify({'success': False, 'error': 'Access denied: cannot add users.'}), 403
+
+        username = data.get('username', '').strip()
+        full_name = data.get('full_name', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        role = data.get('role', 'operator')
+        source_system = data.get('source_system', 'projects')
+
+        if not username or not full_name:
+            return jsonify({'success': False, 'error': 'Username and full name are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            if edit_id:
+                if password:
+                    cursor.execute("""
+                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, password=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (username, full_name, email, role, password, edit_id))
+                else:
+                    cursor.execute("""
+                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (username, full_name, email, role, edit_id))
+                msg = 'Admin user updated'
+            else:
+                pw = password or 'conlink123'
+                cursor.execute("""
+                    INSERT INTO admin_users (username, password, full_name, email, source_system, role)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (username, pw, full_name, email, source_system, role))
+                msg = 'Admin user created'
+            connection.commit()
+            return jsonify({'success': True, 'message': msg})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-admin-user/<int:user_id>', methods=['DELETE'])
+def um_delete_admin_user(user_id):
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: cannot delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM admin_users WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Admin user deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/hardware-users')
+def um_hardware_users():
+    """Get all Hardware POS users"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, username, full_name, role, created_at FROM hardware_users ORDER BY id DESC")
+            rows = cursor.fetchall()
+            users = [{'id': r[0], 'username': r[1], 'full_name': r[2], 'role': r[3], 'created_at': str(r[4]) if r[4] else None} for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/hr-users')
+def um_hr_users():
+    """Get all HR employees (as admin_users-compatible format)"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, first_name, last_name, email, department, role, status, date_joined
+                FROM hr_employees ORDER BY id DESC
+            """)
+            rows = cursor.fetchall()
+            users = []
+            for r in rows:
+                first = r[1] or ''
+                last = r[2] or ''
+                full_name = f"{first} {last}".strip()
+                users.append({
+                    'id': r[0],
+                    'username': r[3] or f"hr_emp_{r[0]}",
+                    'full_name': full_name or 'HR Employee',
+                    'email': r[3] or '',
+                    'role': 'admin' if r[5] == 'Administrator' else 'operator',
+                    'source_system': 'hr',
+                    'source_id': r[0],
+                    'is_active': r[6] == 'Active',
+                    'created_at': str(r[7]) if r[7] else None,
+                    'department': r[4] or '',
+                    'hr_role': r[5] or 'Ordinary User',
+                    'status': r[6] or 'Active'
+                })
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/save-user', methods=['POST'])
+def um_save_user():
+    """Create or update a user across any system"""
+    # Permission check: need can_add_users (or can_edit_users for edits)
+    perms = session.get('um_permissions', {})
+    is_super = perms.get('is_super_admin', False)
+    edit_id = request.get_json().get('edit_id') if request.get_json() else None
+    if edit_id:
+        if not is_super and not perms.get('can_edit_users', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to edit users.'}), 403
+    else:
+        if not is_super and not perms.get('can_add_users', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to add users.'}), 403
+
+    try:
+        data = request.get_json()
+        system = data.get('system')
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        role = data.get('role', 'Ordinary User')
+        status = data.get('status', 'Active')
+        edit_system = data.get('edit_system')
+
+        if not name or not email:
+            return jsonify({'success': False, 'error': 'Name and email are required'}), 400
+
+        with get_db() as (cursor, connection):
+            if system == 'projects':
+                if edit_id and edit_system == 'projects':
+                    cursor.execute("UPDATE connectlinkusers SET name=%s, email=%s WHERE id=%s", (name, email, edit_id))
+                else:
+                    pw = password or 'conlink123'
+                    from datetime import date
+                    cursor.execute("""
+                        INSERT INTO connectlinkusers (datecreated, name, password, email)
+                        VALUES (%s, %s, %s, %s)
+                    """, (date.today(), name, pw, email))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Projects user saved'})
+
+            elif system == 'hardware':
+                hw_role = 'operator'
+                if role in ('admin', 'Administrator'): hw_role = 'admin'
+                full_name = data.get('full_name', name)
+                if edit_id and edit_system == 'hardware':
+                    cursor.execute("UPDATE hardware_users SET username=%s, full_name=%s, role=%s WHERE id=%s", (email, full_name, hw_role, edit_id))
+                else:
+                    pw = password or 'conlink123'
+                    cursor.execute("""
+                        INSERT INTO hardware_users (username, password, full_name, role)
+                        VALUES (%s, %s, %s, %s)
+                    """, (email, pw, full_name, hw_role))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Hardware POS user saved'})
+
+            elif system == 'hr':
+                hr_role = 'Administrator' if role in ('Administrator', 'admin') else 'Ordinary User'
+                parts = name.split(' ', 1)
+                first = parts[0]
+                last = parts[1] if len(parts) > 1 else ''
+                dept = data.get('department', '')
+                designation = data.get('designation', '')
+                whatsapp = data.get('whatsapp', '')
+                if edit_id and edit_system == 'hr':
+                    cursor.execute("""
+                        UPDATE hr_employees SET first_name=%s, last_name=%s, email=%s, department=%s,
+                        designation=%s, role=%s, status=%s, whatsapp=%s WHERE id=%s
+                    """, (first, last, email, dept, designation, hr_role, status, whatsapp, edit_id))
+                else:
+                    cursor.execute("""
+                        INSERT INTO hr_employees (first_name, last_name, email, department, designation, role, status, whatsapp)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (first, last, email, dept, designation, hr_role, status, whatsapp))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'HR user saved'})
+
+            else:
+                return jsonify({'success': False, 'error': 'Unknown system'}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-projects-user/<int:user_id>', methods=['DELETE'])
+def um_delete_projects_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-hardware-user/<int:user_id>', methods=['DELETE'])
+def um_delete_hardware_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM hardware_users WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-hr-user/<int:user_id>', methods=['DELETE'])
+def um_delete_hr_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM hr_employees WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # Quotation Rates API Endpoints
 @app.route('/api/get-quotation-rates', methods=['GET'])

@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "MergeUsers",
+  "file": "merge_users.py",
+  "purpose": "<!-- main function",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "merge_users → cursor.execute, cursor.fetchall"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "1c80fc90e2085272",
+  "file_mtime": 1782930204959.9922,
+  "file_size": 821,
+  "file_birthtime": 1782930204759.5293,
+  "generated_at": "2026-07-02T12:31:56.027003Z",
+  "stale": false
+}
