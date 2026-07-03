@@ -10607,7 +10607,7 @@ def get_stock_movements():
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
-    """API endpoint for login"""
+    """API endpoint for POS login - checks admin_users only"""
     data = request.json
     username = data.get('username')
     password = data.get('password')
@@ -10615,79 +10615,46 @@ def api_login():
     if not username or not password:
         return jsonify({'success': False, 'message': 'Username and password required'}), 400
     
-    # First, try hardware_users table (plain-text passwords)
     try:
-        hw_query = "SELECT id, username, password, full_name, role FROM hardware_users WHERE username = %s"
-        hw_user = execute_query(hw_query, (username,), fetch_one=True)
-        
-        if hw_user:
-            print(f"🔍 DEBUG: Found hardware user {username}")
-            print(f"🔍 DEBUG: Stored password: '{hw_user[2]}' | Submitted: '{password}' | Match: {hw_user[2] == password}")
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, username, password, full_name, role, source_system
+                FROM admin_users WHERE username = %s AND is_active = TRUE
+            """, (username,))
+            user = cursor.fetchone()
             
-            if hw_user[2] == password:  # plain-text password match
-                session.permanent = True
-                session['user_id'] = int(hw_user[0])
-                session['username'] = hw_user[1]
-                session['full_name'] = hw_user[3]
-                session['role'] = hw_user[4]
-                
-                print(f"✅ Hardware user {username} logged in via API with role: {hw_user[4]}")
-                
-                log_activity('user_login', f'Hardware user {username} logged in via API with role {hw_user[4]}', 'user', hw_user[0], {'username': username, 'role': hw_user[4], 'method': 'api'})
-                
-                return jsonify({
-                    'success': True,
-                    'user': {
-                        'id': hw_user[0],
-                        'username': hw_user[1],
-                        'full_name': hw_user[3],
-                        'role': hw_user[4]
-                    },
-                    'message': 'Login successful',
-                    'redirect': '/pos-system.html'
-                }), 200
-            else:
+            if not user:
                 return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
-    except Exception as e:
-        print(f"⚠️  Error checking hardware_users: {e}")
-    
-    # If not hardware user, try users table with hashed passwords
-    try:
-        password_hash = hash_password(password)
-        query = "SELECT id, username, email, full_name, role FROM users WHERE username = %s AND password_hash = %s AND is_active = TRUE"
-        user = execute_query(query, (username, password_hash), fetch_one=True)
-        
-        if user:
+            
+            if user[2] != password:
+                return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+            
             session.permanent = True
-            session['user_id'] = user[0]
+            session['user_id'] = int(user[0])
             session['username'] = user[1]
             session['full_name'] = user[3]
             session['role'] = user[4]
+            session['userid'] = int(user[0])
+            session['user_name'] = user[3]
             
-            # Update last login
-            execute_query("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s", (user[0],), commit=True)
-            
-            print(f"✅ System user {username} logged in via API")
-            
-            log_activity('user_login', f'System user {username} logged in via API with role {user[4]}', 'user', user[0], {'username': username, 'email': user[2], 'role': user[4], 'method': 'api'})
+            log_activity('user_login', f'POS login via admin_users: {username}', 'user', user[0])
             
             return jsonify({
                 'success': True,
                 'user': {
                     'id': user[0],
                     'username': user[1],
-                    'email': user[2],
                     'full_name': user[3],
                     'role': user[4]
                 },
                 'message': 'Login successful',
-                'redirect': '/dashboard'
+                'redirect': '/pos-system.html'
             }), 200
+            
     except Exception as e:
-        print(f"⚠️  Error checking users table: {e}")
-    
-    print(f"❌ Login failed for username: {username}")
-    return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+        print(f"⚠️  POS login error: {e}")
+        return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
 
 @app.route('/api/logoutpos', methods=['POST','GET'])
 def api_logout():
