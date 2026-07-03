@@ -25392,6 +25392,8 @@ File size: {file_size_mb:.1f} MB
 
 def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption):
     """Mobile-optimized PDF sender with lower timeouts and simpler payload"""
+    # Ensure phone number is string (not int from DB)
+    recipient_number = str(recipient_number) if recipient_number is not None else ''
     
     import requests
     import io
