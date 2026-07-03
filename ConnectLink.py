@@ -12411,16 +12411,40 @@ def hr_dashboard():
     user_uuid = session.get('user_uuid')
     user_name = session.get('user_name')
     userid = session.get('userid')
-    hr_role = session.get('hr_role', 'Ordinary User')
+    hr_role = session.get('hr_role')
     hr_employee_id = session.get('hr_employee_id')
-    can_manage_hr = session.get('can_manage_hr', False)
+    can_manage_hr = session.get('can_manage_hr')
 
     if not user_uuid:
         return render_template('mainindex.html')
 
+    # If hr_role isn't in session (e.g. logged in via main login, not hr-login),
+    # look up permissions from DB
+    if hr_role is None and userid:
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT is_super_admin, can_manage_hr
+                    FROM user_permissions
+                    WHERE (user_type = 'projects' OR user_type = 'hr') AND user_id = %s
+                    ORDER BY is_super_admin DESC
+                    LIMIT 1
+                """, (userid,))
+                perm = cursor.fetchone()
+                is_admin = bool(perm and (perm[0] or perm[1]))
+                hr_role = 'Administrator' if is_admin else 'Ordinary User'
+                can_manage_hr = is_admin
+                # Cache in session
+                session['hr_role'] = hr_role
+                session['can_manage_hr'] = can_manage_hr
+        except Exception as e:
+            print(f"HR role lookup error: {e}")
+            hr_role = 'Ordinary User'
+            can_manage_hr = False
+
     return render_template('hr_dashboard.html', user_name=user_name, userid=userid,
-                           hr_role=hr_role, hr_employee_id=hr_employee_id,
-                           can_manage_hr=can_manage_hr)
+                           hr_role=hr_role or 'Ordinary User', hr_employee_id=hr_employee_id,
+                           can_manage_hr=can_manage_hr or False)
 
 
 # ==================== HR API ENDPOINTS ====================
