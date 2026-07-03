@@ -27954,20 +27954,19 @@ $(document).ready(function() {
     // Initialize DataTable for Payment Status table
     if ($('#allpaymentscdTable').length && !$.fn.DataTable.isDataTable('#allpaymentscdTable')) {
         $('#allpaymentscdTable').DataTable({
-            order: [[0, 'desc']],
-            paging: true,
-            pageLength: 25,
-            lengthChange: true,
-            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'All']],
+            order: [[4, 'desc']],
+            paging: false,
             searching: true,
             ordering: true,
-            info: true,
+            info: false,
             language: {
                 emptyTable: 'No payment records found',
-                search: "Search:",
-                info: "Showing _START_ to _END_ of _TOTAL_ records",
-                infoEmpty: "Showing 0 to 0 of 0 records"
-            }
+                search: "Search:"
+            },
+            columnDefs: [
+                { targets: [4,5], createdCell: function(td) { td.style.fontSize = '0.65rem'; td.style.whiteSpace = 'nowrap'; } },
+                { targets: [4], type: 'html' }
+            ]
         });
         console.log('✅ Payment status table initialized');
     }
