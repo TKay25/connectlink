@@ -11972,6 +11972,7 @@ def Dashboard():
                 # Check user permissions for Payments tab across all user types
                 # Try source_system first, then 'projects', then fallback to hr/hardware
                 perms = get_user_permissions(source_sys, source_id)
+                print(f"🔍 Dashboard perms for user {userid} ({source_sys},{source_id}): can_view_payments={perms.get('can_view_payments')}, is_super_admin={perms.get('is_super_admin')}")
                 can_view_payments = perms.get('can_view_payments', False) or perms.get('is_super_admin', False)
 
                 can_edit_projects = perms.get('can_edit_projects', True)
@@ -24629,7 +24630,7 @@ def get_user_permissions(user_type, user_id):
             """, (user_type, user_id))
             row = cursor.fetchone()
             if row:
-                return {
+                result = {
                     'can_manage_projects': row[0], 'can_manage_hardware': row[1],
                     'can_manage_hr': row[2], 'can_add_users': row[3],
                     'can_edit_users': row[4], 'can_delete_users': row[5],
@@ -24637,6 +24638,8 @@ def get_user_permissions(user_type, user_id):
                     'can_manage_roles': row[8], 'is_super_admin': row[9],
                     'can_view_payments': row[10], 'can_edit_projects': row[11] if len(row) > 11 else True
                 }
+                print(f"📊 get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}")
+                return result
             # If no permissions set, check if this is the first user - make them super admin
             cursor.execute("SELECT COUNT(*) FROM user_permissions")
             count = cursor.fetchone()[0]
