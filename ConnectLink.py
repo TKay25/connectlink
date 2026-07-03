@@ -11942,21 +11942,31 @@ def Dashboard():
 
                 results = run1(userid)
 
+                # Look up user's source_id from admin_users for permission lookup
+                cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
+                au = cursor.fetchone()
+                source_sys = au[0] if au else 'projects'
+                source_id = au[1] if au else userid
+
                 # Check user permissions for Payments tab across all user types
-                perms = get_user_permissions('projects', userid)
+                # Try source_system first, then 'projects', then fallback to hr/hardware
+                perms = get_user_permissions(source_sys, source_id)
                 can_view_payments = perms.get('can_view_payments', False) or perms.get('is_super_admin', False)
-                # Also check other user_types in case permissions were set under hr/hardware
                 if not can_view_payments:
-                    for utype in ('hr', 'hardware'):
-                        p = get_user_permissions(utype, userid)
+                    for utype in ('projects', 'hr', 'hardware'):
+                        if utype == source_sys:
+                            continue
+                        p = get_user_permissions(utype, source_id)
                         if p.get('can_view_payments', False) or p.get('is_super_admin', False):
                             can_view_payments = True
                             break
 
                 can_edit_projects = perms.get('can_edit_projects', True) or perms.get('is_super_admin', False)
                 if not can_edit_projects:
-                    for utype in ('hr', 'hardware'):
-                        p = get_user_permissions(utype, userid)
+                    for utype in ('projects', 'hr', 'hardware'):
+                        if utype == source_sys:
+                            continue
+                        p = get_user_permissions(utype, source_id)
                         if p.get('can_edit_projects', True) or p.get('is_super_admin', False):
                             can_edit_projects = True
                             break
