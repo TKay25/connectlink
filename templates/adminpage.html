@@ -19004,10 +19004,6 @@ function loadSettings() {
             }
         })
         .catch(err => console.error('Load settings error:', err));
-    
-    // Highlight current theme
-    const theme = localStorage.getItem('adminTheme') || 'light';
-    highlightThemeCard(theme);
 }
 
 function saveProfileSettings() {
