@@ -24763,10 +24763,27 @@ def user_management_dashboard():
     """User Management portal dashboard"""
     user_uuid = session.get('user_uuid')
     user_name = session.get('user_name')
-    perms = session.get('um_permissions', {})
+    userid = session.get('userid')
+    perms = session.get('um_permissions')
+
     if not user_uuid:
         return render_template('mainindex.html')
-    return render_template('users_dashboard.html', user_name=user_name, perms=perms)
+
+    # Look up permissions if not in session (e.g. switched from another portal)
+    if perms is None and userid:
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
+                au = cursor.fetchone()
+                source_sys = au[0] if au else 'projects'
+                source_id = au[1] if au else userid
+                perms = get_user_permissions(source_sys, source_id)
+                session['um_permissions'] = perms
+        except Exception as e:
+            print(f"UM perms lookup error: {e}")
+            perms = {}
+
+    return render_template('users_dashboard.html', user_name=user_name, perms=perms or {})
 
 
 @app.route('/api/user-management/projects-users')
