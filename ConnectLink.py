@@ -16180,11 +16180,11 @@ def download_contract(project_id):
                 'client_name': row[1],
                 'client_idnumber': row[2],
                 'client_address': row[3],
-                'client_whatsapp': row[4],
+                'client_whatsapp': str(row[4] or ''),
                 'client_email': row[5],
                 'next_of_kin_name': row[6],
                 'next_of_kin_address': row[7],
-                'next_of_kin_phone': row[8],
+                'next_of_kin_phone': str(row[8] or ''),
                 'relationship': row[9],
                 'project_name': row[10],
                 'project_location': row[11],
@@ -23645,6 +23645,7 @@ def send_receipt_to_client():
                 return jsonify({'success': False, 'error_message': 'Project not found'})
             
             whatsapp_number, client_name, project_name, db_paid_date = row
+            whatsapp_number = str(whatsapp_number) if whatsapp_number is not None else ''
             
             # Process date
             date_was_updated = False
