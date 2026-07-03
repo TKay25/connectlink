@@ -18830,9 +18830,10 @@ document.addEventListener('DOMContentLoaded', function() {
         otherModal.show();
     };
     
-    // Manual tab switching fallback
+    // Manual tab switching (prevents Bootstrap's default tab handler)
     document.querySelectorAll('.tab-nav-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
+            e.preventDefault();
             const targetId = this.getAttribute('data-bs-target') || this.getAttribute('data-target');
             if (!targetId) return;
             const target = document.querySelector(targetId);
@@ -18847,6 +18848,9 @@ document.addEventListener('DOMContentLoaded', function() {
             target.classList.add('show', 'active');
         });
     });
+    
+    // Also ensure first non-projects tab has content when clicked via the nav
+    // Show PROJECTS tab content by default (already has show active)
     
     // Any other initialization code
     console.log('DOM ready');
