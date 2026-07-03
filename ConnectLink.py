@@ -12276,4 +12276,16431 @@ def reset_password():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@app.route('/login', methods=['
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return redirect('/')
+    if request.method == 'POST':
+        try:
+            with get_db() as (cursor, connection):
+                email_or_username = request.form.get('emaillogin', '').strip()
+                password = request.form.get('passwordlogin', '').strip()
+
+                if not email_or_username or not password:
+                    return jsonify({'success': False, 'message': 'Username/Email and password are required.'}), 400
+
+                # ===== SINGLE LOGIN: admin_users ONLY =====
+                cursor.execute("""
+                    SELECT id, username, password, full_name, email, role, source_system, source_id, must_reset_password
+                    FROM admin_users WHERE username = %s AND is_active = TRUE
+                """, (email_or_username,))
+                au_row = cursor.fetchone()
+
+                if not au_row:
+                    return jsonify({'success': False, 'message': 'User not found.'}), 404
+
+                if au_row[2] != password:
+                    return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
+
+                # Check if password reset is required
+                if au_row[8]:  # must_reset_password
+                    return jsonify({
+                        'success': False, 'must_reset': True,
+                        'message': 'You must reset your password before continuing.',
+                        'username': email_or_username
+                    }), 403
+
+                userid = int(au_row[0])
+                user_name = au_row[3]
+                source_sys = au_row[6] or 'projects'
+
+                # Determine redirect and permissions
+                perms = get_user_permissions(source_sys, au_row[7] or userid)
+                if not perms.get('is_super_admin', False) and not any([
+                    perms.get('can_manage_projects', False),
+                    perms.get('can_manage_hardware', False),
+                    perms.get('can_manage_hr', False)
+                ]):
+                    # Also check 'projects' user_type as fallback
+                    perms = get_user_permissions('projects', userid)
+
+                has_projects = perms.get('is_super_admin', False) or perms.get('can_manage_projects', False)
+                has_hardware = perms.get('is_super_admin', False) or perms.get('can_manage_hardware', False)
+
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                session['userid'] = userid
+                session['user_name'] = user_name
+                session['username'] = au_row[1]
+                session['full_name'] = user_name
+                session['role'] = au_row[5]
+                session['source_system'] = source_sys
+                session['source_id'] = au_row[7]
+
+                # Smart redirect based on permissions
+                if has_projects:
+                    redirect_to = '/dashboard'
+                elif has_hardware:
+                    redirect_to = '/pos-system.html'
+                else:
+                    redirect_to = '/dashboard'
+
+                log_activity('user_login', f'User {email_or_username} logged in via admin_users', 'user', userid)
+                print(f"✅ User {email_or_username} logged in → {redirect_to}")
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': redirect_to}), 200
+
+        except Exception as e:
+            print(f"Login error: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+    return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
+
+
+@app.route('/hr-login', methods=['POST'])
+def hr_login():
+    """HR portal login - everyone in admin_users can login (basic access).
+    Users with can_manage_hr get Administrator role (full access)."""
+    try:
+        email_or_username = request.form.get('emaillogin', '').strip()
+        password = request.form.get('passwordlogin', '').strip()
+
+        if not email_or_username or not password:
+            return jsonify({'success': False, 'message': 'Email/Username and password are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            # ===== SINGLE LOGIN: admin_users ONLY =====
+            cursor.execute("""
+                SELECT id, username, password, full_name, source_system, source_id, must_reset_password
+                FROM admin_users WHERE username = %s AND is_active = TRUE
+            """, (email_or_username,))
+            au = cursor.fetchone()
+            if not au or au[2] != password:
+                return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
+
+            # Check if password reset is required
+            if au[6]:  # must_reset_password
+                return jsonify({
+                    'success': False, 'must_reset': True,
+                    'message': 'You must reset your password before continuing.',
+                    'username': email_or_username
+                }), 403
+
+            userid = int(au[0])
+            user_name = au[3]
+            source_sys = au[4]
+            source_id = au[5]
+
+            # Check HR permission level across all user types
+            is_hr_admin = False
+            for utype in (source_sys if source_sys else 'projects', 'projects', 'hr'):
+                cursor.execute("""
+                    SELECT can_manage_hr, is_super_admin
+                    FROM user_permissions WHERE user_type=%s AND user_id=%s
+                """, (utype, source_id if source_id else userid))
+                perm_row = cursor.fetchone()
+                if perm_row and (perm_row[0] or perm_row[1]):
+                    is_hr_admin = True
+                    break
+
+            user_uuid = uuid.uuid4()
+            session['user_uuid'] = str(user_uuid)
+            session.permanent = True
+            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+
+            session['userid'] = userid
+            session['user_name'] = user_name
+            session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
+            session['can_manage_hr'] = is_hr_admin
+
+            # Auto-create hr_employee record if not exists
+            cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
+            if not cursor.fetchone():
+                full_name = user_name or ''
+                parts = full_name.split(' ', 1)
+                first = parts[0] if parts else full_name
+                last = parts[1] if len(parts) > 1 else ''
+                hr_role_db = 'Administrator' if is_hr_admin else 'Ordinary User'
+                cursor.execute("""
+                    INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                    VALUES (%s, %s, %s, %s, %s, 'Active', CURRENT_DATE)
+                    ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
+                """, (userid, first, last, email_or_username, hr_role_db))
+                connection.commit()
+            session['hr_employee_id'] = userid
+
+            log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid)
+            print(f"✅ HR login: {user_name} as {session['hr_role']}")
+            return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
+
+    except Exception as e:
+        print(f"HR login error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/hr-dashboard')
+def hr_dashboard():
+    """HR Portal - Employee management dashboard"""
+    user_uuid = session.get('user_uuid')
+    user_name = session.get('user_name')
+    userid = session.get('userid')
+    hr_role = session.get('hr_role')
+    hr_employee_id = session.get('hr_employee_id')
+    can_manage_hr = session.get('can_manage_hr')
+
+    if not user_uuid:
+        return render_template('mainindex.html')
+
+    # If hr_role isn't in session (e.g. logged in via main login, not hr-login),
+    # look up permissions from DB
+    if hr_role is None and userid:
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT is_super_admin, can_manage_hr
+                    FROM user_permissions
+                    WHERE (user_type = 'projects' OR user_type = 'hr') AND user_id = %s
+                    ORDER BY is_super_admin DESC
+                    LIMIT 1
+                """, (userid,))
+                perm = cursor.fetchone()
+                is_admin = bool(perm and (perm[0] or perm[1]))
+                hr_role = 'Administrator' if is_admin else 'Ordinary User'
+                can_manage_hr = is_admin
+                # Cache in session
+                session['hr_role'] = hr_role
+                session['can_manage_hr'] = can_manage_hr
+        except Exception as e:
+            print(f"HR role lookup error: {e}")
+            hr_role = 'Ordinary User'
+            can_manage_hr = False
+
+    return render_template('hr_dashboard.html', user_name=user_name, userid=userid,
+                           hr_role=hr_role or 'Ordinary User', hr_employee_id=hr_employee_id,
+                           can_manage_hr=can_manage_hr or False)
+
+
+# ==================== HR API ENDPOINTS ====================
+
+@app.route('/api/hr/employees', methods=['GET', 'POST'])
+def hr_employees_api():
+    """HR: List all employees (GET) or create a new employee (POST)"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                # Get registered hr_employees
+                cursor.execute("""
+                    SELECT id, user_id, first_name, last_name, whatsapp, email, address,
+                           role, department, subsidiary, designation, gender, dob, marital_status,
+                           nationality, date_joined, current_leave_balance, monthly_accumulation,
+                           basic_salary, employment_type, status
+                    FROM hr_employees ORDER BY last_name, first_name
+                """)
+                rows = cursor.fetchall()
+                employee_ids = set()
+                employees = []
+                for r in rows:
+                    employee_ids.add(r[1] or r[0])
+                    employees.append({
+                        'id': r[0], 'user_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'whatsapp': r[4], 'email': r[5], 'address': r[6],
+                        'role': r[7], 'department': r[8], 'subsidiary': r[9] or '',
+                        'designation': r[10], 'gender': r[11], 'dob': str(r[12]) if r[12] else None,
+                        'marital_status': r[13], 'nationality': r[14],
+                        'date_joined': str(r[15]) if r[15] else None,
+                        'leave_balance': float(r[16] or 0), 'monthly_accrual': float(r[17] or 0),
+                        'salary': float(r[18] or 0), 'employment_type': r[19], 'status': r[20],
+                        'source': 'hr_employees'
+                    })
+
+                # Also include admin_users not yet in hr_employees
+                cursor.execute("""
+                    SELECT id, username, full_name, email, source_system, created_at
+                    FROM admin_users WHERE is_active = TRUE ORDER BY full_name
+                """)
+                for au in cursor.fetchall():
+                    au_id = au[0]
+                    if au_id in employee_ids:
+                        continue
+                    full_name = au[2] or ''
+                    parts = full_name.split(' ', 1)
+                    first = parts[0] if parts else full_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    employees.append({
+                        'id': au_id, 'user_id': None, 'first_name': first, 'last_name': last,
+                        'whatsapp': '', 'email': au[3] or '', 'address': '',
+                        'role': 'Ordinary User', 'department': '', 'designation': '',
+                        'gender': '', 'dob': None, 'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(au[5])[:10] if au[5] else None,
+                        'leave_balance': 21, 'monthly_accrual': 1.75,
+                        'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'source': 'admin_users'
+                    })
+                    employee_ids.add(au_id)
+
+                # Also include connectlinkusers not yet in hr_employees or admin_users
+                cursor.execute("""
+                    SELECT id, name, email, datecreated
+                    FROM connectlinkusers ORDER BY name
+                """)
+                for clu in cursor.fetchall():
+                    clu_id = clu[0]
+                    if clu_id in employee_ids:
+                        continue
+                    full_name = clu[1] or ''
+                    parts = full_name.split(' ', 1)
+                    first = parts[0] if parts else full_name
+                    last = parts[1] if len(parts) > 1 else ''
+                    employees.append({
+                        'id': clu_id, 'user_id': None, 'first_name': first, 'last_name': last,
+                        'whatsapp': '', 'email': clu[2] or '', 'address': '',
+                        'role': 'Ordinary User', 'department': '', 'designation': '',
+                        'gender': '', 'dob': None, 'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(clu[3])[:10] if clu[3] else None,
+                        'leave_balance': 21, 'monthly_accrual': 1.75,
+                        'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'source': 'connectlinkusers'
+                    })
+                    employee_ids.add(clu_id)
+
+                return jsonify({'success': True, 'data': employees})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_employees
+                        (first_name, last_name, whatsapp, email, address, role, department,
+                         designation, gender, dob, marital_status, nationality, date_joined,
+                         current_leave_balance, monthly_accumulation, basic_salary, employment_type, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (
+                    data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
+                    data.get('email'), data.get('address'), data.get('role', 'Ordinary User'),
+                    data.get('department'), data.get('designation'), data.get('gender'),
+                    data.get('dob'), data.get('marital_status'), data.get('nationality'),
+                    data.get('date_joined'), data.get('leave_balance', 21),
+                    data.get('monthly_accrual', 1.75), data.get('salary', 0),
+                    data.get('employment_type', 'Permanent'), data.get('status', 'Active')
+                ))
+                emp_id = cursor.fetchone()[0]
+
+                # Sync to admin_users if not already there
+                email = data.get('email', '') or ''
+                whatsapp = data.get('whatsapp', '') or ''
+                first = (data.get('first_name', '') or '').strip()
+                last = (data.get('last_name', '') or '').strip()
+                full_name = f"{first} {last}".strip()
+                # Generate a unique username if no email provided
+                username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
+                if full_name:
+                    try:
+                        cursor.execute("""
+                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
+                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW())
+                            ON CONFLICT (username) DO NOTHING
+                        """, (username, full_name, email))
+                    except Exception:
+                        pass
+
+                connection.commit()
+                return jsonify({'success': True, 'id': emp_id, 'message': 'Employee added successfully'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/employees/<int:emp_id>', methods=['GET', 'PUT', 'DELETE'])
+def hr_employee_detail(emp_id):
+    """HR: Get, update, or delete a single employee"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT * FROM hr_employees WHERE id = %s", (emp_id,))
+                r = cursor.fetchone()
+                if r:
+                    cols = [desc[0] for desc in cursor.description]
+                    emp = dict(zip(cols, r))
+                    for k, v in emp.items():
+                        if hasattr(v, 'isoformat'):
+                            emp[k] = v.isoformat()
+                        elif hasattr(v, 'strftime'):
+                            emp[k] = v.strftime('%Y-%m-%d')
+                    emp['source'] = 'hr_employees'
+                    return jsonify({'success': True, 'data': emp})
+                
+                # Fallback: try admin_users (for auto-created employees)
+                cursor.execute("SELECT id, username, full_name, email, source_system, created_at FROM admin_users WHERE id = %s", (emp_id,))
+                au = cursor.fetchone()
+                if au:
+                    full_name = au[2] or ''
+                    parts = full_name.split(' ', 1)
+                    emp = {
+                        'id': au[0], 'user_id': None, 'first_name': parts[0] if parts else full_name,
+                        'last_name': parts[1] if len(parts) > 1 else '', 'whatsapp': '',
+                        'email': au[3] or '', 'address': '', 'role': 'Ordinary User',
+                        'department': '', 'designation': '', 'gender': '', 'dob': None,
+                        'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(au[5])[:10] if au[5] else None,
+                        'current_leave_balance': 21, 'monthly_accumulation': 1.75,
+                        'basic_salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
+                        'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
+                        'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
+                        'c8_number': '', 'c8_type': '', 'source': 'admin_users'
+                    }
+                    return jsonify({'success': True, 'data': emp})
+
+                # Fallback: try connectlinkusers
+                cursor.execute("SELECT id, name, email, datecreated FROM connectlinkusers WHERE id = %s", (emp_id,))
+                clu = cursor.fetchone()
+                if clu:
+                    full_name = clu[1] or ''
+                    parts = full_name.split(' ', 1)
+                    emp = {
+                        'id': clu[0], 'user_id': None, 'first_name': parts[0] if parts else full_name,
+                        'last_name': parts[1] if len(parts) > 1 else '', 'whatsapp': '',
+                        'email': clu[2] or '', 'address': '', 'role': 'Ordinary User',
+                        'department': '', 'designation': '', 'gender': '', 'dob': None,
+                        'marital_status': '', 'nationality': 'Zimbabwean',
+                        'date_joined': str(clu[3])[:10] if clu[3] else None,
+                        'current_leave_balance': 21, 'monthly_accumulation': 1.75,
+                        'basic_salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
+                        'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
+                        'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
+                        'c8_number': '', 'c8_type': '', 'source': 'connectlinkusers'
+                    }
+                    return jsonify({'success': True, 'data': emp})
+                
+                return jsonify({'success': False, 'error': 'Employee not found'}), 404
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'PUT':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                # Try updating hr_employees first
+                cursor.execute("UPDATE hr_employees SET id=id WHERE id=%s", (emp_id,))
+                exists = cursor.rowcount > 0
+                if not exists:
+                    # Employee not in hr_employees — check admin_users and auto-create
+                    cursor.execute("SELECT id, username, full_name, email FROM admin_users WHERE id=%s", (emp_id,))
+                    au = cursor.fetchone()
+                    if au:
+                        full_name = au[2] or ''
+                        parts = full_name.split(' ', 1)
+                        first = parts[0] if parts else full_name
+                        last = parts[1] if len(parts) > 1 else ''
+                        email = au[3] or data.get('email', '')
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name
+                        """, (emp_id, first, last, email))
+                    else:
+                        # Fallback: try connectlinkusers
+                        cursor.execute("SELECT id, name, email FROM connectlinkusers WHERE id=%s", (emp_id,))
+                        clu = cursor.fetchone()
+                        if clu:
+                            full_name = clu[1] or ''
+                            parts = full_name.split(' ', 1)
+                            first = parts[0] if parts else full_name
+                            last = parts[1] if len(parts) > 1 else ''
+                            email = clu[2] or data.get('email', '')
+                            cursor.execute("""
+                                INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                                VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                                ON CONFLICT (id) DO UPDATE SET first_name=EXCLUDED.first_name, last_name=EXCLUDED.last_name
+                            """, (emp_id, first, last, email))
+                cursor.execute("""
+                    UPDATE hr_employees SET
+                        first_name=%s, last_name=%s, whatsapp=%s, email=%s, address=%s,
+                        role=%s, department=%s, subsidiary=%s, designation=%s, gender=%s, dob=%s,
+                        marital_status=%s, nationality=%s, date_joined=%s,
+                        current_leave_balance=%s, monthly_accumulation=%s,
+                        basic_salary=%s, employment_type=%s, status=%s,
+                        bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
+                        bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
+                        usd_percent=%s, zwg_percent=%s, exchange_rate=%s,
+                        leave_approver_name=%s, leave_approver_id=%s, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (
+                    data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
+                    data.get('email'), data.get('address'), data.get('role', 'Ordinary User'),
+                    data.get('department'), data.get('subsidiary', ''), data.get('designation'), data.get('gender'),
+                    data.get('dob'), data.get('marital_status'), data.get('nationality'),
+                    data.get('date_joined'), data.get('current_leave_balance', 21),
+                    data.get('monthly_accumulation', 1.75), data.get('basic_salary', 0),
+                    data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
+                    data.get('bank_holder_name'), data.get('bank_holder_surname'),
+                    data.get('bank_name'), data.get('bank_account_number'),
+                    data.get('bank_branch'), data.get('bank_branch_code'),
+                    data.get('usd_percent', 100), data.get('zwg_percent', 0),
+                    data.get('exchange_rate', 1), data.get('leave_approver_name'),
+                    data.get('leave_approver_id'), emp_id
+                ))
+                # Sync changes to admin_users
+                try:
+                    first = (data.get('first_name', '') or '').strip()
+                    last = (data.get('last_name', '') or '').strip()
+                    full_name = f"{first} {last}".strip()
+                    email = data.get('email', '') or ''
+                    whatsapp = data.get('whatsapp', '') or ''
+                    username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
+                    if full_name:
+                        cursor.execute("""
+                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
+                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW())
+                            ON CONFLICT (username) DO UPDATE SET
+                                full_name = EXCLUDED.full_name,
+                                email = EXCLUDED.email,
+                                updated_at = NOW()
+                        """, (username, full_name, email))
+                except Exception:
+                    pass
+
+                # Sync role ↔ user_permissions.can_manage_hr
+                try:
+                    new_role = data.get('role', 'Ordinary User')
+                    is_admin = (new_role == 'Administrator')
+                    # Try both user_type='projects' and user_type='hr' for the emp_id
+                    for utype in ('projects', 'hr'):
+                        cursor.execute("""
+                            INSERT INTO user_permissions (user_type, user_id, can_manage_hr, is_super_admin)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (user_type, user_id) DO UPDATE SET can_manage_hr = EXCLUDED.can_manage_hr
+                        """, (utype, emp_id, is_admin, False))
+                except Exception:
+                    pass
+
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Employee updated successfully'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'DELETE':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("DELETE FROM hr_employees WHERE id = %s", (emp_id,))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Employee removed'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave-balances/<int:emp_id>', methods=['GET', 'POST'])
+def hr_leave_balances(emp_id):
+    """Get or update per-leave-type balances for an employee"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT leave_type, current_balance, monthly_accrual, annual_accrual, carry_forward
+                    FROM hr_employee_leave_balances WHERE employee_id=%s
+                """, (emp_id,))
+                rows = cursor.fetchall()
+                balances = [{
+                    'leave_type': r[0], 'current_balance': float(r[1] or 0),
+                    'monthly_accrual': float(r[2] or 0),
+                    'annual_accrual': float(r[3] or 0),
+                    'carry_forward': float(r[4] or 0)
+                } for r in rows]
+                return jsonify({'success': True, 'data': balances})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            balances = data.get('balances', [])
+            with get_db() as (cursor, connection):
+                # Ensure employee exists in hr_employees first (FK constraint)
+                cursor.execute("UPDATE hr_employees SET id=id WHERE id=%s", (emp_id,))
+                if cursor.rowcount == 0:
+                    # Auto-create from admin_users if available
+                    cursor.execute("SELECT id, username, full_name, email FROM admin_users WHERE id=%s", (emp_id,))
+                    au = cursor.fetchone()
+                    if au:
+                        full_name = au[2] or ''
+                        parts = full_name.split(' ', 1)
+                        first = parts[0] if parts else full_name
+                        last = parts[1] if len(parts) > 1 else ''
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO NOTHING
+                        """, (emp_id, first, last, au[3] or ''))
+                    else:
+                        # Create a minimal placeholder
+                        cursor.execute("""
+                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                            VALUES (%s, 'Employee', '', '', 'Ordinary User', 'Active', NOW())
+                            ON CONFLICT (id) DO NOTHING
+                        """, (emp_id,))
+                for b in balances:
+                    cursor.execute("""
+                        INSERT INTO hr_employee_leave_balances
+                            (employee_id, leave_type, current_balance, monthly_accrual, annual_accrual, carry_forward)
+                        VALUES (%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (employee_id, leave_type) DO UPDATE SET
+                            current_balance=EXCLUDED.current_balance,
+                            monthly_accrual=EXCLUDED.monthly_accrual,
+                            annual_accrual=EXCLUDED.annual_accrual,
+                            carry_forward=EXCLUDED.carry_forward,
+                            updated_at=NOW()
+                    """, (
+                        emp_id, b.get('leave_type'),
+                        b.get('current_balance', 0), b.get('monthly_accrual', 0),
+                        b.get('annual_accrual', 0), b.get('carry_forward', 0)
+                    ))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Leave balances updated'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave', methods=['GET', 'POST'])
+def hr_leave_api():
+    """HR: List leave applications or create a new one"""
+    if request.method == 'GET':
+        try:
+            status_filter = request.args.get('status', '')
+            with get_db() as (cursor, connection):
+                query = """
+                    SELECT id, employee_id, employee_name, leave_type, from_date, to_date,
+                           days, reason, status, approved_by, approved_at, created_at
+                    FROM hr_leave_applications
+                """
+                params = []
+                if status_filter:
+                    query += " WHERE status = %s"
+                    params.append(status_filter)
+                query += " ORDER BY created_at DESC"
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                leaves = []
+                for r in rows:
+                    leaves.append({
+                        'id': r[0], 'employee_id': r[1], 'employee_name': r[2],
+                        'leave_type': r[3], 'from_date': str(r[4]) if r[4] else None,
+                        'to_date': str(r[5]) if r[5] else None, 'days': r[6],
+                        'reason': r[7], 'status': r[8], 'approved_by': r[9],
+                        'approved_at': str(r[10]) if r[10] else None,
+                        'created_at': str(r[11]) if r[11] else None
+                    })
+                return jsonify({'success': True, 'data': leaves})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_leave_applications
+                        (employee_id, employee_name, leave_type, from_date, to_date, days, reason, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,'Pending')
+                    RETURNING id
+                """, (
+                    data.get('employee_id'), data.get('employee_name'),
+                    data.get('leave_type'), data.get('from_date'),
+                    data.get('to_date'), data.get('days'), data.get('reason', '')
+                ))
+                lid = cursor.fetchone()[0]
+                connection.commit()
+                return jsonify({'success': True, 'id': lid, 'message': 'Leave request submitted'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/approve', methods=['POST'])
+def hr_leave_approve(leave_id):
+    """Approve a leave application"""
+    try:
+        data = request.get_json() or {}
+        approver = data.get('approved_by', session.get('user_name', 'Admin'))
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET status = 'Approved', approved_by = %s, approved_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND status = 'Pending'
+                RETURNING id, employee_id, employee_name, leave_type, from_date, to_date, days
+            """, (approver, leave_id))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'error': 'Leave not found or already processed'}), 400
+
+            # Insert into approved table
+            cursor.execute("""
+                INSERT INTO hr_leave_approved
+                    (application_id, employee_id, employee_name, leave_type, from_date, to_date, days, approved_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, result)
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave approved successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/decline', methods=['POST'])
+def hr_leave_decline(leave_id):
+    """Decline a leave application"""
+    try:
+        data = request.get_json() or {}
+        decliner = data.get('declined_by', session.get('user_name', 'Admin'))
+        reason = data.get('reason', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET status = 'Declined'
+                WHERE id = %s AND status = 'Pending'
+                RETURNING id, employee_id, employee_name, leave_type, from_date, to_date, days
+            """, (leave_id,))
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'error': 'Leave not found or already processed'}), 400
+
+            cursor.execute("""
+                INSERT INTO hr_leave_declined
+                    (application_id, employee_id, employee_name, leave_type, from_date, to_date, days, reason, declined_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (*result, reason, decliner))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave declined'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/update', methods=['POST'])
+def hr_leave_update(leave_id):
+    """Update a pending leave application (only the applicant can edit their own pending leave)"""
+    try:
+        data = request.get_json() or {}
+        user_name = session.get('user_name', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT employee_name, status FROM hr_leave_applications WHERE id = %s", (leave_id,))
+            existing = cursor.fetchone()
+            if not existing:
+                return jsonify({'success': False, 'error': 'Leave not found'}), 404
+            if existing[1] != 'Pending':
+                return jsonify({'success': False, 'error': 'Only pending leave can be edited'}), 400
+            if existing[0] != user_name:
+                return jsonify({'success': False, 'error': 'You can only edit your own leave'}), 403
+
+            cursor.execute("""
+                UPDATE hr_leave_applications
+                SET leave_type=%s, from_date=%s, to_date=%s, days=%s, reason=%s
+                WHERE id=%s AND status='Pending'
+            """, (
+                data.get('leave_type'), data.get('from_date'),
+                data.get('to_date'), data.get('days'), data.get('reason', ''),
+                leave_id
+            ))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave updated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/leave/<int:leave_id>/cancel', methods=['POST'])
+def hr_leave_cancel(leave_id):
+    """Cancel a pending leave application (applicant cancels their own leave)"""
+    try:
+        user_name = session.get('user_name', '')
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT employee_name, status FROM hr_leave_applications WHERE id = %s", (leave_id,))
+            existing = cursor.fetchone()
+            if not existing:
+                return jsonify({'success': False, 'error': 'Leave not found'}), 404
+            if existing[1] != 'Pending':
+                return jsonify({'success': False, 'error': 'Only pending leave can be cancelled'}), 400
+            if existing[0] != user_name:
+                return jsonify({'success': False, 'error': 'You can only cancel your own leave'}), 403
+
+            cursor.execute("""
+                UPDATE hr_leave_applications SET status = 'Cancelled'
+                WHERE id=%s AND status='Pending'
+            """, (leave_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Leave cancelled successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/attendance', methods=['GET', 'POST'])
+def hr_attendance_api():
+    """HR: Get today's attendance or record check-in/check-out"""
+    if request.method == 'GET':
+        try:
+            att_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT a.id, a.employee_id, e.first_name, e.last_name, e.department,
+                           a.check_in, a.check_out, a.status, a.notes
+                    FROM hr_attendance a
+                    JOIN hr_employees e ON a.employee_id = e.id
+                    WHERE a.date = %s
+                    ORDER BY a.check_in NULLS LAST
+                """, (att_date,))
+                rows = cursor.fetchall()
+                records = []
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'employee_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'department': r[4], 'check_in': str(r[5]) if r[5] else None,
+                        'check_out': str(r[6]) if r[6] else None, 'status': r[7], 'notes': r[8]
+                    })
+                return jsonify({'success': True, 'data': records, 'date': att_date})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            emp_id = data.get('employee_id')
+            action = data.get('action', 'check_in')  # check_in or check_out
+            with get_db() as (cursor, connection):
+                if action == 'check_in':
+                    cursor.execute("""
+                        INSERT INTO hr_attendance (employee_id, date, check_in, status)
+                        VALUES (%s, CURRENT_DATE, CURRENT_TIME, 'Present')
+                        ON CONFLICT (employee_id, date) DO UPDATE
+                        SET check_in = COALESCE(hr_attendance.check_in, CURRENT_TIME),
+                            status = 'Present'
+                    """, (emp_id,))
+                else:
+                    cursor.execute("""
+                        INSERT INTO hr_attendance (employee_id, date, check_out, status)
+                        VALUES (%s, CURRENT_DATE, CURRENT_TIME, 'Present')
+                        ON CONFLICT (employee_id, date) DO UPDATE
+                        SET check_out = CURRENT_TIME
+                    """, (emp_id,))
+                connection.commit()
+                return jsonify({'success': True, 'message': f'Attendance {action} recorded'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll', methods=['GET', 'POST'])
+def hr_payroll_api():
+    """HR: List payroll records or process payroll for a period"""
+    if request.method == 'GET':
+        try:
+            period = request.args.get('period', datetime.now().strftime('%Y-%m'))
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
+                           p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
+                           p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
+                           p.nssa, p.zimdef
+                    FROM hr_payroll p
+                    JOIN hr_employees e ON p.employee_id = e.id
+                    WHERE p.period = %s
+                    ORDER BY e.last_name
+                """, (period,))
+                rows = cursor.fetchall()
+                records = []
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'employee_id': r[1], 'first_name': r[2], 'last_name': r[3],
+                        'department': r[4], 'period': r[5], 'basic_pay': float(r[6] or 0),
+                        'allowances': float(r[7] or 0), 'deductions': float(r[8] or 0),
+                        'net_pay': float(r[9] or 0), 'status': r[10],
+                        'processed_at': str(r[11]) if r[11] else None,
+                        'gross_pay': float(r[12] or 0),
+                        'paye_tax': float(r[13] or 0), 'aids_levy': float(r[14] or 0),
+                        'nssa': float(r[15] or 0), 'zimdef': float(r[16] or 0)
+                    })
+                return jsonify({'success': True, 'data': records, 'period': period})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            period = data.get('period', datetime.now().strftime('%Y-%m'))
+            with get_db() as (cursor, connection):
+                # Load active PAYE tax brackets
+                paye_brackets = []
+                cursor.execute("""
+                    SELECT b.income_from, b.income_to, b.tax_rate, b.cumulative_tax
+                    FROM paye_tax_brackets b
+                    JOIN paye_tax_tables t ON b.table_id = t.id
+                    WHERE t.is_active = TRUE
+                    ORDER BY b.bracket_order, b.income_from
+                """)
+                bracket_rows = cursor.fetchall()
+                for br in bracket_rows:
+                    paye_brackets.append({
+                        'from': float(br[0] or 0),
+                        'to': float(br[1] or 0),
+                        'rate': float(br[2] or 0),
+                        'cumulative': float(br[3] or 0)
+                    })
+
+                def calc_paye_tax(annual_salary, brackets):
+                    """Calculate PAYE tax using progressive tax brackets."""
+                    if not brackets:
+                        return 0
+                    tax = 0
+                    remaining = annual_salary
+                    for b in brackets:
+                        if remaining <= 0:
+                            break
+                        bracket_income = b['to'] - b['from']
+                        taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                        if taxable > 0:
+                            tax += taxable * (b['rate'] / 100)
+                        remaining -= taxable
+                        if b['to'] <= 0:  # top bracket (open-ended)
+                            break
+                    return tax
+
+                # Load deduction configs
+                cursor.execute("""
+                    SELECT deduction_code, rate, rate_type, ceiling_amount
+                    FROM payroll_deduction_config WHERE is_active = TRUE
+                """)
+                deduction_configs = {}
+                for dc in cursor.fetchall():
+                    deduction_configs[dc[0]] = {
+                        'rate': float(dc[1]), 'rate_type': dc[2],
+                        'ceiling': float(dc[3] or 0)
+                    }
+
+                def calc_statutory_deductions(monthly_salary, monthly_paye):
+                    """Calculate all Zimbabwe statutory deductions."""
+                    aids_config = deduction_configs.get('AIDS_LEVY', {})
+                    aids_rate = aids_config.get('rate', 3.0)
+                    aids_levy = monthly_paye * (aids_rate / 100) if aids_config.get('rate_type') == 'percentage_of_paye' else 0
+
+                    nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+                    nssa_rate = nssa_config.get('rate', 4.5)
+                    nssa_ceiling = nssa_config.get('ceiling', 0)
+                    nssa_gross = monthly_salary
+                    if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
+                        nssa_gross = nssa_ceiling
+                    nssa = nssa_gross * (nssa_rate / 100)
+
+                    zimdef_config = deduction_configs.get('ZIMDEF', {})
+                    zimdef_rate = zimdef_config.get('rate', 1.0)
+                    zimdef = monthly_salary * (zimdef_rate / 100)
+
+                    return {
+                        'paye': monthly_paye,
+                        'aids_levy': aids_levy,
+                        'nssa': nssa,
+                        'zimdef': zimdef,
+                        'total': monthly_paye + aids_levy + nssa + zimdef
+                    }
+
+                # Process payroll for all active employees
+                cursor.execute("""
+                    SELECT id, first_name, last_name, basic_salary, usd_percent, zwg_percent, exchange_rate
+                    FROM hr_employees WHERE status = 'Active'
+                """)
+                employees = cursor.fetchall()
+                processed = 0
+                for emp in employees:
+                    emp_id = emp[0]
+                    basic = float(emp[3] or 0)
+                    allowances = 0
+                    gross = basic + allowances
+
+                    # Calculate PAYE tax (annualize salary, compute tax, then monthly)
+                    annual_salary = basic * 12
+                    annual_paye = calc_paye_tax(annual_salary, paye_brackets)
+                    monthly_paye = annual_paye / 12
+
+                    # Calculate all statutory deductions
+                    stats = calc_statutory_deductions(basic, monthly_paye)
+                    total_deductions = stats['total']
+                    net = max(0, gross - total_deductions)
+
+                    cursor.execute("""
+                        INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, gross_pay,
+                            deductions, paye_tax, aids_levy, nssa, zimdef, net_pay, status, processed_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP)
+                        ON CONFLICT DO NOTHING
+                    """, (emp_id, period, basic, allowances, gross,
+                          round(total_deductions, 2), round(monthly_paye, 2),
+                          round(stats['aids_levy'], 2), round(stats['nssa'], 2),
+                          round(stats['zimdef'], 2), round(net, 2)))
+                    processed += 1
+
+                # Generate payroll archive Excel
+                try:
+                    # Re-fetch the processed payroll with employee details for the Excel
+                    cursor.execute("""
+                        SELECT e.first_name, e.last_name, e.department, e.designation,
+                               e.basic_salary, e.bank_holder_name, e.bank_holder_surname,
+                               e.bank_name, e.bank_account_number, e.bank_branch, e.bank_branch_code,
+                               e.usd_percent, e.zwg_percent, e.exchange_rate, e.currency,
+                               e.c8_number, e.c8_type, e.nationality,
+                               p.basic_pay, p.allowances, p.gross_pay,
+                               p.paye_tax, p.aids_levy, p.nssa, p.zimdef,
+                               p.deductions, p.net_pay, p.status
+                        FROM hr_payroll p
+                        JOIN hr_employees e ON p.employee_id = e.id
+                        WHERE p.period = %s
+                        ORDER BY e.last_name, e.first_name
+                    """, (period,))
+                    payroll_rows = cursor.fetchall()
+
+                    emp_count = len(payroll_rows)
+                    total_gross = sum(float(r[20] or 0) for r in payroll_rows)
+                    total_net = sum(float(r[26] or 0) for r in payroll_rows)
+                    user_name = session.get('user_name', 'System')
+
+                    from openpyxl import Workbook
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.title = f"Payroll {period}"
+
+                    # Styles
+                    from openpyxl.styles import Font as XlFont, PatternFill as XlFill, Alignment as XlAlign, Border as XlBorder, Side as XlSide
+                    header_fill = XlFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+                    header_font = XlFont(bold=True, color='FFFFFF', size=10)
+                    title_font = XlFont(bold=True, size=14, color='1E2A56')
+                    subtitle_font = XlFont(size=9, color='64748B')
+                    thin_border = XlBorder(
+                        left=XlSide(style='thin', color='CBD5E1'),
+                        right=XlSide(style='thin', color='CBD5E1'),
+                        top=XlSide(style='thin', color='CBD5E1'),
+                        bottom=XlSide(style='thin', color='CBD5E1')
+                    )
+
+                    # Title section
+                    ws.merge_cells('A1:U1')
+                    ws['A1'].value = f"ConnectLink — Payroll Register ({period})"
+                    ws['A1'].font = title_font
+                    ws['A1'].alignment = XlAlign(horizontal='left')
+
+                    ws.merge_cells('A2:U2')
+                    ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {emp_count} | Total Gross: ${total_gross:,.2f} | Total Net: ${total_net:,.2f}"
+                    ws['A2'].font = subtitle_font
+
+                    # Headers (row 4)
+                    headers = [
+                        '#', 'First Name', 'Last Name', 'Department', 'Designation',
+                        'Basic Pay', 'Allowances', 'Gross Pay',
+                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'ZIMDEF', 'Total Deductions',
+                        'Net Pay', 'Status',
+                        'Bank Holder', 'Bank Name', 'Account Number', 'Branch', 'Branch Code',
+                        'Currency'
+                    ]
+                    for col_idx, h in enumerate(headers, 1):
+                        cell = ws.cell(row=4, column=col_idx, value=h)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = XlAlign(horizontal='center', vertical='center', wrap_text=True)
+                        cell.border = thin_border
+
+                    # Data rows
+                    data_font = XlFont(size=9)
+                    for row_idx, r in enumerate(payroll_rows, 5):
+                        values = [
+                            row_idx - 4,
+                            r[0] or '', r[1] or '', r[2] or '', r[3] or '',
+                            float(r[18] or 0), float(r[19] or 0), float(r[20] or 0),
+                            float(r[21] or 0), float(r[22] or 0), float(r[23] or 0), float(r[24] or 0),
+                            float(r[25] or 0), float(r[26] or 0), r[27] or '',
+                            r[5] or '', r[7] or '', r[8] or '', r[9] or '', r[10] or '',
+                            r[14] or 'USD'
+                        ]
+                        for col_idx, val in enumerate(values, 1):
+                            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                            cell.font = data_font
+                            cell.border = thin_border
+                            if isinstance(val, float):
+                                cell.number_format = '#,##0.00'
+                                cell.alignment = XlAlign(horizontal='right')
+
+                    # Column widths
+                    widths = [5, 16, 16, 18, 18, 12, 10, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
+                    for i, w in enumerate(widths, 1):
+                        col_letter = ws.cell(row=1, column=i).column_letter
+                        ws.column_dimensions[col_letter].width = w
+
+                    # Banking Info Summary section
+                    summary_row = len(payroll_rows) + 7
+                    ws.merge_cells(f'A{summary_row}:U{summary_row}')
+                    ws.cell(row=summary_row, column=1).value = "Employee Banking Details"
+                    ws.cell(row=summary_row, column=1).font = XlFont(bold=True, size=11, color='1E2A56')
+
+                    bank_headers = ['#', 'Employee', 'Bank', 'Account Number', 'Branch', 'Branch Code', 'Net Pay']
+                    for col_idx, h in enumerate(bank_headers, 1):
+                        cell = ws.cell(row=summary_row + 1, column=col_idx, value=h)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.border = thin_border
+
+                    for row_idx, r in enumerate(payroll_rows, summary_row + 2):
+                        emp_name = f"{r[0] or ''} {r[1] or ''}".strip()
+                        bank_vals = [
+                            row_idx - summary_row - 1,
+                            emp_name,
+                            r[7] or '',
+                            r[8] or '',
+                            r[9] or '',
+                            r[10] or '',
+                            float(r[26] or 0)
+                        ]
+                        for col_idx, val in enumerate(bank_vals, 1):
+                            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                            cell.font = data_font
+                            cell.border = thin_border
+                            if isinstance(val, float):
+                                cell.number_format = '#,##0.00'
+
+                    # Save to bytes
+                    output = io.BytesIO()
+                    wb.save(output)
+                    excel_bytes = output.getvalue()
+                    file_size = len(excel_bytes)
+
+                    # Store in payroll_archives
+                    filename = f"Payroll_{period}.xlsx"
+                    cursor.execute("""
+                        INSERT INTO payroll_archives (period, filename, file_data, file_size, employee_count, total_gross, total_net, generated_by)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (period) DO UPDATE SET
+                            file_data = EXCLUDED.file_data,
+                            file_size = EXCLUDED.file_size,
+                            employee_count = EXCLUDED.employee_count,
+                            total_gross = EXCLUDED.total_gross,
+                            total_net = EXCLUDED.total_net,
+                            generated_by = EXCLUDED.generated_by,
+                            generated_at = CURRENT_TIMESTAMP
+                    """, (period, filename, psycopg2.Binary(excel_bytes), file_size, emp_count,
+                          round(total_gross, 2), round(total_net, 2), user_name))
+
+                    connection.commit()
+                    archive_saved = True
+                    archive_filename = filename
+                    archive_id = None
+                    # Get the archive id
+                    cursor.execute("SELECT id FROM payroll_archives WHERE period = %s", (period,))
+                    row = cursor.fetchone()
+                    if row:
+                        archive_id = row[0]
+
+                except Exception as excel_err:
+                    print(f"Note: Could not generate payroll archive: {excel_err}")
+                    connection.commit()
+                    archive_saved = False
+                    archive_filename = None
+                    archive_id = None
+
+                return jsonify({
+                    'success': True,
+                    'message': f'Payroll processed for {processed} employees',
+                    'processed': processed,
+                    'archive_saved': archive_saved if 'archive_saved' in dir() else False,
+                    'archive_id': archive_id if 'archive_id' in dir() else None,
+                    'archive_filename': archive_filename if 'archive_filename' in dir() else None
+                })
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# PAYE TAX TABLE MANAGEMENT
+# ============================================================
+
+ALLOWED_PAYE_EXTENSIONS = {'pdf'}
+
+def parse_paye_pdf(file_bytes):
+    """Parse a PAYE tax table PDF and extract brackets."""
+    import re
+    from PyPDF2 import PdfReader
+    import io
+
+    reader = PdfReader(io.BytesIO(file_bytes))
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+
+    brackets = []
+    lines = text.split('\n')
+    
+    # Common patterns in PAYE tables:
+    # Pattern 1: "Up to $X" or "1 - $X" → rate
+    # Pattern 2: "$X - $Y" → rate
+    # Pattern 3: "Above $X" or "Over $X" → rate
+    # Try to extract tabular data
+    
+    # Pattern: look for lines with dollar amounts and percentages
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Match: "1 - 5,000 0%" or "5,001 - 10,000 20%" etc.
+        m = re.match(r'^[\d\.]+\s*[-–—to]+\s*([\d,]+)\s+([\d\.]+)\s*%?', line.replace(',','').replace(' ',''))
+        if m:
+            # This might be numbered bracket, skip as first num might be index
+            continue
+            
+        # Match: ranges like "0 - 5,000" or "$0 - $5,000"
+        m = re.search(r'(?:Up to)\s*\$?([\d,]+)', line, re.I)
+        if m:
+            upper = float(m.group(1).replace(',', ''))
+            brackets.append({'from': 0, 'to': upper, 'rate': 0})
+            continue
+            
+        m = re.search(r'(?:Over|Above|Beyond)\s*\$?([\d,]+)', line, re.I)
+        if m:
+            lower = float(m.group(1).replace(',', ''))
+            # Check if there's a percentage on this line
+            rate_m = re.search(r'([\d\.]+)\s*%', line)
+            rate = float(rate_m.group(1)) if rate_m else 0
+            brackets.append({'from': lower, 'to': -1, 'rate': rate})
+            continue
+    
+    # If we didn't find structured brackets, try harder parsing
+    if len(brackets) < 2:
+        brackets = []
+        # Find all lines with percentages
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            # Look for percentage
+            pct_m = re.search(r'([\d\.]+)\s*%', line)
+            if not pct_m:
+                continue
+            rate = float(pct_m.group(1))
+            
+            # Look for range: X - Y or X–Y or X to Y
+            range_m = re.search(r'\$?([\d,]+)\s*[-–—to]+\s*\$?([\d,]+)', line, re.I)
+            if range_m:
+                frm = float(range_m.group(1).replace(',', ''))
+                to = float(range_m.group(2).replace(',', ''))
+                brackets.append({'from': frm, 'to': to, 'rate': rate})
+                continue
+            
+            # Look for "Up to X"
+            up_m = re.search(r'(?:Up to|First|Below)\s*\$?([\d,]+)', line, re.I)
+            if up_m:
+                upper = float(up_m.group(1).replace(',', ''))
+                brackets.append({'from': 0, 'to': upper, 'rate': rate})
+                continue
+            
+            # Look for "Over X" or "Above X"
+            over_m = re.search(r'(?:Over|Above|Beyond|Exceeding)\s*\$?([\d,]+)', line, re.I)
+            if over_m:
+                lower = float(over_m.group(1).replace(',', ''))
+                brackets.append({'from': lower, 'to': -1, 'rate': rate})
+                continue
+        
+        # Sort by from
+        brackets.sort(key=lambda b: b['from'])
+        
+        # Fill in 'to' values based on next bracket's 'from'
+        for i in range(len(brackets) - 1):
+            if brackets[i]['to'] == -1 or brackets[i]['to'] == 0:
+                brackets[i]['to'] = brackets[i + 1]['from']
+        if brackets and brackets[-1]['to'] <= 0:
+            brackets[-1]['to'] = -1  # open-ended top bracket
+    
+    # Calculate cumulative tax for each bracket
+    cumulative = 0
+    for b in brackets:
+        if b['to'] > 0 and b['rate'] > 0:
+            bracket_income = b['to'] - b['from']
+            if bracket_income > 0:
+                cumulative += bracket_income * (b['rate'] / 100)
+        b['cumulative'] = cumulative
+    
+    return brackets
+
+
+@app.route('/api/hr/paye/upload', methods=['POST'])
+def hr_paye_upload():
+    """Upload a PAYE tax table PDF, parse it, and store brackets."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.pdf'):
+            return jsonify({'success': False, 'error': 'Only PDF files are accepted'}), 400
+        
+        name = request.form.get('name', file.filename)
+        period = request.form.get('period', '')
+        description = request.form.get('description', '')
+        user_name = session.get('user_name', 'Unknown')
+        
+        file_bytes = file.read()
+        
+        # Parse the PDF
+        brackets = parse_paye_pdf(file_bytes)
+        
+        if not brackets or len(brackets) < 1:
+            return jsonify({'success': False, 'error': 'Could not parse tax brackets from PDF. Please check the file format.'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Insert the tax table
+            cursor.execute("""
+                INSERT INTO paye_tax_tables (name, description, filename, period, is_active, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (name, description, file.filename, period, False, user_name))
+            table_id = cursor.fetchone()[0]
+            
+            # Insert brackets
+            for i, b in enumerate(brackets):
+                cursor.execute("""
+                    INSERT INTO paye_tax_brackets (table_id, income_from, income_to, tax_rate, cumulative_tax, bracket_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (table_id, b['from'], b['to'], b['rate'], b.get('cumulative', 0), i))
+            
+            connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'PAYE tax table "{name}" uploaded with {len(brackets)} bracket(s)',
+            'table_id': table_id,
+            'brackets': brackets
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/tables', methods=['GET'])
+def hr_paye_list_tables():
+    """List all uploaded PAYE tax tables."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT t.id, t.name, t.description, t.filename, t.period,
+                       t.is_active, t.uploaded_by, t.uploaded_at,
+                       COALESCE((SELECT COUNT(*) FROM paye_tax_brackets WHERE table_id = t.id), 0) as bracket_count
+                FROM paye_tax_tables t
+                ORDER BY t.uploaded_at DESC
+            """)
+            rows = cursor.fetchall()
+            tables = []
+            for r in rows:
+                tables.append({
+                    'id': r[0], 'name': r[1], 'description': r[2],
+                    'filename': r[3], 'period': r[4], 'is_active': r[5],
+                    'uploaded_by': r[6], 'uploaded_at': str(r[7]) if r[7] else None,
+                    'bracket_count': r[8]
+                })
+            return jsonify({'success': True, 'data': tables})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/table/<int:table_id>', methods=['GET'])
+def hr_paye_get_table(table_id):
+    """Get a specific PAYE tax table with its brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, description, filename, period, is_active, uploaded_by, uploaded_at
+                FROM paye_tax_tables WHERE id = %s
+            """, (table_id,))
+            t = cursor.fetchone()
+            if not t:
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            
+            cursor.execute("""
+                SELECT id, income_from, income_to, tax_rate, cumulative_tax, bracket_order
+                FROM paye_tax_brackets WHERE table_id = %s
+                ORDER BY bracket_order, income_from
+            """, (table_id,))
+            bracket_rows = cursor.fetchall()
+            brackets = []
+            for b in bracket_rows:
+                brackets.append({
+                    'id': b[0], 'income_from': float(b[1]), 'income_to': float(b[2]),
+                    'tax_rate': float(b[3]), 'cumulative_tax': float(b[4] or 0),
+                    'bracket_order': b[5]
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': t[0], 'name': t[1], 'description': t[2],
+                    'filename': t[3], 'period': t[4], 'is_active': t[5],
+                    'uploaded_by': t[6], 'uploaded_at': str(t[7]) if t[7] else None,
+                    'brackets': brackets
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/activate/<int:table_id>', methods=['POST'])
+def hr_paye_activate(table_id):
+    """Activate a PAYE tax table (deactivates all others)."""
+    try:
+        with get_db() as (cursor, connection):
+            # Deactivate all
+            cursor.execute("UPDATE paye_tax_tables SET is_active = FALSE")
+            # Activate the selected one
+            cursor.execute("UPDATE paye_tax_tables SET is_active = TRUE WHERE id = %s", (table_id,))
+            if cursor.rowcount == 0:
+                connection.rollback()
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            connection.commit()
+            return jsonify({'success': True, 'message': 'PAYE tax table activated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/table/<int:table_id>', methods=['DELETE'])
+def hr_paye_delete_table(table_id):
+    """Delete a PAYE tax table and its brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM paye_tax_tables WHERE id = %s", (table_id,))
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+            connection.commit()
+            return jsonify({'success': True, 'message': 'PAYE tax table deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/active', methods=['GET'])
+def hr_paye_get_active():
+    """Get the currently active PAYE tax table with brackets."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, description, filename, period, uploaded_by, uploaded_at
+                FROM paye_tax_tables WHERE is_active = TRUE
+                LIMIT 1
+            """)
+            t = cursor.fetchone()
+            if not t:
+                return jsonify({'success': True, 'data': None, 'message': 'No active PAYE tax table'})
+            
+            cursor.execute("""
+                SELECT income_from, income_to, tax_rate, cumulative_tax, bracket_order
+                FROM paye_tax_brackets WHERE table_id = %s
+                ORDER BY bracket_order, income_from
+            """, (t[0],))
+            bracket_rows = cursor.fetchall()
+            brackets = []
+            for b in bracket_rows:
+                brackets.append({
+                    'income_from': float(b[0]), 'income_to': float(b[1]),
+                    'tax_rate': float(b[2]), 'cumulative_tax': float(b[3] or 0)
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': t[0], 'name': t[1], 'description': t[2],
+                    'filename': t[3], 'period': t[4],
+                    'uploaded_by': t[5], 'uploaded_at': str(t[6]) if t[6] else None,
+                    'brackets': brackets
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/calculate', methods=['POST'])
+def hr_paye_calculate():
+    """Calculate PAYE tax for a given annual salary using active table."""
+    try:
+        data = request.get_json()
+        salary = float(data.get('salary', 0))
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT b.income_from, b.income_to, b.tax_rate, b.cumulative_tax
+                FROM paye_tax_brackets b
+                JOIN paye_tax_tables t ON b.table_id = t.id
+                WHERE t.is_active = TRUE
+                ORDER BY b.bracket_order, b.income_from
+            """)
+            bracket_rows = cursor.fetchall()
+            if not bracket_rows:
+                return jsonify({'success': False, 'error': 'No active PAYE tax table'}), 400
+            
+            brackets = []
+            for br in bracket_rows:
+                brackets.append({
+                    'from': float(br[0] or 0), 'to': float(br[1] or 0),
+                    'rate': float(br[2] or 0), 'cumulative': float(br[3] or 0)
+                })
+            
+            # Calculate tax
+            tax = 0
+            remaining = salary
+            details = []
+            for b in brackets:
+                if remaining <= 0:
+                    break
+                bracket_income = b['to'] - b['from']
+                taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                bracket_tax = taxable * (b['rate'] / 100)
+                if taxable > 0:
+                    tax += bracket_tax
+                    range_str = f"${b['from']:,.2f} - $"
+                    if b['to'] <= 0:
+                        range_str += "∞"
+                    else:
+                        range_str += f"{b['to']:,.2f}"
+                    details.append({
+                        'range': range_str,
+                        'taxable': round(taxable, 2),
+                        'rate': b['rate'],
+                        'tax': round(bracket_tax, 2)
+                    })
+                remaining -= taxable
+                if b['to'] <= 0:
+                    break
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'salary': salary,
+                    'annual_tax': round(tax, 2),
+                    'monthly_tax': round(tax / 12, 2),
+                    'effective_rate': round((tax / salary * 100) if salary > 0 else 0, 2),
+                    'details': details
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYE TAX TABLE MANAGEMENT
+# ============================================================
+
+
+# ============================================================
+# PAYROLL DEDUCTIONS CONFIG (AIDS Levy, NSSA, ZIMDEF, etc.)
+# ============================================================
+
+@app.route('/api/hr/payroll/deductions-config', methods=['GET', 'POST'])
+def hr_payroll_deductions_config():
+    """Get or update payroll deduction configuration."""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT id, deduction_code, deduction_name, description,
+                           rate, rate_type, ceiling_amount, is_active, is_employee_deduction, updated_at
+                    FROM payroll_deduction_config
+                    ORDER BY deduction_code
+                """)
+                rows = cursor.fetchall()
+                configs = []
+                for r in rows:
+                    configs.append({
+                        'id': r[0], 'deduction_code': r[1], 'deduction_name': r[2],
+                        'description': r[3], 'rate': float(r[4]),
+                        'rate_type': r[5], 'ceiling_amount': float(r[6] or 0),
+                        'is_active': bool(r[7]), 'is_employee_deduction': bool(r[8]),
+                        'updated_at': str(r[9]) if r[9] else None
+                    })
+                return jsonify({'success': True, 'data': configs})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                for item in data if isinstance(data, list) else [data]:
+                    code = item.get('deduction_code')
+                    if not code:
+                        continue
+                    cursor.execute("""
+                        INSERT INTO payroll_deduction_config
+                            (deduction_code, deduction_name, description, rate, rate_type, ceiling_amount, is_active, is_employee_deduction)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (deduction_code) DO UPDATE SET
+                            rate = EXCLUDED.rate,
+                            ceiling_amount = EXCLUDED.ceiling_amount,
+                            is_active = EXCLUDED.is_active,
+                            is_employee_deduction = EXCLUDED.is_employee_deduction,
+                            description = EXCLUDED.description,
+                            deduction_name = EXCLUDED.deduction_name,
+                            rate_type = EXCLUDED.rate_type,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (
+                        code,
+                        item.get('deduction_name', ''),
+                        item.get('description', ''),
+                        float(item.get('rate', 0)),
+                        item.get('rate_type', 'percentage_of_paye'),
+                        float(item.get('ceiling_amount', 0)),
+                        bool(item.get('is_active', True)),
+                        bool(item.get('is_employee_deduction', True))
+                    ))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Deduction config saved'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/calculate-full', methods=['POST'])
+def hr_payroll_calculate_full():
+    """Calculate full Zimbabwe statutory deductions for a given salary."""
+    try:
+        data = request.get_json()
+        salary = float(data.get('salary', 0))
+        annual_salary = salary * 12
+
+        with get_db() as (cursor, connection):
+            # 1. Load active PAYE brackets
+            paye_brackets = []
+            cursor.execute("""
+                SELECT b.income_from, b.income_to, b.tax_rate
+                FROM paye_tax_brackets b
+                JOIN paye_tax_tables t ON b.table_id = t.id
+                WHERE t.is_active = TRUE
+                ORDER BY b.bracket_order, b.income_from
+            """)
+            for br in cursor.fetchall():
+                paye_brackets.append({
+                    'from': float(br[0] or 0), 'to': float(br[1] or 0),
+                    'rate': float(br[2] or 0)
+                })
+
+            # 2. Load deduction configs
+            cursor.execute("""
+                SELECT deduction_code, rate, rate_type, ceiling_amount, is_active, is_employee_deduction
+                FROM payroll_deduction_config WHERE is_active = TRUE
+            """)
+            deduction_configs = {}
+            for dc in cursor.fetchall():
+                deduction_configs[dc[0]] = {
+                    'rate': float(dc[1]), 'rate_type': dc[2],
+                    'ceiling': float(dc[3] or 0),
+                    'is_employee': bool(dc[5])
+                }
+
+        # 3. Calculate PAYE
+        def calc_paye(salary, brackets):
+            if not brackets:
+                return 0
+            tax = 0
+            remaining = salary
+            for b in brackets:
+                if remaining <= 0:
+                    break
+                bracket_income = b['to'] - b['from']
+                taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
+                if taxable > 0:
+                    tax += taxable * (b['rate'] / 100)
+                remaining -= taxable
+                if b['to'] <= 0:
+                    break
+            return tax
+
+        annual_paye = calc_paye(annual_salary, paye_brackets)
+        monthly_paye = annual_paye / 12
+
+        # 4. Calculate other deductions
+        deductions = {}
+
+        # AIDS Levy = 3% of PAYE
+        aids_config = deduction_configs.get('AIDS_LEVY', {})
+        if aids_config.get('rate_type') == 'percentage_of_paye':
+            aids_levy = monthly_paye * (aids_config['rate'] / 100)
+            deductions['AIDS_LEVY'] = {
+                'name': 'AIDS Levy',
+                'amount': round(aids_levy, 2),
+                'rate': aids_config['rate'],
+                'basis': 'PAYE tax'
+            }
+        else:
+            deductions['AIDS_LEVY'] = {'name': 'AIDS Levy', 'amount': 0, 'rate': 0, 'basis': 'PAYE tax'}
+
+        # NSSA Employee = % of gross up to ceiling
+        nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+        nssa_rate = nssa_config.get('rate', 4.5)
+        nssa_ceiling = nssa_config.get('ceiling', 0)
+        nssa_gross = salary
+        if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
+            nssa_gross = nssa_ceiling
+        nssa_amount = nssa_gross * (nssa_rate / 100)
+        deductions['NSSA_EMPLOYEE'] = {
+            'name': 'NSSA (Employee)',
+            'amount': round(nssa_amount, 2),
+            'rate': nssa_rate,
+            'basis': f"{'Ceiling: $' + str(nssa_ceiling) if nssa_ceiling > 0 else 'Gross'}"
+        }
+
+        # ZIMDEF = % of gross
+        zimdef_config = deduction_configs.get('ZIMDEF', {})
+        zimdef_rate = zimdef_config.get('rate', 1.0)
+        zimdef_amount = salary * (zimdef_rate / 100)
+        deductions['ZIMDEF'] = {
+            'name': 'ZIMDEF Levy',
+            'amount': round(zimdef_amount, 2),
+            'rate': zimdef_rate,
+            'basis': 'Gross salary'
+        }
+
+        total_deductions = monthly_paye + sum(d['amount'] for d in deductions.values())
+        net_pay = max(0, salary - total_deductions)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'gross_salary': salary,
+                'annual_salary': annual_salary,
+                'paye': {
+                    'monthly': round(monthly_paye, 2),
+                    'annual': round(annual_paye, 2),
+                    'effective_rate': round((annual_paye / annual_salary * 100) if annual_salary > 0 else 0, 2)
+                },
+                'deductions': deductions,
+                'total_deductions': round(total_deductions, 2),
+                'net_pay': round(net_pay, 2),
+                'net_pay_annual': round((salary - total_deductions) * 12, 2)
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYROLL DEDUCTIONS CONFIG
+# ============================================================
+
+
+# ============================================================
+# PAYROLL ARCHIVES (Excel Export & Storage)
+# ============================================================
+
+@app.route('/api/hr/payroll/archives', methods=['GET'])
+def hr_payroll_archives():
+    """List all payroll archive periods."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, period, filename, file_size, employee_count,
+                       total_gross, total_net, generated_by, generated_at
+                FROM payroll_archives
+                ORDER BY period DESC
+            """)
+            rows = cursor.fetchall()
+            archives = []
+            for r in rows:
+                file_size_str = str(round(r[3] / 1024, 1)) + ' KB' if r[3] else '0 KB'
+                archives.append({
+                    'id': r[0], 'period': r[1], 'filename': r[2],
+                    'file_size': r[3], 'file_size_str': file_size_str,
+                    'employee_count': r[4],
+                    'total_gross': float(r[5] or 0), 'total_net': float(r[6] or 0),
+                    'generated_by': r[7], 'generated_at': str(r[8]) if r[8] else None
+                })
+            return jsonify({'success': True, 'data': archives})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/archives/<int:archive_id>/download', methods=['GET'])
+def hr_payroll_archive_download(archive_id):
+    """Download a payroll archive Excel file."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT filename, file_data, period FROM payroll_archives WHERE id = %s
+            """, (archive_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Archive not found'}), 404
+
+            filename = row[0]
+            file_data = bytes(row[1])
+            period = row[2]
+
+            return send_file(
+                io.BytesIO(file_data),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/payroll/archives/<period>/download', methods=['GET'])
+def hr_payroll_archive_download_by_period(period):
+    """Download a payroll archive by period string (e.g. 2026-07)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, filename, file_data FROM payroll_archives WHERE period = %s
+            """, (period,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': f'No archive for period {period}'}), 404
+
+            filename = row[1]
+            file_data = bytes(row[2])
+
+            return send_file(
+                io.BytesIO(file_data),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
+# END PAYROLL ARCHIVES
+# ============================================================
+
+
+@app.route('/api/hr/assets', methods=['GET', 'POST'])
+def hr_assets_api():
+    """HR: List or register assets"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT a.id, a.asset_tag, a.asset_name, a.category,
+                           COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as assigned_to,
+                           a.value, a.purchase_date, a.status, a.notes
+                    FROM hr_assets a
+                    LEFT JOIN hr_employees e ON a.assigned_to = e.id
+                    ORDER BY a.asset_name
+                """)
+                rows = cursor.fetchall()
+                assets = []
+                for r in rows:
+                    assets.append({
+                        'id': r[0], 'asset_tag': r[1], 'asset_name': r[2], 'category': r[3],
+                        'assigned_to': r[4], 'value': float(r[5] or 0),
+                        'purchase_date': str(r[6]) if r[6] else None, 'status': r[7], 'notes': r[8]
+                    })
+                return jsonify({'success': True, 'data': assets})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_assets (asset_tag, asset_name, category, assigned_to, value, purchase_date, status, notes)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (
+                    data.get('asset_tag'), data.get('asset_name'), data.get('category'),
+                    data.get('assigned_to'), data.get('value', 0), data.get('purchase_date'),
+                    data.get('status', 'In Service'), data.get('notes', '')
+                ))
+                aid = cursor.fetchone()[0]
+                connection.commit()
+                return jsonify({'success': True, 'id': aid, 'message': 'Asset registered'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+import io
+from openpyxl.styles import Font as ExcelFont, PatternFill as ExcelFill, Alignment as ExcelAlign, Border as ExcelBorder, Side as ExcelSide
+
+@app.route('/api/hr/export-assets', methods=['POST'])
+def hr_export_assets():
+    """Export Asset Register as Excel (.xlsx) or PDF"""
+    try:
+        fmt = request.get_json().get('format', 'excel') if request.is_json else request.form.get('format', 'excel')
+        user_name = session.get('user_name', 'Employee')
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT a.asset_tag, a.asset_name, a.category, a.value, a.purchase_date, a.status,
+                       COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as assigned_to, a.notes
+                FROM hr_assets a
+                LEFT JOIN hr_employees e ON a.assigned_to = e.id
+                ORDER BY a.asset_name
+            """)
+            rows = cursor.fetchall()
+            cols = ['Asset Tag', 'Asset Name', 'Category', 'Value (USD)', 'Purchase Date', 'Status', 'Assigned To', 'Notes']
+
+        if fmt == 'pdf':
+            # Build PDF with contract-style design
+            now_str = datetime.now().strftime('%d %B %Y')
+            rows_html = ''
+            total_val = 0
+            for r in rows:
+                total_val += float(r[3] or 0)
+                status_color = '#166534' if r[5] == 'In Service' else '#92400e' if r[5] == 'Under Repair' else '#1e40af'
+                rows_html += f'''
+                <tr>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[0] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;font-weight:600;">{r[1]}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[2] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;text-align:right;">${float(r[3] or 0):,.2f}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{str(r[4] or '')[:10]}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;color:{status_color};font-weight:600;">{r[5] or 'N/A'}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[6]}</td>
+                </tr>'''
+
+            html = f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+@page {{ size: A4 landscape; margin: 30px 35px; }}
+body {{ font-family: 'Roboto', 'Helvetica', sans-serif; color: #1E2A56; font-size: 10px; }}
+.watermark {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-45deg);
+    font-size: 120px; opacity: 0.03; color: #1E2A56; font-weight: 900; pointer-events: none; z-index: -1; }}
+.header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1E2A56; padding-bottom: 10px; margin-bottom: 14px; }}
+.header .logo {{ font-size: 20px; font-weight: 800; color: #1E2A56; letter-spacing: -0.5px; }}
+.header .logo span {{ color: #C12B3E; }}
+.header .meta {{ text-align: right; font-size: 9px; color: #475569; }}
+h2 {{ font-size: 14px; margin: 0 0 4px 0; color: #1E2A56; text-transform: uppercase; letter-spacing: 1px; }}
+.subtitle {{ font-size: 9px; color: #64748B; margin-bottom: 12px; }}
+table {{ width: 100%; border-collapse: collapse; margin-top: 6px; }}
+th {{ background: linear-gradient(135deg, #1E2A56, #2A3A78); color: #fff; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }}
+th:not(:last-child) {{ border-right: 1px solid rgba(255,255,255,0.15); }}
+td {{ padding: 5px 6px; border: 1px solid #e2e8f0; font-size: 9px; }}
+tr:nth-child(even) td {{ background: #F8FAFC; }}
+.summary {{ display: flex; gap: 20px; margin-top: 14px; padding: 10px 14px; background: #F1F5F9; border-radius: 6px; }}
+.summary .item {{ font-size: 9px; }}
+.summary .item strong {{ font-size: 12px; color: #1E2A56; }}
+.footer {{ position: fixed; bottom: 0; left: 35px; right: 35px; text-align: center; font-size: 8px; color: #94A3B8; border-top: 1px solid #e2e8f0; padding-top: 6px; }}
+</style></head><body>
+<div class="watermark">ASSET REGISTER</div>
+<div class="header">
+    <div><div class="logo">Connect<span>Link</span></div></div>
+    <div class="meta"><strong>Asset Register</strong><br>{now_str}<br>Prepared by: {user_name}</div>
+</div>
+<h2>Asset Register</h2>
+<div class="subtitle">Complete inventory of company assets and equipment</div>
+<table>
+<thead><tr>
+    <th>Tag</th><th>Name</th><th>Category</th><th>Value</th><th>Purchase</th><th>Status</th><th>Assigned To</th>
+</tr></thead>
+<tbody>{rows_html}</tbody>
+</table>
+<div class="summary">
+    <div class="item">Total Assets<br><strong>{len(rows)}</strong></div>
+    <div class="item">Total Value<br><strong>${total_val:,.2f}</strong></div>
+    <div class="item">Generated<br><strong>{now_str}</strong></div>
+</div>
+<div class="footer">ConnectLink Properties &amp; Hardware — Asset Register — Generated {now_str}</div>
+</body></html>'''
+
+            try:
+                pdf_bytes = HTML(string=html).write_pdf()
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    as_attachment=True,
+                    download_name=f"{user_name}_asset_register.pdf",
+                    mimetype='application/pdf'
+                )
+            except Exception as pdf_err:
+                # Fallback to Playwright
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    browser = p.chromium.launch()
+                    page = browser.new_page()
+                    page.set_content(html)
+                    pdf_bytes = page.pdf(format='A4', landscape=True, print_background=True)
+                    browser.close()
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    as_attachment=True,
+                    download_name=f"{user_name}_asset_register.pdf",
+                    mimetype='application/pdf'
+                )
+
+        else:
+            # Excel export
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Asset Register"
+
+            # Title row
+            ws.merge_cells('A1:H1')
+            title_cell = ws['A1']
+            title_cell.value = f"Asset Register — {user_name}"
+            title_cell.font = ExcelFont(bold=True, size=13, color='1E2A56')
+            title_cell.alignment = ExcelAlign(horizontal='left')
+
+            # Header row
+            header_fill = ExcelFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+            header_font = ExcelFont(bold=True, color='FFFFFF', size=10)
+            thin_border = ExcelBorder(
+                left=ExcelSide(style='thin', color='CBD5E1'),
+                right=ExcelSide(style='thin', color='CBD5E1'),
+                top=ExcelSide(style='thin', color='CBD5E1'),
+                bottom=ExcelSide(style='thin', color='CBD5E1')
+            )
+
+            for col_idx, col_name in enumerate(cols, 1):
+                cell = ws.cell(row=3, column=col_idx, value=col_name)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = ExcelAlign(horizontal='center', vertical='center')
+                cell.border = thin_border
+
+            # Data rows
+            total_val = 0
+            for row_idx, r in enumerate(rows, 4):
+                total_val += float(r[3] or 0)
+                for col_idx, val in enumerate(r, 1):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=val if val is not None else '')
+                    cell.font = ExcelFont(size=9)
+                    cell.border = thin_border
+                    if col_idx == 4:  # Value column
+                        cell.number_format = '#,##0.00'
+                        cell.alignment = ExcelAlign(horizontal='right')
+
+            # Totals row
+            total_row = len(rows) + 4
+            ws.cell(row=total_row, column=1, value='TOTAL').font = ExcelFont(bold=True, size=10)
+            ws.cell(row=total_row, column=4, value=total_val).font = ExcelFont(bold=True, size=10)
+            ws.cell(row=total_row, column=4).number_format = '#,##0.00'
+            for col_idx in range(1, len(cols) + 1):
+                ws.cell(row=total_row, column=col_idx).border = thin_border
+
+            # Column widths
+            widths = [14, 28, 18, 14, 14, 14, 24, 30]
+            for i, w in enumerate(widths, 1):
+                ws.column_dimensions[chr(64 + i)].width = w
+
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=f"{user_name}_asset_register.xlsx",
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+
+    except Exception as e:
+        print(f"Export assets error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/stats')
+def hr_stats_api():
+    """HR: Get dashboard statistics"""
+    try:
+        with get_db() as (cursor, connection):
+            today = datetime.now().strftime('%Y-%m-%d')
+            period = datetime.now().strftime('%Y-%m')
+
+            cursor.execute("SELECT COUNT(*) FROM hr_employees WHERE status = 'Active'")
+            hr_active = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE")
+            admin_active = cursor.fetchone()[0]
+            total_active = hr_active + admin_active
+
+            present_today = 0
+
+            cursor.execute("SELECT COUNT(*) FROM hr_leave_applications WHERE status = 'Pending'")
+            pending_leave = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COUNT(*) FROM hr_leave_applications
+                WHERE status = 'Approved' AND %s BETWEEN from_date AND to_date
+            """, (today,))
+            on_leave_today = cursor.fetchone()[0]
+
+            cursor.execute("""
+                SELECT COALESCE(SUM(net_pay), 0) FROM hr_payroll WHERE period = %s
+            """, (period,))
+            payroll_total = float(cursor.fetchone()[0])
+
+            cursor.execute("SELECT COUNT(*) FROM hr_employees")
+            hr_total = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE")
+            admin_total = cursor.fetchone()[0]
+            total_employees = hr_total + admin_total
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total_employees': total_employees,
+                    'active_employees': total_active,
+                    'present_today': present_today,
+                    'on_leave_today': on_leave_today,
+                    'pending_leave': pending_leave,
+                    'payroll_total': payroll_total,
+                    'period': period,
+                    'today': today
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/employee-stats')
+def hr_employee_stats_api():
+    """Get detailed employee statistics for admin dashboard"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT department, COUNT(*) as cnt,
+                       SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
+                       SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male,
+                       SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female
+                FROM hr_employees
+                GROUP BY department
+                ORDER BY department
+            """)
+            rows = cursor.fetchall()
+            departments = []
+            total = 0
+            for r in rows:
+                departments.append({
+                    'name': r[0], 'count': r[1], 'active': r[2], 'male': r[3], 'female': r[4]
+                })
+                total += r[1]
+
+            cursor.execute("""
+                SELECT employment_type, COUNT(*) FROM hr_employees GROUP BY employment_type
+            """)
+            types = {r[0]: r[1] for r in cursor.fetchall()}
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total': total,
+                    'departments': departments,
+                    'employment_types': types
+                }
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/profile')
+def profile():
+    """Redirect to dashboard - profile is now a modal popup"""
+    return redirect(url_for('Dashboard'))
+
+@app.route('/api/user-profile', methods=['GET'])
+def get_user_profile():
+    """Get current user profile information"""
+    user_id = session.get('userid')
+    user_uuid = session.get('user_uuid')
+    
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    try:
+        with get_db() as (cursor, connection):
+            # First try connectlinkusers (legacy table)
+            cursor.execute("""
+                SELECT id, datecreated, name, email, whatsapp
+                FROM connectlinkusers WHERE id = %s
+            """, (user_id,))
+            user_data = cursor.fetchone()
+            
+            if not user_data:
+                # Fall back to admin_users (consolidated login table)
+                cursor.execute("""
+                    SELECT id, created_at, full_name, email, whatsapp
+                    FROM admin_users WHERE id = %s
+                """, (user_id,))
+                user_data = cursor.fetchone()
+            
+            if user_data:
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'id': user_data[0],
+                        'datecreated': str(user_data[1]) if user_data[1] else '',
+                        'name': user_data[2] or '',
+                        'email': user_data[3] or '',
+                        'whatsapp': user_data[4] or ''
+                    }
+                })
+            else:
+                return jsonify({'success': False, 'message': 'User not found'}), 404
+    except Exception as e:
+        print(f"Get profile error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/update-profile', methods=['POST'])
+def update_profile():
+    """Update user profile information"""
+    user_id = session.get('userid')
+    user_uuid = session.get('user_uuid')
+    
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        
+        full_name = data.get('full_name', '').strip()
+        email = data.get('email', '').strip()
+        whatsapp = data.get('whatsapp', '')
+        
+        if not full_name or not email:
+            return jsonify({'success': False, 'message': 'Full Name and Email are required'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Update connectlinkusers (legacy)
+            cursor.execute("""
+                UPDATE connectlinkusers 
+                SET name = %s, email = %s, whatsapp = %s
+                WHERE id = %s
+            """, (full_name, email, whatsapp, user_id))
+            
+            # Also update admin_users (consolidated login table)
+            cursor.execute("""
+                UPDATE admin_users 
+                SET full_name = %s, email = %s, whatsapp = %s
+                WHERE id = %s
+            """, (full_name, email, whatsapp, user_id))
+            
+            connection.commit()
+            
+            # Update session
+            session['user_name'] = full_name
+            session['full_name'] = full_name
+            
+            return jsonify({'success': True, 'message': 'Profile updated successfully'})
+    except Exception as e:
+        print(f"Update profile error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/change-password', methods=['POST'])
+def change_password():
+    """Change current user's password"""
+    user_id = session.get('userid')
+    user_uuid = session.get('user_uuid')
+    
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+        
+        if not current_password or not new_password:
+            return jsonify({'success': False, 'message': 'Current and new password are required'}), 400
+        
+        if len(new_password) < 4:
+            return jsonify({'success': False, 'message': 'New password must be at least 4 characters'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Verify current password against any table
+            cursor.execute("""
+                SELECT password, username, email FROM connectlinkusers WHERE id = %s
+            """, (user_id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                return jsonify({'success': False, 'message': 'User not found'}), 404
+            
+            stored_password = row[0]
+            username_or_email = row[1] or row[2] or ''
+            
+            # Also try admin_users for the same user
+            cursor.execute("""
+                SELECT password FROM admin_users WHERE source_id = %s OR username = %s
+            """, (user_id, username_or_email))
+            admin_row = cursor.fetchone()
+            
+            # Check against current password (try both tables)
+            password_match = (stored_password == current_password) or (admin_row and admin_row[0] == current_password)
+            
+            if not password_match:
+                return jsonify({'success': False, 'message': 'Current password is incorrect'}), 400
+            
+            # Update password in ALL tables for universal sync
+            cursor.execute("""
+                UPDATE connectlinkusers SET password = %s WHERE id = %s
+            """, (new_password, user_id))
+            
+            cursor.execute("""
+                UPDATE admin_users SET password = %s, must_reset_password = FALSE, updated_at = NOW()
+                WHERE source_id = %s OR username = %s
+            """, (new_password, user_id, username_or_email))
+            
+            cursor.execute("""
+                UPDATE hardware_users SET password = %s WHERE username = %s
+            """, (new_password, username_or_email))
+            
+            connection.commit()
+            
+            return jsonify({'success': True, 'message': 'Password changed successfully'})
+    except Exception as e:
+        print(f"Change password error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-chats', methods=['GET'])
+def whatsapp_chats():
+    """Get grouped WhatsApp conversations from whatsapp_messages table (populated via webhook)"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT w.sender_phone,
+                       COALESCE(
+                           (SELECT sub.sender_name FROM whatsapp_messages sub
+                            WHERE sub.sender_phone = w.sender_phone
+                              AND sub.direction = 'incoming'
+                            ORDER BY sub.id DESC LIMIT 1),
+                           MAX(w.sender_name)
+                       ) as contact_name,
+                       COUNT(*) as msg_count,
+                       MAX(w.created_at) as last_message_time,
+                       (SELECT sub.message_text FROM whatsapp_messages sub
+                        WHERE sub.sender_phone = w.sender_phone
+                        ORDER BY sub.id DESC LIMIT 1) as last_message,
+                       (SELECT sub.message_type FROM whatsapp_messages sub
+                        WHERE sub.sender_phone = w.sender_phone
+                        ORDER BY sub.id DESC LIMIT 1) as last_type
+                FROM whatsapp_messages w
+                WHERE w.sender_phone IS NOT NULL
+                GROUP BY w.sender_phone
+                ORDER BY last_message_time DESC
+                LIMIT 500
+            """)
+            rows = cursor.fetchall()
+            
+            # Also get any additional contacts from chatbot_interactions not in whatsapp_messages
+            extra_rows = []
+            try:
+                cursor.execute("""
+                    SELECT DISTINCT sender_phone, MAX(sender_name) as contact_name
+                    FROM chatbot_interactions
+                    WHERE sender_phone IS NOT NULL
+                      AND sender_phone NOT IN (
+                          SELECT DISTINCT sender_phone FROM whatsapp_messages WHERE sender_phone IS NOT NULL
+                      )
+                    GROUP BY sender_phone
+                    ORDER BY MAX(created_at) DESC
+                    LIMIT 200
+                """)
+                extra_rows = cursor.fetchall()
+            except Exception:
+                pass  # chatbot_interactions table may not exist yet
+            
+            chats = []
+            seen_phones = set()
+            
+            for r in rows:
+                phone = str(r[0])
+                seen_phones.add(phone)
+                chats.append({
+                    'whatsapp': phone,
+                    'name': r[1] or f"Unknown ({phone})",
+                    'message_count': r[2],
+                    'last_time': r[3].strftime('%d/%m/%Y %H:%M') if r[3] else '',
+                    'last_message': r[4] or '',
+                    'status': r[5] or 'received'
+                })
+            
+            # Add extra contacts from chatbot_interactions
+            for r in extra_rows:
+                phone = str(r[0])
+                if phone not in seen_phones:
+                    seen_phones.add(phone)
+                    chats.append({
+                        'whatsapp': phone,
+                        'name': r[1] or f"Unknown ({phone})",
+                        'message_count': 0,
+                        'last_time': '',
+                        'last_message': '(Historical contact)',
+                        'status': 'received'
+                    })
+            
+            return jsonify({'success': True, 'data': chats})
+    except Exception as e:
+        print(f"WhatsApp chats error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-chat-stats', methods=['GET'])
+def whatsapp_chat_stats():
+    """Get new chat initiation statistics (first-time contacts)"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            # Find each unique sender's first ever incoming message timestamp
+            cursor.execute("""
+                SELECT sender_phone, MIN(created_at) as first_contact
+                FROM whatsapp_messages
+                WHERE direction = 'incoming'
+                GROUP BY sender_phone
+            """)
+            rows = cursor.fetchall()
+            
+            total_unique = len(rows)
+            
+            today = datetime.now().date()
+            yesterday = today - timedelta(days=1)
+            
+            # This week: Monday to Sunday
+            this_week_start = today - timedelta(days=today.weekday())  # Monday
+            last_week_start = this_week_start - timedelta(days=7)
+            last_week_end = this_week_start - timedelta(days=1)
+            
+            # This month
+            this_month_start = today.replace(day=1)
+            last_month_end = this_month_start - timedelta(days=1)
+            last_month_start = last_month_end.replace(day=1)
+            
+            today_count = 0
+            yesterday_count = 0
+            this_week_count = 0
+            last_week_count = 0
+            this_month_count = 0
+            last_month_count = 0
+            
+            for r in rows:
+                contact_date = r[1].date() if r[1] else None
+                if not contact_date:
+                    continue
+                if contact_date == today:
+                    today_count += 1
+                if contact_date == yesterday:
+                    yesterday_count += 1
+                if this_week_start <= contact_date <= today:
+                    this_week_count += 1
+                if last_week_start <= contact_date <= last_week_end:
+                    last_week_count += 1
+                if contact_date >= this_month_start and contact_date <= today:
+                    this_month_count += 1
+                if last_month_start <= contact_date <= last_month_end:
+                    last_month_count += 1
+            
+            # Calculate week-over-week and month-over-month change
+            week_change_pct = 0
+            if last_week_count > 0:
+                week_change_pct = round(((this_week_count - last_week_count) / last_week_count) * 100, 1)
+            elif this_week_count > 0:
+                week_change_pct = 100
+            
+            month_change_pct = 0
+            if last_month_count > 0:
+                month_change_pct = round(((this_month_count - last_month_count) / last_month_count) * 100, 1)
+            elif this_month_count > 0:
+                month_change_pct = 100
+            
+            return jsonify({'success': True, 'data': {
+                'today': today_count,
+                'yesterday': yesterday_count,
+                'this_week': this_week_count,
+                'last_week': last_week_count,
+                'week_change_pct': week_change_pct,
+                'this_month': this_month_count,
+                'last_month': last_month_count,
+                'month_change_pct': month_change_pct,
+                'total': total_unique
+            }})
+    except Exception as e:
+        print(f"WhatsApp chat stats error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/customer-analytics', methods=['GET'])
+def customer_analytics():
+    """Get customer analytics: chatbot interactions, chats-to-projects conversion, keyword usage"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            # 1️⃣ Button clicks by type (quotation categories, menu items)
+            cursor.execute("""
+                SELECT 
+                    COALESCE(NULLIF(interaction_key, ''), 'unknown') as key_name,
+                    COUNT(*) as count
+                FROM chatbot_interactions
+                WHERE interaction_type IN ('button_click', 'list_select')
+                GROUP BY interaction_key
+                ORDER BY count DESC
+                LIMIT 30
+            """)
+            button_clicks = [{'key': r[0], 'count': r[1]} for r in cursor.fetchall()]
+            
+            # 2️⃣ Keyword usage
+            cursor.execute("""
+                SELECT 
+                    COALESCE(NULLIF(interaction_key, ''), 'unknown') as keyword,
+                    COUNT(*) as count
+                FROM chatbot_interactions
+                WHERE interaction_type = 'keyword'
+                GROUP BY interaction_key
+                ORDER BY count DESC
+                LIMIT 20
+            """)
+            keyword_usage = [{'keyword': r[0], 'count': r[1]} for r in cursor.fetchall()]
+            
+            # 3️⃣ Interactions by category (quotation categories)
+            cursor.execute("""
+                SELECT 
+                    COALESCE(NULLIF(category, ''), 'uncategorized') as cat,
+                    COUNT(*) as count
+                FROM chatbot_interactions
+                GROUP BY category
+                ORDER BY count DESC
+            """)
+            category_clicks = [{'category': r[0], 'count': r[1]} for r in cursor.fetchall()]
+            
+            # 4️⃣ Chats that became projects: WhatsApp senders matched to clientwanumber in projects
+            cursor.execute("""
+                SELECT COUNT(DISTINCT wm.sender_phone) as converted_count
+                FROM whatsapp_messages wm
+                INNER JOIN connectlinkdatabase cd 
+                    ON RIGHT(wm.sender_phone, 9) LIKE '%' || REPLACE(REPLACE(cd.clientwanumber::TEXT, '+', ''), ' ', '') || '%'
+                WHERE wm.direction = 'incoming'
+            """)
+            chats_converted = cursor.fetchone()[0] or 0
+            
+            # 5️⃣ Total unique WhatsApp conversations
+            cursor.execute("""
+                SELECT COUNT(DISTINCT sender_phone) FROM whatsapp_messages WHERE direction = 'incoming'
+            """)
+            total_chats = cursor.fetchone()[0] or 0
+            
+            # 6️⃣ Interactions over time (last 30 days)
+            cursor.execute("""
+                SELECT DATE(created_at) as day, interaction_type, COUNT(*) as count
+                FROM chatbot_interactions
+                WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+                GROUP BY DATE(created_at), interaction_type
+                ORDER BY day ASC
+            """)
+            timeline_raw = {}
+            for r in cursor.fetchall():
+                day = r[0].strftime('%Y-%m-%d') if r[0] else 'unknown'
+                itype = r[1] or 'unknown'
+                count = r[2]
+                if day not in timeline_raw:
+                    timeline_raw[day] = {}
+                timeline_raw[day][itype] = count
+            timeline = [{'date': d, **stats} for d, stats in timeline_raw.items()]
+            
+            # 7️⃣ Total interactions count
+            cursor.execute("SELECT COUNT(*) FROM chatbot_interactions")
+            total_interactions = cursor.fetchone()[0] or 0
+            
+            # 8️⃣ Conversion rate
+            conversion_rate = round((chats_converted / total_chats * 100), 1) if total_chats > 0 else 0
+            
+            return jsonify({'success': True, 'data': {
+                'button_clicks': button_clicks,
+                'keyword_usage': keyword_usage,
+                'category_clicks': category_clicks,
+                'chats_converted_to_projects': chats_converted,
+                'total_chats': total_chats,
+                'conversion_rate': conversion_rate,
+                'total_interactions': total_interactions,
+                'timeline': timeline
+            }})
+    except Exception as e:
+        print(f"Customer analytics error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-debug', methods=['GET'])
+def whatsapp_debug():
+    """Diagnostic endpoint to check WhatsApp webhook and database status"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    result = {
+        'table_exists': False,
+        'message_count': 0,
+        'webhook_verify_token': VERIFY_TOKEN[:5] + '...',
+        'phone_number_id': PHONE_NUMBER_ID,
+        'meta_api_status': 'unknown',
+        'recent_messages': []
+    }
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'whatsapp_messages'
+                )
+            """)
+            result['table_exists'] = cursor.fetchone()[0]
+            
+            if result['table_exists']:
+                cursor.execute("SELECT COUNT(*) FROM whatsapp_messages")
+                result['message_count'] = cursor.fetchone()[0]
+                
+                cursor.execute("""
+                    SELECT sender_phone, sender_name, message_text, direction, created_at
+                    FROM whatsapp_messages
+                    ORDER BY id DESC LIMIT 10
+                """)
+                recent = cursor.fetchall()
+                for r in recent:
+                    result['recent_messages'].append({
+                        'phone': str(r[0]) if r[0] else '',
+                        'name': r[1] or '',
+                        'text': (r[2] or '')[:100],
+                        'direction': r[3] or '',
+                        'time': r[4].strftime('%Y-%m-%d %H:%M:%S') if r[4] else ''
+                    })
+    except Exception as db_err:
+        result['db_error'] = str(db_err)
+    
+    # Test Meta API connection
+    try:
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        test_url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}"
+        test_resp = requests.get(test_url, headers=headers, timeout=10)
+        result['meta_api_status'] = 'ok' if test_resp.status_code == 200 else f'error: {test_resp.status_code}'
+        if test_resp.status_code == 200:
+            result['meta_api_data'] = test_resp.json()
+    except Exception as api_err:
+        result['meta_api_status'] = f'exception: {api_err}'
+    
+    return jsonify({'success': True, 'data': result})
+
+@app.route('/api/whatsapp-messages/<phone_number>', methods=['GET'])
+def whatsapp_messages(phone_number):
+    """Get all messages for a specific WhatsApp conversation"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, created_at, message_text, message_type, direction, sender_name, status, media_id, file_name
+                FROM whatsapp_messages
+                WHERE sender_phone LIKE %s
+                ORDER BY id ASC
+                LIMIT 200
+            """, (f"%{phone_number}%",))
+            rows = cursor.fetchall()
+            messages = []
+            for r in rows:
+                messages.append({
+                    'id': r[0],
+                    'timestamp': r[1].strftime('%d/%m/%Y %H:%M') if r[1] else '',
+                    'message': r[2] or '',
+                    'category': r[3] or '',
+                    'direction': r[4] or '',
+                    'status': r[6] or 'received',
+                    'username': r[5] or '',
+                    'is_incoming': r[4] == 'incoming',
+                    'media_id': r[7] or '',
+                    'file_name': r[8] or '',
+                    'read_at': ''  # Placeholder — webhook updates this for outgoing msgs
+                })
+            return jsonify({'success': True, 'data': messages})
+    except Exception as e:
+        print(f"WhatsApp messages error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# API: Get new/recent WhatsApp messages across all conversations (for notifications)
+@app.route('/api/whatsapp-new-messages', methods=['GET'])
+def whatsapp_new_messages():
+    """Get new messages since a given last_msg_id for notification polling"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        last_id = request.args.get('last_msg_id', 0, type=int)
+        
+        with get_db() as (cursor, connection):
+            # Get new incoming messages since last_id
+            cursor.execute("""
+                SELECT id, created_at, message_text, message_type, direction, sender_name, status, sender_phone
+                FROM whatsapp_messages
+                WHERE id > %s
+                ORDER BY id ASC
+                LIMIT 50
+            """, (last_id,))
+            rows = cursor.fetchall()
+            
+            new_messages = []
+            max_id = last_id
+            for r in rows:
+                mid = r[0]
+                if mid > max_id: max_id = mid
+                new_messages.append({
+                    'id': mid,
+                    'timestamp': r[1].strftime('%d/%m/%Y %H:%M') if r[1] else '',
+                    'message': r[2] or '',
+                    'category': r[3] or '',
+                    'direction': r[4] or '',
+                    'sender_name': r[5] or '',
+                    'status': r[6] or 'received',
+                    'sender_phone': r[7] or '',
+                    'is_incoming': r[4] == 'incoming'
+                })
+            
+            # Also get total pending incoming count for badge
+            cursor.execute("""
+                SELECT COUNT(*) FROM whatsapp_messages
+                WHERE direction = 'incoming' AND status = 'received'
+            """)
+            pending_incoming = cursor.fetchone()[0] or 0
+            
+            return jsonify({
+                'success': True,
+                'new_messages': new_messages,
+                'max_id': max_id,
+                'pending_count': pending_incoming
+            })
+    except Exception as e:
+        print(f"WhatsApp new messages error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-media-download/<media_id>', methods=['GET'])
+def whatsapp_media_download(media_id):
+    """Download a media file from WhatsApp using its media_id"""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        # Step 0: Look up original filename from database
+        original_filename = None
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT file_name FROM whatsapp_messages
+                    WHERE media_id = %s AND file_name IS NOT NULL AND file_name != ''
+                    ORDER BY id DESC LIMIT 1
+                """, (media_id,))
+                row = cursor.fetchone()
+                if row and row[0]:
+                    original_filename = row[0]
+        except Exception:
+            pass
+        
+        # Step 1: Get media download URL from WhatsApp
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        media_info_url = f"https://graph.facebook.com/v19.0/{media_id}"
+        media_resp = requests.get(media_info_url, headers=headers)
+        if media_resp.status_code != 200:
+            return jsonify({'success': False, 'message': 'Failed to get media info'}), 400
+        media_info = media_resp.json()
+        download_url = media_info.get('url')
+        mime_type = media_info.get('mime_type', 'application/octet-stream')
+        api_extension = media_info.get('file_extension', '')
+        
+        if not download_url:
+            return jsonify({'success': False, 'message': 'No download URL found'}), 400
+        
+        # Step 2: Determine the best filename with correct extension
+        if original_filename:
+            # Use the original filename the client sent
+            filename = original_filename
+        else:
+            # Derive extension: try API extension, then mime_type mapping
+            ext = api_extension if api_extension else ''
+            if not ext:
+                mime_map = {
+                    'application/pdf': 'pdf',
+                    'image/jpeg': 'jpg',
+                    'image/png': 'png',
+                    'image/gif': 'gif',
+                    'image/webp': 'webp',
+                    'text/plain': 'txt',
+                    'text/csv': 'csv',
+                    'application/msword': 'doc',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+                    'application/vnd.ms-excel': 'xls',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+                    'audio/mpeg': 'mp3',
+                    'audio/ogg': 'ogg',
+                    'video/mp4': 'mp4',
+                }
+                ext = mime_map.get(mime_type, 'bin')
+            filename = f"whatsapp_media_{media_id[:8]}.{ext}"
+        
+        # Step 3: Download the actual file
+        file_resp = requests.get(download_url, headers=headers)
+        if file_resp.status_code != 200:
+            return jsonify({'success': False, 'message': 'Failed to download file'}), 400
+        
+        # Step 4: Stream the file back to the browser
+        response = make_response(file_resp.content)
+        response.headers.set('Content-Type', mime_type)
+        response.headers.set('Content-Disposition', f'attachment; filename="{filename}"')
+        return response
+        
+    except Exception as e:
+        print(f"WhatsApp media download error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-send', methods=['POST'])
+def whatsapp_send():
+    """Send a WhatsApp message reply"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        recipient = data.get('recipient', '')
+        message = data.get('message', '').strip()
+        media_url = data.get('media_url', '')
+        media_type = data.get('media_type', '')  # 'image' or 'document'
+        
+        if not recipient or not message:
+            return jsonify({'success': False, 'message': 'Recipient and message required'}), 400
+        
+        # Normalise number
+        recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+        if recipient_clean.startswith('0'):
+            recipient_clean = '263' + recipient_clean[1:]
+        elif not recipient_clean.startswith('263'):
+            recipient_clean = '263' + recipient_clean
+        
+        headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        if media_url and media_type == 'image':
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'image',
+                'image': { 'link': media_url },
+                'caption': message
+            }
+        elif media_url and media_type == 'document':
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'document',
+                'document': { 'link': media_url, 'caption': message }
+            }
+        else:
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'text',
+                'text': { 'body': message }
+            }
+        
+        resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
+        resp_data = resp.json()
+        
+        # Check for 24-hour window error
+        requires_template = False
+        send_status = 'sent'
+        error_detail = ''
+        if resp.status_code != 200:
+            error_text = str(resp_data)
+            requires_template = is_template_window_error(error_text)
+            send_status = 'failed'
+            error_detail = error_text[:300]
+        
+        # Save outgoing message to database
+        try:
+            user_name = session.get('user_name', 'Admin')
+            status_note = 'failed_24hr_window' if requires_template else send_status
+            message_to_save = message[:500]
+            if requires_template:
+                message_to_save = message[:400] + ' [⚠️ Outside 24hr window - message not delivered]'
+            with get_db() as (save_cursor, save_conn):
+                replied_to = data.get('replied_to_id')
+                save_cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status, replied_to_id)
+                    VALUES (%s, %s, %s, %s, 'outgoing', %s, %s)
+                """, (recipient_clean, user_name, message_to_save, 'text', status_note, replied_to))
+                save_conn.commit()
+        except Exception as save_err:
+            print(f"⚠️ Failed to save outgoing message: {save_err}")
+        
+        # Log the WhatsApp message send
+        try:
+            log_activity(
+                'whatsapp_message_sent',
+                f'WhatsApp message sent to {recipient_clean} (status: {send_status})',
+                'whatsapp',
+                None,
+                {
+                    'recipient': recipient_clean,
+                    'message_preview': message[:100],
+                    'media_type': media_type or 'text',
+                    'status': send_status,
+                    'requires_template': requires_template
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log WhatsApp send activity: {log_err}")
+
+        if resp.status_code == 200:
+            return jsonify({'success': True, 'message': 'Message sent', 'data': resp_data})
+        else:
+            return jsonify({
+                'success': False,
+                'message': str(resp_data),
+                'requires_template': requires_template,
+                'hint': 'This number is outside the 24-hour customer service window. The customer needs to message first before you can reply.' if requires_template else None
+            }), 400
+    except Exception as e:
+        print(f"WhatsApp send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-send-template', methods=['POST'])
+def whatsapp_send_template():
+    """Send a Meta-approved WhatsApp template message (for 24hr window bypass)"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        recipient = data.get('recipient', '')
+        template_name = data.get('template_name', '').strip()
+        parameters = data.get('parameters', [])  # list of text params for body
+        
+        if not recipient or not template_name:
+            return jsonify({'success': False, 'message': 'Recipient and template_name required'}), 400
+        
+        # Normalise number
+        recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+        if recipient_clean.startswith('0'):
+            recipient_clean = '263' + recipient_clean[1:]
+        elif not recipient_clean.startswith('263'):
+            recipient_clean = '263' + recipient_clean
+        recipient_e164 = f"+{recipient_clean}"
+        
+        headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Build payload
+        components = []
+        if parameters:
+            components.append({
+                "type": "body",
+                "parameters": [{"type": "text", "text": str(p)} for p in parameters]
+            })
+        
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient_e164,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": "en"}
+            }
+        }
+        if components:
+            payload["template"]["components"] = components
+        
+        resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
+        resp_data = resp.json()
+        
+        # Determine outcome
+        send_status = 'sent'
+        error_detail = ''
+        if resp.status_code != 200:
+            error_text = str(resp_data)
+            # Check for common template errors
+            if 'not found' in error_text.lower() or 'template' in error_text.lower():
+                send_status = 'failed_template_not_found'
+            else:
+                send_status = 'failed'
+            error_detail = error_text[:300]
+        
+        # Save to whatsapp_messages
+        try:
+            user_name = session.get('user_name', 'Admin')
+            display_text = f"[Template: {template_name}] " + (parameters[0] if parameters else '')
+            if send_status != 'sent':
+                display_text += f' [FAILED: {error_detail[:100]}]'
+            with get_db() as (save_cursor, save_conn):
+                save_cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                    VALUES (%s, %s, %s, %s, 'outgoing', %s)
+                """, (recipient_clean, user_name, display_text[:500], 'template', send_status))
+                save_conn.commit()
+        except Exception as save_err:
+            print(f"⚠️ Failed to save template message: {save_err}")
+        
+        # Log the template send
+        try:
+            log_activity(
+                'template_sent',
+                f'WhatsApp template "{template_name}" sent to {recipient_clean} (status: {send_status})',
+                'whatsapp',
+                None,
+                {
+                    'recipient': recipient_clean,
+                    'template_name': template_name,
+                    'parameters': parameters,
+                    'status': send_status
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log template send activity: {log_err}")
+
+        if resp.status_code == 200:
+            # Log success
+            print(f"✅ Template '{template_name}' sent successfully to {recipient_clean}")
+            return jsonify({'success': True, 'message': f'Template sent', 'data': resp_data})
+        else:
+            error_msg = str(resp_data)
+            logging.error(f"Template '{template_name}' failed for {recipient_clean}: {error_msg}")
+            return jsonify({
+                'success': False,
+                'message': error_msg,
+                'template_failed': True,
+                'error_category': send_status
+            }), 400
+    except Exception as e:
+        print(f"WhatsApp template send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-bulk-send-template', methods=['POST'])
+def whatsapp_bulk_send_template():
+    """Send a template to multiple recipients (bulk)"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        recipients = data.get('recipients', [])
+        template_name = data.get('template_name', '').strip()
+        parameters = data.get('parameters', [])
+        
+        if not recipients or not template_name:
+            return jsonify({'success': False, 'message': 'Recipients and template_name required'}), 400
+        
+        results = []
+        success_count = 0
+        fail_count = 0
+        
+        for recipient in recipients:
+            try:
+                # Normalise number
+                recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+                if recipient_clean.startswith('0'):
+                    recipient_clean = '263' + recipient_clean[1:]
+                elif not recipient_clean.startswith('263'):
+                    recipient_clean = '263' + recipient_clean
+                recipient_e164 = f"+{recipient_clean}"
+                
+                headers = {
+                    'Authorization': f'Bearer {ACCESS_TOKEN}',
+                    'Content-Type': 'application/json'
+                }
+                
+                components = []
+                if parameters:
+                    components.append({
+                        "type": "body",
+                        "parameters": [{"type": "text", "text": str(p)} for p in parameters]
+                    })
+                
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": recipient_e164,
+                    "type": "template",
+                    "template": {
+                        "name": template_name,
+                        "language": {"code": "en"}
+                    }
+                }
+                if components:
+                    payload["template"]["components"] = components
+                
+                resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
+                resp_data = resp.json()
+                
+                send_status = 'sent'
+                error_detail = ''
+                if resp.status_code != 200:
+                    error_text = str(resp_data)
+                    if 'not found' in error_text.lower() or 'template' in error_text.lower():
+                        send_status = 'failed_template_not_found'
+                    else:
+                        send_status = 'failed'
+                    error_detail = error_text[:300]
+                    fail_count += 1
+                else:
+                    success_count += 1
+                
+                # Save to whatsapp_messages
+                try:
+                    user_name = session.get('user_name', 'Admin')
+                    display_text = f"[Template: {template_name}] " + (parameters[0] if parameters else '')
+                    if send_status != 'sent':
+                        display_text += f' [FAILED: {error_detail[:100]}]'
+                    with get_db() as (save_cursor, save_conn):
+                        save_cursor.execute("""
+                            INSERT INTO whatsapp_messages 
+                            (sender_phone, sender_name, message_text, message_type, direction, status)
+                            VALUES (%s, %s, %s, %s, 'outgoing', %s)
+                        """, (recipient_clean, user_name, display_text[:500], 'template', send_status))
+                        save_conn.commit()
+                except Exception as save_err:
+                    print(f"⚠️ Failed to save bulk template message: {save_err}")
+                
+                results.append({
+                    'recipient': recipient,
+                    'success': resp.status_code == 200,
+                    'status': send_status,
+                    'error': error_detail if send_status != 'sent' else None
+                })
+            except Exception as e:
+                fail_count += 1
+                results.append({
+                    'recipient': recipient,
+                    'success': False,
+                    'status': 'failed',
+                    'error': str(e)[:200]
+                })
+        
+        log_activity('bulk_template_sent', f'Bulk template "{template_name}" sent to {len(recipients)} recipients (sent: {success_count}, failed: {fail_count})', 'whatsapp', None, {'template_name': template_name, 'total': len(recipients), 'sent': success_count, 'failed': fail_count, 'parameters': parameters})
+        
+        # Save detailed logs
+        import uuid
+        tpl_bulk_id = str(uuid.uuid4())[:8]
+        try:
+            with get_db() as (log_cursor, log_conn):
+                for r in results:
+                    log_cursor.execute("""
+                        INSERT INTO bulk_send_logs (bulk_id, recipient, success, status, error_detail)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (tpl_bulk_id, r.get('recipient',''), r.get('success',False),
+                          r.get('status','failed'),
+                          r.get('error') if not r.get('success') else None))
+                log_conn.commit()
+        except Exception as log_err:
+            print(f"⚠️ Failed to save bulk template logs: {log_err}")
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'bulk_id': tpl_bulk_id,
+            'summary': {
+                'total': len(recipients),
+                'sent': success_count,
+                'failed': fail_count
+            }
+        })
+    except Exception as e:
+        print(f"Bulk template send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-bulk-send', methods=['POST'])
+def whatsapp_bulk_send():
+    """Send bulk WhatsApp message to multiple recipients"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        recipients = data.get('recipients', [])  # list of phone numbers
+        message = data.get('message', '').strip()
+        media_url = data.get('media_url', '')
+        media_type = data.get('media_type', '')  # 'image' or 'document'
+        
+        if not recipients or not message:
+            return jsonify({'success': False, 'message': 'Recipients and message required'}), 400
+        
+        results = []
+        headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        for recipient in recipients:
+            recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+            if recipient_clean.startswith('0'):
+                recipient_clean = '263' + recipient_clean[1:]
+            elif not recipient_clean.startswith('263'):
+                recipient_clean = '263' + recipient_clean
+            
+            if media_url and media_type == 'image':
+                payload = {
+                    'messaging_product': 'whatsapp',
+                    'to': recipient_clean,
+                    'type': 'image',
+                    'image': { 'link': media_url },
+                    'caption': message
+                }
+            elif media_url and media_type == 'document':
+                payload = {
+                    'messaging_product': 'whatsapp',
+                    'to': recipient_clean,
+                    'type': 'document',
+                    'document': { 'link': media_url, 'caption': message }
+                }
+            else:
+                payload = {
+                    'messaging_product': 'whatsapp',
+                    'to': recipient_clean,
+                    'type': 'text',
+                    'text': { 'body': message }
+                }
+            try:
+                resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers, timeout=15)
+                results.append({
+                    'recipient': recipient,
+                    'success': resp.status_code == 200,
+                    'response': resp.json() if resp.status_code == 200 else str(resp.text)
+                })
+            except Exception as e:
+                results.append({'recipient': recipient, 'success': False, 'error': str(e)})
+        
+        success_count = sum(1 for r in results if r.get('success'))
+        fail_count = sum(1 for r in results if not r.get('success'))
+        log_activity('bulk_message_sent', f'Bulk message sent to {len(recipients)} recipients (success: {success_count}, failed: {fail_count})', 'whatsapp', None, {'total': len(recipients), 'sent': success_count, 'failed': fail_count, 'message_preview': message[:100]})
+        
+        # Save detailed logs
+        import uuid
+        bulk_id = str(uuid.uuid4())[:8]
+        try:
+            with get_db() as (log_cursor, log_conn):
+                for r in results:
+                    log_cursor.execute("""
+                        INSERT INTO bulk_send_logs (bulk_id, recipient, success, status, error_detail)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (bulk_id, r.get('recipient',''), r.get('success',False),
+                          'sent' if r.get('success') else 'failed',
+                          r.get('error') or r.get('response','') if not r.get('success') else None))
+                log_conn.commit()
+        except Exception as log_err:
+            print(f"⚠️ Failed to save bulk send logs: {log_err}")
+        
+        return jsonify({'success': True, 'results': results, 'bulk_id': bulk_id})
+    except Exception as e:
+        print(f"WhatsApp bulk send error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# ==================== QUICK REPLIES API ====================
+@app.route('/api/quick-replies', methods=['GET'])
+def get_quick_replies():
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, title, content FROM quick_replies ORDER BY title ASC")
+            rows = cursor.fetchall()
+            return jsonify({'success': True, 'data': [{'id': r[0], 'title': r[1], 'content': r[2]} for r in rows]})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/quick-replies', methods=['POST'])
+def save_quick_reply():
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        if not title or not content:
+            return jsonify({'success': False, 'message': 'Title and content required'}), 400
+        with get_db() as (cursor, connection):
+            cursor.execute("INSERT INTO quick_replies (title, content) VALUES (%s, %s)", (title, content))
+            connection.commit()
+            reply_id = cursor.lastrowid
+            return jsonify({'success': True, 'id': reply_id, 'message': 'Quick reply saved'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# ==================== BULK SEND LOGS API ====================
+@app.route('/api/bulk-send-logs', methods=['GET'])
+def get_bulk_send_logs():
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, bulk_id, recipient, success, status, error_detail, created_at
+                FROM bulk_send_logs
+                ORDER BY created_at DESC
+                LIMIT 500
+            """)
+            rows = cursor.fetchall()
+            logs = []
+            for r in rows:
+                logs.append({
+                    'id': r[0], 'bulk_id': r[1], 'recipient': r[2],
+                    'success': r[3], 'status': r[4],
+                    'error': r[5] or '',
+                    'time': r[6].strftime('%d/%m/%Y %H:%M') if r[6] else ''
+                })
+            # Group by bulk_id for summary
+            cursor.execute("""
+                SELECT bulk_id, COUNT(*) as total,
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as sent,
+                       SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failed
+                FROM bulk_send_logs
+                GROUP BY bulk_id
+                ORDER BY MAX(created_at) DESC
+                LIMIT 50
+            """)
+            summaries = []
+            for r in cursor.fetchall():
+                summaries.append({'bulk_id': r[0], 'total': r[1], 'sent': r[2], 'failed': r[3]})
+            return jsonify({'success': True, 'logs': logs, 'summaries': summaries})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/quick-replies/<int:reply_id>', methods=['DELETE'])
+def delete_quick_reply(reply_id):
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM quick_replies WHERE id = %s", (reply_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Quick reply deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-send-file', methods=['POST'])
+def whatsapp_send_file():
+    """Upload a file and send it as a WhatsApp document/image to a recipient"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        recipient = request.form.get('recipient', '').strip()
+        if not recipient:
+            return jsonify({'success': False, 'message': 'Recipient required'}), 400
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'success': False, 'message': 'Empty file'}), 400
+        
+        caption = request.form.get('caption', '').strip()
+        
+        # Normalise recipient number
+        recipient_clean = re.sub(r'[^0-9]', '', str(recipient))
+        if recipient_clean.startswith('0'):
+            recipient_clean = '263' + recipient_clean[1:]
+        elif not recipient_clean.startswith('263'):
+            recipient_clean = '263' + recipient_clean
+        
+        # Determine file type and MIME
+        filename = file.filename
+        file_bytes = file.read()
+        
+        # Normalise MIME type: use file extension map (more reliable than browser content_type)
+        ext = (filename.rsplit('.', 1)[-1] if '.' in filename else '').lower()
+        audio_ext_map = {
+            'mp3': 'audio/mpeg', 'aac': 'audio/aac', 'm4a': 'audio/mp4',
+            'mp4': 'audio/mp4', 'ogg': 'audio/ogg', 'opus': 'audio/ogg',
+            'amr': 'audio/amr', 'wav': 'audio/mpeg', '3gp': 'audio/amr'
+        }
+        image_ext_map = {
+            'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+            'gif': 'image/gif', 'webp': 'image/webp'
+        }
+        
+        browser_mime = (file.content_type or '').lower()
+        is_audio = ext in audio_ext_map or browser_mime.startswith('audio/')
+        is_image = ext in image_ext_map or browser_mime.startswith('image/')
+        
+        # Use extension-based MIME for audio to avoid unsupported types from browsers
+        if is_audio and ext in audio_ext_map:
+            mime_type = audio_ext_map[ext]
+        elif is_image and ext in image_ext_map:
+            mime_type = image_ext_map[ext]
+        else:
+            mime_type = browser_mime or 'application/octet-stream'
+        
+        msg_type = 'audio' if is_audio else 'image' if is_image else 'document'
+        
+        # Step 1: Upload to WhatsApp Media API
+        upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+        upload_headers = {'Authorization': f'Bearer {ACCESS_TOKEN}'}
+        upload_files = {
+            'file': (filename, io.BytesIO(file_bytes), mime_type),
+            'type': (None, mime_type),
+            'messaging_product': (None, 'whatsapp')
+        }
+        upload_response = requests.post(upload_url, headers=upload_headers, files=upload_files, timeout=45)
+        upload_data = upload_response.json()
+        print(f"📤 WhatsApp media upload [{upload_response.status_code}]: {upload_data}")
+        
+        if upload_response.status_code != 200 or 'id' not in upload_data:
+            return jsonify({'success': False, 'message': f'Media upload failed: {upload_data.get("error", {}).get("message", str(upload_data))}'}), 500
+        
+        media_id = upload_data['id']
+        
+        # Step 2: Send the media message
+        send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        send_headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        if is_image:
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'image',
+                'image': {
+                    'id': media_id,
+                    'caption': caption or filename
+                }
+            }
+        elif is_audio:
+            # Send audio as a document so client can always download & play it
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'document',
+                'document': {
+                    'id': media_id,
+                    'filename': filename,
+                    'caption': caption or filename
+                }
+            }
+        else:
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_clean,
+                'type': 'document',
+                'document': {
+                    'id': media_id,
+                    'filename': filename,
+                    'caption': caption or filename
+                }
+            }
+        
+        print(f"📨 Sending {msg_type} to {recipient_clean}")
+        send_response = requests.post(send_url, headers=send_headers, json=payload, timeout=45)
+        send_data = send_response.json()
+        print(f"📡 Send response [{send_response.status_code}]: {send_data}")
+        
+        if send_response.status_code != 200:
+            return jsonify({'success': False, 'message': f'Failed to send: {send_data.get("error", {}).get("message", str(send_data))}'}), 500
+        
+        # Step 3: Save to whatsapp_messages
+        try:
+            with get_db() as (save_cursor, save_conn):
+                user_name = session.get('user_name', 'Admin')
+                display_text = f"[{msg_type.capitalize()}: {filename}]"
+                if caption:
+                    display_text += f" - {caption}"
+                save_cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status, media_id, file_name)
+                    VALUES (%s, %s, %s, %s, 'outgoing', 'sent', %s, %s)
+                """, (recipient_clean, user_name, display_text[:500], msg_type, media_id, filename))
+                save_conn.commit()
+        except Exception as save_err:
+            print(f"⚠️ Failed to save sent file message: {save_err}")
+        
+        log_activity('whatsapp_file_sent', f'{msg_type.capitalize()} file "{filename}" sent to {recipient_clean}', 'whatsapp', None, {'recipient': recipient_clean, 'filename': filename, 'msg_type': msg_type, 'caption': caption[:100] if caption else ''})
+        
+        return jsonify({'success': True, 'message': f'{msg_type.capitalize()} sent successfully', 'media_id': media_id})
+        
+    except Exception as e:
+        print(f"WhatsApp send file error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-toggle-human-mode', methods=['POST'])
+def whatsapp_toggle_human_mode():
+    """Toggle human mode for a WhatsApp contact."""
+    try:
+        data = request.get_json()
+        phone = data.get('phone', '').strip()
+        human_mode = data.get('human_mode', False)
+        
+        if not phone:
+            return jsonify({'success': False, 'message': 'Phone number is required'}), 400
+        
+        # Normalize: remove non-digits
+        phone_clean = re.sub(r'[^0-9]', '', phone)
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO chat_human_mode (sender_phone, human_mode, toggled_at, updated_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (sender_phone)
+                DO UPDATE SET human_mode = %s, updated_at = CURRENT_TIMESTAMP
+            """, (phone_clean, human_mode, human_mode))
+            connection.commit()
+        
+        # Log the toggle
+        status = 'enabled' if human_mode else 'disabled'
+        try:
+            log_activity(
+                'human_mode_toggled',
+                f'Human mode {status} for WhatsApp contact {phone_clean}',
+                'whatsapp',
+                None,
+                {'phone': phone_clean, 'human_mode': human_mode, 'status': status}
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log human mode toggle: {log_err}")
+        
+        return jsonify({'success': True, 'message': f'Human mode {status} for {phone}', 'human_mode': human_mode})
+    except Exception as e:
+        print(f"Toggle human mode error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-human-mode/<phone>')
+def whatsapp_human_mode(phone):
+    """Check if human mode is enabled for a WhatsApp contact."""
+    try:
+        phone = phone.strip()
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT human_mode FROM chat_human_mode WHERE sender_phone = %s
+            """, (phone,))
+            row = cursor.fetchone()
+            human_mode = row[0] if row else False
+        
+        return jsonify({'success': True, 'human_mode': human_mode})
+    except Exception as e:
+        print(f"Check human mode error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-universal-toggle', methods=['POST'])
+def whatsapp_universal_toggle():
+    """Toggle ALL WhatsApp contacts to human or bot mode (overrides individual settings)."""
+    try:
+        data = request.get_json()
+        human_mode = data.get('human_mode', False)
+        
+        with get_db() as (cursor, connection):
+            # Get all unique sender phones from whatsapp_messages
+            cursor.execute("""
+                SELECT DISTINCT sender_phone FROM whatsapp_messages
+                WHERE sender_phone IS NOT NULL AND sender_phone != ''
+            """)
+            phones = [row[0] for row in cursor.fetchall()]
+            
+            # Also get phones from chatbot_interactions
+            cursor.execute("""
+                SELECT DISTINCT sender_phone FROM chatbot_interactions
+                WHERE sender_phone IS NOT NULL AND sender_phone != ''
+                  AND sender_phone NOT IN (SELECT DISTINCT sender_phone FROM whatsapp_messages
+                                           WHERE sender_phone IS NOT NULL AND sender_phone != '')
+            """)
+            phones.extend([row[0] for row in cursor.fetchall()])
+            
+            toggled = 0
+            for phone in phones:
+                phone_clean = re.sub(r'[^0-9]', '', phone)
+                if not phone_clean:
+                    continue
+                cursor.execute("""
+                    INSERT INTO chat_human_mode (sender_phone, human_mode, toggled_at, updated_at)
+                    VALUES (%s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    ON CONFLICT (sender_phone)
+                    DO UPDATE SET human_mode = %s, updated_at = CURRENT_TIMESTAMP
+                """, (phone_clean, human_mode, human_mode))
+                toggled += 1
+            
+            connection.commit()
+        
+        status = 'Human' if human_mode else 'Bot'
+        try:
+            log_activity(
+                'universal_mode_toggled',
+                f'Universal mode set to {status} for {toggled} contacts',
+                'whatsapp',
+                None,
+                {'human_mode': human_mode, 'contacts_affected': toggled}
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log universal toggle: {log_err}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'All {toggled} contacts switched to {status} mode',
+            'human_mode': human_mode,
+            'contacts_affected': toggled
+        })
+    except Exception as e:
+        print(f"Universal toggle error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-chat-mode-stats')
+def whatsapp_chat_mode_stats():
+    """Get count of chats on bot mode vs human mode."""
+    try:
+        with get_db() as (cursor, connection):
+            # Count distinct contacts with human_mode = TRUE
+            cursor.execute("""
+                SELECT COUNT(DISTINCT chm.sender_phone)
+                FROM chat_human_mode chm
+                WHERE chm.human_mode = TRUE
+            """)
+            human_count = cursor.fetchone()[0] or 0
+            
+            # Count distinct contacts with human_mode = FALSE (explicitly set to bot)
+            cursor.execute("""
+                SELECT COUNT(DISTINCT chm.sender_phone)
+                FROM chat_human_mode chm
+                WHERE chm.human_mode = FALSE
+            """)
+            bot_explicit = cursor.fetchone()[0] or 0
+            
+            # Total unique contacts
+            cursor.execute("""
+                SELECT COUNT(DISTINCT sender_phone) FROM (
+                    SELECT sender_phone FROM whatsapp_messages
+                    WHERE sender_phone IS NOT NULL AND sender_phone != ''
+                    UNION
+                    SELECT sender_phone FROM chatbot_interactions
+                    WHERE sender_phone IS NOT NULL AND sender_phone != ''
+                ) all_contacts
+            """)
+            total_contacts = cursor.fetchone()[0] or 0
+            
+            # Bot mode = total - human_count (includes explicit bot + unset/default)
+            bot_count = total_contacts - human_count
+        
+        return jsonify({
+            'success': True,
+            'human_mode_count': human_count,
+            'bot_mode_count': bot_count,
+            'total_contacts': total_contacts
+        })
+    except Exception as e:
+        print(f"Chat mode stats error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/whatsapp-sync-history', methods=['POST'])
+def whatsapp_sync_history():
+    """Sync historical contacts from chatbot_interactions into whatsapp_messages"""
+    user_uuid = session.get('user_uuid')
+    if not user_uuid:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    try:
+        synced = 0
+        with get_db() as (cursor, connection):
+            # Sync phone numbers from chatbot_interactions not yet in whatsapp_messages
+            cursor.execute("""
+                SELECT DISTINCT ci.sender_phone, 
+                       MAX(ci.sender_name) as contact_name,
+                       MIN(ci.created_at) as first_seen
+                FROM chatbot_interactions ci
+                WHERE ci.sender_phone IS NOT NULL
+                  AND ci.sender_phone NOT IN (
+                      SELECT DISTINCT sender_phone FROM whatsapp_messages WHERE sender_phone IS NOT NULL
+                  )
+                GROUP BY ci.sender_phone
+                ORDER BY MIN(ci.created_at) ASC
+            """)
+            rows = cursor.fetchall()
+            
+            for r in rows:
+                phone = r[0]
+                name = r[1] or f"Unknown ({phone})"
+                first_seen = r[2] if r[2] else datetime.now()
+                cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status, created_at)
+                    VALUES (%s, %s, %s, 'text', 'incoming', 'received', %s)
+                """, (phone, name, '(📜 Historical contact from interactions log)', first_seen))
+                synced += 1
+            
+            # Also sync interaction labels as individual message entries
+            cursor.execute("""
+                SELECT ci.sender_phone, ci.sender_name, ci.interaction_label, ci.interaction_type, ci.created_at
+                FROM chatbot_interactions ci
+                WHERE ci.sender_phone IS NOT NULL
+                  AND ci.interaction_label IS NOT NULL
+                  AND ci.interaction_label != ''
+                  AND ci.sender_phone NOT IN (
+                      SELECT DISTINCT sender_phone FROM whatsapp_messages WHERE sender_phone IS NOT NULL
+                  )
+                ORDER BY ci.id ASC
+            """)
+            interaction_rows = cursor.fetchall()
+            
+            for r in interaction_rows:
+                phone = r[0]
+                name = r[1] or 'Unknown'
+                label = r[2]
+                itype = r[3] or 'interactive'
+                ts = r[4] if r[4] else datetime.now()
+                cursor.execute("""
+                    INSERT INTO whatsapp_messages 
+                    (sender_phone, sender_name, message_text, message_type, direction, status, created_at)
+                    VALUES (%s, %s, %s, %s, 'incoming', 'received', %s)
+                """, (phone, name, f"[{itype}: {label[:200]}]", itype, ts))
+                synced += 1
+            
+            connection.commit()
+        
+        log_activity('whatsapp_history_synced', f'Synced {synced} historical entries from interactions log into whatsapp_messages', 'whatsapp', None, {'synced_count': synced})
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Synced {synced} historical entries from interactions log',
+            'synced': synced
+        })
+    except Exception as e:
+        print(f"WhatsApp sync history error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/export-enquiries')
+def export_enquiries():
+    with get_db() as (cursor, connection):
+        try:
+            today_date = datetime.now().strftime('%d %B %Y %H:%M:%S')
+            
+            # ========= GET ENQUIRIES DATA =========
+            cursor.execute("SELECT * FROM connectlinkenquiries ORDER BY id DESC")
+            rows = cursor.fetchall()
+            
+            if not rows:
+                # Return empty Excel file
+                output = io.BytesIO()
+                df_empty = pd.DataFrame(columns=['No enquiries found'])
+                df_empty.to_excel(output, index=False, sheet_name="Enquiries")
+                output.seek(0)
+                
+                log_activity('export_enquiries', 'Enquiries exported to Excel (0 rows - empty)', 'enquiry', None, {'rows_exported': 0, 'format': 'excel'})
+                
+                return send_file(
+                    output,
+                    as_attachment=True,
+                    download_name=f"ConnectLink Properties Enquiries as at {today_date}.xlsx",
+                    mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            cols = [desc[0] for desc in cursor.description]
+            df_enquiries = pd.DataFrame(rows, columns=cols)
+            
+            # ========= CREATE EXCEL FILE IN MEMORY =========
+            output = io.BytesIO()
+            
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                # Sheet 1: Enquiries Data
+                df_enquiries.to_excel(writer, index=False, sheet_name="Enquiries")
+                
+                # Sheet 2: Status Summary
+                if 'status' in df_enquiries.columns:
+                    status_counts = df_enquiries['status'].value_counts()
+                    
+                    # Map status to readable names
+                    status_map = {
+                        'pending': 'Pending',
+                        'in_progress': 'In Progress',
+                        'completed': 'Completed'
+                    }
+                    
+                    # Create status summary
+                    status_summary = []
+                    for status, count in status_counts.items():
+                        readable_status = status_map.get(status, status.title())
+                        status_summary.append({
+                            'Status': readable_status,
+                            'Count': count
+                        })
+                    
+                    df_status_summary = pd.DataFrame(status_summary)
+                    df_status_summary.to_excel(writer, index=False, sheet_name="Status Summary", startrow=1)
+                    
+                    # Add header
+                    worksheet = writer.sheets['Status Summary']
+                    worksheet['A1'] = 'Status Distribution'
+                
+                # Sheet 3: Enquiries by Date (Fixed)
+                if 'timestamp' in df_enquiries.columns:
+                    try:
+                        # Convert timestamp to date
+                        df_enquiries['date'] = pd.to_datetime(df_enquiries['timestamp']).dt.date
+                        
+                        # Simple date count
+                        date_summary = df_enquiries.groupby('date').size().reset_index(name='Count')
+                        date_summary = date_summary.sort_values('date', ascending=False)
+                        date_summary.to_excel(writer, index=False, sheet_name="Enquiries by Date")
+                        
+                        # Alternative: Status by Date (without pivot_table issues)
+                        if 'status' in df_enquiries.columns:
+                            # Group by date and status
+                            status_date_group = df_enquiries.groupby(['date', 'status']).size().reset_index(name='Count')
+                            
+                            # Pivot manually to avoid column mismatch
+                            dates = status_date_group['date'].unique()
+                            statuses = ['pending', 'in_progress', 'completed']
+                            
+                            # Create empty DataFrame
+                            status_by_date = pd.DataFrame({'Date': dates})
+                            
+                            # Fill with counts for each status
+                            for status in statuses:
+                                status_counts = []
+                                for date in dates:
+                                    count = status_date_group[
+                                        (status_date_group['date'] == date) & 
+                                        (status_date_group['status'] == status)
+                                    ]['Count'].sum()
+                                    status_counts.append(count)
+                                
+                                readable_status = status_map.get(status, status.title())
+                                status_by_date[readable_status] = status_counts
+                            
+                            status_by_date = status_by_date.sort_values('Date', ascending=False)
+                            status_by_date.to_excel(writer, index=False, sheet_name="Status by Date")
+                            
+                    except Exception as e:
+                        print(f"Error creating date sheets: {e}")
+                        # Continue without these sheets
+                
+                # Sheet 4: Statistics
+                if 'status' in df_enquiries.columns:
+                    total = len(df_enquiries)
+                    pending = len(df_enquiries[df_enquiries['status'] == 'pending'])
+                    in_progress = len(df_enquiries[df_enquiries['status'] == 'in_progress'])
+                    completed = len(df_enquiries[df_enquiries['status'] == 'completed'])
+                    
+                    stats_data = {
+                        'Metric': [
+                            'Total Enquiries',
+                            'Pending Enquiries',
+                            'In Progress Enquiries',
+                            'Completed Enquiries',
+                            'Pending Percentage',
+                            'In Progress Percentage',
+                            'Completed Percentage'
+                        ],
+                        'Value': [
+                            total,
+                            pending,
+                            in_progress,
+                            completed,
+                            f"{(pending/total*100):.1f}%" if total > 0 else "0%",
+                            f"{(in_progress/total*100):.1f}%" if total > 0 else "0%",
+                            f"{(completed/total*100):.1f}%" if total > 0 else "0%"
+                        ]
+                    }
+                    
+                    df_stats = pd.DataFrame(stats_data)
+                    df_stats.to_excel(writer, index=False, sheet_name="Statistics")
+            
+            output.seek(0)
+            
+            log_activity('export_enquiries', f'Enquiries exported to Excel ({len(rows)} rows)', 'enquiry', None, {'rows_exported': len(rows), 'format': 'excel'})
+            
+            # ========= SEND THE FILE =========
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=f"ConnectLink Properties Enquiries as at {today_date}.xlsx",
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            
+        except Exception as e:
+            print(f"Error exporting enquiries: {str(e)}")
+            return f"Error occurred: {str(e)}", 500
+
+@app.route('/download_contract/<project_id>')
+def download_contract(project_id):
+    with get_db() as (cursor, connection):
+        try:
+            # Fetch project data
+            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id = %s", (project_id,))
+            row = cursor.fetchone()
+            if not row:
+                return "Project not found", 404
+
+            column_names = [desc[0] for desc in cursor.description]
+            print("\nColumn names:")
+            print(column_names)
+
+            # Create a DataFrame (single row)
+            dfjh = pd.DataFrame([row], columns=column_names)
+
+            print("\nDataFrame created:")
+            print(dfjh)
+            print(f"\nDataFrame shape: {dfjh.shape}")
+
+            df_list = dfjh.values.tolist()
+            print("DataFrame as list of lists:")
+            print(df_list)
+
+            # Format agreement date
+            agreement_date = row[16] 
+            formatted_agreement_date = agreement_date.strftime("%d %B %Y")
+
+            # Fetch company details
+            cursor.execute("SELECT * FROM connectlinkdetails;")
+            detailscompdata = cursor.fetchall()
+            detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber'])
+            companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
+            address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
+            contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
+            contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
+            compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
+
+            # Calculate days difference
+            def days_between(date1, date2):
+                delta = date1 - date2
+                return abs(delta.days)
+
+            date_str1 = row[14]
+            date_str2 = row[24]
+            days_difference = days_between(date_str1, date_str2)
+
+            # Map project row to dictionary
+            project = {
+                'payment_method': row[18] if len(row) > 18 else '',
+                'project_id_num': row[0],
+                'client_name': row[1],
+                'client_idnumber': row[2],
+                'client_address': row[3],
+                'client_whatsapp': row[4],
+                'client_email': row[5],
+                'next_of_kin_name': row[6],
+                'next_of_kin_address': row[7],
+                'next_of_kin_phone': row[8],
+                'relationship': row[9],
+                'project_name': row[10],
+                'project_location': row[11],
+                'project_description': row[12],
+                'project_administrator': row[13],
+                'project_start_date': row[14],
+                'project_duration': row[15],
+                'agreement_date': formatted_agreement_date,
+                'total_contract_price': row[17],
+                'depositorbullet': row[23] if len(row) > 23 else None,
+                'datedepositorbullet': row[24] if len(row) > 24 else None,
+                'monthlyinstallment': row[25] if len(row) > 25 else None,
+                'installment1amount': row[26] if len(row) > 26 else None,
+                'installment1duedate': row[27].strftime("%-d %B %Y") if len(row) > 27 and row[27] else None,
+                'installment2amount': row[29] if len(row) > 29 else None,
+                'installment2duedate': row[30].strftime("%-d %B %Y") if len(row) > 30 and row[30] else None,
+                'installment3amount': row[32] if len(row) > 32 else None,
+                'installment3duedate': row[33].strftime("%-d %B %Y") if len(row) > 33 and row[33] else None,
+                'installment4amount': row[35] if len(row) > 35 else None,
+                'installment4duedate': row[36].strftime("%-d %B %Y") if len(row) > 36 and row[36] else None,
+                'installment5amount': row[38] if len(row) > 38 else None,
+                'installment5duedate': row[39].strftime("%-d %B %Y") if len(row) > 39 and row[39] else None,
+                'installment6amount': row[41] if len(row) > 41 else None,
+                'installment6duedate': row[42].strftime("%-d %B %Y") if len(row) > 42 and row[42] else None,
+                'installment7amount': row[47] if len(row) > 47 else None,
+                'installment7duedate': row[48].strftime("%-d %B %Y") if len(row) > 48 and row[48] else None,
+                'installment8amount': row[50] if len(row) > 50 else None,
+                'installment8duedate': row[51].strftime("%-d %B %Y") if len(row) > 51 and row[51] else None,
+                'installment9amount': row[53] if len(row) > 53 else None,
+                'installment9duedate': row[54].strftime("%-d %B %Y") if len(row) > 54 and row[54] else None,
+                'installment10amount': row[56] if len(row) > 56 else None,
+                'installment10duedate': row[57].strftime("%-d %B %Y") if len(row) > 57 and row[57] else None,
+                'latepaymentinterest': row[45] if len(row) > 45 else None,
+                'companyname': companyname,
+                'companyaddress': address,
+                'companycontact1': contact1,
+                'companycontact2': contact2,
+                'companyemail': compemail,
+                'days_difference': days_difference,
+                'relationship': row[9] if len(row) > 9 else ""
+            }
+
+            project['generated_on'] = datetime.now().strftime('%d %B %Y')
+            
+            # Get quotation_id from the project row
+            # Need to find the column index for quotation_id
+            try:
+                quotation_id_index = column_names.index('quotation_id')
+                quotation_id = row[quotation_id_index]
+            except (ValueError, IndexError):
+                quotation_id = None
+
+            # Build work scope table HTML from linked quotation if available
+            work_scope_html = ""
+            
+            # PRIORITY 1: Check if this project has adjusted schedules stored
+            try:
+                adjusted_schedules_json_idx = column_names.index('adjusted_schedules_json')
+                adjusted_schedules_json_str = row[adjusted_schedules_json_idx]
+                if adjusted_schedules_json_str:
+                    import json as json_module
+                    adjusted_schedules = json_module.loads(adjusted_schedules_json_str)
+                    if adjusted_schedules and len(adjusted_schedules) > 0:
+                        work_scope_rows = ""
+                        for idx, schedule in enumerate(adjusted_schedules, 1):
+                            work_scope = schedule.get('workScope', 'Task')
+                            start_date_str = schedule.get('startDate', '')
+                            end_date_str = schedule.get('endDate', '')
+                            days = schedule.get('days', '')
+                            work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{idx}. {work_scope}</td><td style='text-align: center; padding: 8px;'>{start_date_str}</td><td style='text-align: center; padding: 8px;'>{end_date_str}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days}</td></tr>"
+                        
+                        work_scope_html = f"""
+                            <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
+                            <table class="payment-table" style="margin-top: 12px; margin-bottom: 20px; font-size: 12px;">
+                                <thead>
+                                    <tr style="background: #1E2A56; color: white;">
+                                        <th style="width: 45%; text-align: left; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Work Scope</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Start Date</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">End Date</th>
+                                        <th style="width: 12%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Days</th>
+                                    </tr>
+                                </thead>
+                                <tbody style="font-size: 11px;">
+                                    {work_scope_rows}
+                                </tbody>
+                            </table>
+                            <div class="page-break"></div>
+                        """
+            except (ValueError, IndexError):
+                pass
+            except Exception as e:
+                print(f"Note: Could not parse project adjusted schedules: {e}")
+            
+            # PRIORITY 2: Fall back to linked quotation schedules + date offset
+            if not work_scope_html and quotation_id:
+                try:
+                    # Fetch work schedules from quotation
+                    cursor.execute("""
+                        SELECT work_scope, start_date, end_date, days
+                        FROM quotation_schedules
+                        WHERE quotation_id = %s
+                        ORDER BY task_order ASC
+                    """, (quotation_id,))
+                    
+                    schedules = cursor.fetchall()
+                    
+                    if schedules:
+                        # Get project start date
+                        project_start_date = row[14]  # project_start_date from project row
+                        
+                        # Get the first schedule's start date to calculate offset
+                        first_schedule_start = schedules[0][1] if schedules[0][1] else None
+                        
+                        # Calculate date offset in days
+                        date_offset = 0
+                        if first_schedule_start and project_start_date:
+                            date_offset = (project_start_date - first_schedule_start).days
+                        
+                        work_scope_rows = ""
+                        for idx, schedule in enumerate(schedules, 1):
+                            work_scope, start_date, end_date, days = schedule
+                            
+                            # Apply date offset to schedule dates
+                            if start_date and date_offset != 0:
+                                start_date = start_date + timedelta(days=date_offset)
+                            if end_date and date_offset != 0:
+                                end_date = end_date + timedelta(days=date_offset)
+                            
+                            # Format dates
+                            start_str = start_date.strftime("%d/%m/%Y") if start_date else ""
+                            end_str = end_date.strftime("%d/%m/%Y") if end_date else ""
+                            days_str = str(days) if days else ""
+                            
+                            work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{idx}. {work_scope}</td><td style='text-align: center; padding: 8px;'>{start_str}</td><td style='text-align: center; padding: 8px;'>{end_str}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days_str}</td></tr>"
+                        
+                        work_scope_html = f"""
+                            <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
+                            <table class="payment-table" style="margin-top: 12px; margin-bottom: 20px; font-size: 12px;">
+                                <thead>
+                                    <tr style="background: #1E2A56; color: white;">
+                                        <th style="width: 45%; text-align: left; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Work Scope</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Start Date</th>
+                                        <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">End Date</th>
+                                        <th style="width: 12%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Days</th>
+                                    </tr>
+                                </thead>
+                                <tbody style="font-size: 11px;">
+                                    {work_scope_rows}
+                                </tbody>
+                            </table>
+                            <div class="page-break"></div>
+                        """
+                except Exception as e:
+                    logging.error(f"Error fetching quotation schedules: {e}")
+                    work_scope_html = ""
+            
+            # Fallback: use hardcoded work scope for project_id 125 if no quotation is linked
+            if not work_scope_html and int(project_id) == 125:
+                work_scope_data = [
+                    ('Bathroom Plumbing', '31/03/2026', '3/4/2026', 4),
+                    ('Main Kitchen', '27/3/2026', '4/4/2026', 7),
+                    ('Bedroom Cabinets', '28/3/2026', '4/4/2026', 6),
+                    ('TV unit', '5/4/2026', '6/4/2026', 1),
+                    ('Boundary wall', '10/4/2026', '', ''),
+                    ('Kitchenette', '5/4/2026', '7/4/2026', 2),
+                    ('Electricals', '4/4/2026', '8/4/2026', 4),
+                    ('Manhole construction', '4/4/2026', '9/4/2026', 5),
+                    ('Painting', '6/4/2026', '11/4/2026', 5),
+                    ('Gate', '12/4/2026', '13/4/2026', 1),
+                    ('Tank Stand', '26/4/2026', '30/4/2026', 4),
+                    ('Landscaping', '1/5/2026', '10/5/2026', 9),
+                    ('Final fix Plumbing', '6/5/2026', '10/5/2026', 4),
+                    ('Final fix Electricals', '6/5/2026', '10/5/2026', 4),
+                    ('Verandah roof', '11/05/2026', '16/5/2026', 5),
+                    ('Garage roof', '16/5/2026', '21/5/2026', 5),
+                    ('Verandah Tiles', '17/5/2026', '23/5/2025', 6),
+                    ('Floor Tiles', '17/5/2026', '23/5/2025', 6),
+                ]
+                
+                work_scope_rows = ""
+                for scope, start, end, days in work_scope_data:
+                    work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{scope}</td><td style='text-align: center; padding: 8px;'>{start}</td><td style='text-align: center; padding: 8px;'>{end}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days}</td></tr>"
+                
+                work_scope_html = f"""
+                    <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
+                    <table class="payment-table" style="margin-top: 12px; margin-bottom: 20px; font-size: 12px;">
+                        <thead>
+                            <tr style="background: #1E2A56; color: white;">
+                                <th style="width: 45%; text-align: left; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Work Scope</th>
+                                <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Start Date</th>
+                                <th style="width: 18%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">End Date</th>
+                                <th style="width: 12%; text-align: center; padding: 10px; font-weight: 700; border-bottom: 2px solid #2A3A78;">Days</th>
+                            </tr>
+                        </thead>
+                        <tbody style="font-size: 11px;">
+                            {work_scope_rows}
+                        </tbody>
+                    </table>
+                    <div class="page-break"></div>
+                """
+
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+            with open(logo_path, 'rb') as img_file:
+                logo_base64 = base64.b64encode(img_file.read()).decode('utf-8')
+
+                        # HTML string (full template)
+            html = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Construction Agreement</title>
+                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
+                <style>
+                    @page {{
+                        size: A4;
+                        margin: 30px 40px 60px 30px; /* Extra bottom margin for signature area */
+                        
+                        @bottom-center {{
+                            content: "";
+                            width: 70%;
+                            border-top: 1px solid #1E2A56;
+                            margin-top: 20px;
+                            padding-top: 10px;
+                        }}
+                    }}
+                    
+                    body {{ 
+                        font-family: 'Roboto', sans-serif; 
+                        background: #fff; 
+                        color: #1E2A56;
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    
+                    .page-break {{
+                        page-break-after: always;
+                        margin-top: 40px;
+                    }}
+                    
+                    .agreement-container {{
+                        width: 100%;
+                        max-width: 800px;
+                        margin: 0 auto;
+                        padding: 30px;
+                        box-sizing: border-box;
+                        position: relative;
+                    }}
+                    
+                    .watermark {{
+                        position: fixed;
+                        top: 40%;
+                        left: 15%;
+                        opacity: 0.05;
+                        font-size: 100px;
+                        color: #1E2A56;
+                        transform: rotate(-45deg);
+                        z-index: -1000;
+                        font-weight: 900;
+                    }}
+                    
+                    .logo {{
+                        display: block;
+                        margin: 0 auto 15px auto;
+                        width: 200px;
+                        height: auto;
+                    }}
+                    
+                    h3.title {{
+                        text-align: center;
+                        font-weight: 900;
+                        margin-bottom: 10px;
+                        text-transform: uppercase;
+                        letter-spacing: 1.6px;
+                        font-size: 20px;
+                        color: #1E2A56;
+                    }}
+                    
+                    .subtitle-line {{
+                        width: 150px;
+                        height: 4px;
+                        background: linear-gradient(90deg, #1E2A56, #3A4B8C);
+                        margin: 10px auto 30px auto;
+                        border-radius: 10px;
+                    }}
+                    
+                    h4.section-title {{
+                        text-align: center;
+                        background: linear-gradient(90deg, #1E2A56, #2A3A78);
+                        color: white;
+                        padding: 6px 8px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        margin-top: 20px;
+                        margin-bottom: 12px;
+                        font-weight: 700;
+                        letter-spacing: 0.8px;
+                        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+                    }}
+                    
+                    .section-header {{
+                        background: #f0f5ff;
+                        padding: 6px 8px;
+                        border-left: 4px solid #1E2A56;
+                        margin: 20px 0 20px 0;
+                        font-weight: 700;
+                        color: #1E2A56;
+                        font-size: 11px;
+                        border-radius: 0 8px 8px 0;
+                    }}
+                    
+                    .field-row {{
+                        display: flex;
+                        align-items: flex-start;
+                        margin-bottom: 8px;
+                        page-break-inside: avoid;
+                    }}
+                    
+                    .field-label {{
+                        font-weight: 700;
+                        width: 180px;
+                        font-size: 12px;
+                        flex-shrink: 0;
+                        color: #2A3A78;
+                    }}
+                    
+                    .field-value {{
+                        flex: 1;
+                        border-bottom: 1px solid #d1d9f0;
+                        padding-bottom: 5px;
+                        font-size: 11px;
+                        min-height: 17px;
+                        color: #1E2A56;
+                    }}
+                    
+                    .highlight-box {{
+                        background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%);
+                        font-size: 11px;
+                        border: 1.5px solid #1E2A56;
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin: 10px 0;
+                        box-shadow: 0 4px 12px rgba(26, 42, 86, 0.08);
+                    }}
+                    
+                    .scope-box {{
+                        border: 1.5px solid #1E2A56;
+                        border-radius: 10px;
+                        padding: 8px;
+                        font-size: 11px;
+                        min-height: 70px;
+                        background: #fafbff;
+                        margin-bottom: 15px;
+                        line-height: 1.3;
+                    }}
+                    
+                    .payment-table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 10px 0;
+                        border: 1.5px solid #1E2A56;
+                        box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+                    }}
+                    
+                    .payment-table th {{
+                        background: linear-gradient(90deg, #1E2A56, #2A3A78);
+                        color: white;
+                        text-align: left;
+                        padding: 10px;
+                        font-weight: 700;
+                        font-size: 11px;
+                    }}
+                    
+                    .payment-table td {{
+                        border: 1px solid #d1d9f0;
+                        padding: 10px;
+                        font-size: 11px;
+                    }}
+                    
+                    .payment-table tr:nth-child(even) {{
+                        background-color: #f9faff;
+                    }}
+                    
+                    ul, ol {{
+                        margin: 10px 0;
+                        padding-left: 20px;
+                        line-height: 1.4;
+                    }}
+                    
+                    li {{
+                        margin-bottom: 10px;
+                        font-size: 11px;
+                        color: #1E2A56;
+                    }}
+                    
+                    .terms-box {{
+                        background: #f8faff;
+                        border-left: 4px solid #1E2A56;
+                        padding: 5px;
+                        margin: 7px 0;
+                        border-radius: 0 8px 8px 0;
+                    }}
+                    
+                    /* Signature area at bottom of each page */
+                    .signature-area {{
+                        font-size: 8px;
+                        position: fixed;
+                        bottom: 5px;
+                        left: 40px;
+                        right: 40px;
+                        padding-top: 8px;
+                        border: 1px solid #1E2A56;
+                        border-radius: 8px;
+                        background: #f8faff;
+                        z-index: 100;
+                    }}
+                    
+                    .signature-block {{
+                        display: flex;
+                        justify-content: space-between;
+                        margin-top: 8px;
+                    }}
+                    
+                    .signature-line {{
+                        flex: 1;
+                        margin: 0 10px;
+                    }}
+                    
+                    .signature-label {{
+                        font-weight: 700;
+                        font-size: 10px;
+                        margin-bottom: 5px;
+                        display: block;
+                        color: #2A3A78;
+                    }}
+                    
+                    .signature-space {{
+                        height: 28px;
+                        border-bottom: 1px solid #1E2A56;
+                        margin-top: 3px;
+                    }}
+                    
+                    .signature-date {{
+                        font-size: 10px;
+                        color: #666;
+                        margin-top: 5px;
+                    }}
+
+                    ol {{
+                        list-style-type: none; /* Remove default numbers */
+                        counter-reset: item; /* Create a counter for top level */
+                        padding-left: 0;
+                    }}
+
+                    ol > li {{
+                        counter-increment: item; /* Increment top level */
+                        margin-bottom: 10px;
+                    }}
+
+                    /* Target top-level list items that contain nested lists */
+                    ol > li::before {{
+                        content: counter(item) ". "; /* Adds "1. ", "2. " etc */
+                        font-weight: bold;
+                        margin-right: 5px;
+                    }}
+
+                    /* Style for the nested lists (Second level) */
+                    ol ol {{
+                        counter-reset: subitem; /* Reset counter for sub-items */
+                        margin-top: 5px;
+                        margin-left: 30px; /* Indent the whole sub-list */
+                        list-style-type: none;
+                    }}
+
+                    ol ol > li {{
+                        counter-increment: subitem; /* Increment sub-item */
+                        margin-bottom: 5px;
+                    }}
+
+                    ol ol > li::before {{
+                        content: counter(item) "." counter(subitem) ". "; /* Generates "1.1", "1.2" etc */
+                        margin-right: 5px;
+                    }}
+                    
+                    .footer-note {{
+                        text-align: center;
+                        font-size: 10px;
+                        color: #888;
+                        margin-top: 10px;
+                        font-style: italic;
+                    }}
+                    
+                    /* Page number styling */
+                    .page-number {{
+                        position: fixed;
+                        bottom: 15px;
+                        left: 40px;
+                        font-size: 10px;
+                        color: #666;
+                    }}
+                    
+                    .total-pages {{
+                        position: fixed;
+                        bottom: 15px;
+                        right: 40px;
+                        font-size: 10px;
+                        color: #666;
+                    }}
+                    
+                    /* Print styles */
+                    @media print {{
+                        .signature-area {{
+                            position: fixed;
+                            bottom: 5px;
+                        }}
+                        
+                        .page-break {{
+                            page-break-after: always;
+                        }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="watermark">CONNECTLINK</div>
+                
+                <div class="agreement-container">
+                    <!-- Page 1 -->
+                    <img class="logo" src="data:image/png;base64,{logo_base64}" alt="ConnectLink Logo">
+                    
+                    <h3 class="title">Construction Agreement</h3>
+                    <div class="subtitle-line"></div>
+                    
+                    <div class="highlight-box">
+                        <p style="text-align: center; font-weight: 700; margin: 0;">
+                            This Construction Agreement ("Agreement") is made and entered into on 
+                            <span style="color: #1E2A56; text-decoration: underline;">{project['agreement_date']}</span> 
+                            ("Effective Date") by and between the parties below:
+                        </p>
+                    </div>
+                    
+                    <h4 class="section-title">PARTIES TO THE AGREEMENT</h4>
+                    
+                    <div class="section-header">CLIENT DETAILS</div>
+                    <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['client_name']}</div></div>
+                    <div class="field-row"><div class="field-label">National ID:</div><div class="field-value">{project['client_idnumber']}</div></div>
+                    <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['client_address']}</div></div>
+                    <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['client_whatsapp']}</div></div>
+                    <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['client_email']}</div></div>
+                    
+                    <div class="section-header">NEXT OF KIN DETAILS</div>
+                    <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value">{project['next_of_kin_name']}</div></div>
+                    <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['next_of_kin_address']}</div></div>
+                    <div class="field-row"><div class="field-label">Contact Number:</div><div class="field-value">0{project['next_of_kin_phone']}</div></div>
+                    <div class="field-row"><div class="field-label">Relationship:</div><div class="field-value">{project['relationship']}</div></div>
+                    
+
+                    <div class="section-header">CONTRACTOR DETAILS</div>
+                    <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
+                    <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
+                    <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
+                    <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
+                    <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
+                    
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 2 -->
+
+                    <h4 class="section-title">PROJECT DETAILS</h4>
+                    <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{project['project_name']}</div></div>
+                    <div class="field-row"><div class="field-label">Project Location:</div><div class="field-value">{project['project_location']}</div></div>
+                    
+                    <div class="section-header">PROJECT SCOPE</div>
+                    <div class="scope-box">{project['project_description']}</div>
+                    
+                    {work_scope_html}
+
+                    <h4 class="section-title">PAYMENT TERMS</h4>
+                    <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>
+                    <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['depositorbullet']}</div></div>
+
+
+                    <div class="field-row"><div class="field-label">Payment Method:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">{project.get('payment_method', '')}</div></div>
+
+                    {'' if str(project.get('payment_method', '')).strip() == 'Once Off Payment' else f'''
+                    <div class="section-header">PAYMENT SCHEDULE</div>
+                    <table class="payment-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60%;">Installment Due Date</th>
+                                <th style="width: 40%;">Amount (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>{project['installment1duedate']}</td><td style="font-weight: 700;">{project['installment1amount']}</td></tr>
+                            <tr><td>{project['installment2duedate']}</td><td style="font-weight: 700;">{project['installment2amount']}</td></tr>
+                            <tr><td>{project['installment3duedate']}</td><td style="font-weight: 700;">{project['installment3amount']}</td></tr>
+                            <tr><td>{project['installment4duedate']}</td><td style="font-weight: 700;">{project['installment4amount']}</td></tr>
+                            <tr><td>{project['installment5duedate']}</td><td style="font-weight: 700;">{project['installment5amount']}</td></tr>
+                            <tr><td>{project['installment6duedate']}</td><td style="font-weight: 700;">{project['installment6amount']}</td></tr>
+                            <tr><td>{project['installment7duedate']}</td><td style="font-weight: 700;">{project['installment7amount']}</td></tr>
+                            <tr><td>{project['installment8duedate']}</td><td style="font-weight: 700;">{project['installment8amount']}</td></tr>
+                            <tr><td>{project['installment9duedate']}</td><td style="font-weight: 700;">{project['installment9amount']}</td></tr>
+                            <tr><td>{project['installment10duedate']}</td><td style="font-weight: 700;">{project['installment10amount']}</td></tr>
+                        </tbody>
+                    </table>
+                    '''}
+                    
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 3 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+                    
+                    <div class="section-header">PAYMENT TERMS</div>
+                    <div class="terms-box">
+                        <ul style="list-style-type: circle;">
+                            <li>The Client shall pay the Contract Price in accordance with the agreed payment schedule.</li>
+                            <li>All payments shall be made in United States Dollars (USD) unless otherwise agreed in writing.</li>
+                            <li>Any amount not paid on the due date shall attract mora interest at a rate of <strong>{project['latepaymentinterest']}%</strong> per annum above the prevailing Reserve Bank of Zimbabwe lending rate, calculated daily and compounded monthly from the due date until full payment.</li>
+                            <li>Interest shall accrue automatically without the need for formal demand.</li>
+                            <li>All payments received shall first be applied to accrued interest, then legal costs (if any), and thereafter to the principal sum.</li>
+                            <li>In the event of default exceeding 14 days, the Contractor reserves the right to suspend works upon written notice until payment is regularized.</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="section-header">PROJECT TIMELINE</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>The Contractor shall commence work within <strong>{project['days_difference']} days</strong> of;
+                                <ol>
+                                    <li>Receipt of the agreed initial deposit payment and;</li> 
+                                    <li>Provision of site access by the Client.</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor shall complete the project within <strong>{project['project_duration']} calender days</strong> from the commencement date.</li>
+                            <li>The completion period shall be extended where delays are caused by;
+                                <ol>
+                                    <li>Variations requested by the Client;</li>
+                                    <li>Late payments;</li>
+                                    <li>Failure by the Client to obtain statutory approvals;</li>
+                                    <li>Force majeure events;</li>
+                                    <li>Shortage of materials beyond the Contractor's reasonable control.</li>
+                                </ol>
+                            </li>
+                            <li>The Client is responsible for obtaining all required permits and approvals from local authorities.</li>
+                            <li>The Contractor is responsible for all materials, labor, and workmanship as per industry standards.</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="section-header">SITE SECURITY</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>The Client shall ensure reasonable site security, including secure access control.</li>
+                            <li>The Contractor shall not be liable for theft, vandalism, or damage occurring on site unless caused by its proven negligence.</li>
+                        </ol>
+                    </div> 
+
+                    <div class="section-header">ACCOMMODATION PROVISION</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">The Client shall provide suitable accommodation for the Contractor's personnel at the project site for kitchen and cabinets projects.</p>
+                    </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 4 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                    <div class="section-header">FORCE MAJEURE</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Neither party shall be liable for delay or failure to perform obligations caused by events beyond their reasonable control, including but not limited to:
+                                <ol>
+                                    <li>Acts of God;</li>
+                                    <li>War, civil unrest, or government restrictions;</li>
+                                    <li>Utility failures or prolonged load shedding;</li>
+                                    <li>Material shortages;</li>
+                                    <li>Currency instability rendering procurement of materials commercially impracticable despite reasonable mitigation efforts.</li>
+                                </ol>
+                            </li>
+                            <li>The affected party shall notify the other in writing within a reasonable time.</li>
+                            <li>Time for performance shall be extended for the duration of the force majeure event.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Signing of this Agreement and payment of the deposit shall constitute acknowledgment and approval of the submitted design</li>
+                            <li>No variation or alteration shall be valid unless:
+                                <ul>
+                                    <li>Requested in writing;</li>
+                                    <li>Costed by the Contractor; and</li>
+                                    <li>Approved in writing by both parties.</li>
+                                </ul>
+                            </li>
+                            <li>Approved variations shall:
+                                <ol>`
+                                    <li>Be treated as Change Orders;</li>
+                                    <li>Adjust the Contract Price accordingly; and</li>
+                                    <li>Extend the completion period where necessary.</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor shall not be obliged to proceed with any variation until written approval and payment of any required adjustment is received.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">TRANSPORT PROVISION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
+                            <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
+                            <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                        </ol>
+                    </div>
+
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                    <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Ownership of all materials, goods, and installed items shall remain vested in <strong>ConnectLink Properties</strong> until full and final payment of the Contract Price.</li>
+                            <li>Where materials have been incorporated into the works and cannot be removed without material damage, the Contractor shall retain a contractual right to claim the value thereof.</li>
+                            <li>The Client shall not alienate, encumber, pledge, or dispose of unpaid materials prior to full settlement.</li>
+                            <li>In the event of payment default, the Contractor shall be entitled to approach a competent court of Zimbabwe for:
+                                <ol>
+                                    <li>An order authorizing repossession; or</li>
+                                    <li>Recovery of the outstanding balance together with interest and costs.</li>
+                                </ol>
+                            </li>
+                            <li>Nothing in this clause shall permit unlawful self-help repossession.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">DEFECTS LIABILITY</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
+                            <li>The warranty shall not apply to:
+                                <ol>
+                                    <li>Normal wear and tear;</li>
+                                    <li>Misuse or negligence by the Client;</li>
+                                    <li>Structural defects not attributable to the Contractor;</li>
+                                    <li>Materials supplied by the Client.</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
+                            <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">POWER PROVISION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Where electrical power is required and unavailable due to load shedding or power outages, the Client shall provide a suitable generator and fuel at their own cost unless otherwise agreed in writing.</li>
+                            <li>Delays arising from power unavailability shall extend the completion period.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">WATER PROVISION</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">The Client shall provide water or a suitable water supply and water storage tank(s) of at least 5000 liters for construction activities at their own expense.</p>
+                    </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 6 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                    <div class="section-header">RISK AND INSURANCE</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>The risk in the works, materials, and equipment shall remain with the Contractor until Practical Completion.</li>
+                            <li>Upon Practical Completion, risk shall pass to the Client.</li>
+                            <li>The Client shall be responsible for insuring the works against fire, theft, vandalism, and other insurable risks from the date of Practical Completion.</li>
+                            <li>Unless otherwise agreed in writing, the Contractor shall not be responsible for loss or damage caused by:
+                                <ol>
+                                    <li>Civil unrest;</li>
+                                    <li>Theft not attributable to Contractor negligence;</li>
+                                    <li>Acts of third parties beyond Contractor control;</li>
+                                </ol>
+                            </li>
+                            <li>The Contractor's liability shall be limited to repair or replacement of defective workmanship only.</li>
+                            <li>Nothing in this clause excludes liability for latent defects arising from gross negligence or wilful misconduct.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">LIMITATION OF LIABILITY</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">The Contractor's total liability arising from this Agreement shall not exceed the total Contract Price, except in cases of gross negligence or wilful misconduct.</p>
+                    </div>
+
+                    <div class="section-header">INDEMNITY CLAUSE</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
+                    </div>
+
+                    <div class="section-header">TERMINATION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Either party may terminate this Agreement if the other:
+                                <ol>
+                                    <li>Commits a material breach and fails to remedy such breach within fourteen (14) days of written notice;</li>
+                                    <li>Becomes insolvent in terms of the Insolvency Act [Chapter 6:07];</li>
+                                    <li>Is placed under liquidation or judicial management.</li>
+                                </ol>
+                            </li>
+                            <li>Upon termination:
+                                <ol>
+                                    <li>The Client shall pay for all work completed and materials ordered up to the date of termination;</li>
+                                    <li>Deposits shall be refundable only after deduction of costs incurred;</li>
+                                    <li>The Contractor may suspend further works immediately.</li>
+                                </ol>
+                            </li>
+                            <li>Termination shall not prejudice accrued rights, including the right to claim damages.</li>
+                        </ol>
+                    </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                    <div class="section-header">ZESA and Water Connections</div>
+                    <div class="terms-box">
+                        <ul>
+                            <li>On Full House construction, all ZESA and water connection fees shall be borne or paid for by the Client.</li>
+                        </ul>
+                    </div>
+
+
+                    <div class="section-header">DISPUTE RESOLUTION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>The parties shall first attempt amicable resolution within fourteen (14) days.</li>
+                            <li>Failing resolution, the dispute shall be referred to arbitration in Harare in terms of the Arbitration Act [Chapter 7:15].</li>
+                            <li>The arbitration shall be conducted by a single arbitrator appointed by mutual agreement, failing which the arbitrator shall be appointed by the Commercial Arbitration Centre of Zimbabwe.</li>
+                            <li>The arbitration award shall be final and binding.</li>
+                            <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">GOVERNING LAW</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
+                    </div>
+
+                    <div class="section-header">NOTICES</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Any notice required in terms of this Agreement shall be in writing.</li>
+                            <li>Notices shall be delivered::
+                                <ul>
+                                    <li>By hand (with signed acknowledgment of receipt);</li>
+                                    <li>By registered mail;</li>
+                                    <li>By courier; or</li>
+                                    <li>By email to the designated address of the receiving party.</li>
+                                </ul>
+                            </li>
+                            <li>Notices sent by email shall be deemed received on the date of transmission, provided no delivery failure notification is received.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">ENTIRE AGREEMENT</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>This document constitutes the entire agreement between the parties and supersedes all prior negotiations or representations.</li>
+                            <li>No amendment or variation shall be valid unless reduced to writing and signed by both parties.</li>
+                        </ol>
+                    </div> 
+                    
+                </div>
+                
+                <!-- Signature Area (will appear at bottom of each page) -->
+                <div class="signature-area">
+                    <div class="signature-block">
+                        <div class="signature-line">
+                            <span class="signature-label">CLIENT SIGNATURE</span>
+                            <div class="signature-space"></div>
+                            <div class="signature-date">Date: {project['agreement_date']}</div>
+                        </div>
+                        
+                        <div class="signature-line">
+                            <span class="signature-label">CONTRACTOR SIGNATURE</span>
+                            <div class="signature-space"></div>
+                            <div class="signature-date">Date: {project['agreement_date']}</div>
+                        </div>
+                    </div>
+                    <div class="footer-note" style="margin-top: 5px;font-weight:bold;color: black;">
+                        This is a legally binding document. Please read carefully before signing.
+                    </div>   
+                </div>
+            </body>
+            </html>
+            """
+
+            # Generate PDF with better options
+            css = CSS(string='''
+                @page {
+                    size: A4;
+                    margin: 20px 20px 90px 20px;
+                    
+                    @bottom-right {
+                        content: "Page " counter(page) " of " counter(pages);
+                        font-family: 'Roboto', sans-serif;
+                        font-size: 10px;
+                        color: #666;
+                    }
+                    
+                    @bottom-center {
+                        content: "";
+                        width: 100%;
+                        border-top: 1px solid #1E2A56;
+                        margin-top: 20px;
+                        padding-top: 10px;
+                    }
+                }
+                
+                body {
+                    font-family: 'Roboto', sans-serif;
+                    margin: 0;
+                    padding: 0;
+                }
+            ''')
+
+            try:
+                html_obj = HTML(string=html, base_url=request.host_url)
+                pdf = html_obj.write_pdf(stylesheets=[css])
+            except Exception as wp_exc:
+                print(f"⚠️ weasyprint failed for contract {project_id}: {wp_exc}")
+                print("🔄 Trying Playwright fallback for contract PDF...")
+                # Inject @page CSS rules into HTML for Playwright rendering
+                playwright_css = '''
+                <style>
+                    @page { size: A4; margin: 20px 20px 90px 20px; }
+                    body { font-family: 'Roboto', Arial, sans-serif; margin: 0; padding: 0; }
+                </style>
+                '''
+                html_with_pw_css = html.replace('</head>', playwright_css + '</head>')
+                pdf = generate_pdf_via_playwright(html_with_pw_css)
+
+            response = make_response(pdf)
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]} {project["project_name"]} contract_{project["project_id_num"]} ConnectLink Properties.pdf'
+            
+            # Log the contract download
+            log_activity(
+                'contract_downloaded',
+                f'Contract for {project["client_name"]} - {project["project_name"]} downloaded',
+                'project',
+                project['project_id_num'],
+                {'client_name': project['client_name'], 'project_name': project['project_name']}
+            )
+            
+            return response
+
+        except Exception as e:
+            return str(e), 500
+
+
+@app.route('/send-contract-whatsapp', methods=['POST'])
+def send_contract_whatsapp():
+    """Send a contract PDF to a client via WhatsApp"""
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        whatsapp_number = data.get('whatsapp_number', '').strip()
+        
+        if not project_id or not whatsapp_number:
+            return jsonify({'success': False, 'error': 'Project ID and WhatsApp number are required'}), 400
+        
+        # Validate and clean phone number
+        phone_clean = re.sub(r'[^0-9]', '', str(whatsapp_number))
+        
+        # Check minimum length after stripping non-digits
+        if len(phone_clean) < 7:
+            return jsonify({'success': False, 'error': 'Invalid WhatsApp number. Must include country code (e.g. 2637XXXXXXXX).'}), 400
+        
+        # Check it starts with a country code (number starting with 1 or 2)
+        if not re.match(r'^[12]\d{6,14}$', phone_clean):
+            return jsonify({'success': False, 'error': 'Number must start with a country code. Examples: 2637XXXXXXXX (Zimbabwe), 277XXXXXXXX (South Africa), 2557XXXXXXXX (Tanzania)'}), 400
+        
+        # Convert local format (0xx) to international
+        if phone_clean.startswith('0'):
+            phone_clean = '263' + phone_clean[1:]
+        
+        # Get project details
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT clientname, projectname, projectlocation, projectdescription 
+                FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            project = cursor.fetchone()
+            if not project:
+                return jsonify({'success': False, 'error': 'Project not found'}), 404
+            
+            client_name = project[0] or 'Client'
+            project_name = project[1] or 'Contract'
+            project_location = project[2] or ''
+            project_description = project[3] or ''
+        
+        # Generate contract PDF by calling download_contract internally
+        with app.test_client() as client:
+            resp = client.get(f'/download_contract/{project_id}')
+            if resp.status_code != 200:
+                return jsonify({'success': False, 'error': 'Failed to generate contract PDF'}), 500
+            pdf_bytes = resp.data
+        
+        safe_name = ''.join(char for char in str(client_name) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+        filename = f"Contract_{safe_name}_{project_id}.pdf"
+        caption = f"CONTRACT\n\nClient: {client_name}\nProject: {project_name}\n\nConnectLink Properties"
+        
+        # Send via WhatsApp with fallback for 24hr window
+        try:
+            whatsapp_resp = send_pdf_document_whatsapp(phone_clean, pdf_bytes, filename, caption)
+            
+            if whatsapp_resp and whatsapp_resp.get('messages'):
+                log_activity(
+                    'contract_sent_whatsapp',
+                    f'Contract for {client_name} ({project_name}) sent via WhatsApp to {phone_clean}',
+                    'project',
+                    project_id,
+                    {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean}
+                )
+                return jsonify({'success': True, 'message': 'Contract sent via WhatsApp'})
+            else:
+                error_msg = str(whatsapp_resp) if whatsapp_resp else 'WhatsApp API returned no response'
+                raise ValueError(error_msg)
+        except Exception as send_exc:
+            logging.exception(f"Error sending contract PDF to {phone_clean}")
+            print(f"❌ Error sending contract {project_id}: {send_exc}")
+            # Fallback: send template with download button (works outside 24hr window)
+            try:
+                send_contract_download_template(phone_clean, project_id, client_name, project_description, project_location)
+                log_activity(
+                    'contract_sent_whatsapp',
+                    f'Contract for {client_name} ({project_name}) download template sent to {phone_clean}',
+                    'project',
+                    project_id,
+                    {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean, 'method': 'template_fallback'}
+                )
+                print(f"📨 Sent contract download template for {project_id} to {phone_clean}")
+                return jsonify({
+                    'success': True,
+                    'message': 'Contract generated. A download link was sent via WhatsApp.'
+                })
+            except Exception as template_exc:
+                logging.exception(f"Error sending contract template to {phone_clean}")
+                print(f"❌ Contract template also failed for {project_id}: {template_exc}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Could not send contract. Please contact ConnectLink directly.'
+                }), 500
+    
+    except Exception as e:
+        logging.error(f"Error sending contract via WhatsApp: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/delete_project', methods=['POST'])
+def delete_project():
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        admin_passcode = data.get('admin_passcode')
+        
+        if admin_passcode != "conlink01admin01":
+            return jsonify({'status': 'error', 'message': 'Invalid admin passcode'})
+        
+        user_name = session.get('user_name', 'Unknown')
+        userid = session.get('userid', 0)
+        
+        with get_db() as (cursor, connection):
+            try:
+                # Define the columns we want to copy from connectlinkdatabase to connectlinkdatabasedeletedprojects
+                # These columns MUST exist in BOTH tables
+                columns_to_copy = [
+                    'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                    'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 
+                    'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 
+                    'projectadministratorname', 'projectstartdate', 'projectduration', 
+                    'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 
+                    'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 
+                    'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date',
+                    'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date',
+                    'installment4amount', 'installment4duedate', 'installment4date',
+                    'installment5amount', 'installment5duedate', 'installment5date',
+                    'installment6amount', 'installment6duedate', 'installment6date',
+                    'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date',
+                    'projectcompletionstatus', 'latepaymentinterest', 'momid', 'quotation_id', 'adjusted_schedules_json'
+                ]
+                
+                print(f"DEBUG: Copying {len(columns_to_copy)} columns to deleted projects table")
+                
+                # Build the column list for SELECT
+                select_columns = ', '.join([f'd.{col}' for col in columns_to_copy])
+                
+                # Build the column list for INSERT - MUST include id first!
+                insert_columns = ', '.join(['id'] + columns_to_copy + ['deletedby', 'deleterid'])
+                
+                # Execute the copy - use project_id as the id value
+                # Fetch project name before deleting
+                cursor.execute("SELECT projectname, clientname FROM connectlinkdatabase WHERE id = %s", (project_id,))
+                proj = cursor.fetchone()
+                proj_name = proj[0] if proj else 'Unknown'
+                client_name = proj[1] if proj else 'Unknown'
+                
+                cursor.execute(f"""
+                    INSERT INTO connectlinkdatabasedeletedprojects ({insert_columns})
+                    SELECT %s, {select_columns}, %s, %s
+                    FROM connectlinkdatabase d
+                    WHERE d.id = %s
+                """, (project_id, user_name, userid, project_id))
+                
+                # Then delete
+                cursor.execute("DELETE FROM connectlinkdatabase WHERE id = %s", (project_id,))
+                
+                connection.commit()
+                
+                print(f"✅ Project {project_id} deleted and archived successfully")
+                
+                # Log the deletion
+                log_activity(
+                    'project_deleted',
+                    f'Project "{proj_name}" for {client_name} deleted and archived',
+                    'project',
+                    project_id,
+                    {'project_name': proj_name, 'client_name': client_name, 'deleted_by': user_name}
+                )
+                
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Project has been deleted and archived successfully.'
+                })
+                
+            except Exception as e:
+                connection.rollback()
+                print(f"❌ Error: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'})
+                
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/download_payments_history/<project_id>')
+def download_payments_history(project_id):
+    with get_db() as (cursor, connection):
+        try:
+            # Fetch full project row (as your system does)
+            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id = %s", (project_id,))
+            row = cursor.fetchone()
+            if not row:
+                return "Project not found", 404
+
+            # Fetch company details
+            cursor.execute("SELECT * FROM connectlinkdetails;")
+            details = cursor.fetchall()
+            details = pd.DataFrame(details, columns=[
+                'address','contact1','contact2','email','companyname','tinnumber'
+            ])
+
+            companyname = details.iat[0,4] if not details.empty else ""
+            address = details.iat[0,0] if not details.empty else ""
+            contact1 = details.iat[0,1] if not details.empty else ""
+            contact2 = details.iat[0,2] if not details.empty else ""
+            compemail = details.iat[0,3] if not details.empty else ""
+
+            # Payment fields (same index references as your system)
+            payments = [
+                {
+                    "name": "Installment 1",
+                    "amount": row[26],
+                    "due": row[27].strftime("%-d %B %Y") if row[27] else "-",
+                    "paid": row[28].strftime("%-d %B %Y") if row[28] else "Not Paid",
+                },
+                {
+                    "name": "Installment 2",
+                    "amount": row[29],
+                    "due": row[30].strftime("%-d %B %Y") if row[30] else "-",
+                    "paid": row[31].strftime("%-d %B %Y") if row[31] else "Not Paid",
+                },
+                {
+                    "name": "Installment 3",
+                    "amount": row[32],
+                    "due": row[33].strftime("%-d %B %Y") if row[33] else "-",
+                    "paid": row[34].strftime("%-d %B %Y") if row[34] else "Not Paid",
+                },
+                {
+                    "name": "Installment 4",
+                    "amount": row[35],
+                    "due": row[36].strftime("%-d %B %Y") if row[36] else "-",
+                    "paid": row[37].strftime("%-d %B %Y") if row[37] else "Not Paid",
+                },
+                {
+                    "name": "Installment 5",
+                    "amount": row[38],
+                    "due": row[39].strftime("%-d %B %Y") if row[39] else "-",
+                    "paid": row[40].strftime("%-d %B %Y") if row[40] else "Not Paid",
+                },
+                {
+                    "name": "Installment 6",
+                    "amount": row[41],
+                    "due": row[42].strftime("%-d %B %Y") if row[42] else "-",
+                    "paid": row[43].strftime("%-d %B %Y") if row[43] else "Not Paid",
+                },
+                {
+                    "name": "Installment 7",
+                    "amount": row[47],
+                    "due": row[48].strftime("%-d %B %Y") if row[48] else "-",
+                    "paid": row[49].strftime("%-d %B %Y") if row[49] else "Not Paid",
+                },
+                {
+                    "name": "Installment 8",
+                    "amount": row[50],
+                    "due": row[51].strftime("%-d %B %Y") if row[51] else "-",
+                    "paid": row[52].strftime("%-d %B %Y") if row[52] else "Not Paid",
+                },
+                {
+                    "name": "Installment 9",
+                    "amount": row[53],
+                    "due": row[54].strftime("%-d %B %Y") if row[54] else "-",
+                    "paid": row[55].strftime("%-d %B %Y") if row[55] else "Not Paid",
+                },
+                {
+                    "name": "Installment 10",
+                    "amount": row[56],
+                    "due": row[57].strftime("%-d %B %Y") if row[57] else "-",
+                    "paid": row[58].strftime("%-d %B %Y") if row[58] else "Not Paid",
+                },
+            ]
+
+            # Get logo as base64
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+            with open(logo_path, 'rb') as img:
+                logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+
+            # Calculate summary values
+            total_contract = row[17] if row[17] else 0
+            deposit_paid = row[23] if row[23] else 0
+            # Sum of all installment amounts
+            installment_total = sum([p['amount'] if p['amount'] else 0 for p in payments])
+            # Total paid installments
+            paid_total = 0
+            for p in payments:
+                if p['paid'] != 'Not Paid' and p['amount']:
+                    paid_total += p['amount']
+            balance_installments = installment_total - paid_total
+            outstanding_balance = total_contract - (deposit_paid + paid_total)
+
+            # Build payments table rows (styled)
+            payment_rows = ""
+            for p in payments:
+                payment_rows += f"""
+                    <tr>
+                        <td>{p['name']}</td>
+                        <td>${p['amount'] if p['amount'] else '—'}</td>
+                        <td>{p['due']}</td>
+                        <td>{p['paid']}</td>
+                    </tr>
+                """
+
+            html = f"""
+            <!DOCTYPE html>
+            <html lang='en'>
+            <head>
+                <meta charset='UTF-8'>
+                <style>
+                    @page {{ size: A4; margin: 1.5cm; }}
+                    body {{ font-family: 'Inter', 'Segoe UI', Arial, sans-serif; background: #fff; color: #1E2A56; margin: 0; padding: 0; }}
+                    .header {{ text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #0A1A3A; }}
+                    .logo {{ width: 110px; margin: 0 auto 8px auto; display: block; }}
+                    .company-name {{ font-size: 22px; font-weight: 800; color: #0A1A3A; margin-bottom: 2px; letter-spacing: 0.5px; }}
+                    .report-title {{ font-size: 15px; color: #C12B3E; font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1.2px; }}
+                    .report-date {{ font-size: 11px; color: #5a678a; margin-bottom: 0; }}
+                    .summary-section {{ background: #fafbff; border: 1.5px solid #0A1A3A; border-radius: 10px; padding: 18px 20px; margin: 18px 0 24px 0; display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; }}
+                    .summary-card {{ background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(10,26,58,0.06); padding: 16px 22px; min-width: 180px; text-align: center; border: 1px solid #e0e6f3; }}
+                    .summary-label {{ font-size: 11px; color: #5a678a; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px; }}
+                    .summary-value {{ font-size: 19px; font-weight: 800; color: #0A1A3A; letter-spacing: 0.2px; }}
+                    .summary-value.red {{ color: #e74c3c; }}
+                    .summary-value.green {{ color: #27ae60; }}
+                    .summary-value.blue {{ color: #0A1A3A; }}
+                    .summary-value.orange {{ color: #f39c12; }}
+                    .section-title {{ color: #fff; background: #0A1A3A; padding: 8px 16px; border-radius: 8px; margin: 0 0 18px 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-align: center; }}
+                    .info-box {{ padding: 12px 16px; border: 1px solid #d3d6e4; border-radius: 8px; background: #f9faff; margin-bottom: 10px; }}
+                    .info-box p {{ margin: 3px 0; font-size: 14px; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }}
+                    th {{ background: #1E2A56; color: #fff; padding: 10px; text-align: left; font-size: 14px; }}
+                    td {{ padding: 10px; border-bottom: 1px solid #e0e3ef; }}
+                    tr:nth-child(even) {{ background: #f4f6fb; }}
+                    .footer {{ margin-top: 35px; text-align: right; font-size: 12px; color: #666; }}
+                </style>
+            </head>
+            <body>
+                <div class='header'>
+                    <img src='data:image/png;base64,{logo_base64}' class='logo'>
+                    <div class='company-name'>{companyname}</div>
+                    <div class='report-title'>Payments History</div>
+                    <div class='report-date'>Generated on {datetime.now().strftime('%d %B %Y')}</div>
+                </div>
+                <div class='summary-section'>
+                    <div class='summary-card'>
+                        <div class='summary-label'>Total Contract Price</div>
+                        <div class='summary-value blue'>${total_contract:,.2f}</div>
+                    </div>
+                    <div class='summary-card'>
+                        <div class='summary-label'>Deposit Paid</div>
+                        <div class='summary-value green'>${deposit_paid:,.2f}</div>
+                    </div>
+                    <div class='summary-card'>
+                        <div class='summary-label'>Installment Balance</div>
+                        <div class='summary-value orange'>${balance_installments:,.2f}</div>
+                    </div>
+                    <div class='summary-card'>
+                        <div class='summary-label'>Outstanding Balance</div>
+                        <div class='summary-value red'>${outstanding_balance:,.2f}</div>
+                    </div>
+                </div>
+                <div class='section-title'>Client Information</div>
+                <div class='info-box'>
+                    <p><strong>Name:</strong> {row[1]}</p>
+                    <p><strong>Address:</strong> {row[3]}</p>
+                    <p><strong>Contact:</strong> 0{row[4]}</p>
+                    <p><strong>Email:</strong> {row[5]}</p>
+                </div>
+                <div class='section-title'>Project Information</div>
+                <div class='info-box'>
+                    <p><strong>Project Name:</strong> {row[10]}</p>
+                    <p><strong>Location:</strong> {row[11]}</p>
+                    <p><strong>Administrator:</strong> {row[13]}</p>
+                </div>
+                <div class='section-title'>Payments Breakdown</div>
+                <div class='info-box'>
+                    <p><strong>Deposit / Bullet Payment:</strong> USD {row[23] if row[23] else '—'}</p>
+                    <p><strong>Date Paid:</strong> {row[24].strftime('%d %B %Y') if row[24] else '—'}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Installment</th>
+                            <th>Amount (USD)</th>
+                            <th>Due Date</th>
+                            <th>Date Paid</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {payment_rows}
+                    </tbody>
+                </table>
+                <div class='footer'>Generated on {datetime.now().strftime('%d %B %Y')}</div>
+            </body>
+            </html>
+            """
+
+
+            pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+
+            log_activity('download_payments_history', f'Payments history PDF downloaded for project {project_id} - {row[1]}', 'project', project_id, {'client_name': row[1], 'project_name': row[10], 'format': 'pdf'})
+            
+            response = make_response(pdf)
+            response.headers["Content-Type"] = "application/pdf"
+            response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[10]} payments history_{project_id}_ConnectLink Properties.pdf"
+
+            return response
+
+        except Exception as e:
+            return str(e), 500
+
+
+@app.route('/create-system-user', methods=['POST'])
+def create_system_user():
+    data = request.get_json()
+
+    fullname = data.get("fullname")
+    email = data.get("email")
+    password = data.get("password")
+    whatsapp = data.get("whatsapp")
+
+    created_date = datetime.now().strftime('%Y-%m-%d')
+
+
+    with get_db() as (cursor, connection):
+
+        try:
+            cursor.execute("""
+                INSERT INTO connectlinkusers (datecreated, name, email, password, whatsapp)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (created_date, fullname, email, password, whatsapp))
+
+            connection.commit()
+
+            # Log user creation
+            try:
+                log_activity(
+                    'user_created',
+                    f'System user created: {fullname} ({email})',
+                    'user',
+                    None,
+                    {'name': fullname, 'email': email, 'whatsapp': whatsapp}
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log user creation: {log_err}")
+
+            return jsonify({"status": "success"})
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route('/addadmin', methods=['POST'])
+def add_admin():
+    data = request.get_json()
+
+    adminName = data.get("adminName")
+    adminPhone = data.get("adminPhone")
+
+    with get_db() as (cursor, connection):
+
+        try:
+            cursor.execute("""
+                INSERT INTO connectlinkadmin (name, contact)
+                VALUES (%s, %s)
+            """, (adminName, adminPhone))
+            connection.commit()
+            
+            log_activity('admin_added', f'Admin "{adminName}" added with contact {adminPhone}', 'admin', None, {'name': adminName, 'contact': adminPhone})
+            
+            return jsonify({"status": "success"})
+
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
+
+@app.route('/removeadmin', methods=['POST'])
+def remove_admin():
+    data = request.get_json()
+    admin_id = data.get('id')
+
+    if not admin_id:
+        return jsonify({"status": "error", "message": "No ID provided"})
+
+    with get_db() as (cursor, connection):
+
+        try:
+            # Fetch admin name before removing
+            cursor.execute("SELECT name FROM connectlinkadmin WHERE id=%s", (admin_id,))
+            admin_row = cursor.fetchone()
+            admin_name = admin_row[0] if admin_row else 'Unknown'
+            
+            cursor.execute("DELETE FROM connectlinkadmin WHERE id=%s", (admin_id,))
+            connection.commit()
+            
+            log_activity('admin_removed', f'Admin "{admin_name}" (ID: {admin_id}) removed', 'admin', admin_id, {'name': admin_name})
+            
+            return jsonify({"status": "success"})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
+
+
+from flask import jsonify
+from datetime import datetime
+
+@app.route('/get_notes/<int:project_id>')
+def get_notes(project_id):
+
+    with get_db() as (cursor, connection):
+
+        try:
+            # Fetch notes from database
+            cursor.execute("""
+                SELECT id, timestamp, capturer, note 
+                FROM connectlinknotes 
+                WHERE projectid = %s 
+                ORDER BY id DESC
+            """, (project_id,))
+            
+            notes = cursor.fetchall()
+            print(notes)
+            
+            notes_list = []
+            for note in notes:
+                notes_list.append({
+                    'id': note[0],
+                    'capturer': note[2],
+                    'timestamp': note[1].strftime('%Y-%m-%d %H:%M:%S') if note[1] else None,
+                    'note_text': note[3]
+                })
+            
+            return jsonify({'success': True, 'notes': notes_list})
+            
+        except Exception as e:
+            print(e)
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/add_note', methods=['POST'])
+def add_note():
+        
+    with get_db() as (cursor, connection):
+
+        user_uuid = session.get('user_uuid')
+        user_name = session.get('user_name')
+        userid = session.get('userid')
+
+        try:
+            client_name = request.form.get('client_name')
+            client_number_raw = request.form.get('client_wa_number', '').strip()
+            client_number = int(float(v)) if (v := client_number_raw) and v and v.lower() not in ['none', 'null', 'nan'] and v.replace('.', '', 1).isdigit() else None
+            nextofkin_number = int(float(v)) if (v := request.form.get('client_next_of_kin_number', '').strip()) and v and v.lower() not in ['none', 'null', 'nan'] and v.replace('.', '', 1).isdigit() else None            
+            project_name = request.form.get('project_name')
+            project_id = request.form.get('project_id')
+            note_text = request.form.get('note_text')
+            
+            print(client_name)
+            print(client_number)
+            print(nextofkin_number)
+            print(project_name)
+            print(project_id)
+            print(note_text)
+
+            if not project_id or not note_text:
+                return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+
+            cursor.execute("""
+                INSERT INTO connectlinknotes (projectid, note, timestamp, capturer, projectname, clientname, clientwanumber, clientnextofkinnumber, capturerid)
+                VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s, %s)
+            """, (project_id, note_text, user_name, project_name, client_name, client_number, nextofkin_number, userid))  # Replace with actual user
+            
+            connection.commit()
+            
+            # Log the note addition
+            try:
+                log_activity(
+                    'note_added',
+                    f'Note added to project "{project_name}" for {client_name}: {note_text[:100]}{"..." if len(note_text) > 100 else ""}',
+                    'project',
+                    project_id,
+                    {
+                        'project_id': project_id,
+                        'project_name': project_name,
+                        'client_name': client_name,
+                        'note_preview': note_text[:200],
+                        'capturer': user_name
+                    }
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log note addition: {log_err}")
+            
+            return jsonify({'success': True, 'message': 'Note added successfully'})
+            
+        except Exception as e:
+            print(e)
+            connection.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+@app.route('/get_filtered_projects/<month_filter>')
+def get_filtered_projects(month_filter):
+    with get_db() as (cursor, connection):
+        try:
+            # Get column names dynamically
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'connectlinkdatabase' 
+                ORDER BY ordinal_position
+            """)
+            columns = [row[0] for row in cursor.fetchall()]
+            
+            print(f"DEBUG: Found {len(columns)} columns: {columns}")
+            
+            if month_filter == 'all' or not month_filter:
+                query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC"
+                cursor.execute(query)
+            else:
+                # Filter by month/year
+                query = """
+                    SELECT * FROM connectlinkdatabase 
+                    WHERE TO_CHAR(datedepositorbullet, 'YYYY-MM') = %s
+                    ORDER BY id ASC
+                """
+                cursor.execute(query, (month_filter,))
+            
+            projects = cursor.fetchall()
+            print(f"DEBUG: Retrieved {len(projects)} rows")
+            
+            if not projects:
+                # Return empty table HTML
+                empty_df = pd.DataFrame(columns=columns)
+                empty_html = empty_df.to_html(classes="table table-bordered table-theme", 
+                                              table_id="allprojectsTable", 
+                                              index=False)
+                return jsonify({
+                    'status': 'success',
+                    'html': empty_html,
+                    'count': 0
+                })
+            
+            # Convert to DataFrame with ALL columns
+            datamain = pd.DataFrame(projects, columns=columns)
+
+            datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
+            datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
+
+            # Format date column for display
+            if 'projectstartdate' in datamain.columns:
+                datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+            if 'datedepositorbullet' in datamain.columns:
+                datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
+            
+            # Add Action column (same as in your run1 function)
+            datamain['Action'] = datamain.apply(lambda row: f'''<div style="display: flex; gap: 10px;"><a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row.get('clientname', '')}" onclick="return handleDownloadClick(this)">Download</a><button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button><button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row.get('projectname', '')}" data-client-name="{row.get('clientname', '')}">Notes</button><button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button></div>''', axis=1)
+            
+            # Reorder columns to match your original table
+            # Put Action column at the end
+            cols_order = [col for col in datamain.columns if col != 'Action'] + ['Action']
+            datamain = datamain[cols_order]
+            datamain = datamain[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail', 'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship', 'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate', 'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount', 'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date', 'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate', 'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount', 'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date','projectcompletionstatus', 'latepaymentinterest', 'id', 'Action']]
+            
+            # Convert to HTML
+            html_table = datamain.to_html(
+                classes="table table-bordered table-theme", 
+                table_id="allprojectsTable", 
+                index=False,  
+                escape=False
+            )
+            
+            return jsonify({
+                'status': 'success',
+                'html': html_table,
+                'count': len(projects)
+            })
+            
+        except Exception as e:
+            print(f"❌ Error in get_filtered_projects: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'status': 'error', 'message': str(e)})
+
+
+
+@app.route('/get_temp_enquiries')
+def get_temp_enquiries():
+
+    with get_db() as (cursor, connection):
+
+        try:
+            try:
+                cursor.execute("""
+                    SELECT id, wanumber, enqtype, created_at
+                    FROM appenqtemp
+                    ORDER BY created_at DESC NULLS LAST, id DESC
+                    LIMIT 500;
+                """)
+            except Exception:
+                connection.rollback()
+                cursor.execute("""
+                    SELECT id, wanumber, enqtype, NULL::timestamp AS created_at
+                    FROM appenqtemp
+                    ORDER BY id DESC
+                    LIMIT 500;
+                """)
+
+            usersdataquerytempenqfetch = cursor.fetchall()
+
+            # Convert to list of dictionaries
+            result = []
+            for enquiry in usersdataquerytempenqfetch:
+                result.append({
+                    'id': enquiry[0],
+                    'wanumber': enquiry[1],
+                    'enqtype': enquiry[2],
+                    'created_at': enquiry[3].isoformat() if enquiry[3] else None
+                })
+            
+            print(f"API: Fetched {len(result)} enquiries")
+            print(result)
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"API Error: {e}")
+            return jsonify({'error': str(e)}), 500
+
+@app.route('/delete_temp_enquiry', methods=['POST'])
+def delete_temp_enquiry():
+
+    with get_db() as (cursor, connection):
+
+        try:
+            data = request.json or {}
+            enquiry_id = data.get('enquiry_id')
+            admin_passcode = (data.get('admin_passcode') or '').strip()
+
+            if admin_passcode != "conlink01admin01":
+                return jsonify({'success': False, 'message': 'Invalid Admin Permission Passcode.'}), 403
+
+            if not enquiry_id:
+                return jsonify({'success': False, 'message': 'Missing enquiry id.'}), 400
+            
+            cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (enquiry_id,))
+            connection.commit()
+            
+            # Log the deletion
+            log_activity(
+                'enquiry_deleted',
+                f'Temporary enquiry #{enquiry_id} deleted',
+                'enquiry',
+                enquiry_id,
+                {'source': 'temp_enquiry', 'deleted_by': session.get('user_name', 'Unknown')}
+            )
+            
+            return jsonify({'success': True, 'message': 'Enquiry deleted'})
+            
+        except Exception as e:
+            print(f"Error deleting enquiry: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/batch_delete_enquiries', methods=['POST'])
+def batch_delete_enquiries():
+
+    with get_db() as (cursor, connection):
+
+        try:
+            data = request.json or {}
+            enquiry_ids = data.get('enquiry_ids', [])
+            admin_passcode = (data.get('admin_passcode') or '').strip()
+
+            if admin_passcode != "conlink01admin01":
+                return jsonify({'success': False, 'message': 'Invalid Admin Permission Passcode.'}), 403
+
+            if not enquiry_ids:
+                return jsonify({'success': False, 'message': 'No enquiries selected.'}), 400
+            
+            if enquiry_ids:
+                placeholders = ','.join(['%s'] * len(enquiry_ids))
+                cursor.execute(f"DELETE FROM appenqtemp WHERE id IN ({placeholders})", enquiry_ids)
+                connection.commit()
+            
+            # Log the batch deletion
+            log_activity(
+                'enquiry_deleted',
+                f'{len(enquiry_ids)} temporary enquiries deleted (batch)',
+                'enquiry',
+                None,
+                {'count': len(enquiry_ids), 'ids': enquiry_ids, 'source': 'batch_temp_enquiry', 'deleted_by': session.get('user_name', 'Unknown')}
+            )
+            
+            return jsonify({'success': True, 'message': f'{len(enquiry_ids)} enquiries deleted'})
+            
+        except Exception as e:
+            print(f"Error batch deleting: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== PAYMENT REMINDERS - FINAL WORKING CODE ====================
+
+def get_payment_reminders_data(df):
+    """Extract payment reminders data from the main dataframe - FINAL VERSION"""
+    from datetime import datetime, date
+    import pandas as pd
+    
+    today = date.today()
+    due_soon = []
+    overdue = []
+    underpaid = []
+    
+    # Make sure we're working with a copy
+    df = df.copy()
+    
+    # Convert date columns to datetime
+    date_columns = []
+    for i in range(1, 11):
+        due_col = f'installment{i}duedate'
+        paid_col = f'installment{i}date'
+        
+        if due_col in df.columns:
+            df[due_col] = pd.to_datetime(df[due_col], errors='coerce')
+            date_columns.append(due_col)
+        
+        if paid_col in df.columns:
+            df[paid_col] = pd.to_datetime(df[paid_col], errors='coerce')
+    
+    # Process each row
+    for index, row in df.iterrows():
+        try:
+            client_name = str(row.get('clientname', 'Unknown'))
+            whatsapp_number = str(row.get('clientwanumber', ''))
+            project_name = str(row.get('projectname', 'Unknown'))
+            project_id = int(row.get('id', index))
+            total_contract_amount = 0
+            
+            try:
+                total_contract_amount = float(row.get('totalcontractamount', 0))
+            except:
+                total_contract_amount = 0
+            
+            # Calculate total paid so far
+            total_paid = 0
+            
+            # Add deposit amount
+            try:
+                deposit = float(row.get('depositorbullet', 0))
+                total_paid += deposit
+            except:
+                pass
+            
+            # Add all paid installments
+            last_payment_date = None
+            last_installment_due_date = None
+            all_installments_paid = True
+            
+            for i in range(1, 11):
+                amount_col = f'installment{i}amount'
+                paid_col = f'installment{i}date'
+                due_col = f'installment{i}duedate'
+                
+                amount = 0
+                amount_val = row.get(amount_col)
+                
+                if pd.notna(amount_val):
+                    try:
+                        amount = float(amount_val)
+                    except:
+                        amount = 0
+                
+                if amount <= 0:
+                    continue
+                
+                # Check if paid
+                paid_date = row.get(paid_col)
+                is_paid = pd.notna(paid_date)
+                
+                if is_paid:
+                    total_paid += amount
+                    if last_payment_date is None or paid_date > last_payment_date:
+                        last_payment_date = paid_date
+                    # Track the last installment due date (among paid installments)
+                    due_date = row.get(due_col)
+                    if pd.notna(due_date) and (last_installment_due_date is None or due_date > last_installment_due_date):
+                        last_installment_due_date = due_date
+                else:
+                    all_installments_paid = False
+                
+                # Check for unpaid installments
+                if not is_paid:
+                    due_date = row.get(f'installment{i}duedate')
+                    if pd.notna(due_date):
+                        due_date_date = due_date.date()
+                        days_diff = (due_date_date - today).days
+                        
+                        payment_info = {
+                            'project_id': project_id,
+                            'client_name': client_name,
+                            'whatsapp_number': whatsapp_number,
+                            'project_name': project_name,
+                            'installment_number': i,
+                            'amount_due': amount,
+                            'due_date': due_date_date.strftime('%Y-%m-%d'),
+                            'days_diff': days_diff
+                        }
+                        
+                        if days_diff < 0:
+                            payment_info['days_overdue'] = abs(days_diff)
+                            overdue.append(payment_info)
+                        elif days_diff <= 3:
+                            due_soon.append(payment_info)
+            
+            # Check for underpayment
+            if all_installments_paid and last_payment_date is not None:
+                balance_due = total_contract_amount - total_paid
+                
+                # Only include if balance is more than 0.01 (avoid floating point precision issues)
+                if balance_due > 0.01:
+                    last_payment_date_date = last_payment_date.date()
+                    days_since_last_payment = (today - last_payment_date_date).days
+                    
+                    last_due_date_str = 'N/A'
+                    if last_installment_due_date is not None and pd.notna(last_installment_due_date):
+                        last_due_date_str = last_installment_due_date.date().strftime('%Y-%m-%d')
+                    
+                    underpaid_info = {
+                        'project_id': project_id,
+                        'client_name': client_name,
+                        'whatsapp_number': whatsapp_number,
+                        'project_name': project_name,
+                        'total_contract_amount': total_contract_amount,
+                        'total_paid': total_paid,
+                        'balance_due': balance_due,
+                        'last_payment_date': last_payment_date_date.strftime('%Y-%m-%d'),
+                        'last_installment_duedate': last_due_date_str,
+                        'days_overdue': days_since_last_payment
+                    }
+                    underpaid.append(underpaid_info)
+                        
+        except Exception as e:
+            print(f"Error processing row: {e}")
+            continue
+    
+    # Sort results
+    due_soon.sort(key=lambda x: x['days_diff'])
+    overdue.sort(key=lambda x: x['days_overdue'], reverse=True)
+    underpaid.sort(key=lambda x: x['days_overdue'], reverse=True)
+    
+    return {
+        'due_soon': due_soon,
+        'overdue': overdue,
+        'underpaid': underpaid,
+        'all_payments': due_soon + overdue + underpaid
+    }
+
+@app.route('/api/payment-reminders', methods=['GET'])
+def api_payment_reminders():
+    """API endpoint to get payment reminders data - FINAL VERSION"""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        today = datetime.now().date()
+        due_soon = []
+        overdue = []
+        
+        with get_db() as (cursor, connection):
+            # Get ALL unpaid installments in one query
+            cursor.execute("""
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    1 as installment_num,
+                    d.installment1amount as amount,
+                    d.installment1duedate as due_date,
+                    d.installment1date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment1duedate IS NOT NULL
+                AND d.installment1date IS NULL
+                AND d.installment1amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    2 as installment_num,
+                    d.installment2amount as amount,
+                    d.installment2duedate as due_date,
+                    d.installment2date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment2duedate IS NOT NULL
+                AND d.installment2date IS NULL
+                AND d.installment2amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    3 as installment_num,
+                    d.installment3amount as amount,
+                    d.installment3duedate as due_date,
+                    d.installment3date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment3duedate IS NOT NULL
+                AND d.installment3date IS NULL
+                AND d.installment3amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    4 as installment_num,
+                    d.installment4amount as amount,
+                    d.installment4duedate as due_date,
+                    d.installment4date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment4duedate IS NOT NULL
+                AND d.installment4date IS NULL
+                AND d.installment4amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    5 as installment_num,
+                    d.installment5amount as amount,
+                    d.installment5duedate as due_date,
+                    d.installment5date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment5duedate IS NOT NULL
+                AND d.installment5date IS NULL
+                AND d.installment5amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    6 as installment_num,
+                    d.installment6amount as amount,
+                    d.installment6duedate as due_date,
+                    d.installment6date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.installment6duedate IS NOT NULL
+                AND d.installment6date IS NULL
+                AND d.installment6amount > 0
+                
+                ORDER BY due_date
+            """)
+            
+            payments = cursor.fetchall()
+            
+            for payment in payments:
+                try:
+                    project_id = payment[0]
+                    client_name = str(payment[1]) if payment[1] else 'Unknown'
+                    whatsapp_number = str(payment[2]) if payment[2] else ''
+                    project_name = str(payment[3]) if payment[3] else 'Unknown'
+                    installment_num = int(payment[4])
+                    amount = float(payment[5]) if payment[5] else 0
+                    due_date = payment[6]
+                    
+                    if due_date:
+                        # Convert to date object
+                        if hasattr(due_date, 'date'):
+                            due_date_obj = due_date.date()
+                        else:
+                            due_date_obj = pd.to_datetime(due_date).date()
+                        
+                        days_diff = (due_date_obj - today).days
+                        
+                        payment_info = {
+                            'project_id': project_id,
+                            'client_name': client_name,
+                            'whatsapp_number': whatsapp_number,
+                            'project_name': project_name,
+                            'installment_number': installment_num,
+                            'amount_due': amount,
+                            'due_date': due_date_obj.strftime('%Y-%m-%d'),
+                            'days_diff': days_diff
+                        }
+                        
+                        if days_diff < 0:
+                            payment_info['days_overdue'] = abs(days_diff)
+                            overdue.append(payment_info)
+                        elif days_diff <= 3:
+                            due_soon.append(payment_info)
+
+                except Exception as e:
+                    print(e)
+            
+            # Query for underpaid clients (all installments paid but balance due)
+            underpaid = []
+            cursor.execute("""
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    d.totalcontractamount,
+                    d.depositorbullet,
+                    d.datedepositorbullet,
+                    d.installment1amount, d.installment1date,
+                    d.installment2amount, d.installment2date,
+                    d.installment3amount, d.installment3date,
+                    d.installment4amount, d.installment4date,
+                    d.installment5amount, d.installment5date,
+                    d.installment6amount, d.installment6date,
+                    d.installment7amount, d.installment7date,
+                    d.installment8amount, d.installment8date,
+                    d.installment9amount, d.installment9date,
+                    d.installment10amount, d.installment10date
+                FROM connectlinkdatabase d
+                WHERE d.projectcompletionstatus = 'Ongoing'
+                AND d.totalcontractamount > 0
+            """)
+            
+            underpaid_results = cursor.fetchall()
+            
+            for row in underpaid_results:
+                try:
+                    project_id = row[0]
+                    client_name = row[1]
+                    whatsapp_number = row[2]
+                    project_name = row[3]
+                    total_contract = float(row[4]) if row[4] else 0
+                    
+                    # Calculate total paid
+                    total_paid = 0
+                    last_payment_date = None
+                    
+                    # Add deposit
+                    deposit = float(row[5]) if row[5] else 0
+                    total_paid += deposit
+                    
+                    if row[6]:  # deposit date
+                        last_payment_date = row[6]
+                    
+                    # Check all 10 installments
+                    all_paid = True
+                    for i in range(10):
+                        amount_idx = 7 + (i * 2)
+                        date_idx = amount_idx + 1
+                        
+                        if amount_idx < len(row) and row[amount_idx]:
+                            amount = float(row[amount_idx]) if row[amount_idx] else 0
+                            paid_date = row[date_idx] if date_idx < len(row) else None
+                            
+                            if amount > 0:
+                                if paid_date:
+                                    total_paid += amount
+                                    if last_payment_date is None or paid_date > last_payment_date:
+                                        last_payment_date = paid_date
+                                else:
+                                    all_paid = False
+                    
+                    # Check for underpayment
+                    if all_paid and last_payment_date:
+                        balance_due = total_contract - total_paid
+                        
+                        if balance_due > 0:
+                            last_payment_dt = last_payment_date if isinstance(last_payment_date, datetime.date) else datetime.strptime(str(last_payment_date), '%Y-%m-%d').date()
+                            days_overdue = (today - last_payment_dt).days
+                            
+                            underpaid.append({
+                                'project_id': project_id,
+                                'client_name': client_name,
+                                'whatsapp_number': whatsapp_number,
+                                'project_name': project_name,
+                                'total_contract_amount': total_contract,
+                                'total_paid': total_paid,
+                                'balance_due': balance_due,
+                                'last_payment_date': last_payment_dt.strftime('%Y-%m-%d'),
+                                'days_overdue': days_overdue
+                            })
+                except Exception as e:
+                    continue
+            
+            # Sort underpaid by days overdue
+            underpaid.sort(key=lambda x: x['days_overdue'], reverse=True)
+            
+            return jsonify({
+                'due_soon': due_soon,
+                'overdue': overdue,
+                'underpaid': underpaid,
+                'all_payments': due_soon + overdue + underpaid,
+                'counts': {
+                    'due_soon': len(due_soon),
+                    'overdue': len(overdue),
+                    'underpaid': len(underpaid),
+                    'total': len(due_soon) + len(overdue) + len(underpaid)
+                },
+                'today': today.strftime('%Y-%m-%d')
+            })
+            
+    except Exception as e:
+        print(f"Payment Reminders API Error: {str(e)}")
+        return jsonify({
+            'error': 'Server error',
+            'due_soon': [],
+            'overdue': [],
+            'underpaid': [],
+            'all_payments': []
+        }), 500
+
+@app.route('/api/quotations/<int:quotation_id>', methods=['DELETE'])
+def delete_quotation(quotation_id):
+    """Delete a quotation only if it's not linked to any project"""
+    try:
+        with get_db() as (cursor, connection):
+            # Step 1: Check if quotation exists
+            cursor.execute("SELECT id, client_name FROM quotations WHERE id = %s", (quotation_id,))
+            quotation = cursor.fetchone()
+            
+            if not quotation:
+                return jsonify({
+                    'success': False,
+                    'error': 'Quotation not found'
+                }), 404
+            
+            # Step 2: Check if quotation is linked to any projects
+            cursor.execute(
+                "SELECT COUNT(*) FROM connectlinkdatabase WHERE quotation_id = %s",
+                (quotation_id,)
+            )
+            linked_projects_count = cursor.fetchone()[0]
+            
+            if linked_projects_count > 0:
+                return jsonify({
+                    'success': False,
+                    'error': f'Cannot delete quotation: It is linked to {linked_projects_count} project(s). Please unlink it from all projects before deletion.',
+                    'linkedProjectsCount': linked_projects_count
+                }), 409
+            
+            # Step 3: Delete quotation items (construction)
+            cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
+            
+            # Step 4: Delete kitchen items
+            try:
+                cursor.execute("DELETE FROM quotation_kitchen_items WHERE quotation_id = %s", (quotation_id,))
+            except:
+                pass
+            
+            # Step 5: Delete quotation schedules
+            try:
+                cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
+            except:
+                pass
+            
+            # Step 6: Delete share links
+            try:
+                cursor.execute("DELETE FROM quotation_share_links WHERE quotation_id = %s", (quotation_id,))
+            except:
+                pass
+            
+            # Step 7: Delete send logs
+            try:
+                cursor.execute("DELETE FROM quotation_whatsapp_send_logs WHERE quotation_id = %s", (quotation_id,))
+            except:
+                pass
+            
+            # Step 8: Delete the quotation
+            cursor.execute("DELETE FROM quotations WHERE id = %s", (quotation_id,))
+            
+            connection.commit()
+            
+            # Log the deletion
+            log_activity(
+                'quotation_deleted',
+                f'Quotation for {quotation[1]} deleted',
+                'quotation',
+                quotation_id,
+                {'client_name': quotation[1], 'deleted_by': session.get('user_name', 'Unknown')}
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': f'Quotation for {quotation[1]} deleted successfully',
+                'quotationId': quotation_id
+            }), 200
+            
+    except Exception as e:
+        logging.error(f'Error deleting quotation {quotation_id}: {str(e)}')
+        logging.error(traceback.format_exc())
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/send-meta-template', methods=['POST'])
+def send_meta_template():
+    """Send WhatsApp message using Meta Business Platform template"""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        data = request.get_json()
+        
+        # Extract details
+        client_name = data.get('client_name', '').strip()
+        whatsapp_number = data.get('whatsapp_number', '').strip()
+        project_name = data.get('project_name', '').strip()
+        installment_number = int(data.get('installment_number', 0))
+        amount_due = float(data.get('amount_due', 0.0))
+        days_info = int(data.get('days_info', 0))
+        status = data.get('status', 'overdue')  # 'overdue' or 'soon'
+        
+        # Validate
+        if not client_name or not whatsapp_number:
+            return jsonify({'error': 'Client name and WhatsApp number required'}), 400
+        
+        try:
+            # First remove any non-digit characters
+            whatsapp_number_clean = re.sub(r'\D', '', whatsapp_number)
+            
+            # Convert to integer to remove decimal .0
+            if whatsapp_number_clean:
+                # Handle cases like "774822568.0"
+                whatsapp_number_int = int(float(whatsapp_number_clean))
+                whatsapp_number_clean = str(whatsapp_number_int)
+            else:
+                whatsapp_number_clean = whatsapp_number
+        except (ValueError, TypeError) as e:
+            print(f"Warning: Could not parse WhatsApp number '{whatsapp_number}': {e}")
+            whatsapp_number_clean = whatsapp_number
+        
+        # Use the cleaned version for the API call
+        clean_number = whatsapp_number_clean
+        
+        # Ensure it has country code
+        if clean_number.startswith('0'):
+            clean_number = '263' + clean_number[1:]  # Zimbabwe
+        elif len(clean_number) == 9:
+            clean_number = '263' + clean_number
+        
+        # Format to E.164 format
+        recipient_number = f"+{clean_number}"
+        
+        # Format to E.164 format
+        recipient_number = f"+{clean_number}"
+        
+        # Choose template based on status
+        if status == 'overdue':
+            template_name = "overduereminderfin"
+        elif status == 'soon':
+            template_name = "duereminderfin"
+        else:
+            return jsonify({'error': 'Invalid status'}), 400
+        
+        
+        if not ACCESS_TOKEN or not PHONE_NUMBER_ID:
+            return jsonify({'error': 'WhatsApp API not configured'}), 500
+        
+
+        print(f"\n{'='*50}")
+        print(f"SENDING WHATSAPP TEMPLATE")
+        print(f"{'='*50}")
+        print(f"Template: {template_name}")
+        print(f"To: {recipient_number}")
+        print(f"Client: {client_name}")
+        print(f"Project: {project_name}")
+        print(f"Installment: #{installment_number}")
+        print(f"Amount: ${amount_due:,.2f}")
+        print(f"Days Info: {days_info} days")
+        print(f"Status: {status}")
+        print(f"{'='*50}\n")
+
+        # Meta Graph API URL
+        url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+        
+        # Request headers
+        headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Request payload
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient_number,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": "en"},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": client_name},
+                            {"type": "text", "text": project_name},
+                            {"type": "text", "text": f"#{installment_number}"},
+                            {"type": "text", "text": f"${amount_due:,.2f}"},
+                            {"type": "text", "text": str(days_info)}
+                        ]
+                    }
+                ]
+            }
+        }
+        #
+        # Send request to Meta API
+        response = requests.post(url, headers=headers, json=payload)
+        response_data = response.json()
+        
+        # Get current timestamp
+        sent_at = datetime.now()
+        
+        # Check if API call was successful
+        if response.status_code == 200:
+            message_id = response_data.get('messages', [{}])[0].get('id', '')
+            
+            # Save to whatsapp_messages for chat UI visibility
+            try:
+                with get_db() as (save_cursor, save_conn):
+                    save_cursor.execute("""
+                        INSERT INTO whatsapp_messages 
+                        (sender_phone, sender_name, message_text, message_type, direction, status)
+                        VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                    """, (clean_number, 'ConnectLink Bot', f'[Template: {template_name}] Payment reminder for {project_name} - ${amount_due:,.2f}', 'template'))
+                    save_conn.commit()
+            except Exception as save_err:
+                print(f"⚠️ Failed to save reminder template to messages: {save_err}")
+            
+            # INSERT INTO DATABASE ON SUCCESS
+            with get_db() as (cursor, connection):
+                # First, ensure the table exists with your exact schema
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS whatsapp_reminders_logs (
+                        id SERIAL PRIMARY KEY,
+                        client_name VARCHAR(100),
+                        whatsapp_number VARCHAR(20),
+                        project_name VARCHAR(100),
+                        installmentnumber INT,
+                        amountdue DECIMAL(10,2),
+                        status VARCHAR(100),
+                        daysinfo INT,
+                        sentat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        api_response JSON
+                    )
+                """)
+                
+                # Insert the record
+                cursor.execute("""
+                    INSERT INTO whatsapp_reminders_logs 
+                    (client_name, whatsapp_number, project_name, 
+                     installmentnumber, amountdue, status, daysinfo, 
+                     sentat, api_response)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    client_name,
+                    whatsapp_number,  # Store original number
+                    project_name,
+                    installment_number,
+                    amount_due,
+                    status,
+                    days_info,
+                    sent_at,
+                    json.dumps(response_data)  # Store full API response
+                ))
+                connection.commit()
+            
+            # Log the reminder send
+            log_activity(
+                'payment_reminder_sent',
+                f'{status.title()} reminder sent to {client_name} for {project_name} (Installment #{installment_number}, ${amount_due:,.2f})',
+                'project',
+                None,
+                {'client_name': client_name, 'project_name': project_name, 'installment': installment_number, 'amount': amount_due, 'status': status}
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': 'WhatsApp template sent successfully',
+                'message_id': message_id,
+                'template_used': template_name,
+                'recipient': recipient_number,
+                'sent_at': sent_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'database_id': cursor.lastrowid if 'cursor' in locals() else None
+            })
+            
+        else:
+            # API call failed - still log the attempt with error
+            error_msg = response_data.get('error', {}).get('message', 'Unknown error')
+            
+            # Log failed attempt to database
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS whatsapp_reminders_logs (
+                        id SERIAL PRIMARY KEY,
+                        client_name VARCHAR(100),
+                        whatsapp_number VARCHAR(20),
+                        project_name VARCHAR(100),
+                        installmentnumber INT,
+                        amountdue DECIMAL(10,2),
+                        status VARCHAR(100),
+                        daysinfo INT,
+                        sentat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        api_response JSON
+                    )
+                """)
+                
+                cursor.execute("""
+                    INSERT INTO whatsapp_reminders_logs 
+                    (client_name, whatsapp_number, project_name, 
+                     installmentnumber, amountdue, status, daysinfo, 
+                     sentat, api_response)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    client_name,
+                    whatsapp_number,
+                    project_name,
+                    installment_number,
+                    amount_due,
+                    'failed',
+                    days_info,
+                    sent_at,
+                    json.dumps({'error': error_msg, 'status_code': response.status_code})
+                ))
+                connection.commit()
+            
+            return jsonify({
+                'error': f'Meta API error: {error_msg}',
+                'meta_response': response_data,
+                'success': False
+            }), response.status_code
+            
+    except Exception as e:
+        print(f"Error sending Meta template: {str(e)}")
+        
+        # Try to log the error to database
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS whatsapp_reminders_logs (
+                        id SERIAL PRIMARY KEY,
+                        client_name VARCHAR(100),
+                        whatsapp_number VARCHAR(20),
+                        project_name VARCHAR(100),
+                        installmentnumber INT,
+                        amountdue DECIMAL(10,2),
+                        status VARCHAR(100),
+                        daysinfo INT,
+                        sentat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        api_response JSON
+                    )
+                """)
+                
+                cursor.execute("""
+                    INSERT INTO whatsapp_reminders_logs 
+                    (client_name, whatsapp_number, project_name, 
+                     installmentnumber, amountdue, status, daysinfo, 
+                     sentat, api_response)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    data.get('client_name', '') if 'data' in locals() else 'Unknown',
+                    data.get('whatsapp_number', '') if 'data' in locals() else '',
+                    data.get('project_name', '') if 'data' in locals() else '',
+                    int(data.get('installment_number', 0)) if 'data' in locals() else 0,
+                    float(data.get('amount_due', 0)) if 'data' in locals() else 0,
+                    'error',
+                    int(data.get('days_info', 0)) if 'data' in locals() else 0,
+                    datetime.now(),
+                    json.dumps({'error': str(e)})
+                ))
+                connection.commit()
+        except Exception as db_error:
+            print(f"Failed to log error to database: {db_error}")
+        
+        return jsonify({
+            'error': f'Server error: {str(e)}',
+            'success': False
+        }), 500
+
+@app.route('/api/sent-reminders', methods=['GET'])
+def get_sent_reminders():
+    """Get all sent WhatsApp reminders"""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT 
+                    id,
+                    client_name,
+                    whatsapp_number,
+                    project_name,
+                    installmentnumber,
+                    amountdue,
+                    status,
+                    daysinfo,
+                    sentat,
+                    api_response
+                FROM whatsapp_reminders_logs
+                ORDER BY sentat DESC
+                LIMIT 100
+            """)
+            
+            reminders = cursor.fetchall()
+            
+            # Format results
+            results = []
+            for reminder in reminders:
+                results.append({
+                    'id': reminder[0],
+                    'client_name': reminder[1],
+                    'whatsapp_number': reminder[2],
+                    'project_name': reminder[3],
+                    'installment_number': reminder[4],
+                    'amount_due': float(reminder[5]) if reminder[5] else 0,
+                    'status': reminder[6] or 'sent',
+                    'days_info': reminder[7],
+                    'sent_at': reminder[8].strftime('%Y-%m-%d %H:%M:%S') if reminder[8] else '',
+                    'api_response': reminder[9]
+                })
+            
+            return jsonify({
+                'success': True,
+                'count': len(results),
+                'reminders': results
+            })
+            
+    except Exception as e:
+        print(f"Error fetching sent reminders: {str(e)}")
+        return jsonify({
+            'error': str(e), 
+            'success': False,
+            'reminders': []
+        }), 500
+
+def run1(userid):
+
+    update_project_completion_status()
+
+    with get_db() as (cursor, connection):
+
+        print(userid)
+        today_date = datetime.now().strftime('%d %B %Y')
+        applied_date = datetime.now().strftime('%Y-%m-%d')
+
+        # IMPORTANT: Avoid SELECT * on enquiries - exclude large BLOB columns (plan, document)
+        enquiriesdataquery = """SELECT id, timestamp, clientwhatsapp, enqcategory, enq, 
+                               status, username, plan IS NOT NULL as has_plan
+                               FROM connectlinkenquiries ORDER BY id DESC LIMIT 200;"""
+        cursor.execute(enquiriesdataquery)
+        enquiriesdata = cursor.fetchall()
+        cols_enq = [desc[0] for desc in cursor.description]
+
+        enquiriesdatamain = pd.DataFrame(enquiriesdata, columns=cols_enq if cols_enq else ['id','timestamp','clientwhatsapp','enqcategory','enq','status','username','has_plan'])
+        enquiriesdatamain = enquiriesdatamain.rename(columns={
+            'id': 'ID', 'timestamp': 'Timestamp', 'clientwhatsapp': 'Contact', 
+            'enqcategory': 'Enquiry', 'enq': 'Description', 'status': 'Status', 'username': 'Username'
+        })
+        enquiriesdatamain['Document'] = enquiriesdatamain.apply(
+            lambda r: f'<button class="btn btn-sm btn-info view-plan-btn" data-enquiry-id="{r.get("ID",0)}">View Plan</button>' 
+            if r.get('has_plan', False) else '<span class="badge bg-secondary">No Plan</span>', axis=1
+        )
+        enquiriesdatamain = enquiriesdatamain[['ID','Timestamp','Username','Contact','Enquiry','Description','Document','Status']]
+        enquiriesdatamain_html = enquiriesdatamain.to_html(classes="table table-bordered table-theme", table_id="allenquiriesTable", index=False,  escape=False,)
+
+        usersdataquerytempenq = f"SELECT * FROM appenqtemp ORDER BY id DESC LIMIT 200;"
+        cursor.execute(usersdataquerytempenq)
+        usersdataquerytempenqfetch = cursor.fetchall()
+        print(usersdataquerytempenqfetch)
+
+        ####### usersdatamainttemp = pd.DataFrame(usersdataquerytempenqfetch, columns= ['id', 'wanumber','enqtype'])
+        ####### usersdatamainttemp_html = usersdatamainttemp.to_html(classes="table table-bordered table-theme", table_id="allapptempenqTable", index=False,  escape=False,)
+
+
+
+        usersdataquery = f"SELECT id, datecreated, name, password, email, whatsapp FROM connectlinkusers;"
+        cursor.execute(usersdataquery)
+        usersdata = cursor.fetchall()
+        print(usersdata)
+
+        usersdatamain = pd.DataFrame(usersdata, columns= ['id', 'datecreated','name', 'password','email','whatsapp'])
+
+        usersdatamain['whatsapp'] = usersdatamain['whatsapp'].apply(
+            lambda value: '' if pd.isna(value) else str(value).replace('.0', '')
+        )
+
+        usersdatamain['Action'] = usersdatamain.apply(
+            lambda row: (
+                f'''<div style="display:flex; gap:8px;">'''
+                f'''<button class="btn btn-primary btn-sm system-user-edit-btn" data-user-id="{row['id']}">Edit</button>'''
+                f'''<button class="btn btn-success btn-sm system-user-save-btn d-none" data-user-id="{row['id']}">Save</button>'''
+                f'''<button class="btn btn-secondary btn-sm system-user-cancel-btn d-none" data-user-id="{row['id']}">Cancel</button>'''
+                f'''<button class="btn btn-danger btn-sm system-user-remove-btn" onclick="openRemoveUserModal('{row['id']}', '{html.escape(str(row.get('name', '')))}', '{html.escape(str(row.get('email', '')))}')">Remove</button>'''
+                f'''</div>'''
+            ),
+            axis=1
+        )
+        usersdatamain = usersdatamain[['id', 'datecreated','name','email','whatsapp','Action']]
+        usersdatamain_html = usersdatamain.to_html(classes="table table-bordered table-theme", table_id="allusersTable", index=False,  escape=False,)
+
+
+        ####### admins
+
+        adminsdataquery = f"SELECT * FROM connectlinkadmin;"
+        cursor.execute(adminsdataquery)
+        adminsdata = cursor.fetchall()
+        print(adminsdata)
+
+        adminsdatamain = pd.DataFrame(adminsdata, columns= ['id', 'name', 'contact'])
+        adminsdatamain['Action'] = adminsdatamain['id'].apply(lambda x: f'''<div style="display: flex; gap: 10px;"><button class="btn btn-primary edit-admin-details-btn" style="width:max-content;" data-bs-toggle="modal" data-bs-target="#viewprojectModal" data-ID="{x}">Edit Details</button>    <button class="btn btn-danger remove-admin-btn" data-ID="{x}">Remove</button></div>''')
+        adminsdatamain = adminsdatamain[['id', 'name', 'contact', 'Action']]
+        table_datamain_admins_html = adminsdatamain.to_html(classes="table table-bordered table-theme", table_id="alladminsTable", index=False,  escape=False,)
+
+        admin_options = adminsdatamain.apply(lambda row: f"{row['name']}", axis=1).tolist()
+
+
+        ######### maindata
+        # quotation_id column is already added during initialize_database_tables()
+        # No need to check/add it again here
+        
+        # Quick fix: repair any date with year 72026 -> 2026 before fetching
+        try:
+            for repair_col in ['projectstartdate','contractagreementdate','datedepositorbullet',
+                               'installment1duedate','installment1date',
+                               'installment2duedate','installment2date',
+                               'installment3duedate','installment3date',
+                               'installment4duedate','installment4date',
+                               'installment5duedate','installment5date',
+                               'installment6duedate','installment6date',
+                               'installment7duedate','installment7date',
+                               'installment8duedate','installment8date',
+                               'installment9duedate','installment9date',
+                               'installment10duedate','installment10date']:
+                cursor.execute(f"""
+                    UPDATE connectlinkdatabase 
+                    SET {repair_col} = (regexp_replace({repair_col}::text, '^72026', '2026'))::date 
+                    WHERE {repair_col}::text LIKE '72026%'
+                """)
+                if cursor.rowcount > 0:
+                    print(f"🔧 Repaired 72026->2026 in {repair_col}")
+                    connection.commit()
+        except Exception as repair_err:
+            print(f"Note: date repair skipped: {repair_err}")
+        
+        # Only select needed columns to minimize memory - avoid large text fields if possible
+        maindataquery = f"SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
+        cursor.execute(maindataquery)
+        maindata = cursor.fetchall()
+        column_names = [desc[0] for desc in cursor.description]
+
+        num_projects = len(maindata)
+
+        # Use the actual column names from the database
+        datamain = pd.DataFrame(maindata, columns=column_names)
+
+        # Get just the column statistics
+        count_ongoing = datamain[datamain["projectcompletionstatus"] == "Ongoing"].shape[0]
+        count_completed = datamain[datamain["projectcompletionstatus"] == "Completed"].shape[0]
+        count_other = datamain[(datamain["projectcompletionstatus"] != "Ongoing") & (datamain["projectcompletionstatus"] != "Completed")].shape[0]
+        average_duration = round(pd.to_numeric(datamain["projectduration"], errors="coerce").mean(),0)
+        locations = datamain['projectlocation'].replace('', pd.NA)
+
+        locations2 = datamain['projectlocation'].dropna().astype(str)  # remove None/NaN, ensure string
+        location_counts = Counter(locations2)
+
+        # Convert to lists for Jinja
+        locations_list = list(location_counts.keys())
+        frequencies_list = list(location_counts.values())
+
+        # Get the most frequent location
+        most_frequent_location = locations.value_counts(dropna=True).idxmax()
+
+        # ===== CRITICAL: Process columns in correct order =====
+        # Step 1: Process dates first
+        datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
+        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+        
+        # Step 2: Calculate momid BEFORE reordering (uses datetime format)
+        datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
+        
+        # Step 2b: NOW format datedepositorbullet for display (DD Month YYYY format)
+        datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
+
+        # Step 3: Rename quotation_id to QREF BEFORE Action creation
+        datamain = datamain.rename(columns={'quotation_id': 'QREF'})
+        
+        # Step 4: Format QREF column
+        datamain['QREF'] = datamain['QREF'].apply(
+            lambda x: f'<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == '' 
+            else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
+        )
+        
+        # Step 5: Create Action column AFTER everything else
+        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row['clientname']}" data-client-wa-number="{row['clientwanumber']}" onclick="return handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
+        
+        # Step 6: Sort by ID
+        datamain = datamain.sort_values('id', ascending=False)
+        
+        # Step 7: Define the EXACT 61 columns needed
+        final_columns_to_select = [
+            'momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',  
+            'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',  
+            'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname', 'projectstartdate',  
+            'projectduration', 'contractagreementdate', 'totalcontractamount', 'paymentmethod', 'monthstopay',  
+            'datecaptured', 'capturer', 'capturerid', 'depositorbullet', 'datedepositorbullet', 'monthlyinstallment',  
+            'installment1amount', 'installment1duedate', 'installment1date', 'installment2amount', 'installment2duedate',  
+            'installment2date', 'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',  
+            'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate', 'installment5date',  
+            'installment6amount', 'installment6duedate', 'installment6date', 'installment7amount', 'installment7duedate',  
+            'installment7date', 'installment8amount', 'installment8duedate', 'installment8date', 'installment9amount',  
+            'installment9duedate', 'installment9date', 'installment10amount', 'installment10duedate', 'installment10date',  
+            'projectcompletionstatus', 'latepaymentinterest', 'id', 'QREF', 'Action'
+        ]
+        
+        # Select ONLY columns that exist - no padding, just reorder what we have
+        cols_that_exist = [col for col in final_columns_to_select if col in datamain.columns]
+        datamain = datamain[cols_that_exist]
+        
+        # DEBUG: Print columns for verification
+        final_cols_list = list(datamain.columns)
+        print(f"\nFinal table has {len(final_cols_list)} columns: {final_cols_list}")
+
+        table_datamain_html = datamain.to_html(classes="table table-bordered table-theme", table_id="allprojectsTable", index=False,  escape=False,)
+
+        detailscompquery = f"SELECT * FROM connectlinkdetails;"
+        cursor.execute(detailscompquery)
+        detailscompdata = cursor.fetchall()
+        print(detailscompdata)
+
+        detailscompdata = pd.DataFrame(detailscompdata, columns= ['address', 'contact1', 'contact2', 'email', 'companyname', 'tinnumber'])
+        companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
+        address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
+        contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
+        contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
+        compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
+        tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
+        
+        cursor.execute("""
+            SELECT DISTINCT 
+                TO_CHAR(datedepositorbullet, 'Mon-YYYY') as month_display,
+                TO_CHAR(datedepositorbullet, 'YYYY-MM') as month_value,
+                MAX(datedepositorbullet) as max_date
+            FROM connectlinkdatabase 
+            WHERE datedepositorbullet IS NOT NULL
+            GROUP BY TO_CHAR(datedepositorbullet, 'Mon-YYYY'), TO_CHAR(datedepositorbullet, 'YYYY-MM')
+            ORDER BY MAX(datedepositorbullet) DESC
+        """)
+        
+        month_options = cursor.fetchall()
+        month_options_list = [
+            {'display': row[0], 'value': row[1], 'date': row[2]} 
+            for row in month_options
+        ]
+        
+        # Add "All" option at the end
+        month_options_list.append({'display': 'All', 'value': 'all', 'date': None})
+        enquiries_data = get_enquiries_data()
+        
+        datamain2 = datamain
+
+
+        date_columns = ['installment1duedate', 'installment2duedate', 'installment3duedate',
+                        'installment4duedate', 'installment5duedate', 'installment6duedate',
+                        'installment7duedate', 'installment8duedate', 'installment9duedate', 'installment10duedate',
+                        'installment1date', 'installment2date', 'installment3date',
+                        'installment4date', 'installment5date', 'installment6date',
+                        'installment7date', 'installment8date', 'installment9date', 'installment10date']
+
+        for col in date_columns:
+            if col in datamain2.columns:
+                datamain2[col] = pd.to_datetime(datamain2[col], errors='coerce')
+
+        # Get current date
+        current_date = datetime.now()
+
+        # Function to check payment status and calculate overdue amount
+        def get_payment_status(row):
+            total_overdue = 0
+            is_overdue = False
+            is_outstanding = False
+            outstanding_balance = 0
+            
+            # Check each installment (1-10)
+            for i in range(1, 11):
+                due_date_col = f'installment{i}duedate'
+                paid_date_col = f'installment{i}date'
+                amount_col = f'installment{i}amount'
+                
+                if pd.notna(row.get(due_date_col)):
+                    due_date = row[due_date_col]
+                    amount = row.get(amount_col, 0) or 0
+                    
+                    # Check if paid
+                    is_paid = pd.notna(row.get(paid_date_col))
+                    
+                    # If not paid and due date passed
+                    if not is_paid and due_date < current_date:
+                        total_overdue += amount
+                        is_overdue = True
+            
+            # Check for outstanding payments (all installments paid but balance still due)
+            if not is_overdue:
+                try:
+                    contract_amount = float(row.get('totalcontractamount', 0) or 0)
+                    deposit = float(row.get('depositorbullet', 0) or 0)
+                    
+                    # Calculate total paid (deposit + all paid installments)
+                    total_paid = deposit
+                    all_installments_paid = True
+                    
+                    for i in range(1, 11):
+                        paid_date_col = f'installment{i}date'
+                        amount_col = f'installment{i}amount'
+                        
+                        amount = row.get(amount_col, 0) or 0
+                        if amount > 0:
+                            is_paid = pd.notna(row.get(paid_date_col))
+                            if is_paid:
+                                total_paid += amount
+                            else:
+                                all_installments_paid = False
+                    
+                    # Check if all installments are paid but balance remains
+                    # Only mark as outstanding if balance is more than 0.01 (avoid floating point precision issues)
+                    if all_installments_paid and contract_amount > total_paid:
+                        outstanding_balance = contract_amount - total_paid
+                        if outstanding_balance > 0.01:
+                            is_outstanding = True
+                except:
+                    pass
+            
+            return total_overdue, is_overdue, is_outstanding, outstanding_balance
+
+        # Calculate status for each row
+        datamain2['overdue_amount'], datamain2['is_overdue'], datamain2['is_outstanding'], datamain2['outstanding_balance'] = zip(*datamain2.apply(get_payment_status, axis=1))
+
+        # Simple version - just show installment numbers
+        def get_simple_installments_due(row):
+            due_installments = []
+            
+            for i in range(1, 11):
+                due_date_col = f'installment{i}duedate'
+                paid_date_col = f'installment{i}date'
+                
+                if pd.notna(row.get(due_date_col)):
+                    due_date = row[due_date_col]
+                    is_paid = pd.notna(row.get(paid_date_col))
+                    
+                    if not is_paid:
+                        due_installments.append(str(i))
+            
+            if due_installments:
+                return ", ".join(due_installments)
+            return "None"
+
+        # Add to your existing calculation
+        datamain2['installments_due_simple'] = datamain2.apply(get_simple_installments_due, axis=1)
+
+        # Update table_data with simple installment info
+        for _, row in datamain2.iterrows():
+            status_html = ""
+            
+            if row['is_overdue']:
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span></div>"""
+            else:
+                status_html = '<span class="badge bg-success">PAID UP</span>'
+            
+            # Simple installment display
+            installments_html = f'<span class="badge bg-info">{row["installments_due_simple"]}</span>'
+
+        # Function to format phone number
+        def format_phone_number(phone):
+            if pd.isna(phone):
+                return "N/A"
+            
+            # Convert to string and remove decimal .0
+            phone_str = str(int(phone)) if isinstance(phone, float) else str(phone)
+            
+            # Remove any non-digit characters
+            phone_clean = ''.join(filter(str.isdigit, phone_str))
+            
+            # Check if it starts with 263 already
+            if phone_clean.startswith('263'):
+                # Format as 263 XXX XXX XXX
+                if len(phone_clean) == 12:  # 263XXXXXXXXX
+                    return f"263 {phone_clean[3:6]} {phone_clean[6:9]} {phone_clean[9:]}"
+                else:
+                    return f"263 {phone_clean[3:]}"
+            else:
+                # Add 263 prefix
+                if phone_clean.startswith('0'):
+                    phone_clean = phone_clean[1:]  # Remove leading 0
+                
+                # Format with 263 prefix
+                if len(phone_clean) == 9:  # XXXXXXXXX
+                    return f"263 {phone_clean[:3]} {phone_clean[3:6]} {phone_clean[6:]}"
+                elif len(phone_clean) == 10:  # 07XXXXXXXXX -> becomes 2637XXXXXXXXX
+                    return f"263 {phone_clean[1:4]} {phone_clean[4:7]} {phone_clean[7:]}"
+                else:
+                    # Just add 263 prefix for any other format
+                    return f"263 {phone_clean}"
+            
+        # Create the display table
+        table_data = []
+
+        for _, row in datamain2.iterrows():
+            status_html = ""
+            
+            if row['is_overdue']:
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span></div>"""
+            elif row['is_outstanding']:
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-info me-2">OUTSTANDING</span><span class="text-info fw-bold">${row['outstanding_balance']:,.2f}</span></div>"""
+            else:
+                status_html = '<span class="badge bg-success">PAID UP</span>'
+            
+            installments_html = f'<span class="badge bg-info">{row["installments_due_simple"]}</span>'
+
+            formatted_phone = format_phone_number(row['clientwanumber'])
+
+            table_data.append({
+                'project id': row['id'],
+                'client name': row['clientname'],
+                'client phone': formatted_phone,
+                'project_name': row['projectname'],
+                'overdue_amount': row['overdue_amount'],
+                'status': status_html,
+                'installments due': installments_html
+            })
+
+        # Create DataFrame for table
+        status_df = pd.DataFrame(table_data)
+
+        # Sort by overdue amount and outstanding balance (descending)
+        status_df['sort_amount'] = status_df.apply(lambda row: 
+                                                   row['overdue_amount'] if row['overdue_amount'] > 0 
+                                                   else row.get('outstanding_balance', 0), axis=1)
+        status_df = status_df.sort_values('sort_amount', ascending=False)
+        status_df = status_df[['project id','client name', 'client phone', 'project_name', 'status', 'installments due']]
+
+        status_df_html = status_df.to_html(classes="table table-bordered table-theme", table_id="allpaymentscdTable", index=False,  escape=False,)
+
+
+        current_date = datetime.now().date()
+        start_of_week = current_date - timedelta(days=current_date.weekday())  # Monday
+        start_of_month = current_date.replace(day=1)
+        start_of_year = current_date.replace(month=1, day=1)
+
+        # Function to calculate paid and overdue amounts for specific time periods
+        def calculate_payment_stats(df):
+            # Track amounts
+            stats = {
+                'today_paid': 0,
+                'today_overdue': 0,
+                'week_paid': 0,
+                'week_overdue': 0,
+                'month_paid': 0,
+                'month_overdue': 0,
+                'year_paid': 0,
+                'year_overdue': 0,
+                'total_overdue': df['overdue_amount'].sum(),
+                # Track project counts (using sets for unique project IDs)
+                'today_paid_projects': set(),
+                'today_overdue_projects': set(),
+                'week_paid_projects': set(),
+                'week_overdue_projects': set(),
+                'month_paid_projects': set(),
+                'month_overdue_projects': set(),
+                'year_paid_projects': set(),
+                'year_overdue_projects': set(),
+                'total_overdue_projects': set()
+            }
+            
+            # Calculate amounts based on payment dates
+            for _, row in df.iterrows():
+                project_id = row.get('id', 0)
+                
+                # Check each installment (1-10)
+                for i in range(1, 11):
+                    due_date_col = f'installment{i}duedate'
+                    paid_date_col = f'installment{i}date'
+                    amount_col = f'installment{i}amount'
+                    
+                    if due_date_col in row and pd.notna(row[due_date_col]):
+                        due_date = row[due_date_col].date()
+                        amount = row.get(amount_col, 0) or 0
+                        paid_date = row.get(paid_date_col)
+                        
+                        # Check if paid
+                        if pd.notna(paid_date):
+                            paid_date_dt = paid_date.date()
+                            
+                            # TODAY PAID: Payments made today
+                            if paid_date_dt == current_date:
+                                stats['today_paid'] += amount
+                                stats['today_paid_projects'].add(project_id)
+                            
+                            # WEEK PAID: Payments made this week (Monday to today)
+                            if paid_date_dt >= start_of_week:
+                                stats['week_paid'] += amount
+                                stats['week_paid_projects'].add(project_id)
+                            
+                            # MONTH PAID: Payments made this month
+                            if paid_date_dt >= start_of_month:
+                                stats['month_paid'] += amount
+                                stats['month_paid_projects'].add(project_id)
+                            
+                            # YEAR PAID: Payments made this year
+                            if paid_date_dt >= start_of_year:
+                                stats['year_paid'] += amount
+                                stats['year_paid_projects'].add(project_id)
+                        
+                        # Check for overdue (not paid and past due date)
+                        else:
+                            if due_date < current_date:
+                                # TODAY OVERDUE: Became overdue today
+                                if due_date == current_date:
+                                    stats['today_overdue'] += amount
+                                    stats['today_overdue_projects'].add(project_id)
+                                
+                                # WEEK OVERDUE: Became overdue this week
+                                if due_date >= start_of_week:
+                                    stats['week_overdue'] += amount
+                                    stats['week_overdue_projects'].add(project_id)
+                                
+                                # MONTH OVERDUE: Became overdue this month
+                                if due_date >= start_of_month:
+                                    stats['month_overdue'] += amount
+                                    stats['month_overdue_projects'].add(project_id)
+                                
+                                # YEAR OVERDUE: Became overdue this year
+                                if due_date >= start_of_year:
+                                    stats['year_overdue'] += amount
+                                    stats['year_overdue_projects'].add(project_id)
+            
+            # Also track total overdue projects count
+            for _, row in df.iterrows():
+                if row.get('is_overdue', False):
+                    stats['total_overdue_projects'].add(row.get('id', 0))
+            
+            # Convert sets to counts for JSON serialization
+            for key in list(stats.keys()):
+                if isinstance(stats[key], set):
+                    stats[key] = len(stats[key])
+            
+            return stats
+
+        # Calculate payment statistics
+        payment_stats = calculate_payment_stats(datamain2)
+
+        # Also calculate total due (all amounts due by today)
+        total_due = 0
+        for _, row in datamain2.iterrows():
+            for i in range(1, 11):
+                due_date_col = f'installment{i}duedate'
+                amount_col = f'installment{i}amount'
+                
+                if due_date_col in row and pd.notna(row[due_date_col]):
+                    due_date = row[due_date_col].date()
+                    amount = row.get(amount_col, 0) or 0
+                    
+                    if due_date <= current_date:
+                        total_due += amount
+
+        payment_stats['total_due'] = total_due
+
+        # Calculate payment reminders data
+        payment_reminders = get_payment_reminders_data(datamain2)
+
+        # === MEMORY CLEANUP ===
+        # Delete large DataFrames that are no longer needed
+        del datamain
+        del datamain2
+        del status_df
+        del enquiriesdata
+        del usersdata
+        del adminsdata
+        del maindata
+        del table_data
+        gc.collect()
+
+        return {
+            'payment_reminders': payment_reminders,
+            'payment_stats': payment_stats,
+            'start_of_week': start_of_week,
+            'start_of_month': start_of_month,
+            'start_of_year': start_of_year,
+            'status_df_html': status_df_html,
+            'month_options': month_options_list,
+            "usersdatamain_html": usersdatamain_html,
+            "table_datamain_html": table_datamain_html,
+            'table_datamain_admins_html': table_datamain_admins_html,
+            "companyname": companyname,
+            "address": address,
+            "contact1": contact1,
+            "contact2": contact2,
+            "compemail": compemail,
+            "tinnumber": tinnumber,
+            'today_date': today_date,
+            'num_projects': num_projects,
+            'count_ongoing': count_ongoing,
+            'count_completed': count_completed,
+            'count_other': count_other,
+            'average_duration': average_duration,
+            'most_frequent_location': most_frequent_location,
+            'locations': locations_list,
+            'frequencies': frequencies_list,
+            'admin_options': admin_options,
+            "enquiriesdatamain_html" : enquiriesdatamain_html,
+            "enquiries_data": enquiries_data  # Pure Python list, NO HTML
+            }
+
+def get_installment_audit_data():
+    with get_db() as (cursor, connection):
+        # Get all projects with LIMIT to avoid memory issues
+        query = "SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
+        cursor.execute(query)
+        projects = cursor.fetchall()
+        column_names = [desc[0] for desc in cursor.description]
+        
+        df = pd.DataFrame(projects, columns=column_names)
+        
+        audit_results = []
+        
+        for _, row in df.iterrows():
+            project_id = row['id']
+            client_name = row['clientname']
+            project_name = row['projectname']
+            total_contract = float(row['totalcontractamount'] or 0)
+            deposit = float(row['depositorbullet'] or 0)
+            balance_due = total_contract - deposit
+            
+            # Calculate sum of all installments
+            sum_installments = 0
+            for i in range(1, 11):
+                amount_col = f'installment{i}amount'
+                if amount_col in row and pd.notna(row[amount_col]):
+                    sum_installments += float(row[amount_col])
+            
+            # Check if ALL scheduled payments have been made (no unpaid installments)
+            all_payments_made = True
+            for i in range(1, 11):
+                amount_col = f'installment{i}amount'
+                paid_date_col = f'installment{i}date'
+                if amount_col in row and pd.notna(row[amount_col]) and float(row[amount_col]) > 0:
+                    paid_date = row.get(paid_date_col)
+                    # If this installment is scheduled but NOT paid, mark as incomplete
+                    if not paid_date or pd.isna(paid_date):
+                        all_payments_made = False
+                        break
+            
+            variance = balance_due - sum_installments
+            has_variance = abs(variance) > 0.01  # Tolerance for floating point
+            
+            # Outstanding Payments = all payments made BUT variance exists
+            # This means the discrepancy can't be resolved by making remaining payments
+            is_outstanding = all_payments_made and has_variance
+            
+            # Determine status
+            if has_variance and is_outstanding:
+                status = 'Outstanding Payments'  # All payments made, but amount doesn't match
+            elif has_variance:
+                status = 'Variance'  # Variance exists, but some payments still pending
+            else:
+                status = 'Balanced'
+            
+            audit_results.append({
+                'project_id': project_id,
+                'client_name': client_name,
+                'project_name': project_name,
+                'total_contract': round(total_contract, 2),
+                'deposit': round(deposit, 2),
+                'balance_due': round(balance_due, 2),
+                'sum_installments': round(sum_installments, 2),
+                'variance': round(variance, 2),
+                'has_variance': has_variance,
+                'is_outstanding': is_outstanding,
+                'status': status
+            })
+        
+        return audit_results
+
+# Add this function to auto-correct a single project
+def auto_correct_project(project_id):
+    with get_db() as (cursor, connection):
+        # Get project data (using parameterized query for safety)
+        query = "SELECT * FROM connectlinkdatabase WHERE id = %s;"
+        cursor.execute(query, (project_id,))
+        project = cursor.fetchone()
+        column_names = [desc[0] for desc in cursor.description]
+        
+        if not project:
+            return {'success': False, 'message': 'Project not found'}
+        
+        # Convert to dictionary for easier access
+        project_dict = dict(zip(column_names, project))
+        
+        total_contract = float(project_dict.get('totalcontractamount', 0) or 0)
+        deposit = float(project_dict.get('depositorbullet', 0) or 0)
+        balance_due = total_contract - deposit
+        
+        # Calculate sum of installments and find first unpaid installment
+        sum_installments = 0
+        first_unpaid_index = None
+        installments_data = []
+        
+        for i in range(1, 11):
+            amount_col = f'installment{i}amount'
+            due_date_col = f'installment{i}duedate'
+            paid_date_col = f'installment{i}date'
+            
+            amount = float(project_dict.get(amount_col, 0) or 0)
+            paid_date = project_dict.get(paid_date_col)
+            
+            sum_installments += amount
+            
+            installments_data.append({
+                'index': i,
+                'amount': amount,
+                'paid_date': paid_date,
+                'due_date': project_dict.get(due_date_col)
+            })
+            
+            # Track first unpaid installment (no paid date and due date exists or is future)
+            if first_unpaid_index is None and pd.isna(paid_date):
+                first_unpaid_index = i
+        
+        variance = balance_due - sum_installments
+        
+        # If no variance or no unpaid installment found, return
+        if abs(variance) <= 0.01 or first_unpaid_index is None:
+            return {
+                'success': False, 
+                'message': 'No correction needed or no unpaid installment found'
+            }
+        
+        # Get the first unpaid installment amount
+        first_unpaid_amount = installments_data[first_unpaid_index - 1]['amount']
+        new_amount = first_unpaid_amount + variance
+        
+        # Update the installment
+        update_query = f"""
+            UPDATE connectlinkdatabase 
+            SET installment{first_unpaid_index}amount = %s 
+            WHERE id = %s
+        """
+        cursor.execute(update_query, (new_amount, project_id))
+        connection.commit()
+        
+        return {
+            'success': True,
+            'message': f'Project {project_id} corrected. Added/Subtracted {variance:.2f} to installment {first_unpaid_index}',
+            'project_id': project_id,
+            'installment_index': first_unpaid_index,
+            'old_amount': first_unpaid_amount,
+            'new_amount': new_amount,
+            'variance': variance
+        }
+
+# Add this function to auto-correct all projects
+def auto_correct_all_projects():
+    try:
+        with get_db() as (cursor, connection):
+            # Get all projects
+            query = "SELECT id FROM connectlinkdatabase;"
+            cursor.execute(query)
+            projects = cursor.fetchall()
+            
+            results = []
+            for project in projects:
+                try:
+                    project_id = project[0]
+                    result = auto_correct_project(project_id)
+                    results.append(result)
+                except Exception as e:
+                    results.append({
+                        'success': False,
+                        'message': f'Error processing project {project_id}: {str(e)}',
+                        'project_id': project_id
+                    })
+            
+            successful = [r for r in results if r.get('success')]
+            failed = [r for r in results if not r.get('success')]
+            
+            return {
+                'success': True,
+                'total_processed': len(results),
+                'successful_count': len(successful),
+                'failed_count': len(failed),
+                'results': results
+            }
+    except Exception as e:
+        import logging
+        logging.error(f'Error in auto_correct_all_projects: {str(e)}')
+        return {
+            'success': False,
+            'message': f'Error processing batch correction: {str(e)}'
+        }
+
+# Add Flask routes
+@app.route('/api/installment-audit', methods=['GET'])
+def installment_audit():
+    try:
+        audit_data = get_installment_audit_data()
+        return jsonify({
+            'success': True,
+            'data': audit_data,
+            'stats': {
+                'total': len(audit_data),
+                'variance_count': len([d for d in audit_data if d['has_variance']]),
+                'balanced_count': len([d for d in audit_data if not d['has_variance']]),
+                'total_variance': sum([d['variance'] for d in audit_data if d['has_variance']])
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/auto-correct-project/<int:project_id>', methods=['POST'])
+def auto_correct_project_route(project_id):
+    try:
+        result = auto_correct_project(project_id)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/auto-correct-all-projects', methods=['POST'])
+def auto_correct_all_projects_route():
+    try:
+        result = auto_correct_all_projects()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/download-audit-report', methods=['POST'])
+def download_audit_report():
+    try:
+        data = request.json
+        audit_data = data.get('data', [])
+        
+        # Create DataFrame
+        df = pd.DataFrame(audit_data)
+        
+        # Create Excel file in memory
+        output = io.BytesIO()
+        
+        # Use ExcelWriter with proper configuration
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Audit Report', index=False)
+            
+            # Get the workbook and worksheet
+            workbook = writer.book
+            worksheet = writer.sheets['Audit Report']
+            
+            # Format headers
+            for col in range(1, len(df.columns) + 1):
+                cell = worksheet.cell(row=1, column=col)
+                cell.font = openpyxl.styles.Font(bold=True)
+                cell.fill = openpyxl.styles.PatternFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+                cell.font = openpyxl.styles.Font(color='FFFFFF', bold=True)
+            
+            # Auto-adjust column widths
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        # IMPORTANT: Get the value from BytesIO
+        output.seek(0)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"installment_audit_report_{timestamp}.xlsx"
+        
+        # Send file with proper headers
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename,
+            max_age=0  # Prevent caching
+        )
+        
+    except Exception as e:
+        print(f"Error generating report: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+        
+def get_enquiries_data():
+    """Get enquiries data for template - sorted by ID descending"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                       plan IS NOT NULL as has_plan, status, username
+                FROM connectlinkenquiries 
+                ORDER BY id DESC
+                LIMIT 200
+            """)
+            enquiries = cursor.fetchall()
+            
+            enquiries_list = []
+            for enquiry in enquiries:
+                enquiries_list.append({
+                    'id': enquiry[0],  # Just the number
+                    'timestamp': enquiry[1].strftime('%d/%m/%Y %H:%M') if enquiry[1] else '',
+                    'username': enquiry[7] or 'Unknown',
+                    'clientwhatsapp': enquiry[2],
+                    'category': enquiry[3] or 'General',
+                    'message': enquiry[4] or 'No message',
+                    'has_plan': enquiry[5],
+                    'status': enquiry[6] or 'pending'
+                })
+            
+            return enquiries_list
+            
+    except Exception as e:
+        print(f"Error getting enquiries: {str(e)}")
+        return []
+
+@app.route('/download_inventory_excel', methods=['GET'])
+@login_required
+def download_inventory_excel():
+    """Download all inventory as an Excel file."""
+    try:
+        # Fetch all products
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock, 
+                       CASE WHEN stock > 0 THEN 'In Stock' ELSE 'Out of Stock' END as stock_status
+                FROM products
+                ORDER BY id
+            """)
+            rows = cursor.fetchall()
+            columns = ['ID', 'Product', 'Category', 'Unit', 'Detail', 'Buy Price', 'Sell Price', 'Stock', 'Stock-Status']
+
+        # Create DataFrame
+        df = pd.DataFrame(rows, columns=columns)
+
+        # Calculate totals as in UI
+        total_purchase_value = 0.0
+        total_sales_value = 0.0
+        for row in rows:
+            buy_price = float(row[5]) if row[5] else 0.0
+            sell_price = float(row[6]) if row[6] else 0.0
+            stock = int(row[7]) if row[7] else 0
+            total_purchase_value += buy_price * stock
+            total_sales_value += sell_price * stock
+
+        # Write to Excel in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Inventory')
+            # Append totals at the bottom
+            workbook = writer.book
+            worksheet = writer.sheets['Inventory']
+            last_row = len(df) + 2  # +2 for header row and 1-based index
+            worksheet.cell(row=last_row, column=5, value="Total Stock Purchase Value:")
+            worksheet.cell(row=last_row, column=6, value=total_purchase_value)
+            worksheet.cell(row=last_row+1, column=5, value="Total Sales Value:")
+            worksheet.cell(row=last_row+1, column=6, value=total_sales_value)
+
+        output.seek(0)
+        # Send as file
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'Inventory ConnectLink Hardware_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        )
+    except Exception as e:
+        print(f"Error generating inventory Excel: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/export_cashflow', methods=['POST'])
+def export_cashflow():
+    """Generate cashflow Excel file with months in chronological order and proper styling"""
+    try:
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        
+        with get_db() as (cursor, connection):
+            # Get current timestamp
+            current_timestamp = datetime.now()
+            timestamp_str = current_timestamp.strftime("%d %B %Y %H:%M")
+            
+            # Fetch all projects
+            cursor.execute("""
+                SELECT 
+                    clientname, projectname, totalcontractamount,
+                    depositorbullet, datedepositorbullet, 
+                    paymentmethod,
+                    installment1duedate, installment1amount,
+                    installment2duedate, installment2amount,
+                    installment3duedate, installment3amount,
+                    installment4duedate, installment4amount,
+                    installment5duedate, installment5amount,
+                    installment6duedate, installment6amount,
+                    installment7duedate, installment7amount,
+                    installment8duedate, installment8amount,
+                    installment9duedate, installment9amount,
+                    installment10duedate, installment10amount
+                FROM connectlinkdatabase 
+                WHERE totalcontractamount > 0
+                ORDER BY datedepositorbullet
+            """)
+            
+            rows = cursor.fetchall()
+            
+            if not rows:
+                return jsonify({'success': False, 'message': 'No projects found'}), 404
+            
+            # Get all months from due dates and sort them chronologically
+            all_months = []
+            month_set = set()
+            
+            for row in rows:
+                # Check installment due dates
+                for i in range(10):
+                    due_date_idx = 6 + (i * 2)
+                    due_date = row[due_date_idx]
+                    if due_date:
+                        try:
+                            if isinstance(due_date, str):
+                                date_obj = datetime.strptime(due_date[:10], '%Y-%m-%d')
+                            else:
+                                date_obj = due_date
+                            
+                            month_str = date_obj.strftime('%b-%Y')
+                            if month_str not in month_set:
+                                month_set.add(month_str)
+                                all_months.append((date_obj, month_str))
+                        except:
+                            continue
+            
+            # Sort months chronologically by date
+            all_months.sort(key=lambda x: x[0])
+            month_list = [month_str for _, month_str in all_months]
+            
+            # If no months from installments, use current and next few months
+            if not month_list:
+                today = datetime.now()
+                for i in range(-2, 10):
+                    future_date = today.replace(day=1)
+                    if i != 0:
+                        month = future_date.month + i
+                        year = future_date.year
+                        if month > 12:
+                            month -= 12
+                            year += 1
+                        elif month < 1:
+                            month += 12
+                            year -= 1
+                        future_date = future_date.replace(year=year, month=month)
+                    month_list.append(future_date.strftime('%b-%Y'))
+                # Remove duplicates and sort
+                month_list = sorted(list(set(month_list)), 
+                                  key=lambda x: datetime.strptime(x, '%b-%Y'))
+            
+            # Create main data
+            main_data = []
+            
+            for row in rows:
+                client_name = row[0] or ""
+                project_name = row[1] or ""
+                total_contract = float(row[2]) if row[2] else 0
+                deposit_amount = float(row[3]) if row[3] else 0
+                project_month = ""
+                
+                # Get project month
+                datedeposit = row[4]
+                if datedeposit:
+                    try:
+                        if isinstance(datedeposit, str):
+                            date_obj = datetime.strptime(datedeposit[:10], '%Y-%m-%d')
+                        else:
+                            date_obj = datedeposit
+                        project_month = date_obj.strftime('%b-%Y')
+                    except:
+                        pass
+                
+                payment_method = row[5] or ""
+                balance = total_contract - deposit_amount
+                
+                # Create row - ADDED "Total Contract Amount" column
+                row_data = {
+                    'Project Month': project_month,
+                    'Payment Method': payment_method,
+                    'Client Name': client_name,
+                    'Project Name': project_name,
+                    'Total Contract Amount': total_contract if total_contract != 0 else None,  # ADDED THIS
+                    'Deposit paid USD': deposit_amount if deposit_amount != 0 else None,
+                    'Balance USD': balance if balance != 0 else None
+                }
+                
+                # Add months in chronological order
+                for month in month_list:
+                    row_data[month] = None
+                
+                # Add installment amounts
+                for i in range(10):
+                    due_date_idx = 6 + (i * 2)
+                    amount_idx = 7 + (i * 2)
+                    
+                    due_date = row[due_date_idx]
+                    amount = row[amount_idx]
+                    
+                    if due_date and amount:
+                        try:
+                            if isinstance(due_date, str):
+                                date_obj = datetime.strptime(due_date[:10], '%Y-%m-%d')
+                            else:
+                                date_obj = due_date
+                            
+                            month_str = date_obj.strftime('%b-%Y')
+                            amount_val = float(amount) if amount else 0
+                            
+                            if amount_val > 0 and month_str in row_data:
+                                row_data[month_str] = amount_val
+                        except:
+                            continue
+                
+                main_data.append(row_data)
+            
+            # Create DataFrames - UPDATED to include "Total Contract Amount"
+            detail_columns = ['Project Month', 'Payment Method', 'Client Name', 'Project Name',
+                            'Total Contract Amount', 'Deposit paid USD', 'Balance USD'] + month_list  # CHANGED HERE
+            
+            df_detail = pd.DataFrame(main_data, columns=detail_columns)
+            
+            df_detail['Project Month'] = pd.Categorical(df_detail['Project Month'], 
+                                                    categories=sorted(set(df_detail['Project Month'].dropna()), 
+                                                    key=lambda x: datetime.strptime(x, '%b-%Y') if pd.notna(x) and x != 'TOTAL' else ''),
+                                                    ordered=True)
+
+            # Add totals row to detail - UPDATED to include "Total Contract Amount"
+            totals_row = {
+                'Project Month': 'TOTAL',
+                'Payment Method': '',
+                'Client Name': '',
+                'Project Name': '',
+                'Total Contract Amount': df_detail['Total Contract Amount'].sum(),  # CHANGED HERE
+                'Deposit paid USD': df_detail['Deposit paid USD'].sum(),
+                'Balance USD': df_detail['Balance USD'].sum()
+            }
+            
+            for month in month_list:
+                totals_row[month] = df_detail[month].sum()
+            
+            df_detail = pd.concat([df_detail, pd.DataFrame([totals_row])], ignore_index=True)
+            
+            # Create summary by project month - UPDATED to include "Total Contract Amount"
+            month_summary_data = []
+            
+
+            # Group by Project Month
+            for project_month in sorted(set(df_detail['Project Month'].dropna())):
+                if project_month == 'TOTAL':
+                    continue
+                
+                month_rows = df_detail[df_detail['Project Month'] == project_month]
+                month_summary = {
+                    'Project Month': project_month,
+                    'Total Contract Amount': month_rows['Total Contract Amount'].sum(),  # ADDED THIS
+                    'Deposit paid USD': month_rows['Deposit paid USD'].sum(),
+                    'Balance USD': month_rows['Balance USD'].sum()
+                }
+                
+                for month in month_list:
+                    month_summary[month] = month_rows[month].sum()
+                
+                month_summary_data.append(month_summary)
+            
+                month_summary_data.sort(key=lambda x: datetime.strptime(x['Project Month'], '%b-%Y') if x['Project Month'] != 'TOTAL' else datetime.max)            
+
+            # Add totals to month summary - UPDATED
+            if month_summary_data:
+                month_totals = {
+                    'Project Month': 'TOTAL',
+                    'Total Contract Amount': sum(row['Total Contract Amount'] for row in month_summary_data),  # ADDED
+                    'Deposit paid USD': sum(row['Deposit paid USD'] for row in month_summary_data),
+                    'Balance USD': sum(row['Balance USD'] for row in month_summary_data)
+                }
+                
+                for month in month_list:
+                    month_totals[month] = sum(row[month] for row in month_summary_data)
+                
+                month_summary_data.append(month_totals)
+            
+            # Create summary by payment method - UPDATED to include "Total Contract Amount"
+            payment_summary_data = []
+            
+            # Group by Payment Method
+            for payment_method in sorted(set(df_detail['Payment Method'].dropna())):
+                if not payment_method or payment_method == '':
+                    continue
+                
+                payment_rows = df_detail[df_detail['Payment Method'] == payment_method]
+                payment_summary = {
+                    'Payment Method': payment_method,
+                    'Total Contract Amount': payment_rows['Total Contract Amount'].sum(),  # ADDED THIS
+                    'Deposit paid USD': payment_rows['Deposit paid USD'].sum(),
+                    'Balance USD': payment_rows['Balance USD'].sum()
+                }
+                
+                for month in month_list:
+                    payment_summary[month] = payment_rows[month].sum()
+                
+                payment_summary_data.append(payment_summary)
+            
+            # Add totals to payment summary - UPDATED
+            if payment_summary_data:
+                payment_totals = {
+                    'Payment Method': 'TOTAL',
+                    'Total Contract Amount': sum(row['Total Contract Amount'] for row in payment_summary_data),  # ADDED
+                    'Deposit paid USD': sum(row['Deposit paid USD'] for row in payment_summary_data),
+                    'Balance USD': sum(row['Balance USD'] for row in payment_summary_data)
+                }
+                
+                for month in month_list:
+                    payment_totals[month] = sum(row[month] for row in payment_summary_data)
+                
+                payment_summary_data.append(payment_totals)
+            
+            # Create Excel file with styling
+            output = io.BytesIO()
+            
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # Write sheets in order
+                if month_summary_data:
+                    df_month_summary = pd.DataFrame(month_summary_data)
+                    df_month_summary.to_excel(writer, sheet_name='SUMMARY BY MONTH', index=False)
+                
+                if payment_summary_data:
+                    df_payment_summary = pd.DataFrame(payment_summary_data)
+                    df_payment_summary.to_excel(writer, sheet_name='SUMMARY BY PAYMENT METHOD', index=False)
+                
+                df_detail.to_excel(writer, sheet_name='DETAILS', index=False)
+                
+                # Apply styling to all sheets
+                for sheet_name in writer.sheets:
+                    ws = writer.sheets[sheet_name]
+                    
+                    # Add timestamp at top
+                    ws.insert_rows(1)
+                    timestamp_cell = ws.cell(row=1, column=1, value=f"Cashflow Report - Generated: {timestamp_str}")
+                    timestamp_cell.font = Font(bold=True, size=12, color="366092")
+                    
+                    # Get the right header row (after inserting timestamp)
+                    header_row = 2
+                    
+                    # Style headers
+                    header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                    header_font = Font(bold=True, color="FFFFFF", size=11)
+                    
+                    for col in range(1, ws.max_column + 1):
+                        cell = ws.cell(row=header_row, column=col)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                    
+                    # Apply number formatting to currency columns
+                    # For DETAIL sheet
+                    if sheet_name == 'DETAILS':
+                        # Currency columns start at column 5 (Total Contract Amount)
+                        for row in range(header_row + 1, ws.max_row + 1):
+                            for col in range(5, ws.max_column + 1):  # Start at column 5 now
+                                cell = ws.cell(row=row, column=col)
+                                if cell.value is not None and isinstance(cell.value, (int, float)):
+                                    cell.number_format = '#,##0.00'
+                    
+                    # For SUMMARY sheets
+                    elif sheet_name in ['SUMMARY BY MONTH', 'SUMMARY BY PAYMENT METHOD']:
+                        # Currency columns start at column 2 (Total Contract Amount)
+                        for row in range(header_row + 1, ws.max_row + 1):
+                            for col in range(2, ws.max_column + 1):  # Start at column 2 now
+                                cell = ws.cell(row=row, column=col)
+                                if cell.value is not None and isinstance(cell.value, (int, float)):
+                                    cell.number_format = '#,##0.00'
+                    
+                    # Style TOTAL rows
+                    for row in range(header_row + 1, ws.max_row + 1):
+                        first_cell = ws.cell(row=row, column=1)
+                        if first_cell.value == 'TOTAL' or first_cell.value == 'Total':
+                            total_font = Font(bold=True, color="000000")
+                            total_fill = PatternFill(start_color="C6E0B4", end_color="C6E0B4", fill_type="solid")
+                            
+                            for col in range(1, ws.max_column + 1):
+                                cell = ws.cell(row=row, column=col)
+                                cell.font = total_font
+                                cell.fill = total_fill
+                    
+                    # Set column widths
+                    if sheet_name == 'SUMMARY BY MONTH':
+                        ws.column_dimensions['A'].width = 15  # Project Month
+                        for col in range(2, ws.max_column + 1):
+                            col_letter = get_column_letter(col)
+                            ws.column_dimensions[col_letter].width = 12
+                    
+                    elif sheet_name == 'SUMMARY BY PAYMENT METHOD':
+                        ws.column_dimensions['A'].width = 25  # Payment Method
+                        for col in range(2, ws.max_column + 1):
+                            col_letter = get_column_letter(col)
+                            ws.column_dimensions[col_letter].width = 12
+                    
+                    elif sheet_name == 'DETAILS':
+                        ws.column_dimensions['A'].width = 15  # Project Month
+                        ws.column_dimensions['B'].width = 20  # Payment Method
+                        ws.column_dimensions['C'].width = 25  # Client Name
+                        ws.column_dimensions['D'].width = 25  # Project Name
+                        for col in range(5, ws.max_column + 1):  # Start at column 5 now
+                            col_letter = get_column_letter(col)
+                            ws.column_dimensions[col_letter].width = 12
+                    
+                    # Freeze headers
+                    ws.freeze_panes = ws.cell(row=header_row + 1, column=1)
+                    
+                    # Add borders to all cells
+                    thin_border = Border(left=Side(style='thin'), 
+                                        right=Side(style='thin'),
+                                        top=Side(style='thin'), 
+                                        bottom=Side(style='thin'))
+                    
+                    for row in ws.iter_rows(min_row=header_row, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+                        for cell in row:
+                            cell.border = thin_border
+            
+            output.seek(0)
+            
+            # Create response
+            filename = f"cashflow_report_{current_timestamp.strftime('%d_%B_%Y_%H%M')}.xlsx"
+            
+            log_activity('export_cashflow', f'Cashflow report exported to Excel', 'project', None, {'format': 'excel', 'filename': filename})
+            
+            response = make_response(output.getvalue())
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            return response
+            
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/get_project_months')
+def get_project_months():
+    try:
+        with get_db() as (cursor, connection):
+            # PostgreSQL uses EXTRACT instead of YEAR/MONTH
+            cursor.execute("""
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM datedepositorbullet)::INTEGER as year,
+                    EXTRACT(MONTH FROM datedepositorbullet)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE datedepositorbullet IS NOT NULL
+                ORDER BY year DESC, month DESC
+            """)
+            months = cursor.fetchall()
+            
+            result = []
+            for row in months:
+                result.append({
+                    'year': int(row[0]),
+                    'month': int(row[1])
+                })
+            
+            return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error fetching months: {e}")
+        return jsonify([])
+
+@app.route('/get_project_count')
+def get_project_count():
+    try:
+        with get_db() as (cursor, connection):
+            month = request.args.get('month')
+            
+            if month:
+                year, month_num = month.split('-')
+                cursor.execute("""
+                    SELECT COUNT(*) as count 
+                    FROM connectlinkdatabase 
+                    WHERE EXTRACT(YEAR FROM datedepositorbullet) = %s 
+                    AND EXTRACT(MONTH FROM datedepositorbullet) = %s
+                """, (year, month_num))
+                result = cursor.fetchone()
+                return jsonify({'count': result[0] if result else 0})
+            else:
+                cursor.execute("SELECT COUNT(*) as total FROM connectlinkdatabase")
+                result = cursor.fetchone()
+                return jsonify({'total': result[0] if result else 0})
+        
+    except Exception as e:
+        print(f"Error counting projects: {e}")
+        return jsonify({'error': str(e)}), 500
+
+def update_project_completion_status():
+    """Update project completion status based on start date and duration"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get today's date
+            today = datetime.now().date()
+            
+            # 1. Update projects where (start_date + duration) < today to "COMPLETED"
+            update_query = """
+                UPDATE connectlinkdatabase 
+                SET projectcompletionstatus = 'Completed'
+                WHERE projectstartdate IS NOT NULL 
+                AND projectduration IS NOT NULL 
+                AND projectduration > 0
+                AND projectcompletionstatus != 'Completed'
+                AND (projectstartdate + INTERVAL '1 day' * projectduration) <= %s
+            """
+            cursor.execute(update_query, (today,))
+            completed_count = cursor.rowcount
+            
+            # 2. Update projects that are ongoing (not completed yet)
+            ongoing_query = """
+                UPDATE connectlinkdatabase 
+                SET projectcompletionstatus = 'Ongoing'
+                WHERE projectstartdate IS NOT NULL 
+                AND projectduration IS NOT NULL 
+                AND projectduration > 0
+                AND (projectcompletionstatus IS NULL OR projectcompletionstatus NOT IN ('Completed', 'Cancelled'))
+                AND (projectstartdate + INTERVAL '1 day' * projectduration) > %s
+            """
+            cursor.execute(ongoing_query, (today,))
+            ongoing_count = cursor.rowcount
+            
+            # 3. Update projects with missing duration to "PENDING" or keep existing status
+            missing_duration_query = """
+                UPDATE connectlinkdatabase 
+                SET projectcompletionstatus = COALESCE(projectcompletionstatus, 'Pending')
+                WHERE (projectduration IS NULL OR projectduration <= 0)
+                AND projectcompletionstatus IS NULL
+            """
+            cursor.execute(missing_duration_query)
+            pending_count = cursor.rowcount
+            
+            connection.commit()
+            
+            logging.info(f"""
+                Project Status Update Complete:
+                - Marked as COMPLETED: {completed_count} projects
+                - Marked as ONGOING: {ongoing_count} projects
+                - Set to PENDING: {pending_count} projects
+            """)
+            
+            return {
+                'success': True,
+                'completed': completed_count,
+                'ongoing': ongoing_count,
+                'pending': pending_count
+            }
+            
+    except Exception as e:
+        logging.error(f"Error updating project completion status: {e}")
+        if 'connection' in locals():
+            connection.rollback()
+        return {'success': False, 'error': str(e)}
+
+@app.route('/download_portfolio')
+def download_portfolio():
+    try:
+        with get_db() as (cursor, connection):
+            month = request.args.get('month')
+            
+            # Build WHERE clause for date filtering
+            date_where_clause = ""
+            date_params = []
+            if month:
+                year, month_num = month.split('-')
+                date_where_clause = "WHERE EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                date_params = [year, month_num]
+            
+            # 1. Get active projects from connectlinkdatabase within date range
+            query = f"SELECT * FROM connectlinkdatabase {date_where_clause} ORDER BY momid ASC"
+            cursor.execute(query, date_params if date_params else ())
+            active_projects = cursor.fetchall()
+            
+            # Get column names for active projects
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'connectlinkdatabase' 
+                ORDER BY ordinal_position
+            """)
+            active_columns = [col[0] for col in cursor.fetchall()]
+            
+            # Get project IDs from the fetched projects (for filtering notes)
+            project_ids = []
+            try:
+                project_id_index = active_columns.index('id')
+                project_ids = [str(row[project_id_index]) for row in active_projects]
+            except ValueError:
+                try:
+                    project_id_index = active_columns.index('project_id')
+                    project_ids = [str(row[project_id_index]) for row in active_projects]
+                except ValueError:
+                    # If no standard ID column, use first column
+                    project_ids = [str(row[0]) for row in active_projects]
+            
+            # 2. Get project notes ONLY for projects in our date range
+            # First get all notes, then we'll filter by project IDs
+            cursor.execute("SELECT * FROM connectlinknotes ORDER BY id ASC")
+            all_notes = cursor.fetchall()
+            
+            # Get column names for project notes
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'connectlinknotes' 
+                ORDER BY ordinal_position
+            """)
+            notes_columns = [col[0] for col in cursor.fetchall()]
+            
+            # Filter notes to only include those for projects in our date range
+            # Find the project_id column in notes
+            project_id_col_name = 'projectid'
+
+            
+            project_notes = []
+            if project_id_col_name and project_ids:
+                project_id_index = notes_columns.index(project_id_col_name)
+                project_notes = [row for row in all_notes if str(row[project_id_index]) in project_ids]
+            else:
+                project_notes = all_notes
+            
+            # 3. Get deleted projects from connectlinkdatabasedeletedprojects WITH SAME DATE FILTER
+            try:
+                # Check if table exists
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'connectlinkdatabasedeletedprojects'
+                    )
+                """)
+                has_deleted_table = cursor.fetchone()[0]
+                
+                if has_deleted_table:
+                    # Apply same date filter to deleted projects
+                    deleted_query = f"""
+                        SELECT * FROM connectlinkdatabasedeletedprojects 
+                        {date_where_clause.replace('datedepositorbullet', 'datedepositorbullet') if date_where_clause else ''}
+                        ORDER BY id ASC
+                    """
+                    cursor.execute(deleted_query, date_params if date_params and date_where_clause else ())
+                    deleted_projects = cursor.fetchall()
+                    
+                    # Get column names for deleted projects
+                    cursor.execute("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name = 'connectlinkdatabasedeletedprojects' 
+                        ORDER BY ordinal_position
+                    """)
+                    deleted_columns = [col[0] for col in cursor.fetchall()]
+                else:
+                    # No deleted table, create empty
+                    deleted_projects = []
+                    deleted_columns = []
+                    
+            except Exception as e:
+                print(f"Error fetching deleted projects: {e}")
+                deleted_projects = []
+                deleted_columns = []
+            
+            # 4. Clean HTML tags from all text columns
+            import re
+            
+            def clean_html(text):
+                if not text or not isinstance(text, str):
+                    return text
+                
+                # Remove all HTML tags including <p>, <br>, etc.
+                text = re.sub(r'<[^>]+>', '', text)
+                # Replace common HTML entities
+                replacements = {
+                    '&amp;': '&',
+                    '&lt;': '<',
+                    '&gt;': '>',
+                    '&quot;': '"',
+                    '&#39;': "'",
+                    '&nbsp;': ' ',
+                    '&rsquo;': "'",
+                    '&lsquo;': "'",
+                    '&rdquo;': '"',
+                    '&ldquo;': '"',
+                }
+                for old, new in replacements.items():
+                    text = text.replace(old, new)
+                # Clean up whitespace
+                text = ' '.join(text.split())
+                return text
+            
+            # Clean active projects
+            cleaned_active_projects = []
+            for row in active_projects:
+                cleaned_row = list(row)
+                for i, value in enumerate(cleaned_row):
+                    if isinstance(value, str):
+                        cleaned_row[i] = clean_html(value)
+                cleaned_active_projects.append(tuple(cleaned_row))
+            
+            # Clean project notes
+            cleaned_project_notes = []
+            for row in project_notes:
+                cleaned_row = list(row)
+                for i, value in enumerate(cleaned_row):
+                    if isinstance(value, str):
+                        cleaned_row[i] = clean_html(value)
+                cleaned_project_notes.append(tuple(cleaned_row))
+            
+            # Clean deleted projects
+            cleaned_deleted_projects = []
+            for row in deleted_projects:
+                cleaned_row = list(row)
+                for i, value in enumerate(cleaned_row):
+                    if isinstance(value, str):
+                        cleaned_row[i] = clean_html(value)
+                cleaned_deleted_projects.append(tuple(cleaned_row))
+            
+            # 5. Create Excel file with multiple sheets
+            import pandas as pd
+            from io import BytesIO
+            from datetime import datetime
+            
+            # Create DataFrames
+            active_df = pd.DataFrame(cleaned_active_projects, columns=active_columns)
+            notes_df = pd.DataFrame(cleaned_project_notes, columns=notes_columns)
+            deleted_df = pd.DataFrame(cleaned_deleted_projects, columns=deleted_columns) if deleted_columns else pd.DataFrame()
+            
+            # Create Excel writer
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # Sheet 1: Active Projects
+                active_df.to_excel(writer, sheet_name='Active Projects', index=False)
+                
+                # Sheet 2: Project Notes (only for projects in date range)
+                notes_df.to_excel(writer, sheet_name='Project Notes', index=False)
+                
+                # Sheet 3: Deleted Projects (within same date range)
+                if len(deleted_df) > 0:
+                    deleted_df.to_excel(writer, sheet_name='Deleted Projects', index=False)
+                else:
+                    empty_deleted_df = pd.DataFrame({'Message': [f'No deleted projects found in {month if month else "all time"} range']})
+                    empty_deleted_df.to_excel(writer, sheet_name='Deleted Projects', index=False)
+                
+                # Sheet 4: Report Summary
+                summary_data = {
+                    'Report Type': ['Active Projects', 'Project Notes', 'Deleted Projects'],
+                    'Number of Records': [len(active_df), len(notes_df), len(deleted_df)],
+                    'Date Range': [
+                        f"{month if month else 'All Time'}",
+                        f"Notes for projects in: {month if month else 'All Time'}",
+                        f"{month if month else 'All Time'}"
+                    ],
+                    'Generated On': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 3
+                }
+                summary_df = pd.DataFrame(summary_data)
+                summary_df.to_excel(writer, sheet_name='Report Summary', index=False)
+                
+                # 6. Format worksheets
+                for sheet_name in writer.sheets:
+                    worksheet = writer.sheets[sheet_name]
+                    
+                    # Freeze top row
+                    worksheet.freeze_panes = 'A2'
+                    
+                    # Format header row (bold and background color)
+                    for cell in worksheet[1]:
+                        cell.font = cell.font.copy(bold=True)
+                        cell.fill = cell.fill.copy(patternType="solid", fgColor="E6F3FF")
+                    
+                    # Auto-adjust column widths
+                    for column in worksheet.columns:
+                        max_length = 0
+                        column_letter = column[0].column_letter
+                        for cell in column:
+                            try:
+                                if cell.value:
+                                    cell_length = len(str(cell.value))
+                                    if cell_length > max_length:
+                                        max_length = cell_length
+                            except:
+                                pass
+                        adjusted_width = min(max_length + 2, 50)
+                        worksheet.column_dimensions[column_letter].width = adjusted_width
+            
+            # 7. Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+            
+            if month:
+                year, month_num = month.split('-')
+                month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                month_name = month_names[int(month_num) - 1]
+                filename = f"Project_Portfolio_{month_name}_{year}_{timestamp}.xlsx"
+            else:
+                filename = f"Project_Portfolio_All_{timestamp}.xlsx"
+            
+            log_activity('download_portfolio', f'Project portfolio downloaded ({len(active_projects)} projects, month: {month or "all"})', 'project', None, {'projects': len(active_projects), 'month': month or 'all', 'format': 'excel'})
+            
+            # 8. Return Excel file
+            output.seek(0)
+            return Response(
+                output,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment;filename={filename}"}
+            )
+        
+    except Exception as e:
+        print(f"Error downloading portfolio: {e}")
+        import traceback
+        traceback.print_exc()
+        return "Error generating download", 500
+
+
+@app.route('/api/projects-page')
+def api_projects_page():
+    """Return a page of projects as JSON for pagination (Load More)"""
+    try:
+        offset = request.args.get('offset', 0, type=int)
+        limit = request.args.get('limit', 100, type=int)
+        limit = min(limit, 500)  # cap at 500 per request
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, clientname, projectname, projectlocation, 
+                       totalcontractamount, depositorbullet, projectcompletionstatus,
+                       projectadministratorname, projectstartdate
+                FROM connectlinkdatabase 
+                ORDER BY id DESC
+                LIMIT %s OFFSET %s
+            """, (limit, offset))
+            rows = cursor.fetchall()
+            
+            cursor.execute("SELECT COUNT(*) FROM connectlinkdatabase")
+            total = cursor.fetchone()[0]
+            
+            projects = []
+            for row in rows:
+                projects.append({
+                    'id': row[0],
+                    'clientname': row[1],
+                    'projectname': row[2],
+                    'location': row[3],
+                    'amount': float(row[4]) if row[4] else 0,
+                    'deposit': float(row[5]) if row[5] else 0,
+                    'status': row[6] or 'Pending',
+                    'admin': row[7] or '',
+                    'start_date': row[8].strftime('%d/%m/%Y') if row[8] else ''
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': projects,
+                'total': total,
+                'offset': offset,
+                'limit': limit,
+                'has_more': (offset + limit) < total
+            })
+    except Exception as e:
+        print(f"Error fetching projects page: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/get_project_start_months')
+def get_project_start_months():
+    """Get distinct months from projectstartdate"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM datedepositorbullet)::INTEGER as year,
+                    EXTRACT(MONTH FROM datedepositorbullet)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE datedepositorbullet IS NOT NULL
+                ORDER BY year DESC, month DESC
+            """)
+            months = cursor.fetchall()
+            
+            result = []
+            for row in months:
+                if row[0] and row[1]:
+                    result.append({
+                        'year': int(row[0]),
+                        'month': int(row[1])
+                    })
+            
+            return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error fetching date deposit or bullet months: {e}")
+        return jsonify([])
+
+@app.route('/get_due_months')
+def get_due_months():
+    """Get distinct months from installment due dates"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment1duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment1duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment1duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment2duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment2duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment2duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment3duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment3duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment3duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment4duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment4duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment4duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment5duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment5duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment5duedate IS NOT NULL
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment6duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment6duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment6duedate IS NOT NULL
+
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment7duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment7duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment7duedate IS NOT NULL
+
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment8duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment8duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment8duedate IS NOT NULL
+
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment9duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment9duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment9duedate IS NOT NULL
+
+                UNION
+                SELECT DISTINCT 
+                    EXTRACT(YEAR FROM installment10duedate)::INTEGER as year,
+                    EXTRACT(MONTH FROM installment10duedate)::INTEGER as month
+                FROM connectlinkdatabase 
+                WHERE installment10duedate IS NOT NULL
+                ORDER BY year DESC, month DESC
+            """)
+            months = cursor.fetchall()
+            
+            result = []
+            for row in months:
+                if row[0] and row[1]:
+                    result.append({
+                        'year': int(row[0]),
+                        'month': int(row[1])
+                    })
+            
+            return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error fetching due months: {e}")
+        return jsonify([])
+
+@app.route('/get_installments_count')
+def get_installments_count():
+    """Get counts of installments based on both project start and due month filters"""
+    try:
+        with get_db() as (cursor, connection):
+            project_start_month = request.args.get('datedepositorbullet')
+            due_month = request.args.get('due_month')
+            
+            # Parse due month if provided
+            due_year = None
+            due_month_num = None
+            if due_month and due_month != 'all':
+                due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
+            
+            # Build WHERE clause for project filters
+            where_clauses = []
+            params = []
+            
+            # Project start month filter
+            if project_start_month and project_start_month != 'all':
+                year, month_num = project_start_month.split('-')
+                where_clauses.append(
+                    "EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                )
+                params.extend([year, month_num])
+            
+            # Due month filter (at project level - projects that have installments due in selected month)
+            if due_month and due_month != 'all':
+                due_condition = """
+                    (
+                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment7duedate) = %s AND EXTRACT(MONTH FROM installment7duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment8duedate) = %s AND EXTRACT(MONTH FROM installment8duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment9duedate) = %s AND EXTRACT(MONTH FROM installment9duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
+                    )
+                """
+                where_clauses.append(due_condition)
+                params.extend([due_year, due_month_num] * 10)
+            
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+            
+            # Query to get all projects matching project filters
+            query = f"""
+                SELECT 
+                    id, clientname, clientwanumber, clientemail, projectname,
+                    projectdescription, momid, projectstartdate,
+                    installment1amount, installment1duedate, installment1date,
+                    installment2amount, installment2duedate, installment2date,
+                    installment3amount, installment3duedate, installment3date,
+                    installment4amount, installment4duedate, installment4date,
+                    installment5amount, installment5duedate, installment5date,
+                    installment6amount, installment6duedate, installment6date,
+                    installment7amount, installment7duedate, installment7date,
+                    installment8amount, installment8duedate, installment8date,
+                    installment9amount, installment9duedate, installment9date,
+                    installment10amount, installment10duedate, installment10date
+                FROM connectlinkdatabase 
+                {where_clause}
+            """
+            
+            cursor.execute(query, params)
+            all_projects = cursor.fetchall()
+            
+            # Count installments
+            total_count = 0
+            paid_count = 0
+            due_count = 0
+            
+            from datetime import datetime
+            today = datetime.now().date()
+            
+            for row in all_projects:
+                row_dict = dict(zip([
+                    'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                    'projectdescription', 'momid', 'projectstartdate',
+                    'installment1amount', 'installment1duedate', 'installment1date',
+                    'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date',
+                    'installment4amount', 'installment4duedate', 'installment4date',
+                    'installment5amount', 'installment5duedate', 'installment5date',
+                    'installment6amount', 'installment6duedate', 'installment6date',
+                    'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date'
+                ], row))
+                
+                # Process each installment
+                for i in range(1, 11):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    
+                    # Skip if no amount
+                    if not amount or float(amount) <= 0:
+                        continue
+                    
+                    due_date = row_dict.get(f'installment{i}duedate')
+                    payment_date = row_dict.get(f'installment{i}date')
+                    
+                    # Apply due month filter at installment level
+                    if due_month and due_month != 'all':
+                        if not due_date:
+                            continue
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        if due_date_date.year != int(due_year) or due_date_date.month != int(due_month_num):
+                            continue
+                    
+                    total_count += 1
+                    
+                    if payment_date:
+                        paid_count += 1
+                    elif due_date:
+                        due_count += 1
+            
+            return jsonify({'total': total_count, 'paid': paid_count, 'due': due_count})
+        
+    except Exception as e:
+        print(f"Error counting installments: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'total': 0, 'paid': 0, 'due': 0, 'error': str(e)}), 500
+
+
+@app.route('/get_installments_data')
+def get_installments_data():
+    """Get installment data as JSON with both project start and due month filters"""
+    def clean_html(text):
+        if not text or not isinstance(text, str):
+            return text
+        import re
+        text = re.sub(r'<[^>]+>', '', text)
+        replacements = {
+            '&amp;': '&', '&lt;': '<', '&gt;': '>',
+            '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+            '&rsquo;': "'", '&lsquo;': "'",
+            '&rdquo;': '"', '&ldquo;': '"'
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        text = ' '.join(text.split())
+        return text
+    
+    try:
+        with get_db() as (cursor, connection):
+            project_start_month = request.args.get('datedepositorbullet')
+            due_month = request.args.get('due_month')
+            
+            due_year = None
+            due_month_num = None
+            if due_month and due_month != 'all':
+                due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
+            
+            where_clauses = []
+            params = []
+            
+            if project_start_month and project_start_month != 'all':
+                year, month_num = project_start_month.split('-')
+                where_clauses.append(
+                    "EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                )
+                params.extend([year, month_num])
+            
+            if due_month and due_month != 'all':
+                due_condition = """
+                    (
+                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment7duedate) = %s AND EXTRACT(MONTH FROM installment7duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment8duedate) = %s AND EXTRACT(MONTH FROM installment8duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment9duedate) = %s AND EXTRACT(MONTH FROM installment9duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
+                    )
+                """
+                where_clauses.append(due_condition)
+                params.extend([due_year, due_month_num] * 10)
+            
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+            
+            query = f"""
+                SELECT 
+                    id, clientname, clientwanumber, clientemail, projectname,
+                    projectdescription, momid, projectstartdate,
+                    installment1amount, installment1duedate, installment1date,
+                    installment2amount, installment2duedate, installment2date,
+                    installment3amount, installment3duedate, installment3date,
+                    installment4amount, installment4duedate, installment4date,
+                    installment5amount, installment5duedate, installment5date,
+                    installment6amount, installment6duedate, installment6date,
+                    installment7amount, installment7duedate, installment7date,
+                    installment8amount, installment8duedate, installment8date,
+                    installment9amount, installment9duedate, installment9date,
+                    installment10amount, installment10duedate, installment10date
+                FROM connectlinkdatabase 
+                {where_clause}
+                ORDER BY momid ASC
+            """
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            
+            # Deduplicate
+            seen = set()
+            deduped = []
+            for row in rows:
+                row_key = row[:8]
+                if row_key not in seen:
+                    seen.add(row_key)
+                    deduped.append(row)
+            
+            columns = [
+                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                'projectdescription', 'momid', 'projectstartdate',
+                'installment1amount', 'installment1duedate', 'installment1date',
+                'installment2amount', 'installment2duedate', 'installment2date',
+                'installment3amount', 'installment3duedate', 'installment3date',
+                'installment4amount', 'installment4duedate', 'installment4date',
+                'installment5amount', 'installment5duedate', 'installment5date',
+                'installment6amount', 'installment6duedate', 'installment6date',
+                'installment7amount', 'installment7duedate', 'installment7date',
+                'installment8amount', 'installment8duedate', 'installment8date',
+                'installment9amount', 'installment9duedate', 'installment9date',
+                'installment10amount', 'installment10duedate', 'installment10date'
+            ]
+            
+            all_installments = []
+            from datetime import datetime
+            today = datetime.now().date()
+            
+            for row in deduped:
+                row_dict = dict(zip(columns, row))
+                
+                momid = clean_html(str(row_dict['momid'])) if row_dict['momid'] else ''
+                
+                for i in range(1, 11):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    due_date = row_dict.get(f'installment{i}duedate')
+                    payment_date = row_dict.get(f'installment{i}date')
+                    
+                    if not amount or float(amount) <= 0:
+                        continue
+                    
+                    if due_month and due_month != 'all':
+                        if not due_date:
+                            continue
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                            continue
+                    
+                    due_date_str = ''
+                    if due_date:
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        due_date_str = due_date_date.strftime('%Y-%m-%d') if hasattr(due_date_date, 'strftime') else str(due_date_date)
+                    
+                    status = 'Paid' if payment_date else ('Overdue' if due_date and (due_date.date() if hasattr(due_date, 'date') else due_date) < today else 'Due')
+                    
+                    all_installments.append({
+                        'momid': momid,
+                        'client_name': clean_html(str(row_dict['clientname'])) if row_dict['clientname'] else '',
+                        'phone': clean_html(str(row_dict['clientwanumber'])) if row_dict['clientwanumber'] else '',
+                        'project_name': clean_html(str(row_dict['projectname'])) if row_dict['projectname'] else '',
+                        'installment_num': i,
+                        'due_date': due_date_str,
+                        'amount': float(amount),
+                        'status': status
+                    })
+            
+            return jsonify(all_installments)
+        
+    except Exception as e:
+        print(f"Error fetching installments data: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify([]), 500
+
+
+@app.route('/download_installments')
+def download_installments():
+    """Download installments data with both project start and due month filters"""
+    def clean_html(text):
+        if not text or not isinstance(text, str):
+            return text
+        
+        import re
+        text = re.sub(r'<[^>]+>', '', text)
+        replacements = {
+            '&amp;': '&', '&lt;': '<', '&gt;': '>',
+            '&quot;': '"', '&#39;': "'", '&nbsp;': ' ',
+            '&rsquo;': "'", '&lsquo;': "'",
+            '&rdquo;': '"', '&ldquo;': '"'
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        text = ' '.join(text.split())
+        return text
+    
+    try:
+        with get_db() as (cursor, connection):
+            project_start_month = request.args.get('datedepositorbullet')
+            due_month = request.args.get('due_month')
+            
+            # Parse due month if provided
+            due_year = None
+            due_month_num = None
+            if due_month and due_month != 'all':
+                due_year, due_month_num = due_month.split('-')
+                due_year = int(due_year)
+                due_month_num = int(due_month_num)
+            
+            # Build WHERE clause for both filters
+            where_clauses = []
+            params = []
+            
+            # Project start month filter
+            if project_start_month and project_start_month != 'all':
+                year, month_num = project_start_month.split('-')
+                where_clauses.append(
+                    "EXTRACT(YEAR FROM datedepositorbullet) = %s AND EXTRACT(MONTH FROM datedepositorbullet) = %s"
+                )
+                params.extend([year, month_num])
+            
+            # Due month filter
+            if due_month and due_month != 'all':
+                due_condition = """
+                    (
+                        (EXTRACT(YEAR FROM installment1duedate) = %s AND EXTRACT(MONTH FROM installment1duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment2duedate) = %s AND EXTRACT(MONTH FROM installment2duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment3duedate) = %s AND EXTRACT(MONTH FROM installment3duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment4duedate) = %s AND EXTRACT(MONTH FROM installment4duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment5duedate) = %s AND EXTRACT(MONTH FROM installment5duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment6duedate) = %s AND EXTRACT(MONTH FROM installment6duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment7duedate) = %s AND EXTRACT(MONTH FROM installment7duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment8duedate) = %s AND EXTRACT(MONTH FROM installment8duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment9duedate) = %s AND EXTRACT(MONTH FROM installment9duedate) = %s) OR
+                        (EXTRACT(YEAR FROM installment10duedate) = %s AND EXTRACT(MONTH FROM installment10duedate) = %s)
+                    )
+                """
+                where_clauses.append(due_condition)
+                params.extend([due_year, due_month_num] * 10)
+            
+            # Build final WHERE clause
+            where_clause = ""
+            if where_clauses:
+                where_clause = "WHERE " + " AND ".join(where_clauses)
+            
+            # Query to fetch data (including projectdescription)
+            query = f"""
+                SELECT 
+                    id,
+                    clientname,
+                    clientwanumber,
+                    clientemail,
+                    projectname,
+                    projectdescription,
+                    momid,
+                    projectstartdate,
+                    installment1amount,
+                    installment1duedate,
+                    installment1date,
+                    installment2amount,
+                    installment2duedate,
+                    installment2date,
+                    installment3amount,
+                    installment3duedate,
+                    installment3date,
+                    installment4amount,
+                    installment4duedate,
+                    installment4date,
+                    installment5amount,
+                    installment5duedate,
+                    installment5date,
+                    installment6amount,
+                    installment6duedate,
+                    installment6date,
+                    installment7amount,
+                    installment7duedate,
+                    installment7date,
+                    installment8amount,
+                    installment8duedate,
+                    installment8date,
+                    installment9amount,
+                    installment9duedate,
+                    installment9date,
+                    installment10amount,
+                    installment10duedate,
+                    installment10date
+                FROM connectlinkdatabase 
+                {where_clause}
+                ORDER BY momid ASC
+            """
+            
+            cursor.execute(query, params)
+            all_installments = cursor.fetchall()
+            
+            # Deduplicate rows from database - remove exact duplicate project records
+            seen = set()
+            deduped_installments = []
+            for row in all_installments:
+                # Use first 8 fields (id through projectstartdate) as the unique key
+                # This identifies the project, not the individual installment
+                row_key = row[:8]  # id, clientname, clientwanumber, clientemail, projectname, projectdescription, momid, projectstartdate
+                if row_key not in seen:
+                    seen.add(row_key)
+                    deduped_installments.append(row)
+            
+            all_installments = deduped_installments
+            
+            # Get column names
+            columns = [
+                'id', 'clientname', 'clientwanumber', 'clientemail', 'projectname',
+                'projectdescription', 'momid', 'projectstartdate',
+                'installment1amount', 'installment1duedate', 'installment1date',
+                'installment2amount', 'installment2duedate', 'installment2date',
+                'installment3amount', 'installment3duedate', 'installment3date',
+                'installment4amount', 'installment4duedate', 'installment4date',
+                'installment5amount', 'installment5duedate', 'installment5date',
+                'installment6amount', 'installment6duedate', 'installment6date',
+                'installment7amount', 'installment7duedate', 'installment7date',
+                'installment8amount', 'installment8duedate', 'installment8date',
+                'installment9amount', 'installment9duedate', 'installment9date',
+                'installment10amount', 'installment10duedate', 'installment10date'
+            ]
+            
+            # Separate installments into different categories
+            paid_data = []
+            due_data = []      # Future due dates
+            overdue_data = []  # Past due dates
+            
+            from datetime import datetime
+            today = datetime.now().date()
+            
+            for row in all_installments:
+                row_dict = dict(zip(columns, row))
+                
+                # Clean data once per row
+                client_name = clean_html(str(row_dict['clientname'])) if row_dict['clientname'] else ''
+                phone = clean_html(str(row_dict['clientwanumber'])) if row_dict['clientwanumber'] else ''
+                email = clean_html(str(row_dict['clientemail'])) if row_dict['clientemail'] else ''
+                project_name = clean_html(str(row_dict['projectname'])) if row_dict['projectname'] else ''
+                project_description = clean_html(str(row_dict['projectdescription'])) if row_dict['projectdescription'] else ''
+                momid = clean_html(str(row_dict['momid'])) if row_dict['momid'] else ''
+                
+                # Add project start date
+                project_start = row_dict['projectstartdate']
+                project_start_str = project_start.strftime('%Y-%m-%d') if project_start else ''
+                
+                # Process EACH installment separately
+                for i in range(1, 11):
+                    amount = row_dict.get(f'installment{i}amount') or 0
+                    due_date = row_dict.get(f'installment{i}duedate')
+                    payment_date = row_dict.get(f'installment{i}date')
+                    
+                    # Skip if no amount or amount is 0
+                    if not amount or float(amount) <= 0:
+                        continue
+                    
+                    # Get due date for display
+                    due_date_str = ''
+                    if due_date:
+                        due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                        due_date_str = due_date_date.strftime('%Y-%m-%d') if hasattr(due_date_date, 'strftime') else str(due_date_date)
+                    
+                    installment_info = f"Installment {i}"
+                    
+                    # ---- PAID INSTALLMENTS: respect due month filter ----
+                    if payment_date:
+                        if due_month and due_month != 'all':
+                            if not due_date:
+                                continue
+                            due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                            if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                                continue
+                        
+                        paid_data.append({
+                            'id': row_dict['id'],
+                            'momid': momid,
+                            'clientname': client_name,
+                            'phone': phone,
+                            'email': email,
+                            'projectname': project_name,
+                            'projectdescription': project_description,
+                            'project_start_date': project_start_str,
+                            'due_date': due_date_str,
+                            'installment_info': installment_info,
+                            'amount_paid': float(amount) if amount else 0
+                        })
+                        continue
+                    
+                    # ---- UNPAID INSTALLMENTS ----
+                    if not due_date:
+                        continue
+                    
+                    due_date_date = due_date.date() if hasattr(due_date, 'date') else due_date
+                    
+                    if due_date_date < today:
+                        # ---- OVERDUE: NEVER filter by due month ----
+                        days_overdue = (today - due_date_date).days
+                        overdue_data.append({
+                            'id': row_dict['id'],
+                            'momid': momid,
+                            'clientname': client_name,
+                            'phone': phone,
+                            'email': email,
+                            'projectname': project_name,
+                            'projectdescription': project_description,
+                            'project_start_date': project_start_str,
+                            'due_date': due_date_str,
+                            'installment_info': installment_info,
+                            'days_info': f"Overdue by {days_overdue} days",
+                            'amount_due': float(amount) if amount else 0
+                        })
+                    else:
+                        # ---- FUTURE DUE: respect due month filter ----
+                        if due_month and due_month != 'all':
+                            if not (due_date_date.year == int(due_year) and due_date_date.month == int(due_month_num)):
+                                continue
+                        
+                        due_data.append({
+                            'id': row_dict['id'],
+                            'momid': momid,
+                            'clientname': client_name,
+                            'phone': phone,
+                            'email': email,
+                            'projectname': project_name,
+                            'projectdescription': project_description,
+                            'project_start_date': project_start_str,
+                            'due_date': due_date_str,
+                            'installment_info': installment_info,
+                            'days_info': 'Not yet due',
+                            'amount_due': float(amount) if amount else 0
+                        })
+            
+            # Create Excel file
+            import pandas as pd
+            from io import BytesIO
+            from datetime import datetime
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            
+            # Create DataFrames
+            paid_df = pd.DataFrame(paid_data)
+            due_df = pd.DataFrame(due_data)
+            overdue_df = pd.DataFrame(overdue_data)
+            
+            # Calculate totals - now each row is ONE installment
+            total_paid_amount = paid_df['amount_paid'].sum() if not paid_df.empty else 0
+            total_due_amount = due_df['amount_due'].sum() if not due_df.empty else 0
+            total_overdue_amount = overdue_df['amount_due'].sum() if not overdue_df.empty else 0
+            total_all_due = total_due_amount + total_overdue_amount
+            total_contract_value = total_paid_amount + total_all_due
+            
+            # Format amounts as currency
+            def format_currency(amount):
+                try:
+                    return f"{float(amount):,.2f}"
+                except:
+                    return f"0.00"
+            
+            if not paid_df.empty:
+                paid_df['amount_paid_formatted'] = paid_df['amount_paid'].apply(format_currency)
+            
+            if not due_df.empty:
+                due_df['amount_due_formatted'] = due_df['amount_due'].apply(format_currency)
+            
+            if not overdue_df.empty:
+                overdue_df['amount_due_formatted'] = overdue_df['amount_due'].apply(format_currency)
+            
+            # Create Excel writer
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # ========== SHEET 1: PAID INSTALLMENTS ==========
+                if len(paid_df) > 0:
+                    paid_display_df = paid_df.copy()
+                    
+                    # Determine which columns to include
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info']
+                    
+                    display_columns.append('amount_paid_formatted')
+                    
+                    # Select only available columns
+                    available_columns = [col for col in display_columns if col in paid_display_df.columns]
+                    paid_display_df = paid_display_df[available_columns]
+                    
+                    # Set column headers
+                    column_headers = {
+                        'id': 'ID',
+                        'momid': 'MOM ID',
+                        'clientname': 'Client Name',
+                        'phone': 'Phone',
+                        'email': 'Email',
+                        'projectname': 'Project Name',
+                        'projectdescription': 'Project Description',
+                        'project_start_date': 'Project Start Date',
+                        'due_date': 'Due Date',
+                        'installment_info': 'Installment',
+                        'amount_paid_formatted': 'Amount Paid'
+                    }
+                    
+                    paid_display_df.columns = [column_headers.get(col, col) for col in available_columns]
+                    
+                    # Add a total row
+                    total_row = pd.DataFrame([[''] * (len(available_columns) - 1) + [f"{total_paid_amount:,.2f}"]], 
+                                           columns=paid_display_df.columns)
+                    paid_display_df = pd.concat([paid_display_df, total_row], ignore_index=True)
+                    
+                    paid_display_df.to_excel(writer, sheet_name='Paid Installments', index=False)
+                else:
+                    empty_df = pd.DataFrame({'Message': ['No paid installments found']})
+                    empty_df.to_excel(writer, sheet_name='Paid Installments', index=False)
+                
+                # ========== SHEET 2: DUE INSTALLMENTS (FUTURE) ==========
+                if len(due_df) > 0:
+                    due_display_df = due_df.copy()
+                    
+                    # Determine which columns to include
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info', 'days_info']
+                    
+                    display_columns.append('amount_due_formatted')
+                    
+                    # Select only available columns
+                    available_columns = [col for col in display_columns if col in due_display_df.columns]
+                    due_display_df = due_display_df[available_columns]
+                    
+                    # Set column headers
+                    column_headers = {
+                        'id': 'ID',
+                        'momid': 'MOM ID',
+                        'clientname': 'Client Name',
+                        'phone': 'Phone',
+                        'email': 'Email',
+                        'projectname': 'Project Name',
+                        'projectdescription': 'Project Description',
+                        'project_start_date': 'Project Start Date',
+                        'due_date': 'Due Date',
+                        'installment_info': 'Installment',
+                        'days_info': 'Status',
+                        'amount_due_formatted': 'Amount Due'
+                    }
+                    
+                    due_display_df.columns = [column_headers.get(col, col) for col in available_columns]
+                    
+                    # Add a total row
+                    total_row = pd.DataFrame([[''] * (len(available_columns) - 1) + [f"{total_due_amount:,.2f}"]], 
+                                           columns=due_display_df.columns)
+                    due_display_df = pd.concat([due_display_df, total_row], ignore_index=True)
+                    
+                    due_display_df.to_excel(writer, sheet_name='Due Installments', index=False)
+                else:
+                    empty_df = pd.DataFrame({'Message': ['No future due installments found']})
+                    empty_df.to_excel(writer, sheet_name='Due Installments', index=False)
+                
+                # ========== SHEET 3: OVERDUE INSTALLMENTS ==========
+                if len(overdue_df) > 0:
+                    overdue_display_df = overdue_df.copy()
+                    
+                    # Determine which columns to include
+                    display_columns = ['id', 'momid', 'clientname', 'phone', 'email', 'projectname', 'projectdescription', 'project_start_date', 'due_date', 'installment_info', 'days_info']
+                    
+                    display_columns.append('amount_due_formatted')
+                    
+                    # Select only available columns
+                    available_columns_overdue = [col for col in display_columns if col in overdue_display_df.columns]
+                    overdue_display_df = overdue_display_df[available_columns_overdue]
+                    
+                    # Set column headers
+                    column_headers = {
+                        'id': 'ID',
+                        'momid': 'MOM ID',
+                        'clientname': 'Client Name',
+                        'phone': 'Phone',
+                        'email': 'Email',
+                        'projectname': 'Project Name',
+                        'projectdescription': 'Project Description',
+                        'project_start_date': 'Project Start Date',
+                        'due_date': 'Due Date',
+                        'installment_info': 'Installment',
+                        'days_info': 'Overdue Status',
+                        'amount_due_formatted': 'Amount Due'
+                    }
+                    
+                    overdue_display_df.columns = [column_headers.get(col, col) for col in available_columns_overdue]
+                    
+                    # Add a total row
+                    total_row = pd.DataFrame([[''] * (len(available_columns_overdue) - 1) + [f"{total_overdue_amount:,.2f}"]], 
+                                           columns=overdue_display_df.columns)
+                    overdue_display_df = pd.concat([overdue_display_df, total_row], ignore_index=True)
+                    
+                    overdue_display_df.to_excel(writer, sheet_name='Overdue Installments', index=False)
+                else:
+                    empty_df = pd.DataFrame({'Message': ['No overdue installments found']})
+                    empty_df.to_excel(writer, sheet_name='Overdue Installments', index=False)
+                
+                # ========== SHEET 4: SUMMARY REPORT ==========
+                # Build filter description
+                filter_desc = []
+                if project_start_month and project_start_month != 'all':
+                    year, month = project_start_month.split('-')
+                    month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                                 'July', 'August', 'September', 'October', 'November', 'December']
+                    filter_desc.append(f"Projects starting in {month_names[int(month)-1]} {year}")
+                
+                if due_month and due_month != 'all':
+                    year, month = due_month.split('-')
+                    month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                                 'July', 'August', 'September', 'October', 'November', 'December']
+                    filter_desc.append(f"Installments due in {month_names[int(month)-1]} {year}")
+                
+                if not filter_desc:
+                    filter_desc.append("All projects, all due dates")
+                
+                filter_description = "; ".join(filter_desc)
+                
+                # Create summary data
+                summary_data = {
+                    'Filter Applied': [
+                        filter_description, 
+                        filter_description, 
+                        filter_description,
+                        'GRAND TOTAL'
+                    ],
+                    'Category': [
+                        'Paid Installments', 
+                        'Due Installments (Future)', 
+                        'Overdue Installments',
+                        ''
+                    ],
+                    'Record Count': [
+                        len(paid_df), 
+                        len(due_df), 
+                        len(overdue_df),
+                        len(paid_df) + len(due_df) + len(overdue_df)
+                    ],
+                    'Total Amount': [
+                        f"{total_paid_amount:,.2f}",
+                        f"{total_due_amount:,.2f}",
+                        f"{total_overdue_amount:,.2f}",
+                        f"{total_contract_value:,.2f}"
+                    ],
+                    'Percentage': [
+                        f"{(total_paid_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
+                        f"{(total_due_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
+                        f"{(total_overdue_amount/total_contract_value*100):.1f}%" if total_contract_value > 0 else '0%',
+                        '100%'
+                    ],
+                    'Report Generated': [datetime.now().strftime('%Y-%m-%d %H:%M:%S')] * 3 + ['']
+                }
+                
+                summary_df = pd.DataFrame(summary_data)
+                summary_df.to_excel(writer, sheet_name='Summary Report', index=False)
+                
+                # ========== FORMAT ALL WORKSHEETS ==========
+                for sheet_name in writer.sheets:
+                    worksheet = writer.sheets[sheet_name]
+                    
+                    # Freeze top row
+                    worksheet.freeze_panes = 'A2'
+                    
+                    # Format header row
+                    header_font = Font(bold=True)
+                    
+                    for cell in worksheet[1]:
+                        cell.font = header_font
+                        if sheet_name == 'Paid Installments':
+                            cell.fill = PatternFill(start_color="E6FFE6", end_color="E6FFE6", fill_type="solid")
+                        elif sheet_name == 'Due Installments':
+                            cell.fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+                        elif sheet_name == 'Overdue Installments':
+                            cell.fill = PatternFill(start_color="FFE6E6", end_color="FFE6E6", fill_type="solid")
+                        else:
+                            cell.fill = PatternFill(start_color="E6F3FF", end_color="E6F3FF", fill_type="solid")
+                    
+                    # Auto-adjust column widths
+                    for column in worksheet.columns:
+                        max_length = 0
+                        column_letter = column[0].column_letter
+                        for cell in column:
+                            try:
+                                if cell.value:
+                                    cell_length = len(str(cell.value))
+                                    if cell_length > max_length:
+                                        max_length = cell_length
+                            except:
+                                pass
+                        adjusted_width = min(max_length + 2, 35)  # Increased for project description
+                        worksheet.column_dimensions[column_letter].width = adjusted_width
+                    
+                    # Format total rows
+                    last_row = worksheet.max_row
+                    
+                    if sheet_name == 'Paid Installments' and len(paid_df) > 0:
+                        # Format total row for Paid sheet
+                        total_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+                        total_font = Font(bold=True, color="006100")
+                        border = Border(top=Side(style='thin'), bottom=Side(style='double'))
+                        
+                        # Find the amount column (last column)
+                        amount_col_letter = chr(65 + len(available_columns) - 1)
+                        
+                        # Format the total cell
+                        total_cell = f"{amount_col_letter}{last_row}"
+                        worksheet[total_cell].font = total_font
+                        worksheet[total_cell].fill = total_fill
+                        worksheet[total_cell].border = border
+                        
+                        # Add "TOTAL" label in first column
+                        worksheet[f"A{last_row}"].value = "TOTAL"
+                        worksheet[f"A{last_row}"].font = total_font
+                        worksheet[f"A{last_row}"].fill = total_fill
+                        worksheet[f"A{last_row}"].border = border
+                        
+                    elif sheet_name == 'Due Installments' and len(due_df) > 0:
+                        # Format total row for Due sheet
+                        total_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+                        total_font = Font(bold=True, color="7F6000")
+                        border = Border(top=Side(style='thin'), bottom=Side(style='double'))
+                        
+                        # Find the amount column (last column)
+                        amount_col_letter = chr(65 + len(available_columns) - 1)
+                        
+                        # Format the total cell
+                        total_cell = f"{amount_col_letter}{last_row}"
+                        worksheet[total_cell].font = total_font
+                        worksheet[total_cell].fill = total_fill
+                        worksheet[total_cell].border = border
+                        
+                        # Add "TOTAL" label in first column
+                        worksheet[f"A{last_row}"].value = "TOTAL"
+                        worksheet[f"A{last_row}"].font = total_font
+                        worksheet[f"A{last_row}"].fill = total_fill
+                        worksheet[f"A{last_row}"].border = border
+                        
+                    elif sheet_name == 'Overdue Installments' and len(overdue_df) > 0:
+                        # Format total row for Overdue sheet
+                        total_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+                        total_font = Font(bold=True, color="9C0006")
+                        border = Border(top=Side(style='thin'), bottom=Side(style='double'))
+                        
+                        # Find the amount column (last column)
+                        amount_col_letter = chr(65 + len(available_columns_overdue) - 1)
+                        
+                        # Format the total cell
+                        total_cell = f"{amount_col_letter}{last_row}"
+                        worksheet[total_cell].font = total_font
+                        worksheet[total_cell].fill = total_fill
+                        worksheet[total_cell].border = border
+                        
+                        # Add "TOTAL" label in first column
+                        worksheet[f"A{last_row}"].value = "TOTAL"
+                        worksheet[f"A{last_row}"].font = total_font
+                        worksheet[f"A{last_row}"].fill = total_fill
+                        worksheet[f"A{last_row}"].border = border
+                        
+                        # Highlight overdue status in red
+                        if 'Overdue Status' in [cell.value for cell in worksheet[1]]:
+                            # Find the overdue status column
+                            for col_idx, cell in enumerate(worksheet[1], 1):
+                                if cell.value == 'Overdue Status':
+                                    for row in range(2, last_row):  # Exclude total row
+                                        status_cell = worksheet.cell(row=row, column=col_idx)
+                                        if status_cell.value and 'Overdue' in str(status_cell.value):
+                                            status_cell.font = Font(color="FF0000", bold=True)
+                    
+                    elif sheet_name == 'Summary Report':
+                        # Format Summary Report sheet
+                        grand_total_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+                        grand_total_font = Font(bold=True, color="000000")
+                        grand_total_border = Border(top=Side(style='thin'), bottom=Side(style='double'))
+                        
+                        # Apply formatting to grand total row
+                        for col in range(1, worksheet.max_column + 1):
+                            cell = worksheet.cell(row=last_row, column=col)
+                            cell.font = grand_total_font
+                            cell.fill = grand_total_fill
+                            cell.border = grand_total_border
+                        
+                        # Format amount columns with colors
+                        for row in range(2, last_row + 1):
+                            category_cell = worksheet.cell(row=row, column=2)
+                            amount_cell = worksheet.cell(row=row, column=4)
+                            
+                            if 'Paid' in str(category_cell.value):
+                                amount_cell.font = Font(color="006100", bold=(row == last_row))
+                            elif 'Due (Future)' in str(category_cell.value):
+                                amount_cell.font = Font(color="7F6000", bold=(row == last_row))
+                            elif 'Overdue' in str(category_cell.value):
+                                amount_cell.font = Font(color="9C0006", bold=(row == last_row))
+            
+            # Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+            filename = "Installments"
+            
+            if project_start_month and project_start_month != 'all':
+                year, month = project_start_month.split('-')
+                month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                filename += f"_Start_{month_names[int(month)-1]}_{year}"
+            
+            if due_month and due_month != 'all':
+                year, month = due_month.split('-')
+                month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+                filename += f"_Due_{month_names[int(month)-1]}_{year}"
+            
+            filename += f"_{timestamp}.xlsx"
+            
+            # Return Excel file
+            output.seek(0)
+            return Response(
+                output,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment;filename={filename}"}
+            )
+        
+    except Exception as e:
+        print(f"Error downloading installments: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+    
+@app.route('/api/enquiries/<int:enquiry_id>/plan', methods=['GET'])
+def download_enquiry_plan(enquiry_id):
+    """Download the plan PDF attachment"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT plan, timestamp, clientwhatsapp
+                FROM connectlinkenquiries 
+                WHERE id = %s AND plan IS NOT NULL;
+            """, (enquiry_id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                return jsonify({'status': 'error', 'message': 'Plan not found'}), 404
+            
+            plan_data = row[0]  # BYTEA data
+            timestamp = row[1]
+            client_whatsapp = row[2]
+            
+            if not plan_data:
+                return jsonify({'status': 'error', 'message': 'Plan data is empty'}), 404
+            
+            # Create filename
+            filename = f"enquiry_plan_{enquiry_id}_{client_whatsapp}_{timestamp.strftime('%Y%m%d')}.pdf"
+            
+            # Log the plan download
+            log_activity(
+                'enquiry_plan_downloaded',
+                f'Plan document downloaded for enquiry #{enquiry_id} (Client: {client_whatsapp})',
+                'enquiry',
+                enquiry_id,
+                {'client_whatsapp': str(client_whatsapp) if client_whatsapp else '', 'filename': filename, 'downloaded_by': session.get('user_name', 'Unknown')}
+            )
+            
+            # Return PDF file
+            return send_file(
+                io.BytesIO(plan_data),
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/pdf'
+            )
+            
+    except Exception as e:
+        print(f"Error downloading plan: {str(e)}")
+        return jsonify({'status': 'error', 'message': f'Failed to download plan: {str(e)}'}), 500
+
+# Status update endpoint remains the same
+@app.route('/api/enquiries/<int:enquiry_id>/status', methods=['PUT'])
+def update_enquiry_status(enquiry_id):
+    """Update enquiry status"""
+    try:
+        data = request.json
+        new_status = data.get('status')
+        
+        if not new_status:
+            return jsonify({'status': 'error', 'message': 'Status is required'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Fetch current enquiry info for logging
+            cursor.execute("""
+                SELECT id, enq, enqcategory, clientwhatsapp, username, status
+                FROM connectlinkenquiries WHERE id = %s
+            """, (enquiry_id,))
+            enquiry = cursor.fetchone()
+            
+            if not enquiry:
+                return jsonify({'status': 'error', 'message': 'Enquiry not found'}), 404
+            
+            old_status = enquiry[5] or 'pending'
+            enq_text = (enquiry[1] or '')[:60]
+            enq_category = enquiry[2] or 'General'
+            client_number = str(enquiry[3]) if enquiry[3] else ''
+            
+            cursor.execute("""
+                UPDATE connectlinkenquiries 
+                SET status = %s
+                WHERE id = %s
+                RETURNING id;
+            """, (new_status, enquiry_id))
+            
+            connection.commit()
+            
+            # Log the status change
+            log_activity(
+                'enquiry_status_changed',
+                f'Enquiry #{enquiry_id} status changed from {old_status} to {new_status} - "{enq_text}" ({enq_category})',
+                'enquiry',
+                enquiry_id,
+                {
+                    'old_status': old_status,
+                    'new_status': new_status,
+                    'category': enq_category,
+                    'client_whatsapp': client_number,
+                    'updated_by': session.get('user_name', 'Unknown')
+                }
+            )
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Enquiry status updated successfully',
+                'enquiry_id': enquiry_id,
+                'new_status': new_status
+            })
+            
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Failed to update status: {str(e)}'}), 500
+
+
+@app.route('/api/enquiries/<int:enquiry_id>/delete', methods=['POST'])
+def delete_main_enquiry(enquiry_id):
+    """Delete an enquiry from the main enquiries portal after admin passcode validation."""
+    try:
+        data = request.json or {}
+        admin_passcode = (data.get('admin_passcode') or '').strip()
+
+        if admin_passcode != "conlink01admin01":
+            return jsonify({'status': 'error', 'message': 'Invalid Admin Permission Passcode.'}), 403
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                DELETE FROM connectlinkenquiries
+                WHERE id = %s
+                RETURNING id;
+            """, (enquiry_id,))
+            deleted_row = cursor.fetchone()
+            connection.commit()
+
+            if not deleted_row:
+                return jsonify({'status': 'error', 'message': 'Enquiry not found.'}), 404
+
+            # Log the deletion
+            log_activity(
+                'enquiry_deleted',
+                f'Main enquiry #{enquiry_id} deleted',
+                'enquiry',
+                enquiry_id,
+                {'source': 'main_enquiry', 'deleted_by': session.get('user_name', 'Unknown')}
+            )
+
+            return jsonify({
+                'status': 'success',
+                'message': 'Enquiry deleted successfully.',
+                'enquiry_id': enquiry_id
+            })
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Failed to delete enquiry: {str(e)}'}), 500
+
+
+# PWA: Web App Manifest
+@app.route('/manifest.json')
+def pwa_manifest():
+    return jsonify({
+        "name": "ConnectLink Admin",
+        "short_name": "ConnectLink",
+        "description": "Construction project management system",
+        "start_url": "/dashboard",
+        "display": "standalone",
+        "background_color": "#0F1729",
+        "theme_color": "#1E293B",
+        "orientation": "any",
+        "categories": ["business", "productivity"],
+        "icons": [
+            {
+                "src": "/static/images/reqlogo.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "/static/images/reqlogo.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    })
+
+# PWA: Manifest for WhatsApp App (separate installable app)
+@app.route('/whatsapp-manifest.json')
+def whatsapp_pwa_manifest():
+    return jsonify({
+        "name": "ConnectLink WhatsApp",
+        "short_name": "CL Chat",
+        "description": "ConnectLink WhatsApp Chat",
+        "start_url": "/whatsapp-app",
+        "scope": "/whatsapp-app",
+        "display": "standalone",
+        "background_color": "#075E54",
+        "theme_color": "#075E54",
+        "orientation": "portrait",
+        "categories": ["business", "communication"],
+        "icons": [
+            {
+                "src": "/static/images/reqlogo.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "/static/images/reqlogo.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    })
+
+# PWA: Service Worker
+@app.route('/sw.js')
+def pwa_service_worker():
+    return app.send_static_file('js/sw.js')
+
+# PWA: WhatsApp App Service Worker
+@app.route('/whatsapp-sw.js')
+def whatsapp_service_worker():
+    return app.send_static_file('js/whatsapp-sw.js')
+
+# Add these routes to your Flask app
+
+@app.route('/')
+def landing_page():
+    """Landing page with product cards"""
+    return render_template('mainindex.html')  # Or send_from_directory for static HTML
+
+@app.route('/privacy-policy')
+def privacy_policy():
+    """Privacy Policy page (required for WhatsApp Business API compliance)"""
+    return render_template('privacy_policy.html')
+
+@app.route('/pos-system.html', methods=['GET', 'POST'])
+def pos_system():
+    """POS System page"""
+    # Sync session keys for cross-portal compatibility
+    if session.get('userid') and not session.get('user_id'):
+        session['user_id'] = session['userid']
+    if session.get('user_name') and not session.get('username'):
+        session['username'] = session['user_name']
+        session['full_name'] = session['user_name']
+    if session.get('user_name') and not session.get('full_name'):
+        session['full_name'] = session['user_name']
+    if not session.get('role'):
+        session['role'] = 'admin'
+    return render_template('pos-system.html')
+
+
+# If you want to serve the landing page as index
+# Make sure your login page is at /login
+
+@app.route('/get_project/<int:project_id>')
+def get_project(project_id):
+
+    with get_db() as (cursor, connection):
+
+        try:
+            cursor.execute("SELECT * FROM connectlinkdatabase WHERE id=%s", (project_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                return jsonify({})
+
+            # Map columns to dict
+            columns = ['id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                    'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
+                    'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname',
+                    'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount',
+                    'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet',
+                    'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate',
+                    'installment1date', 'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
+                    'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
+                    'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
+                    'projectcompletionstatus','latepaymentinterest', 'momid', 'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date']
+            
+            project_dict = dict(zip(columns, row))
+            print(project_dict)
+            return jsonify(project_dict)
+
+        except Exception as e:
+            return jsonify({"error": str(e)})
+        
+def add_months(source_date, months):
+    month = source_date.month - 1 + months
+    year = source_date.year + (month // 12)
+    month = month % 12 + 1
+    # Pick the smaller of the original day or the last day of target month
+    day = min(source_date.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def last_day_of_month(d):
+    """Return the last day of d's month."""
+    last_day = calendar.monthrange(d.year, d.month)[1]
+    return date(d.year, d.month, last_day)
+
+def clean_date_update(value):
+    return value if value not in ("", None) else None
+
+def validate_date(date_str, field_label):
+    """Validate a date string. Returns (is_valid, error_message).
+    Checks: exists, valid YYYY-MM-DD format, year between 2000-2100."""
+    if not date_str or date_str == '':
+        return True, None  # Empty is allowed
+    try:
+        dt = datetime.strptime(str(date_str).strip(), '%Y-%m-%d')
+        year = dt.year
+        if year < 2000 or year > 2100:
+            return False, f"'{field_label}' has invalid year ({year}). Must be between 2000-2100."
+        return True, None
+    except ValueError:
+        return False, f"'{field_label}' has an invalid date format ('{date_str}'). Use YYYY-MM-DD."
+
+
+
+
+@app.route('/update_other_details', methods=['POST'])
+def update_other_details():
+    try:
+        with get_db() as (cursor, connection):
+
+            project_id = request.form.get('project_id')
+            clientnationalid = request.form.get('client_national_id')
+            clientemail = request.form.get('client_email')
+            clientwhatsapp = request.form.get('client_whatsapp')
+            clientaddress = request.form.get('client_address')
+            clientnextofkin = request.form.get('client_next_of_kin')
+            clientnextofkinrelationship = request.form.get('client_next_of_kin_relation')
+            clientnextofkinphone = request.form.get('client_next_of_kin_phone')
+            clientnextofkinaddress = request.form.get('client_next_of_kin_address')
+            projectcompletionstatus = request.form.get('completion_status')
+            quotation_id = request.form.get('quotation_id')
+
+            # Build update list with proper type casting
+            updates = []
+            values = []
+            
+            # String fields
+            if clientnationalid:
+                updates.append("clientidnumber = %s")
+                values.append(clientnationalid)
+            if clientemail:
+                updates.append("clientemail = %s")
+                values.append(clientemail)
+            if clientaddress:
+                updates.append("clientaddress = %s")
+                values.append(clientaddress)
+            if clientnextofkin:
+                updates.append("clientnextofkinname = %s")
+                values.append(clientnextofkin)
+            if clientnextofkinrelationship:
+                updates.append("nextofkinrelationship = %s")
+                values.append(clientnextofkinrelationship)
+            if clientnextofkinaddress:
+                updates.append("clientnextofkinaddress = %s")
+                values.append(clientnextofkinaddress)
+            if projectcompletionstatus:
+                updates.append("projectcompletionstatus = %s")
+                values.append(projectcompletionstatus)
+            
+            # Numeric fields (INT) - convert to int or ignore if empty
+            if clientwhatsapp:
+                try:
+                    # Remove any decimals and convert to int
+                    whatsapp_int = int(float(clientwhatsapp))
+                    updates.append("clientwanumber = %s")
+                    values.append(whatsapp_int)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid phone number format: {clientwhatsapp}")
+            
+            if clientnextofkinphone:
+                try:
+                    phone_int = int(float(clientnextofkinphone))
+                    updates.append("clientnextofkinphone = %s")
+                    values.append(phone_int)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid phone number format: {clientnextofkinphone}")
+            
+            # Quotation ID
+            if quotation_id and quotation_id != '':
+                try:
+                    quot_id = int(quotation_id)
+                    updates.append("quotation_id = %s")
+                    values.append(quot_id)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid quotation ID: {quotation_id}")
+            
+            # Add project_id to values for WHERE clause
+            values.append(int(project_id))
+            
+            if not updates:
+                return jsonify({
+                    'success': False,
+                    'message': 'No data to update'
+                }), 400
+            
+            query = f"""
+                UPDATE connectlinkdatabase
+                SET {', '.join(updates)}
+                WHERE id = %s
+            """
+            
+            print(f"Executing query: {query}")
+            print(f"With values: {values}")
+            
+            cursor.execute(query, values)
+            connection.commit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Project details updated successfully!'
+            })
+    
+    except Exception as e:
+        print(f"Error updating other details: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Error updating details: {str(e)}'
+        }), 500
+
+@app.route('/update_project', methods=['POST'])
+def update_project():
+
+    with get_db() as (cursor, connection):
+
+        clientname = request.form.get('ClientName')
+        project_id = request.form.get('project_id')
+        print(f"proj id {project_id}")
+        completion_status = request.form.get('completion_status')
+        project_name = request.form.get('ProjectName')
+        project_start_date = request.form.get('ProjectStartDate')
+        projscope = request.form.get('projscope')
+        contractamount = request.form.get('TotalContractAmount')
+        monthstopay = request.form.get('MonthsToPay')
+        depositpaid = request.form.get('depositpaid')
+        depositdatepaid = request.form.get('deposit_date_paid')
+
+        quotation_id_str = request.form.get('project_quotation_id')
+
+        def safe_int(v):
+            try:
+                return int(v) if v not in (None, "") else None
+            except Exception:
+                return None
+
+        quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
+    
+        if int(monthstopay) == 0:
+            paymentmethod = "Once Off Payment"
+            depositpaid = float(contractamount) if contractamount else 0.0
+            installment1amountupdate = None
+            installment2amountupdate = None
+            installment3amountupdate = None
+            installment4amountupdate = None
+            installment5amountupdate = None
+            installment6amountupdate = None
+            installment7amountupdate = None
+            installment8amountupdate = None
+            installment9amountupdate = None
+            installment10amountupdate = None
+            installment1_date = None
+            installment2_date = None
+            installment3_date = None
+            installment4_date = None
+            installment5_date = None
+            installment6_date = None
+            installment7_date = None
+            installment8_date = None
+            installment9_date = None
+            installment10_date = None
+            installment1_duedate = None
+            installment2_duedate = None
+            installment3_duedate = None
+            installment4_duedate = None
+            installment5_duedate = None
+            installment6_duedate = None
+            installment7_duedate = None
+            installment8_duedate = None
+            installment9_duedate = None
+            installment10_duedate = None
+            installment1amount = None
+            installment2amount = None
+            installment3amount = None
+            installment4amount = None
+            installment5amount = None
+            installment6amount = None
+            installment7amount = None
+            installment8amount = None
+            installment9amount = None
+            installment10amount = None
+
+            monthlyinstallment = 0
+            first_installment_due_date = None
+
+        elif int(monthstopay) > 0:
+
+            paymentmethod = "Installments"
+            
+            installment1amountupdate = request.form.get('Installment1Amount')
+            installment2amountupdate = request.form.get('Installment2Amount')
+            installment3amountupdate = request.form.get('Installment3Amount')
+            installment4amountupdate = request.form.get('Installment4Amount')
+            installment5amountupdate = request.form.get('Installment5Amount')
+            installment6amountupdate = request.form.get('Installment6Amount')
+            installment7amountupdate = request.form.get('Installment7Amount')
+            installment8amountupdate = request.form.get('Installment8Amount')
+            installment9amountupdate = request.form.get('Installment9Amount')
+            installment10amountupdate = request.form.get('Installment10Amount')
+            installment1_date = clean_date_update(request.form.get('installment1_paid_date'))
+            installment2_date = clean_date_update(request.form.get('installment2_paid_date'))
+            installment3_date = clean_date_update(request.form.get('installment3_paid_date'))
+            installment4_date = clean_date_update(request.form.get('installment4_paid_date'))
+            installment5_date = clean_date_update(request.form.get('installment5_paid_date'))
+            installment6_date = clean_date_update(request.form.get('installment6_paid_date'))
+            installment7_date = clean_date_update(request.form.get('installment7_paid_date'))
+            installment8_date = clean_date_update(request.form.get('installment8_paid_date'))
+            installment9_date = clean_date_update(request.form.get('installment9_paid_date'))
+            installment10_date = clean_date_update(request.form.get('installment10_paid_date'))
+            installment1_duedate = clean_date_update(request.form.get('Installment1DueDate'))
+            installment2_duedate = clean_date_update(request.form.get('Installment2DueDate'))
+            installment3_duedate = clean_date_update(request.form.get('Installment3DueDate'))
+            installment4_duedate = clean_date_update(request.form.get('Installment4DueDate'))
+            installment5_duedate = clean_date_update(request.form.get('Installment5DueDate'))
+            installment6_duedate = clean_date_update(request.form.get('Installment6DueDate'))
+            installment7_duedate = clean_date_update(request.form.get('Installment7DueDate'))
+            installment8_duedate = clean_date_update(request.form.get('Installment8DueDate'))
+            installment9_duedate = clean_date_update(request.form.get('Installment9DueDate'))
+            installment10_duedate = clean_date_update(request.form.get('Installment10DueDate'))
+
+            monthlyinstallment = (float(contractamount) - float(depositpaid))/int(monthstopay)
+
+            first_installment_due_date = request.form.get('Installment1DueDate')
+            
+            # === VALIDATE ALL DATE FIELDS ===
+            date_fields_to_check = {
+                'Project Start Date': request.form.get('ProjectStartDate'),
+                'Deposit Date Paid': request.form.get('deposit_date_paid'),
+                'Installment 1 Due Date': request.form.get('Installment1DueDate'),
+                'Installment 2 Due Date': request.form.get('Installment2DueDate'),
+                'Installment 3 Due Date': request.form.get('Installment3DueDate'),
+                'Installment 4 Due Date': request.form.get('Installment4DueDate'),
+                'Installment 5 Due Date': request.form.get('Installment5DueDate'),
+                'Installment 6 Due Date': request.form.get('Installment6DueDate'),
+                'Installment 7 Due Date': request.form.get('Installment7DueDate'),
+                'Installment 8 Due Date': request.form.get('Installment8DueDate'),
+                'Installment 9 Due Date': request.form.get('Installment9DueDate'),
+                'Installment 10 Due Date': request.form.get('Installment10DueDate'),
+                'Installment 1 Paid Date': request.form.get('installment1_paid_date'),
+                'Installment 2 Paid Date': request.form.get('installment2_paid_date'),
+                'Installment 3 Paid Date': request.form.get('installment3_paid_date'),
+                'Installment 4 Paid Date': request.form.get('installment4_paid_date'),
+                'Installment 5 Paid Date': request.form.get('installment5_paid_date'),
+                'Installment 6 Paid Date': request.form.get('installment6_paid_date'),
+                'Installment 7 Paid Date': request.form.get('installment7_paid_date'),
+                'Installment 8 Paid Date': request.form.get('installment8_paid_date'),
+                'Installment 9 Paid Date': request.form.get('installment9_paid_date'),
+                'Installment 10 Paid Date': request.form.get('installment10_paid_date'),
+            }
+            for label, val in date_fields_to_check.items():
+                is_valid, err = validate_date(val, label)
+                if not is_valid:
+                    return jsonify({'success': False, 'error_message': err + f' Please correct it in Installment {label.split(" ")[1]}' if 'Installment' in label else err}), 400
+            
+            first_installment_due_date_calc = datetime.strptime(first_installment_due_date, "%Y-%m-%d").date()
+                            
+            installment_due_dates = []
+
+            # Generate installment dates
+            for i in range(int(monthstopay)):
+                next_date = add_months(first_installment_due_date_calc, i)
+                installment_due_dates.append(next_date)
+
+            # Fill up to 6 slots using same day logic for following months
+            while len(installment_due_dates) < 10:
+                next_date = add_months(first_installment_due_date_calc, len(installment_due_dates))
+                installment_due_dates.append(next_date)
+
+
+            cursor.execute("""
+                SELECT monthstopay 
+                FROM connectlinkdatabase 
+                WHERE id = %s
+            """, (project_id,))
+            
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error_message': 'Project not found'})
+            
+
+            if int(monthstopay) != int(row[0]):
+
+                installment1_duedate, installment2_duedate, installment3_duedate, installment4_duedate, installment5_duedate, installment6_duedate, installment7_duedate, installment8_duedate, installment9_duedate, installment10_duedate = installment_due_dates
+
+                if int(monthstopay) == 1:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = 0
+                    installment3amount = 0
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 2:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = 0
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0       
+
+                
+                elif int(monthstopay) == 3:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 4:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = 0
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 5:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 6:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 7:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = float(monthlyinstallment)
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 8:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = float(monthlyinstallment)
+                    installment8amount = float(monthlyinstallment)
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 9:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = float(monthlyinstallment)
+                    installment8amount = float(monthlyinstallment)
+                    installment9amount = float(monthlyinstallment)
+                    installment10amount = 0
+
+                elif int(monthstopay) == 10:
+                    installment1amount = float(monthlyinstallment)
+                    installment2amount = float(monthlyinstallment)
+                    installment3amount = float(monthlyinstallment)
+                    installment4amount = float(monthlyinstallment)
+                    installment5amount = float(monthlyinstallment)
+                    installment6amount = float(monthlyinstallment)
+                    installment7amount = float(monthlyinstallment)
+                    installment8amount = float(monthlyinstallment)
+                    installment9amount = float(monthlyinstallment)
+                    installment10amount = float(monthlyinstallment)
+
+
+            elif int(monthstopay) == int(row[0]):
+
+                if int(monthstopay) == 1:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = 0
+                    installment3amount = 0
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 2:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = 0
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+                
+                elif int(monthstopay) == 3:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = float(installment3amountupdate)
+                    installment4amount = 0
+                    installment5amount = 0
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 4:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = float(installment3amountupdate)
+                    installment4amount = float(installment4amountupdate)
+                    installment5amount = 0
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 5:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = float(installment3amountupdate)
+                    installment4amount = float(installment4amountupdate)
+                    installment5amount = float(installment5amountupdate)
+                    installment6amount = 0
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 6:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = float(installment3amountupdate)
+                    installment4amount = float(installment4amountupdate)
+                    installment5amount = float(installment5amountupdate)
+                    installment6amount = float(installment6amountupdate)
+                    installment7amount = 0
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 7:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = float(installment3amountupdate)
+                    installment4amount = float(installment4amountupdate)
+                    installment5amount = float(installment5amountupdate)
+                    installment6amount = float(installment6amountupdate)
+                    installment7amount = float(installment7amountupdate)
+                    installment8amount = 0
+                    installment9amount = 0
+                    installment10amount = 0
+                
+                elif int(monthstopay) == 8:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = float(installment3amountupdate)
+                    installment4amount = float(installment4amountupdate)
+                    installment5amount = float(installment5amountupdate)
+                    installment6amount = float(installment6amountupdate)
+                    installment7amount = float(installment7amountupdate)
+                    installment8amount = float(installment8amountupdate)
+                    installment9amount = 0
+                    installment10amount = 0
+
+                elif int(monthstopay) == 9:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = float(installment3amountupdate)
+                    installment4amount = float(installment4amountupdate)
+                    installment5amount = float(installment5amountupdate)
+                    installment6amount = float(installment6amountupdate)
+                    installment7amount = float(installment7amountupdate)
+                    installment8amount = float(installment8amountupdate)
+                    installment9amount = float(installment9amountupdate)
+                    installment10amount = 0
+
+                elif int(monthstopay) == 10:
+                    installment1amount = float(installment1amountupdate)
+                    installment2amount = float(installment2amountupdate)
+                    installment3amount = float(installment3amountupdate)
+                    installment4amount = float(installment4amountupdate)
+                    installment5amount = float(installment5amountupdate)
+                    installment6amount = float(installment6amountupdate)
+                    installment7amount = float(installment7amountupdate)
+                    installment8amount = float(installment8amountupdate)
+                    installment9amount = float(installment9amountupdate)
+                    installment10amount = float(installment10amountupdate)
+
+        # --- Build UPDATE query with conditional quotation_id (only update if provided) ---
+        # Build values list for query
+        values = [
+            clientname,
+            paymentmethod,
+            completion_status,
+            project_start_date,
+            contractamount,
+            depositpaid,
+            depositdatepaid,
+            monthstopay,
+            monthlyinstallment,
+            installment1_date,
+            installment2_date,
+            installment3_date,
+            installment4_date,
+            installment5_date,
+            installment6_date,
+            installment7_date,
+            installment8_date,
+            installment9_date,
+            installment10_date,
+            projscope,
+            project_name,
+            installment1amount,
+            installment2amount,
+            installment3amount,
+            installment4amount,
+            installment5amount,
+            installment6amount,
+            installment7amount,
+            installment8amount,
+            installment9amount,
+            installment10amount,
+            installment1_duedate,
+            installment2_duedate,
+            installment3_duedate,
+            installment4_duedate,
+            installment5_duedate,
+            installment6_duedate,
+            installment7_duedate,
+            installment8_duedate,
+            installment9_duedate,
+            installment10_duedate
+        ]
+        
+        # Only include quotation_id if it's actually provided and not None/empty
+        quotation_clause = ""
+        if quotation_id is not None:
+            quotation_clause = ", quotation_id = %s"
+            values.append(quotation_id)
+        
+        # Capture adjusted_schedules_json if provided
+        adjusted_schedules_clause = ""
+        adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
+        if adjusted_schedules_json_str:
+            adjusted_schedules_clause = ", adjusted_schedules_json = %s"
+            values.append(adjusted_schedules_json_str)
+        
+        query = f"""
+            UPDATE connectlinkdatabase
+            SET 
+                clientname = %s,
+                paymentmethod = %s,
+                projectcompletionstatus = %s,
+                projectstartdate = %s,
+                totalcontractamount = %s,
+                depositorbullet = %s,
+                datedepositorbullet = %s,
+                monthstopay = %s,
+                monthlyinstallment = %s,
+                installment1date = %s,
+                installment2date = %s,
+                installment3date = %s,
+                installment4date = %s,
+                installment5date = %s,
+                installment6date = %s,
+                installment7date = %s,
+                installment8date = %s,
+                installment9date = %s,
+                installment10date = %s,
+                projectdescription = %s,
+                projectname = %s,  
+                installment1amount = %s, 
+                installment2amount = %s, 
+                installment3amount = %s, 
+                installment4amount = %s, 
+                installment5amount = %s, 
+                installment6amount = %s,
+                installment7amount = %s,
+                installment8amount = %s,
+                installment9amount = %s,
+                installment10amount = %s,
+                installment1duedate = %s,
+                installment2duedate = %s,
+                installment3duedate = %s,
+                installment4duedate = %s,
+                installment5duedate = %s,
+                installment6duedate = %s,
+                installment7duedate = %s,
+                installment8duedate = %s,
+                installment9duedate = %s,
+                installment10duedate = %s
+                {quotation_clause}
+                {adjusted_schedules_clause}
+            WHERE id = %s
+        """
+        
+        # Fetch old project data BEFORE update (for change detection)
+        cursor.execute("""
+            SELECT clientname, projectname, projectdescription, projectcompletionstatus,
+                   totalcontractamount, depositorbullet, datedepositorbullet, quotation_id,
+                   installment1amount, installment2amount, installment3amount, installment4amount, installment5amount,
+                   installment6amount, installment7amount, installment8amount, installment9amount, installment10amount,
+                   installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate,
+                   installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate,
+                   installment1date, installment2date, installment3date, installment4date, installment5date,
+                   installment6date, installment7date, installment8date, installment9date, installment10date
+            FROM connectlinkdatabase WHERE id = %s
+        """, (project_id,))
+        old_row = cursor.fetchone()
+        
+        # If project not found, skip change detection
+        if old_row is None:
+            values.append(project_id)
+            cursor.execute(query, tuple(values))
+            connection.commit()
+            log_activity('project_updated', f'Project updated but old data could not be fetched', 'project', project_id)
+            flash("Project updated successfully!", "success")
+            return jsonify({'success': True, 'message': 'Project updated successfully!'})
+        
+        def ov(idx):
+            """Get old value at index, return as string or empty"""
+            v = old_row[idx] if old_row else None
+            if v is None:
+                return ''
+            # Normalize Decimal values to avoid "5000.00" vs "5000" mismatches
+            if isinstance(v, Decimal):
+                return str(v.normalize())
+            return str(v)
+        
+        old_clientname = ov(0)
+        old_projectname = ov(1)
+        old_projscope = ov(2)
+        old_status = ov(3)
+        old_contract = ov(4)
+        old_deposit = ov(5)
+        old_deposit_date = ov(6)
+        old_quotation_id = ov(7)
+        old_inst_amounts = [ov(8+i) for i in range(10)]
+        old_inst_duedates = [ov(18+i) for i in range(10)]
+        old_inst_dates = [ov(28+i) for i in range(10)]
+
+        values.append(project_id)
+        values = tuple(values)
+
+        cursor.execute(query, values)
+        connection.commit()
+
+        # Helper: format value for display and comparison
+        def fmt(v):
+            if v is None or v == '':
+                return ''
+            s = str(v)
+            # Normalize numeric strings for fair comparison with Decimal values
+            try:
+                return str(Decimal(s).normalize())
+            except:
+                return s
+
+        changes = []
+
+        # Check each field for changes
+        field_checks = [
+            ('client_name', 'Client Name', old_clientname, fmt(clientname)),
+            ('project_name', 'Project Name', old_projectname, fmt(project_name)),
+            ('project_scope', 'Project Scope', old_projscope, fmt(projscope)),
+            ('completion_status', 'Completion Status', old_status, fmt(completion_status)),
+            ('contract_amount', 'Total Contract Amount', old_contract, fmt(contractamount)),
+            ('deposit_amount', 'Deposit Amount', old_deposit, fmt(depositpaid)),
+            ('deposit_date', 'Deposit Date', old_deposit_date, fmt(depositdatepaid)),
+        ]
+        for key, label, old_val, new_val in field_checks:
+            if old_val != new_val:
+                changes.append((key, label, old_val, new_val))
+
+        # Quotation link change
+        new_qid = str(quotation_id) if quotation_id else ''
+        if old_quotation_id != new_qid:
+            changes.append(('quotation_link', 'Quotation', old_quotation_id, new_qid))
+
+        # Installment amount changes
+        new_inst_amounts = [
+            fmt(installment1amount), fmt(installment2amount), fmt(installment3amount),
+            fmt(installment4amount), fmt(installment5amount), fmt(installment6amount),
+            fmt(installment7amount), fmt(installment8amount), fmt(installment9amount), fmt(installment10amount)
+        ]
+        for i in range(10):
+            if old_inst_amounts[i] != new_inst_amounts[i]:
+                changes.append((f'installment{i+1}_amount', f'Installment #{i+1} Amount', old_inst_amounts[i], new_inst_amounts[i]))
+
+        # Installment due date changes
+        new_inst_duedates = [
+            fmt(installment1_duedate), fmt(installment2_duedate), fmt(installment3_duedate),
+            fmt(installment4_duedate), fmt(installment5_duedate), fmt(installment6_duedate),
+            fmt(installment7_duedate), fmt(installment8_duedate), fmt(installment9_duedate), fmt(installment10_duedate)
+        ]
+        for i in range(10):
+            if old_inst_duedates[i] != new_inst_duedates[i]:
+                changes.append((f'installment{i+1}_duedate', f'Installment #{i+1} Due Date', old_inst_duedates[i], new_inst_duedates[i]))
+
+        # Installment paid date changes
+        new_inst_dates = [
+            fmt(installment1_date), fmt(installment2_date), fmt(installment3_date),
+            fmt(installment4_date), fmt(installment5_date), fmt(installment6_date),
+            fmt(installment7_date), fmt(installment8_date), fmt(installment9_date), fmt(installment10_date)
+        ]
+        for i in range(10):
+            old_d = old_inst_dates[i]
+            new_d = new_inst_dates[i]
+            if old_d != new_d:
+                if not old_d and new_d:
+                    changes.append((f'installment{i+1}_paid', f'Installment #{i+1} Paid', '', new_d))
+                else:
+                    changes.append((f'installment{i+1}_date', f'Installment #{i+1} Paid Date', old_d, new_d))
+
+        # Log each individual change
+        for key, label, old_val, new_val in changes:
+            if key.endswith('_paid') and not old_val and new_val:
+                action_type = 'installment_paid'
+                desc = f'{label} for "{project_name}" ({clientname}) - payment recorded on {new_val}'
+            elif key == 'quotation_link':
+                action_type = 'quotation_linked' if new_val else 'quotation_unlinked'
+                desc = f'Quotation {"#"+new_val if new_val else "unlinked"} for project "{project_name}" ({clientname})'
+            else:
+                action_type = 'project_field_changed'
+                desc = f'{label} changed for "{project_name}" ({clientname}): {old_val or "(empty)"} → {new_val or "(empty)"}'
+            
+            log_activity(
+                action_type,
+                desc,
+                'project',
+                project_id,
+                {
+                    'project_id': project_id,
+                    'client_name': clientname,
+                    'field': key,
+                    'old_value': old_val,
+                    'new_value': new_val,
+                    'updated_by': session.get('user_name', 'Unknown')
+                }
+            )
+
+        # Also log a summary update
+        log_activity(
+            'project_updated',
+            f'Project "{project_name}" for {clientname} updated ({len(changes)} field(s) changed, completion: {completion_status})',
+            'project',
+            project_id,
+            {
+                'project_id': project_id,
+                'client_name': clientname,
+                'project_name': project_name,
+                'completion_status': completion_status,
+                'fields_changed': len(changes),
+                'updated_by': session.get('user_name', 'Unknown')
+            }
+        )
+
+        flash("Project updated successfully!", "success")
+        return jsonify({
+            'success': True,
+            'message': 'Project updated successfully!'
+        })
+
+def get_mom_id_for_project(project_start_date):
+    """Get MOM ID for a project based on month/year and existing momid values"""
+    with get_db() as (cursor, connection):
+        try:
+
+            # Extract month and year from the project start date
+            month = project_start_date.month
+            year = project_start_date.year
+            
+            print(f"DEBUG: Looking for projects in month {month}, year {year}")
+            
+            # Get all projects in the same month and year
+            cursor.execute("""
+                SELECT id, clientname, projectname, projectstartdate, momid
+                FROM connectlinkdatabase 
+                WHERE EXTRACT(MONTH FROM projectstartdate) = %s 
+                AND EXTRACT(YEAR FROM projectstartdate) = %s
+                ORDER BY projectstartdate
+            """, (month, year))
+            
+            projects_in_month = cursor.fetchall()
+            
+            print(f"DEBUG: Found {len(projects_in_month)} projects in {month}/{year}")
+            
+            if projects_in_month:
+                # Debug print all projects found
+                for project in projects_in_month:
+                    print(f"  - Project ID: {project[0]}, Name: {project[2]}, Date: {project[3]}, MOM ID: {project[4]}")
+                
+                # Find the highest momid value (excluding NULLs)
+                momid_values = [project[4] for project in projects_in_month if project[4] is not None]
+                
+                if momid_values:
+                    highest_momid = max(momid_values)
+                    print(f"DEBUG: Highest MOM ID found: {highest_momid}")
+                    momcurrentid = highest_momid + 1
+                else:
+                    # No momid values found, start from 1
+                    print(f"DEBUG: No MOM IDs found in this month/year, starting from 1")
+                    momcurrentid = 1
+            else:
+                # No projects in this month/year, start from 1
+                print(f"DEBUG: No projects found in {month}/{year}, starting from 1")
+                momcurrentid = 1
+            
+            print(f"DEBUG: New MOM ID assigned: {momcurrentid}")
+            return momcurrentid
+            
+        except Exception as e:
+            print(f"❌ Error getting MOM ID: {str(e)}")
+            # Return a default value or re-raise the exception
+            return 1
+
+@app.route('/contract_log', methods=['POST'])
+def contract_log():
+        
+    with get_db() as (cursor, connection):
+
+        today_date = datetime.now().strftime('%d %B %Y')
+        applied_date = datetime.now().strftime('%Y-%m-%d')
+
+        user_uuid = session.get('user_uuid')
+        userid = session.get('userid')
+
+        if not user_uuid or not userid:
+            return "Session data is missing", 400
+        
+        if request.method == 'POST':
+
+            try:
+
+                client_name = request.form.get('client_name')
+                client_national_id = request.form.get('client_national_id')
+                client_address = request.form.get('client_address')
+                client_whatsapp_number = request.form.get('client_whatsapp_number')[-9:]
+                client_email = request.form.get('client_email')
+
+                next_of_kin_name = request.form.get('next_of_kin_name')
+                next_of_kin_address = request.form.get('next_of_kin_address')
+                next_of_kin_contact_number = request.form.get('next_of_kin_contact_number')[-9:]
+                relationship = request.form.get('relationship')
+
+                project_administrator = request.form.get('projectadministrator')
+
+                project_name = request.form.get('project_name')
+                project_location = request.form.get('project_location')
+                project_start_date = request.form.get('project_start_date')
+
+                project_start_date_date = datetime.strptime(project_start_date, "%Y-%m-%d").date()
+                momcurrentid = get_mom_id_for_project(project_start_date_date)
+
+
+
+                months_to_completion = request.form.get('months_to_completion')
+                project_description = request.form.get('project_description') or ""
+
+                ALLOWED_TAGS = set(bleach.sanitizer.ALLOWED_TAGS).union({
+                    'p', 'br', 'ul', 'ol', 'li', 'span', 'strong', 'em'
+                })
+
+                ALLOWED_ATTRIBUTES = {
+                    '*': ['style'],
+                    'span': ['class']
+                }
+
+                clean_html = bleach.clean(
+                    request.form.get("project_description", ""),
+                    tags=ALLOWED_TAGS,
+                    attributes=ALLOWED_ATTRIBUTES,
+                    strip=True
+                )
+
+                agreement_date = request.form.get('agreement_date')
+                total_contract_price = request.form.get('total_contract_price')
+                latepaymentinterest = request.form.get('late_payment_interest')
+
+                # === VALIDATE ALL DATE FIELDS FOR NEW PROJECT ===
+                date_fields_to_check = {
+                    'Project Start Date': project_start_date,
+                    'Agreement Date': agreement_date,
+                    'Deposit Payment Date': request.form.get('deposit_payment_date'),
+                    'First Installment Due Date': request.form.get('first_installment_due_date'),
+                }
+                for label, val in date_fields_to_check.items():
+                    is_valid, err = validate_date(val, label)
+                    if not is_valid:
+                        return jsonify({'success': False, 'error_message': err}), 400
+
+                payment_method = request.form.get('payment_method')
+
+                if payment_method == "Once Off Payment":
+
+                    depositorbullet = request.form.get('total_contract_price')
+                    deposit_payment_date = request.form.get('bullet_payment_date')
+                    monthlyinstallment = 0
+                    months_to_pay = 0
+                    first_installment_due_date = None
+
+                    latepaymentinterest = 5
+                    installment1amount = None
+                    installment2amount = None
+                    installment3amount = None
+                    installment4amount = None
+                    installment5amount = None
+                    installment6amount = None
+                    installment7amount = None
+                    installment8amount = None
+                    installment9amount = None
+                    installment10amount = None
+
+                    installment1duedate = None
+                    installment2duedate = None
+                    installment3duedate = None
+                    installment4duedate = None
+                    installment5duedate = None
+                    installment6duedate = None
+                    installment7duedate = None
+                    installment8duedate = None
+                    installment9duedate = None
+                    installment10duedate = None
+
+                elif payment_method == "Installments":
+                    months_to_pay = request.form.get('months_to_pay')
+
+                    depositorbullet = request.form.get('deposit_required')
+                    deposit_payment_date = request.form.get('deposit_payment_date')
+
+                    monthlyinstallment = (float(total_contract_price) - float(depositorbullet))/int(months_to_pay)
+                    first_installment_due_date = request.form.get('first_installment_due_date')
+
+                    first_installment_due_date_calc = datetime.strptime(first_installment_due_date, "%Y-%m-%d").date()
+                                    
+                    installment_due_dates = []
+
+                    # Generate installment dates
+                    for i in range(int(months_to_pay)):
+                        next_date = add_months(first_installment_due_date_calc, i)
+                        installment_due_dates.append(next_date)
+
+                    # Fill up to 6 slots using same day logic for following months
+                    while len(installment_due_dates) < 10:
+                        next_date = add_months(first_installment_due_date_calc, len(installment_due_dates))
+                        installment_due_dates.append(next_date)
+
+
+                    installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate = installment_due_dates
+
+
+                    if int(months_to_pay) == 1:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = 0
+                        installment3amount = 0
+                        installment4amount = 0
+                        installment5amount = 0
+                        installment6amount = 0
+                        installment7amount = 0
+                        installment8amount = 0
+                        installment9amount = 0
+                        installment10amount = 0
+
+
+                    elif int(months_to_pay) == 2:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = 0
+                        installment4amount = 0
+                        installment5amount = 0
+                        installment6amount = 0
+                        installment7amount = 0
+                        installment8amount = 0
+                        installment9amount = 0
+                        installment10amount = 0
+
+                    
+                    elif int(months_to_pay) == 3:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = float(monthlyinstallment)
+                        installment4amount = 0
+                        installment5amount = 0
+                        installment6amount = 0
+                        installment7amount = 0
+                        installment8amount = 0
+                        installment9amount = 0
+                        installment10amount = 0
+
+                    elif int(months_to_pay) == 4:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = float(monthlyinstallment)
+                        installment4amount = float(monthlyinstallment)
+                        installment5amount = 0
+                        installment6amount = 0
+                        installment7amount = 0
+                        installment8amount = 0
+                        installment9amount = 0
+                        installment10amount = 0
+
+                    elif int(months_to_pay) == 5:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = float(monthlyinstallment)
+                        installment4amount = float(monthlyinstallment)
+                        installment5amount = float(monthlyinstallment)
+                        installment6amount = 0
+                        installment7amount = 0
+                        installment8amount = 0
+                        installment9amount = 0
+                        installment10amount = 0
+
+                    elif int(months_to_pay) == 6:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = float(monthlyinstallment)
+                        installment4amount = float(monthlyinstallment)
+                        installment5amount = float(monthlyinstallment)
+                        installment6amount = float(monthlyinstallment)
+                        installment7amount = 0
+                        installment8amount = 0
+                        installment9amount = 0
+                        installment10amount = 0
+
+                    elif int(months_to_pay) == 7:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = float(monthlyinstallment)
+                        installment4amount = float(monthlyinstallment)
+                        installment5amount = float(monthlyinstallment)
+                        installment6amount = float(monthlyinstallment)
+                        installment7amount = float(monthlyinstallment)
+                        installment8amount = 0
+                        installment9amount = 0
+                        installment10amount = 0
+
+                    elif int(months_to_pay) == 8:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = float(monthlyinstallment)
+                        installment4amount = float(monthlyinstallment)
+                        installment5amount = float(monthlyinstallment)
+                        installment6amount = float(monthlyinstallment)
+                        installment7amount = float(monthlyinstallment)
+                        installment8amount = float(monthlyinstallment)
+                        installment9amount = 0
+                        installment10amount = 0
+
+                    elif int(months_to_pay) == 9:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = float(monthlyinstallment)
+                        installment4amount = float(monthlyinstallment)
+                        installment5amount = float(monthlyinstallment)
+                        installment6amount = float(monthlyinstallment)
+                        installment7amount = float(monthlyinstallment)
+                        installment8amount = float(monthlyinstallment)
+                        installment9amount = float(monthlyinstallment)
+                        installment10amount = 0
+
+                    elif int(months_to_pay) == 10:
+                        installment1amount = float(monthlyinstallment)
+                        installment2amount = float(monthlyinstallment)
+                        installment3amount = float(monthlyinstallment)
+                        installment4amount = float(monthlyinstallment)
+                        installment5amount = float(monthlyinstallment)
+                        installment6amount = float(monthlyinstallment)
+                        installment7amount = float(monthlyinstallment)
+                        installment8amount = float(monthlyinstallment)
+                        installment9amount = float(monthlyinstallment)
+                        installment10amount = float(monthlyinstallment)
+
+                    installment2duedate = installment_due_dates[1] if int(months_to_pay) >= 2 else None
+                    installment3duedate = installment_due_dates[2] if int(months_to_pay) >= 3 else None
+                    installment4duedate = installment_due_dates[3] if int(months_to_pay) >= 4 else None
+                    installment5duedate = installment_due_dates[4] if int(months_to_pay) >= 5 else None
+                    installment6duedate = installment_due_dates[5] if int(months_to_pay) >= 6 else None
+                    installment7duedate = installment_due_dates[6] if int(months_to_pay) >= 7 else None
+                    installment8duedate = installment_due_dates[7] if int(months_to_pay) >= 8 else None
+                    installment9duedate = installment_due_dates[8] if int(months_to_pay) >= 9 else None
+                    installment10duedate = installment_due_dates[9] if int(months_to_pay) >= 10 else None
+
+                    print(f"Months to Pay: {months_to_pay}")
+                    print(f"First Installment Due Date: {first_installment_due_date}")
+
+
+                project_completion_status = "Ongoing"
+
+                # Debug: Print received data (remove this in production)
+                print(f"Client Name: {client_name}")
+                print(f"Client National ID: {client_national_id}")
+                print(f"Client Address: {client_address}")
+                print(f"Client Whatsapp Number: {client_whatsapp_number}")
+                print(f"Client Email: {client_email}")
+
+                print(f"Next of Kin Name: {next_of_kin_name}")
+                print(f"Next of Kin Address: {next_of_kin_address}")
+                print(f"Next of Kin Contact Number: {next_of_kin_contact_number}")
+                print(f"Next of Kin Relationship: {relationship}")
+
+                print(f"Administrator: {project_administrator}")
+
+                print(f"Project Name: {project_name}")
+                print(f"Project Location: {project_location}")
+                print(f"Project Start Date: {project_start_date}")
+                print(f"Project Duration (Months): {months_to_completion}")
+                print(f"Project Description: {clean_html}")
+
+                print(f"Agreement Date: {agreement_date}")
+                print(f"Total Contract Price: {total_contract_price}")
+                print(f"Payment Method: {payment_method}")
+
+                print(f"Bullet/Deposit Payment Date: {deposit_payment_date}")
+
+                print(f"Deposit Payment Date: {deposit_payment_date}")
+                print(f"late payment interest: {latepaymentinterest}")
+        
+
+                # --- Insert into database (connectlinkdatabase) ---
+                def safe_int(v):
+                    try:
+                        return int(v) if v not in (None, "") else None
+                    except Exception:
+                        return None
+
+                def safe_float(v):
+                    try:
+                        return float(v) if v not in (None, "") else None
+                    except Exception:
+                        return None
+
+                def safe_date(v):
+                    try:
+                        return datetime.strptime(v, "%Y-%m-%d").date() if v not in (None, "") else None
+                    except Exception:
+                        return None
+
+                capturer = session.get('user_name', '')
+                capturerid = session.get('userid')
+                
+                # Get quotation_id if a quotation was selected
+                quotation_id_str = request.form.get('project_quotation_id')
+                quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
+
+                # Get adjusted_schedules_json BEFORE inserting project
+                adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
+                
+                try:
+
+                    insert_query = """
+                        INSERT INTO connectlinkdatabase (
+                            momid, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                            clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
+                            projectname, projectlocation, projectdescription, projectadministratorname,
+                            projectstartdate, projectduration, contractagreementdate, totalcontractamount,
+                            paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
+                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate, quotation_id, adjusted_schedules_json
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        );
+                    """
+
+                    params = (
+                        momcurrentid,
+                        client_name,
+                        client_national_id,
+                        client_address,
+                        safe_int(client_whatsapp_number),
+                        client_email,
+                        next_of_kin_name,
+                        next_of_kin_address,
+                        safe_int(next_of_kin_contact_number),
+                        relationship,
+                        project_name,
+                        project_location,
+                        clean_html,
+                        project_administrator,
+                        safe_date(project_start_date),
+                        safe_int(months_to_completion),
+                        safe_date(agreement_date),
+                        safe_float(total_contract_price),
+                        payment_method,
+                        safe_int(months_to_pay),
+                        safe_float(depositorbullet),
+                        safe_date(deposit_payment_date),
+                        safe_float(monthlyinstallment),
+                        safe_date(first_installment_due_date),
+                        today_date,
+                        capturer,
+                        capturerid,
+                        project_completion_status,
+                        latepaymentinterest,
+                        installment1amount,
+                        installment2amount,
+                        installment3amount,
+                        installment4amount,
+                        installment5amount,
+                        installment6amount,
+                        installment7amount,
+                        installment8amount,
+                        installment9amount,
+                        installment10amount,
+                        installment2duedate,
+                        installment3duedate,
+                        installment4duedate,
+                        installment5duedate,
+                        installment6duedate,
+                        installment7duedate,
+                        installment8duedate,
+                        installment9duedate,
+                        installment10duedate,
+                        quotation_id,
+                        adjusted_schedules_json_str if adjusted_schedules_json_str else None
+                    )
+
+        
+                    cursor.execute(insert_query, params)
+                    # Get the last inserted ID
+                    cursor.execute("SELECT LASTVAL()")
+                    result = cursor.fetchone()
+                    project_id = result[0] if result else None
+                    connection.commit()
+                    print(f"✅ Project inserted into connectlinkdatabase (ID: {project_id})")
+                    
+                    # STORE ADJUSTED SCHEDULES IN THE PROJECT RECORD
+                    # NOTE: We store adjusted schedules in the project, NOT in the shared quotation_schedules table
+                    # This prevents one project's date adjustments from affecting other projects using the same quotation
+                    if adjusted_schedules_json_str:
+                        try:
+                            import json
+                            adjusted_schedules = json.loads(adjusted_schedules_json_str)
+                            
+                            print(f"✅ 📅 PROJECT-SPECIFIC SCHEDULES SAVED FOR PROJECT ID={project_id}:")
+                            print(f"   Total schedules: {len(adjusted_schedules)}")
+                            for i, schedule in enumerate(adjusted_schedules, 1):
+                                print(f"   {i}. {schedule.get('workScope')} ({schedule.get('startDate')} to {schedule.get('endDate')}, {schedule.get('days')} days)")
+                        
+                        except json.JSONDecodeError as e:
+                            print(f"⚠️ Could not parse adjusted schedules JSON: {e}")
+                        except Exception as e:
+                            print(f"⚠️ Error logging project schedules: {e}")
+
+
+                except Exception as e:
+                    connection.rollback()
+                    print("❌ Failed to insert project:", e)
+                    response = {'status': 'error', 'message': 'Failed to save project.'}
+                    return jsonify(response), 500
+
+                # Log project creation
+                log_activity(
+                    'project_created',
+                    f"Project '{project_name}' created for {client_name}",
+                    'project', project_id,
+                    {'client': client_name, 'amount': str(total_contract_price), 'location': project_location}
+                )
+                # At the end of your try block
+                return redirect(url_for('Dashboard'))  # or wherever you want to go
+
+
+            except Exception as e:
+                print("❌ UNCAUGHT ERROR in contract_log():", str(e))  # <-- PRINT REAL ERROR
+                return jsonify({'status': 'error', 'message': str(e)}), 400
+
+@app.route('/update_first_installment_date', methods=['POST'])
+def update_first_installment_date():
+    try:
+        data = request.get_json()
+        project_id = data.get('project_id')
+        new_date_str = data.get('new_date')
+
+        print(project_id)
+        print(new_date_str)
+
+        cursor.execute("""
+            SELECT monthstopay
+            FROM connectlinkdatabase
+            WHERE id = %s
+        """, (project_id,))
+        result = cursor.fetchone()
+
+        months_to_pay = int(result[0])
+
+        if not project_id or not new_date_str:
+            return jsonify({"success": False, "message": "Project ID and new date are required"}), 400
+
+        # Convert string date to Python date
+        new_date = datetime.strptime(new_date_str, "%Y-%m-%d").date()
+
+        installment_due_dates = []
+
+        # Generate installment dates
+        for i in range(int(months_to_pay)):
+            next_date = add_months(new_date, i)
+            installment_due_dates.append(next_date)
+
+        # Fill up to 6 slots using same day logic for following months
+        while len(installment_due_dates) < 6:
+            next_date = add_months(new_date, len(installment_due_dates))
+            installment_due_dates.append(next_date)
+
+
+        installment1duedate, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate = installment_due_dates
+        installment1duedate = installment_due_dates[0] if int(months_to_pay) >= 1 else None
+        installment2duedate = installment_due_dates[1] if int(months_to_pay) >= 2 else None
+        installment3duedate = installment_due_dates[2] if int(months_to_pay) >= 3 else None
+        installment4duedate = installment_due_dates[3] if int(months_to_pay) >= 4 else None
+        installment5duedate = installment_due_dates[4] if int(months_to_pay) >= 5 else None
+        installment6duedate = installment_due_dates[5] if int(months_to_pay) >= 6 else None
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE connectlinkdatabase
+                SET installment1duedate = %s,
+                    installment2duedate = %s,
+                    installment3duedate = %s,
+                    installment4duedate = %s,
+                    installment5duedate = %s,
+                    installment6duedate = %s
+                WHERE id = %s
+            """, (
+                installment1duedate,
+                installment2duedate,
+                installment3duedate,
+                installment4duedate,
+                installment5duedate,
+                installment6duedate,
+                project_id
+            ))
+            connection.commit()
+
+        # Log installment date change
+        try:
+            log_activity(
+                'installment_dates_updated',
+                f'Installment dates updated for project #{project_id} — first date: {new_date_str}, {months_to_pay} installments',
+                'project',
+                project_id,
+                {
+                    'project_id': project_id,
+                    'first_installment_date': new_date_str,
+                    'months_to_pay': months_to_pay,
+                    'due_dates': [str(d) if d else '' for d in installment_due_dates]
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log installment date update: {log_err}")
+
+        return jsonify({
+            "success": True,
+            "message": "First installment and all other installment dates updated successfully",
+            "installment_dates": [str(d) if d else "" for d in installment_due_dates]
+        })
+
+    except Exception as e:
+        print("Error updating first installment date:", e)
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/get_updated_table_data')
+def get_updated_table_data():
+    """Return the updated table data as JSON for DataTables"""
+    try:
+        with get_db() as (cursor, connection):
+            # Query with ALL columns
+            cursor.execute("""
+                SELECT 
+                    id, clientname, clientidnumber, clientaddress, clientwanumber, clientemail,
+                    clientnextofkinname, clientnextofkinaddress, clientnextofkinphone, nextofkinrelationship,
+                    projectname, projectlocation, projectdescription, projectadministratorname,
+                    projectstartdate, projectduration, contractagreementdate, totalcontractamount,
+                    paymentmethod, monthstopay, datecaptured, capturer, capturerid, depositorbullet,
+                    datedepositorbullet, monthlyinstallment, installment1amount, installment1duedate,
+                    installment1date, installment2amount, installment2duedate, installment2date,
+                    installment3amount, installment3duedate, installment3date, installment4amount,
+                    installment4duedate, installment4date, installment5amount, installment5duedate,
+                    installment5date, installment6amount, installment6duedate, installment6date,
+                    installment7amount, installment7duedate, installment7date,
+                    installment8amount, installment8duedate, installment8date,
+                    installment9amount, installment9duedate, installment9date,
+                    installment10amount, installment10duedate, installment10date,
+                    projectcompletionstatus, latepaymentinterest
+                FROM connectlinkdatabase
+                ORDER BY id DESC
+            """)
+            projects = cursor.fetchall()
+            
+            # Convert to DataFrame
+            import pandas as pd
+            
+            columns = [
+                'id', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
+                'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname',
+                'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount',
+                'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet',
+                'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate',
+                'installment1date', 'installment2amount', 'installment2duedate', 'installment2date',
+                'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
+                'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
+                'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
+                'installment7amount', 'installment7duedate', 'installment7date',
+                'installment8amount', 'installment8duedate', 'installment8date',
+                'installment9amount', 'installment9duedate', 'installment9date',
+                'installment10amount', 'installment10duedate', 'installment10date',
+                'projectcompletionstatus', 'latepaymentinterest'
+            ]
+            
+            df = pd.DataFrame(projects, columns=columns)
+            
+            # Calculate momid
+            df['datedepositorbullet'] = pd.to_datetime(df['datedepositorbullet'])
+            df['momid'] = df.groupby(df['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
+            
+            # Format projectstartdate
+            # FORMAT ALL DATE COLUMNS TO 'dd Month YYYY'
+            date_columns = [
+                'projectstartdate',
+                'contractagreementdate',
+                'datedepositorbullet',
+                'installment1duedate', 'installment2duedate', 'installment3duedate',
+                'installment4duedate', 'installment5duedate', 'installment6duedate',
+                'installment7duedate', 'installment8duedate', 'installment9duedate', 'installment10duedate',
+                'installment1date', 'installment2date', 'installment3date',
+                'installment4date', 'installment5date', 'installment6date',
+                'installment7date', 'installment8date', 'installment9date', 'installment10date',
+            ]
+            
+            for col in date_columns:
+                if col in df.columns:
+                    df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%d %B %Y')
+
+            # REORDER COLUMNS EXACTLY AS YOUR run1() function
+            df = df[['momid', 'clientname', 'clientidnumber', 'clientaddress', 'clientwanumber', 'clientemail',
+                    'clientnextofkinname', 'clientnextofkinaddress', 'clientnextofkinphone', 'nextofkinrelationship',
+                    'projectname', 'projectlocation', 'projectdescription', 'projectadministratorname',
+                    'projectstartdate', 'projectduration', 'contractagreementdate', 'totalcontractamount',
+                    'paymentmethod', 'monthstopay', 'datecaptured', 'capturer', 'capturerid', 'depositorbullet',
+                    'datedepositorbullet', 'monthlyinstallment', 'installment1amount', 'installment1duedate',
+                    'installment1date', 'installment2amount', 'installment2duedate', 'installment2date',
+                    'installment3amount', 'installment3duedate', 'installment3date', 'installment4amount',
+                    'installment4duedate', 'installment4date', 'installment5amount', 'installment5duedate',
+                    'installment5date', 'installment6amount', 'installment6duedate', 'installment6date',
+                    'installment7amount', 'installment7duedate', 'installment7date',
+                    'installment8amount', 'installment8duedate', 'installment8date',
+                    'installment9amount', 'installment9duedate', 'installment9date',
+                    'installment10amount', 'installment10duedate', 'installment10date',
+                    'projectcompletionstatus', 'latepaymentinterest', 'id']]
+            
+            # Convert DataFrame back to list of lists
+            data = df.values.tolist()
+            
+            # Format data for DataTables
+            table_data = []
+            for row in data:
+                row_data = []
+                for value in row:
+                    if pd.isna(value) or value is None:
+                        row_data.append('')
+                    else:
+                        row_data.append(value)
+                
+                # Get values for action buttons
+                project_id = row_data[46] if len(row_data) > 46 else ''  # id is column 46 (last column before Action)
+                client_name = row_data[1] if len(row_data) > 1 else ''   # clientname is column 1
+                project_name = row_data[10] if len(row_data) > 10 else ''  # projectname is column 10
+                
+                # Create action buttons - SAME AS YOUR ORIGINAL
+                action_buttons = f'''
+                <div style="display: flex; gap: 10px;">
+                    <a href="/download_contract/{project_id}" 
+                       class="btn btn-primary download-contract-btn" 
+                       data-id="{project_id}" 
+                       onclick="handleDownloadClick(this)">
+                       Download
+                    </a>
+                    <button class="btn btn-primary view-project-btn" 
+                            onclick="openModal('viewprojectModal')" 
+                            data-id="{project_id}">
+                        View
+                    </button>
+                    <button class="btn btn-primary notes-btn" 
+                            onclick="openModal('notesModal')" 
+                            data-id="{project_id}" 
+                            data-project-name="{project_name}" 
+                            data-client-name="{client_name}">
+                        Notes
+                    </button>
+                    <button class="btn btn-primary update-project-btn"
+                            data-id="{project_id}"
+                            onclick="openModal('updateModal')">
+                        Update
+                    </button>
+                </div>
+                '''
+                
+                # Add action buttons as the last column (column 47)
+                row_data.append(action_buttons)
+                table_data.append(row_data)
+            
+            print(f"Returning {len(table_data)} rows, each with {len(table_data[0]) if table_data else 0} columns")
+            
+            return jsonify({
+                'data': table_data,
+                'draw': 1,
+                'recordsTotal': len(table_data),
+                'recordsFiltered': len(table_data)
+            })
+            
+    except Exception as e:
+        print(f"Error in get_updated_table_data: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500   
+
+# Add this at the top of your file (after imports)
+RECEIPT_CONFIG = {
+    'deposit': {
+        'payload_prefix': 'deposit_receipt_',
+        'template_name': 'depreceipt',  # Your WhatsApp template name
+        'amount_field': 'depositorbullet',
+        'date_field': 'datedepositorbullet',
+        'button_index': '0',
+        'title': 'Deposit',
+        'watermark': 'DEPOSIT',
+        'filename_prefix': 'Deposit_Receipt',
+        'processing_message': '⏳ Generating your deposit receipt...',
+        'has_due_date': False
+    },
+    'installment1': {
+        'payload_prefix': 'installment1_receipt_',
+        'template_name': 'installmentreceipt',  # Your WhatsApp template name
+        'amount_field': 'installment1amount',
+        'date_field': 'installment1date',
+        'due_date_field': 'installment1duedate',
+        'button_index': '0',
+        'title': 'First Installment',
+        'watermark': 'INSTALLMENT 1',
+        'filename_prefix': 'First_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your first installment...',
+        'has_due_date': True
+    },
+    'installment2': {
+        'payload_prefix': 'installment2_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment2amount',
+        'date_field': 'installment2date',
+        'due_date_field': 'installment2duedate',
+        'button_index': '0',
+        'title': 'Second Installment',
+        'watermark': 'INSTALLMENT 2',
+        'filename_prefix': 'Second_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your second installment...',
+        'has_due_date': True
+    },
+    'installment3': {
+        'payload_prefix': 'installment3_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment3amount',
+        'date_field': 'installment3date',
+        'due_date_field': 'installment3duedate',
+        'button_index': '0',
+        'title': 'Third Installment',
+        'watermark': 'INSTALLMENT 3',
+        'filename_prefix': 'Third_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your third installment...',
+        'has_due_date': True
+    },
+    'installment4': {
+        'payload_prefix': 'installment4_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment4amount',
+        'date_field': 'installment4date',
+        'due_date_field': 'installment4duedate',
+        'button_index': '0',
+        'title': 'Fourth Installment',
+        'watermark': 'INSTALLMENT 4',
+        'filename_prefix': 'Fourth_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your fourth installment...',
+        'has_due_date': True
+    },
+    'installment5': {
+        'payload_prefix': 'installment5_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment5amount',
+        'date_field': 'installment5date',
+        'due_date_field': 'installment5duedate',
+        'button_index': '0',
+        'title': 'Fifth Installment',
+        'watermark': 'INSTALLMENT 5',
+        'filename_prefix': 'Fifth_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your fifth installment...',
+        'has_due_date': True
+    },
+    'installment6': {
+        'payload_prefix': 'installment6_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment6amount',
+        'date_field': 'installment6date',
+        'due_date_field': 'installment6duedate',
+        'button_index': '0',
+        'title': 'Sixth Installment',
+        'watermark': 'INSTALLMENT 6',
+        'filename_prefix': 'Sixth_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your sixth installment...',
+        'has_due_date': True
+    },
+    'installment7': {
+        'payload_prefix': 'installment7_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment7amount',
+        'date_field': 'installment7date',
+        'due_date_field': 'installment7duedate',
+        'button_index': '0',
+        'title': 'Seventh Installment',
+        'watermark': 'INSTALLMENT 7',
+        'filename_prefix': 'Seventh_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your seventh installment...',
+        'has_due_date': True
+    },
+    'installment8': {
+        'payload_prefix': 'installment8_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment8amount',
+        'date_field': 'installment8date',
+        'due_date_field': 'installment8duedate',
+        'button_index': '0',
+        'title': 'Eighth Installment',
+        'watermark': 'INSTALLMENT 8',
+        'filename_prefix': 'Eighth_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your eighth installment...',
+        'has_due_date': True
+    },
+    'installment9': {
+        'payload_prefix': 'installment9_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment9amount',
+        'date_field': 'installment9date',
+        'due_date_field': 'installment9duedate',
+        'button_index': '0',
+        'title': 'Ninth Installment',
+        'watermark': 'INSTALLMENT 9',
+        'filename_prefix': 'Ninth_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your ninth installment...',
+        'has_due_date': True
+    },
+    'installment10': {
+        'payload_prefix': 'installment10_receipt_',
+        'template_name': 'installmentreceipt',
+        'amount_field': 'installment10amount',
+        'date_field': 'installment10date',
+        'due_date_field': 'installment10duedate',
+        'button_index': '0',
+        'title': 'Tenth Installment',
+        'watermark': 'INSTALLMENT 10',
+        'filename_prefix': 'Tenth_Installment_Receipt',
+        'processing_message': '⏳ Generating receipt for your tenth installment...',
+        'has_due_date': True
+    }
+}
+
+@app.route('/send_receipt_to_client', methods=['POST'])  # MUST have methods=['POST']
+def send_receipt_to_client():
+    """Unified endpoint to send any receipt via WhatsApp"""
+    try:
+        project_id = request.form.get('project_id')
+        paid_date = request.form.get('paid_date')
+        receipt_type = request.form.get('receipt_type')
+        
+        print(f"📨 Received: project_id={project_id}, paid_date={paid_date}, receipt_type={receipt_type}")
+        
+        config = RECEIPT_CONFIG.get(receipt_type)
+        if not config:
+            return jsonify({'success': False, 'error_message': f'Invalid receipt type: {receipt_type}'})
+        
+        with get_db() as (cursor, connection):
+            # Get current data
+            cursor.execute(f"""
+                SELECT clientwanumber, clientname, projectname, {config['date_field']}
+                FROM connectlinkdatabase 
+                WHERE id = %s
+            """, (project_id,))
+            
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error_message': 'Project not found'})
+            
+            whatsapp_number, client_name, project_name, db_paid_date = row
+            
+            # Process date
+            date_was_updated = False
+            if paid_date and paid_date.strip():
+                if not db_paid_date or str(db_paid_date) != paid_date:
+                    cursor.execute(f"UPDATE connectlinkdatabase SET {config['date_field']} = %s WHERE id = %s", 
+                                 (paid_date, project_id))
+                    connection.commit()
+                    date_was_updated = True
+                effective_date = paid_date
+            else:
+                if not db_paid_date:
+                    return jsonify({
+                        'success': False,
+                        'error_message': f'Sorry, you have to input the {config["title"].lower()} date first'
+                    })
+                effective_date = db_paid_date.strftime('%Y-%m-%d') if hasattr(db_paid_date, 'strftime') else db_paid_date
+            
+            # Format WhatsApp number
+            whatsapp_number = str(whatsapp_number).strip()
+            whatsapp_number = ''.join(filter(str.isdigit, whatsapp_number))
+            if whatsapp_number.startswith('0'):
+                formatted_number = '263' + whatsapp_number[1:]
+            else:
+                formatted_number = '263' + whatsapp_number
+            
+            # Send WhatsApp template
+            response = send_template_with_button(formatted_number, project_id, receipt_type)
+            
+            if response and 'messages' in response:
+                return jsonify({
+                    'success': True,
+                    'success_message': f'{config["title"]} receipt sent to {client_name}',
+                    'details': {
+                        'client_name': client_name,
+                        'whatsapp_number': formatted_number,
+                        'project_name': project_name,
+                        'paid_date': effective_date,
+                        'date_updated': date_was_updated
+                    }
+                })
+            else:
+                error_msg = response.get('error', {}).get('message', 'Unknown error') if response else 'No response'
+                return jsonify({'success': False, 'error_message': f'Failed to send: {error_msg}'})
+                
+    except Exception as e:
+        print(f"❌ Error in send_receipt_to_client: {str(e)}")
+        return jsonify({'success': False, 'error_message': f'System error: {str(e)}'})
+    
+def send_template_with_button(to_number, project_id, receipt_type):
+    """Send template with button containing project_id in payload"""
+    config = RECEIPT_CONFIG.get(receipt_type)
+    
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    data = {
+        "messaging_product": "whatsapp",
+        "to": to_number,
+        "type": "template",
+        "template": {
+            "name": config['template_name'],
+            "language": {"code": "en"},
+            "components": [
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": config['button_index'],
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": f"{config['payload_prefix']}{project_id}"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    
+    print(f"📤 Sending {receipt_type} template with payload: {config['payload_prefix']}{project_id}")
+    
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        resp_data = response.json()
+        
+        # Save to whatsapp_messages for chat UI visibility
+        if response.status_code == 200:
+            try:
+                with get_db() as (save_cursor, save_conn):
+                    save_cursor.execute("""
+                        INSERT INTO whatsapp_messages 
+                        (sender_phone, sender_name, message_text, message_type, direction, status)
+                        VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+                    """, (to_number, 'ConnectLink Bot', f'[Template: {config["template_name"]}] {receipt_type.replace("_"," ")}', 'template'))
+                    save_conn.commit()
+            except Exception as save_err:
+                print(f"⚠️ Failed to save receipt template to messages: {save_err}")
+        
+        return resp_data
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return {"error": {"message": str(e)}}
+
+
+
+@app.route('/download_installment_receipt/<project_id>/<int:installment_num>', methods=['POST'])
+def download_installment_receipt(project_id, installment_num):
+    """
+    Unified endpoint for downloading any installment receipt
+    """
+    with get_db() as (cursor, connection):
+        # Get data from request
+        data = request.get_json()
+        
+        # Map installment number to field names
+        field_mapping = {
+            1: {
+                'amount': 'installment1amount',
+                'due_date': 'installment1duedate',
+                'paid_date': 'installment1date',
+                'date_param': 'installment1_date',
+                'title': 'First'
+            },
+            2: {
+                'amount': 'installment2amount',
+                'due_date': 'installment2duedate',
+                'paid_date': 'installment2date',
+                'date_param': 'installment2_date',
+                'title': 'Second'
+            },
+            3: {
+                'amount': 'installment3amount',
+                'due_date': 'installment3duedate',
+                'paid_date': 'installment3date',
+                'date_param': 'installment3_date',
+                'title': 'Third'
+            },
+            4: {
+                'amount': 'installment4amount',
+                'due_date': 'installment4duedate',
+                'paid_date': 'installment4date',
+                'date_param': 'installment4_date',
+                'title': 'Fourth'
+            },
+            5: {
+                'amount': 'installment5amount',
+                'due_date': 'installment5duedate',
+                'paid_date': 'installment5date',
+                'date_param': 'installment5_date',
+                'title': 'Fifth'
+            },
+            6: {
+                'amount': 'installment6amount',
+                'due_date': 'installment6duedate',
+                'paid_date': 'installment6date',
+                'date_param': 'installment6_date',
+                'title': 'Sixth'
+            },
+            7: {
+                'amount': 'installment7amount',
+                'due_date': 'installment7duedate',
+                'paid_date': 'installment7date',
+                'date_param': 'installment7_date',
+                'title': 'Seventh'
+            },
+            8: {
+                'amount': 'installment8amount',
+                'due_date': 'installment8duedate',
+                'paid_date': 'installment8date',
+                'date_param': 'installment8_date',
+                'title': 'Eighth'
+            },
+            9: {
+                'amount': 'installment9amount',
+                'due_date': 'installment9duedate',
+                'paid_date': 'installment9date',
+                'date_param': 'installment9_date',
+                'title': 'Ninth'
+            },
+            10: {
+                'amount': 'installment10amount',
+                'due_date': 'installment10duedate',
+                'paid_date': 'installment10date',
+                'date_param': 'installment10_date',
+                'title': 'Tenth'
+            }
+        }
+        
+        if installment_num not in field_mapping:
+            return jsonify({'error': 'Invalid installment number'}), 400
+            
+        fields = field_mapping[installment_num]
+        installment_paid_date = data.get(fields['date_param'])
+        
+        # Fetch project info with dynamic field selection
+        cursor.execute(f"""
+            SELECT id, clientname, clientaddress, clientwanumber, clientemail, 
+                   projectname, projectlocation, projectdescription, projectadministratorname,
+                   {fields['amount']}, {fields['due_date']}, {fields['paid_date']} 
+            FROM connectlinkdatabase WHERE id = %s
+        """, (project_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Project not found'}), 404
+
+        db_installment_date = row[11]  # The paid date field
+
+        # Handle date validation and update
+        if installment_paid_date and installment_paid_date.strip():
+            if not db_installment_date or db_installment_date != installment_paid_date:
+                cursor.execute(f"UPDATE connectlinkdatabase SET {fields['paid_date']} = %s WHERE id = %s", 
+                             (installment_paid_date, project_id))
+                connection.commit()
+                print(f"Updated date to: {installment_paid_date}")
+            
+            try:
+                effective_date = datetime.strptime(installment_paid_date, '%Y-%m-%d').date()
+            except ValueError:
+                print("Failed to convert effective date to required format")
+                effective_date = db_installment_date
+        else:
+            if not db_installment_date:
+                return jsonify({
+                    'success': False,
+                    'error_message': f'Sorry, you have to input the date installment {installment_num} was paid first'
+                }), 400
+            effective_date = db_installment_date
+
+        # Get company info and logo (same as before)
+        cursor.execute("SELECT * FROM connectlinkdetails;")
+        details = cursor.fetchall()
+        company = details[0] if details else {}
+
+        # Get logo
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+        with open(logo_path, 'rb') as img:
+            logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+
+        # Generate HTML template (using the same template with dynamic content)
+        html = generate_receipt_html(row, effective_date, logo_base64, fields['title'], installment_num)
+
+        # Generate PDF
+        pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+
+        response = make_response(pdf)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties {fields['title']} Installment_Receipt_Project_{project_id}.pdf"
+        return response
+
+def generate_receipt_html(row, effective_date, logo_base64, installment_title, installment_num):
+    """
+    Generate HTML for receipt with dynamic content
+    """
+    amount = row[9]
+    due_date = row[10]
+    
+    # Format amount
+    if amount:
+        if '.' in str(amount):
+            whole, decimal = str(amount).split('.')
+            decimal = decimal[:2].ljust(2, '0')
+        else:
+            whole, decimal = str(amount), '00'
+        formatted_amount = f"{format(int(whole), ',')}.{decimal}"
+    else:
+        formatted_amount = '0.00'
+
+    # Format due date
+    due_date_str = due_date.strftime('%d %b %Y') if due_date else '—'
+    due_date_long = due_date.strftime('%d %B %Y') if due_date else '—'
+    
+    # Format paid date
+    paid_date_str = effective_date.strftime('%d %b %Y') if effective_date else '—'
+    paid_date_long = effective_date.strftime('%d %B %Y') if effective_date else '—'
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{
+                size: A5;
+                margin: 5mm 5mm;
+            }}
+            body {{
+                font-family: 'Helvetica', 'Arial', sans-serif;
+                color: #2C3E50;
+                line-height: 1.4;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+                font-size: 10px;
+            }}
+            .receipt-container {{
+                border: 1px solid #d0d0d0;
+                padding: 15px;
+                min-height: 680px;
+                position: relative;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }}
+            .header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 12px;
+                border-bottom: 2px solid #1E2A56;
+            }}
+            .logo {{
+                width: 180px;
+            }}
+            .receipt-title {{
+                text-align: right;
+            }}
+            .receipt-title h5 {{
+                color: #1E2A56;
+                font-size: 16px;
+                margin: 0;
+                font-weight: 600;
+                letter-spacing: 1px;
+            }}
+            .receipt-title p {{
+                color: #666;
+                font-size: 10px;
+                margin: 3px 0 0;
+            }}
+            .receipt-metadata {{
+                display: flex;
+                justify-content: space-between;
+                margin-top: 5px;
+                font-size: 9px;
+                color: #666;
+            }}
+            .receipt-number {{
+                color: #1E2A56;
+                font-weight: 600;
+            }}
+            .section {{
+                margin-bottom: 18px;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                overflow: hidden;
+            }}
+            .section-header {{
+                background: #f5f7fa;
+                padding: 8px 12px;
+                font-weight: 600;
+                font-size: 11px;
+                color: #1E2A56;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 1px solid #e0e0e0;
+            }}
+            .section-content {{
+                padding: 12px;
+            }}
+            .grid-2 {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }}
+            .info-row {{
+                display: flex;
+                margin-bottom: 6px;
+                font-size: 10px;
+            }}
+            .info-label {{
+                width: 70px;
+                color: #666;
+                font-weight: 500;
+            }}
+            .info-value {{
+                flex: 1;
+                color: #2C3E50;
+                font-weight: 400;
+            }}
+            .payment-summary {{
+                background: #fafbfd;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                padding: 15px;
+                margin: 15px 0 5px;
+            }}
+            .payment-grid {{
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+                text-align: center;
+            }}
+            .payment-item {{
+                padding: 8px 0;
+            }}
+            .payment-label {{
+                font-size: 9px;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 5px;
+            }}
+            .payment-amount {{
+                font-size: 18px;
+                font-weight: 600;
+                color: #1E2A56;
+            }}
+            .payment-amount small {{
+                font-size: 10px;
+                font-weight: 400;
+                color: #999;
+            }}
+            .payment-date {{
+                font-size: 14px;
+                font-weight: 500;
+                color: #2C3E50;
+            }}
+            .status-paid {{
+                display: inline-block;
+                background: #27ae60;
+                color: white;
+                font-size: 9px;
+                font-weight: 600;
+                padding: 3px 10px;
+                border-radius: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            .footer {{
+                margin-top: 25px;
+                padding-top: 12px;
+                border-top: 1px solid #e0e0e0;
+                font-size: 8px;
+                color: #999;
+                text-align: center;
+            }}
+            .footer-line {{
+                margin: 3px 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="receipt-container">
+            <div class="header">
+                <img src="data:image/png;base64,{logo_base64}" class="logo">
+                <div class="receipt-title">
+                    <h5>INSTALLMENT RECEIPT</h5>
+                    <p>{installment_title} Installment Payment</p>
+                    <div class="receipt-metadata">
+                        <span class="receipt-number">REF: CON-{row[0]}-INST{installment_num}-{effective_date}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="payment-summary">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span class="status-paid">PAID</span>
+                    <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-{installment_num}</span>
+                </div>
+                <div class="payment-grid">
+                    <div class="payment-item">
+                        <div class="payment-label">Amount</div>
+                        <div class="payment-amount">
+                            USD <span class="amount-whole">{formatted_amount.split('.')[0]}</span>.<span class="amount-decimal"><small>{formatted_amount.split('.')[1]}</small></span>
+                        </div>
+                    </div>
+                    <div class="payment-item">
+                        <div class="payment-label">Due Date</div>
+                        <div class="payment-date">{due_date_str}</div>
+                    </div>
+                    <div class="payment-item">
+                        <div class="payment-label">Paid Date</div>
+                        <div class="payment-date">{paid_date_str}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">CLIENT INFORMATION</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Name:</span>
+                                <span class="info-value">{row[1]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Address:</span>
+                                <span class="info-value">{row[2]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Contact:</span>
+                                <span class="info-value">0{row[3]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Email:</span>
+                                <span class="info-value">{row[4]}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">PROJECT INFORMATION</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Project:</span>
+                                <span class="info-value">{row[5]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Location:</span>
+                                <span class="info-value">{row[6]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Scope:</span>
+                                <span class="info-value">{row[7]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Administrator:</span>
+                                <span class="info-value">{row[8]}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">PAYMENT DETAILS</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Installment:</span>
+                                <span class="info-value">{installment_title} Installment</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Amount:</span>
+                                <span class="info-value">USD {formatted_amount}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Due Date:</span>
+                                <span class="info-value">{due_date_long}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Date Paid:</span>
+                                <span class="info-value">{paid_date_long}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
+                <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602</div>
+                <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+@app.route('/download_deposit_receipt/<project_id>', methods=['POST'])
+def download_deposit_receipt(project_id):
+    """
+    Generate and download deposit receipt for a project
+    """
+    with get_db() as (cursor, connection):
+        # Get data from request
+        data = request.get_json()
+        deposit_paid_date = data.get('deposit_date')
+        
+        # Fetch project info - using your actual column names
+        cursor.execute("""
+            SELECT id, clientname, clientaddress, clientwanumber, clientemail, 
+                   projectname, projectlocation, projectdescription, projectadministratorname,
+                   depositorbullet, datedepositorbullet 
+            FROM connectlinkdatabase WHERE id = %s
+        """, (project_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'error': 'Project not found'}), 404
+
+        db_deposit_date = row[10]  # datedepositorbullet is at index 10
+
+        # Handle date validation and update
+        if deposit_paid_date and deposit_paid_date.strip():
+            if not db_deposit_date or db_deposit_date != deposit_paid_date:
+                cursor.execute("UPDATE connectlinkdatabase SET datedepositorbullet = %s WHERE id = %s", 
+                             (deposit_paid_date, project_id))
+                connection.commit()
+                print(f"Updated deposit date to: {deposit_paid_date}")
+            
+            try:
+                effective_date = datetime.strptime(deposit_paid_date, '%Y-%m-%d').date()
+            except ValueError:
+                print("Failed to convert effective date to required format")
+                effective_date = db_deposit_date
+        else:
+            if not db_deposit_date:
+                return jsonify({
+                    'success': False,
+                    'error_message': 'Sorry, you have to input the deposit date first'
+                }), 400
+            effective_date = db_deposit_date
+
+        # Get company info
+        cursor.execute("SELECT * FROM connectlinkdetails;")
+        details = cursor.fetchall()
+        company = details[0] if details else {}
+
+        # Get logo
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+        with open(logo_path, 'rb') as img:
+            logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+
+        # Generate deposit receipt HTML (without due date)
+        html = generate_deposit_receipt_html(row, effective_date, logo_base64)
+
+        # Generate PDF
+        pdf = HTML(string=html, base_url=request.host_url).write_pdf()
+
+        response = make_response(pdf)
+        response.headers["Content-Type"] = "application/pdf"
+        response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[5]} ConnectLink Properties Deposit_Receipt_Project_{project_id}.pdf"
+        return response
+
+def generate_deposit_receipt_html(row, effective_date, logo_base64):
+    """
+    Generate HTML for deposit receipt
+    """
+    amount = row[9]  # depositorbullet
+    # No due date field in your database
+    
+    # Format amount with comma thousands separator and small grey decimal
+    if amount:
+        if '.' in str(amount):
+            whole, decimal = str(amount).split('.')
+            decimal = decimal[:2].ljust(2, '0')
+        else:
+            whole, decimal = str(amount), '00'
+        formatted_whole = format(int(whole), ',')
+        formatted_amount = f"{formatted_whole}.{decimal}"
+    else:
+        formatted_whole = '0'
+        formatted_amount = '0.00'
+        decimal = '00'
+    
+    # Format paid date
+    paid_date_str = effective_date.strftime('%d %b %Y') if effective_date else '—'
+    paid_date_long = effective_date.strftime('%d %B %Y') if effective_date else '—'
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            @page {{
+                size: A5;
+                margin: 5mm 5mm;
+            }}
+            body {{
+                font-family: 'Helvetica', 'Arial', sans-serif;
+                color: #2C3E50;
+                line-height: 1.4;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+                font-size: 10px;
+            }}
+            .receipt-container {{
+                border: 1px solid #d0d0d0;
+                padding: 15px;
+                min-height: 680px;
+                position: relative;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }}
+            .header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 12px;
+                border-bottom: 2px solid #1E2A56;
+            }}
+            .logo {{
+                width: 180px;
+            }}
+            .receipt-title {{
+                text-align: right;
+            }}
+            .receipt-title h5 {{
+                color: #1E2A56;
+                font-size: 16px;
+                margin: 0;
+                font-weight: 600;
+                letter-spacing: 1px;
+            }}
+            .receipt-title p {{
+                color: #666;
+                font-size: 10px;
+                margin: 3px 0 0;
+            }}
+            .receipt-metadata {{
+                display: flex;
+                justify-content: space-between;
+                margin-top: 5px;
+                font-size: 9px;
+                color: #666;
+            }}
+            .receipt-number {{
+                color: #1E2A56;
+                font-weight: 600;
+            }}
+            .section {{
+                margin-bottom: 18px;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                overflow: hidden;
+            }}
+            .section-header {{
+                background: #f5f7fa;
+                padding: 8px 12px;
+                font-weight: 600;
+                font-size: 11px;
+                color: #1E2A56;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                border-bottom: 1px solid #e0e0e0;
+            }}
+            .section-content {{
+                padding: 12px;
+            }}
+            .grid-2 {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }}
+            .info-row {{
+                display: flex;
+                margin-bottom: 6px;
+                font-size: 10px;
+            }}
+            .info-label {{
+                width: 70px;
+                color: #666;
+                font-weight: 500;
+            }}
+            .info-value {{
+                flex: 1;
+                color: #2C3E50;
+                font-weight: 400;
+            }}
+            .payment-summary {{
+                background: #fafbfd;
+                border: 1px solid #e8e8e8;
+                border-radius: 4px;
+                padding: 15px;
+                margin: 15px 0 5px;
+            }}
+            .payment-grid {{
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                text-align: center;
+            }}
+            .payment-item {{
+                padding: 8px 0;
+            }}
+            .payment-label {{
+                font-size: 9px;
+                color: #666;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 5px;
+            }}
+            .payment-amount {{
+                font-size: 18px;
+                font-weight: 600;
+                color: #1E2A56;
+            }}
+            .amount-whole {{
+                font-size: 18px;
+                font-weight: 600;
+                color: #1E2A56;
+            }}
+            .amount-decimal {{
+                font-size: 10px;
+                font-weight: 400;
+                color: #999;
+                vertical-align: super;
+                margin-left: 1px;
+            }}
+            .payment-date {{
+                font-size: 14px;
+                font-weight: 500;
+                color: #2C3E50;
+            }}
+            .status-paid {{
+                display: inline-block;
+                background: #27ae60;
+                color: white;
+                font-size: 9px;
+                font-weight: 600;
+                padding: 3px 10px;
+                border-radius: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            .footer {{
+                margin-top: 25px;
+                padding-top: 12px;
+                border-top: 1px solid #e0e0e0;
+                font-size: 8px;
+                color: #999;
+                text-align: center;
+            }}
+            .footer-line {{
+                margin: 3px 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="receipt-container">
+            <div class="header">
+                <img src="data:image/png;base64,{logo_base64}" class="logo">
+                <div class="receipt-title">
+                    <h5>DEPOSIT RECEIPT</h5>
+                    <p>Initial Deposit Payment</p>
+                    <div class="receipt-metadata">
+                        <span class="receipt-number">REF: CON-{row[0]}-DEP-{effective_date.strftime('%Y%m%d') if effective_date else '000000'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="payment-summary">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span class="status-paid">PAID</span>
+                    <span style="font-size: 10px; color: #666;">Transaction ID: TRX-{row[0]}-DEP</span>
+                </div>
+                <div class="payment-grid">
+                    <div class="payment-item">
+                        <div class="payment-label">Amount</div>
+                        <div class="payment-amount">
+                            USD <span class="amount-whole">{formatted_whole}</span>.<span class="amount-decimal">{decimal}</span>
+                        </div>
+                    </div>
+                    <div class="payment-item">
+                        <div class="payment-label">Date Paid</div>
+                        <div class="payment-date">{paid_date_str}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">CLIENT INFORMATION</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Name:</span>
+                                <span class="info-value">{row[1]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Address:</span>
+                                <span class="info-value">{row[2]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Contact:</span>
+                                <span class="info-value">0{row[3]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Email:</span>
+                                <span class="info-value">{row[4]}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">PROJECT INFORMATION</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Project:</span>
+                                <span class="info-value">{row[5]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Location:</span>
+                                <span class="info-value">{row[6]}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Scope:</span>
+                                <span class="info-value">{row[7]}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Administrator:</span>
+                                <span class="info-value">{row[8]}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">PAYMENT DETAILS</div>
+                <div class="section-content">
+                    <div class="grid-2">
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Payment:</span>
+                                <span class="info-value">Initial Deposit</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Amount:</span>
+                                <span class="info-value">USD {formatted_amount}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <span class="info-label">Date Paid:</span>
+                                <span class="info-value">{paid_date_long}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
+                <div class="footer-line">For any inquiries, please contact info@connectlinkproperties.co.zw | +263 773368558 | +263 718047602</div>
+                <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.route('/logout')
+def logout():
+    # Log the logout activity before clearing session
+    user_name = session.get('user_name') or session.get('username') or 'Unknown'
+    log_activity('user_logout', f'User {user_name} logged out', 'user', session.get('userid') or session.get('user_id'))
+    # Clear the session data to log the user out
+    session.clear()
+    # Redirect to the landing page or login page after logout
+    return render_template('mainindex.html')  # Or send_from_directory for static HTML
+
+@app.teardown_appcontext
+def close_db(error):
+    """Close any remaining connections on app shutdown"""
+    pass  # No-op now since you're using context managers everywhere
+
+
+# ==================== USER MANAGEMENT PORTAL ====================
+
+def get_user_permissions(user_type, user_id):
+    """Get permissions for a user, creating default super admin if first user"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT can_manage_projects, can_manage_hardware, can_manage_hr,
+                       can_add_users, can_edit_users, can_delete_users,
+                       can_export_data, can_view_audit, can_manage_roles,
+                       is_super_admin, can_view_payments, can_edit_projects
+                FROM user_permissions WHERE user_type=%s AND user_id=%s
+            """, (user_type, user_id))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'can_manage_projects': row[0], 'can_manage_hardware': row[1],
+                    'can_manage_hr': row[2], 'can_add_users': row[3],
+                    'can_edit_users': row[4], 'can_delete_users': row[5],
+                    'can_export_data': row[6], 'can_view_audit': row[7],
+                    'can_manage_roles': row[8], 'is_super_admin': row[9],
+                    'can_view_payments': row[10], 'can_edit_projects': row[11] if len(row) > 11 else True
+                }
+            # If no permissions set, check if this is the first user - make them super admin
+            cursor.execute("SELECT COUNT(*) FROM user_permissions")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                cursor.execute("""
+                    INSERT INTO user_permissions (user_type, user_id, is_super_admin,
+                        can_manage_projects, can_manage_hardware, can_manage_hr,
+                        can_add_users, can_edit_users, can_delete_users,
+                        can_export_data, can_view_audit, can_manage_roles, can_view_payments)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                """, (user_type, user_id))
+                connection.commit()
+                return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
+                    'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects']}
+            # Default: no permissions
+            return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
+                'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments']}
+    except Exception as e:
+        print(f"Permissions error: {e}")
+        return {}
+
+
+@app.route('/api/user-management/permissions', methods=['GET', 'POST'])
+def um_permissions_api():
+    """Get or update user permissions"""
+    if request.method == 'GET':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT up.id, up.user_type, up.user_id,
+                           CASE WHEN up.user_type='projects' THEN cl.name
+                                WHEN up.user_type='hardware' THEN hw.full_name
+                                ELSE 'Unknown' END as user_name,
+                           up.is_super_admin, up.can_manage_projects, up.can_manage_hardware,
+                           up.can_manage_hr, up.can_add_users, up.can_edit_users,
+                           up.can_delete_users, up.can_export_data, up.can_view_audit,
+                           up.can_manage_roles, up.can_view_payments
+                    FROM user_permissions up
+                    LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
+                    LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
+                    ORDER BY up.id
+                """)
+                rows = cursor.fetchall()
+                perms = []
+                for r in rows:
+                    perms.append({
+                        'id': r[0], 'user_type': r[1], 'user_id': r[2], 'user_name': r[3],
+                        'is_super_admin': r[4], 'can_manage_projects': r[5],
+                        'can_manage_hardware': r[6], 'can_manage_hr': r[7],
+                        'can_add_users': r[8], 'can_edit_users': r[9],
+                        'can_delete_users': r[10], 'can_export_data': r[11],
+                        'can_view_audit': r[12], 'can_manage_roles': r[13],
+                        'can_view_payments': r[14] if len(r) > 14 else False,
+                    'can_edit_projects': r[15] if len(r) > 15 else True
+                    })
+                return jsonify({'success': True, 'data': perms})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        # Permission check: need can_manage_roles to modify permissions
+        perms = session.get('um_permissions', {})
+        if not perms.get('is_super_admin', False) and not perms.get('can_manage_roles', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to manage roles.'}), 403
+        try:
+            data = request.get_json()
+            user_type = data.get('user_type')
+            user_id = data.get('user_id')
+            fields = ['is_super_admin', 'can_manage_projects', 'can_manage_hardware',
+                      'can_manage_hr', 'can_add_users', 'can_edit_users', 'can_delete_users',
+                      'can_export_data', 'can_view_audit', 'can_manage_roles',
+                      'can_view_payments', 'can_edit_projects']
+
+            with get_db() as (cursor, connection):
+                # Upsert
+                set_clauses = ', '.join([f"{f}=%s" for f in fields])
+                values = [data.get(f, False) for f in fields]
+                cursor.execute(f"""
+                    INSERT INTO user_permissions (user_type, user_id, {', '.join(fields)})
+                    VALUES (%s, %s, {', '.join(['%s']*len(fields))})
+                    ON CONFLICT (user_type, user_id) DO UPDATE SET
+                    {set_clauses}
+                """, [user_type, user_id] + values + values)
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Permissions updated'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/user-management-login', methods=['POST'])
+def user_management_login():
+    """Login for User Management portal - checks admin_users only"""
+    try:
+        email_or_username = request.form.get('emaillogin', '').strip()
+        password = request.form.get('passwordlogin', '').strip()
+
+        if not email_or_username or not password:
+            return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            # ===== SINGLE LOGIN: admin_users ONLY =====
+            cursor.execute("""
+                SELECT id, username, password, full_name, source_system, source_id, role, must_reset_password
+                FROM admin_users WHERE username = %s AND is_active = TRUE
+            """, (email_or_username,))
+            au_row = cursor.fetchone()
+            if not au_row or au_row[2] != password:
+                return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+
+            # Check if password reset is required
+            if au_row[7]:  # must_reset_password
+                return jsonify({
+                    'success': False, 'must_reset': True,
+                    'message': 'You must reset your password before continuing.',
+                    'username': email_or_username
+                }), 403
+
+            user_uuid = uuid.uuid4()
+            session['user_uuid'] = str(user_uuid)
+            session.permanent = True
+            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+            session['userid'] = int(au_row[0])
+            session['user_name'] = au_row[3]
+            session['um_user_type'] = au_row[4] or 'projects'
+            session['um_source_id'] = au_row[5]
+
+            # Load permissions
+            perms = get_user_permissions(au_row[4] or 'projects', au_row[5] if au_row[5] else au_row[0])
+            session['um_permissions'] = perms
+
+            log_activity('user_login', f'User Management: {au_row[3]} logged in', 'user', au_row[0])
+            return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/user-management')
+def user_management_dashboard():
+    """User Management portal dashboard"""
+    user_uuid = session.get('user_uuid')
+    user_name = session.get('user_name')
+    userid = session.get('userid')
+    perms = session.get('um_permissions')
+
+    if not user_uuid:
+        return render_template('mainindex.html')
+
+    # Look up permissions if not in session (e.g. switched from another portal)
+    if perms is None and userid:
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
+                au = cursor.fetchone()
+                source_sys = au[0] if au else 'projects'
+                source_id = au[1] if au else userid
+                perms = get_user_permissions(source_sys, source_id)
+                session['um_permissions'] = perms
+        except Exception as e:
+            print(f"UM perms lookup error: {e}")
+            perms = {}
+
+    return render_template('users_dashboard.html', user_name=user_name, perms=perms or {})
+
+
+@app.route('/api/user-management/projects-users')
+def um_projects_users():
+    """Get all Building Projects users (connectlinkusers)"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, datecreated, name, email, whatsapp FROM connectlinkusers ORDER BY id DESC")
+            rows = cursor.fetchall()
+            users = [{'id': r[0], 'datecreated': str(r[1]) if r[1] else None, 'name': r[2], 'email': r[3], 'whatsapp': r[4]} for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/admin-users')
+def um_admin_users():
+    """Get all unified admin users"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, username, full_name, email, whatsapp, source_system, source_id, role, is_active, created_at, subsidiary
+                FROM admin_users ORDER BY id DESC
+            """)
+            rows = cursor.fetchall()
+            users = [{
+                'id': r[0], 'username': r[1], 'full_name': r[2], 'email': r[3],
+                'whatsapp': r[4], 'source_system': r[5], 'source_id': r[6],
+                'role': r[7], 'is_active': r[8],
+                'created_at': str(r[9]) if r[9] else None,
+                'subsidiary': r[10] if len(r) > 10 else ''
+            } for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/save-admin-user', methods=['POST'])
+def um_save_admin_user():
+    """Create or update a unified admin user"""
+    perms = session.get('um_permissions', {})
+    is_super = perms.get('is_super_admin', False)
+    try:
+        data = request.get_json()
+        edit_id = data.get('edit_id')
+        if edit_id:
+            if not is_super and not perms.get('can_edit_users', False):
+                return jsonify({'success': False, 'error': 'Access denied: cannot edit users.'}), 403
+        else:
+            if not is_super and not perms.get('can_add_users', False):
+                return jsonify({'success': False, 'error': 'Access denied: cannot add users.'}), 403
+
+        username = data.get('username', '').strip()
+        full_name = data.get('full_name', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        role = data.get('role', 'operator')
+        source_system = data.get('source_system', 'projects')
+        subsidiary = data.get('subsidiary', '')
+
+        if not username or not full_name:
+            return jsonify({'success': False, 'error': 'Username and full name are required.'}), 400
+
+        with get_db() as (cursor, connection):
+            if edit_id:
+                if password:
+                    cursor.execute("""
+                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, subsidiary=%s, password=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (username, full_name, email, role, subsidiary, password, edit_id))
+                else:
+                    cursor.execute("""
+                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, subsidiary=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (username, full_name, email, role, subsidiary, edit_id))
+                msg = 'Admin user updated'
+            else:
+                pw = password or 'conlink123'
+                cursor.execute("""
+                    INSERT INTO admin_users (username, password, full_name, email, source_system, role, subsidiary)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (username, pw, full_name, email, source_system, role, subsidiary))
+                msg = 'Admin user created'
+            connection.commit()
+            return jsonify({'success': True, 'message': msg})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-admin-user/<int:user_id>', methods=['DELETE'])
+def um_delete_admin_user(user_id):
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: cannot delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            # Get user details first so we can clean up everywhere
+            cursor.execute("SELECT username, source_system, source_id FROM admin_users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            if not user:
+                return jsonify({'success': False, 'error': 'User not found'}), 404
+
+            username = user[0]
+            source_system = user[1]
+            source_id = user[2]
+
+            # Delete from admin_users
+            cursor.execute("DELETE FROM admin_users WHERE id = %s", (user_id,))
+
+            # Delete from legacy tables to prevent re-migration
+            cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (source_id or user_id,))
+            cursor.execute("DELETE FROM connectlinkusers WHERE email = %s OR name = %s", (username, username))
+
+            cursor.execute("DELETE FROM hardware_users WHERE id = %s", (source_id or user_id,))
+            cursor.execute("DELETE FROM hardware_users WHERE username = %s", (username,))
+
+            # Delete from hr_employees
+            cursor.execute("DELETE FROM hr_employees WHERE id = %s", (user_id,))
+
+            # Delete permissions
+            cursor.execute("DELETE FROM user_permissions WHERE user_id = %s", (user_id,))
+
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted completely'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/hardware-users')
+def um_hardware_users():
+    """Get all Hardware POS users"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, username, full_name, role, created_at FROM hardware_users ORDER BY id DESC")
+            rows = cursor.fetchall()
+            users = [{'id': r[0], 'username': r[1], 'full_name': r[2], 'role': r[3], 'created_at': str(r[4]) if r[4] else None} for r in rows]
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/hr-users')
+def um_hr_users():
+    """Get all HR employees (as admin_users-compatible format)"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, first_name, last_name, email, department, role, status, date_joined
+                FROM hr_employees ORDER BY id DESC
+            """)
+            rows = cursor.fetchall()
+            users = []
+            for r in rows:
+                first = r[1] or ''
+                last = r[2] or ''
+                full_name = f"{first} {last}".strip()
+                users.append({
+                    'id': r[0],
+                    'username': r[3] or f"hr_emp_{r[0]}",
+                    'full_name': full_name or 'HR Employee',
+                    'email': r[3] or '',
+                    'role': 'admin' if r[5] == 'Administrator' else 'operator',
+                    'source_system': 'hr',
+                    'source_id': r[0],
+                    'is_active': r[6] == 'Active',
+                    'created_at': str(r[7]) if r[7] else None,
+                    'department': r[4] or '',
+                    'hr_role': r[5] or 'Ordinary User',
+                    'status': r[6] or 'Active'
+                })
+            return jsonify({'success': True, 'data': users})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/save-user', methods=['POST'])
+def um_save_user():
+    """Create or update a user across any system"""
+    # Permission check: need can_add_users (or can_edit_users for edits)
+    perms = session.get('um_permissions', {})
+    is_super = perms.get('is_super_admin', False)
+    edit_id = request.get_json().get('edit_id') if request.get_json() else None
+    if edit_id:
+        if not is_super and not perms.get('can_edit_users', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to edit users.'}), 403
+    else:
+        if not is_super and not perms.get('can_add_users', False):
+            return jsonify({'success': False, 'error': 'Access denied: You do not have permission to add users.'}), 403
+
+    try:
+        data = request.get_json()
+        system = data.get('system')
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        role = data.get('role', 'Ordinary User')
+        status = data.get('status', 'Active')
+        edit_system = data.get('edit_system')
+
+        if not name or not email:
+            return jsonify({'success': False, 'error': 'Name and email are required'}), 400
+
+        with get_db() as (cursor, connection):
+            if system == 'projects':
+                if edit_id and edit_system == 'projects':
+                    cursor.execute("UPDATE connectlinkusers SET name=%s, email=%s WHERE id=%s", (name, email, edit_id))
+                else:
+                    pw = password or 'conlink123'
+                    from datetime import date
+                    cursor.execute("""
+                        INSERT INTO connectlinkusers (datecreated, name, password, email)
+                        VALUES (%s, %s, %s, %s)
+                    """, (date.today(), name, pw, email))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Projects user saved'})
+
+            elif system == 'hardware':
+                hw_role = 'operator'
+                if role in ('admin', 'Administrator'): hw_role = 'admin'
+                full_name = data.get('full_name', name)
+                if edit_id and edit_system == 'hardware':
+                    cursor.execute("UPDATE hardware_users SET username=%s, full_name=%s, role=%s WHERE id=%s", (email, full_name, hw_role, edit_id))
+                else:
+                    pw = password or 'conlink123'
+                    cursor.execute("""
+                        INSERT INTO hardware_users (username, password, full_name, role)
+                        VALUES (%s, %s, %s, %s)
+                    """, (email, pw, full_name, hw_role))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'Hardware POS user saved'})
+
+            elif system == 'hr':
+                hr_role = 'Administrator' if role in ('Administrator', 'admin') else 'Ordinary User'
+                parts = name.split(' ', 1)
+                first = parts[0]
+                last = parts[1] if len(parts) > 1 else ''
+                dept = data.get('department', '')
+                designation = data.get('designation', '')
+                whatsapp = data.get('whatsapp', '')
+                if edit_id and edit_system == 'hr':
+                    cursor.execute("""
+                        UPDATE hr_employees SET first_name=%s, last_name=%s, email=%s, department=%s,
+                        designation=%s, role=%s, status=%s, whatsapp=%s WHERE id=%s
+                    """, (first, last, email, dept, designation, hr_role, status, whatsapp, edit_id))
+                else:
+                    cursor.execute("""
+                        INSERT INTO hr_employees (first_name, last_name, email, department, designation, role, status, whatsapp)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (first, last, email, dept, designation, hr_role, status, whatsapp))
+                connection.commit()
+                return jsonify({'success': True, 'message': 'HR user saved'})
+
+            else:
+                return jsonify({'success': False, 'error': 'Unknown system'}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-projects-user/<int:user_id>', methods=['DELETE'])
+def um_delete_projects_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-hardware-user/<int:user_id>', methods=['DELETE'])
+def um_delete_hardware_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM hardware_users WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user-management/delete-hr-user/<int:user_id>', methods=['DELETE'])
+def um_delete_hr_user(user_id):
+    # Permission check
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_delete_users', False):
+        return jsonify({'success': False, 'error': 'Access denied: You do not have permission to delete users.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM hr_employees WHERE id = %s", (user_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'User deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Quotation Rates API Endpoints
+@app.route('/api/get-quotation-rates', methods=['GET'])
+def get_quotation_rates():
+    """Retrieve all quotation rates from the database"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, quotation_item, days_per_sq_meter, inhouse_unit_rate
+                FROM quotation_rates
+                ORDER BY id ASC
+            """)
+            rates = cursor.fetchall()
+            
+            result = []
+            for rate in rates:
+                result.append({
+                    'id': rate[0],
+                    'item': rate[1],
+                    'daysPerSqMeter': float(rate[2]),
+                    'inhouseRate': str(rate[3])
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotation rates: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/save-quotation-rates', methods=['POST'])
+def save_quotation_rates():
+    """Save or update quotation rates to the database"""
+    try:
+        data = request.json
+        rates = data.get('rates', [])
+        
+        if not rates:
+            return jsonify({
+                'success': False,
+                'message': 'No rates provided'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Clear existing rates
+            cursor.execute("DELETE FROM quotation_rates")
+            
+            # Insert new rates
+            for rate in rates:
+                cursor.execute("""
+                    INSERT INTO quotation_rates 
+                    (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                    VALUES (%s, %s, %s)
+                """, (
+                    rate.get('item'),
+                    Decimal(str(rate.get('daysPerSqMeter', 0))),
+                    Decimal(str(rate.get('inhouseRate', 0)))
+                ))
+            
+            connection.commit()
+            
+            # Log rate changes
+            try:
+                log_activity(
+                    'quotation_rates_updated',
+                    f'Quotation rates updated: {len(rates)} items saved',
+                    'settings',
+                    None,
+                    {'rate_count': len(rates), 'updated_by': session.get('user_name', 'Unknown')}
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log rate update: {log_err}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully saved {len(rates)} quotation rates',
+                'count': len(rates)
+            })
+    except Exception as e:
+        logging.error(f'Error saving quotation rates: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def normalize_whatsapp_number(raw_number):
+    """Normalize WhatsApp numbers to digits-only format, preserving any country code.
+    Only applies Zimbabwe (263) prefix when the number is in local format (starts with 0).
+    All other numbers (already include a country code) are returned as-is.
+    """
+    digits = re.sub(r'\D', '', str(raw_number or '').strip())
+    if not digits:
+        return ''
+
+    # Local Zimbabwe format: 07xxxxxxxx or 08xxxxxxxx → 263xxxxxxxx
+    if digits.startswith('0') and len(digits) >= 10:
+        return '263' + digits[1:]
+
+    # Already has a country code (any country) — use as-is
+    return digits
+
+
+def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
+    """Upload a PDF to Meta and send it as a WhatsApp document message."""
+    # Ensure phone number is string (not int from DB)
+    recipient_number = str(recipient_number) if recipient_number is not None else ''
+    upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+    upload_headers = {
+        'Authorization': f'Bearer {ACCESS_TOKEN}'
+    }
+
+    files = {
+        'file': (filename, io.BytesIO(pdf_bytes), 'application/pdf'),
+        'type': (None, 'application/pdf'),
+        'messaging_product': (None, 'whatsapp')
+    }
+
+    upload_response = requests.post(upload_url, headers=upload_headers, files=files, timeout=45)
+    upload_data = upload_response.json()
+    print(f"📤 WhatsApp media upload response [{upload_response.status_code}]: {upload_data}")
+
+    if upload_response.status_code != 200 or 'id' not in upload_data:
+        raise ValueError(f"Media upload failed: {upload_data.get('error', upload_data)}")
+
+    media_id = upload_data['id']
+
+    send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    send_headers = {
+        'Authorization': f'Bearer {ACCESS_TOKEN}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': recipient_number,
+        'type': 'document',
+        'document': {
+            'id': media_id,
+            'filename': filename,
+            'caption': caption
+        }
+    }
+
+    print(f"📨 Sending WhatsApp document to {recipient_number} (media_id={media_id})")
+    send_response = requests.post(send_url, headers=send_headers, json=payload, timeout=45)
+    send_data = send_response.json()
+    print(f"📨 WhatsApp send response [{send_response.status_code}]: {send_data}")
+
+    if send_response.status_code != 200 or 'error' in send_data:
+        error_payload = send_data.get('error', send_data)
+        if isinstance(error_payload, dict):
+            error_code = error_payload.get('code', 'unknown')
+            error_message = error_payload.get('message', 'Unknown WhatsApp API error')
+            error_details = (error_payload.get('error_data') or {}).get('details', '')
+            combined_message = f"WhatsApp send failed [code {error_code}]: {error_message}"
+            if error_details:
+                combined_message = f"{combined_message} | Details: {error_details}"
+            raise ValueError(combined_message)
+
+        raise ValueError(f"WhatsApp send failed: {error_payload}")
+
+    if not send_data.get('messages'):
+        raise ValueError(f"WhatsApp send returned no message confirmation: {send_data}")
+
+    # Save to whatsapp_messages for chat portal visibility
+    try:
+        with get_db() as (save_cursor, save_conn):
+            display_text = f"[Document: {filename}]"
+            if caption:
+                display_text += f" - {caption}"
+            save_cursor.execute("""
+                INSERT INTO whatsapp_messages 
+                (sender_phone, sender_name, message_text, message_type, direction, status, media_id, file_name)
+                VALUES (%s, %s, %s, 'document', 'outgoing', 'sent', %s, %s)
+            """, (recipient_number, 'ConnectLink Bot', display_text[:500], media_id, filename))
+            save_conn.commit()
+    except Exception as save_err:
+        print(f"⚠️ Failed to save sent document message: {save_err}")
+
+    return send_data
+
+def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_message=None, send_whatsapp_message=None):
+    """Fetch enquiry attachment from DB and send as WhatsApp PDF"""
+    
+    print(f"🔍 Starting PDF delivery for enquiry {enquiry_id} to {recipient_number}")
+    
+    try:
+        with get_db() as (cursor, _):
+            cursor.execute(
+                """
+                SELECT plan, timestamp, clientwhatsapp
+                FROM connectlinkenquiries
+                WHERE id = %s
+                """,
+                (enquiry_id,)
+            )
+            row = cursor.fetchone()
+            print(f"🔍 Database query completed, row exists: {row is not None}")
+    except Exception as exc:
+        logging.exception("Error loading enquiry attachment %s", enquiry_id)
+        print(f"❌ Database error: {exc}")
+        if send_text_message:
+            send_text_message(recipient_number, "❌ Failed to load the enquiry attachment.")
+        return False
+
+    if not row or row[0] is None:
+        print(f"❌ No attachment found for enquiry {enquiry_id}")
+        if send_text_message:
+            send_text_message(recipient_number, "❌ No attachment found for this enquiry.")
+        return False
+
+    plan_data = row[0]
+    timestamp = row[1]
+    client_whatsapp = row[2]
+
+    if isinstance(plan_data, memoryview):
+        plan_data = plan_data.tobytes()
+        print(f"🔍 Converted memoryview to bytes, size: {len(plan_data)} bytes")
+
+    if not plan_data:
+        print(f"❌ Empty plan data for enquiry {enquiry_id}")
+        if send_text_message:
+            send_text_message(recipient_number, "❌ The attachment file is empty.")
+        return False
+
+    file_size_mb = len(plan_data) / (1024 * 1024)
+    print(f"📊 Attachment size: {file_size_mb:.2f} MB")
+    
+    # MOBILE FIX: If file > 2MB, send as link instead of PDF
+    if file_size_mb > 2:
+        print(f"⚠️ File too large ({file_size_mb:.2f}MB) for mobile, sending link instead")
+        download_link = f"https://your-domain.com/api/enquiries/{enquiry_id}/plan"
+        link_message = f"""📎 *Enquiry Attachment Available*
+
+Reference: #{enquiry_id}
+File size: {file_size_mb:.1f} MB
+
+⚠️ For better mobile experience, please click the link below to download:
+
+🔗 {download_link}"""
+        
+        if send_text_message:
+            send_text_message(recipient_number, link_message)
+        elif send_whatsapp_message:
+            send_whatsapp_message(recipient_number, link_message)
+        return True
+
+    date_part = timestamp.strftime('%Y%m%d') if hasattr(timestamp, 'strftime') else datetime.now().strftime('%Y%m%d')
+    filename = f"Enquiry_Attachment_{enquiry_id}_{client_whatsapp}_{date_part}.pdf"
+    caption = f"Enquiry Attachment\nReference: #{enquiry_id}"
+    
+    print(f"📤 Attempting to send PDF ({file_size_mb:.2f}MB) to {recipient_number}")
+    
+    try:
+        # MOBILE FIX: Use lower timeout and simpler payload
+        result = send_pdf_mobile_optimized(recipient_number, plan_data, filename, caption)
+        print(f"✅ PDF sent successfully to mobile: {result}")
+        return True
+    except Exception as exc:
+        print(f"❌ Failed to send PDF to mobile: {exc}")
+        logging.exception(f"Mobile PDF send failed: {exc}")
+        
+        # Fallback: Send download link
+        download_link = f"https://your-domain.com/api/enquiries/{enquiry_id}/plan"
+        link_message = f"📎 *Enquiry Attachment*\n\nClick this link to download:\n{download_link}\n\nReference: #{enquiry_id}"
+        
+        if send_text_message:
+            send_text_message(recipient_number, link_message)
+        elif send_whatsapp_message:
+            send_whatsapp_message(recipient_number, link_message)
+        return True
+
+def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption):
+    """Mobile-optimized PDF sender with lower timeouts and simpler payload"""
+    
+    import requests
+    import io
+    
+    # Check if we're on mobile vs desktop (approximate by number format)
+    # Zimbabwe numbers starting with 2637 or 263 are typically mobile
+    is_mobile = recipient_number.startswith('2637') or recipient_number.startswith('263')
+    
+    if is_mobile and len(pdf_bytes) > 2 * 1024 * 1024:  # > 2MB for mobile
+        raise ValueError(f"File too large ({len(pdf_bytes)/(1024*1024):.1f}MB) for mobile")
+    
+    upload_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
+    upload_headers = {'Authorization': f'Bearer {ACCESS_TOKEN}'}
+    
+    # For mobile, use smaller chunks and simpler file object
+    file_obj = io.BytesIO(pdf_bytes)
+    
+    files = {
+        'file': (filename, file_obj, 'application/pdf'),
+        'messaging_product': (None, 'whatsapp')
+    }
+    
+    # Shorter timeout for mobile
+    timeout = 30 if is_mobile else 60
+    
+    try:
+        print(f"📤 Uploading to WhatsApp API (timeout: {timeout}s)...")
+        upload_response = requests.post(upload_url, headers=upload_headers, 
+                                       files=files, timeout=timeout)
+        print(f"📤 Upload status: {upload_response.status_code}")
+        
+        upload_data = upload_response.json()
+        
+        if upload_response.status_code != 200 or 'id' not in upload_data:
+            error_msg = upload_data.get('error', {}).get('message', 'Unknown error')
+            raise ValueError(f"Upload failed: {error_msg}")
+        
+        media_id = upload_data['id']
+        print(f"📤 Upload successful, media_id: {media_id}")
+        
+        # CRITICAL: Wait for mobile to process the upload
+        if is_mobile:
+            import time
+            time.sleep(2)
+        
+        # Send the document
+        send_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+        send_headers = {
+            'Authorization': f'Bearer {ACCESS_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Simpler payload for mobile
+        payload = {
+            'messaging_product': 'whatsapp',
+            'to': recipient_number,
+            'type': 'document',
+            'document': {
+                'id': media_id,
+                'filename': filename,
+                'caption': caption
+            }
+        }
+        
+        print(f"📨 Sending document message...")
+        send_response = requests.post(send_url, headers=send_headers, 
+                                     json=payload, timeout=timeout)
+        print(f"📨 Send status: {send_response.status_code}")
+        
+        send_data = send_response.json()
+        
+        if send_response.status_code != 200 or 'error' in send_data:
+            error_msg = send_data.get('error', {}).get('message', 'Unknown error')
+            raise ValueError(f"Send failed: {error_msg}")
+        
+        print(f"✅ Document sent successfully")
+        return send_data
+        
+    except requests.Timeout:
+        print(f"❌ Timeout on mobile")
+        raise Exception("Mobile timeout - file may be too large")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        raise
+
+def log_enquiry_attachment_button_message(template_message_id, enquiry_id, recipient_number):
+    """Store template message ID so no-variable quick-reply clicks can be resolved reliably."""
+    if not template_message_id or not enquiry_id:
+        return
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                """
+                INSERT INTO enquiry_attachment_button_map
+                    (template_message_id, enquiry_id, recipient_whatsapp)
+                VALUES (%s, %s, %s)
+                """,
+                (str(template_message_id), int(enquiry_id), str(recipient_number or ''))
+            )
+            connection.commit()
+    except Exception as exc:
+        logging.exception("Failed to log enquiry attachment button message mapping")
+        print(f"❌ Mapping log failed: {exc}")
+
+
+def resolve_enquiry_attachment_id_from_click(message, sender_id):
+    """Resolve enquiry ID for attachment download using button payload or message context ID."""
+    button = message.get("button", {}) if isinstance(message, dict) else {}
+    interactive_button_reply = message.get("interactive", {}).get("button_reply", {}) if isinstance(message, dict) else {}
+    payload = (button.get("payload", "") or interactive_button_reply.get("id", "") or "").strip()
+
+    if payload.lower().startswith('enquiry_attachment_'):
+        try:
+            return int(payload.split('_')[-1])
+        except (IndexError, ValueError):
+            return None
+
+    context_id = (message.get("context", {}).get("id", "") if isinstance(message, dict) else "").strip()
+    try:
+        with get_db() as (cursor, _):
+            if context_id:
+                cursor.execute(
+                    """
+                    SELECT enquiry_id
+                    FROM enquiry_attachment_button_map
+                    WHERE template_message_id = %s
+                    ORDER BY id DESC
+                    LIMIT 1
+                    """,
+                    (context_id,)
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    return int(row[0])
+
+            # Fallback: last attachment template sent to this WhatsApp user
+            cursor.execute(
+                """
+                SELECT enquiry_id
+                FROM enquiry_attachment_button_map
+                WHERE recipient_whatsapp = %s
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (str(sender_id),)
+            )
+            row = cursor.fetchone()
+            if row and row[0]:
+                return int(row[0])
+    except Exception as exc:
+        logging.exception("Failed to resolve enquiry attachment from click")
+        print(f"❌ Attachment click resolution failed: {exc}")
+
+    return None
+
+
+def is_template_window_error(error_text):
+    """Detect WhatsApp errors that indicate template is required outside 24-hour window."""
+    text = str(error_text or '')
+    text_lower = text.lower()
+    return (
+        '131047' in text
+        or 'outside the allowed window' in text_lower
+        or '24 hour' in text_lower
+        or 're-engagement message' in text_lower
+    )
+
+
+def log_chatbot_interaction(sender_phone, sender_name, interaction_type, interaction_key, interaction_label, category=None, matched_project_id=None, metadata=None):
+    """Log a chatbot interaction (button click, menu selection, keyword match) for analytics."""
+    try:
+        with get_db() as (cursor, conn):
+            cursor.execute("""
+                INSERT INTO chatbot_interactions 
+                (sender_phone, sender_name, interaction_type, interaction_key, interaction_label, category, matched_project_id, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                str(sender_phone)[:20] if sender_phone else None,
+                str(sender_name)[:200] if sender_name else None,
+                str(interaction_type)[:50],
+                str(interaction_key)[:200] if interaction_key else None,
+                str(interaction_label)[:500] if interaction_label else None,
+                str(category)[:100] if category else None,
+                int(matched_project_id) if matched_project_id else None,
+                json.dumps(metadata) if metadata else None
+            ))
+            conn.commit()
+    except Exception as e:
+        print(f"⚠️ Failed to log chatbot interaction: {e}")
+
+
+# Keyword map for chatbot menu navigation
+# Maps user-typed keywords to the same handler IDs used by button/list clicks
+CHATBOT_KEYWORDS = {
+    # Main menu
+    'main menu': 'main_menu',
+    'menu': 'main_menu',
+    'home': 'main_menu',
+    'back': 'main_menu',
+    'start': 'main_menu',
+    
+    # Projects
+    'projects': 'projects',
+    'project': 'projects',
+    'my projects': 'projects',
+    
+    # Portfolio
+    'portfolio': 'portfolio',
+    'my portfolio': 'portfolio',
+    'portfolio download': 'portfolio',
+    'master file': 'getportfolio',
+    'my file': 'getportfolio',
+    'get master file': 'getportfolio',
+    'download portfolio': 'getportfolio',
+    
+    # Notes
+    'notes': 'getnotes',
+    'my notes': 'getnotes',
+    'get notes': 'getnotes',
+    
+    # Enquiries
+    'enquiries': 'enquiries',
+    'enquiry': 'enquiries',
+    'my enquiries': 'enquiries',
+    'enquiry log': 'enquirylog',
+    
+    # Quotation categories
+    'kitchen': 'kitchen_cabinels',
+    'kitchen & cabinets': 'kitchen_cabinels',
+    'cabinets': 'kitchen_cabinels',
+    'building': 'building',
+    'construction': 'building',
+    'single storey': 'building',
+    'double storey': 'building',
+    'renovation': 'renovation',
+    'renovate': 'renovation',
+    'other': 'other',
+    
+    # Payments
+    'payment': 'paymenthist',
+    'payments': 'paymenthist',
+    'payment history': 'paymenthist',
+    'my payments': 'paymenthist',
+    'payments schedule': 'payments_schedule',
+    'payment schedule': 'payments_schedule',
+    
+    # Contracts
+    'contract': 'contracts',
+    'contracts': 'contracts',
+    'my contracts': 'contracts',
+    
+    # Contact / About
+    'contact': 'contact_us',
+    'contact us': 'contact_us',
+    'about': 'about_us',
+    'about us': 'about_us',
+}
+
+def resolve_chatbot_keyword(text):
+    """Check if user typed text matches any chatbot keyword. Returns (matched_key, handler_id) or None."""
+    if not text:
+        return None
+    text_lower = text.strip().lower()
+    # Check exact matches first
+    if text_lower in CHATBOT_KEYWORDS:
+        return (text_lower, CHATBOT_KEYWORDS[text_lower])
+    # Check partial matches (if user types something containing a keyword)
+    for keyword, handler_id in CHATBOT_KEYWORDS.items():
+        if keyword in text_lower:
+            return (keyword, handler_id)
+    return None
+
+
+def create_quotation_share_token(quotation_id, pdf_bytes=None, pdf_filename=''):
+    """Create a short-lived token for quotation sharing via WhatsApp quick-reply template button.
+    Token format: quotation_{id}_{random_hex} so webhook can extract quotation_id directly.
+
+    If pdf_bytes is provided (e.g. from frontend-generated PDF), it's stored directly.
+    Otherwise tries to generate server-side — if that fails, token is still created
+    and the share page will show a friendly error."""
+    token = f"quotation_{quotation_id}_{uuid.uuid4().hex[:12]}"
+    expiry = datetime.now() + timedelta(hours=QUOTATION_SHARE_TOKEN_HOURS)
+
+    # If no PDF provided, try server-side generation as fallback
+    if pdf_bytes is None:
+        try:
+            result = build_quotation_pdf_document(quotation_id)
+            if result:
+                pdf_bytes = result[0]
+                pdf_filename = result[1]
+        except Exception as e:
+            print(f"⚠️ Could not pre-generate PDF for share token: {e}")
+
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            INSERT INTO quotation_share_links (quotation_id, share_token, expires_at, pdf_data, pdf_filename)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (quotation_id, token, expiry, pdf_bytes, pdf_filename or ''))
+        connection.commit()
+
+    return token
+
+
+def mark_quotation_download_clicked(share_token, whatsapp_number=''):
+    """Record that a quotation download button was clicked in WhatsApp."""
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            UPDATE quotation_share_links
+            SET download_clicked_at = CURRENT_TIMESTAMP,
+                download_click_whatsapp = COALESCE(NULLIF(%s, ''), download_click_whatsapp)
+            WHERE share_token = %s
+        """, (whatsapp_number, share_token))
+        connection.commit()
+
+
+def mark_quotation_download_send_result(share_token, sent_success, whatsapp_number=''):
+    """Record whether the PDF was successfully sent after a WhatsApp share-link click."""
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            UPDATE quotation_share_links
+            SET download_pdf_sent_at = CURRENT_TIMESTAMP,
+                download_pdf_sent_success = %s,
+                download_click_whatsapp = COALESCE(NULLIF(%s, ''), download_click_whatsapp)
+            WHERE share_token = %s
+        """, (sent_success, whatsapp_number, share_token))
+        connection.commit()
+
+
+def get_quotation_share_url(share_token):
+    """Build the public share URL for a quotation token when a public base URL is available."""
+    public_base = PUBLIC_BASE_URL
+    if not public_base:
+        try:
+            public_base = request.url_root.rstrip('/')
+        except RuntimeError:
+            public_base = ''
+
+    if not public_base:
+        return ''
+
+    return f"{public_base}/quotation/share/{share_token}"
+
+@app.route('/quotation/share/<share_token>')
+def quotation_share_view(share_token):
+    """Serve a quotation PDF via share link.
+    Uses pre-stored PDF if available. Otherwise serves a self-contained HTML page
+    that renders the quotation and generates the PDF client-side via html2pdf.js
+    — no server-side PDF generation needed."""
+    try:
+        # 1) Validate the token and get quotation data
+        quotation_data = _get_quotation_data_for_token(share_token)
+        if quotation_data is None:
+            return """<html><body style="font-family:Arial;text-align:center;padding:60px 20px;">
+                <h2 style="color:#d32f2f;">Link Not Available</h2>
+                <p>This quotation link is invalid or has expired.</p>
+                <p style="color:#666;font-size:14px;">Please contact ConnectLink on WhatsApp for a new link.</p>
+                <hr style="max-width:300px;margin:30px auto;">
+                <p style="color:#999;font-size:12px;">ConnectLink Agency (Pvt) Ltd</p>
+            </body></html>""", 404
+
+        q = quotation_data  # dict with id, client_name, etc.
+
+        # 2) If a stored PDF exists, serve it directly
+        stored_pdf = q.get('_stored_pdf')
+        stored_filename = q.get('_stored_filename', '')
+        if stored_pdf:
+            response = make_response(stored_pdf)
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename="{stored_filename or f"Quotation_{q["client_name"]}_{q["id"]}.pdf"}"'
+            return response
+
+        # 3) No stored PDF — serve an HTML page that generates the PDF in the browser
+        #    using html2pdf.js (same library the frontend uses).
+        #    This always works because no server-side PDF generation is needed.
+        return _serve_quotation_html_page(q)
+
+    except Exception as e:
+        print(f"Quotation share error: {e}")
+        return """<html><body style="font-family:Arial;text-align:center;padding:60px 20px;">
+            <h2 style="color:#d32f2f;">Something Went Wrong</h2>
+            <p>We couldn't load your quotation right now.</p>
+            <p style="color:#666;font-size:14px;">Please try again later or contact ConnectLink on WhatsApp.</p>
+        </body></html>""", 500
+
+
+def _get_quotation_data_for_token(share_token):
+    """Look up a share token and return quotation data dict, or None if invalid/expired."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT q.id, q.client_name, q.quotation_date, q.category, q.project_size,
+                       q.total_cost, q.markup_percentage, q.notes, ql.expires_at,
+                       ql.pdf_data, ql.pdf_filename
+                FROM quotations q
+                JOIN quotation_share_links ql ON ql.quotation_id = q.id
+                WHERE ql.share_token = %s
+            """, (share_token,))
+            row = cursor.fetchone()
+            if not row:
+                print(f"Share token not found: {share_token[:60]}...")
+                return None
+            expiry = row[8]
+            if expiry and expiry < datetime.now():
+                print(f"Share token expired: {share_token[:60]}...")
+                return None
+
+            return {
+                'id': row[0],
+                'client_name': row[1] or 'Client',
+                'quotation_date': row[2].strftime('%d %B %Y') if row[2] else '',
+                'category': row[3] or '',
+                'project_size': float(row[4]) if row[4] else 0,
+                'total_cost': float(row[5]) if row[5] else 0,
+                'markup': float(row[6]) if row[6] else 30,
+                'notes': row[7] or '',
+                '_stored_pdf': bytes(row[9]) if row[9] else None,
+                '_stored_filename': row[10] or '',
+            }
+    except Exception as e:
+        print(f"_get_quotation_data_for_token error: {e}")
+        return None
+
+
+def _serve_quotation_html_page(q):
+    """Render a self-contained HTML page that shows the quotation and auto-generates
+    the PDF in the browser via html2pdf.js. Works without any server-side weasyprint."""
+    client_name = html.escape(q['client_name'])
+    quotation_date = q['quotation_date']
+    category = q['category']
+    is_kitchen = category in ('kitchen', 'kitchen_cabinets')
+    is_construction = category in ('construction_single', 'construction_double')
+    total_cost = q['total_cost']
+    project_size = q['project_size']
+    deposit = total_cost * 0.30
+    balance = total_cost - deposit
+    payment_months = 3 if is_kitchen else 6
+    monthly = balance / payment_months if balance else 0
+    payment_period_text = f"{payment_months} months"
+    category_display = format_quotation_category(category, is_kitchen)
+    notes = q.get('notes', '')
+
+    # Quotation items (fetch from DB)
+    items_rows_html = ''
+    items_total_row_html = ''
+    schedule_rows_html = ''
+    total_days = 0
+    try:
+        with get_db() as (cursor, _):
+            if is_kitchen:
+                cursor.execute("""
+                    SELECT item_name, quantity, amount, days, item_order
+                    FROM quotation_kitchen_items WHERE quotation_id = %s ORDER BY item_order
+                """, (q['id'],))
+                items = cursor.fetchall()
+                item_total_sum = 0
+                for idx, item in enumerate(items, 1):
+                    qty = int(item[1]) if item[1] else 1
+                    amt = float(item[2]) if item[2] else 0
+                    days = int(item[3]) if item[3] else 1
+                    line_total = qty * amt
+                    item_total_sum += line_total
+                    total_days += days
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {amt:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">{days}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {line_total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">{total_days}</td><td style="padding:8px;text-align:right;">USD {item_total_sum:,.2f}</td></tr>"""
+            else:
+                cursor.execute("""
+                    SELECT item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items WHERE quotation_id = %s ORDER BY item_order
+                """, (q['id'],))
+                items = cursor.fetchall()
+                markup = q['markup']
+                markup_mult = 1 + (markup / 100)
+                cost_sum = 0
+                for idx, item in enumerate(items, 1):
+                    qty = float(item[1]) if item[1] else 0
+                    client_rate = float(item[2]) if item[2] else 0  # Stored as client price (already marked up)
+                    total = float(item[3]) if item[3] else 0
+                    cost_sum += total
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">0</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
+
+            # Schedules
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days, task_order
+                FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order
+            """, (q['id'],))
+            scheds = cursor.fetchall()
+            for idx, s in enumerate(scheds, 1):
+                sd = s[1].strftime('%d/%m/%Y') if s[1] else ''
+                ed = s[2].strftime('%d/%m/%Y') if s[2] else ''
+                bg = '#f9f9f9' if idx % 2 else '#fff'
+                schedule_rows_html += f"""<tr style="border-bottom:1px solid #ddd;background:{bg};"><td style="padding:6px;text-align:center;">{idx}</td><td style="padding:6px;">{html.escape(s[0] or 'Task')}</td><td style="padding:6px;text-align:center;">{sd}</td><td style="padding:6px;text-align:center;">{ed}</td></tr>"""
+    except Exception as e:
+        print(f"Error fetching quotation items for HTML page: {e}")
+        items_rows_html = '<tr><td colspan="6" style="text-align:center;padding:20px;">Could not load items.</td></tr>'
+
+    logo_b64 = ''
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+    if os.path.exists(logo_path):
+        with open(logo_path, 'rb') as f:
+            logo_b64 = base64.b64encode(f.read()).decode('utf-8')
+
+    # Build quotation notes section if notes have visible content
+    notes_section = ''
+    if notes and notes.replace('<p><br></p>', '').replace('<p></p>', '').replace('&nbsp;', ' ').strip():
+        notes_section = f"""
+                <!-- QUOTATION NOTES -->
+                <div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;">
+                    <div style="border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;">
+                        <div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;">Quotation Notes</div>
+                        <div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">{notes}</div>
+                    </div>
+                </div>"""
+
+    # Summary columns: 4 for construction, 5 for everything else (adds Duration)
+    if is_construction:
+        summary_cols = 4
+        duration_col_html = ''
+    else:
+        summary_cols = 5
+        duration_col_html = f"""
+                            <div style="padding:0 5px;border-left:1px solid #d8deef;">
+                                <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div>
+                                <div style="font-size:13px;font-weight:700;color:#2196F3;">{total_days} Days</div>
+                            </div>"""
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quotation - {client_name}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family:Arial,sans-serif; background:#eef2f7; color:#1E2A56; padding:20px; }}
+.controls {{ text-align:center; margin-bottom:20px; }}
+.controls button {{ background:#1E2A56; color:white; border:none; padding:10px 24px; border-radius:6px; font-size:14px; cursor:pointer; }}
+.controls button:hover {{ background:#2a3a78; }}
+.loading {{ display:none; text-align:center; padding:10px; color:#666; }}
+#quotation {{ background:#fff; width:210mm; margin:0 auto; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px; }}
+table {{ width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px; }}
+th {{ padding:8px 10px; border:1px solid #2a3a78; background:#1E2A56; color:white; }}
+td {{ padding:8px 10px; border:1px solid #d8deef; }}
+@media print {{ body {{ background:white; }} .controls,.loading {{ display:none !important; }} }}
+</style>
+</head>
+<body>
+<div class="controls">
+  <button onclick="downloadPDF()">📄 Download PDF</button>
+  <span class="loading" id="loadingMsg">⏳ Generating PDF...</span>
+</div>
+
+<div id="quotation">
+  <img src="data:image/png;base64,{logo_b64}" alt="Logo" style="display:block;margin:0 auto 10px;width:130px;">
+  <h1 style="margin:0 0 6px;text-align:center;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>
+  <div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px;"></div>
+  <p style="font-size:12px;margin-bottom:12px;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{client_name}</strong>.</p>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">PROJECT DETAILS</h4>
+  <div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;">
+    <div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;">
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>{client_name}</span></div>
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>{project_size} Sq. Meters</span></div>
+    </div>
+    <div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;">
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>{category_display}</span></div>
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>{quotation_date}</span></div>
+    </div>
+  </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">QUOTATION SUMMARY</h4>
+  <div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:repeat({summary_cols},1fr);gap:10px;text-align:center;">
+      <div style="padding:0 5px;">
+        <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div>
+        <div style="font-size:13px;font-weight:900;">USD {total_cost:,.2f}</div>
+      </div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;">
+        <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div>
+        <div style="font-size:13px;font-weight:700;">USD {deposit:,.2f}</div>
+      </div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;">
+        <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div>
+        <div style="font-size:13px;font-weight:700;">USD {balance:,.2f}</div>
+      </div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;">
+        <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over {payment_period_text})</div>
+        <div style="font-size:13px;font-weight:700;">USD {monthly:,.2f}</div>
+      </div>
+      {duration_col_html}
+    </div>
+  </div>
+
+  {notes_section}
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">ITEM DETAILS</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
+
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
+    <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">
+      <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+      <div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
+      {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>
+      <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
+        <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+          <div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div>
+          <div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div>
+          <div>Double Storey:</div><div><strong>120-180 days</strong></div>
+          <div>Perimeter Wall:</div><div><strong>30-40 days</strong></div>
+          <div>Roofing:</div><div><strong>10-14 days</strong></div>
+          <div>Finishings:</div><div><strong>30 days</strong></div>
+        </div>
+      </div>''')}
+    </div>
+    <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.8;">
+      <strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong>
+      <div><strong>Bank:</strong> ZB BANK</div>
+      <div><strong>Branch:</strong> Msasa</div>
+      <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+      <div><strong>Account No:</strong> 450600586638405</div>
+      <div><strong>Account Type:</strong> USD Account</div>
+    </div>
+  </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>
+</div>
+
+<script>
+function downloadPDF() {{
+  document.getElementById('loadingMsg').style.display = 'inline';
+  var opt = {{
+    margin: [6, 6, 6, 6],
+    filename: 'Quotation_{client_name.replace(' ', '_')}_{q["id"]}.pdf',
+    image: {{ type: 'jpeg', quality: 0.98 }},
+    html2canvas: {{ scale: 2, useCORS: true, scrollY: 0 }},
+    jsPDF: {{ orientation: 'portrait', unit: 'mm', format: 'a4' }}
+  }};
+  html2pdf().set(opt).from(document.getElementById('quotation')).save().then(function() {{
+    document.getElementById('loadingMsg').style.display = 'none';
+  }});
+}}
+// Auto-download on page load
+window.onload = function() {{ setTimeout(downloadPDF, 1000); }};
+</script>
+</body>
+</html>"""
+
+def build_quotation_pdf_bytes(quotation_id, client_name='Client', category=''):
+    """Build PDF bytes for a quotation. Returns (pdf_bytes, filename) or None."""
+    try:
+        result = build_quotation_pdf_document(quotation_id)
+        if not result:
+            return None
+        # build_quotation_pdf_document returns (pdf_bytes, filename, caption)
+        pdf_bytes = result[0]
+        return (pdf_bytes, result[1])
+    except Exception as e:
+        print(f"build_quotation_pdf_bytes error: {e}")
+        return None
+
+def fmt_currency(value):
+    """Convert Indian format string to Western format"""
+    try:
+        # If it's a string with Indian commas (11,75,635.76), remove ALL commas
+        if isinstance(value, str):
+            # Remove all commas first
+            cleaned = value.replace(',', '')
+            # Convert to float
+            num = float(cleaned)
+        else:
+            num = float(value)
+        
+        # Now format with Western commas (groups of 3)
+        return f"{num:,.2f}"
+    except Exception as e:
+        print(f"Format error: {e}, value: {value}")
+        return "0.00"
+    
+def build_quotation_pdf_document(quotation_id):
+    """Build the PDF payload for a saved quotation - Handles both construction and kitchen"""
+    try:
+        with get_db() as (cursor, _):
+            cursor.execute("""
+                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
+                FROM quotations
+                WHERE id = %s
+            """, (quotation_id,))
+            quotation = cursor.fetchone()
+
+            if not quotation:
+                raise LookupError(f"Quotation {quotation_id} not found")
+
+            quotation_id = quotation[0]
+            client_name = quotation[1] or 'Client'
+            quotation_date = quotation[2].strftime('%d %B %Y') if quotation[2] else ''
+            category = quotation[3] or ''
+            is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
+            total_cost = float(quotation[5]) if quotation[5] else 0
+
+            # Get schedules
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days, task_order
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order
+            """, (quotation_id,))
+            schedules = cursor.fetchall()
+
+            if is_kitchen:
+                # Get kitchen items
+                cursor.execute("""
+                    SELECT item_name, quantity, amount, days, item_order
+                    FROM quotation_kitchen_items
+                    WHERE quotation_id = %s
+                    ORDER BY item_order
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                
+                # Build items rows for PDF
+                items_rows = ''
+                total_days_sum = 0
+                total_cost_sum = 0
+                
+                for idx, item in enumerate(items, 1):
+                    item_name = (item[0] or 'Item').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+                    quantity = int(item[1]) if item[1] else 1
+                    amount = float(item[2]) if item[2] else 0
+                    days = int(item[3]) if item[3] else 1
+                    item_total = quantity * amount
+                    
+                    total_days_sum += days
+                    total_cost_sum += item_total
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    
+                    items_rows += f"""
+                    <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{item_name}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{quantity}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {amount:,.2f}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {item_total:,.2f}</td>
+                    </tr>"""
+                
+                # Total row
+                items_total_row = f"""
+                    <tr style="background:#1E2A56; color:white; font-weight:bold;">
+                        <td colspan="4" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
+                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
+                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
+                    </tr>"""
+            else:
+                # Construction items (existing logic)
+                cursor.execute("""
+                    SELECT item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items
+                    WHERE quotation_id = %s
+                    ORDER BY item_order
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                
+                markup = float(quotation[6]) if quotation[6] else 30
+                markup_multiplier = 1 + (markup / 100)
+                items_rows = ''
+                total_days_sum = 0
+                total_cost_sum = 0
+                
+                # Build days by order map from schedules
+                days_by_order = {}
+                for schedule in schedules:
+                    order = schedule[4]
+                    days = int(schedule[3]) if schedule[3] else 0
+                    days_by_order[order] = days
+                
+                for idx, item in enumerate(items, 1):
+                    item_name = (item[0] or 'Item').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+                    qty = float(item[1]) if item[1] else 0
+                    client_unit_rate = float(item[2]) if item[2] else 0  # Stored as client price (already marked up)
+                    total = float(item[3]) if item[3] else 0
+                    days = days_by_order.get(idx, 0)
+                    
+                    total_days_sum += days
+                    total_cost_sum += total
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    
+                    items_rows += f"""
+                    <tr style="background:{bg}; page-break-inside:avoid; break-inside:avoid;">
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:6%;">{idx}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{item_name}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{qty:,.2f}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {client_unit_rate:,.2f}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
+                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {total:,.2f}</td>
+                    </tr>"""
+                
+                items_total_row = f"""
+                    <tr style="background:#1E2A56; color:white; font-weight:bold;">
+                        <td colspan="4" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
+                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
+                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
+                    </tr>"""
+
+            # Build schedule rows
+            schedule_rows = ''
+            for idx, schedule in enumerate(schedules, 1):
+                work_scope = (schedule[0] or 'Task').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+                start_date = schedule[1].strftime('%d/%m/%Y') if schedule[1] else ''
+                end_date = schedule[2].strftime('%d/%m/%Y') if schedule[2] else ''
+                days = int(schedule[3]) if schedule[3] else 0
+                schedule_rows += f"""
+                    <tr style="border-bottom:1px solid #ddd; background-color:{'#f9f9f9' if idx % 2 else '#fff'};">
+                        <td style="padding:6px; text-align:center;">{idx}</td>
+                        <td style="padding:6px; text-align:left;">{work_scope}</td>
+                        <td style="padding:6px; text-align:center;">{start_date}</td>
+                        <td style="padding:6px; text-align:center;">{end_date}</td>
+                        <td style="padding:6px; text-align:center; font-weight:bold; color:#2196F3;">{days}</td>
+                    </tr>"""
+
+            # Logo (optional — skip if file doesn't exist)
+            logo_b64 = ''
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as img_f:
+                    logo_b64 = base64.b64encode(img_f.read()).decode('utf-8')
+
+            # Generate HTML and PDF
+            html = generate_quotation_html(
+                client_name, quotation_date, category, total_cost,
+                items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen
+            )
+            
+            pdf_bytes = HTML(string=html).write_pdf()
+            safe_name = ''.join(char for char in client_name if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+            filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
+            
+            # Format category for caption display
+            caption_category = format_quotation_category(category)
+            caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
+            
+            return pdf_bytes, filename, caption
+            
+    except Exception as e:
+        logging.error(f'Error building quotation PDF: {str(e)}')
+        raise
+
+
+def format_quotation_category(category, is_kitchen=False):
+    """Convert raw category value to user-friendly display name"""
+    if is_kitchen:
+        return "Kitchen & Cabinets"
+    if category == "construction_single":
+        return "Single Storey Construction"
+    if category == "construction_double":
+        return "Double Storey Construction"
+    return category.replace('_', ' ').title()
+
+
+def generate_quotation_html(client_name, quotation_date, category, total_cost, items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen=False):
+    """Generate HTML for quotation PDF"""
+    deposit = total_cost * 0.30
+    balance = total_cost - deposit
+
+    if is_kitchen:
+        payment_months = 3
+        monthly = balance / 3 if balance else 0
+        payment_period_text = "3 months"
+    else:
+        payment_months = 6
+        monthly = balance / 6 if balance else 0
+        payment_period_text = "6 months"
+    
+    # Format category for PDF display
+    category_display = format_quotation_category(category, is_kitchen)
+    
+    # Pre-escape for use in f-string (avoid html module name conflict in Python 3.14+)
+    escaped_name = client_name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='utf-8'>
+        <style>
+            @page {{ size:A4; margin:6mm; }}
+            body {{ font-family: Arial, sans-serif; background:#ffffff; color:#1E2A56; margin:0; padding:0; }}
+            table {{ width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px; }}
+            th {{ padding: 8px 10px; border: 1px solid #2a3a78; background: #1E2A56; color: white; }}
+            td {{ padding: 8px 10px; border: 1px solid #d8deef; }}
+        </style>
+    </head>
+    <body>
+        <div style='background:#ffffff; width:100%; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px; box-sizing:border-box;'>
+            <img src='data:image/png;base64,{logo_b64}' alt='ConnectLink Logo' style='display:block; margin:0 auto 10px auto; width:130px; max-width:100%;'>
+            <h1 style='margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56; text-transform:uppercase; letter-spacing:1px;'>Project Quotation</h1>
+            <div style='width:100px; height:2px; background:#1E2A56; margin:0 auto 14px auto; border-radius:10px;'></div>
+            
+            <p style='font-size:12px; margin:0 0 12px 0; line-height:1.5;'>This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{escaped_name}</strong>.</p>
+            
+            <!-- PROJECT DETAILS -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>PROJECT DETAILS</h4>
+                <div style='display:table; width:100%; table-layout:fixed; margin-bottom:20px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; box-sizing:border-box;'>
+                    <div style='display:table-cell; width:50%; vertical-align:top; padding-right:10px; box-sizing:border-box;'>
+                        <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Client Name:</strong> <span>{escaped_name}</span></div>
+                        <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Category:</strong> <span>{category_display}</span></div>
+                    </div>
+                    <div style='display:table-cell; width:50%; vertical-align:top; padding-left:10px; box-sizing:border-box;'>
+                        <div style='margin-bottom:8px; font-size:12px;'><strong style='display:inline-block; width:110px;'>Date:</strong> <span>{quotation_date}</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- QUOTATION SUMMARY -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
+                <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
+                    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;'>
+                        <div style='padding: 0 5px;'>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Total Amount</div>
+                            <div style='font-size: 13px; font-weight: 900; color: #1E2A56;'>USD {total_cost:,.2f}</div>
+                        </div>
+                        <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Deposit (30%)</div>
+                            <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {deposit:,.2f}</div>
+                        </div>
+                        <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Balance</div>
+                            <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {balance:,.2f}</div>
+                        </div>
+                        <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                            <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over {payment_period_text})</div>
+                            <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {monthly:,.2f}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- IMPORTANT NOTE & BANKING DETAILS -->
+            <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
+                <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 13px; line-height: 1.7;'>
+                    <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                </div>
+                <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 13px; line-height: 1.8;'>
+                    <strong style='display: block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A; font-size: 14px;'>Banking Details</strong>
+                    <div style='font-size: 13px;'><strong>Bank:</strong> ZB BANK</div>
+                    <div style='font-size: 13px;'><strong>Branch:</strong> Msasa</div>
+                    <div style='font-size: 13px;'><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+                    <div style='font-size: 13px;'><strong>Account No:</strong> 450600586638405</div>
+                    <div style='font-size: 13px;'><strong>Account Type:</strong> USD Account</div>
+                </div>
+            </div>
+            
+            <!-- ITEMS TABLE -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>ITEM DETAILS</h4>
+                <table style='width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px;'>
+                    <thead>
+                        <tr>
+                            <th style='text-align:center; width:6%;'>#</th>
+                            <th style='text-align:left; width:38%;'>Item Description</th>
+                            <th style='text-align:center; width:13%;'>Qty</th>
+                            <th style='text-align:right; width:15%;'>Unit Price</th>
+                            <th style='text-align:center; width:10%;'>Days</th>
+                            <th style='text-align:right; width:18%;'>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {items_rows}
+                        {items_total_row}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- WORK SCHEDULE -->
+            <div style='page-break-inside:avoid; break-inside:avoid;'>
+                <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:20px 0 12px 0; font-weight:800; letter-spacing:0.5px;'>WORK SCHEDULE</h4>
+                <table style='width:100%; border-collapse:collapse; font-size:10px; margin-bottom:10px;'>
+                    <thead>
+                        <tr>
+                            <th style='width:8%;'>#</th>
+                            <th style='width:52%; text-align:left;'>Work Scope</th>
+                            <th style='width:20%; text-align:center;'>Start Date</th>
+                            <th style='width:20%; text-align:center;'>End Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {schedule_rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def generate_quotation_pdf_playwright(quotation_id):
+    """Generate a quotation PDF using Playwright (headless Chromium).
+    Used as fallback when weasyprint is unavailable (e.g. Windows without GTK).
+    Uses the same HTML content as the share link page but renders it server-side.
+
+    Returns (pdf_bytes, filename, caption) or raises on failure.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise RuntimeError("Playwright not installed. Run: pip install playwright && playwright install chromium")
+
+    # Fetch quotation data
+    with get_db() as (cursor, _):
+        cursor.execute("""
+            SELECT id, client_name, quotation_date, category, project_size,
+                   total_cost, markup_percentage, notes
+            FROM quotations WHERE id = %s
+        """, (quotation_id,))
+        q_row = cursor.fetchone()
+        if not q_row:
+            raise LookupError(f"Quotation {quotation_id} not found")
+
+        q = {
+            'id': q_row[0],
+            'client_name': html.escape(str(q_row[1] or 'Client')),
+            'quotation_date': q_row[2].strftime('%d %B %Y') if q_row[2] else '',
+            'category': q_row[3] or '',
+            'project_size': float(q_row[4]) if q_row[4] else 0,
+            'total_cost': float(q_row[5]) if q_row[5] else 0,
+            'markup': float(q_row[6]) if q_row[6] else 30,
+            'notes': q_row[7] or '',
+        }
+
+    client_name = q['client_name']
+    quotation_date = q['quotation_date']
+    category = q['category']
+    is_kitchen = category in ('kitchen', 'kitchen_cabinets')
+    is_construction = category in ('construction_single', 'construction_double')
+    total_cost = q['total_cost']
+    project_size = q['project_size']
+    deposit = total_cost * 0.30
+    balance = total_cost - deposit
+    payment_months = 3 if is_kitchen else 6
+    monthly = balance / payment_months if balance else 0
+    payment_period_text = f"{payment_months} months"
+    category_display = format_quotation_category(category, is_kitchen)
+    notes = q.get('notes', '')
+
+    # Build items and schedules HTML
+    items_rows_html = ''
+    items_total_row_html = ''
+    schedule_rows_html = ''
+    total_days = 0
+
+    try:
+        with get_db() as (cursor, _):
+            if is_kitchen:
+                cursor.execute("""
+                    SELECT item_name, quantity, amount, days, item_order
+                    FROM quotation_kitchen_items WHERE quotation_id = %s ORDER BY item_order
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                item_total_sum = 0
+                for idx, item in enumerate(items, 1):
+                    qty = int(item[1]) if item[1] else 1
+                    amt = float(item[2]) if item[2] else 0
+                    days = int(item[3]) if item[3] else 1
+                    line_total = qty * amt
+                    item_total_sum += line_total
+                    total_days += days
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {amt:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">{days}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {line_total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">{total_days}</td><td style="padding:8px;text-align:right;">USD {item_total_sum:,.2f}</td></tr>"""
+            else:
+                cursor.execute("""
+                    SELECT item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items WHERE quotation_id = %s ORDER BY item_order
+                """, (quotation_id,))
+                items = cursor.fetchall()
+                markup = q['markup']
+                markup_mult = 1 + (markup / 100)
+                cost_sum = 0
+                for idx, item in enumerate(items, 1):
+                    qty = float(item[1]) if item[1] else 0
+                    client_rate = float(item[2]) if item[2] else 0  # Stored as client price (already marked up)
+                    total = float(item[3]) if item[3] else 0
+                    cost_sum += total
+                    bg = '#ffffff' if idx % 2 else '#fafbff'
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">0</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
+
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days, task_order
+                FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order
+            """, (quotation_id,))
+            scheds = cursor.fetchall()
+            for idx, s in enumerate(scheds, 1):
+                sd = s[1].strftime('%d/%m/%Y') if s[1] else ''
+                ed = s[2].strftime('%d/%m/%Y') if s[2] else ''
+                bg = '#f9f9f9' if idx % 2 else '#fff'
+                schedule_rows_html += f"""<tr style="border-bottom:1px solid #ddd;background:{bg};"><td style="padding:6px;text-align:center;">{idx}</td><td style="padding:6px;">{html.escape(s[0] or 'Task')}</td><td style="padding:6px;text-align:center;">{sd}</td><td style="padding:6px;text-align:center;">{ed}</td></tr>"""
+    except Exception as e:
+        print(f"Error fetching items for Playwright PDF: {e}")
+        items_rows_html = '<tr><td colspan="6" style="text-align:center;padding:20px;">Could not load items.</td></tr>'
+
+    # Logo
+    logo_b64 = ''
+    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+    if os.path.exists(logo_path):
+        with open(logo_path, 'rb') as f:
+            logo_b64 = base64.b64encode(f.read()).decode('utf-8')
+
+    # Notes section
+    notes_section = ''
+    if notes and notes.replace('<p><br></p>', '').replace('<p></p>', '').replace('&nbsp;', ' ').strip():
+        notes_section = f"""
+                <div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;">
+                    <div style="border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;">
+                        <div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;">Quotation Notes</div>
+                        <div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">{notes}</div>
+                    </div>
+                </div>"""
+
+    # Summary columns
+    if is_construction:
+        summary_cols = 4
+        duration_col_html = ''
+    else:
+        summary_cols = 5
+        duration_col_html = f"""
+                            <div style="padding:0 5px;border-left:1px solid #d8deef;">
+                                <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div>
+                                <div style="font-size:13px;font-weight:700;color:#2196F3;">{total_days} Days</div>
+                            </div>"""
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@page {{ size:A4; margin:6mm; }}
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family:Arial,sans-serif; background:#fff; color:#1E2A56; padding:0; }}
+#quotation {{ background:#fff; width:100%; padding:14px 16px; border:2px solid #1E2A56; border-radius:10px; }}
+table {{ width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px; }}
+th {{ padding:8px 10px; border:1px solid #2a3a78; background:#1E2A56; color:white; }}
+td {{ padding:8px 10px; border:1px solid #d8deef; }}
+</style>
+</head>
+<body>
+<div id="quotation">
+  <img src="data:image/png;base64,{logo_b64}" alt="Logo" style="display:block;margin:0 auto 10px;width:130px;">
+  <h1 style="margin:0 0 6px;text-align:center;font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>
+  <div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px;"></div>
+  <p style="font-size:12px;margin-bottom:12px;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>{client_name}</strong>.</p>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">PROJECT DETAILS</h4>
+  <div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;">
+    <div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;">
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>{client_name}</span></div>
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>{project_size} Sq. Meters</span></div>
+    </div>
+    <div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;">
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>{category_display}</span></div>
+      <div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>{quotation_date}</span></div>
+    </div>
+  </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">QUOTATION SUMMARY</h4>
+  <div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:repeat({summary_cols},1fr);gap:10px;text-align:center;">
+      <div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;">USD {total_cost:,.2f}</div></div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;">USD {deposit:,.2f}</div></div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;">USD {balance:,.2f}</div></div>
+      <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over {payment_period_text})</div><div style="font-size:13px;font-weight:700;">USD {monthly:,.2f}</div></div>
+      {duration_col_html}
+    </div>
+  </div>
+
+  {notes_section}
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">ITEM DETAILS</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
+
+  <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
+    <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">
+      <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+      <div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
+      {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>
+      <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
+        <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">Our Turnaround Times for Residential Projects</strong>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
+          <div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div>
+          <div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div>
+          <div>Double Storey:</div><div><strong>120-180 days</strong></div>
+          <div>Perimeter Wall:</div><div><strong>30-40 days</strong></div>
+          <div>Roofing:</div><div><strong>10-14 days</strong></div>
+          <div>Finishings:</div><div><strong>30 days</strong></div>
+        </div>
+      </div>''')}
+    </div>
+    <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.8;">
+      <strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong>
+      <div><strong>Bank:</strong> ZB BANK</div>
+      <div><strong>Branch:</strong> Msasa</div>
+      <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
+      <div><strong>Account No:</strong> 450600586638405</div>
+      <div><strong>Account Type:</strong> USD Account</div>
+    </div>
+  </div>
+
+  <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:20px 0 12px;">WORK SCHEDULE</h4>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Work Scope</th><th>Start</th><th>End</th></tr></thead><tbody>{schedule_rows_html}</tbody></table>
+</div>
+</body>
+</html>"""
+
+    # Generate PDF via Playwright
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.set_content(html_content)
+        pdf_bytes = page.pdf(format='A4', margin={'top': '6mm', 'bottom': '6mm', 'left': '6mm', 'right': '6mm'})
+        browser.close()
+
+    safe_name = ''.join(char for char in str(q['client_name']) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+    filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
+    caption_category = format_quotation_category(category, is_kitchen)
+    caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
+
+    return pdf_bytes, filename, caption
+
+
+def generate_pdf_via_playwright(html_content, format='A4'):
+    """Render HTML to PDF using Playwright (headless Chromium).
+    Generic helper — works with any HTML string (quotation, contract, etc.).
+    Falls back from weasyprint when GTK libraries are unavailable.
+
+    Args:
+        html_content: Full HTML document string
+        format: Page format (default 'A4')
+
+    Returns: PDF bytes
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise RuntimeError("Playwright not installed. Run: pip install playwright && playwright install chromium")
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.set_content(html_content)
+        pdf_bytes = page.pdf(format=format, margin={'top': '6mm', 'bottom': '6mm', 'left': '6mm', 'right': '6mm'})
+        browser.close()
+
+    return pdf_bytes
+
+
+def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
+    """Send a quotation PDF to WhatsApp using the stored PDF from the DB
+    (generated by the frontend via html2pdf.js and saved during template fallback).
+
+    If sending fails (outside 24hr window), falls back to sending a share URL
+    that serves the stored PDF directly.
+
+    Falls back to Playwright (headless Chromium) when weasyprint is unavailable.
+    """
+    # 1) Retrieve the stored PDF from DB — use ANY token for this quotation
+    stored_pdf_bytes = None
+    stored_filename = ''
+    db_share_token = share_token
+
+    try:
+        with get_db() as (cursor, _):
+            # First try the incoming share_token
+            cursor.execute("""
+                SELECT pdf_data, pdf_filename FROM quotation_share_links
+                WHERE share_token = %s AND pdf_data IS NOT NULL
+            """, (share_token,))
+            row = cursor.fetchone()
+            if row:
+                stored_pdf_bytes = bytes(row[0])
+                stored_filename = row[1] or ''
+            else:
+                # Fallback: look for ANY token for this quotation that has stored PDF
+                cursor.execute("""
+                    SELECT share_token, pdf_data, pdf_filename FROM quotation_share_links
+                    WHERE quotation_id = %s AND pdf_data IS NOT NULL
+                    ORDER BY created_at DESC LIMIT 1
+                """, (quotation_id,))
+                row2 = cursor.fetchone()
+                if row2:
+                    stored_pdf_bytes = bytes(row2[1])
+                    stored_filename = row2[2] or ''
+                    db_share_token = row2[0]
+                else:
+                    # No stored PDF anywhere — create a fresh token (will have no PDF
+                    # since weasyprint is unavailable, but share URL fallback still works)
+                    db_share_token = create_quotation_share_token(quotation_id)
+    except Exception as e:
+        print(f"Error retrieving stored PDF: {e}")
+        db_share_token = create_quotation_share_token(quotation_id)
+
+    # 2) If we have a stored PDF, use it directly — no weasyprint needed
+    if stored_pdf_bytes:
+        caption_category = ''
+        try:
+            with get_db() as (c, _):
+                c.execute("SELECT category, client_name FROM quotations WHERE id = %s", (quotation_id,))
+                r = c.fetchone()
+                if r:
+                    caption_category = format_quotation_category(r[0])
+                    client_name = r[1] or 'Client'
+        except:
+            client_name = 'Client'
+
+        filename = stored_filename or f"Quotation_{quotation_id}.pdf"
+        caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\n\nSend 'Hello' for more options."
+
+        try:
+            send_pdf_document_whatsapp(recipient_number, stored_pdf_bytes, filename, caption)
+            mark_quotation_download_send_result(share_token, True, recipient_number)
+            log_activity('quotation_downloaded',
+                f'Quotation #{quotation_id} downloaded via WhatsApp by {recipient_number}',
+                'quotation', quotation_id,
+                {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token})
+            print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
+            return True
+        except Exception as exc:
+            logging.exception("Error sending quotation PDF %s", quotation_id)
+            mark_quotation_download_send_result(share_token, False, recipient_number)
+            share_url = get_quotation_share_url(db_share_token)
+            if send_text_message and share_url:
+                send_text_message(recipient_number,
+                    f"⚠️ Could not send PDF directly. Open & download your quotation here:\n{share_url}")
+            elif send_text_message:
+                send_text_message(recipient_number, "❌ Failed to send your quotation. Please contact us directly.")
+            print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
+            return False
+
+    # 3) No stored PDF — try weasyprint, then Playwright fallback, then share URL
+    pdf_bytes = None
+    filename = ''
+    caption = ''
+    from_playwright = False
+    try:
+        pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
+    except LookupError:
+        if send_text_message:
+            send_text_message(recipient_number, "❌ Quotation not found.")
+        return False
+    except Exception as exc:
+        print(f"⚠️ weasyprint failed for quotation {quotation_id}: {exc}")
+        print("🔄 Trying Playwright fallback...")
+        try:
+            pdf_bytes, filename, caption = generate_quotation_pdf_playwright(quotation_id)
+            from_playwright = True
+            print(f"✅ Playwright generated PDF for quotation {quotation_id}")
+            # Store in DB for future sends
+            try:
+                create_quotation_share_token(quotation_id, pdf_bytes=pdf_bytes, pdf_filename=filename)
+                print(f"💾 Stored Playwright-generated PDF in DB for quotation {quotation_id}")
+            except Exception as store_exc:
+                print(f"⚠️ Could not store PDF in DB: {store_exc}")
+        except Exception as pw_exc:
+            logging.exception("Error generating quotation PDF %s", quotation_id)
+            mark_quotation_download_send_result(share_token, False, recipient_number)
+            share_url = get_quotation_share_url(db_share_token)
+            if send_text_message and share_url:
+                send_text_message(recipient_number,
+                    f"⚠️ Could not generate PDF. Open & download your quotation here:\n{share_url}")
+            elif send_text_message:
+                send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+            print(f"❌ Error generating quotation PDF {quotation_id}: {pw_exc}")
+            return False
+
+    try:
+        send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption)
+        mark_quotation_download_send_result(share_token, True, recipient_number)
+        log_activity('quotation_downloaded',
+            f'Quotation #{quotation_id} downloaded via WhatsApp by {recipient_number}',
+            'quotation', quotation_id,
+            {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token})
+        print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
+        return True
+    except Exception as exc:
+        logging.exception("Error sending quotation PDF %s", quotation_id)
+        mark_quotation_download_send_result(share_token, False, recipient_number)
+        share_url = get_quotation_share_url(db_share_token)
+        if send_text_message and share_url:
+            send_text_message(recipient_number,
+                f"⚠️ Could not send PDF directly. Open & download your quotation here:\n{share_url}")
+        elif send_text_message:
+            send_text_message(recipient_number, "❌ Failed to send your quotation. Please contact us directly.")
+        print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
+        return False
+
+
+def send_quotation_download_template(recipient_number, share_token, client_name='', category='', project_size=0):
+    """Send approved CTA template with URL button to quotation share page.
+
+    Template must be configured in Meta as:
+    - Body: Hello {{1}}, your requested quotation for a *{{2}}* project ({{3}} sqm) is ready for download.
+            Kindly click *Download Quotation* below to view your detailed cost breakdown.
+    - Button (URL, CTA): Download Quotation → https://<your-public-domain>/quotation/share/{{1}}
+    """
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    size_str = str(int(float(project_size))) if project_size else '0'
+    display_category = format_quotation_category(category)
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": recipient_number,
+        "type": "template",
+        "template": {
+            "name": QUOTATION_DOWNLOAD_TEMPLATE_NAME,
+            "language": {"code": "en"},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": client_name or "Valued Client"},
+                        {"type": "text", "text": display_category or "Construction"},
+                        {"type": "text", "text": size_str}
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "0",
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": share_token  # share_token carries quotation_{id}
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    response = requests.post(url, headers=headers, json=payload, timeout=45)
+    response_data = response.json()
+    print(f"📨 Quotation template response [{response.status_code}]: {response_data}")
+
+    if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
+        error_payload = response_data.get('error', response_data)
+        raise ValueError(f"Template send failed: {error_payload}")
+
+    # Save to whatsapp_messages so it appears in chat UI
+    try:
+        with get_db() as (save_cursor, save_conn):
+            save_cursor.execute("""
+                INSERT INTO whatsapp_messages 
+                (sender_phone, sender_name, message_text, message_type, direction, status)
+                VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+            """, (recipient_number, 'ConnectLink Bot', f'[Template: {QUOTATION_DOWNLOAD_TEMPLATE_NAME}] {client_name}', 'template'))
+            save_conn.commit()
+    except Exception as save_err:
+        print(f"⚠️ Failed to save quotation template to messages: {save_err}")
+
+    return response_data
+
+
+def get_contract_download_url(project_id):
+    """Build the public download URL for a contract document."""
+    public_base = PUBLIC_BASE_URL
+    if not public_base:
+        try:
+            public_base = request.url_root.rstrip('/')
+        except RuntimeError:
+            public_base = ''
+    if not public_base:
+        return ''
+    return f"{public_base}/download_contract/{project_id}"
+
+
+def send_contract_download_template(recipient_number, project_id, client_name='', project_description='', project_location=''):
+    """Send approved CTA template with URL button to contract download page.
+
+    Template must be configured in Meta as:
+    - Body: Hello {{1}}, your contract for the project with description *{{2}}* at *{{3}}* is ready for download.
+            Kindly click the button "Download Contract Agreement" below to download and view your contract agreement.
+    - Button (URL, CTA): Download Contract Agreement → https://<your-public-domain>/download_contract/{{1}}
+    """
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": recipient_number,
+        "type": "template",
+        "template": {
+            "name": CONTRACT_DOWNLOAD_TEMPLATE_NAME,
+            "language": {"code": "en"},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": client_name or "Valued Client"},
+                        {"type": "text", "text": project_description or "Construction"},
+                        {"type": "text", "text": project_location or "your area"}
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "0",
+                    "parameters": [
+                        {
+                            "type": "payload",
+                            "payload": f"contract_{project_id}"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    response = requests.post(url, headers=headers, json=payload, timeout=45)
+    response_data = response.json()
+    print(f"📨 Contract template response [{response.status_code}]: {response_data}")
+
+    if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
+        error_payload = response_data.get('error', response_data)
+        raise ValueError(f"Contract template send failed: {error_payload}")
+
+    # Save to whatsapp_messages so it appears in chat UI
+    try:
+        with get_db() as (save_cursor, save_conn):
+            save_cursor.execute("""
+                INSERT INTO whatsapp_messages 
+                (sender_phone, sender_name, message_text, message_type, direction, status)
+                VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+            """, (recipient_number, 'ConnectLink Bot',
+                  f'[Template: {CONTRACT_DOWNLOAD_TEMPLATE_NAME}] {client_name}', 'template'))
+            save_conn.commit()
+    except Exception as save_err:
+        print(f"⚠️ Failed to save contract template to messages: {save_err}")
+
+    return response_data
+
+
+def log_quotation_whatsapp_send(
+    quotation_id,
+    whatsapp_number,
+    client_name,
+    send_type,
+    whatsapp_message_id,
+    source_channel='portal',
+    send_status='success',
+    error_details=None,
+    snapshot_category='',
+    snapshot_project_size=0,
+    snapshot_total_cost=0,
+    snapshot_markup=0,
+    snapshot_quotation_date=None
+):
+    """Persist a quotation WhatsApp send outcome for portal reporting."""
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            INSERT INTO quotation_whatsapp_send_logs (
+                quotation_id,
+                whatsapp_number,
+                client_name,
+                snapshot_category,
+                snapshot_project_size,
+                snapshot_total_cost,
+                snapshot_markup,
+                snapshot_quotation_date,
+                send_type,
+                send_status,
+                error_details,
+                whatsapp_message_id,
+                source_channel
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            quotation_id,
+            whatsapp_number,
+            client_name,
+            snapshot_category,
+            snapshot_project_size,
+            snapshot_total_cost,
+            snapshot_markup,
+            snapshot_quotation_date,
+            send_type,
+            send_status,
+            error_details,
+            whatsapp_message_id,
+            source_channel
+        ))
+        connection.commit()
+
+@app.route('/api/kitchen-items', methods=['GET'])
+def get_kitchen_items():
+    """Get all available kitchen/cabinet items from database"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, item_name, default_price, default_days
+                FROM kitchen_items
+                WHERE is_active = TRUE
+                ORDER BY item_name ASC
+            """)
+            items = cursor.fetchall()
+            
+            result = []
+            for item in items:
+                result.append({
+                    'id': item[0],
+                    'name': item[1],
+                    'defaultPrice': float(item[2]) if item[2] else 0,
+                    'defaultDays': int(item[3]) if item[3] else 1
+                })
+            
+            return jsonify({
+                'success': True,
+                'items': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching kitchen items: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/kitchen-items', methods=['POST'])
+def add_kitchen_item():
+    """Add a new kitchen/cabinet item to database"""
+    try:
+        data = request.json
+        item_name = data.get('itemName', '').strip()
+        default_price = float(data.get('defaultPrice', 0))
+        default_days = int(data.get('defaultDays', 1))
+        
+        if not item_name:
+            return jsonify({'success': False, 'error': 'Item name is required'}), 400
+        
+        with get_db() as (cursor, connection):
+            # Check if item already exists
+            cursor.execute("SELECT id FROM kitchen_items WHERE item_name = %s", (item_name,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Item "{item_name}" already exists'
+                }), 400
+            
+            # Insert new item
+            cursor.execute("""
+                INSERT INTO kitchen_items (item_name, default_price, default_days)
+                VALUES (%s, %s, %s)
+                RETURNING id
+            """, (item_name, default_price, default_days))
+            
+            new_id = cursor.fetchone()[0]
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Added "{item_name}"',
+                'item': {
+                    'id': new_id, 
+                    'name': item_name,
+                    'defaultPrice': default_price,
+                    'defaultDays': default_days
+                }
+            })
+    except Exception as e:
+        logging.error(f'Error adding kitchen item: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/kitchen-items/<int:item_id>', methods=['PUT'])
+def update_kitchen_item(item_id):
+    """Update an existing kitchen/cabinet item"""
+    try:
+        data = request.json
+        item_name = data.get('itemName', '').strip()
+        default_price = float(data.get('defaultPrice', 0))
+        default_days = int(data.get('defaultDays', 1))
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE kitchen_items 
+                SET item_name = %s, default_price = %s, default_days = %s
+                WHERE id = %s
+                RETURNING id
+            """, (item_name, default_price, default_days, item_id))
+            
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'error': 'Item not found'}), 404
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Updated "{item_name}"'
+            })
+    except Exception as e:
+        logging.error(f'Error updating kitchen item: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/kitchen-items/<int:item_id>', methods=['DELETE'])
+def delete_kitchen_item(item_id):
+    """Soft delete a kitchen/cabinet item"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE kitchen_items SET is_active = FALSE WHERE id = %s
+                RETURNING item_name
+            """, (item_id,))
+            
+            result = cursor.fetchone()
+            if not result:
+                return jsonify({'success': False, 'error': 'Item not found'}), 404
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Deleted "{result[0]}"'
+            })
+    except Exception as e:
+        logging.error(f'Error deleting kitchen item: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/send-quotation-whatsapp', methods=['POST'])
+def send_quotation_whatsapp():
+    """Send a quotation PDF to WhatsApp or fall back to the approved template outside the service window."""
+    try:
+        data = request.get_json() or {}
+
+        client_name = data.get('clientName', 'Unknown')
+        whatsapp_number = normalize_whatsapp_number(data.get('whatsappNumber', ''))
+        quotation_id = data.get('quotationId')
+        pdf_base64 = data.get('pdfBase64', '')
+
+        if not whatsapp_number:
+            return jsonify({'success': False, 'error': 'WhatsApp number is required'}), 400
+
+        if not quotation_id:
+            return jsonify({'success': False, 'error': 'Quotation ID is required'}), 400
+
+        if not pdf_base64:
+            return jsonify({'success': False, 'error': 'Quotation PDF is required'}), 400
+
+        try:
+            pdf_bytes = base64.b64decode(pdf_base64)
+        except Exception:
+            return jsonify({'success': False, 'error': 'Invalid PDF payload'}), 400
+
+        safe_qid = int(quotation_id)
+        snapshot_category = data.get('category') or ''
+        snapshot_project_size = data.get('projectSize') or data.get('size') or 0
+        snapshot_total_cost = data.get('totalCost') or 0
+        snapshot_markup = data.get('markup') or 0
+        snapshot_quotation_date = data.get('quotationDate') or None
+
+        try:
+            with get_db() as (sc, _):
+                sc.execute("""
+                    SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                    FROM quotations
+                    WHERE id = %s
+                """, (safe_qid,))
+                srow = sc.fetchone()
+                if srow:
+                    snapshot_category = srow[0] if srow[0] is not None else snapshot_category
+                    snapshot_project_size = srow[1] if srow[1] is not None else snapshot_project_size
+                    snapshot_total_cost = srow[2] if srow[2] is not None else snapshot_total_cost
+                    snapshot_markup = srow[3] if srow[3] is not None else snapshot_markup
+                    snapshot_quotation_date = srow[4] if srow[4] is not None else snapshot_quotation_date
+        except Exception as snapshot_err:
+            logging.warning(f"Could not fetch quotation snapshot from DB: {snapshot_err}")
+
+        safe_name = ''.join(char for char in str(client_name) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
+        filename = f"Quotation_{safe_name}_{safe_qid}.pdf"
+        caption_category = format_quotation_category(snapshot_category)
+        caption = (
+            f"PROJECT QUOTATION\n\nClient: {client_name}\n"
+            f"Category: {caption_category}\n"
+            f"Total: USD {float(snapshot_total_cost or 0):,.2f}\n\n"
+            "Send 'Hello' for more options."
+        )
+
+        whatsapp_response = send_pdf_document_whatsapp(whatsapp_number, pdf_bytes, filename, caption)
+        outbound_message_id = ((whatsapp_response or {}).get('messages') or [{}])[0].get('id', '')
+
+        if quotation_id and outbound_message_id:
+            try:
+                with get_db() as (oc, oconn):
+                    oc.execute("""
+                        INSERT INTO quotation_whatsapp_outbox
+                        (outbound_message_id, quotation_id, whatsapp_number, client_name)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (outbound_message_id)
+                        DO UPDATE SET
+                            quotation_id = EXCLUDED.quotation_id,
+                            whatsapp_number = EXCLUDED.whatsapp_number,
+                            client_name = EXCLUDED.client_name,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (outbound_message_id, safe_qid, whatsapp_number, client_name))
+                    oconn.commit()
+            except Exception as outbox_err:
+                logging.warning(f"Could not persist quotation outbox record: {outbox_err}")
+
+            log_quotation_whatsapp_send(
+                safe_qid,
+                whatsapp_number,
+                client_name,
+                'document',
+                outbound_message_id,
+                'portal_send',
+                snapshot_category=snapshot_category,
+                snapshot_project_size=snapshot_project_size,
+                snapshot_total_cost=snapshot_total_cost,
+                snapshot_markup=snapshot_markup,
+                snapshot_quotation_date=snapshot_quotation_date
+            )
+
+        # Log the quotation send
+        log_activity(
+            'quotation_sent',
+            f'Quotation #{safe_qid} sent via WhatsApp to {client_name} ({whatsapp_number})',
+            'quotation',
+            safe_qid,
+            {'client_name': client_name, 'whatsapp_number': whatsapp_number, 'method': 'document'}
+        )
+
+        print(f"✅ Quotation PDF accepted by WhatsApp API for {whatsapp_number}: {whatsapp_response}")
+        return jsonify({
+            'success': True,
+            'message': f'Quotation accepted by WhatsApp API for {whatsapp_number} (delivery pending recipient status)',
+            'whatsapp_number': whatsapp_number,
+            'used_template': False,
+            'message_id': outbound_message_id
+        })
+    except Exception as e:
+        error_text = str(e)
+        requires_template = is_template_window_error(error_text)
+        data = request.get_json(silent=True) or {}
+        quotation_id = data.get('quotationId')
+        client_name = data.get('clientName', 'Unknown')
+        whatsapp_number = normalize_whatsapp_number(data.get('whatsappNumber', ''))
+
+        if requires_template and quotation_id:
+            try:
+                safe_qid = int(quotation_id)
+                q_category = ''
+                q_size = 0
+                q_total = 0
+                q_markup = 0
+                q_date = None
+
+                try:
+                    with get_db() as (qc, _):
+                        qc.execute("""
+                            SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                            FROM quotations
+                            WHERE id = %s
+                        """, (safe_qid,))
+                        qrow = qc.fetchone()
+                        if qrow:
+                            q_category = qrow[0] or ''
+                            q_size = float(qrow[1]) if qrow[1] else 0
+                            q_total = float(qrow[2]) if qrow[2] else 0
+                            q_markup = float(qrow[3]) if qrow[3] else 0
+                            q_date = qrow[4] if qrow[4] else None
+                except Exception:
+                    pass
+
+                # Use the frontend-generated PDF (already decoded from pdfBase64)
+                # so the share URL works even if server-side weasyprint is unavailable
+                share_token = create_quotation_share_token(safe_qid, pdf_bytes=pdf_bytes, pdf_filename=filename)
+                template_response = send_quotation_download_template(
+                    whatsapp_number,
+                    share_token,
+                    client_name=client_name,
+                    category=q_category,
+                    project_size=q_size
+                )
+
+                template_message_id = template_response.get('messages', [{}])[0].get('id', '')
+                log_quotation_whatsapp_send(
+                    safe_qid,
+                    whatsapp_number,
+                    client_name,
+                    'template_fallback',
+                    template_message_id,
+                    'sync_fallback',
+                    snapshot_category=q_category,
+                    snapshot_project_size=q_size,
+                    snapshot_total_cost=q_total,
+                    snapshot_markup=q_markup,
+                    snapshot_quotation_date=q_date
+                )
+
+                # Log the quotation template send
+                log_activity(
+                    'quotation_sent',
+                    f'Quotation #{safe_qid} template sent to {client_name} ({whatsapp_number}) - outside 24h window',
+                    'quotation',
+                    safe_qid,
+                    {'client_name': client_name, 'whatsapp_number': whatsapp_number, 'method': 'template_fallback', 'share_token': share_token}
+                )
+
+                public_base = PUBLIC_BASE_URL or request.url_root.rstrip('/')
+                share_url = f"{public_base}/quotation/share/{share_token}"
+
+                return jsonify({
+                    'success': True,
+                    'used_template': True,
+                    'message': 'Outside 24-hour window. Sent template with download button instead.',
+                    'whatsapp_number': whatsapp_number,
+                    'share_url': share_url,
+                    'template_name': QUOTATION_DOWNLOAD_TEMPLATE_NAME,
+                    'message_id': template_message_id
+                })
+            except Exception as template_error:
+                logging.error(f"Template fallback failed: {template_error}")
+                return jsonify({
+                    'success': False,
+                    'error': error_text,
+                    'requires_template': True,
+                    'hint': (
+                        '24-hour window restriction detected, but template fallback failed. '
+                        'Ensure your template is approved and WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE matches the approved name.'
+                    ),
+                    'template_fallback_error': str(template_error)
+                }), 400
+
+        hint = None
+        status_code = 500
+        if requires_template:
+            status_code = 400
+            hint = (
+                'This number is outside the 24-hour customer service window. '
+                'Use an approved WhatsApp template first, then send the PDF after the customer replies.'
+            )
+
+        logging.error(f'Error sending quotation to WhatsApp: {error_text}')
+        return jsonify({
+            'success': False,
+            'error': error_text,
+            'requires_template': requires_template,
+            'hint': hint
+        }), status_code
+
+
+@app.route('/api/update-quotation/<int:quotation_id>', methods=['PUT'])
+def update_quotation(quotation_id):
+    """Update an existing quotation with its items and schedules."""
+    try:
+        data = request.get_json() or {}
+        client_name = data.get('clientName', 'Unknown')
+        client_whatsapp = data.get('clientWhatsapp', '')
+        quotation_date = data.get('quotationDate', date.today().isoformat())
+        category = data.get('category', 'General')
+        project_size = float(data.get('size', 0)) if data.get('size') else 0
+        total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
+        markup = float(data.get('markup', 0)) if data.get('markup') else 0
+        items = data.get('items', [])
+        schedules = data.get('schedules', [])
+
+        with get_db() as (cursor, connection):
+            # Verify quotation exists
+            cursor.execute("SELECT id FROM quotations WHERE id = %s", (quotation_id,))
+            if cursor.fetchone() is None:
+                return jsonify({'success': False, 'error': 'Quotation not found'}), 404
+
+            # Update header
+            cursor.execute("""
+                UPDATE quotations
+                SET client_name = %s,
+                    client_whatsapp = %s,
+                    quotation_date = %s,
+                    category = %s,
+                    project_size = %s,
+                    total_cost = %s,
+                    markup_percentage = %s
+                WHERE id = %s
+            """, (client_name, client_whatsapp, quotation_date, category,
+                  project_size, total_cost, markup, quotation_id))
+
+            # Replace items
+            cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
+            for idx, item in enumerate(items):
+                item_name = item.get('name') or item.get('item', 'Item')
+                # FIX: Frontend sends 'quantity', 'unitRate', 'totalPrice' — match save_quotation
+                quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
+                unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
+                total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
+                cursor.execute("""
+                    INSERT INTO quotation_items
+                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
+
+            # Replace schedules
+            cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
+            for idx, schedule in enumerate(schedules):
+                # FIX: Frontend sends 'workScope' not 'item' — match save_quotation
+                work_scope = schedule.get('workScope', schedule.get('item', 'Task'))
+                start_date = schedule.get('startDate')
+                end_date = schedule.get('endDate')
+                days = int(schedule.get('days', 0)) if schedule.get('days') else 0
+                cursor.execute("""
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (quotation_id, work_scope, start_date, end_date, days, idx + 1))
+
+            connection.commit()
+
+        # Log the quotation update
+        try:
+            log_activity(
+                'quotation_edited',
+                f'Quotation #{quotation_id} for {client_name} ({category}) updated - Total: ${total_cost:,.2f}',
+                'quotation',
+                quotation_id,
+                {
+                    'client_name': client_name,
+                    'category': category,
+                    'total_cost': total_cost,
+                    'item_count': len(items),
+                    'project_size': project_size,
+                    'updated_by': session.get('user_name', 'Unknown')
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log quotation update: {log_err}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Quotation updated successfully',
+            'quotation_id': quotation_id
+        })
+    except Exception as e:
+        logging.error(f'Error updating quotation {quotation_id}: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/save-quotation', methods=['POST'])
+def save_quotation():
+    """Create a new quotation with items and schedules - Handles both construction and kitchen"""
+    try:
+        data = request.get_json() or {}
+        
+        client_name = data.get('clientName', 'Unknown')
+        client_whatsapp = data.get('clientWhatsapp', '')
+        quotation_date = data.get('quotationDate', date.today().isoformat())
+        category = data.get('category', 'General')
+        items = data.get('items', [])
+        schedules = data.get('schedules', [])
+        
+        is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
+        
+        # DEBUG: Print what we received
+        print(f"\n=== SAVING QUOTATION ===")
+        print(f"Category: {category}")
+        print(f"Is Kitchen: {is_kitchen}")
+        print(f"Client: {client_name}")
+        print(f"Items received: {len(items)}")
+        for i, item in enumerate(items):
+            print(f"  Item {i}: name={item.get('name')}, quantity={item.get('quantity')}, amount={item.get('amount')}, unitRate={item.get('unitRate')}, totalPrice={item.get('totalPrice')}")
+        
+        if is_kitchen:
+            total_cost = 0
+            for item in items:
+                # Get total price from item (pre-calculated in frontend as quantity * amount)
+                item_total = float(item.get('totalPrice', 0))
+                if item_total == 0:
+                    # Fallback: calculate from quantity and amount if totalPrice not provided
+                    quantity = int(item.get('quantity', 1))
+                    amount = float(item.get('amount', 0))
+                    item_total = quantity * amount
+                total_cost += item_total
+                print(f"  Kitchen item: {item.get('name')} = ${item_total:,.2f}")
+            
+            # Calculate base cost (before 30% markup)
+            # Since total_cost = base_cost * 1.30, then base_cost = total_cost / 1.30
+            markup_percentage = 30  # Fixed 30% for kitchen
+            markup = markup_percentage
+            base_cost = total_cost / 1.30
+            markup_amount = total_cost - base_cost
+            
+            project_size = 0
+
+            
+        else:
+            # Construction: existing logic
+            project_size = float(data.get('size', 0)) if data.get('size') else 0
+            total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
+            markup = float(data.get('markup', 0)) if data.get('markup') else 0
+            print(f"Construction total cost: {total_cost}")
+        
+        with get_db() as (cursor, connection):
+            # Insert quotation header
+            cursor.execute("""
+                INSERT INTO quotations
+                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                client_name, client_whatsapp, quotation_date, category, 
+                project_size, total_cost, markup
+            ))
+            quotation_id = cursor.fetchone()[0]
+            print(f"Created quotation ID: {quotation_id}")
+            
+            if is_kitchen:
+                # Save kitchen items
+                # Save kitchen items with unit_rate = amount (markup already applied in total)
+                for idx, item in enumerate(items):
+                    item_name = item.get('name', 'Item')
+                    quantity = int(item.get('quantity', 1))
+                    # amount is the per-unit price (this already INCLUDES markup)
+                    amount = float(item.get('amount', 0))
+                    days = int(item.get('days', 1))
+                    total_price = float(item.get('totalPrice', quantity * amount))
+                    
+                    # Calculate base unit rate (remove markup for internal tracking)
+                    base_unit_rate = amount / 1.30
+                    
+                    print(f"Inserting kitchen item {idx+1}: {item_name}")
+                    print(f"  Quantity: {quantity}, Amount (with markup): ${amount:,.2f}")
+                    print(f"  Base unit rate (without markup): ${base_unit_rate:,.2f}")
+                    print(f"  Total price (with markup): ${total_price:,.2f}")
+                    
+                    cursor.execute("""
+                        INSERT INTO quotation_kitchen_items
+                        (quotation_id, item_name, quantity, amount, days, item_order)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (
+                        quotation_id,
+                        item_name,
+                        quantity,
+                        amount,  # This is the price WITH markup (what client pays)
+                        days,
+                        idx + 1
+                    ))
+
+            else:
+                # Save construction items to quotation_items table
+                for idx, item in enumerate(items):
+                    item_name = item.get('name') or item.get('item', 'Item')
+                    quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
+                    unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
+                    total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
+                    
+                    print(f"Inserting construction item {idx+1}: {item_name}, Qty:{quantity}, Rate:{unit_rate}, Total:{total_price}")
+                    
+                    cursor.execute("""
+                        INSERT INTO quotation_items
+                        (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
+            
+            # Save schedules
+            for idx, schedule in enumerate(schedules):
+                work_scope = schedule.get('workScope', schedule.get('item', 'Task'))
+                start_date = schedule.get('startDate')
+                end_date = schedule.get('endDate')
+                days = int(schedule.get('days', 0)) if schedule.get('days') else 0
+                cursor.execute("""
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (quotation_id, work_scope, start_date, end_date, days, idx + 1))
+            
+            connection.commit()
+            print(f"✅ Quotation {quotation_id} saved successfully with total cost: {total_cost}")
+            
+        # Log the activity
+        try:
+            log_activity(
+                'quotation_created',
+                f"Quotation #{quotation_id} for {client_name} ({category}) created - Total: ${total_cost:,.2f}",
+                reference_type='quotation',
+                reference_id=quotation_id,
+                details={
+                    'client_name': client_name,
+                    'category': category,
+                    'total_cost': total_cost,
+                    'item_count': len(items),
+                    'has_schedule': len(schedules) > 0
+                }
+            )
+        except Exception as log_err:
+            print(f"⚠️ Failed to log quotation activity: {log_err}")
+            
+        return jsonify({
+            'success': True,
+            'message': 'Quotation saved successfully',
+            'quotation_id': quotation_id,
+            'total_cost': total_cost
+        })
+    except Exception as e:
+        print(f"Error saving quotation: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+        
+@app.route('/api/get-quotations', methods=['GET'])
+def get_quotations():
+    """Retrieve all quotations - Handles both construction and kitchen types"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get quotations
+            cursor.execute("""
+                SELECT id, client_name, client_whatsapp, quotation_date, 
+                       category, project_size, total_cost, markup_percentage, notes
+                FROM quotations
+                ORDER BY id DESC
+            """)
+            quotations = cursor.fetchall()
+
+            # Get construction items
+            construction_items = {}
+            try:
+                cursor.execute("""
+                    SELECT quotation_id, item_name, quantity, unit_rate, total_price, item_order
+                    FROM quotation_items
+                    ORDER BY quotation_id, item_order
+                """)
+                for row in cursor.fetchall():
+                    q_id = row[0]
+                    if q_id not in construction_items:
+                        construction_items[q_id] = []
+                    construction_items[q_id].append({
+                        'name': row[1],
+                        'quantity': float(row[2]) if row[2] else 0,
+                        'unitRate': float(row[3]) if row[3] else 0,
+                        'totalPrice': float(row[4]) if row[4] else 0,
+                    })
+            except Exception as e:
+                print(f"Note: quotation_items table may not exist: {e}")
+
+            # Get kitchen items
+            kitchen_items = {}
+            try:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'quotation_kitchen_items'
+                    )
+                """)
+                kitchen_table_exists = cursor.fetchone()[0]
+                
+                if kitchen_table_exists:
+                    cursor.execute("""
+                        SELECT quotation_id, item_name, quantity, amount, days, item_order
+                        FROM quotation_kitchen_items
+                        ORDER BY quotation_id, item_order
+                    """)
+                    for row in cursor.fetchall():
+                        q_id = row[0]
+                        if q_id not in kitchen_items:
+                            kitchen_items[q_id] = []
+                        kitchen_items[q_id].append({
+                            'name': row[1],
+                            'quantity': int(row[2]),
+                            'amount': float(row[3]) if row[3] else 0,
+                            'days': int(row[4]) if row[4] else 1,
+                            'totalPrice': int(row[2]) * float(row[3]) if row[3] else 0,
+                        })
+            except Exception as e:
+                print(f"Note: quotation_kitchen_items table may not exist: {e}")
+
+            # Get schedules
+            schedules_by_quotation = {}
+            try:
+                cursor.execute("""
+                    SELECT quotation_id, work_scope, start_date, end_date, days, task_order
+                    FROM quotation_schedules
+                    ORDER BY quotation_id, task_order
+                """)
+                for row in cursor.fetchall():
+                    q_id = row[0]
+                    if q_id not in schedules_by_quotation:
+                        schedules_by_quotation[q_id] = []
+                    schedules_by_quotation[q_id].append({
+                        'workScope': row[1],
+                        'startDate': row[2].isoformat() if row[2] else None,
+                        'endDate': row[3].isoformat() if row[3] else None,
+                        'days': int(row[4]) if row[4] else 0,
+                    })
+            except Exception as e:
+                print(f"Note: quotation_schedules table may not exist: {e}")
+
+            result = []
+            for quotation in quotations:
+                quotation_id = quotation[0]
+                category = quotation[4] or ''
+                is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
+                
+                if is_kitchen:
+                    items = kitchen_items.get(quotation_id, [])
+                else:
+                    items = construction_items.get(quotation_id, [])
+                
+                result.append({
+                    'id': quotation_id,
+                    'clientName': quotation[1] or 'Client',
+                    'clientWhatsapp': quotation[2] or '',
+                    'quotationDate': quotation[3].isoformat() if quotation[3] else None,
+                    'category': category,
+                    'projectSize': float(quotation[5]) if quotation[5] else 0,
+                    'totalCost': float(quotation[6]) if quotation[6] else 0,
+                    'markup': float(quotation[7]) if quotation[7] else 0,
+                    'notes': quotation[8] or '',
+                    'items': items,
+                    'schedules': schedules_by_quotation.get(quotation_id, [])
+                })
+
+            return jsonify({'success': True, 'data': result, 'count': len(result)})
+    except Exception as e:
+        print(f"Error fetching quotations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e), 'data': [], 'count': 0}), 500
+
+
+@app.route('/api/save-quotation-notes', methods=['POST'])
+def save_quotation_notes():
+    """Save or update notes for a quotation."""
+    try:
+        data = request.get_json()
+        quotation_id = data.get('quotation_id')
+        notes = data.get('notes', '').strip()
+        
+        if not quotation_id:
+            return jsonify({'success': False, 'message': 'Quotation ID is required'}), 400
+        
+        # Fetch old notes for comparison
+        old_notes = ''
+        client_name = 'Unknown'
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT notes, client_name FROM quotations WHERE id = %s
+            """, (quotation_id,))
+            row = cursor.fetchone()
+            if row:
+                old_notes = (row[0] or '').strip()
+                client_name = row[1] or 'Unknown'
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE quotations SET notes = %s WHERE id = %s
+            """, (notes, quotation_id))
+            connection.commit()
+        
+        # Log the action
+        if old_notes and notes and old_notes != notes:
+            log_activity(
+                'quotation_note_edited',
+                f'Quotation #{quotation_id} for {client_name} - note edited',
+                'quotation',
+                quotation_id,
+                {'client_name': client_name, 'old_note_preview': old_notes[:100], 'new_note_preview': notes[:100]}
+            )
+        elif not old_notes and notes:
+            log_activity(
+                'quotation_note_added',
+                f'Quotation #{quotation_id} for {client_name} - note added',
+                'quotation',
+                quotation_id,
+                {'client_name': client_name, 'note_preview': notes[:100]}
+            )
+        elif old_notes and not notes:
+            log_activity(
+                'quotation_note_removed',
+                f'Quotation #{quotation_id} for {client_name} - note removed',
+                'quotation',
+                quotation_id,
+                {'client_name': client_name, 'removed_note_preview': old_notes[:100]}
+            )
+        
+        return jsonify({'success': True, 'message': 'Notes saved successfully'})
+    except Exception as e:
+        print(f"Save notes error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/get-sent-quotations', methods=['GET'])
+def get_sent_quotations():
+    """Retrieve quotation send outcomes to WhatsApp for Quotations Portal modal."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT
+                    ql.id,
+                    ql.quotation_id,
+                    COALESCE(NULLIF(ql.client_name, ''), q.client_name, 'Client') AS client_name,
+                    COALESCE(NULLIF(ql.whatsapp_number, ''), q.client_whatsapp, '') AS whatsapp_number,
+                    COALESCE(NULLIF(ql.snapshot_category, ''), q.category, '') AS category,
+                    COALESCE(ql.snapshot_project_size, q.project_size, 0) AS project_size,
+                    COALESCE(ql.snapshot_total_cost, q.total_cost, 0) AS total_cost,
+                    COALESCE(ql.snapshot_markup, q.markup_percentage, 0) AS markup_percentage,
+                    COALESCE(ql.snapshot_quotation_date, q.quotation_date) AS quotation_date,
+                    ql.send_type,
+                    ql.send_status,
+                    ql.error_details,
+                    ql.source_channel,
+                    ql.whatsapp_message_id,
+                    ql.created_at,
+                    COALESCE(qsa.downloaded, 0) AS downloaded,
+                    qsa.download_sent_at,
+                    qsa.download_clicked_at
+                FROM quotation_whatsapp_send_logs ql
+                LEFT JOIN quotations q ON q.id = ql.quotation_id
+                LEFT JOIN (
+                    SELECT
+                        quotation_id,
+                        MAX(CASE WHEN download_pdf_sent_success THEN 1 ELSE 0 END) AS downloaded,
+                        MAX(download_pdf_sent_at) AS download_sent_at,
+                        MAX(download_clicked_at) AS download_clicked_at
+                    FROM quotation_share_links
+                    GROUP BY quotation_id
+                ) qsa ON qsa.quotation_id = ql.quotation_id
+                ORDER BY ql.created_at DESC
+            """)
+            rows = cursor.fetchall()
+
+            data = [
+                {
+                    'logId': row[0],
+                    'quotationId': row[1],
+                    'clientName': row[2] or 'Client',
+                    'whatsappNumber': row[3] or '',
+                    'category': row[4] or '',
+                    'projectSize': float(row[5]) if row[5] else 0,
+                    'totalCost': float(row[6]) if row[6] else 0,
+                    'markup': float(row[7]) if row[7] else 0,
+                    'quotationDate': row[8].isoformat() if row[8] else None,
+                    'sendType': row[9] or 'document',
+                    'sendStatus': row[10] or 'success',
+                    'errorDetails': row[11] or '',
+                    'sourceChannel': row[12] or 'portal',
+                    'messageId': row[13] or '',
+                    'sentAt': row[14].isoformat() if row[14] else None,
+                    'downloaded': bool(row[15]),
+                    'downloadSentAt': row[16].isoformat() if row[16] else None,
+                    'downloadClickedAt': row[17].isoformat() if row[17] else None
+                }
+                for row in rows
+            ]
+
+            return jsonify({
+                'success': True,
+                'count': len(data),
+                'data': data
+            })
+    except Exception as e:
+        logging.error(f'Error fetching sent quotations: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/load_quotations', methods=['GET'])
+def load_quotations():
+    """Alias endpoint for loading quotations - returns HTML table"""
+    try:
+        with get_db() as (cursor, connection):
+            # Check if table exists
+            cursor.execute("""
+                SELECT EXISTS(
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'quotations'
+                );
+            """)
+            table_exists = cursor.fetchone()[0]
+            
+            if not table_exists:
+                return jsonify({
+                    'success': True,
+                    'html': '<p class="text-muted text-center">No quotations found.</p>'
+                })
+            
+            # Get all quotations
+            cursor.execute("""
+                SELECT id, client_name, quotation_date, category, total_cost, created_at
+                FROM quotations
+                ORDER BY created_at DESC
+                LIMIT 50
+            """)
+            quotations = cursor.fetchall()
+            
+            if not quotations:
+                return jsonify({
+                    'success': True,
+                    'html': '<p class="text-muted text-center">No quotations found.</p>'
+                })
+            
+            # Build HTML table
+            html = '''<table class="table table-striped table-sm" style="color: var(--dark-blue-deep); font-size: 0.65rem;">
+                <thead style="background-color: var(--crimson-dark-side); color: white;">
+                    <tr>
+                        <th>ID</th>
+                        <th>Client Name</th>
+                        <th>Category</th>
+                        <th>Total Cost</th>
+                        <th>Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>'''
+            
+            for q in quotations:
+                q_id, client_name, q_date, category, total_cost, created_at = q
+                q_date_str = q_date.strftime('%Y-%m-%d') if q_date else 'N/A'
+                cost_display = f"${total_cost:,.2f}" if total_cost else "N/A"
+                html += f'''<tr>
+                    <td>{q_id}</td>
+                    <td>{client_name or 'N/A'}</td>
+                    <td>{category or 'N/A'}</td>
+                    <td>{cost_display}</td>
+                    <td>{q_date_str}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="selectQuotation({q_id})" style="font-size: 0.6rem;">
+                            Select
+                        </button>
+                    </td>
+                </tr>'''
+            
+            html += '</tbody></table>'
+            
+            return jsonify({
+                'success': True,
+                'html': html,
+                'count': len(quotations)
+            })
+    except Exception as e:
+        logging.error(f'Error loading quotations: {str(e)}')
+        logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'html': '<p class="text-danger text-center">Error loading quotations.</p>'
+        }), 500
+
+@app.route('/api/get_client_details/<int:client_id>', methods=['GET'])
+def get_client_details(client_id):
+    """Fetch client details by ID from connectlinkdatabase table"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get client details from projects table
+            cursor.execute("""
+                SELECT 
+                    clientname,
+                    national_id,
+                    address,
+                    whatsapp_number,
+                    email,
+                    next_of_kin,
+                    next_of_kin_relationship,
+                    next_of_kin_contact
+                FROM connectlinkdatabase
+                WHERE id = %s
+                LIMIT 1
+            """, (client_id,))
+            
+            result = cursor.fetchone()
+            
+            if not result:
+                return jsonify({
+                    'success': False,
+                    'message': 'Client not found'
+                }), 404
+            
+            client_data = {
+                'success': True,
+                'client': {
+                    'client_name': result[0] or '',
+                    'national_id': result[1] or '',
+                    'address': result[2] or '',
+                    'whatsapp_number': result[3] or '',
+                    'email': result[4] or '',
+                    'next_of_kin': {
+                        'name': result[5] or '',
+                        'relationship': result[6] or '',
+                        'contact': result[7] or ''
+                    }
+                }
+            }
+            
+            return jsonify(client_data)
+    except Exception as e:
+        logging.error(f'Error fetching client details: {str(e)}')
+        logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/project-schedule', methods=['POST'])
+def save_project_schedule_new():
+    """Alternative endpoint for saving project schedules"""
+    try:
+        data = request.json
+        quotation_id = data.get('quotationId')
+        schedules = data.get('schedules', [])
+        
+        if not quotation_id:
+            return jsonify({
+                'success': False,
+                'message': 'Quotation ID is required'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Delete existing schedules for this quotation
+            cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
+            
+            # Insert new schedules
+            for idx, schedule in enumerate(schedules):
+                cursor.execute("""
+                    INSERT INTO quotation_schedules
+                    (quotation_id, work_scope, start_date, end_date, days, task_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    quotation_id,
+                    schedule.get('item', 'Task'),
+                    schedule.get('startDate'),
+                    schedule.get('endDate'),
+                    int(schedule.get('days', 0)),
+                    idx + 1
+                ))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Successfully saved {len(schedules)} schedule items'
+            })
+    except Exception as e:
+        logging.error(f'Error saving project schedule: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/save-project-schedule', methods=['POST'])
+def save_project_schedule():
+    """Save project Gantt chart schedule to the database"""
+    try:
+        data = request.json
+        schedule = data.get('schedule', [])
+        project_name = data.get('projectName', 'Untitled Project')
+        
+        if not schedule:
+            return jsonify({
+                'success': False,
+                'message': 'No schedule provided'
+            }), 400
+        
+        import json
+        
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO project_schedules 
+                (project_name, schedule_data, created_at)
+                VALUES (%s, %s, CURRENT_TIMESTAMP)
+            """, (
+                project_name,
+                json.dumps(schedule)
+            ))
+            
+            connection.commit()
+            schedule_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True,
+                'message': f'Project schedule saved successfully',
+                'scheduleId': schedule_id,
+                'itemCount': len(schedule)
+            })
+    except Exception as e:
+        logging.error(f'Error saving project schedule: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/existing-clients', methods=['GET'])
+def get_existing_clients():
+    """Retrieve all unique existing clients from projects"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get all unique clients with their details from connectlinkdatabase
+            cursor.execute("""
+                SELECT DISTINCT 
+                    clientname,
+                    clientidnumber,
+                    clientaddress,
+                    clientwanumber,
+                    clientemail,
+                    clientnextofkinname,
+                    clientnextofkinaddress,
+                    clientnextofkinphone,
+                    nextofkinrelationship
+                FROM connectlinkdatabase
+                WHERE clientname IS NOT NULL AND clientname != ''
+                ORDER BY clientname ASC
+            """)
+            
+            clients = cursor.fetchall()
+            
+            result = []
+            for client in clients:
+                result.append({
+                    'clientName': client[0],
+                    'clientId': client[1],
+                    'clientAddress': client[2],
+                    'clientWhatsapp': client[3],
+                    'clientEmail': client[4],
+                    'nextOfKinName': client[5],
+                    'nextOfKinAddress': client[6],
+                    'nextOfKinPhone': client[7],
+                    'nextOfKinRelationship': client[8]
+                })
+            
+            return jsonify({
+                'success': True,
+                'data': result,
+                'count': len(result)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching existing clients: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }), 500
+
+@app.route('/api/get-project-schedule/<int:project_id>', methods=['GET'])
+def get_project_schedule(project_id):
+    """Retrieve work schedule for a project - uses project-specific adjusted schedules if available"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get the project's data including quotation_id and adjusted_schedules_json
+            cursor.execute("""
+                SELECT quotation_id, adjusted_schedules_json FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            result = cursor.fetchone()
+            
+            if not result:
+                return jsonify({
+                    'success': True,
+                    'schedules': [],
+                    'message': 'Project not found'
+                })
+            
+            quotation_id = result[0]
+            adjusted_schedules_json_str = result[1]
+            
+            # PRIORITY 1: If this project has adjusted schedules stored, use those
+            if adjusted_schedules_json_str:
+                try:
+                    import json
+                    schedule_list = json.loads(adjusted_schedules_json_str)
+                    print(f"✅ Returning {len(schedule_list)} project-specific adjusted schedules for project {project_id}")
+                    return jsonify({
+                        'success': True,
+                        'schedules': schedule_list,
+                        'source': 'project_adjusted',
+                        'quotationId': quotation_id
+                    })
+                except json.JSONDecodeError as e:
+                    print(f"⚠️ Could not parse project adjusted schedules: {e}")
+                    # Fall through to use quotation schedules as fallback
+            
+            # PRIORITY 2: If no project-specific schedules, get schedules from the linked quotation
+            if not quotation_id:
+                return jsonify({
+                    'success': True,
+                    'schedules': [],
+                    'message': 'No quotation linked to this project'
+                })
+            
+            # Get schedules from the linked quotation
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order ASC
+            """, (quotation_id,))
+            
+            schedules = cursor.fetchall()
+            
+            schedule_list = [
+                {
+                    'workScope': schedule[0],
+                    'startDate': schedule[1].isoformat() if schedule[1] else None,
+                    'endDate': schedule[2].isoformat() if schedule[2] else None,
+                    'days': int(schedule[3]) if schedule[3] else 0
+                }
+                for schedule in schedules
+            ]
+            
+            print(f"✅ Returning {len(schedule_list)} quotation schedules for project {project_id} (from quotation {quotation_id})")
+            
+            return jsonify({
+                'success': True,
+                'schedules': schedule_list,
+                'source': 'quotation',
+                'quotationId': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching project schedule: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/get-quotation-schedule/<int:quotation_id>', methods=['GET'])
+def get_quotation_schedule(quotation_id):
+    """Retrieve work schedule for a quotation (used for auto-populating project duration)"""
+    try:
+        with get_db() as (cursor, connection):
+            # Get the schedules from the quotation
+            cursor.execute("""
+                SELECT work_scope, start_date, end_date, days
+                FROM quotation_schedules
+                WHERE quotation_id = %s
+                ORDER BY task_order ASC
+            """, (quotation_id,))
+            
+            schedules = cursor.fetchall()
+            
+            schedule_list = [
+                {
+                    'workScope': schedule[0],
+                    'startDate': schedule[1].isoformat() if schedule[1] else None,
+                    'endDate': schedule[2].isoformat() if schedule[2] else None,
+                    'days': int(schedule[3]) if schedule[3] else 0
+                }
+                for schedule in schedules
+            ]
+            
+            # Calculate total days
+            total_days = sum(int(schedule[3]) if schedule[3] else 0 for schedule in schedules)
+            
+            return jsonify({
+                'success': True,
+                'schedules': schedule_list,
+                'totalDays': total_days,
+                'quotationId': quotation_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching quotation schedule: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/update-project-schedule/<int:project_id>', methods=['POST'])
+def update_project_schedule(project_id):
+    """Update work schedule dates for a project - saves to both quotation_schedules and project's adjusted_schedules_json"""
+    try:
+        data = request.json
+        schedules = data.get('schedules', [])
+        
+        with get_db() as (cursor, connection):
+            # Get the quotation_id from the project
+            cursor.execute("""
+                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            result = cursor.fetchone()
+            
+            if not result or not result[0]:
+                return jsonify({
+                    'success': False,
+                    'message': 'No quotation linked to this project'
+                }), 400
+            
+            quotation_id = result[0]
+            
+            # 1️⃣ Update quotation_schedules (affects all projects using this quotation)
+            for idx, schedule in enumerate(schedules):
+                cursor.execute("""
+                    UPDATE quotation_schedules
+                    SET start_date = %s, end_date = %s, days = %s
+                    WHERE quotation_id = %s AND task_order = %s
+                """, (
+                    schedule.get('startDate'),
+                    schedule.get('endDate'),
+                    schedule.get('days', 0),
+                    quotation_id,
+                    idx + 1
+                ))
+            
+            # 2️⃣ Also save as project-specific adjusted_schedules_json so GET always returns latest
+            import json as json_module
+            adjusted_schedules_json = json_module.dumps(schedules)
+            
+            # 3️⃣ Sync project start date with first schedule's start date
+            first_start_date = schedules[0].get('startDate') if schedules else None
+            
+            if first_start_date:
+                cursor.execute("""
+                    UPDATE connectlinkdatabase
+                    SET adjusted_schedules_json = %s,
+                        projectstartdate = %s::date
+                    WHERE id = %s
+                """, (adjusted_schedules_json, first_start_date, project_id))
+            else:
+                cursor.execute("""
+                    UPDATE connectlinkdatabase
+                    SET adjusted_schedules_json = %s
+                    WHERE id = %s
+                """, (adjusted_schedules_json, project_id))
+            
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Work schedule updated for project and quotation #{quotation_id} ({len(schedules)} items)'
+            })
+    except Exception as e:
+        logging.error(f'Error updating project schedule: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/work-plans', methods=['GET'])
+def get_work_plans():
+    """Get work plans filtered by date range with cost proration based on overlapping days"""
+    try:
+        start_date = request.args.get('startDate')
+        end_date = request.args.get('endDate')
+        
+        if not start_date or not end_date:
+            return jsonify({
+                'success': False,
+                'message': 'Start and end dates are required'
+            }), 400
+        
+        with get_db() as (cursor, connection):
+            # Query to get work plans with project, client, and cost information
+            # Calculate overlapping days for proration
+            # Join quotation_items to quotation_schedules using their order fields
+            cursor.execute("""
+                SELECT 
+                    p.projectname,
+                    p.clientname,
+                    qi.item_name,
+                    qs.start_date,
+                    qs.end_date,
+                    qi.total_price,
+                    q.markup_percentage,
+                    qs.days as schedule_days,
+                    GREATEST(qs.start_date, %s::date) as overlap_start,
+                    LEAST(qs.end_date, %s::date) as overlap_end
+                FROM connectlinkdatabase p
+                INNER JOIN quotations q ON p.quotation_id = q.id
+                INNER JOIN quotation_items qi ON q.id = qi.quotation_id
+                INNER JOIN quotation_schedules qs ON q.id = qs.quotation_id 
+                    AND qi.item_order = qs.task_order
+                WHERE p.quotation_id IS NOT NULL
+                AND qs.start_date <= %s::date 
+                AND qs.end_date >= %s::date
+                ORDER BY p.projectname, qs.start_date
+            """, (start_date, end_date, end_date, start_date))
+            
+            rows = cursor.fetchall()
+            
+            work_plans = []
+            for row in rows:
+                # Calculate number of overlapping days
+                schedule_days = int(row[7]) if row[7] else 1
+                overlap_start = row[8]
+                overlap_end = row[9]
+                
+                # Calculate days in filter range
+                if overlap_start and overlap_end:
+                    days_in_filter = (overlap_end - overlap_start).days + 1
+                else:
+                    days_in_filter = schedule_days
+                
+                work_plans.append({
+                    'projectName': row[0] if row[0] else 'N/A',
+                    'clientName': row[1] if row[1] else 'N/A',
+                    'itemName': row[2] if row[2] else 'N/A',
+                    'startDate': row[3].strftime('%Y-%m-%d') if row[3] else None,
+                    'endDate': row[4].strftime('%Y-%m-%d') if row[4] else None,
+                    'itemCost': float(row[5]) if row[5] else 0,
+                    'markupPercentage': float(row[6]) if row[6] else 0,
+                    'totalDays': schedule_days,
+                    'daysInFilter': days_in_filter
+                })
+            
+            return jsonify({
+                'success': True,
+                'workPlans': work_plans,
+                'count': len(work_plans)
+            })
+    except Exception as e:
+        logging.error(f'Error fetching work plans: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ===== PAGINATED API ENDPOINTS =====
+
+@app.route('/api/users/paginated', methods=['GET'])
+def get_users_paginated():
+    """Get paginated list of users with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 50
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM users 
+                    WHERE LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM users")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            users = []
+            for row in rows:
+                users.append({
+                    'id': row[0],
+                    'username': row[1] or '',
+                    'email': row[2] or '',
+                    'full_name': row[3] or '',
+                    'role': row[4] or '',
+                    'created_at': row[5].strftime('%d/%m/%Y %H:%M') if row[5] else ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': users,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated users: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/admins/paginated', methods=['GET'])
+def get_admins_paginated():
+    """Get paginated list of admins with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 20
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM users 
+                    WHERE role = 'admin' AND (LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s)
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE role = 'admin' AND (LOWER(username) LIKE %s OR LOWER(email) LIKE %s OR LOWER(full_name) LIKE %s)
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, username, email, full_name, role, created_at
+                    FROM users 
+                    WHERE role = 'admin'
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            admins = []
+            for row in rows:
+                admins.append({
+                    'id': row[0],
+                    'username': row[1] or '',
+                    'email': row[2] or '',
+                    'full_name': row[3] or '',
+                    'role': row[4] or '',
+                    'created_at': row[5].strftime('%d/%m/%Y %H:%M') if row[5] else ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': admins,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated admins: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/enquiries/paginated', methods=['GET'])
+def get_enquiries_paginated():
+    """Get paginated list of enquiries with search capability"""
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 100))
+        search = request.args.get('search', '').strip()
+        
+        if page < 1:
+            page = 1
+        if per_page < 1 or per_page > 500:
+            per_page = 100
+        
+        offset = (page - 1) * per_page
+        
+        with get_db() as (cursor, connection):
+            # Get total count
+            if search:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM connectlinkenquiries 
+                    WHERE LOWER(clientwhatsapp) LIKE %s OR LOWER(enqcategory) LIKE %s OR LOWER(enq) LIKE %s OR LOWER(username) LIKE %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%'))
+            else:
+                cursor.execute("SELECT COUNT(*) FROM connectlinkenquiries")
+            
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            if search:
+                cursor.execute("""
+                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                           plan IS NOT NULL as has_plan, status, username
+                    FROM connectlinkenquiries 
+                    WHERE LOWER(clientwhatsapp) LIKE %s OR LOWER(enqcategory) LIKE %s OR LOWER(enq) LIKE %s OR LOWER(username) LIKE %s
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', f'%{search.lower()}%', per_page, offset))
+            else:
+                cursor.execute("""
+                    SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                           plan IS NOT NULL as has_plan, status, username
+                    FROM connectlinkenquiries 
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                """, (per_page, offset))
+            
+            rows = cursor.fetchall()
+            enquiries = []
+            for row in rows:
+                enquiries.append({
+                    'id': row[0],
+                    'timestamp': row[1].strftime('%d/%m/%Y %H:%M') if row[1] else '',
+                    'clientwhatsapp': row[2] or '',
+                    'enqcategory': row[3] or '',
+                    'enq': row[4] or '',
+                    'has_plan': row[5],
+                    'status': row[6] or '',
+                    'username': row[7] or ''
+                })
+            
+            return jsonify({
+                'status': 'success',
+                'data': enquiries,
+                'total': total,
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages
+            })
+    except Exception as e:
+        logging.error(f'Error fetching paginated enquiries: {str(e)}')
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+# API: Get pending enquiries count + latest for notifications
+@app.route('/api/enquiries/pending-summary', methods=['GET'])
+def get_enquiries_pending_summary():
+    """Returns count of pending enquiries and any new ones since a given last_id."""
+    try:
+        last_id = request.args.get('last_id', 0, type=int)
+        
+        with get_db() as (cursor, connection):
+            # Get pending count
+            cursor.execute("""
+                SELECT COUNT(*) FROM connectlinkenquiries 
+                WHERE status = 'pending' OR status IS NULL OR status = ''
+            """)
+            pending_count = cursor.fetchone()[0]
+            
+            # Get latest enquiries (for notifications)
+            cursor.execute("""
+                SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                       plan IS NOT NULL as has_plan, status, username
+                FROM connectlinkenquiries 
+                WHERE id > %s
+                ORDER BY id DESC
+                LIMIT 10
+            """, (last_id,))
+            
+            new_rows = cursor.fetchall()
+            new_enquiries = []
+            for row in new_rows:
+                new_enquiries.append({
+                    'id': row[0],
+                    'timestamp': row[1].strftime('%d/%m/%Y %H:%M') if row[1] else '',
+                    'clientwhatsapp': row[2] or '',
+                    'category': row[3] or 'General',
+                    'message': row[4] or '',
+                    'has_plan': row[5],
+                    'status': row[6] or 'pending',
+                    'username': row[7] or 'Unknown'
+                })
+            
+            # Also get latest temp enquiries count for badge
+            cursor.execute("SELECT COUNT(*) FROM appenqtemp")
+            temp_count = cursor.fetchone()[0]
+            
+            return jsonify({
+                'success': True,
+                'pending_count': pending_count,
+                'temp_count': temp_count,
+                'total_unread': pending_count + temp_count,
+                'new_enquiries': new_enquiries,
+                'max_id': max([e['id'] for e in new_enquiries]) if new_enquiries else last_id
+            })
+    except Exception as e:
+        logging.error(f'Error fetching pending summary: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
