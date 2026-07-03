@@ -3760,6 +3760,9 @@ body { font-family: Arial; margin: 20px; }
         <span class="brand-text"><span class="brand-connect">Connect</span><span class="brand-link">Link <span class="brand-badge">Building Projects</span></span>
     </div>
     <div class="nav-actions" style="position:relative;">
+        <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;">
+            <i id="themeIcon" class="bi bi-moon"></i>
+        </button>
         <div class="user-badge" onclick="toggleUserDropdown(event)" style="cursor:pointer;">
             <div class="avatar">{{ user_name[0]|upper }}</div>
             <span class="user-text">{{ user_name }}</span>
@@ -19113,6 +19116,18 @@ function setTheme(mode) {
     highlightThemeCard(mode);
     document.getElementById('themeMsg').innerHTML = '<span style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Theme changed to ' + mode + ' mode.</span>';
 }
+
+// Navbar theme toggle (shared across portals)
+window.toggleTheme = function() {
+    const body = document.body;
+    const isDark = body.classList.toggle('dark-theme');
+    localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon';
+    // Sync settings modal
+    const savedTheme = localStorage.getItem('connectlink_theme');
+    if (typeof setTheme === 'function') setTheme(savedTheme || 'light');
+};
 
 function highlightThemeCard(mode) {
     const lightCard = document.getElementById('themeLightCard');

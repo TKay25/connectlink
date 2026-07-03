@@ -2960,6 +2960,9 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                         </div>
                         <div class="vr"></div>
                         <div class="d-flex align-items-center gap-2">
+                            <button id="posThemeToggle" onclick="togglePOSTheme()" title="Toggle theme" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:2px 6px;cursor:pointer;color:var(--gray-500);font-size:0.6rem;">
+                                <i id="posThemeIcon" class="fas fa-moon"></i>
+                            </button>
                             <span class="small"><i class="fas fa-user-circle me-1"></i> <span id="userName">Administrator</span></span>
                             <button class="logout-top-btn" id="logoutBtn">
                                 <i class="fas fa-sign-out-alt me-1"></i>Logout
@@ -12226,6 +12229,26 @@ function setupEventListeners() {
         if (logoutBtn) logoutBtn.addEventListener('click', async () => { try { await fetch('/api/logoutpos', { method: 'POST', credentials: 'include' }); } catch (e) {} localStorage.clear(); window.location.href = '/api/logoutpos'; });
     }
     
+    // ==================== THEME TOGGLE ====================
+    
+    window.togglePOSTheme = function() {
+        const body = document.body;
+        const isDark = body.classList.toggle('dark-theme');
+        localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
+        const icon = document.getElementById('posThemeIcon');
+        if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    };
+
+    // Apply saved theme on load
+    (function() {
+        const savedTheme = localStorage.getItem('connectlink_theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            const icon = document.getElementById('posThemeIcon');
+            if (icon) icon.className = 'fas fa-sun';
+        }
+    })();
+
     // ==================== INITIALIZATION ====================
     
     function applyRoleBasedAccess(userRole) {
