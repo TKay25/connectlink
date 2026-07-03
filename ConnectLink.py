@@ -21756,6 +21756,16 @@ def privacy_policy():
 @app.route('/pos-system.html', methods=['GET', 'POST'])
 def pos_system():
     """POS System page"""
+    # Sync session keys for cross-portal compatibility
+    if session.get('userid') and not session.get('user_id'):
+        session['user_id'] = session['userid']
+    if session.get('user_name') and not session.get('username'):
+        session['username'] = session['user_name']
+        session['full_name'] = session['user_name']
+    if session.get('user_name') and not session.get('full_name'):
+        session['full_name'] = session['user_name']
+    if not session.get('role'):
+        session['role'] = 'admin'
     return render_template('pos-system.html')
 
 
