@@ -69,6 +69,10 @@
   "file_mtime": 1781691732172.6877,
   "file_size": 1328874,
   "file_birthtime": 1776794366250.55,
+<<<<<<< Updated upstream
   "generated_at": "2026-07-03T04:49:49.112730Z",
+=======
+  "generated_at": "2026-07-03T04:45:49.372616Z",
+>>>>>>> Stashed changes
   "stale": false
 }
