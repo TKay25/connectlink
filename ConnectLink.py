@@ -11981,15 +11981,15 @@ def Dashboard():
                             can_view_payments = True
                             break
 
-                can_edit_projects = perms.get('can_edit_projects', True) or perms.get('is_super_admin', False)
-                if not can_edit_projects:
-                    for utype in ('projects', 'hr', 'hardware'):
-                        if utype == source_sys:
-                            continue
-                        p = get_user_permissions(utype, source_id)
-                        if p.get('can_edit_projects', True) or p.get('is_super_admin', False):
-                            can_edit_projects = True
-                            break
+                can_edit_projects = perms.get('can_edit_projects', True)
+                # Only override to True if user is super admin
+                if perms.get('is_super_admin', False):
+                    can_edit_projects = True
+                # If still not set, try primary user_type='projects' as fallback
+                if not can_edit_projects and source_sys != 'projects':
+                    p2 = get_user_permissions('projects', source_id)
+                    if p2.get('can_edit_projects', False) or p2.get('is_super_admin', False):
+                        can_edit_projects = True
 
                 print("Back from adventures")
 
