@@ -16160,8 +16160,8 @@ def download_contract(project_id):
             detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber'])
             companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
             address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
-            contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
-            contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
+            contact1 = str(detailscompdata.iat[0,1] or '') if not detailscompdata.empty else ""
+            contact2 = str(detailscompdata.iat[0,2] or '') if not detailscompdata.empty else ""
             compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
 
             # Calculate days difference
