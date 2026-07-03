@@ -24663,7 +24663,7 @@ def get_user_permissions(user_type, user_id):
             # Default: no permissions
             return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                 'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments']}
+                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects']}
     except Exception as e:
         print(f"Permissions error: {e}")
         return {}
@@ -24683,7 +24683,7 @@ def um_permissions_api():
                            up.is_super_admin, up.can_manage_projects, up.can_manage_hardware,
                            up.can_manage_hr, up.can_add_users, up.can_edit_users,
                            up.can_delete_users, up.can_export_data, up.can_view_audit,
-                           up.can_manage_roles, up.can_view_payments
+                           up.can_manage_roles, up.can_view_payments, up.can_edit_projects
                     FROM user_permissions up
                     LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
                     LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
@@ -24699,8 +24699,7 @@ def um_permissions_api():
                         'can_add_users': r[8], 'can_edit_users': r[9],
                         'can_delete_users': r[10], 'can_export_data': r[11],
                         'can_view_audit': r[12], 'can_manage_roles': r[13],
-                        'can_view_payments': r[14] if len(r) > 14 else False,
-                    'can_edit_projects': r[15] if len(r) > 15 else True
+                        'can_view_payments': r[14], 'can_edit_projects': r[15]
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
