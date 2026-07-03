@@ -50,7 +50,7 @@
             color: var(--text-primary);
             overflow-x: hidden;
             min-height: 100vh;
-            padding-top: var(--nav-height);
+            /* padding handled by design-system.css */
         }
         /* ===== TOP NAVBAR ===== */
         .um-navbar {
@@ -422,7 +422,7 @@
         /* Loader */
         .um-loader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(10,26,58,0.96); backdrop-filter: blur(12px);
+            background: rgba(15,23,42,0.65); backdrop-filter: blur(8px);
             z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column;
         }
         .um-loader.active { display: flex; }

@@ -165,7 +165,7 @@
         .role-switch .role-divider { width: 1px; height: 16px; background: #e2e8f0; flex-shrink: 0; }
 
         /* ===== LAYOUT ===== */
-        body { padding-top: var(--nav-height); }
+        /* body padding handled by design-system.css for fixed navbar */
         .hr-layout { display: flex; min-height: calc(100vh - var(--nav-height)); }
 
         /* ===== PREMIUM SIDEBAR ===== */
@@ -442,8 +442,8 @@
         /* ===== LOADER ===== */
         .eds-loader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15,23,42,0.8);
-            backdrop-filter: blur(12px);
+            background: rgba(15,23,42,0.65);
+            backdrop-filter: blur(8px);
             display: none; justify-content: center; align-items: center;
             flex-direction: column; z-index: 9999;
         }
@@ -522,8 +522,8 @@
         .eds-loader {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(10,26,58,0.96);
-            backdrop-filter: blur(12px);
+            background: rgba(15,23,42,0.65);
+            backdrop-filter: blur(8px);
             z-index: 9999;
             display: none;
             justify-content: center;

@@ -462,7 +462,7 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
    UNIFIED NAVBAR — Across all portals
    ================================================================== */
 .app-navbar {
-  position: sticky; top: 0; z-index: 100;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   background: rgba(255,255,255,0.92);
   backdrop-filter: blur(16px) saturate(1.4);
   -webkit-backdrop-filter: blur(16px) saturate(1.4);
@@ -474,6 +474,11 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
   justify-content: space-between;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   margin: 0;
+}
+
+/* Push body content below fixed navbar on pages with app-navbar */
+body:has(.app-navbar) {
+  padding-top: 56px;
 }
 .app-navbar .brand {
   display: flex; align-items: center; gap: 12px;
