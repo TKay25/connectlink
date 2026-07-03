@@ -514,13 +514,14 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
    ================================================================== */
 .app-footer {
   position: fixed; bottom: 0; width: 100%;
-  padding: 14px; text-align: center;
+  padding: 8px 14px; text-align: center;
   background: rgba(255,255,255,0.5);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-top: 1px solid rgba(255,255,255,0.2);
   z-index: 50;
-  font-size: 0.6rem; color: var(--gray-500);
+  font-size: 0.55rem; color: var(--gray-500);
   letter-spacing: 0.3px;
+  line-height: 1.3;
 }
 .app-footer strong { color: #0F1B2D; }
