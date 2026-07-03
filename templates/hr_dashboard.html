@@ -1078,8 +1078,7 @@
                             <select class="form-select" id="empDeptFilter" onchange="filterEmployeeTable()">
                                 <option value="">All</option>
                                 <option>Construction</option>
-                                <option>Construction Sales</option>
-                                <option>Hardware Sales</option>
+                                <option>Sales and Marketing</option>
                                 <option>Administration</option>
                                 <option>Finance</option>
                                 <option>HR</option>
@@ -1908,12 +1907,20 @@
                 </h6>
                 <div class="row g-2 mb-2">
                     <div class="col-md-3">
+                        <label class="form-label">Subsidiary</label>
+                        <select class="form-select" id="empSubsidiary">
+                            <option value="">-- Select --</option>
+                            <option>Construction</option>
+                            <option>Hardware</option>
+                            <option>Group</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label">Department</label>
                         <select class="form-select" id="empDepartment">
                             <option value="">-- Select --</option>
                             <option>Construction</option>
-                            <option>Construction Sales</option>
-                            <option>Hardware Sales</option>
+                            <option>Sales and Marketing</option>
                             <option>Administration</option>
                             <option>Finance</option>
                             <option>HR</option>
@@ -2759,6 +2766,7 @@ async function saveEmployee() {
         whatsapp: whatsapp,
         address: document.getElementById('empAddress').value.trim(),
         department: document.getElementById('empDepartment').value,
+        subsidiary: document.getElementById('empSubsidiary').value,
         designation: document.getElementById('empDesignation').value.trim(),
         employment_type: document.getElementById('empType').value,
         gender: document.getElementById('empGender').value,
@@ -2845,6 +2853,7 @@ async function viewEmployee(empId) {
         document.getElementById('empPhone').value = emp.whatsapp || '';
         document.getElementById('empAddress').value = emp.address || '';
         document.getElementById('empDepartment').value = emp.department || '';
+        document.getElementById('empSubsidiary').value = emp.subsidiary || '';
         document.getElementById('empDesignation').value = emp.designation || '';
         document.getElementById('empType').value = emp.employment_type || 'Permanent';
         document.getElementById('empGender').value = emp.gender || '';

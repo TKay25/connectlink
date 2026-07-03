@@ -18844,10 +18844,9 @@ document.addEventListener('DOMContentLoaded', function() {
         otherModal.show();
     };
     
-    // Manual tab switching (prevents Bootstrap's default tab handler)
+    // Manual tab switching (replaces Bootstrap's broken tab handling)
     document.querySelectorAll('.tab-nav-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
-            e.preventDefault();
             const targetId = this.getAttribute('data-bs-target') || this.getAttribute('data-target');
             if (!targetId) return;
             const target = document.querySelector(targetId);
@@ -18855,16 +18854,21 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Deactivate all tabs and tab-panes
             document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show', 'active'));
+            document.querySelectorAll('.tab-pane').forEach(p => {
+                p.style.display = 'none';
+                p.classList.remove('show', 'active');
+            });
             
             // Activate clicked tab
             this.classList.add('active');
+            target.style.display = 'block';
             target.classList.add('show', 'active');
         });
     });
     
-    // Also ensure first non-projects tab has content when clicked via the nav
-    // Show PROJECTS tab content by default (already has show active)
+    // Trigger click on PROJECTS tab to ensure it's active by default
+    const defaultTab = document.querySelector('.tab-nav-btn.active');
+    if (defaultTab) defaultTab.click();
     
     // Any other initialization code
     console.log('DOM ready');

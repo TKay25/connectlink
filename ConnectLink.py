@@ -314,6 +314,16 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"Note: Could not add must_reset_password column: {e}")
 
+            # Add subsidiary column to admin_users if not exists
+            try:
+                cursor.execute("""
+                    ALTER TABLE admin_users
+                    ADD COLUMN IF NOT EXISTS subsidiary VARCHAR(50) DEFAULT ''
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add subsidiary column: {e}")
+
             # Migrate existing users from connectlinkusers to admin_users (if not already there)
             try:
                 cursor.execute("""
@@ -1381,6 +1391,16 @@ def initialize_database_tables():
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+
+            # Add subsidiary column to hr_employees if not exists
+            try:
+                cursor.execute("""
+                    ALTER TABLE hr_employees
+                    ADD COLUMN IF NOT EXISTS subsidiary VARCHAR(50) DEFAULT ''
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add subsidiary column to hr_employees: {e}")
 
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_leave_applications (
@@ -12429,7 +12449,7 @@ def hr_employees_api():
                 # Get registered hr_employees
                 cursor.execute("""
                     SELECT id, user_id, first_name, last_name, whatsapp, email, address,
-                           role, department, designation, gender, dob, marital_status,
+                           role, department, subsidiary, designation, gender, dob, marital_status,
                            nationality, date_joined, current_leave_balance, monthly_accumulation,
                            basic_salary, employment_type, status
                     FROM hr_employees ORDER BY last_name, first_name
@@ -12442,12 +12462,12 @@ def hr_employees_api():
                     employees.append({
                         'id': r[0], 'user_id': r[1], 'first_name': r[2], 'last_name': r[3],
                         'whatsapp': r[4], 'email': r[5], 'address': r[6],
-                        'role': r[7], 'department': r[8], 'designation': r[9],
-                        'gender': r[10], 'dob': str(r[11]) if r[11] else None,
-                        'marital_status': r[12], 'nationality': r[13],
-                        'date_joined': str(r[14]) if r[14] else None,
-                        'leave_balance': float(r[15] or 0), 'monthly_accrual': float(r[16] or 0),
-                        'salary': float(r[17] or 0), 'employment_type': r[18], 'status': r[19],
+                        'role': r[7], 'department': r[8], 'subsidiary': r[9] or '',
+                        'designation': r[10], 'gender': r[11], 'dob': str(r[12]) if r[12] else None,
+                        'marital_status': r[13], 'nationality': r[14],
+                        'date_joined': str(r[15]) if r[15] else None,
+                        'leave_balance': float(r[16] or 0), 'monthly_accrual': float(r[17] or 0),
+                        'salary': float(r[18] or 0), 'employment_type': r[19], 'status': r[20],
                         'source': 'hr_employees'
                     })
 
@@ -12658,7 +12678,7 @@ def hr_employee_detail(emp_id):
                 cursor.execute("""
                     UPDATE hr_employees SET
                         first_name=%s, last_name=%s, whatsapp=%s, email=%s, address=%s,
-                        role=%s, department=%s, designation=%s, gender=%s, dob=%s,
+                        role=%s, department=%s, subsidiary=%s, designation=%s, gender=%s, dob=%s,
                         marital_status=%s, nationality=%s, date_joined=%s,
                         current_leave_balance=%s, monthly_accumulation=%s,
                         basic_salary=%s, employment_type=%s, status=%s,
@@ -12670,7 +12690,7 @@ def hr_employee_detail(emp_id):
                 """, (
                     data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
                     data.get('email'), data.get('address'), data.get('role', 'Ordinary User'),
-                    data.get('department'), data.get('designation'), data.get('gender'),
+                    data.get('department'), data.get('subsidiary', ''), data.get('designation'), data.get('gender'),
                     data.get('dob'), data.get('marital_status'), data.get('nationality'),
                     data.get('date_joined'), data.get('current_leave_balance', 21),
                     data.get('monthly_accumulation', 1.75), data.get('basic_salary', 0),
@@ -24722,7 +24742,7 @@ def um_admin_users():
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, username, full_name, email, whatsapp, source_system, source_id, role, is_active, created_at
+                SELECT id, username, full_name, email, whatsapp, source_system, source_id, role, is_active, created_at, subsidiary
                 FROM admin_users ORDER BY id DESC
             """)
             rows = cursor.fetchall()
@@ -24730,7 +24750,8 @@ def um_admin_users():
                 'id': r[0], 'username': r[1], 'full_name': r[2], 'email': r[3],
                 'whatsapp': r[4], 'source_system': r[5], 'source_id': r[6],
                 'role': r[7], 'is_active': r[8],
-                'created_at': str(r[9]) if r[9] else None
+                'created_at': str(r[9]) if r[9] else None,
+                'subsidiary': r[10] if len(r) > 10 else ''
             } for r in rows]
             return jsonify({'success': True, 'data': users})
     except Exception as e:
@@ -24758,6 +24779,7 @@ def um_save_admin_user():
         password = data.get('password', '')
         role = data.get('role', 'operator')
         source_system = data.get('source_system', 'projects')
+        subsidiary = data.get('subsidiary', '')
 
         if not username or not full_name:
             return jsonify({'success': False, 'error': 'Username and full name are required.'}), 400
@@ -24766,21 +24788,21 @@ def um_save_admin_user():
             if edit_id:
                 if password:
                     cursor.execute("""
-                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, password=%s, updated_at=NOW()
+                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, subsidiary=%s, password=%s, updated_at=NOW()
                         WHERE id=%s
-                    """, (username, full_name, email, role, password, edit_id))
+                    """, (username, full_name, email, role, subsidiary, password, edit_id))
                 else:
                     cursor.execute("""
-                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, updated_at=NOW()
+                        UPDATE admin_users SET username=%s, full_name=%s, email=%s, role=%s, subsidiary=%s, updated_at=NOW()
                         WHERE id=%s
-                    """, (username, full_name, email, role, edit_id))
+                    """, (username, full_name, email, role, subsidiary, edit_id))
                 msg = 'Admin user updated'
             else:
                 pw = password or 'conlink123'
                 cursor.execute("""
-                    INSERT INTO admin_users (username, password, full_name, email, source_system, role)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (username, pw, full_name, email, source_system, role))
+                    INSERT INTO admin_users (username, password, full_name, email, source_system, role, subsidiary)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (username, pw, full_name, email, source_system, role, subsidiary))
                 msg = 'Admin user created'
             connection.commit()
             return jsonify({'success': True, 'message': msg})

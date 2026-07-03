@@ -691,7 +691,7 @@
                 <div class="card-body p-0">
                     <div class="table-scroll">
                         <table class="table-um" id="allUsersTable">
-                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Granted Permissions</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Subsidiary</th><th>Granted Permissions</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
                             <tbody id="allUsersTableBody"></tbody>
                         </table>
                     </div>
@@ -789,11 +789,22 @@
                             </select>
                         </div>
                     </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Subsidiary</label>
+                            <select class="form-select" id="addUserSubsidiary">
+                                <option value="">-- Select --</option>
+                                <option>Construction</option>
+                                <option>Hardware</option>
+                                <option>Group</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="hrExtraFields" style="display:none;">
                         <div class="row g-2 mb-2">
                             <div class="col-md-4"><label class="form-label">Department</label>
                                 <select class="form-select" id="addUserDept"><option value="">-- Select --</option>
-                                <option>Construction</option><option>Construction Sales</option><option>Hardware Sales</option><option>Administration</option><option>Finance</option><option>HR</option><option>Logistics</option><option>Management</option><option>Systems &amp; IT</option></select></div>
+                                <option>Construction</option><option>Sales and Marketing</option><option>Administration</option><option>Finance</option><option>HR</option><option>Logistics</option><option>Management</option><option>Systems &amp; IT</option></select></div>
                             <div class="col-md-4"><label class="form-label">Designation</label><input type="text" class="form-control" id="addUserDesignation" placeholder="e.g. Officer"></div>
                             <div class="col-md-4"><label class="form-label">WhatsApp</label><input type="text" class="form-control" id="addUserWhatsapp" placeholder="26377xxxxxx"></div>
                         </div>
@@ -1226,6 +1237,7 @@ function renderAllUsers() {
             <td>${idx}</td>
             <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
             <td>${u.username || u.email || 'N/A'}</td>
+            <td><span style="font-size:0.6rem;background:#f3f4f6;padding:1px 6px;border-radius:3px;">${u.subsidiary || '—'}</span></td>
             <td>${accessHtml}</td>
             <td><span class="${roleBadge}">${u.role || 'operator'}</span></td>
             <td><span class="${statusBadge}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
@@ -1408,7 +1420,7 @@ function toggleSystemFields() {
 }
 
 function resetAddForm() {
-    const ids = ['editUserId','editUserSystem','addUserName','addUserEmail','addUserPassword','addUserStatus','addUserWhatsapp','addUserDept','addUserDesignation'];
+    const ids = ['editUserId','editUserSystem','addUserName','addUserEmail','addUserPassword','addUserStatus','addUserWhatsapp','addUserDept','addUserDesignation','addUserSubsidiary'];
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     const sys = document.getElementById('addUserSystem');
     if (sys) sys.value = 'projects';
@@ -1446,6 +1458,7 @@ async function saveUser() {
                 password: password || undefined,
                 role: role === 'Administrator' || role === 'admin' ? 'admin' : 'operator',
                 source_system: system,
+                subsidiary: document.getElementById('addUserSubsidiary').value,
                 edit_id: editId || null
             })
         });
