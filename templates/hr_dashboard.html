@@ -84,17 +84,22 @@
             justify-content: space-between;
             align-items: center;
         }
-        .hr-navbar .brand { display: flex; align-items: center; gap: 10px; }
+        .hr-navbar .brand { display: flex; align-items: center; gap: 12px; }
         .hr-navbar .brand .brand-text {
-            color: #1f2937; font-weight: 700; font-size: 0.72rem; letter-spacing: -0.2px;
+            color: #1f2937; font-weight: 800; font-size: 0.95rem; letter-spacing: -0.3px;
+            display: flex; align-items: center; gap: 6px;
         }
-        .hr-navbar .brand .brand-text span { color: var(--primary); }
+        .hr-navbar .brand .brand-text .brand-link {
+            color: var(--primary); font-weight: 800;
+        }
+        .hr-navbar .brand .brand-text .brand-link span { color: #C12B3E; }
         .hr-navbar .brand .brand-badge {
-            font-size: 0.4rem; font-weight: 700; text-transform: uppercase;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: #fff; padding: 2px 7px; border-radius: 4px;
-            letter-spacing: 0.6px; margin-left: 4px;
-            box-shadow: 0 1px 4px rgba(193,43,62,0.3);
+            font-size: 0.55rem; font-weight: 700; text-transform: uppercase;
+            background: linear-gradient(135deg, #C12B3E, #9E1F2E);
+            color: #fff; padding: 3px 10px; border-radius: 6px;
+            letter-spacing: 0.8px;
+            box-shadow: 0 2px 8px rgba(193,43,62,0.35);
+            margin-left: 2px;
         }
         .hr-navbar .nav-actions { display: flex; align-items: center; gap: 8px; }
         .hr-navbar .user-badge {
@@ -790,7 +795,7 @@
 <!-- ===== TOP NAVBAR ===== -->
 <nav class="hr-navbar">
     <div class="brand">
-        <span class="brand-text">Connect<span>Link</span> <span class="brand-badge">HR</span></span>
+        <span class="brand-text"><span class="brand-link">Connect<span>Link</span></span> <span class="brand-badge">Human Resources</span></span>
     </div>
     <div class="nav-actions" style="position:relative;">
         <!-- Role Switch - visible only for admins -->
