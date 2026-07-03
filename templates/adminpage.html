@@ -32,6 +32,11 @@
         <!-- Modern Design System -->
         <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
         <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
+    {% if can_edit_projects %}
+    <script>window.CAN_EDIT_PROJECTS = true;</script>
+    {% else %}
+    <script>window.CAN_EDIT_PROJECTS = false;</script>
+    {% endif %}
     <style>
 :root {
             --primary: #C12B3E;
@@ -18825,6 +18830,24 @@ document.addEventListener('DOMContentLoaded', function() {
         otherModal.show();
     };
     
+    // Manual tab switching fallback
+    document.querySelectorAll('.tab-nav-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const targetId = this.getAttribute('data-bs-target') || this.getAttribute('data-target');
+            if (!targetId) return;
+            const target = document.querySelector(targetId);
+            if (!target) return;
+            
+            // Deactivate all tabs and tab-panes
+            document.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show', 'active'));
+            
+            // Activate clicked tab
+            this.classList.add('active');
+            target.classList.add('show', 'active');
+        });
+    });
+    
     // Any other initialization code
     console.log('DOM ready');
 });
@@ -19272,6 +19295,18 @@ function initializeDataTableForProjects() {
             paginate: { first: 'First', last: 'Last', next: 'Next', previous: 'Previous' }
         }
     });
+    
+    // Apply permission-based button disabling
+    if (typeof CAN_EDIT_PROJECTS !== 'undefined' && !CAN_EDIT_PROJECTS) {
+        setTimeout(() => {
+            document.querySelectorAll('.update-project-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+                btn.title = 'No permission to edit projects';
+            });
+        }, 500);
+    }
     
     console.log('DataTable reinitialized with', table.rows.length, 'rows');
     

@@ -1324,6 +1324,17 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add can_view_payments column: {e}")
+
+            # Add can_edit_projects column if it doesn't exist
+            try:
+                cursor.execute("""
+                    ALTER TABLE user_permissions
+                    ADD COLUMN IF NOT EXISTS can_edit_projects BOOLEAN DEFAULT TRUE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add can_edit_projects column: {e}")
+
             print("✅ User permissions table initialized!")
 
             # ========== HR MODULE TABLES ==========
@@ -11942,10 +11953,18 @@ def Dashboard():
                             can_view_payments = True
                             break
 
+                can_edit_projects = perms.get('can_edit_projects', True) or perms.get('is_super_admin', False)
+                if not can_edit_projects:
+                    for utype in ('hr', 'hardware'):
+                        p = get_user_permissions(utype, userid)
+                        if p.get('can_edit_projects', True) or p.get('is_super_admin', False):
+                            can_edit_projects = True
+                            break
+
                 print("Back from adventures")
 
                 return render_template('adminpage.html', **results, userid=userid, user_name=user_name,
-                                       can_view_payments=can_view_payments)
+                                       can_view_payments=can_view_payments, can_edit_projects=can_edit_projects)
                     
             except Exception as e:
 
@@ -12213,162 +12232,79 @@ def reset_password():
 @app.route('/login', methods=['POST'])
 def login():
     if request.method == 'POST':
-            
         try:
-                
             with get_db() as (cursor, connection):
+                email_or_username = request.form.get('emaillogin', '').strip()
+                password = request.form.get('passwordlogin', '').strip()
 
-                today_date = datetime.now().strftime('%d %B %Y')
-                applied_date = datetime.now().strftime('%Y-%m-%d')
-
-                # Retrieve form data
-                email_or_username = request.form.get('emaillogin').strip()
-                password = request.form.get('passwordlogin').strip()
-
-                # Check for missing input
                 if not email_or_username or not password:
                     return jsonify({'success': False, 'message': 'Username/Email and password are required.'}), 400
 
-                # ===== TRY UNIFIED admin_users TABLE FIRST =====
-                try:
-                    cursor.execute("""
-                        SELECT id, username, password, full_name, email, role, source_system, source_id, must_reset_password
-                        FROM admin_users WHERE username = %s AND is_active = TRUE
-                    """, (email_or_username,))
-                    au_row = cursor.fetchone()
-                    if au_row:
-                        if au_row[2] == password:
-                            # Check if password reset is required
-                            if au_row[8]:  # must_reset_password
-                                return jsonify({
-                                    'success': False,
-                                    'must_reset': True,
-                                    'message': 'You must reset your password before continuing.',
-                                    'username': email_or_username
-                                }), 403
+                # ===== SINGLE LOGIN: admin_users ONLY =====
+                cursor.execute("""
+                    SELECT id, username, password, full_name, email, role, source_system, source_id, must_reset_password
+                    FROM admin_users WHERE username = %s AND is_active = TRUE
+                """, (email_or_username,))
+                au_row = cursor.fetchone()
 
-                            user_uuid = uuid.uuid4()
-                            session['user_uuid'] = str(user_uuid)
-                            session.permanent = True
-                            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-                            session['user_id'] = int(au_row[0])
-                            session['username'] = au_row[1]
-                            session['full_name'] = au_row[3]
-                            session['user_name'] = au_row[3]
-                            session['role'] = au_row[5]
-                            session['userid'] = int(au_row[0])
-                            session['source_system'] = au_row[6]
-                            session['source_id'] = au_row[7]
-
-                            # This is the Building Projects login route - always redirect to dashboard
-                            redirect_to = '/dashboard'
-
-                            log_activity('user_login', f'Admin user {email_or_username} logged in (source: {au_row[6]})', 'user', au_row[0], {'username': email_or_username, 'source': au_row[6], 'role': au_row[5]})
-                            print(f"✅ Admin user {email_or_username} logged in from {au_row[6]}")
-                            return jsonify({'success': True, 'message': 'Login successful', 'redirect': redirect_to}), 200
-                        else:
-                            print(f"❌ Incorrect password for admin user {email_or_username}")
-                            return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
-                except Exception as au_error:
-                    print(f"⚠️  Error querying admin_users: {au_error}")
-
-                # ===== FALLBACK: Check hardware_users =====
-                try:
-                    cursor.execute("SELECT id, username, password, full_name, role FROM hardware_users WHERE username = %s", (email_or_username,))
-                    hw_rows = cursor.fetchall()
-                    if hw_rows:
-                        hw_user = hw_rows[0]
-                        if hw_user[2] == password:
-                            user_uuid = uuid.uuid4()
-                            session['user_uuid'] = str(user_uuid)
-                            session.permanent = True
-                            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-                            session['user_id'] = int(hw_user[0])
-                            session['username'] = hw_user[1]
-                            session['full_name'] = hw_user[3]
-                            session['role'] = hw_user[4]
-                            session['userid'] = int(hw_user[0])
-                            session['user_name'] = hw_user[3]
-                            log_activity('user_login', f'Hardware user {email_or_username} logged in with role {hw_user[4]}', 'user', hw_user[0], {'username': email_or_username, 'role': hw_user[4]})
-                            print(f"✅ Hardware user {email_or_username} logged in successfully with role: {hw_user[4]}")
-                            return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/pos-system.html'}), 200
-                        else:
-                            return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
-                except Exception as hw_error:
-                    print(f"⚠️  Error querying hardware_users: {hw_error}")
-                
-                # ===== FALLBACK: Try connectlinkusers =====
-                # Try to find user by email OR username
-                search_query = "SELECT id, datecreated, name, password, email, whatsapp FROM connectlinkusers WHERE email = %s OR name = %s;"
-                cursor.execute(search_query, (email_or_username, email_or_username))
-                rows = cursor.fetchall()
-
-                if rows: 
-                    user_row = rows[0]
-
-                    table_df = pd.DataFrame([user_row], columns=[
-                        'id', 'datecreated', 'name', 'password', 'email', 'whatsapp'
-                    ])
-
-                    if table_df.iat[0, 3] == password:
-                        userid = table_df.iat[0, 0]
-                        user_name = table_df.iat[0,2]
-
-                        # Check permissions for Building Projects portal
-                        cursor.execute("""
-                            SELECT can_manage_projects, is_super_admin
-                            FROM user_permissions WHERE user_type='projects' AND user_id=%s
-                        """, (int(np.int64(userid)),))
-                        perm_row = cursor.fetchone()
-                        if perm_row:
-                            has_access = perm_row[0] or perm_row[1]
-                        else:
-                            # No permissions row yet — check if this is the first user (auto-grant super admin)
-                            cursor.execute("SELECT COUNT(*) FROM user_permissions")
-                            perm_count = cursor.fetchone()[0]
-                            if perm_count == 0:
-                                # First user ever — auto-create as super admin
-                                cursor.execute("""
-                                    INSERT INTO user_permissions (user_type, user_id, is_super_admin,
-                                        can_manage_projects, can_manage_hardware, can_manage_hr,
-                                        can_add_users, can_edit_users, can_delete_users,
-                                        can_export_data, can_view_audit, can_manage_roles, can_view_payments)
-                                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
-                                """, ('projects', int(np.int64(userid))))
-                                connection.commit()
-                                has_access = True
-                            else:
-                                has_access = False
-                        if not has_access:
-                            print(f"❌ Access denied for {user_name}: no Building Projects permission")
-                            return jsonify({'success': False, 'message': 'Access denied: You do not have permission to access the Building Projects portal. Contact an administrator.'}), 403
-
-                        user_uuid = uuid.uuid4()
-                        session['user_uuid'] = str(user_uuid)
-                        session.permanent = True
-                        user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-                        
-                        session['userid'] = int(np.int64(userid))
-                        session['user_name'] = user_name
-
-                        log_activity('user_login', f'Building projects user {user_name} logged in', 'user', userid, {'username': user_name, 'email': email_or_username})
-                        # Return JSON response instead of redirect
-                        return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/dashboard'}), 200
-
-                    else:
-                        print('Incorrect password')
-                        return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
-
-                else:
-                    print(f"❌ No user found with email or username '{email_or_username}' in any table.")
+                if not au_row:
                     return jsonify({'success': False, 'message': 'User not found.'}), 404
 
-        except Exception as e:
-            print("Error while connecting to the database:", e)
-            return jsonify({'success': False, 'message': str(e)}), 500
+                if au_row[2] != password:
+                    return jsonify({'success': False, 'message': 'Incorrect password.'}), 401
 
-        finally:
-            print("Done")
+                # Check if password reset is required
+                if au_row[8]:  # must_reset_password
+                    return jsonify({
+                        'success': False, 'must_reset': True,
+                        'message': 'You must reset your password before continuing.',
+                        'username': email_or_username
+                    }), 403
+
+                userid = int(au_row[0])
+                user_name = au_row[3]
+                source_sys = au_row[6] or 'projects'
+
+                # Determine redirect and permissions
+                perms = get_user_permissions(source_sys, au_row[7] or userid)
+                if not perms.get('is_super_admin', False) and not any([
+                    perms.get('can_manage_projects', False),
+                    perms.get('can_manage_hardware', False),
+                    perms.get('can_manage_hr', False)
+                ]):
+                    # Also check 'projects' user_type as fallback
+                    perms = get_user_permissions('projects', userid)
+
+                has_projects = perms.get('is_super_admin', False) or perms.get('can_manage_projects', False)
+                has_hardware = perms.get('is_super_admin', False) or perms.get('can_manage_hardware', False)
+
+                user_uuid = uuid.uuid4()
+                session['user_uuid'] = str(user_uuid)
+                session.permanent = True
+                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+                session['userid'] = userid
+                session['user_name'] = user_name
+                session['username'] = au_row[1]
+                session['full_name'] = user_name
+                session['role'] = au_row[5]
+                session['source_system'] = source_sys
+                session['source_id'] = au_row[7]
+
+                # Smart redirect based on permissions
+                if has_projects:
+                    redirect_to = '/dashboard'
+                elif has_hardware:
+                    redirect_to = '/pos-system.html'
+                else:
+                    redirect_to = '/dashboard'
+
+                log_activity('user_login', f'User {email_or_username} logged in via admin_users', 'user', userid)
+                print(f"✅ User {email_or_username} logged in → {redirect_to}")
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': redirect_to}), 200
+
+        except Exception as e:
+            print(f"Login error: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
 
     return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
 
@@ -12385,131 +12321,69 @@ def hr_login():
             return jsonify({'success': False, 'message': 'Email/Username and password are required.'}), 400
 
         with get_db() as (cursor, connection):
-            # 1. Try admin_users (unified table)
+            # ===== SINGLE LOGIN: admin_users ONLY =====
             cursor.execute("""
                 SELECT id, username, password, full_name, source_system, source_id, must_reset_password
                 FROM admin_users WHERE username = %s AND is_active = TRUE
             """, (email_or_username,))
             au = cursor.fetchone()
-            if au and au[2] == password:
-                # Check if password reset is required
-                if au[6]:  # must_reset_password
-                    return jsonify({
-                        'success': False,
-                        'must_reset': True,
-                        'message': 'You must reset your password before continuing.',
-                        'username': email_or_username
-                    }), 403
+            if not au or au[2] != password:
+                return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
 
-                userid = int(au[0])
-                user_name = au[3]
-                source_sys = au[4]
-                source_id = au[5]
+            # Check if password reset is required
+            if au[6]:  # must_reset_password
+                return jsonify({
+                    'success': False, 'must_reset': True,
+                    'message': 'You must reset your password before continuing.',
+                    'username': email_or_username
+                }), 403
 
-                # Check HR permission level
-                perm_lookup_type = source_sys if source_sys else 'projects'
-                perm_lookup_id = source_id if source_id else userid
+            userid = int(au[0])
+            user_name = au[3]
+            source_sys = au[4]
+            source_id = au[5]
+
+            # Check HR permission level across all user types
+            is_hr_admin = False
+            for utype in (source_sys if source_sys else 'projects', 'projects', 'hr'):
                 cursor.execute("""
                     SELECT can_manage_hr, is_super_admin
                     FROM user_permissions WHERE user_type=%s AND user_id=%s
-                """, (perm_lookup_type, perm_lookup_id))
+                """, (utype, source_id if source_id else userid))
                 perm_row = cursor.fetchone()
+                if perm_row and (perm_row[0] or perm_row[1]):
+                    is_hr_admin = True
+                    break
 
-                is_hr_admin = perm_row and (perm_row[0] or perm_row[1])
+            user_uuid = uuid.uuid4()
+            session['user_uuid'] = str(user_uuid)
+            session.permanent = True
+            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
 
-                user_uuid = uuid.uuid4()
-                session['user_uuid'] = str(user_uuid)
-                session.permanent = True
-                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+            session['userid'] = userid
+            session['user_name'] = user_name
+            session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
+            session['can_manage_hr'] = is_hr_admin
 
-                session['userid'] = userid
-                session['user_name'] = user_name
-                session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
-                session['can_manage_hr'] = is_hr_admin
-
-                # Auto-create hr_employee record if not exists
-                cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
-                if not cursor.fetchone():
-                    full_name = user_name or ''
-                    parts = full_name.split(' ', 1)
-                    first = parts[0] if parts else full_name
-                    last = parts[1] if len(parts) > 1 else ''
-                    hr_role_db = 'Administrator' if is_hr_admin else 'Ordinary User'
-                    cursor.execute("""
-                        INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
-                        VALUES (%s, %s, %s, %s, %s, 'Active', CURRENT_DATE)
-                        ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
-                    """, (userid, first, last, email_or_username, hr_role_db))
-                    connection.commit()
-                session['hr_employee_id'] = userid
-
-                log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': email_or_username, 'role': session['hr_role']})
-                print(f"✅ HR login: {user_name} as {session['hr_role']}")
-                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
-
-            # 2. Fallback: try connectlinkusers (legacy)
-            cursor.execute("""
-                SELECT id, datecreated, name, password, email, whatsapp
-                FROM connectlinkusers WHERE email = %s OR name = %s
-            """, (email_or_username, email_or_username))
-            rows = cursor.fetchall()
-
-            if rows and rows[0][3] == password:
-                user_row = rows[0]
-                userid = int(user_row[0])
-                user_name = user_row[2]
-
-                # Everyone in connectlinkusers gets basic HR access
+            # Auto-create hr_employee record if not exists
+            cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
+            if not cursor.fetchone():
+                full_name = user_name or ''
+                parts = full_name.split(' ', 1)
+                first = parts[0] if parts else full_name
+                last = parts[1] if len(parts) > 1 else ''
+                hr_role_db = 'Administrator' if is_hr_admin else 'Ordinary User'
                 cursor.execute("""
-                    SELECT can_manage_hr, is_super_admin
-                    FROM user_permissions WHERE user_type='projects' AND user_id=%s
-                """, (userid,))
-                perm_row = cursor.fetchone()
-                is_hr_admin = perm_row and (perm_row[0] or perm_row[1])
+                    INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
+                    VALUES (%s, %s, %s, %s, %s, 'Active', CURRENT_DATE)
+                    ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
+                """, (userid, first, last, email_or_username, hr_role_db))
+                connection.commit()
+            session['hr_employee_id'] = userid
 
-                if not is_hr_admin:
-                    # First-time user: auto-create permission with basic access
-                    cursor.execute("SELECT COUNT(*) FROM user_permissions")
-                    if cursor.fetchone()[0] == 0:
-                        cursor.execute("""
-                            INSERT INTO user_permissions (user_type, user_id, is_super_admin,
-                                can_manage_projects, can_manage_hardware, can_manage_hr,
-                                can_add_users, can_edit_users, can_delete_users,
-                                can_export_data, can_view_audit, can_manage_roles, can_view_payments)
-                            VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
-                        """, ('projects', userid))
-                        connection.commit()
-                        is_hr_admin = True
-
-                user_uuid = uuid.uuid4()
-                session['user_uuid'] = str(user_uuid)
-                session.permanent = True
-                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-
-                session['userid'] = userid
-                session['user_name'] = user_name
-                session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
-                session['can_manage_hr'] = is_hr_admin
-
-                # Auto-create hr_employee record if not exists
-                cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
-                if not cursor.fetchone():
-                    parts = (user_name or '').split(' ', 1)
-                    first = parts[0] if parts else user_name
-                    last = parts[1] if len(parts) > 1 else ''
-                    hr_role_db = 'Administrator' if is_hr_admin else 'Ordinary User'
-                    cursor.execute("""
-                        INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
-                        VALUES (%s, %s, %s, %s, %s, 'Active', CURRENT_DATE)
-                        ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role
-                    """, (userid, first, last, user_row[4] or '', hr_role_db))
-                    connection.commit()
-                session['hr_employee_id'] = userid
-
-                log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid, {'username': email_or_username, 'role': session['hr_role']})
-                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
-
-            return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
+            log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid)
+            print(f"✅ HR login: {user_name} as {session['hr_role']}")
+            return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
 
     except Exception as e:
         print(f"HR login error: {e}")
@@ -24656,7 +24530,7 @@ def get_user_permissions(user_type, user_id):
                 SELECT can_manage_projects, can_manage_hardware, can_manage_hr,
                        can_add_users, can_edit_users, can_delete_users,
                        can_export_data, can_view_audit, can_manage_roles,
-                       is_super_admin, can_view_payments
+                       is_super_admin, can_view_payments, can_edit_projects
                 FROM user_permissions WHERE user_type=%s AND user_id=%s
             """, (user_type, user_id))
             row = cursor.fetchone()
@@ -24667,7 +24541,7 @@ def get_user_permissions(user_type, user_id):
                     'can_edit_users': row[4], 'can_delete_users': row[5],
                     'can_export_data': row[6], 'can_view_audit': row[7],
                     'can_manage_roles': row[8], 'is_super_admin': row[9],
-                    'can_view_payments': row[10]
+                    'can_view_payments': row[10], 'can_edit_projects': row[11] if len(row) > 11 else True
                 }
             # If no permissions set, check if this is the first user - make them super admin
             cursor.execute("SELECT COUNT(*) FROM user_permissions")
@@ -24683,7 +24557,7 @@ def get_user_permissions(user_type, user_id):
                 connection.commit()
                 return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments']}
+                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects']}
             # Default: no permissions
             return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                 'can_add_users','can_edit_users','can_delete_users','can_export_data',
@@ -24723,7 +24597,8 @@ def um_permissions_api():
                         'can_add_users': r[8], 'can_edit_users': r[9],
                         'can_delete_users': r[10], 'can_export_data': r[11],
                         'can_view_audit': r[12], 'can_manage_roles': r[13],
-                        'can_view_payments': r[14] if len(r) > 14 else False
+                        'can_view_payments': r[14] if len(r) > 14 else False,
+                    'can_edit_projects': r[15] if len(r) > 15 else True
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
@@ -24741,7 +24616,7 @@ def um_permissions_api():
             fields = ['is_super_admin', 'can_manage_projects', 'can_manage_hardware',
                       'can_manage_hr', 'can_add_users', 'can_edit_users', 'can_delete_users',
                       'can_export_data', 'can_view_audit', 'can_manage_roles',
-                      'can_view_payments']
+                      'can_view_payments', 'can_edit_projects']
 
             with get_db() as (cursor, connection):
                 # Upsert
@@ -24761,7 +24636,7 @@ def um_permissions_api():
 
 @app.route('/user-management-login', methods=['POST'])
 def user_management_login():
-    """Login for User Management portal - checks admin_users first, then falls back"""
+    """Login for User Management portal - checks admin_users only"""
     try:
         email_or_username = request.form.get('emaillogin', '').strip()
         password = request.form.get('passwordlogin', '').strip()
@@ -24770,71 +24645,38 @@ def user_management_login():
             return jsonify({'success': False, 'message': 'Email and password are required.'}), 400
 
         with get_db() as (cursor, connection):
-            # First try unified admin_users table
+            # ===== SINGLE LOGIN: admin_users ONLY =====
             cursor.execute("""
                 SELECT id, username, password, full_name, source_system, source_id, role, must_reset_password
                 FROM admin_users WHERE username = %s AND is_active = TRUE
             """, (email_or_username,))
             au_row = cursor.fetchone()
-            if au_row and au_row[2] == password:
-                # Check if password reset is required
-                if au_row[7]:  # must_reset_password
-                    return jsonify({
-                        'success': False,
-                        'must_reset': True,
-                        'message': 'You must reset your password before continuing.',
-                        'username': email_or_username
-                    }), 403
-                user_uuid = uuid.uuid4()
-                session['user_uuid'] = str(user_uuid)
-                session.permanent = True
-                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-                session['userid'] = int(au_row[0])
-                session['user_name'] = au_row[3]
-                session['um_user_type'] = au_row[4]  # 'projects' or 'hardware'
-                session['um_source_id'] = au_row[5]
+            if not au_row or au_row[2] != password:
+                return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
 
-                # Load permissions
-                perms = get_user_permissions(au_row[4], au_row[5] if au_row[5] else au_row[0])
-                session['um_permissions'] = perms
+            # Check if password reset is required
+            if au_row[7]:  # must_reset_password
+                return jsonify({
+                    'success': False, 'must_reset': True,
+                    'message': 'You must reset your password before continuing.',
+                    'username': email_or_username
+                }), 403
 
-                log_activity('user_login', f'User Management: {au_row[3]} logged in (source: {au_row[4]})', 'user', au_row[0])
-                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
+            user_uuid = uuid.uuid4()
+            session['user_uuid'] = str(user_uuid)
+            session.permanent = True
+            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+            session['userid'] = int(au_row[0])
+            session['user_name'] = au_row[3]
+            session['um_user_type'] = au_row[4] or 'projects'
+            session['um_source_id'] = au_row[5]
 
-            # Fallback: try connectlinkusers (Building Projects users)
+            # Load permissions
+            perms = get_user_permissions(au_row[4] or 'projects', au_row[5] if au_row[5] else au_row[0])
+            session['um_permissions'] = perms
 
-                # Load permissions
-                perms = get_user_permissions('projects', user_row[0])
-                session['um_permissions'] = perms
-
-                log_activity('user_login', f'User Management: {user_row[2]} logged in', 'user', user_row[0])
-                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
-
-            # Then try hardware_users (POS users - for mrsgadmin etc.)
-            cursor.execute("""
-                SELECT id, username, password, full_name, role
-                FROM hardware_users WHERE username = %s
-            """, (email_or_username,))
-            hw_rows = cursor.fetchall()
-
-            if hw_rows and hw_rows[0][2] == password:
-                hw_user = hw_rows[0]
-                user_uuid = uuid.uuid4()
-                session['user_uuid'] = str(user_uuid)
-                session.permanent = True
-                user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
-                session['userid'] = int(hw_user[0])
-                session['user_name'] = hw_user[3]
-                session['um_user_type'] = 'hardware'
-
-                # Load permissions
-                perms = get_user_permissions('hardware', hw_user[0])
-                session['um_permissions'] = perms
-
-                log_activity('user_login', f'User Management: {hw_user[3]} logged in via POS', 'user', hw_user[0])
-                return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
-
-            return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
+            log_activity('user_login', f'User Management: {au_row[3]} logged in', 'user', au_row[0])
+            return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/user-management'}), 200
 
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -24943,9 +24785,34 @@ def um_delete_admin_user(user_id):
         return jsonify({'success': False, 'error': 'Access denied: cannot delete users.'}), 403
     try:
         with get_db() as (cursor, connection):
+            # Get user details first so we can clean up everywhere
+            cursor.execute("SELECT username, source_system, source_id FROM admin_users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            if not user:
+                return jsonify({'success': False, 'error': 'User not found'}), 404
+
+            username = user[0]
+            source_system = user[1]
+            source_id = user[2]
+
+            # Delete from admin_users
             cursor.execute("DELETE FROM admin_users WHERE id = %s", (user_id,))
+
+            # Delete from legacy tables to prevent re-migration
+            cursor.execute("DELETE FROM connectlinkusers WHERE id = %s", (source_id or user_id,))
+            cursor.execute("DELETE FROM connectlinkusers WHERE email = %s OR name = %s", (username, username))
+
+            cursor.execute("DELETE FROM hardware_users WHERE id = %s", (source_id or user_id,))
+            cursor.execute("DELETE FROM hardware_users WHERE username = %s", (username,))
+
+            # Delete from hr_employees
+            cursor.execute("DELETE FROM hr_employees WHERE id = %s", (user_id,))
+
+            # Delete permissions
+            cursor.execute("DELETE FROM user_permissions WHERE user_id = %s", (user_id,))
+
             connection.commit()
-            return jsonify({'success': True, 'message': 'Admin user deleted'})
+            return jsonify({'success': True, 'message': 'User deleted completely'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
