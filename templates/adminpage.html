@@ -4177,12 +4177,12 @@ body { font-family: Arial; margin: 20px; }
 
                         <!-- ACTIVITY LOG TAB -->
                         <div class="tab-pane fade" id="activity-tab">
-                            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;">
-                                <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:120px;max-width:250px;" oninput="filterActivityLog()">
-                                <select id="activityLogUserFilter" style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
+                            <div style="display:flex;flex-wrap:nowrap;gap:6px;margin-bottom:6px;align-items:center;width:100%;">
+                                <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.75rem;padding:4px 10px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:80px;" oninput="filterActivityLog()">
+                                <select id="activityLogUserFilter" style="font-size:0.75rem;padding:4px 10px;border:1px solid #ddd;border-radius:4px;flex-shrink:0;" onchange="filterActivityLog()">
                                     <option value="">All users</option>
                                 </select>
-                                <select id="activityLogFilter" style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
+                                <select id="activityLogFilter" style="font-size:0.75rem;padding:4px 10px;border:1px solid #ddd;border-radius:4px;flex-shrink:0;" onchange="filterActivityLog()">
                                     <option value="">All actions</option>
                                     <option value="quotation_created">Quotation Created</option>
                                     <option value="quotation_edited">Quotation Edited</option>
