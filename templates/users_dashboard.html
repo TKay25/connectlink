@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ConnectLink | User Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
+    <link rel="icon" type="image/png" href="/static/images/web-logo-white.png">
+    <meta name="theme-color" content="#0E1F42">
+    <style>
+:root {
+            --primary: #C12B3E;
+            --primary-dark: #9B1D2C;
+            --primary-light: rgba(193, 43, 62, 0.08);
+            --slate-800: #1E293B;
+            --slate-900: #0F172A;
+            --dark-blue-deep: var(--slate-800);
+            --dark-blue-primary: var(--slate-900);
+            --crimson-bright: var(--primary);
+            --white: #FFFFFF;
+            --gray-50: #F9FAFB;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-400: #9CA3AF;
+            --gray-500: #6B7280;
+            --gray-600: #4B5563;
+            --text-primary: #1E293B;
+            --text-secondary: #475569;
+            --text-muted: #94A3B8;
+            --border-color: #E2E8F0;
+            --radius-sm: 0.5rem;
+            --radius-md: 0.75rem;
+            --radius-lg: 1rem;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+            --nav-height: 44px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            background: var(--gray-50);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+            padding-top: var(--nav-height);
+        }
+        /* ===== TOP NAVBAR ===== */
+        .um-navbar {
+            position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-height); z-index: 1050;
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .um-navbar .brand { display: flex; align-items: center; gap: 10px; }
+        .um-navbar .brand img { height: 24px; width: auto; border-radius: 4px; }
+        .um-navbar .brand .brand-text {
+            color: #1f2937; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.3px;
+        }
+        .um-navbar .brand .brand-text span { color: var(--primary); }
+        .um-navbar .brand .brand-badge {
+            font-size: 0.45rem; font-weight: 600; text-transform: uppercase;
+            background: var(--primary);
+            color: #fff; padding: 1px 6px; border-radius: 3px;
+            letter-spacing: 0.5px; margin-left: 4px;
+        }
+        .um-navbar .nav-actions { display: flex; align-items: center; gap: 8px; }
+        .um-navbar .user-badge {
+            display: flex; align-items: center; gap: 6px;
+            background: #f9fafb;
+            padding: 2px 10px 2px 6px; border-radius: 6px;
+            color: #374151; font-size: 0.65rem; font-weight: 500;
+            border: 1px solid #e5e7eb; cursor: pointer; transition: all 0.2s; position: relative;
+        }
+        .um-navbar .user-badge:hover {
+            background: #f3f4f6;
+            border-color: var(--primary);
+        }
+        .um-navbar .user-badge .avatar {
+            width: 22px; height: 22px; border-radius: 4px;
+            background: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600; font-size: 0.6rem; color: white;
+        }
+        /* ===== USER DROPDOWN ===== */
+        .user-dropdown-menu {
+            position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid var(--gray-200);
+            z-index: 99999; overflow: hidden;
+        }
+        .user-dropdown-menu .dropdown-header {
+            padding: 12px 14px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .user-dropdown-menu .dropdown-user-name { font-weight: 600; color: #111827; font-size: 0.7rem; }
+        .user-dropdown-menu .dropdown-user-role { font-size: 0.55rem; color: #6b7280; margin-top: 1px; }
+        .user-dropdown-menu .dropdown-item {
+            display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+            font-size: 0.65rem; color: var(--text-primary); cursor: pointer;
+            transition: all 0.15s; border: none; background: none; width: 100%; text-align: left;
+        }
+        .user-dropdown-menu .dropdown-item:hover { background: var(--gray-50); }
+        .user-dropdown-menu .dropdown-item i {
+            font-size: 0.75rem; width: 18px; text-align: center;
+            color: var(--text-muted);
+        }
+        .user-dropdown-menu .dropdown-item.text-danger { color: #d32f2f; }
+        .user-dropdown-menu .dropdown-item.text-danger:hover { background: #fef2f2; }
+        .user-dropdown-menu .dropdown-item.text-danger i { color: #d32f2f; }
+        .user-dropdown-menu .dropdown-divider { height: 1px; background: var(--gray-100); margin: 2px 0; }
+        /* ===== SIDEBAR ===== */
+        .um-layout { display: flex; min-height: calc(100vh - var(--nav-height)); }
+        .um-sidebar {
+            width: 200px; flex-shrink: 0;
+            background: #f9fafb;
+            border-right: 1px solid #e5e7eb;
+            padding: 4px 0 12px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: sticky; top: var(--nav-height); height: calc(100vh - var(--nav-height));
+        }
+        .um-sidebar .section-title {
+            padding: 8px 18px 4px;
+            font-size: 0.5rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.2px;
+            color: #9ca3af;
+            margin-top: 8px;
+        }
+        .um-sidebar .nav-btn {
+            display: flex; align-items: center; gap: 10px;
+            padding: 7px 14px;
+            margin: 1px 10px;
+            border-radius: 6px;
+            background: transparent;
+            border: none;
+            color: #6b7280;
+            font-size: 0.65rem; font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: left;
+            width: calc(100% - 20px);
+            position: relative;
+        }
+        .um-sidebar .nav-btn:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+        .um-sidebar .nav-btn.active {
+            background: rgba(193,43,62,0.08);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .um-sidebar .nav-btn.active::before {
+            content: ''; position: absolute; left: -10px; top: 50%; transform: translateY(-50%);
+            width: 2px; height: 50%;
+            background: var(--primary);
+            border-radius: 0 2px 2px 0;
+        }
+        .um-sidebar .nav-btn i {
+            font-size: 0.75rem; width: 20px; text-align: center;
+            color: #9ca3af;
+            transition: all 0.15s;
+        }
+        .um-sidebar .nav-btn:hover i { color: #6b7280; }
+        .um-sidebar .nav-btn.active i { color: var(--primary); }
+        /* Main content */
+        .um-main { flex: 1; padding: 12px 16px; overflow-y: auto; background: linear-gradient(180deg, #F8FAFC 0%, #F0F2F7 100%); }
+        .page-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+        }
+        .page-header h4 { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px; }
+        .page-header h4 i { color: var(--primary); font-size: 0.75rem; }
+        /* Stats */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 8px; margin-bottom: 14px;
+        }
+        .stat-card {
+            background: var(--white); border-radius: var(--radius-md);
+            padding: 10px 14px; display: flex; align-items: center; gap: 12px;
+            border-left: 4px solid var(--primary); box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+        .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+        .stat-card .stat-icon {
+            width: 36px; height: 36px; border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0;
+        }
+        .stat-card .stat-icon.blue { background: #e8f0fe; color: #1a73e8; }
+        .stat-card .stat-icon.green { background: #e6f7e6; color: #2e7d32; }
+        .stat-card .stat-icon.purple { background: #f3e8ff; color: #7c3aed; }
+        .stat-card .stat-icon.amber { background: #fff3e0; color: #ef6c00; }
+        .stat-card .stat-icon.red { background: #fce4ec; color: #c62828; }
+        .stat-card .stat-body { flex: 1; }
+        .stat-card .stat-label { font-size: 0.6rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+        .stat-card .stat-value { font-size: 1rem; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
+        /* Cards */
+        .um-card {
+            background: var(--white); border-radius: var(--radius-md);
+            border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
+            margin-bottom: 14px; overflow: hidden;
+        }
+        .um-card .card-header {
+            padding: 8px 12px; border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--gray-50);
+        }
+        .um-card .card-header h6 { font-size: 0.65rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 6px; }
+        .um-card .card-header h6 i { color: var(--primary); }
+        .um-card .card-body { padding: 10px 12px; }
+        .um-card .card-body.p-0 { padding: 0; }
+        /* Dashboard stat cards */
+        /* Dashboard stat cards */
+        .dash-stat-card {
+            background: #fff; border-radius: 12px;
+            padding: 16px 18px; display: flex; align-items: center; gap: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02);
+            transition: all 0.25s ease;
+            position: relative; overflow: hidden;
+        }
+        .dash-stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+        }
+        .dash-stat-card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+            transform: translateY(-2px);
+        }
+        .dash-stat-icon {
+            width: 42px; height: 42px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.05rem; flex-shrink: 0;
+        }
+        .dash-stat-body { flex: 1; min-width: 0; }
+        .dash-stat-label { font-size: 0.55rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 1px; }
+        .dash-stat-value { font-size: 1.4rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.5px; }
+        .dash-stat-sub { font-size: 0.55rem; color: #d1d5db; margin-top: 2px; }
+        /* Portal cards */
+        .portal-card {
+            background: #fff; border-radius: 12px;
+            padding: 16px 18px; display: flex; align-items: center; gap: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.02);
+            transition: all 0.25s ease;
+        }
+        .portal-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.06); transform: translateY(-2px); }
+        .portal-card-icon {
+            width: 42px; height: 42px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;
+        }
+        .portal-card-body { flex: 1; min-width: 0; }
+        .portal-card-title { font-size: 0.7rem; font-weight: 700; color: #1f2937; }
+        .portal-card-count { font-size: 0.9rem; font-weight: 800; color: #111827; margin: 2px 0; letter-spacing: -0.3px; }
+        .portal-card-desc { font-size: 0.5rem; color: #9ca3af; }
+        .portal-card-arrow { color: #d1d5db; font-size: 0.75rem; transition: all 0.2s; }
+        .portal-card:hover .portal-card-arrow { color: var(--primary); transform: translateX(4px); }
+        /* Bottom cards */
+        .dash-bottom-card {
+            background: #fff; border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 0 0 1px rgba(0,0,0,0.02);
+            overflow: hidden; flex: 1;
+        }
+        .dash-bottom-card .card-head {
+            padding: 10px 16px; border-bottom: 1px solid #f3f4f6;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.6rem; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.3px;
+        }
+        .dash-bottom-card .card-head i { color: var(--primary); font-size: 0.7rem; }
+        /* Row helper */
+        .dash-row { display: flex; gap: 12px; }
+        .dash-row > * { flex: 1; min-width: 0; }
+        /* Tables */
+        .table-um {
+            width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.7rem;
+        }
+        .table-um thead th {
+            background: var(--dark-blue-deep) !important; color: white !important;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+            font-size: 0.6rem; padding: 6px 8px; border-bottom: none;
+            position: sticky; top: 0; z-index: 10; text-align: left; white-space: nowrap;
+        }
+        .table-um thead th:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.15); }
+        .table-um td { color: var(--text-primary); padding: 5px 8px; font-size: 0.7rem; border-bottom: 1px solid var(--gray-200); vertical-align: middle; }
+        .table-um tbody tr:last-child td { border-bottom: none; }
+        .table-um tbody tr:hover td { background: var(--gray-50); }
+        .table-um tbody tr:nth-child(even) td { background-color: #FAFBFC; }
+        .table-um tbody tr:nth-child(even):hover td { background-color: #EEF0F5; }
+        .table-scroll {
+            max-height: calc(100vh - 280px); overflow-y: auto; overflow-x: auto;
+            border-radius: 6px; border: 1px solid var(--border-color);
+        }
+        .table-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .table-scroll::-webkit-scrollbar-track { background: transparent; }
+        .table-scroll::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+        /* Buttons */
+        .btn {
+            font-size: 0.7rem; font-weight: 600; padding: 4px 12px;
+            border-radius: var(--radius-sm); transition: all 0.15s ease;
+            border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary { background: var(--dark-blue-deep); color: white; }
+        .btn-primary:hover { background: #0A1A3A; box-shadow: var(--shadow-sm); }
+        .btn-danger { background: var(--primary); color: white; }
+        .btn-danger:hover { background: var(--primary-dark); }
+        .btn-sm { padding: 3px 8px; font-size: 0.65rem !important; }
+        .btn-outline-primary { background: transparent; border: 1px solid var(--dark-blue-deep); color: var(--dark-blue-deep); }
+        .btn-outline-primary:hover { background: var(--dark-blue-deep); color: white; }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-success:hover { background: #15803d; }
+        .btn-outline-success { background: transparent; border: 1px solid #16a34a; color: #16a34a; }
+        .btn-outline-success:hover { background: #16a34a; color: white; }
+        .btn-outline-danger { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .btn-outline-danger:hover { background: var(--primary); color: white; }
+        .btn-outline-warning { background: transparent; border: 1px solid #f59e0b; color: #f59e0b; }
+        .btn-outline-warning:hover { background: #f59e0b; color: white; }
+        /* Form */
+        .form-control, .form-select {
+            background: white; border: 1px solid var(--gray-300); color: var(--text-primary);
+            border-radius: var(--radius-sm); font-size: 0.65rem; padding: 4px 8px; height: auto;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary); box-shadow: 0 0 0 2px rgba(193, 43, 62, 0.12); outline: none;
+        }
+        .form-label { color: var(--text-primary); font-weight: 700; font-size: 0.65rem; margin-bottom: 2px; }
+        /* Badges */
+        .badge-um {
+            display: inline-block; padding: 2px 8px; border-radius: 20px;
+            font-size: 0.6rem; font-weight: 600; letter-spacing: 0.2px;
+        }
+        .badge-um.admin { background: #f3e8ff; color: #7c3aed; }
+        .badge-um.operator { background: #fff3e0; color: #ef6c00; }
+        .badge-um.ordinary { background: #e8f0fe; color: #1a73e8; }
+        .badge-um.active { background: #e6f7e6; color: #2e7d32; }
+        .badge-um.inactive { background: #fce4ec; color: #c62828; }
+        .badge-um.amber { background: #fff3e0; color: #ef6c00; }
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 26, 58, 0.6); backdrop-filter: blur(8px);
+            z-index: 1050; display: none; justify-content: center; align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-container {
+            background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FC 100%);
+            border: 1px solid rgba(193, 43, 62, 0.1); border-radius: 16px;
+            width: auto; min-width: 380px; max-width: 600px; max-height: 90vh;
+            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            display: flex; flex-direction: column;
+        }
+        .modal-container.large { max-width: 760px; }
+        .modal-header-custom {
+            background: linear-gradient(135deg, #0E1F42 0%, #152B5A 100%);
+            padding: 10px 14px; border-radius: 16px 16px 0 0;
+            border-bottom: 2px solid var(--primary);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-header-custom h3 { color: white; font-size: 0.8rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px; }
+        .modal-header-custom h3 i { color: var(--primary); }
+        .modal-close {
+            background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7); width: 28px; height: 28px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s; font-size: 0.65rem;
+        }
+        .modal-close:hover { background: var(--primary); color: white; transform: rotate(90deg); }
+        .modal-body { padding: 8px 12px; flex: 1; overflow-y: auto; color: var(--text-primary); }
+        .modal-footer-custom {
+            padding: 8px 14px; border-top: 1px solid var(--gray-200);
+            display: flex; justify-content: flex-end; gap: 8px;
+            background: var(--gray-50); border-radius: 0 0 16px 16px;
+        }
+        /* System tabs */
+        .system-tabs {
+            display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap;
+        }
+        .system-tab {
+            padding: 5px 14px; border-radius: 20px; font-size: 0.6rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; border: 1px solid var(--gray-200);
+            background: white; color: var(--text-secondary);
+        }
+        .system-tab:hover { border-color: var(--primary); color: var(--primary); }
+        .system-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .system-tab i { margin-right: 4px; }
+        /* Permissions grid */
+        .perm-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
+        }
+        .perm-item {
+            display: flex; align-items: center; gap: 6px; padding: 3px 6px;
+            border-radius: 4px; font-size: 0.65rem;
+        }
+        .perm-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--primary); }
+        /* Animations */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .fade-in { animation: fadeInUp 0.35s ease forwards; }
+        .um-module { display: none; }
+        .um-module.active { display: block; animation: fadeInUp 0.35s ease forwards; }
+        /* Portal tags */
+        .portal-tag {
+            display: inline-block; padding: 1px 8px; border-radius: 10px;
+            font-size: 0.55rem; font-weight: 600;
+        }
+        .portal-tag.projects { background: #e8f0fe; color: #1a73e8; }
+        .portal-tag.hardware { background: #fff3e0; color: #ef6c00; }
+        .portal-tag.hr { background: #f3e8ff; color: #7c3aed; }
+        .portal-tag.all { background: #e6f7e6; color: #2e7d32; }
+        /* Loader */
+        .um-loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10,26,58,0.96); backdrop-filter: blur(12px);
+            z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column;
+        }
+        .um-loader.active { display: flex; }
+        @media (max-width: 768px) {
+            .um-sidebar { width: 48px; }
+            .um-sidebar .nav-btn span, .um-sidebar .section-title { display: none; }
+            .um-sidebar .nav-btn {
+                justify-content: center; padding: 8px 0; margin: 1px 6px; width: auto;
+            }
+            .um-sidebar .nav-btn i { margin: 0; font-size: 0.9rem; width: auto; }
+            .um-sidebar .nav-btn.active::before { display: none; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        /* Toggle Switch */
+        .toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; margin: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background: #ccc; transition: .3s; border-radius: 20px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 14px; width: 14px;
+            left: 3px; bottom: 3px; background: white; transition: .3s; border-radius: 50%; }
+        .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); }
+        .perm-row { display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 0; border-bottom: 1px solid var(--gray-100); font-size:0.65rem; }
+        .perm-row:last-child { border-bottom: none; }
+        .perm-label { display: flex; align-items: center; gap: 6px; color: var(--text-primary); }
+        .perm-label i { width: 16px; color: var(--primary); font-size:0.7rem; }
+        /* ===== DARK THEME ===== */
+        body.dark-theme {
+            --text-primary: #e5e7eb; --text-secondary: #9ca3af; --text-muted: #6b7280;
+            --border-color: #252b3d; --white: #1a1f2e; --gray-50: #0f1219;
+            --gray-100: #1a1f2e; --gray-200: #252b3d; --gray-300: #374151;
+            --gray-400: #6b7280; --gray-500: #9ca3af; --gray-600: #d1d5db;
+            background: #0f1219;
+        }
+        body.dark-theme .um-navbar { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .um-navbar .brand .brand-text { color: #e5e7eb; }
+        body.dark-theme .um-navbar .user-badge { background: #1a1f2e; border-color: #252b3d; color: #9ca3af; }
+        body.dark-theme .um-sidebar { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .um-sidebar .nav-btn { color: #6b7280; }
+        body.dark-theme .um-sidebar .nav-btn:hover { background: #1a1f2e; color: #e5e7eb; }
+        body.dark-theme .um-sidebar .nav-btn.active { background: rgba(193,43,62,0.15); color: #fff; }
+        body.dark-theme .um-sidebar .section-title { color: #4b5563; }
+        body.dark-theme .um-main { background: #0f1219; }
+        body.dark-theme .um-card { background: #1a1f2e; border-color: #252b3d; }
+        body.dark-theme .um-card .card-header { background: #0f1219; border-color: #252b3d; }
+        body.dark-theme .dash-stat-card, body.dark-theme .portal-card, body.dark-theme .dash-bottom-card { background: #1a1f2e; }
+        body.dark-theme .dash-stat-card .dash-stat-label, body.dark-theme .portal-card-title { color: #e5e7eb; }
+        body.dark-theme .portal-card-count { color: #e5e7eb; }
+        body.dark-theme .table-um td { color: #e5e7eb; border-color: #252b3d; }
+        body.dark-theme .table-um tbody tr:hover td { background: rgba(255,255,255,0.03); }
+        body.dark-theme .table-um tbody tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+        body.dark-theme .form-control, body.dark-theme .form-select { background: #0f1219; border-color: #252b3d; color: #e5e7eb; }
+        body.dark-theme .form-label { color: #9ca3af; }
+        body.dark-theme .modal-container { background: #1a1f2e; }
+        body.dark-theme .modal-body { color: #e5e7eb; }
+        body.dark-theme .user-dropdown-menu { background: #1a1f2e; border-color: #252b3d; }
+        body.dark-theme .user-dropdown-menu .dropdown-header { background: #0f1219; }
+        body.dark-theme .user-dropdown-menu .dropdown-item { color: #e5e7eb; }
+        body.dark-theme .user-dropdown-menu .dropdown-item:hover { background: rgba(255,255,255,0.05); }
+        body.dark-theme .page-header h4 { color: #e5e7eb; }
+        body.dark-theme .card-header h6 { color: #e5e7eb; }
+        body.dark-theme .dash-stat-value { color: #e5e7eb !important; }
+        body.dark-theme .portal-card-title { color: #e5e7eb; }
+        body.dark-theme .dash-bottom-card .card-head { color: #e5e7eb; border-color: #252b3d; }
+</style>
+</head>
+<body>
+<script>if(localStorage.getItem('connectlink_theme')==='dark'||(localStorage.getItem('connectlink_theme')===null&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.body.classList.add('dark-theme');var _ti=document.getElementById('themeIcon');if(_ti)_ti.className='bi bi-sun';}</script>
+
+<div class="um-loader" id="umLoader">
+    <div style="width:40px;height:40px;border:3px solid rgba(255,255,255,0.1);border-radius:50%;border-top-color:var(--primary);animation:spin 0.8s infinite;margin-bottom:16px;"></div>
+    <img src="/static/images/web-logo-white.png" style="width:100px;opacity:0.8;margin-bottom:12px;">
+    <p style="color:white;font-size:0.85rem;font-weight:600;">Processing <span style="color:var(--primary);">...</span></p>
+</div>
+
+<nav class="um-navbar">
+    <div class="brand">
+        <span class="brand-text">Connect<span>Link</span> <span class="brand-badge">Users</span></span>
+    </div>
+    <div class="nav-actions" style="position:relative;">
+        <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;">
+            <i id="themeIcon" class="bi bi-moon"></i>
+        </button>
+        <div class="user-badge" onclick="toggleDropdown(event)">
+            <div class="avatar">{{ (user_name or 'U')[0]|upper }}</div>
+            <span>{{ user_name or 'User' }}</span>
+            <i class="bi bi-chevron-down" style="font-size:0.5rem;opacity:0.5;margin-left:2px;"></i>
+            <span class="status-dot"></span>
+        </div>
+        <div id="userDropdown" class="user-dropdown-menu" style="display:none;">
+            <div class="dropdown-header">
+                <div class="dropdown-user-name">{{ user_name or 'User' }}</div>
+                <div class="dropdown-user-role"><i class="bi bi-person-badge" style="margin-right:4px;"></i>User Manager</div>
+            </div>
+            <div id="switchPortals"></div>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item text-danger" onclick="if(confirm('Logout?'))window.location.href='/logout';"><i class="bi bi-box-arrow-right"></i> Logout</button>
+        </div>
+    </div>
+</nav>
+
+<div class="um-layout">
+    <aside class="um-sidebar" id="umSidebar">
+        <div class="section-title">Overview</div>
+        <button class="nav-btn active" data-module="overview" onclick="showModule('overview')" id="nav-overview"><span>Dashboard</span></button>
+        <div class="section-title">Portals</div>
+        <button class="nav-btn" data-module="all-users" onclick="showModule('all-users')" id="nav-all-users"><i class="bi bi-people-fill"></i> <span>All Users</span></button>
+        <button class="nav-btn" data-module="projects-users" onclick="showModule('projects-users')" id="nav-projects-users"><i class="bi bi-building"></i> <span>Building Projects</span></button>
+        <button class="nav-btn" data-module="hardware-users" onclick="showModule('hardware-users')" id="nav-hardware-users"><i class="bi bi-cart"></i> <span>Hardware POS</span></button>
+        <button class="nav-btn" data-module="hr-users" onclick="showModule('hr-users')" id="nav-hr-users"><i class="bi bi-people"></i> <span>HR Employees</span></button>
+        <div class="section-title">Admin</div>
+        <button class="nav-btn" data-module="audit" onclick="showModule('audit')" id="nav-audit" data-perm="can_view_audit"><i class="bi bi-clock-history"></i> <span>Activity Log</span></button>
+    </aside>
+
+    <main class="um-main">
+
+        <!-- OVERVIEW / DASHBOARD -->
+        <div id="module-overview" class="um-module active">
+            <div class="page-header" style="margin-bottom:8px;">
+                <div>
+                    <h4 style="font-size:0.85rem;">Dashboard</h4>
+                    <div style="font-size:0.5rem;color:var(--text-muted);margin-top:1px;"><i class="bi bi-calendar3"></i> <span id="currentDate"></span></div>
+                </div>
+                <button class="btn btn-outline-primary btn-sm" onclick="showModule('all-users')" style="font-size:0.6rem;padding:3px 10px;"><i class="bi bi-people-fill"></i> All Users</button>
+            </div>
+
+            <!-- Row 1: Compact stats + portal cards in one row -->
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:8px;">
+                <!-- Left: 4 stat cards in 2x2 grid -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                    <div class="dash-stat-card" style="padding:10px 12px;">
+                        <div class="dash-stat-icon" style="width:32px;height:32px;font-size:0.8rem;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;"><i class="bi bi-people-fill"></i></div>
+                        <div class="dash-stat-body">
+                            <div class="dash-stat-label" style="font-size:0.5rem;">Total Users</div>
+                            <div class="dash-stat-value" style="font-size:1.1rem;color:#3b82f6;" id="statTotal">0</div>
+                        </div>
+                    </div>
+                    <div class="dash-stat-card" style="padding:10px 12px;">
+                        <div class="dash-stat-icon" style="width:32px;height:32px;font-size:0.8rem;background:linear-gradient(135deg,#10b981,#059669);color:#fff;"><i class="bi bi-shield-check"></i></div>
+                        <div class="dash-stat-body">
+                            <div class="dash-stat-label" style="font-size:0.5rem;">Super Admins</div>
+                            <div class="dash-stat-value" style="font-size:1.1rem;color:#10b981;" id="statSuperAdmins">0</div>
+                        </div>
+                    </div>
+                    <div class="dash-stat-card" style="padding:10px 12px;">
+                        <div class="dash-stat-icon" style="width:32px;height:32px;font-size:0.8rem;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;"><i class="bi bi-cart"></i></div>
+                        <div class="dash-stat-body">
+                            <div class="dash-stat-label" style="font-size:0.5rem;">HW Access</div>
+                            <div class="dash-stat-value" style="font-size:1.1rem;color:#f59e0b;" id="statHardware">0</div>
+                        </div>
+                    </div>
+                    <div class="dash-stat-card" style="padding:10px 12px;">
+                        <div class="dash-stat-icon" style="width:32px;height:32px;font-size:0.8rem;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;"><i class="bi bi-people"></i></div>
+                        <div class="dash-stat-body">
+                            <div class="dash-stat-label" style="font-size:0.5rem;">HR Access</div>
+                            <div class="dash-stat-value" style="font-size:1.1rem;color:#8b5cf6;" id="statHr">0</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Right: 3 portal cards stacked vertically -->
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                    <div class="portal-card" onclick="showModule('projects-users')" style="cursor:pointer;padding:8px 12px;" title="View users with Building Projects access">
+                        <div class="portal-card-icon" style="width:28px;height:28px;font-size:0.7rem;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;"><i class="bi bi-building"></i></div>
+                        <div class="portal-card-body">
+                            <div class="portal-card-title" style="font-size:0.6rem;">Building Projects</div>
+                            <div class="portal-card-count" style="font-size:0.75rem;" id="cardProjectsCount">0</div>
+                        </div>
+                        <i class="bi bi-chevron-right portal-card-arrow" style="font-size:0.6rem;"></i>
+                    </div>
+                    <div class="portal-card" onclick="showModule('hardware-users')" style="cursor:pointer;padding:8px 12px;" title="View users with Hardware POS access">
+                        <div class="portal-card-icon" style="width:28px;height:28px;font-size:0.7rem;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;"><i class="bi bi-cart"></i></div>
+                        <div class="portal-card-body">
+                            <div class="portal-card-title" style="font-size:0.6rem;">Hardware POS</div>
+                            <div class="portal-card-count" style="font-size:0.75rem;" id="cardHardwareCount">0</div>
+                        </div>
+                        <i class="bi bi-chevron-right portal-card-arrow" style="font-size:0.6rem;"></i>
+                    </div>
+                    <div class="portal-card" onclick="showModule('hr-users')" style="cursor:pointer;padding:8px 12px;" title="View users with HR access">
+                        <div class="portal-card-icon" style="width:28px;height:28px;font-size:0.7rem;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;"><i class="bi bi-people"></i></div>
+                        <div class="portal-card-body">
+                            <div class="portal-card-title" style="font-size:0.6rem;">HR Employees</div>
+                            <div class="portal-card-count" style="font-size:0.75rem;" id="cardHrCount">0</div>
+                        </div>
+                        <i class="bi bi-chevron-right portal-card-arrow" style="font-size:0.6rem;"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: Three-column bottom section -->
+            <div style="display:grid;grid-template-columns:1fr 1.2fr 1.3fr;gap:10px;">
+                <!-- Col 1: System breakdown -->
+                <div class="dash-bottom-card">
+                    <div class="card-head" style="padding:6px 12px;font-size:0.55rem;"><i class="bi bi-grid-3x3-gap-fill"></i> Users by System</div>
+                    <div style="padding:8px 12px;" id="systemBreakdown"></div>
+                </div>
+                <!-- Col 2: Recent users -->
+                <div class="dash-bottom-card">
+                    <div class="card-head" style="padding:6px 12px;font-size:0.55rem;"><i class="bi bi-clock-history"></i> Latest</div>
+                    <div style="max-height:150px;overflow-y:auto;">
+                        <table class="table-um" id="recentUsersTable" style="font-size:0.6rem;">
+                            <thead><tr><th>Name</th><th>Role</th><th>Created</th></tr></thead>
+                            <tbody id="recentUsersBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- Col 3: Permission bars -->
+                <div class="dash-bottom-card">
+                    <div class="card-head" style="padding:6px 12px;font-size:0.55rem;"><i class="bi bi-shield-check"></i> Permissions</div>
+                    <div style="padding:8px 12px;" id="permDistribution">
+                        <div style="display:flex;flex-direction:column;gap:5px;" id="permDistBars"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 3: Extra insights row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px;padding:0 2px;">
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-calendar-week"></i> Created This Week</div>
+                <div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);" id="insightThisWeek">0</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-calendar-month"></i> Created This Month</div>
+                <div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);" id="insightThisMonth">0</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-person-badge"></i> Admin Role</div>
+                <div style="font-size:1.2rem;font-weight:800;color:#f59e0b;" id="insightAdmins">0</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-person-check"></i> Has Permissions</div>
+                <div style="font-size:1.2rem;font-weight:800;color:#10b981;" id="insightWithPerms">0</div>
+            </div>
+        </div>
+        <!-- Row 4: More insights -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px;padding:0 2px;">
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-clock"></i> Oldest Member</div>
+                <div style="font-size:0.75rem;font-weight:700;color:var(--text-primary);" id="insightOldest">—</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-clock-history"></i> Newest Member</div>
+                <div style="font-size:0.75rem;font-weight:700;color:var(--text-primary);" id="insightNewest">—</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-arrow-up-short"></i> Growth (This Month)</div>
+                <div style="font-size:1.2rem;font-weight:800;color:#8b5cf6;" id="insightGrowth">0%</div>
+            </div>
+            <div class="dash-bottom-card" style="padding:10px 12px;">
+                <div style="font-size:0.55rem;color:var(--text-muted);margin-bottom:4px;"><i class="bi bi-activity"></i> Permission Rate</div>
+                <div style="font-size:1.2rem;font-weight:800;color:#06b6d4;" id="insightUtilization">0%</div>
+            </div>
+        </div>
+
+        <!-- ALL USES (unified table) -->
+        <div id="module-all-users" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-people-fill"></i> All System Users</h4>
+            </div>
+            <div class="um-card">
+                <div class="card-header">
+                    <h6><i class="bi bi-table"></i> Unified User Registry</h6>
+                    <input type="text" class="form-control" style="width:180px;font-size:0.6rem;padding:2px 8px;" id="allUsersSearch" placeholder="Search users..." oninput="filterAllUsers()">
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um" id="allUsersTable">
+                            <thead><tr><th>#</th><th>Name</th><th>Email / Username</th><th>Granted Permissions</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+                            <tbody id="allUsersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HARDWARE POS USERS (all users with can_manage_hardware permission) -->
+        <div id="module-hardware-users" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-cash-register"></i> Hardware POS</h4>
+                <div>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um ordinary" style="font-size:0.45rem;">Basic</span> = default · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage</span>
+                </div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-table"></i> All Hardware POS users</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Username</th><th>Role</th><th>Access Level</th><th>Created</th><th>Actions</th></tr></thead>
+                            <tbody id="hardwareUsersBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HR USERS (all users with can_manage_hr permission) -->
+        <div id="module-hr-users" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-people"></i> HR Employees</h4>
+                <div>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um ordinary" style="font-size:0.45rem;">Basic</span> = default · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage</span>
+                </div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-table"></i> All HR employees</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email/Username</th><th>Role</th><th>Access Level</th><th>Created</th><th>Actions</th></tr></thead>
+                            <tbody id="hrUsersBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ADD USER MODAL (instead of module page) -->
+        <div class="modal-overlay" id="addUserModal">
+            <div class="modal-container" style="max-width:560px;">
+                <div class="modal-header-custom">
+                    <h3><i class="bi bi-person-plus-fill"></i> <span id="addUserModalTitle">Add New User</span></h3>
+                    <button class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editUserId" value="">
+                    <input type="hidden" id="editUserSystem" value="">
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Target System <span class="text-danger">*</span></label>
+                            <select class="form-select" id="addUserSystem" onchange="toggleSystemFields()">
+                                <option value="projects">Building Projects</option>
+                                <option value="hardware">Hardware POS</option>
+                                <option value="hr">Human Resources</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="addUserName" placeholder="e.g. John Doe" required>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Email / Username <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="addUserEmail" placeholder="user@example.com" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="addUserPassword" placeholder="Min 4 characters">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Role / Access Level</label>
+                            <select class="form-select" id="addUserRole">
+                                <option value="operator">Operator</option>
+                                <option value="admin">Admin (Full Access)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="addUserStatus">
+                                <option>Active</option>
+                                <option>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="hrExtraFields" style="display:none;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4"><label class="form-label">Department</label>
+                                <select class="form-select" id="addUserDept"><option value="">-- Select --</option>
+                                <option>Construction</option><option>Construction Sales</option><option>Hardware Sales</option><option>Administration</option><option>Finance</option><option>HR</option><option>Logistics</option><option>Management</option><option>Systems &amp; IT</option></select></div>
+                            <div class="col-md-4"><label class="form-label">Designation</label><input type="text" class="form-control" id="addUserDesignation" placeholder="e.g. Officer"></div>
+                            <div class="col-md-4"><label class="form-label">WhatsApp</label><input type="text" class="form-control" id="addUserWhatsapp" placeholder="26377xxxxxx"></div>
+                        </div>
+                    </div>
+                    <div id="hardwareExtraFields" style="display:none;">
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-12"><label class="form-label">Hardware POS User</label>
+                            <input type="text" class="form-control" value="Will be created with POS access" disabled></div>
+                        </div>
+                    </div>
+                    <div id="addUserMsg" style="font-size:0.6rem;margin-top:6px;text-align:center;min-height:18px;color:var(--text-muted);"></div>
+                </div>
+                <div class="modal-footer-custom">
+                    <button class="btn btn-danger" onclick="closeModal('addUserModal')">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveUser()"><i class="bi bi-check-circle"></i> <span id="saveUserBtnText">Create User</span></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BUILDING PROJECTS USERS (all users with can_manage_projects permission) -->
+        <div id="module-projects-users" class="um-module">
+            <div class="page-header">
+                <h4><i class="bi bi-hard-hat"></i> Building Projects</h4>
+                <div>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">All users · <span class="badge-um ordinary" style="font-size:0.45rem;">Basic</span> = default · <span class="badge-um active" style="font-size:0.45rem;">Manager</span> = can manage</span>
+                </div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-table"></i> All Building Projects users</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll">
+                        <table class="table-um"><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Access Level</th><th>Created</th><th>Actions</th></tr></thead>
+                            <tbody id="projectsUsersBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AUDIT LOG -->
+        <div id="module-audit" class="um-module" data-perm-action="can_view_audit">
+            <div class="page-header">
+                <h4><i class="bi bi-clock-history"></i> Activity Log</h4>
+                <div><button class="btn btn-outline-primary btn-sm" onclick="loadAuditLog()"><i class="bi bi-arrow-clockwise"></i> Refresh</button></div>
+            </div>
+            <div class="um-card">
+                <div class="card-header"><h6><i class="bi bi-list"></i> Recent User Activity</h6></div>
+                <div class="card-body p-0">
+                    <div class="table-scroll" style="max-height:calc(100vh - 230px);">
+                        <table class="table-um"><thead><tr><th>Timestamp</th><th>Action</th><th>User</th><th>Details</th></tr></thead>
+                            <tbody id="auditLogBody"><tr><td colspan="4" class="text-center text-muted py-3">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- PERMISSIONS MODAL -->
+<div class="modal-overlay" id="permModal">
+    <div class="modal-container" style="max-width:420px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-shield-lock"></i> <span id="permModalTitle">Permissions</span></h3>
+            <button class="modal-close" onclick="closeModal('permModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:10px;">
+                User: <strong id="permModalUserLabel">--</strong>
+            </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;">
+                <i class="bi bi-key"></i> Access Rights
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-star-fill" style="color:#f59e0b;"></i> Super Admin (full access)</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-is_super_admin" onchange="toggleAllPermissions(this.checked)"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-building"></i> Manage Building Projects</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_projects"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-cart"></i> Manage Hardware POS</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_hardware"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-people"></i> Manage HR</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_hr"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-person-plus"></i> Add Users</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_add_users"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-pencil"></i> Edit Users</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_edit_users"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-trash"></i> Delete Users</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_delete_users"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-download"></i> Export Data</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_export_data"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-clock-history"></i> View Audit Log</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_view_audit"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-shield"></i> Manage Roles &amp; Permissions</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_roles"><span class="toggle-slider"></span></label>
+            </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
+                <i class="bi bi-cash-coin"></i> Finance Access
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-cash-coin"></i> View Payments Tab</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_view_payments"><span class="toggle-slider"></span></label>
+            </div>
+            <div id="permModalMsg" style="font-size:0.6rem;margin-top:8px;text-align:center;min-height:18px;"></div>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('permModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="savePermModal()"><i class="bi bi-check-circle"></i> Save Permissions</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ===== THEME TOGGLE =====
+window.toggleTheme = function() {
+    const body = document.body;
+    const isDark = body.classList.toggle('dark-theme');
+    localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon';
+};
+
+const USER_NAME = '{{ user_name }}';
+const PERMS = {{ perms|tojson|safe }} || {};
+let allUsersData = { projects: [], hardware: [], hr: [] };
+
+// ===== PERMISSION CHECK HELPER =====
+function can(permName) {
+    return PERMS && (PERMS.is_super_admin || PERMS[permName]);
+}
+
+// ===== PERMISSION-BASED UI CONTROL =====
+function applyPermissions() {
+    if (!PERMS) return;
+    // Hide sidebar nav items user doesn't have permission for
+    document.querySelectorAll('.um-sidebar .nav-btn[data-perm]').forEach(btn => {
+        btn.style.display = can(btn.dataset.perm) ? '' : 'none';
+    });
+    // Hide all action elements with data-perm-action attribute
+    document.querySelectorAll('[data-perm-action]').forEach(el => {
+        el.style.display = can(el.dataset.permAction) ? '' : 'none';
+    });
+}
+
+// ===== DYNAMIC PORTAL SWITCHING =====
+function buildSwitchPortals() {
+    const container = document.getElementById('switchPortals');
+    if (!container) return;
+    const portals = [
+        { perm: 'can_manage_projects', label: 'Switch to Projects', url: '/dashboard', icon: 'bi-building' },
+        { perm: 'can_manage_hardware', label: 'Switch to Hardware POS', url: '/pos-system.html', icon: 'bi-cart' },
+        { perm: 'can_manage_hr', label: 'Switch to HR', url: '/hr-dashboard', icon: 'bi-people' },
+    ];
+    container.innerHTML = portals
+        .filter(p => PERMS && (PERMS.is_super_admin || PERMS[p.perm]))
+        .map(p => `<button class="dropdown-item" onclick="window.location.href='${p.url}'"><i class="${p.icon}"></i> ${p.label}</button>`)
+        .join('');
+}
+
+// ===== NAVIGATION =====
+function showModule(id) {
+    document.querySelectorAll('.um-module').forEach(m => m.classList.remove('active'));
+    const el = document.getElementById('module-' + id);
+    if (el) el.classList.add('active');
+    document.querySelectorAll('.um-sidebar .nav-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.um-sidebar .nav-btn[data-module="${id}"]`);
+    if (btn) btn.classList.add('active');
+}
+
+// ===== MODAL =====
+function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) { el.classList.add('active'); document.body.style.overflow = 'hidden'; }
+}
+function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('active'); document.body.style.overflow = ''; }
+}
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => { m.classList.remove('active'); });
+        document.body.style.overflow = '';
+    }
+});
+
+// ===== DROPDOWN =====
+function toggleDropdown(e) {
+    e.stopPropagation();
+    const d = document.getElementById('userDropdown');
+    if (d) d.style.display = d.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+    const d = document.getElementById('userDropdown');
+    if (d && d.style.display === 'block' && !e.target.closest('.user-badge')) d.style.display = 'none';
+});
+
+// ===== LOADING =====
+function showLoader(show) { document.getElementById('umLoader').classList.toggle('active', show); }
+
+// ===== DATE =====
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+// ===== LOAD ALL DATA (including permissions for filtering) =====
+let permIndex = {}; // { "projects:5": { can_manage_hardware: true, ... }, ... }
+
+async function loadAllData(skipLoader) {
+    if (!skipLoader) showLoader(true);
+    try {
+        const [adminRes, projRes, hwRes, hrRes, permRes] = await Promise.all([
+            fetch('/api/user-management/admin-users'),
+            fetch('/api/user-management/projects-users'),
+            fetch('/api/user-management/hardware-users'),
+            fetch('/api/user-management/hr-users'),
+            fetch('/api/user-management/permissions')
+        ]);
+        const adminData = await adminRes.json();
+        const projData = await projRes.json();
+        const hwData = await hwRes.json();
+        const hrData = await hrRes.json();
+        const permData = await permRes.json();
+
+        // Build permission lookup index
+        permIndex = {};
+        if (permData.success && permData.data) {
+            permData.data.forEach(p => {
+                permIndex[p.user_type + ':' + p.user_id] = p;
+            });
+        }
+
+        allUsersData = {
+            admin: adminData.data || [],
+            projects: projData.data || [],
+            hardware: hwData.data || [],
+            hr: hrData.data || []
+        };
+
+        renderOverview();
+        renderAllUsers();
+        renderProjectsUsers();
+        renderHardwareUsers();
+        renderHrUsers();
+
+        // Re-apply permission-based visibility (hides buttons the user can't use)
+        applyPermissions();
+
+        // Stats are updated inside renderOverview()
+
+        if (!skipLoader) showLoader(false);
+    } catch(e) { if (!skipLoader) showLoader(false); console.error('Load error:', e); }
+}
+
+// ===== RENDER OVERVIEW TABLE =====
+function renderOverview() {
+    const admin = allUsersData.admin || [];
+    const total = admin.length;
+
+    // Helper: get permission for a user
+    const getPerm = u => permIndex[(u.source_system||'projects')+':'+(u.source_id||u.id)] || {};
+    const has = (u, perm) => { const p = getPerm(u); return p.is_super_admin || p[perm]; };
+
+    // ---- Stats ----
+    const superAdminCount = admin.filter(u => getPerm(u).is_super_admin).length;
+    const hwCount = admin.filter(u => has(u, 'can_manage_hardware')).length;
+    const hrCount = admin.filter(u => has(u, 'can_manage_hr')).length;
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statSuperAdmins').textContent = superAdminCount;
+    document.getElementById('statHardware').textContent = hwCount;
+    document.getElementById('statHr').textContent = hrCount;
+
+    // ---- Portal cards (compact: just numbers) ----
+    const projCount = admin.filter(u => has(u, 'can_manage_projects')).length;
+    document.getElementById('cardProjectsCount').textContent = projCount;
+    document.getElementById('cardHardwareCount').textContent = hwCount;
+    document.getElementById('cardHrCount').textContent = hrCount;
+
+    // ---- System breakdown (Accounts by System) ----
+    const sysDiv = document.getElementById('systemBreakdown');
+    const fromProjects = admin.filter(u => u.source_system === 'projects').length;
+    const fromHardware = admin.filter(u => u.source_system === 'hardware').length;
+    const fromHr = admin.filter(u => u.source_system === 'hr').length;
+    const active = admin.filter(u => u.is_active).length;
+    const inactive = total - active;
+    sysDiv.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:5px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f3f4f6;">
+                <span style="font-size:0.6rem;color:#6b7280;"><i class="bi bi-building" style="color:#3b82f6;margin-right:4px;"></i>Building Projects</span>
+                <span style="font-size:0.75rem;font-weight:700;color:#1f2937;">${fromProjects}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f3f4f6;">
+                <span style="font-size:0.6rem;color:#6b7280;"><i class="bi bi-cart" style="color:#f59e0b;margin-right:4px;"></i>Hardware POS</span>
+                <span style="font-size:0.75rem;font-weight:700;color:#1f2937;">${fromHardware}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f3f4f6;">
+                <span style="font-size:0.6rem;color:#6b7280;"><i class="bi bi-people" style="color:#8b5cf6;margin-right:4px;"></i>Human Resources</span>
+                <span style="font-size:0.75rem;font-weight:700;color:#1f2937;">${fromHr}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;margin-top:4px;">
+                <span style="font-size:0.6rem;color:#374151;font-weight:600;"><i class="bi bi-check-circle" style="color:#10b981;margin-right:4px;"></i>Active</span>
+                <span style="font-size:0.75rem;font-weight:700;color:#10b981;">${active}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;">
+                <span style="font-size:0.6rem;color:#374151;font-weight:600;"><i class="bi bi-x-circle" style="color:#ef4444;margin-right:4px;"></i>Inactive</span>
+                <span style="font-size:0.75rem;font-weight:700;color:#ef4444;">${inactive}</span>
+            </div>
+        </div>`;
+
+    // ---- Recent users (last 4, compact) ----
+    const recentTbody = document.getElementById('recentUsersBody');
+    const recent = admin.slice(0, 4);
+    recentTbody.innerHTML = recent.length
+        ? recent.map(u => {
+            const created = u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A';
+            return `<tr><td><strong>${u.full_name||u.username||'N/A'}</strong></td>
+                <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}" style="font-size:0.5rem;">${u.role||'op'}</span></td>
+                <td style="font-size:0.5rem;color:#9ca3af;">${created}</td></tr>`;
+        }).join('')
+        : '<tr><td colspan="3" class="text-center text-muted py-2" style="font-size:0.6rem;">No users yet</td></tr>';
+
+    // ---- Permission Distribution bars (compact) ----
+    const permDist = document.getElementById('permDistBars');
+    const permDefs = [
+        { key: 'can_manage_projects', label: 'Projects', color: '#3b82f6' },
+        { key: 'can_manage_hardware', label: 'Hardware', color: '#f59e0b' },
+        { key: 'can_manage_hr', label: 'HR', color: '#8b5cf6' },
+        { key: 'can_view_payments', label: 'Payments', color: '#ef4444' },
+        { key: 'can_manage_roles', label: 'Roles', color: '#06b6d4' },
+    ];
+    permDist.innerHTML = permDefs.map(d => {
+        const count = admin.filter(u => has(u, d.key)).length;
+        const pct = total > 0 ? Math.round((count/total)*100) : 0;
+        return `<div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+                <span style="font-size:0.55rem;color:#6b7280;">${d.label}</span>
+                <span style="font-size:0.6rem;color:#374151;font-weight:600;">${count}</span>
+            </div>
+            <div style="height:5px;background:#f3f4f6;border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${d.color};border-radius:3px;transition:width 0.5s;"></div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // ---- Extra Insights Row ----
+    const now = new Date();
+    const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay()); startOfWeek.setHours(0,0,0,0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const thisWeek = admin.filter(u => u.created_at && new Date(u.created_at) >= startOfWeek).length;
+    const thisMonth = admin.filter(u => u.created_at && new Date(u.created_at) >= startOfMonth).length;
+    const adminRoleCount = admin.filter(u => u.role === 'admin').length;
+    const withPerms = admin.filter(u => { const p = getPerm(u); return p.is_super_admin || p.can_manage_projects || p.can_manage_hardware || p.can_manage_hr || p.can_view_payments; }).length;
+    const lastMonth = admin.filter(u => u.created_at && new Date(u.created_at) >= new Date(now.getFullYear(), now.getMonth()-1, 1) && new Date(u.created_at) < startOfMonth).length;
+    const growth = lastMonth > 0 ? Math.round((thisMonth - lastMonth) / lastMonth * 100) : (thisMonth > 0 ? 100 : 0);
+    const utilPct = total > 0 ? Math.round(withPerms / total * 100) : 0;
+
+    // Oldest and newest
+    const dated = admin.filter(u => u.created_at).sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    const oldest = dated.length > 0 ? dated[0].full_name || dated[0].username || '—' : '—';
+    const newest = dated.length > 0 ? (dated[dated.length-1].full_name || dated[dated.length-1].username || '—') : '—';
+
+    document.getElementById('insightThisWeek').textContent = thisWeek;
+    document.getElementById('insightThisMonth').textContent = thisMonth;
+    document.getElementById('insightAdmins').textContent = adminRoleCount;
+    document.getElementById('insightWithPerms').textContent = withPerms;
+    document.getElementById('insightOldest').textContent = oldest;
+    document.getElementById('insightNewest').textContent = newest;
+    document.getElementById('insightGrowth').textContent = (growth >= 0 ? '+' : '') + growth + '%';
+    document.getElementById('insightUtilization').textContent = utilPct + '%';
+}
+
+// ===== RENDER ALL USERS (unified, with portal access badges) =====
+function getPortalAccessBadges(p) {
+    if (!p) return '<span class="badge-um inactive" style="font-size:0.5rem;">None</span>';
+    if (p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;"><i class="bi bi-star-fill"></i> Super Admin</span>';
+    let badges = [];
+    if (p.can_manage_projects) badges.push('<span class="badge-um active" style="font-size:0.5rem;">Projects</span>');
+    if (p.can_manage_hardware) badges.push('<span class="badge-um admin" style="font-size:0.5rem;">Hardware</span>');
+    if (p.can_manage_hr) badges.push('<span class="badge-um ordinary" style="font-size:0.5rem;">HR</span>');
+    if (p.can_view_payments) badges.push('<span class="badge-um amber" style="font-size:0.5rem;background:#fff3e0;color:#ef6c00;">Payments</span>');
+    return badges.length ? badges.join(' ') : '<span class="badge-um inactive" style="font-size:0.5rem;">None</span>';
+}
+
+function renderAllUsers() {
+    const tbody = document.getElementById('allUsersTableBody');
+    let html = '';
+    let idx = 0;
+
+    // Primary source: unified admin_users table
+    (allUsersData.admin || []).forEach(u => {
+        idx++;
+        const created = u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A';
+        const p = permIndex[(u.source_system || 'projects') + ':' + (u.source_id || u.id)] || {};
+        const accessHtml = getPortalAccessBadges(p);
+        const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
+        const statusBadge = u.is_active ? 'badge-um active' : 'badge-um inactive';
+        const sourceForPerm = u.source_system || 'projects';
+        html += `<tr>
+            <td>${idx}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || u.email || 'N/A'}</td>
+            <td>${accessHtml}</td>
+            <td><span class="${roleBadge}">${u.role || 'operator'}</span></td>
+            <td><span class="${statusBadge}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
+            <td style="font-size:0.55rem;">${created}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${sourceForPerm}', ${u.source_id || u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteAdminUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+
+    // Also show legacy users not yet in admin_users
+    allUsersData.projects.forEach(u => {
+        const already = (allUsersData.admin || []).some(a => a.source_system === 'projects' && a.source_id === u.id);
+        if (already) return;
+        idx++;
+        const created = u.datecreated ? new Date(u.datecreated).toLocaleDateString('en-GB') : 'N/A';
+        const p = permIndex['projects:' + u.id] || {};
+        const accessHtml = getPortalAccessBadges(p);
+        html += `<tr>
+            <td>${idx}</td>
+            <td><strong>${u.name || 'N/A'}</strong></td>
+            <td>${u.email || 'N/A'}</td>
+            <td>${accessHtml}</td>
+            <td><span class="badge-um admin">Admin</span></td>
+            <td><span class="badge-um active">Active</span></td>
+            <td style="font-size:0.55rem;">${created}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('projects', ${u.id}, '${(u.name||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteProjectsUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+
+    allUsersData.hardware.forEach(u => {
+        const already = (allUsersData.admin || []).some(a => a.source_system === 'hardware' && a.source_id === u.id);
+        if (already) return;
+        idx++;
+        const created = u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A';
+        const roleBadge = (u.role || '').toLowerCase() === 'admin' ? 'badge-um admin' : 'badge-um operator';
+        const p = permIndex['hardware:' + u.id] || {};
+        const accessHtml = getPortalAccessBadges(p);
+        html += `<tr>
+            <td>${idx}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || 'N/A'}</td>
+            <td>${accessHtml}</td>
+            <td><span class="${roleBadge}">${u.role || 'N/A'}</span></td>
+            <td><span class="badge-um active">Active</span></td>
+            <td style="font-size:0.55rem;">${created}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+                <button data-perm-action="can_delete_users" class="btn btn-sm btn-outline-danger" onclick="deleteHardwareUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = html || '<tr><td colspan="9" class="text-center text-muted py-3">No users found</td></tr>';
+}
+
+function filterAllUsers() {
+    const q = document.getElementById('allUsersSearch').value.toLowerCase();
+    document.querySelectorAll('#allUsersTableBody tr').forEach(row => {
+        row.style.display = q ? (row.textContent.toLowerCase().includes(q) ? '' : 'none') : '';
+    });
+}
+
+// ===== RENDER PER-SYSTEM TABLES (show ALL users with matching permission) =====
+
+function renderProjectsUsers() {
+    const tbody = document.getElementById('projectsUsersBody');
+    const all = (allUsersData.admin || []).filter(u => u.source_system === 'projects');
+    const badge = (u) => {
+        const sys = u.source_system || 'projects';
+        const p = permIndex[sys + ':' + (u.source_id || u.id)];
+        if (p && p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p && p.can_manage_projects) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
+    };
+    const permType = (u) => u.source_system || 'projects';
+    const permId = (u) => u.source_id || u.id;
+    tbody.innerHTML = all.length
+        ? all.map((u, i) => `<tr>
+            <td>${i+1}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || u.email || 'N/A'}</td>
+            <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}" style="font-size:0.5rem;">${u.role||'operator'}</span></td>
+            <td>${badge(u)}</td>
+            <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+            </td>
+        </tr>`).join('')
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
+}
+
+function renderHardwareUsers() {
+    const tbody = document.getElementById('hardwareUsersBody');
+    const all = allUsersData.hardware || [];
+    const badge = (u) => {
+        const p = permIndex['hardware:' + u.id];
+        if (p && p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p && p.can_manage_hardware) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
+    };
+    const permType = () => 'hardware';
+    const permId = (u) => u.id;
+    tbody.innerHTML = all.length
+        ? all.map((u, i) => `<tr>
+            <td>${i+1}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || 'N/A'}</td>
+            <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}" style="font-size:0.5rem;">${u.role||'op'}</span></td>
+            <td>${badge(u)}</td>
+            <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('hardware', ${u.id}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+            </td>
+        </tr>`).join('')
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
+}
+
+function renderHrUsers() {
+    const tbody = document.getElementById('hrUsersBody');
+    const all = allUsersData.admin || [];
+    const badge = (u) => {
+        const sys = u.source_system || 'hr';
+        const p = permIndex[sys + ':' + (u.source_id || u.id)];
+        if (p && p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
+        if (p && p.can_manage_hr) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
+    };
+    const permType = (u) => u.source_system || 'hr';
+    const permId = (u) => u.source_id || u.id;
+    tbody.innerHTML = all.length
+        ? all.map((u, i) => `<tr>
+            <td>${i+1}</td>
+            <td><strong>${u.full_name || u.username || 'N/A'}</strong></td>
+            <td>${u.username || u.email || 'N/A'}</td>
+            <td><span class="badge-um ${(u.role||'')==='admin'?'admin':'operator'}" style="font-size:0.5rem;">${u.role||'op'}</span></td>
+            <td>${badge(u)}</td>
+            <td style="font-size:0.55rem;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : 'N/A'}</td>
+            <td>
+                <button data-perm-action="can_manage_roles" class="btn btn-sm btn-outline-primary" onclick="openPermModal('${permType(u)}', ${permId(u)}, '${(u.full_name||u.username||'').replace(/'/g, "\\'")}')" title="Permissions"><i class="bi bi-shield"></i></button>
+            </td>
+        </tr>`).join('')
+        : '<tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>';
+}
+
+// ===== OPEN ADD USER MODAL =====
+function openAddUserModal() {
+    resetAddForm();
+    openModal('addUserModal');
+}
+
+function toggleSystemFields() {
+    const sys = document.getElementById('addUserSystem').value;
+    const hw = document.getElementById('hardwareExtraFields');
+    if (hw) hw.style.display = sys === 'hardware' ? '' : 'none';
+    const hr = document.getElementById('hrExtraFields');
+    if (hr) hr.style.display = sys === 'hr' ? '' : 'none';
+    const roleSelect = document.getElementById('addUserRole');
+    if (roleSelect) {
+        if (sys === 'hardware') {
+            roleSelect.innerHTML = '<option value="operator">Operator (POS)</option><option value="admin">Admin (Full Access)</option>';
+        } else {
+            roleSelect.innerHTML = '<option value="operator">Operator</option><option value="admin">Admin (Full Access)</option>';
+        }
+    }
+}
+
+function resetAddForm() {
+    const ids = ['editUserId','editUserSystem','addUserName','addUserEmail','addUserPassword','addUserStatus','addUserWhatsapp','addUserDept','addUserDesignation'];
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const sys = document.getElementById('addUserSystem');
+    if (sys) sys.value = 'projects';
+    const btn = document.getElementById('saveUserBtnText');
+    if (btn) btn.textContent = 'Create User';
+    const msg = document.getElementById('addUserMsg');
+    if (msg) msg.textContent = '';
+    toggleSystemFields();
+}
+
+// ===== SAVE USER =====
+async function saveUser() {
+    const system = document.getElementById('addUserSystem').value;
+    const name = document.getElementById('addUserName').value.trim();
+    const email = document.getElementById('addUserEmail').value.trim();
+    const password = document.getElementById('addUserPassword').value;
+    const role = document.getElementById('addUserRole').value;
+    const status = document.getElementById('addUserStatus').value;
+    const editId = document.getElementById('editUserId').value;
+    const editSys = document.getElementById('editUserSystem').value;
+
+    if (!name || !email) { alert('Name and Email/Username are required.'); return; }
+
+    showLoader(true);
+
+    // Try unified admin_users API first, fall back to legacy
+    try {
+        const res = await fetch('/api/user-management/save-admin-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: email,
+                full_name: name,
+                email: email,
+                password: password || undefined,
+                role: role === 'Administrator' || role === 'admin' ? 'admin' : 'operator',
+                source_system: system,
+                edit_id: editId || null
+            })
+        });
+        const data = await res.json();
+        showLoader(false);
+
+        if (data.success) {
+            document.getElementById('addUserMsg').textContent = '✅ ' + data.message;
+            document.getElementById('addUserMsg').style.color = '#2e7d32';
+            // Also save to the per-system legacy table so HR/hardware tabs are populated
+            if (system === 'hr' || system === 'hardware') {
+                try {
+                    await fetch('/api/user-management/save-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            system, name, email, password: password || 'conlink123',
+                            role, status: status || 'Active',
+                            full_name: name,
+                            whatsapp: document.getElementById('addUserWhatsapp')?.value?.trim() || '',
+                            department: document.getElementById('addUserDept')?.value || '',
+                            designation: document.getElementById('addUserDesignation')?.value?.trim() || ''
+                        })
+                    });
+                } catch(e) { /* legacy save is best-effort */ }
+            }
+            setTimeout(() => {
+                document.getElementById('addUserMsg').textContent = '';
+                closeModal('addUserModal');
+                resetAddForm();
+            }, 1200);
+            await loadAllData();
+        } else {
+            // Fallback to legacy save
+            const res2 = await fetch('/api/user-management/save-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system, name, email, password, role, status,
+                    edit_id: editId || null,
+                    edit_system: editSys || null,
+                    full_name: document.getElementById('addUserFullName').value.trim() || name,
+                    whatsapp: document.getElementById('addUserWhatsapp').value.trim(),
+                    department: document.getElementById('addUserDept').value,
+                    designation: document.getElementById('addUserDesignation').value.trim()
+                })
+            });
+            const data2 = await res2.json();
+            if (data2.success) {
+                document.getElementById('addUserMsg').textContent = '✅ ' + data2.message;
+                document.getElementById('addUserMsg').style.color = '#2e7d32';
+                setTimeout(() => {
+                    document.getElementById('addUserMsg').textContent = '';
+                    closeModal('addUserModal');
+                    resetAddForm();
+                }, 1200);
+                await loadAllData();
+            } else {
+                alert('❌ ' + (data2.error || 'Failed to save'));
+            }
+        }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+// ===== DELETE USERS =====
+async function deleteProjectsUser(id) {
+    if (!confirm('Delete this Building Projects user?')) return;
+    showLoader(true);
+    try {
+        const res = await fetch(`/api/user-management/delete-projects-user/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        showLoader(false);
+        if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+async function deleteHardwareUser(id) {
+    if (!confirm('Delete this Hardware POS user?')) return;
+    showLoader(true);
+    try {
+        const res = await fetch(`/api/user-management/delete-hardware-user/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        showLoader(false);
+        if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+async function deleteHrUser(id) {
+    if (!confirm('Delete this HR employee?')) return;
+    showLoader(true);
+    try {
+        const res = await fetch(`/api/user-management/delete-hr-user/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        showLoader(false);
+        if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+async function deleteAdminUser(id) {
+    if (!confirm('Delete this admin user?')) return;
+    showLoader(true);
+    try {
+        const res = await fetch(`/api/user-management/delete-admin-user/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        showLoader(false);
+        if (data.success) { await loadAllData(); } else { alert('Error: ' + (data.error || 'Failed')); }
+    } catch(e) { showLoader(false); alert('Error: ' + e.message); }
+}
+
+// ===== AUDIT LOG =====
+async function loadAuditLog() {
+    const tbody = document.getElementById('auditLogBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+    try {
+        const res = await fetch('/api/activity-log?limit=100');
+        const data = await res.json();
+        if (data.success && data.data) {
+            tbody.innerHTML = data.data.map(a => {
+                const ts = a.created_at || a.timestamp || '';
+                const det = a.details;
+                const detStr = typeof det === 'string' ? det : (det ? JSON.stringify(det).substring(0, 80) : '');
+                return `<tr><td style="font-size:0.55rem;">${ts}</td>
+                <td>${a.action_type || 'N/A'}</td>
+                <td>${a.user_name || 'System'}</td>
+                <td style="font-size:0.55rem;color:var(--text-muted);">${detStr}</td></tr>`;
+            }).join('') || '<tr><td colspan="4" class="text-center text-muted py-3">No activity</td></tr>';
+        } else {
+            const err = data.error ? (': ' + data.error) : '';
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Failed to load${err}</td></tr>`;
+        }
+    } catch(e) { tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-3">Failed to load: ${e.message}</td></tr>`; }
+}
+
+// ===== SUPER ADMIN AUTO-TOGGLE =====
+const PERM_TOGGLE_IDS = [
+    'can_manage_projects', 'can_manage_hardware', 'can_manage_hr',
+    'can_add_users', 'can_edit_users', 'can_delete_users',
+    'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments'
+];
+
+function toggleAllPermissions(checked) {
+    PERM_TOGGLE_IDS.forEach(id => {
+        const el = document.getElementById('toggle-' + id);
+        if (el) el.checked = checked;
+    });
+    const msg = document.getElementById('permModalMsg');
+    if (msg) {
+        msg.textContent = checked ? '✅ Super Admin: all permissions enabled' : 'ℹ️ Individual permissions can now be set';
+        msg.style.color = checked ? '#2e7d32' : '#ef6c00';
+        setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
+    }
+}
+
+// ===== PERMISSIONS MANAGER - MODAL WITH TOGGLE SWITCHES =====
+let permModalUserType = '';
+let permModalUserId = null;
+
+function openPermModal(userType, userId, userName) {
+    permModalUserType = userType;
+    permModalUserId = userId;
+    document.getElementById('permModalTitle').textContent = 'Permissions: ' + (userName || 'User #' + userId);
+    document.getElementById('permModalUserLabel').textContent = (userName || 'Unknown') + ' (' + userType + ')';
+    openModal('permModal');
+    loadPermModalData(userType, userId);
+}
+
+async function loadPermModalData(userType, userId) {
+    const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
+                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                     'can_view_audit','can_manage_roles','can_view_payments'];
+    // Reset all toggles to off
+    toggles.forEach(t => {
+        const el = document.getElementById('toggle-' + t);
+        if (el) el.checked = false;
+    });
+    document.getElementById('permModalMsg').textContent = 'Loading...';
+
+    try {
+        const res = await fetch('/api/user-management/permissions');
+        const data = await res.json();
+        if (data.success && data.data) {
+            const perm = data.data.find(p => p.user_type === userType && p.user_id === userId);
+            if (perm) {
+                toggles.forEach(t => {
+                    const el = document.getElementById('toggle-' + t);
+                    if (el) el.checked = !!perm[t];
+                });
+                // If super admin is on, cascade to all toggles
+                const saEl = document.getElementById('toggle-is_super_admin');
+                if (saEl && saEl.checked) {
+                    toggleAllPermissions(true);
+                }
+                document.getElementById('permModalMsg').textContent = '';
+            } else {
+                document.getElementById('permModalMsg').textContent = 'No permissions set yet. Toggle and save to assign.';
+            }
+        }
+    } catch(e) {
+        document.getElementById('permModalMsg').textContent = 'Error loading: ' + e.message;
+    }
+}
+
+async function savePermModal() {
+    const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
+                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
+                     'can_view_audit','can_manage_roles','can_view_payments'];
+    const payload = {
+        user_type: permModalUserType,
+        user_id: permModalUserId
+    };
+    toggles.forEach(t => {
+        const el = document.getElementById('toggle-' + t);
+        if (el) payload[t] = el.checked;
+    });
+
+    document.getElementById('permModalMsg').textContent = 'Saving...';
+    try {
+        const res = await fetch('/api/user-management/permissions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('permModalMsg').textContent = '✅ Permissions saved! Refreshing...';
+            document.getElementById('permModalMsg').style.color = '#2e7d32';
+            // Reload all data so permission-filtered tables update immediately
+            setTimeout(async () => {
+                await loadAllData(true); // skipLoader to avoid full-screen overlay while modal is open
+                document.getElementById('permModalMsg').textContent = '✅ Permissions saved!';
+                setTimeout(() => { document.getElementById('permModalMsg').textContent = ''; }, 1500);
+            }, 300);
+        } else {
+            document.getElementById('permModalMsg').textContent = '❌ ' + (data.error || 'Failed');
+            document.getElementById('permModalMsg').style.color = '#d32f2f';
+        }
+    } catch(e) {
+        document.getElementById('permModalMsg').textContent = 'Error: ' + e.message;
+        document.getElementById('permModalMsg').style.color = '#d32f2f';
+    }
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', function() {
+    applyPermissions();
+    buildSwitchPortals();
+    loadAllData();
+    loadAuditLog();
+});
+</script>
+</body>
+</html>

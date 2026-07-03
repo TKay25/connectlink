@@ -19,6 +19,7 @@
     "send_whatsapp_list_message(recipient, text, header_text, sections, footer_text = None)"
   ],
   "dependencies": [
+    "PyPDF2",
     "ai_classifier",
     "base64",
     "bleach",
@@ -37,22 +38,21 @@
     "playwright",
     "psycopg2",
     "pytz",
-    "requests",
-    "seaborn"
+    "requests"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 11212"
+    "INSTRUCTIONS @ line 11584"
   ],
   "token_controls": [
-    "max_length = 0 @ line 16898",
-    "max_length = len(str(cell.value)) @ line 16903",
-    "adjusted_width = min(max_length + 2, 50) @ line 16906",
-    "max_length = 0 @ line 17718",
-    "max_length = cell_length @ line 17725",
-    "adjusted_width = min(max_length + 2, 50) @ line 17728",
-    "max_length = 0 @ line 18563",
-    "max_length = cell_length @ line 18570",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 18573"
+    "max_length = 0 @ line 19653",
+    "max_length = len(str(cell.value)) @ line 19658",
+    "adjusted_width = min(max_length + 2, 50) @ line 19661",
+    "max_length = 0 @ line 20473",
+    "max_length = cell_length @ line 20480",
+    "adjusted_width = min(max_length + 2, 50) @ line 20483",
+    "max_length = 0 @ line 21468",
+    "max_length = cell_length @ line 21475",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 21478"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -65,14 +65,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "c19afe9a10aa838e",
-  "file_mtime": 1781691732172.6877,
-  "file_size": 1328874,
-  "file_birthtime": 1776794366250.55,
-<<<<<<< Updated upstream
-  "generated_at": "2026-07-03T04:49:49.112730Z",
-=======
-  "generated_at": "2026-07-03T04:45:49.372616Z",
->>>>>>> Stashed changes
+  "file_hash": "2d184572e1743f6a",
+  "file_mtime": 1783054242358.2612,
+  "file_size": 1737290,
+  "file_birthtime": 1781690980000,
+  "generated_at": "2026-07-03T04:50:54.469377Z",
   "stale": false
 }
