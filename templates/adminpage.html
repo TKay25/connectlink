@@ -3862,6 +3862,11 @@ body { font-family: Arial; margin: 20px; }
                                 </button>
                             </li>
                             <li class="nav-item">
+                                <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#activity-tab">
+                                    <i class="bi bi-clock-history"></i> ACTIVITY LOG
+                                </button>
+                            </li>
+                            <li class="nav-item">
                                 <button class="nav-link tab-nav-btn" data-bs-toggle="tab" data-bs-target="#dashboard-tab">
                                     <i class="bi bi-graph-up"></i> SUMMARY
                                 </button>
@@ -4155,7 +4160,9 @@ body { font-family: Arial; margin: 20px; }
                             </div>
                         </div>
 
-                        <!-- EMPTY TAB -->
+                        <!-- ACTIVITY LOG TAB -->
+                        <div class="tab-pane fade" id="activity-tab">
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;">
                                 <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:120px;max-width:250px;" oninput="filterActivityLog()">
                                 <select id="activityLogUserFilter" style="font-size:0.85rem;padding:6px 12px;border:1px solid #ddd;border-radius:4px;" onchange="filterActivityLog()">
                                     <option value="">All users</option>
