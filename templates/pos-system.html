@@ -6276,7 +6276,7 @@ async function exportModalData(type, format) {
             margin: [0.5, 0.5, 0.5, 0.5],
             filename: `${filename}_${new Date().toISOString().split('T')[0]}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
+            html2canvas: { scale: 1.5 },
             jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
         };
         
@@ -7194,7 +7194,7 @@ async function deleteStockAddition() {
                 margin: [0.5, 0.5, 0.5, 0.5],
                 filename: `sales_report_${new Date().toISOString().split('T')[0]}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
+                html2canvas: { scale: 1.5 },
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
             };
             
@@ -8351,7 +8351,7 @@ function renderFilteredTransactions() {
             margin: [0.5, 0.5, 0.5, 0.5],
             filename: `transactions_${new Date().toISOString().split('T')[0]}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
+            html2canvas: { scale: 1.5 },
             jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
         };
         
