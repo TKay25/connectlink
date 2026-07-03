@@ -8517,7 +8517,7 @@ async function fetchTransactionsData() {
         loader = document.createElement('div');
         loader.id = 'globalLoader';
         loader.className = 'loader-overlay';
-        loader.innerHTML = `<div class="loader-spinner"></div><div id="loaderMessage" style="font-size: 14px;">${message}</div>`;
+        loader.innerHTML = `<div class="loader-spinner"></div><img src="/static/images/web-logo-white.png" alt="ConnectLink" style="width:100px;opacity:0.8;margin-bottom:12px;"><div id="loaderMessage" style="font-size: 14px;">${message}</div>`;
         document.body.appendChild(loader);
     }
     
@@ -12226,7 +12226,12 @@ function setupEventListeners() {
     
     function setupLogout() {
         const logoutBtn = document.getElementById('logoutBtn');
-        if (logoutBtn) logoutBtn.addEventListener('click', async () => { try { await fetch('/api/logoutpos', { method: 'POST', credentials: 'include' }); } catch (e) {} localStorage.clear(); window.location.href = '/api/logoutpos'; });
+        if (logoutBtn) logoutBtn.addEventListener('click', async () => { 
+            showLoader('Logging out...');
+            try { await fetch('/api/logoutpos', { method: 'POST', credentials: 'include' }); } catch (e) {} 
+            localStorage.clear(); 
+            setTimeout(() => { window.location.href = '/api/logoutpos'; }, 200);
+        });
     }
     
     // ==================== THEME TOGGLE ====================

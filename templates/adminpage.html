@@ -18953,6 +18953,9 @@ function switchPortal(portal) {
     const names = { hr: 'HR Portal', users: 'User Management', pos: 'POS System' };
     const url = urls[portal] || '/dashboard';
     
+    // Show loading overlay
+    showLoader('Switching Portal', 'Taking you to ' + (names[portal] || portal));
+    
     // Log the switch
     fetch('/api/activity-log', {
         method: 'POST',
@@ -18970,9 +18973,10 @@ function switchPortal(portal) {
 /** Handle logout */
 function handleLogout() {
     closeUserDropdown();
-    if (confirm('Are you sure you want to logout?')) {
+    showLoader('Logging Out', 'Please wait...');
+    setTimeout(() => {
         window.location.href = '/logout';
-    }
+    }, 300);
 }
 
 // Close dropdown when clicking anywhere else

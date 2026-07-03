@@ -2241,8 +2241,29 @@ function buildSwitchPortals() {
     ];
     container.innerHTML = portals
         .filter(p => p.show)
-        .map(p => `<button class="dropdown-item" onclick="window.location.href='${p.url}'"><i class="${p.icon}"></i> ${p.label}</button>`)
+        .map(p => `<button class="dropdown-item" onclick="switchPortal('${p.url}','${p.label}')"><i class="${p.icon}"></i> ${p.label}</button>`)
         .join('');
+}
+
+function switchPortal(url, label) {
+    // Show loading overlay
+    const loader = document.getElementById('hrLoader');
+    if (loader) {
+        const msgEl = loader.querySelector('p');
+        if (msgEl) msgEl.innerHTML = 'Switching to ' + label + ' <span style="color: var(--primary);">...</span>';
+        loader.style.display = 'flex';
+    }
+    setTimeout(() => { window.location.href = url; }, 200);
+}
+
+function handleLogout() {
+    const loader = document.getElementById('hrLoader');
+    if (loader) {
+        const msgEl = loader.querySelector('p');
+        if (msgEl) msgEl.innerHTML = 'Logging out <span style="color: var(--primary);">...</span>';
+        loader.style.display = 'flex';
+    }
+    setTimeout(() => { window.location.href = '/logout'; }, 200);
 }
 
 // ===== ROLE-BASED UI CONTROL =====
@@ -2402,12 +2423,6 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// ===== LOGOUT =====
-function handleLogout() {
-    if (confirm('Are you sure you want to logout?')) {
-        window.location.href = '/logout';
-    }
-}
 
 // ===== MODAL FUNCTIONS =====
 function openModal(modalId) {

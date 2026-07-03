@@ -520,7 +520,7 @@
             </div>
             <div id="switchPortals"></div>
             <div class="dropdown-divider"></div>
-            <button class="dropdown-item text-danger" onclick="if(confirm('Logout?'))window.location.href='/logout';"><i class="bi bi-box-arrow-right"></i> Logout</button>
+            <button class="dropdown-item text-danger" onclick="handleLogout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
         </div>
     </div>
 </nav>
@@ -987,8 +987,28 @@ function buildSwitchPortals() {
     ];
     container.innerHTML = portals
         .filter(p => PERMS && (PERMS.is_super_admin || PERMS[p.perm]))
-        .map(p => `<button class="dropdown-item" onclick="window.location.href='${p.url}'"><i class="${p.icon}"></i> ${p.label}</button>`)
+        .map(p => `<button class="dropdown-item" onclick="switchPortal('${p.url}','${p.label}')"><i class="${p.icon}"></i> ${p.label}</button>`)
         .join('');
+}
+
+function switchPortal(url, label) {
+    const loader = document.getElementById('umLoader');
+    if (loader) {
+        const msgEl = loader.querySelector('p');
+        if (msgEl) msgEl.innerHTML = 'Switching to ' + label + ' <span style="color: var(--primary);">...</span>';
+        loader.style.display = 'flex';
+    }
+    setTimeout(() => { window.location.href = url; }, 200);
+}
+
+function handleLogout() {
+    const loader = document.getElementById('umLoader');
+    if (loader) {
+        const msgEl = loader.querySelector('p');
+        if (msgEl) msgEl.innerHTML = 'Logging out <span style="color: var(--primary);">...</span>';
+        loader.style.display = 'flex';
+    }
+    setTimeout(() => { window.location.href = '/logout'; }, 200);
 }
 
 // ===== NAVIGATION =====
