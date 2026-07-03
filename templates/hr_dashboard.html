@@ -3404,9 +3404,11 @@ function openPayeUploadModal() {
     document.getElementById('payeFileInput').value = '';
     document.getElementById('payeUploadStatus').textContent = '';
     document.getElementById('payeUploadModal').style.display = 'flex';
+    document.getElementById('payeUploadModal').classList.add('active');
 }
 
 function closePayeUploadModal() {
+    document.getElementById('payeUploadModal').classList.remove('active');
     document.getElementById('payeUploadModal').style.display = 'none';
 }
 
@@ -3678,10 +3680,12 @@ async function processPayroll() {
 // ===== PAYROLL DEDUCTIONS CONFIG =====
 async function openDeductionsConfig() {
     document.getElementById('deductionsConfigModal').style.display = 'flex';
+    document.getElementById('deductionsConfigModal').classList.add('active');
     await loadDeductionsConfig();
 }
 
 function closeDeductionsConfig() {
+    document.getElementById('deductionsConfigModal').classList.remove('active');
     document.getElementById('deductionsConfigModal').style.display = 'none';
 }
 
@@ -3783,10 +3787,12 @@ document.addEventListener('click', function(e) {
 // ===== PAYROLL ARCHIVES =====
 async function openPayrollArchives() {
     document.getElementById('payrollArchivesModal').style.display = 'flex';
+    document.getElementById('payrollArchivesModal').classList.add('active');
     await loadPayrollArchives();
 }
 
 function closePayrollArchives() {
+    document.getElementById('payrollArchivesModal').classList.remove('active');
     document.getElementById('payrollArchivesModal').style.display = 'none';
 }
 
