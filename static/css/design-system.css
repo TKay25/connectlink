@@ -457,3 +457,69 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
 .modal-container, .modal-content, .login-modal {
   border-radius: var(--radius-xl) !important;
 }
+
+/* ==================================================================
+   UNIFIED NAVBAR — Across all portals
+   ================================================================== */
+.app-navbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid rgba(226,232,240,0.6);
+  padding: 0 1.5rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.app-navbar .brand {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none;
+}
+.app-navbar .brand-text {
+  font-weight: 800; font-size: 1.1rem; letter-spacing: -0.3px;
+  display: flex; align-items: center; gap: 8px;
+}
+.app-navbar .brand-text .brand-connect { color: #0F1B2D; }
+.app-navbar .brand-text .brand-link { color: #C12B3E; }
+.app-navbar .brand-badge {
+  font-size: 0.55rem; font-weight: 700; text-transform: uppercase;
+  background: linear-gradient(135deg, #C12B3E, #9E1F2E);
+  color: #fff; padding: 3px 10px; border-radius: 6px;
+  letter-spacing: 0.8px; box-shadow: 0 2px 8px rgba(193,43,62,0.35);
+}
+.app-navbar .nav-actions { display: flex; align-items: center; gap: 10px; }
+.app-navbar .user-badge {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(249,250,251,0.9);
+  padding: 3px 12px 3px 6px; border-radius: 8px;
+  color: #374151; font-size: 0.75rem; font-weight: 600;
+  border: 1px solid rgba(229,231,235,0.8); cursor: pointer;
+  transition: all 0.15s; position: relative;
+}
+.app-navbar .user-badge:hover { border-color: #C12B3E; background: #f3f4f6; box-shadow: 0 0 0 2px rgba(193,43,62,0.15); }
+.app-navbar .user-badge .avatar {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: linear-gradient(135deg, #0F1B2D, #1A2D47);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.6rem; color: white;
+  box-shadow: 0 1px 3px rgba(15,27,45,0.3);
+}
+
+/* ==================================================================
+   UNIFIED PAGE FOOTER (matches mainindex.html style)
+   ================================================================== */
+.app-footer {
+  position: fixed; bottom: 0; width: 100%;
+  padding: 14px; text-align: center;
+  background: rgba(255,255,255,0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255,255,255,0.2);
+  z-index: 50;
+  font-size: 0.6rem; color: var(--gray-500);
+  letter-spacing: 0.3px;
+}
+.app-footer strong { color: #0F1B2D; }

@@ -2783,6 +2783,12 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
     <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
 </head>
+
+<!-- ===== PAGE FOOTER ===== -->
+
+<footer class="app-footer">
+    <p>&copy; 2026 ConnectLink Properties &amp; Hardware — From Concept to Creation, Let's Build Together &nbsp;|&nbsp; <a href="/privacy-policy" style="color:var(--gray-500);text-decoration:underline;">Privacy Policy</a></p>
+</footer>
 </body>
 <div class="modal fade" id="allProductsModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -5933,6 +5939,29 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
 </head>
                 <body>
+<!-- ===== TOP NAVBAR ===== -->
+<nav class="app-navbar">
+    <div class="brand">
+        <span class="brand-text"><span class="brand-connect">Connect</span><span class="brand-link">Link</span> <span class="brand-badge">POS System</span></span>
+    </div>
+    <div class="nav-actions">
+        <div class="user-badge" onclick="toggleUserDropdown(event)">
+            <div class="avatar">U</div>
+            <span>User</span>
+            <i class="bi bi-chevron-down" style="font-size:0.6rem;opacity:0.6;"></i>
+        </div>
+        <div id="userDropdown" class="user-dropdown-menu" style="display:none;">
+            <div class="dropdown-header">
+                <div class="dropdown-user-name">User</div>
+                <div class="dropdown-user-role">Role</div>
+            </div>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" onclick="handleLogout()">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </button>
+        </div>
+    </div>
+</nav>
                     <div class='receipt-container'>
                         <div class='receipt-logo'><img src='${RECEIPT_LOGO_BASE64}' alt='Logo'></div>
                         <div class='receipt-title'>${categoryName} - ${subCategoryName}</div>
@@ -5942,7 +5971,13 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                         </table>
                         <div class='receipt-footer'>Thank you for using ConnectLink!</div>
                     </div>
-                </body>
+                
+<!-- ===== PAGE FOOTER ===== -->
+
+<footer class="app-footer">
+    <p>&copy; 2026 ConnectLink Properties &amp; Hardware — From Concept to Creation, Let's Build Together &nbsp;|&nbsp; <a href="/privacy-policy" style="color:var(--gray-500);text-decoration:underline;">Privacy Policy</a></p>
+</footer>
+</body>
                 </html>
                 `;
 
@@ -11187,7 +11222,13 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
             <div class="receipt-paper">
                 ${receiptHtml}
             </div>
-        </body>
+        
+<!-- ===== PAGE FOOTER ===== -->
+
+<footer class="app-footer">
+    <p>&copy; 2026 ConnectLink Properties &amp; Hardware — From Concept to Creation, Let's Build Together &nbsp;|&nbsp; <a href="/privacy-policy" style="color:var(--gray-500);text-decoration:underline;">Privacy Policy</a></p>
+</footer>
+</body>
         </html>
     `;
     
@@ -12251,6 +12292,12 @@ function setupEventListeners() {
 
     init();
 </script>
+
+<!-- ===== PAGE FOOTER ===== -->
+
+<footer class="app-footer">
+    <p>&copy; 2026 ConnectLink Properties &amp; Hardware — From Concept to Creation, Let's Build Together &nbsp;|&nbsp; <a href="/privacy-policy" style="color:var(--gray-500);text-decoration:underline;">Privacy Policy</a></p>
+</footer>
 </body>
 </html>
  </html>
