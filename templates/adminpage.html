@@ -3783,6 +3783,23 @@ body { font-family: Arial; margin: 20px; }
                 <i class="bi bi-gear"></i> Settings
             </div>
             <div class="dropdown-divider"></div>
+            <div style="padding:4px 16px 2px;font-size:0.55rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Switch Portal</div>
+            {% if can_manage_hr %}
+            <div class="dropdown-item" onclick="switchPortal('hr')">
+                <i class="bi bi-people"></i> HR Portal
+            </div>
+            {% endif %}
+            {% if can_manage_roles %}
+            <div class="dropdown-item" onclick="switchPortal('users')">
+                <i class="bi bi-shield"></i> User Management
+            </div>
+            {% endif %}
+            {% if can_manage_hardware %}
+            <div class="dropdown-item" onclick="switchPortal('pos')">
+                <i class="bi bi-cart"></i> POS System
+            </div>
+            {% endif %}
+            <div class="dropdown-divider"></div>
             <div class="dropdown-item text-danger" onclick="handleLogout()">
                 <i class="bi bi-box-arrow-right"></i> Logout
             </div>
@@ -18942,6 +18959,27 @@ function openProfileModal() {
         });
 }
 
+/** Switch portal with activity logging */
+function switchPortal(portal) {
+    closeUserDropdown();
+    const urls = { hr: '/hr-dashboard', users: '/user-management', pos: '/pos-system.html' };
+    const names = { hr: 'HR Portal', users: 'User Management', pos: 'POS System' };
+    const url = urls[portal] || '/dashboard';
+    
+    // Log the switch
+    fetch('/api/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            action_type: 'portal_switch',
+            description: 'Switched to ' + (names[portal] || portal),
+            details: { portal: portal, target: names[portal] || portal }
+        })
+    }).catch(() => {}).finally(() => {
+        window.location.href = url;
+    });
+}
+
 /** Handle logout */
 function handleLogout() {
     closeUserDropdown();
@@ -27949,18 +27987,17 @@ $(document).ready(function() {
     // Initialize DataTable for Payment Status table
     if ($('#allpaymentscdTable').length && !$.fn.DataTable.isDataTable('#allpaymentscdTable')) {
         $('#allpaymentscdTable').DataTable({
-            order: [[4, 'desc']],
+            order: [],
             paging: false,
             searching: true,
-            ordering: true,
+            ordering: false,
             info: false,
             language: {
                 emptyTable: 'No payment records found',
                 search: "Search:"
             },
             columnDefs: [
-                { targets: [4,5], createdCell: function(td) { td.style.fontSize = '0.65rem'; td.style.whiteSpace = 'nowrap'; } },
-                { targets: [4], type: 'html' }
+                { targets: [4,5], createdCell: function(td) { td.style.fontSize = '0.65rem'; td.style.whiteSpace = 'nowrap'; } }
             ]
         });
         console.log('✅ Payment status table initialized');

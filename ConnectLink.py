@@ -11991,10 +11991,26 @@ def Dashboard():
                     if p2.get('can_edit_projects', False) or p2.get('is_super_admin', False):
                         can_edit_projects = True
 
+                # Check other portal permissions for navbar switching
+                can_manage_hr = perms.get('can_manage_hr', False) or perms.get('is_super_admin', False)
+                can_manage_hardware = perms.get('can_manage_hardware', False) or perms.get('is_super_admin', False)
+                can_manage_roles = perms.get('can_manage_roles', False) or perms.get('is_super_admin', False)
+                if not any([can_manage_hr, can_manage_hardware, can_manage_roles]):
+                    for utype in ('hr', 'hardware', 'projects'):
+                        p = get_user_permissions(utype, source_id)
+                        if p.get('is_super_admin', False):
+                            can_manage_hr = can_manage_hardware = can_manage_roles = True
+                            break
+                        if p.get('can_manage_hr', False): can_manage_hr = True
+                        if p.get('can_manage_hardware', False): can_manage_hardware = True
+                        if p.get('can_manage_roles', False): can_manage_roles = True
+
                 print("Back from adventures")
 
                 return render_template('adminpage.html', **results, userid=userid, user_name=user_name,
-                                       can_view_payments=can_view_payments, can_edit_projects=can_edit_projects)
+                                       can_view_payments=can_view_payments, can_edit_projects=can_edit_projects,
+                                       can_manage_hr=can_manage_hr, can_manage_hardware=can_manage_hardware,
+                                       can_manage_roles=can_manage_roles)
                     
             except Exception as e:
 

@@ -2235,8 +2235,9 @@ function buildSwitchPortals() {
     const container = document.getElementById('switchPortals');
     if (!container) return;
     const portals = [
-        { show: CAN_MANAGE_HR || HR_ROLE === 'Administrator', label: 'Switch to Projects', url: '/dashboard', icon: 'bi-building' },
-        { show: CAN_MANAGE_HR || HR_ROLE === 'Administrator', label: 'Switch to User Management', url: '/user-management', icon: 'bi-person-badge' },
+        { show: true, label: 'Switch to Projects', url: '/dashboard', icon: 'bi-building' },
+        { show: true, label: 'Switch to User Management', url: '/user-management', icon: 'bi-person-badge' },
+        { show: true, label: 'Switch to POS', url: '/pos-system.html', icon: 'bi-cart' },
     ];
     container.innerHTML = portals
         .filter(p => p.show)
