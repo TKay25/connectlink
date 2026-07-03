@@ -14347,21 +14347,30 @@ def get_user_profile():
     
     try:
         with get_db() as (cursor, connection):
+            # First try connectlinkusers (legacy table)
             cursor.execute("""
                 SELECT id, datecreated, name, email, whatsapp
                 FROM connectlinkusers WHERE id = %s
             """, (user_id,))
             user_data = cursor.fetchone()
             
+            if not user_data:
+                # Fall back to admin_users (consolidated login table)
+                cursor.execute("""
+                    SELECT id, created_at, full_name, email, whatsapp
+                    FROM admin_users WHERE id = %s
+                """, (user_id,))
+                user_data = cursor.fetchone()
+            
             if user_data:
                 return jsonify({
                     'success': True,
                     'data': {
                         'id': user_data[0],
-                        'datecreated': str(user_data[1]),
-                        'name': user_data[2],
-                        'email': user_data[3],
-                        'whatsapp': user_data[4]
+                        'datecreated': str(user_data[1]) if user_data[1] else '',
+                        'name': user_data[2] or '',
+                        'email': user_data[3] or '',
+                        'whatsapp': user_data[4] or ''
                     }
                 })
             else:
@@ -14390,9 +14399,17 @@ def update_profile():
             return jsonify({'success': False, 'message': 'Full Name and Email are required'}), 400
         
         with get_db() as (cursor, connection):
+            # Update connectlinkusers (legacy)
             cursor.execute("""
                 UPDATE connectlinkusers 
                 SET name = %s, email = %s, whatsapp = %s
+                WHERE id = %s
+            """, (full_name, email, whatsapp, user_id))
+            
+            # Also update admin_users (consolidated login table)
+            cursor.execute("""
+                UPDATE admin_users 
+                SET full_name = %s, email = %s, whatsapp = %s
                 WHERE id = %s
             """, (full_name, email, whatsapp, user_id))
             
@@ -14400,6 +14417,7 @@ def update_profile():
             
             # Update session
             session['user_name'] = full_name
+            session['full_name'] = full_name
             
             return jsonify({'success': True, 'message': 'Profile updated successfully'})
     except Exception as e:

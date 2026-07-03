@@ -486,7 +486,7 @@ body:has(.app-navbar) {
 }
 .app-navbar .brand-text {
   font-weight: 800; font-size: 1.1rem; letter-spacing: -0.3px;
-  display: flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center;
 }
 .app-navbar .brand-text .brand-connect { color: #0F1B2D; }
 .app-navbar .brand-text .brand-link { color: #C12B3E; }
