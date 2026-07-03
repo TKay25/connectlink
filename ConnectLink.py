@@ -11973,14 +11973,6 @@ def Dashboard():
                 # Try source_system first, then 'projects', then fallback to hr/hardware
                 perms = get_user_permissions(source_sys, source_id)
                 can_view_payments = perms.get('can_view_payments', False) or perms.get('is_super_admin', False)
-                if not can_view_payments:
-                    for utype in ('projects', 'hr', 'hardware'):
-                        if utype == source_sys:
-                            continue
-                        p = get_user_permissions(utype, source_id)
-                        if p.get('can_view_payments', False) or p.get('is_super_admin', False):
-                            can_view_payments = True
-                            break
 
                 can_edit_projects = perms.get('can_edit_projects', True)
                 # Only override to True if user is super admin
