@@ -12242,8 +12242,10 @@ def reset_password():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'GET':
+        return redirect('/')
     if request.method == 'POST':
         try:
             with get_db() as (cursor, connection):
@@ -21751,7 +21753,7 @@ def privacy_policy():
     """Privacy Policy page (required for WhatsApp Business API compliance)"""
     return render_template('privacy_policy.html')
 
-@app.route('/pos-system.html')
+@app.route('/pos-system.html', methods=['GET', 'POST'])
 def pos_system():
     """POS System page"""
     return render_template('pos-system.html')

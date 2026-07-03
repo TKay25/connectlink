@@ -415,7 +415,7 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
  position: absolute; top: 100%; right: 0; z-index: 100;
  background: var(--bg-card); border-radius: var(--radius-md);
  box-shadow: var(--shadow-lg); border: 1px solid var(--border);
- min-width: 180px; padding: 4px; margin-top: 6px;
+ min-width: 180px; padding: 4px; 
  opacity: 0; pointer-events: none; transform: translateY(-6px); transition: all var(--transition);
 }
 .dropdown-menu.show, .dropdown-menu.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
@@ -473,6 +473,7 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  margin: 0;
 }
 .app-navbar .brand {
   display: flex; align-items: center; gap: 12px;
