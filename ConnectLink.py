@@ -18993,11 +18993,14 @@ def run1(userid):
 
         # ===== CRITICAL: Process columns in correct order =====
         # Step 1: Process dates first
-        datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'])
-        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate']).dt.strftime('%d %B %Y')
+        datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'], errors='coerce')
+        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate'], errors='coerce').dt.strftime('%d %B %Y')
         
         # Step 2: Calculate momid BEFORE reordering (uses datetime format)
-        datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).astype(int)
+        # Fill NaT with a sentinel future date so rank doesn't produce NaN
+        valid_dates = datamain['datedepositorbullet'].fillna(pd.Timestamp('2099-12-31'))
+        datamain['momid'] = datamain.groupby(valid_dates.dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True)
+        datamain['momid'] = datamain['momid'].fillna(0).astype(int)
         
         # Step 2b: NOW format datedepositorbullet for display (DD Month YYYY format)
         datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
