@@ -1452,22 +1452,23 @@
             <p>Sign in to access project management dashboard</p>
         </div>
         <div class="modal-body">
-            <div class="login-form-wrap">
-                <div class="error-message" id="projectsErrorMsg"></div>
-                <form id="projectsLoginForm">
-                    <div class="form-group">
-                        <label>Email Address</label>
-                        <div class="input-group-modal">
-                            <input type="text" class="form-input-modal" id="projectsEmail" placeholder="admin@connectlinkproperties.co.zw" required>
-                            <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+            <div id="projectsLoginForm">
+                <div class="login-form-wrap" id="projectsLoginWrap">
+                    <div class="error-message" id="projectsErrorMsg"></div>
+                    <form id="projectsLoginForm">
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <div class="input-group-modal">
+                                <input type="text" class="form-input-modal" id="projectsEmail" placeholder="admin@connectlinkproperties.co.zw" required>
+                                <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Password</label>
-                        <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="projectsPassword" placeholder="••••••••" required>
-                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                            <button type="button" class="password-toggle-modal" onclick="toggleProjectsPassword(event)"><i class="fas fa-eye"></i></button>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <div class="input-group-modal">
+                                <input type="password" class="form-input-modal" id="projectsPassword" placeholder="••••••••" required>
+                                <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                                <button type="button" class="password-toggle-modal" onclick="toggleProjectsPassword(event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
                     <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
@@ -1476,6 +1477,36 @@
                     <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')">Forgot Password?</a>
                     <a href="#">Need help?</a>
                 </div>
+            </div>
+            <!-- First Login: Set New Password -->
+            <div id="projectsSetPasswordForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Set New Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">First-time login — choose your new password</div>
+                <div class="error-message" id="projectsSetPwError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="projectsCurrentPw" placeholder="Temporary password" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="projectsSetNewPw" placeholder="Min 4 characters" required>
+                        <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('projectsSetNewPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="projectsSetConfirmPw" placeholder="Re-enter new password" required>
+                        <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('projectsSetConfirmPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="button" class="modal-login-btn" onclick="firstLoginReset('projects')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Set Password</button>
             </div>
             <!-- Reset Password Form (WhatsApp code flow) -->
             <div id="projectsResetForm" style="display:none;">
@@ -2088,6 +2119,53 @@
             if (confirmPw) confirmPw.value = '';
         };
 
+        // ===== FIRST-LOGIN PASSWORD SET (no WhatsApp needed) =====
+        window.firstLoginReset = async function(system) {
+            const currentPw = document.getElementById(system + 'CurrentPw').value;
+            const newPw = document.getElementById(system + 'SetNewPw').value;
+            const confirmPw = document.getElementById(system + 'SetConfirmPw').value;
+            const errEl = document.getElementById(system + 'SetPwError');
+            // Get username from the email field
+            const username = document.getElementById(system + 'Email').value.trim();
+
+            if (!currentPw || !newPw || !confirmPw) {
+                errEl.textContent = 'All fields are required.';
+                return;
+            }
+            if (newPw.length < 4) {
+                errEl.textContent = 'New password must be at least 4 characters.';
+                return;
+            }
+            if (newPw !== confirmPw) {
+                errEl.textContent = 'New passwords do not match.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/first-login-reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, current_password: currentPw, new_password: newPw })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    errEl.style.color = '#2e7d32';
+                    errEl.textContent = '✅ Password set! Please log in with your new password.';
+                    setTimeout(() => {
+                        document.getElementById(system + 'SetPasswordForm').style.display = 'none';
+                        document.getElementById(system + 'LoginWrap').style.display = 'block';
+                        document.getElementById(system + 'Password').value = '';
+                        errEl.style.color = '#d32f2f';
+                        errEl.textContent = '';
+                    }, 2000);
+                } else {
+                    errEl.textContent = data.message || 'Failed to reset password.';
+                }
+            } catch(e) {
+                errEl.textContent = 'Connection error. Please try again.';
+            }
+        };
+
         // ===== WHATSAPP CODE PASSWORD RESET =====
         window.sendResetCode = async function(system) {
             const username = document.getElementById(system + 'ResetEmail').value.trim();
@@ -2294,11 +2372,11 @@
                     window.location.href = data.redirect || '/dashboard';
                 } else if (data.must_reset) {
                     setLoading(false);
-                    closeModal('projectsLoginModal');
-                    // Open reset password form pre-filled
-                    document.getElementById('projectsResetEmail').value = data.username;
-                    toggleResetForm('projects', true);
-                    setError('projects', data.message || 'First-time login — please set a new password.');
+                    // Show the set-password form inside the login modal
+                    document.getElementById('projectsLoginWrap').style.display = 'none';
+                    document.getElementById('projectsSetPasswordForm').style.display = 'block';
+                    document.getElementById('projectsCurrentPw').value = dom.projectsPassword.value;
+                    document.getElementById('projectsSetPwError').textContent = data.message || 'First-time login — set a new password.';
                 } else {
                     setLoading(false);
                     setError('projects', data.message || 'Invalid credentials');

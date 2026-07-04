@@ -12350,6 +12350,50 @@ def login():
     return jsonify({'success': False, 'message': 'Invalid request method.'}), 405
 
 
+@app.route('/api/first-login-reset', methods=['POST'])
+def first_login_reset():
+    """First-login password reset — user enters current (dummy) password + new password.
+    No WhatsApp code needed. Only works when must_reset_password = TRUE."""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+
+        if not username or not current_password or not new_password:
+            return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+        if len(new_password) < 4:
+            return jsonify({'success': False, 'message': 'New password must be at least 4 characters.'}), 400
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id FROM admin_users
+                WHERE username = %s AND password = %s AND must_reset_password = TRUE
+            """, (username, current_password))
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({'success': False, 'message': 'Invalid credentials or password already set.'}), 403
+
+            cursor.execute("""
+                UPDATE admin_users SET password = %s, must_reset_password = FALSE, updated_at = NOW()
+                WHERE id = %s
+            """, (new_password, user[0]))
+
+            # Also update legacy tables
+            cursor.execute("UPDATE connectlinkusers SET password = %s WHERE email = %s OR name = %s",
+                          (new_password, username, username))
+            cursor.execute("UPDATE hardware_users SET password = %s WHERE username = %s",
+                          (new_password, username))
+
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Password set successfully! Please log in.'})
+
+    except Exception as e:
+        print(f"First login reset error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/hr-login', methods=['POST'])
 def hr_login():
     """HR portal login - everyone in admin_users can login (basic access).
