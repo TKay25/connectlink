@@ -18989,21 +18989,24 @@ def run1(userid):
         frequencies_list = list(location_counts.values())
 
         # Get the most frequent location
-        most_frequent_location = locations.value_counts(dropna=True).idxmax()
+        loc_counts = locations.value_counts(dropna=True)
+        most_frequent_location = loc_counts.idxmax() if not loc_counts.empty else 'N/A'
 
         # ===== CRITICAL: Process columns in correct order =====
         # Step 1: Process dates first
         datamain['datedepositorbullet'] = pd.to_datetime(datamain['datedepositorbullet'], errors='coerce')
-        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate'], errors='coerce').dt.strftime('%d %B %Y')
+        datamain['projectstartdate'] = pd.to_datetime(datamain['projectstartdate'], errors='coerce')
         
-        # Step 2: Calculate momid BEFORE reordering (uses datetime format)
-        # Fill NaT with a sentinel future date so rank doesn't produce NaN
-        valid_dates = datamain['datedepositorbullet'].fillna(pd.Timestamp('2099-12-31'))
-        datamain['momid'] = datamain.groupby(valid_dates.dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True)
-        datamain['momid'] = datamain['momid'].fillna(0).astype(int)
+        # Step 2: Fill NaT dates with sentinel before any operations
+        datamain['datedepositorbullet'] = datamain['datedepositorbullet'].fillna(pd.Timestamp('2099-12-31'))
+        datamain['projectstartdate'] = datamain['projectstartdate'].fillna(pd.Timestamp('2099-12-31'))
         
-        # Step 2b: NOW format datedepositorbullet for display (DD Month YYYY format)
+        # Step 3: Calculate momid BEFORE reordering (uses datetime format)
+        datamain['momid'] = datamain.groupby(datamain['datedepositorbullet'].dt.strftime('%Y-%m'))['datedepositorbullet'].rank(method='first', ascending=True).fillna(0).astype(int)
+        
+        # Step 4: NOW format dates for display
         datamain['datedepositorbullet'] = datamain['datedepositorbullet'].dt.strftime('%d %B %Y')
+        datamain['projectstartdate'] = datamain['projectstartdate'].dt.strftime('%d %B %Y')
 
         # Step 3: Rename quotation_id to QREF BEFORE Action creation
         datamain = datamain.rename(columns={'quotation_id': 'QREF'})
@@ -25177,9 +25180,9 @@ def get_quotation_rates():
             for rate in rates:
                 result.append({
                     'id': rate[0],
-                    'item': rate[1],
-                    'daysPerSqMeter': float(rate[2]),
-                    'inhouseRate': str(rate[3])
+                    'item': rate[1] or '',
+                    'daysPerSqMeter': float(rate[2]) if rate[2] is not None else 0,
+                    'inhouseRate': str(rate[3]) if rate[3] is not None else '0'
                 })
             
             return jsonify({
