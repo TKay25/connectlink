@@ -12561,6 +12561,9 @@ def hr_employees_api():
             return jsonify({'success': False, 'error': str(e)}), 500
 
     elif request.method == 'POST':
+        # Permission check: need can_manage_hr to add employees
+        if not session.get('can_manage_hr', False):
+            return jsonify({'success': False, 'error': 'Access denied: cannot add employees.'}), 403
         try:
             data = request.get_json()
             with get_db() as (cursor, connection):
@@ -12777,6 +12780,9 @@ def hr_employee_detail(emp_id):
             return jsonify({'success': False, 'error': str(e)}), 500
 
     elif request.method == 'DELETE':
+        # Permission check: need can_manage_hr to delete employees
+        if not session.get('can_manage_hr', False):
+            return jsonify({'success': False, 'error': 'Access denied: cannot delete employees.'}), 403
         try:
             with get_db() as (cursor, connection):
                 cursor.execute("DELETE FROM hr_employees WHERE id = %s", (emp_id,))
