@@ -12594,9 +12594,9 @@ def hr_employees_api():
                     try:
                         cursor.execute("""
                             INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
-                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW())
+                            VALUES (%s, %s, %s, %s, 'hr', 'operator', TRUE, NOW())
                             ON CONFLICT (username) DO NOTHING
-                        """, (username, full_name, email))
+                        """, (username, data.get('password', 'conlink123'), full_name, email))
                     except Exception:
                         pass
 

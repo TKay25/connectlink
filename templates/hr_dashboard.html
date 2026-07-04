@@ -1972,6 +1972,11 @@
                             <div id="approverDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;max-height:150px;overflow-y:auto;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                         </div>
                     </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Initial Password <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="empPassword" value="conlink123" placeholder="Temp password for first login" style="font-size:0.65rem;padding:4px 8px;">
+                        <small style="color:var(--text-muted);font-size:0.5rem;">Employee must reset this on first login</small>
+                    </div>
                 </div>
 
                 <!-- Leave Balances by Type -->
@@ -2758,6 +2763,26 @@ function resetAddForm() {
     window._editApproverId = null;
     // Clear leave balance inputs
     document.querySelectorAll('.lb-input').forEach(inp => inp.value = '');
+    // Render default leave balances
+    renderLeaveBalances();
+}
+
+function renderLeaveBalances() {
+    const tbody = document.getElementById('leaveBalancesBody');
+    const template = document.getElementById('leaveBalancesTemplate');
+    if (!tbody || !template) return;
+    const defaults = [
+        { type: 'Annual Leave', balance: 21, monthly: 1.75, annual: 21, carry: 0 },
+        { type: 'Sick Leave', balance: 0, monthly: 0, annual: 0, carry: 0 },
+    ];
+    tbody.innerHTML = defaults.map(d => 
+        template.innerHTML
+            .replace(/\{type\}/g, d.type)
+            .replace(/\{balance\}/g, d.balance)
+            .replace(/\{monthly\}/g, d.monthly)
+            .replace(/\{annual\}/g, d.annual)
+            .replace(/\{carry\}/g, d.carry)
+    ).join('');
 }
 
 async function saveEmployee() {
