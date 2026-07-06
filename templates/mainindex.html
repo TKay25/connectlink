@@ -599,19 +599,8 @@
             width: 90%;
             max-width: 480px;
             box-shadow: 0 25px 80px rgba(0,0,0,0.2);
-            animation: modalSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             overflow: hidden;
-        }
-
-        @keyframes modalSlideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px) scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+            opacity: 1;
         }
 
         .modal-header {
@@ -1063,18 +1052,7 @@
         /* Modal Entrance Animation Enhancement */
         .login-modal {
             transform: perspective(1000px) rotateX(0deg);
-            animation: modalPopUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-
-        @keyframes modalPopUp {
-            from {
-                opacity: 0;
-                transform: perspective(1000px) rotateX(-20deg) translateY(50px) scale(0.9);
-            }
-            to {
-                opacity: 1;
-                transform: perspective(1000px) rotateX(0deg) translateY(0) scale(1);
-            }
+            opacity: 1;
         }
 
         /* Smooth Scroll Behavior */
@@ -1955,8 +1933,8 @@
         }
 
         function openProjectsModal() {
-            state.modals.projects = true;
-            state.errors.projects = '';
+            state.modals = { projects: true, hardware: false, hr: false, users: false };
+            state.errors = { projects: '', hardware: '', hr: '', users: '' };
             render();
             setTimeout(() => dom.projectsEmail.focus(), 100);
         }
@@ -1971,8 +1949,8 @@
         }
 
         function openHardwareModal() {
-            state.modals.hardware = true;
-            state.errors.hardware = '';
+            state.modals = { projects: false, hardware: true, hr: false, users: false };
+            state.errors = { projects: '', hardware: '', hr: '', users: '' };
             render();
             setTimeout(() => dom.hardwareUsername.focus(), 100);
         }
@@ -1994,8 +1972,8 @@
         }
 
         function openHrModal() {
-            state.modals.hr = true;
-            state.errors.hr = '';
+            state.modals = { projects: false, hardware: false, hr: true, users: false };
+            state.errors = { projects: '', hardware: '', hr: '', users: '' };
             render();
             setTimeout(() => dom.hrEmail.focus(), 100);
         }
@@ -2009,8 +1987,8 @@
         }
 
         function openUsersModal() {
-            state.modals.users = true;
-            state.errors.users = '';
+            state.modals = { projects: false, hardware: false, hr: false, users: true };
+            state.errors = { projects: '', hardware: '', hr: '', users: '' };
             render();
             setTimeout(() => dom.usersEmail.focus(), 100);
         }
