@@ -1952,7 +1952,19 @@
             const focusId = { projects:'projectsEmail', hardware:'hardwareUsername', hr:'hrEmail', users:'usersEmail' }[portal];
             const inputEl = document.getElementById(focusId);
             console.log('[openPortal] focusId:', focusId, 'element found:', !!inputEl);
-            setTimeout(() => inputEl?.focus(), 100);
+            // CHECK COMPUTED STYLES — this will tell us if the modal is actually visible
+            setTimeout(() => {
+                const overlay = document.getElementById(portal + 'LoginModal');
+                const loginModal = overlay?.querySelector('.login-modal');
+                if (overlay) {
+                    const oCS = getComputedStyle(overlay);
+                    console.log('[openPortal] overlay', portal, 'display:', oCS.display, 'opacity:', oCS.opacity);
+                }
+                if (loginModal) {
+                    const lCS = getComputedStyle(loginModal);
+                    console.log('[openPortal] login-modal', portal, 'display:', lCS.display, 'opacity:', lCS.opacity, 'transform:', lCS.transform);
+                }
+            }, 500);
         }
 
         function closeProjectsModal() {
