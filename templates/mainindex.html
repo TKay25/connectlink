@@ -825,7 +825,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(15,23,42,0.65);
+            background: rgba(15,23,42,0.92);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             z-index: 2000;
@@ -1452,7 +1452,7 @@
             <p>Sign in to access project management dashboard</p>
         </div>
         <div class="modal-body">
-            <div id="projectsLoginForm">
+            <div id="projectsLoginContainer">
                 <div class="login-form-wrap" id="projectsLoginWrap">
                     <div class="error-message" id="projectsErrorMsg"></div>
                     <form id="projectsLoginForm">
@@ -1739,28 +1739,30 @@
             <p>Sign in to manage system users &amp; accounts</p>
         </div>
         <div class="modal-body">
-            <div class="error-message" id="usersErrorMsg"></div>
-            <form id="usersLoginForm">
-                <div class="form-group">
-                    <label>Email Address</label>
-                    <div class="input-group-modal">
-                        <input type="text" class="form-input-modal" id="usersEmail" placeholder="admin@connectlinkproperties.co.zw" required>
-                        <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+            <div class="login-form-wrap">
+                <div class="error-message" id="usersErrorMsg"></div>
+                <form id="usersLoginForm">
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="usersEmail" placeholder="admin@connectlinkproperties.co.zw" required>
+                            <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="input-group-modal">
-                        <input type="password" class="form-input-modal" id="usersPassword" placeholder="••••••••" required>
-                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
-                        <button type="button" class="password-toggle-modal" onclick="toggleUsersPassword(event)"><i class="fas fa-eye"></i></button>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="usersPassword" placeholder="••••••••" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleUsersPassword(event)"><i class="fas fa-eye"></i></button>
+                        </div>
                     </div>
+                    <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+                </form>
+                <div class="modal-footer-links">
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('users')">Forgot Password?</a>
+                    <a href="#">Support</a>
                 </div>
-                <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
-            </form>
-            <div class="modal-footer-links">
-                <a href="#" onclick="event.preventDefault(); toggleResetForm('users')">Forgot Password?</a>
-                <a href="#">Support</a>
             </div>
             <!-- Reset Password Form (WhatsApp code flow) -->
             <div id="usersResetForm" style="display:none;">
@@ -1966,7 +1968,9 @@
         function closeProjectsModal() {
             state.modals.projects = false;
             state.errors.projects = '';
-            dom.projectsForm.reset();
+            // Use the actual form element directly — avoids any ID collision issues
+            const formEl = document.getElementById('projectsLoginForm');
+            if (formEl && typeof formEl.reset === 'function') formEl.reset();
             render();
         }
 
@@ -1980,7 +1984,8 @@
         function closeHardwareModal() {
             state.modals.hardware = false;
             state.errors.hardware = '';
-            dom.hardwareForm.reset();
+            const el = document.getElementById('hardwareLoginForm');
+            if (el && typeof el.reset === 'function') el.reset();
             render();
         }
 
@@ -2002,7 +2007,8 @@
         function closeHrModal() {
             state.modals.hr = false;
             state.errors.hr = '';
-            dom.hrForm.reset();
+            const el = document.getElementById('hrLoginForm');
+            if (el && typeof el.reset === 'function') el.reset();
             render();
         }
 
@@ -2016,7 +2022,8 @@
         function closeUsersModal() {
             state.modals.users = false;
             state.errors.users = '';
-            dom.usersForm.reset();
+            const el = document.getElementById('usersLoginForm');
+            if (el && typeof el.reset === 'function') el.reset();
             render();
         }
 
@@ -2459,7 +2466,7 @@
                     window.location.href = data.redirect || '/hr-dashboard';
                 } else if (data.must_reset) {
                     setLoading(false);
-                    closeModal('hrLoginModal');
+                    closeHrModal();
                     document.getElementById('hrResetEmail').value = data.username;
                     toggleResetForm('hr', true);
                     setError('hr', data.message || 'First-time login — please set a new password.');
@@ -2506,7 +2513,7 @@
                     window.location.href = data.redirect || '/user-management';
                 } else if (data.must_reset) {
                     setLoading(false);
-                    closeModal('usersLoginModal');
+                    closeUsersModal();
                     document.getElementById('usersResetEmail').value = data.username;
                     toggleResetForm('users', true);
                     setError('users', data.message || 'First-time login — please set a new password.');
