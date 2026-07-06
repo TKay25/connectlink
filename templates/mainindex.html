@@ -1905,11 +1905,19 @@
         }
 
         function render() {
+            console.log('[render] modals:', JSON.stringify(state.modals));
             dom.projectsModal.classList.toggle('active', state.modals.projects);
             dom.hardwareModal.classList.toggle('active', state.modals.hardware);
             dom.hrModal.classList.toggle('active', state.modals.hr);
             dom.usersModal.classList.toggle('active', state.modals.users);
             document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr || state.modals.users) ? 'hidden' : '';
+            // Log which modals ended up active
+            const active = [];
+            if (dom.projectsModal.classList.contains('active')) active.push('projects');
+            if (dom.hardwareModal.classList.contains('active')) active.push('hardware');
+            if (dom.hrModal.classList.contains('active')) active.push('hr');
+            if (dom.usersModal.classList.contains('active')) active.push('users');
+            console.log('[render] active overlay classes:', active.length ? active : 'none');
             
             // Loading overlay
             if (state.loading) {
@@ -1932,27 +1940,27 @@
             });
         }
 
-        function openProjectsModal() {
-            state.modals = { projects: true, hardware: false, hr: false, users: false };
-            state.errors = { projects: '', hardware: '', hr: '', users: '' };
+        function openPortal(portal) {
+            console.log('[openPortal] called for:', portal);
+            // Close all modals first, then open only the one clicked
+            Object.keys(state.modals).forEach(k => state.modals[k] = false);
+            Object.keys(state.errors).forEach(k => state.errors[k] = '');
+            state.modals[portal] = true;
+            console.log('[openPortal] state.modals:', JSON.stringify(state.modals));
             render();
-            setTimeout(() => dom.projectsEmail.focus(), 100);
+            // Focus the first input
+            const focusId = { projects:'projectsEmail', hardware:'hardwareUsername', hr:'hrEmail', users:'usersEmail' }[portal];
+            const inputEl = document.getElementById(focusId);
+            console.log('[openPortal] focusId:', focusId, 'element found:', !!inputEl);
+            setTimeout(() => inputEl?.focus(), 100);
         }
 
         function closeProjectsModal() {
             state.modals.projects = false;
             state.errors.projects = '';
-            // Use the actual form element directly — avoids any ID collision issues
             const formEl = document.getElementById('projectsLoginForm');
             if (formEl && typeof formEl.reset === 'function') formEl.reset();
             render();
-        }
-
-        function openHardwareModal() {
-            state.modals = { projects: false, hardware: true, hr: false, users: false };
-            state.errors = { projects: '', hardware: '', hr: '', users: '' };
-            render();
-            setTimeout(() => dom.hardwareUsername.focus(), 100);
         }
 
         function closeHardwareModal() {
@@ -1971,26 +1979,12 @@
             render();
         }
 
-        function openHrModal() {
-            state.modals = { projects: false, hardware: false, hr: true, users: false };
-            state.errors = { projects: '', hardware: '', hr: '', users: '' };
-            render();
-            setTimeout(() => dom.hrEmail.focus(), 100);
-        }
-
         function closeHrModal() {
             state.modals.hr = false;
             state.errors.hr = '';
             const el = document.getElementById('hrLoginForm');
             if (el && typeof el.reset === 'function') el.reset();
             render();
-        }
-
-        function openUsersModal() {
-            state.modals = { projects: false, hardware: false, hr: false, users: true };
-            state.errors = { projects: '', hardware: '', hr: '', users: '' };
-            render();
-            setTimeout(() => dom.usersEmail.focus(), 100);
         }
 
         function closeUsersModal() {
@@ -2268,35 +2262,25 @@
             }
         };
 
-        window.openProjectsModal = openProjectsModal;
+        window.openPortal = openPortal;
         window.closeProjectsModal = closeProjectsModal;
-        window.openHardwareModal = openHardwareModal;
         window.closeHardwareModal = closeHardwareModal;
-        window.openHrModal = openHrModal;
         window.closeHrModal = closeHrModal;
-        window.openUsersModal = openUsersModal;
         window.closeUsersModal = closeUsersModal;
 
         document.querySelectorAll('.system-card').forEach(card => {
             card.addEventListener('click', function(e) {
-                if (e.target.closest('.btn-explore')) return;
-                const portal = this.dataset.portal;
-                if (portal === 'projects') openProjectsModal();
-                else if (portal === 'hardware') openHardwareModal();
-                else if (portal === 'hr') openHrModal();
-                else if (portal === 'users') openUsersModal();
+                if (e.target.closest('.btn-explore')) { console.log('[card click] button area, delegating'); return; }
+                console.log('[card click] card clicked, portal:', this.dataset.portal, 'target:', e.target.className);
+                openPortal(this.dataset.portal);
             });
         });
 
         document.querySelectorAll('.btn-explore').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const card = this.closest('.system-card');
-                const portal = card.dataset.portal;
-                if (portal === 'projects') openProjectsModal();
-                else if (portal === 'hardware') openHardwareModal();
-                else if (portal === 'hr') openHrModal();
-                else if (portal === 'users') openUsersModal();
+                console.log('[btn click] button clicked, portal:', this.closest('.system-card').dataset.portal);
+                openPortal(this.closest('.system-card').dataset.portal);
             });
         });
 
@@ -2667,11 +2651,7 @@
             card.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    const portal = this.dataset.portal;
-                    if (portal === 'projects') openProjectsModal();
-                    else if (portal === 'hardware') openHardwareModal();
-                    else if (portal === 'hr') openHrModal();
-                    else if (portal === 'users') openUsersModal();
+                    openPortal(this.dataset.portal);
                 }
             });
         });
