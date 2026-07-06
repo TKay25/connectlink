@@ -585,16 +585,12 @@
             display: none;
             justify-content: center;
             align-items: center;
-            animation: overlayFade 0.3s ease;
-        }
-
-        @keyframes overlayFade {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            opacity: 0;
         }
 
         .modal-overlay.active {
             display: flex;
+            opacity: 1;
         }
 
         .login-modal {
