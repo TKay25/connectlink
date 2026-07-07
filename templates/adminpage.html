@@ -4149,6 +4149,22 @@ window.removeGanttItem = window.removeGanttItem || function(idx){
     if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
 };
 
+// Early stub for getItemsForQuotationOutput (used by renderPreviewItemsTable)
+window.getItemsForQuotationOutput = window.getItemsForQuotationOutput || function(data) {
+    var items = (data && Array.isArray(data.items)) ? data.items : [];
+    return items.map(function(item, index) {
+        return {
+            item: item.item || item.name,
+            sqm: item.sqm || 0,
+            inhouseRate: item.inhouseRate || 0,
+            quantity: item.quantity || item.sqm || 0,
+            amount: item.amount || item.inhouseRate || 0,
+            days: item.days || 0,
+            clientPrice: item.clientPrice || item.total || item.totalPrice || 0
+        };
+    });
+};
+
 // Early implementations for View/Delete quotation actions
 window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
     console.log('viewQuotationDetails (early init)');
@@ -33114,6 +33130,11 @@ function getItemsForQuotationOutput(data) {
 window.generateQuotationPDF = generateQuotationPDF;
 window.renderPreviewItemsTable = renderPreviewItemsTable;
 window.getItemsForQuotationOutput = getItemsForQuotationOutput;
+window.buildFullHouseSummaryItem = buildFullHouseSummaryItem;
+window.buildFullHouseSummarySchedule = buildFullHouseSummarySchedule;
+window.updateFullHouseDisplayModeBadge = updateFullHouseDisplayModeBadge;
+window.updateFullHouseDisplayModeUI = updateFullHouseDisplayModeUI;
+window.getSelectedFullHouseDisplayMode = getSelectedFullHouseDisplayMode;
 window.displayGanttChartInPreview = displayGanttChartInPreview;
 
 
@@ -37760,7 +37781,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     var sqm = parseFloat(sm)||0;
                     var rt = rates.find(function(r){return r.item===nm;})||{daysPerSqMeter:0,inhouseRate:0};
                     var daysPerSqm = parseFloat(rt.daysPerSqMeter)||0;
+                    var clientRate = parseFloat(rt.inhouseRate)||0;
                     var duration = Math.max(1, Math.round(daysPerSqm * sqm));
+                    var itemTotal = clientRate * sqm;
                     var startDate = new Date();
                     if(window.ganttItems.length > 0){
                         var last = window.ganttItems[window.ganttItems.length-1];
@@ -37770,7 +37793,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     var endDate = new Date(startDate);
                     endDate.setDate(endDate.getDate() + duration - 1);
                     var fmt = function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
-                    var item = {id:rt.id||0, item:nm, price:0, daysPerSqMeter:daysPerSqm, startDate:fmt(startDate), endDate:fmt(endDate), days:duration};
+                    var item = {id:rt.id||0, item:nm, price:itemTotal, daysPerSqMeter:daysPerSqm, startDate:fmt(startDate), endDate:fmt(endDate), days:duration};
                     window.ganttItems.push(item);
                     window.ganttChartData.push(item);
                 });
