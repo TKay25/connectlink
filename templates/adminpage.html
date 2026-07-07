@@ -4011,6 +4011,79 @@ window.deleteQuotationEarly = window.deleteQuotationEarly || function(qId, cName
         alert('Error: '+err.message);
     });
 };
+
+// Early implementations for download/send/edit quotation (standalone, no jQuery/ready dependency)
+window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal || async function(qId) {
+    if(typeof window.__realDownloadQuotationPDFFromPortal==='function') return window.__realDownloadQuotationPDFFromPortal(qId);
+    var r=await fetch('/api/get-quotations').then(function(r){return r.json()});
+    if(!r.success||!r.data){alert('Error fetching quotation');return;}
+    var q=r.data.find(function(x){return x.id===qId});
+    if(!q){alert('Quotation not found');return;}
+    try {
+        var w=window.open('','_blank');
+        if(w){
+            var d=q.quotationDate?new Date(q.quotationDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}):'N/A';
+            var h='<html><head><title>Quotation #'+qId+'</title>';
+            h+='<style>body{font-family:Arial,sans-serif;padding:40px;color:#1E2A56;}h1{color:#C12B3E;border-bottom:2px solid #C12B3E;padding-bottom:10px;}.info{margin:20px 0;}table{width:100%;border-collapse:collapse;margin:20px 0;}th{background:#1E2A56;color:white;padding:8px 10px;text-align:left;}td{padding:6px 8px;border-bottom:1px solid #ddd;}.total{font-weight:700;color:#C12B3E;font-size:1.1em;}.footer{margin-top:40px;border-top:1px solid #ddd;padding-top:20px;font-size:0.85em;color:#666;}</style></head><body>';
+            h+='<img src="/static/images/web-logo.png" style="max-width:150px;"><h1>Project Quotation</h1>';
+            h+='<div class="info"><strong>Client:</strong> '+(q.clientName||'N/A')+'<br><strong>Date:</strong> '+d+'<br><strong>Category:</strong> '+(q.category||'N/A')+'<br><strong>Total:</strong> <span class="total">USD '+Number(q.totalCost||0).toLocaleString('en-US',{minimumFractionDigits:2})+'</span></div>';
+            if(q.items&&q.items.length>0){
+                h+='<h3>Items</h3><table><tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr>';
+                q.items.forEach(function(it,i){
+                    h+='<tr><td>'+(i+1)+'</td><td>'+(it.name||'Item')+'</td><td>'+(it.quantity||0)+'</td><td>$'+Number(it.amount||it.unitRate||0).toFixed(2)+'</td><td>$'+Number(it.totalPrice||0).toFixed(2)+'</td></tr>';
+                });
+                h+='</table>';
+            }
+            if(q.notes) h+='<div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:10px;margin:20px 0;"><strong>Notes:</strong> '+q.notes+'</div>';
+            h+='<div class="footer"><p>ConnectLink Building Projects</p><p>This quotation is valid for 30 days from the date of issue.</p></div></body></html>';
+            w.document.write(h);
+            w.document.close();
+            setTimeout(function(){w.print();},500);
+        } else {
+            alert('Please allow pop-ups to download the PDF');
+        }
+    } catch(e){alert('Error generating PDF: '+e.message);}
+};
+
+window.sendQuotationFromPortal = window.sendQuotationFromPortal || async function(qId) {
+    if(typeof window.__realSendQuotationFromPortal==='function') return window.__realSendQuotationFromPortal(qId);
+    var r=await fetch('/api/get-quotations').then(function(r){return r.json()});
+    if(!r.success||!r.data){alert('Error fetching quotation data.');return;}
+    var q=r.data.find(function(x){return x.id===qId});
+    if(!q){alert('Quotation not found.');return;}
+    if(!q.clientWhatsapp||!q.clientWhatsapp.toString().trim()){alert('No WhatsApp number saved for this quotation. Edit the quotation first to add one.');return;}
+    if(!confirm('Send Quotation #'+qId+' to '+(q.clientName||'Client')+' via WhatsApp?\n\nNumber: '+q.clientWhatsapp)) return;
+    var btn=event&&event.target?event.target:null;
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Sending...';}
+    try {
+        var qData={clientName:q.clientName,clientWhatsapp:q.clientWhatsapp,quotationDate:q.quotationDate,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,items:(q.items||[]).map(function(it,i){return{name:it.name||it.item||'Item',quantity:it.quantity||0,unitRate:it.unitRate||it.amount||0,totalPrice:it.totalPrice||0,item_order:i+1};}),schedules:(q.schedules||[]).map(function(s,i){return{workScope:s.workScope||s.item||'Task',startDate:s.startDate,endDate:s.endDate,days:s.days||0,task_order:i+1};})};
+        var sr=await fetch('/api/save-quotation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(qData)}).then(function(r){return r.json()});
+        if(!sr.success){alert('Save failed: '+(sr.error||'Unknown error'));if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-whatsapp"></i> Send';}return;}
+        var sendR=await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:q.clientName||'Client',whatsappNumber:q.clientWhatsapp,quotationId:sr.quotation_id||qId,pdfBase64:''})}).then(function(r){return r.json()});
+        if(sendR.success){alert('Quotation sent successfully!');}else{alert('Failed to send: '+(sendR.error||'Unknown error'));}
+    } catch(e){alert('Error: '+e.message);}
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-whatsapp"></i> Send';}
+};
+
+window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId) {
+    if(typeof window.__realEditQuotationFromPortal==='function') return window.__realEditQuotationFromPortal(qId);
+    fetch('/api/get-quotations').then(function(r){return r.json()}).then(function(result){
+        if(!result.success||!result.data){alert('Error fetching quotation data.');return;}
+        var q=result.data.find(function(x){return x.id===qId});
+        if(!q){alert('Quotation not found.');return;}
+        window.editingQuotationId=qId;
+        try{
+            document.getElementById('quotationClientName')&&(document.getElementById('quotationClientName').value=q.clientName||'');
+            document.getElementById('quotationClientWhatsapp')&&(document.getElementById('quotationClientWhatsapp').value=q.clientWhatsapp||'');
+            document.getElementById('quotationDate')&&(document.getElementById('quotationDate').value=q.quotationDate?q.quotationDate.substring(0,10):new Date().toISOString().split('T')[0]);
+            var catEl=document.getElementById('quotationCategory');
+            if(catEl){catEl.value=q.category||'';catEl.dispatchEvent(new Event('change'));}
+            document.getElementById('quotationMarkup')&&(document.getElementById('quotationMarkup').value=q.markup!=null?q.markup:30);
+            document.getElementById('quotationSize')&&(document.getElementById('quotationSize').value=q.projectSize||'');
+        }catch(e){}
+        if(typeof openModal==='function') openModal('quotationgeneratorModal');
+    }).catch(function(e){alert('Error: '+e.message);});
+};
 </script>
 
 <!-- Background Pattern Layers (from mainindex.html) -->
