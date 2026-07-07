@@ -33868,20 +33868,20 @@ function displayQuotations(quotations) {
         const taskCount = quotation.schedules ? quotation.schedules.length : 0;
         const totalCost = quotation.totalCost || 0;
         
-        let displayCategory = quotation.category || 'N/A';
+        var displayCat2 = quotation.category || 'N/A';
         const categoryMap = {
             'construction_single': 'Single Storey',
             'construction_double': 'Double Storey',
             'kitchen': 'Kitchen',
             'tv_units': 'TV Units'
         };
-        displayCategory = categoryMap[displayCategory] || displayCategory;
+        displayCat2 = categoryMap[displayCat2] || displayCat2;
         
         html += `
             <tr style="border-bottom: 1px solid #e8e8e8;" id="quotation-row-${quotation.id}">
                 <td style="padding: 4px 4px; text-align: center; font-weight: 600;">${quotation.id}</td>
                 <td style="padding: 4px 4px; text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(quotation.clientName || 'N/A')}</td>
-                <td style="padding: 4px 4px; text-align: left; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayCategory)}</td>
+                <td style="padding: 4px 4px; text-align: left; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(displayCat2)}</td>
                 <td style="padding: 4px 4px; text-align: center;">${quotation.projectSize || '0'}</td>
                 <td style="padding: 4px 4px; text-align: center;">${quotation.markup || '0'}%</td>
                 <td style="padding: 4px 4px; text-align: right; font-weight: 600; color: var(--primary);">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
