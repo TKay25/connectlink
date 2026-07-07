@@ -1407,10 +1407,14 @@
             </div>
 
             <!-- Active Table Info -->
-            <div class="hr-card" id="activePayeCard" style="margin-bottom:12px;display:none;">
+            <div class="hr-card" id="activePayeCard" style="margin-bottom:12px;display:none;" data-active-paye-id="">
                 <div class="card-header-custom" style="border-left:3px solid #16a34a;">
                     <h6><i class="bi bi-check-circle-fill" style="color:#16a34a;"></i> Active PAYE Tax Table</h6>
-                    <span id="activePayeName" style="font-size:0.6rem;color:var(--text-muted);"></span>
+                    <div style="display:flex;gap:4px;align-items:center;">
+                        <span id="activePayeName" style="font-size:0.6rem;color:var(--text-muted);"></span>
+                        <button class="btn btn-sm btn-outline-info" onclick="downloadActivePayePdf()" title="Download PDF" style="font-size:0.55rem;padding:2px 6px;"><i class="bi bi-download"></i> PDF</button>
+                        <button class="btn btn-sm btn-warning" onclick="deactivateActivePaye()" title="Deactivate" style="font-size:0.55rem;padding:2px 6px;"><i class="bi bi-pause-circle"></i></button>
+                    </div>
                 </div>
                 <div class="card-body-custom">
                     <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px;">
@@ -3338,7 +3342,8 @@ async function loadPayeTables() {
                 <td style="font-size:0.6rem;">${t.uploaded_by || '—'}<br>${t.uploaded_at ? new Date(t.uploaded_at).toLocaleDateString() : ''}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="viewPayeTable(${t.id})" title="View"><i class="bi bi-eye"></i></button>
-                    ${!isActive ? `<button class="btn btn-sm btn-success" onclick="activatePayeTable(${t.id})" title="Activate"><i class="bi bi-check-lg"></i></button>` : ''}
+                    <button class="btn btn-sm btn-outline-info" onclick="downloadPayePdf(${t.id})" title="Download PDF"><i class="bi bi-download"></i></button>
+                    ${isActive ? `<button class="btn btn-sm btn-warning" onclick="deactivatePayeTable(${t.id})" title="Deactivate"><i class="bi bi-pause-circle"></i></button>` : `<button class="btn btn-sm btn-success" onclick="activatePayeTable(${t.id})" title="Activate"><i class="bi bi-check-lg"></i></button>`}
                     <button class="btn btn-sm btn-outline-danger" onclick="deletePayeTable(${t.id})" title="Delete"><i class="bi bi-trash"></i></button>
                 </td>
             `;
@@ -3354,6 +3359,30 @@ async function loadPayeTables() {
     } catch(e) { console.error('PAYE tables error:', e); }
 }
 
+function downloadActivePayePdf() {
+    const card = document.getElementById('activePayeCard');
+    const id = card ? card.getAttribute('data-active-paye-id') : null;
+    if (id) window.open(`/api/hr/paye/table/${id}/pdf`, '_blank');
+    else alert('No active PAYE table loaded.');
+}
+
+async function deactivateActivePaye() {
+    const card = document.getElementById('activePayeCard');
+    const id = card ? card.getAttribute('data-active-paye-id') : null;
+    if (!id) { alert('No active PAYE table loaded.'); return; }
+    if (!confirm('Deactivate the currently active PAYE tax table? It will no longer be used for payroll calculations.')) return;
+    try {
+        const res = await fetch(`/api/hr/paye/deactivate/${id}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            await loadPayeTables();
+            showToast('PAYE table deactivated', 'info');
+        } else {
+            alert('❌ ' + (data.error || 'Failed'));
+        }
+    } catch(e) { alert('Error: ' + e.message); }
+}
+
 async function loadActivePayeTable() {
     try {
         const res = await fetch('/api/hr/paye/active');
@@ -3367,6 +3396,7 @@ async function loadActivePayeTable() {
         }
 
         card.style.display = 'block';
+        card.setAttribute('data-active-paye-id', data.data.id || '');
         const t = data.data;
         document.getElementById('activePayeName').textContent = t.name || '';
         document.getElementById('activePayePeriod').textContent = t.period || '—';
@@ -3464,6 +3494,24 @@ async function activatePayeTable(tableId) {
             alert('❌ ' + (data.error || 'Failed'));
         }
     } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function deactivatePayeTable(tableId) {
+    if (!confirm('Deactivate this PAYE tax table? It will no longer be used for payroll calculations.')) return;
+    try {
+        const res = await fetch(`/api/hr/paye/deactivate/${tableId}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            await loadPayeTables();
+            showToast('PAYE table deactivated', 'info');
+        } else {
+            alert('❌ ' + (data.error || 'Failed'));
+        }
+    } catch(e) { alert('Error: ' + e.message); }
+}
+
+function downloadPayePdf(tableId) {
+    window.open(`/api/hr/paye/table/${tableId}/pdf`, '_blank');
 }
 
 async function deletePayeTable(tableId) {
