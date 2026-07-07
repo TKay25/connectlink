@@ -4368,17 +4368,17 @@ body { font-family: Arial; margin: 20px; }
                                     </div>
                                     <div class="stat-card" style="padding:8px 10px;">
                                         <div class="stat-icon green"><i class="bi bi-telephone"></i></div>
-                                        <div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">Phone 1</div><div class="stat-value" style="font-size:0.7rem;">{{ contact1 }}</div></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">Phone 1</div><div class="stat-value" style="font-size:0.7rem;"><a href="https://wa.me/{{ contact1 }}" target="_blank" style="color:#0d6efd;text-decoration:underline;">+{{ contact1 }}</a></div></div>
                                     </div>
                                     <div class="stat-card" style="padding:8px 10px;">
                                         <div class="stat-icon amber"><i class="bi bi-telephone"></i></div>
-                                        <div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">Phone 2</div><div class="stat-value" style="font-size:0.7rem;">{{ contact2 }}</div></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">Phone 2</div><div class="stat-value" style="font-size:0.7rem;"><a href="https://wa.me/{{ contact2 }}" target="_blank" style="color:#0d6efd;text-decoration:underline;">+{{ contact2 }}</a></div></div>
                                     </div>
                                 </div>
                                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-bottom:8px;">
                                     <div class="stat-card" style="padding:8px 10px;">
                                         <div class="stat-icon success"><i class="bi bi-whatsapp"></i></div>
-                                        <div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">WhatsApp Chatbot</div><div class="stat-value" style="font-size:0.7rem;">{{ contact3 }}</div></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">WhatsApp Chatbot</div><div class="stat-value" style="font-size:0.7rem;"><a href="https://wa.me/{{ contact3 }}" target="_blank" style="color:#0d6efd;text-decoration:underline;">+{{ contact3 }}</a></div></div>
                                     </div>
                                     <div class="stat-card" style="padding:8px 10px;">
                                         <div class="stat-icon purple"><i class="bi bi-envelope"></i></div>
@@ -35454,7 +35454,7 @@ function loadWhatsAppChats() {
                         </div>
                         <div style="flex:1;min-width:0;">
                             <div style="font-weight:600;color:var(--text-primary);font-size:0.7rem;">${escapeHtml(chat.name)}</div>
-                            <div style="font-size:0.7rem;color:var(--gray-400);"><a href="https://wa.me/${chat.whatsapp}" target="_blank" style="color:inherit;text-decoration:none;" onclick="event.stopPropagation();">${chat.whatsapp}</a></div>
+                            <div style="font-size:0.7rem;"><a href="https://wa.me/${chat.whatsapp}" target="_blank" style="color:#0d6efd;text-decoration:underline;" onclick="event.stopPropagation();">+${chat.whatsapp}</a></div>
                             <div style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                 ${escapeHtml(chat.last_message || 'No messages')}
                             </div>

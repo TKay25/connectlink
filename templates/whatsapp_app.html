@@ -962,6 +962,7 @@
                 <div class="chat-info">
                     <div class="chat-contact-name" id="chatContactName">Contact</div>
                     <div class="chat-contact-status" id="chatContactStatus">Click to load messages</div>
+                    <div id="chatContactPhone" style="font-size:0.65rem;margin-top:1px;"></div>
                 </div>
                 <div class="chat-actions">
                     <button class="action-btn" id="chatCallBtn" onclick="callOnWhatsApp()" title="Call on WhatsApp" style="display:none;padding:4px 8px;font-size:0.85rem;color:#25D366;">
@@ -1394,6 +1395,11 @@ function openChat(phone, name) {
     document.getElementById('chatSearchInput').value = '';
     document.getElementById('chatContactStatus').textContent = 'Loading...';
     document.getElementById('chatAvatar').textContent = (name||'?')[0].toUpperCase();
+    var phoneEl = document.getElementById('chatContactPhone');
+    if (phoneEl) {
+        var clean = (phone||'').replace(/[^0-9]/g, '');
+        phoneEl.innerHTML = clean ? '<a href="https://wa.me/' + clean + '" target="_blank" style="color:#0d6efd;text-decoration:underline;">+' + clean + '</a>' : '';
+    }
     document.getElementById('messageInput').value = '';
     document.getElementById('replyBarNormal').style.display = 'flex';
     document.getElementById('replyBarTemplate').style.display = 'none';
