@@ -4077,6 +4077,78 @@ window.calculateConstructionTotal = window.calculateConstructionTotal || functio
     return total;
 };
 
+// Early implementations for Gantt Chart Builder
+window.initializeGanttChart = window.initializeGanttChart || function() {
+    if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
+};
+window.renderGanttItemsList = window.renderGanttItemsList || function() {
+    var lst = document.getElementById('ganttItemsList');
+    var items = window.ganttItems || [];
+    if(!items.length){
+        if(lst) lst.innerHTML = '<div style="text-align:center;color:#999;padding:30px 20px;">No items added yet.<br>Click "Add Item" to begin.</div>';
+        if(typeof window.updateGanttSummary==='function') window.updateGanttSummary();
+        return;
+    }
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:0.7rem;"><thead><tr style="background:#f5f5f5;border-bottom:2px solid #333;">'+
+        '<th style="padding:2px 3px;text-align:left;font-weight:bold;">#</th>'+
+        '<th style="padding:2px 3px;text-align:left;font-weight:bold;">Work Scope</th>'+
+        '<th style="padding:2px 3px;text-align:center;font-weight:bold;">Start date</th>'+
+        '<th style="padding:2px 3px;text-align:center;font-weight:bold;">End date</th>'+
+        '<th style="padding:2px 3px;text-align:center;font-weight:bold;">Days</th>'+
+        '<th style="padding:2px 3px;text-align:right;font-weight:bold;">Cost</th>'+
+        '<th style="padding:2px 3px;text-align:center;font-weight:bold;">Action</th></tr></thead><tbody>';
+    items.forEach(function(item,idx){
+        var sd = typeof window.parseDateGantt==='function' ? window.parseDateGantt(item.startDate) : new Date(item.startDate);
+        var ed = typeof window.parseDateGantt==='function' ? window.parseDateGantt(item.endDate) : new Date(item.endDate);
+        var fs = sd.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'});
+        var fe = ed.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'});
+        var cost = typeof formatCurrency==='function' ? formatCurrency(item.price) : '$'+Number(item.price||0).toFixed(2);
+        h += '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#fff':'#f9f9f9')+';">'+
+            '<td style="padding:2px 3px;text-align:left;font-weight:bold;">'+(idx+1)+'</td>'+
+            '<td style="padding:2px 3px;text-align:left;">'+item.item+'</td>'+
+            '<td style="padding:2px 3px;text-align:center;"><input type="date" class="form-control form-control-sm" value="'+item.startDate+'" onchange="window.updateGanttItemDate('+idx+',\'start\',this.value)" style="font-size:0.7rem;padding:1px 2px;height:20px;"></td>'+
+            '<td style="padding:2px 3px;text-align:center;"><input type="date" class="form-control form-control-sm" value="'+item.endDate+'" onchange="window.updateGanttItemDate('+idx+',\'end\',this.value)" style="font-size:0.7rem;padding:1px 2px;height:20px;"></td>'+
+            '<td style="padding:2px 3px;text-align:center;color:#2196F3;font-weight:bold;">'+item.days+'</td>'+
+            '<td style="padding:2px 3px;text-align:right;color:#2196F3;font-weight:bold;">'+cost+'</td>'+
+            '<td style="padding:2px 3px;text-align:center;"><button type="button" class="btn btn-sm btn-danger" onclick="window.removeGanttItem('+idx+')" style="padding:1px 4px;font-size:0.7rem;">Delete</button></td></tr>';
+    });
+    h += '</tbody></table>';
+    if(lst) lst.innerHTML = h;
+    if(typeof window.updateGanttSummary==='function') window.updateGanttSummary();
+};
+window.updateGanttSummary = window.updateGanttSummary || function() {
+    var items = window.ganttItems || [];
+    var td = 0, tc = 0;
+    items.forEach(function(it){td+=it.days||0;tc+=it.price||0;});
+    var de = document.getElementById('ganttTotalDays');
+    var ce = document.getElementById('ganttTotalCost');
+    if(de) de.textContent = td;
+    if(ce) ce.textContent = 'USD '+tc.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+};
+window.updateGanttItemDate = window.updateGanttItemDate || function(idx,type,val){
+    var items = window.ganttItems || [];
+    if(!items[idx]) return;
+    if(type==='start') items[idx].startDate = val;
+    else items[idx].endDate = val;
+    var sd = typeof window.parseDateGantt==='function' ? window.parseDateGantt(items[idx].startDate) : new Date(items[idx].startDate);
+    var ed = typeof window.parseDateGantt==='function' ? window.parseDateGantt(items[idx].endDate) : new Date(items[idx].endDate);
+    if(ed < sd){ ed = new Date(sd); items[idx].endDate = typeof window.formatDateGantt==='function' ? window.formatDateGantt(ed) : ed.toISOString().split('T')[0]; }
+    items[idx].days = typeof window.calculateDays==='function' ? window.calculateDays(sd,ed) : Math.max(1,Math.round((ed-sd)/(86400000))+1);
+    if(type==='end' && idx < items.length-1){
+        var ns = new Date(ed); ns.setDate(ns.getDate()+1);
+        items[idx+1].startDate = typeof window.formatDateGantt==='function' ? window.formatDateGantt(ns) : ns.toISOString().split('T')[0];
+        var nsd = typeof window.parseDateGantt==='function' ? window.parseDateGantt(items[idx+1].startDate) : new Date(items[idx+1].startDate);
+        var ned = typeof window.parseDateGantt==='function' ? window.parseDateGantt(items[idx+1].endDate) : new Date(items[idx+1].endDate);
+        items[idx+1].days = typeof window.calculateDays==='function' ? window.calculateDays(nsd,ned) : Math.max(1,Math.round((ned-nsd)/(86400000))+1);
+    }
+    if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
+};
+window.removeGanttItem = window.removeGanttItem || function(idx){
+    var items = window.ganttItems || [];
+    items.splice(idx,1);
+    if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
+};
+
 // Early implementations for View/Delete quotation actions
 window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
     console.log('viewQuotationDetails (early init)');
@@ -37825,6 +37897,64 @@ document.addEventListener('DOMContentLoaded', function(){
             }, 300);
         });
     }
+    
+    // 7b. Add Item to Gantt button
+    var addGanttBtn = document.getElementById('addGanttItemBtn');
+    if(addGanttBtn && !addGanttBtn._ganttBound){
+        addGanttBtn._ganttBound = true;
+        addGanttBtn.addEventListener('click', function(){
+            var rates = window.quotationRatesCache || [];
+            if(!rates.length){
+                fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(d){
+                    if(d.success) showGanttItemPicker(d.data);
+                }).catch(function(){alert('Failed to load items.');});
+            } else {
+                showGanttItemPicker(rates);
+            }
+        });
+    }
+    function showGanttItemPicker(availableItems){
+        var existing = (window.ganttItems||[]).map(function(i){return i.item;});
+        var unused = availableItems.filter(function(it){return existing.indexOf(it.item)===-1;});
+        if(!unused.length){alert('All available items have been added!');return;}
+        var h = '<div style="max-height:400px;overflow-y:auto;">';
+        unused.forEach(function(item){
+            h += '<div style="padding:10px;border-bottom:1px solid #eee;cursor:pointer;" onclick="window.pickGanttItem(\''+item.item.replace(/'/g,"\\'")+'\')">'+
+                '<strong>'+item.item+'</strong><small style="color:#999;display:block;">'+item.daysPerSqMeter+' days/sqm - $'+item.inhouseRate+'/sqm</small></div>';
+        });
+        h += '</div>';
+        var dlg = document.createElement('div');
+        dlg.id='ganttPickerDialog';
+        dlg.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border:2px solid #333;border-radius:8px;padding:20px;z-index:2000;max-width:400px;width:90%;';
+        dlg.innerHTML='<h5>Select Construction Item</h5>'+h+'<button class="btn btn-danger btn-sm" style="margin-top:15px;width:100%;" onclick="this.parentElement.remove()">Close</button>';
+        document.body.appendChild(dlg);
+    }
+    window.pickGanttItem = window.pickGanttItem || function(itemName){
+        var dlg = document.getElementById('ganttPickerDialog');
+        if(dlg) dlg.remove();
+        var rates = window.quotationRatesCache||[];
+        var rt = rates.find(function(r){return r.item===itemName;})||{daysPerSqMeter:0,inhouseRate:0};
+        var sqm = parseFloat(document.getElementById('quotationSize')?.value)||1;
+        var markup = parseFloat(document.getElementById('quotationMarkup')?.value)||30;
+        var baseP = (rt.inhouseRate||0) * sqm;
+        var clientP = baseP * (1+markup/100);
+        var daysSqm = rt.daysPerSqMeter||1;
+        var dur = Math.max(1, Math.round(daysSqm * sqm));
+        var startDate = new Date();
+        var items = window.ganttItems||[];
+        if(items.length){
+            var last = items[items.length-1];
+            startDate = typeof window.parseDateGantt==='function' ? window.parseDateGantt(last.endDate) : new Date(last.endDate);
+            startDate.setDate(startDate.getDate()+1);
+        }
+        var endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate()+dur-1);
+        var fmt = function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+        var newItem = {id:rt.id||0, item:itemName, price:clientP, daysPerSqMeter:daysSqm, startDate:fmt(startDate), endDate:fmt(endDate), days:dur};
+        if(!window.ganttItems) window.ganttItems = [];
+        window.ganttItems.push(newItem);
+        if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
+    };
     
     console.log('✅ Quotation buttons fixed');
     
