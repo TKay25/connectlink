@@ -4123,14 +4123,19 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         var quotationNotes = q.notes||'';
         var size = q.projectSize||'0';
         
+        var isKitchen = (category||'').toLowerCase().includes('kitchen');
+        var isCon = (category||'').toLowerCase().includes('construction');
+        var depositRate = isKitchen ? 0 : 0.30;
+        var numMonths = isKitchen ? 3 : 6;
+        
         var fmtDate = function(v){
             if(!v) return '';
             try{return new Date(v).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});}catch(e){return v;}
         };
         
-        var depositAmount = totalCost * 0.3;
+        var depositAmount = totalCost * depositRate;
         var balanceAmount = totalCost - depositAmount;
-        var monthlyInstallment = balanceAmount / 6;
+        var monthlyInstallment = numMonths > 0 ? balanceAmount / numMonths : 0;
         var totalConstructionDays = 0;
         schedules.forEach(function(s){totalConstructionDays += Number(s.days)||0;});
         
@@ -4180,8 +4185,7 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         // Project Details
         htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">PROJECT DETAILS</h4>';
         htmlContent += '<div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;box-sizing:border-box;">';
-        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>';
-        htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div></div>';
+        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>'+(!isKitchen?'<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div>':'')+'</div>';
         htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>'+displayCat+'</span></div>';
         htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>'+fmtDate(quotationDate)+'</span></div></div></div></div>';
         
@@ -4191,9 +4195,9 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         var cols = isCon ? 4 : 5;
         htmlContent += '<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:10px;text-align:center;">';
         htmlContent += '<div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;color:#1E2A56;">$'+totalCost.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">'+(isKitchen?'Deposit':'Deposit (30%)')+'</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
         htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+balanceAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over 6 months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over '+numMonths+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
         if(!isCon) htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+totalConstructionDays+' Days</div></div>';
         htmlContent += '</div></div></div>';
         
@@ -4206,8 +4210,8 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         htmlContent += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">';
         htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">';
         htmlContent += '<strong style="color:#C12B3E;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.';
-        htmlContent += '<div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>';
         if(isCon){
+            htmlContent += '<div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>';
             htmlContent += '<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>';
             htmlContent += '<div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;"><strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong>';
             htmlContent += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">';
