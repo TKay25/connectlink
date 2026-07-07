@@ -3712,13 +3712,31 @@ window.loadQuotations = window.loadQuotations || function() {
                 var catMap = {'construction_single':'Single Storey','construction_double':'Double Storey','kitchen':'Kitchen','tv_units':'TV Units'};
                 cat = catMap[cat]||cat;
                 var hasNotes = q.notes && q.notes.trim() ? 1 : 0;
-                h+='<tr style="border-bottom:1px solid #e8e8e8;"><td style="padding:4px 4px;text-align:center;font-weight:600;">'+q.id+'</td><td style="padding:4px 4px;text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(q.clientName||'N/A')+'</td><td style="padding:4px 4px;text-align:left;">'+cat+'</td><td style="padding:4px 4px;text-align:center;">'+(q.projectSize||'0')+'</td><td style="padding:4px 4px;text-align:center;">'+(q.markup||'0')+'%</td><td style="padding:4px 4px;text-align:right;font-weight:600;color:var(--primary);">USD '+tc.toLocaleString("en-US",{minimumFractionDigits:2})+'</td><td style="padding:4px 4px;text-align:center;">'+d+'</td><td style="padding:4px 4px;text-align:center;"><span class="badge bg-secondary">'+itemCount+'</span></td><td style="padding:4px 4px;text-align:center;"><span class="badge bg-secondary">'+taskCount+'</span></td><td style="padding:4px 4px;text-align:center;">'+(hasNotes?'<span style="color:var(--success);font-size:0.85rem;" title="'+(q.notes||'').replace(/"/g,"&quot;").substring(0,80)+'"><i class="bi bi-sticky-fill"></i></span>':'<span style="color:var(--text-muted);font-size:0.75rem;"><i class="bi bi-sticky"></i></span>')+'</td><td style="padding:4px 4px;text-align:center;"><button class="btn btn-sm btn-primary" style="padding:2px 6px;margin-right:4px;" onclick="viewQuotationDetails('+q.id+')"><i class="bi bi-eye"></i> View</button> <button class="btn btn-sm btn-danger" style="padding:2px 6px;" onclick="deleteQuotationEarly('+q.id+',\''+(q.clientName||'Client').replace(/'/g,"\\'")+'\')"><i class="bi bi-trash"></i> Delete</button></td></tr>';
+                var safeName = (q.clientName||'Client').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                h+='<tr style="border-bottom:1px solid #e8e8e8;"><td style="padding:4px 4px;text-align:center;font-weight:600;">'+q.id+'</td><td style="padding:4px 4px;text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(q.clientName||'N/A')+'</td><td style="padding:4px 4px;text-align:left;">'+cat+'</td><td style="padding:4px 4px;text-align:center;">'+(q.projectSize||'0')+'</td><td style="padding:4px 4px;text-align:center;">'+(q.markup||'0')+'%</td><td style="padding:4px 4px;text-align:right;font-weight:600;color:var(--primary);">USD '+tc.toLocaleString("en-US",{minimumFractionDigits:2})+'</td><td style="padding:4px 4px;text-align:center;">'+d+'</td><td style="padding:4px 4px;text-align:center;"><span class="badge bg-secondary">'+itemCount+'</span></td><td style="padding:4px 4px;text-align:center;"><span class="badge bg-secondary">'+taskCount+'</span></td><td style="padding:4px 4px;text-align:center;">'+(hasNotes?'<span style="color:var(--success);font-size:0.85rem;" title="'+(q.notes||'').replace(/"/g,"&quot;").substring(0,80)+'"><i class="bi bi-sticky-fill"></i></span>':'<span style="color:var(--text-muted);font-size:0.75rem;"><i class="bi bi-sticky"></i></span>')+'</td><td style="padding:4px 4px;text-align:center;"><button class="btn btn-sm btn-primary" style="padding:2px 6px;margin-right:4px;" onclick="viewQuotationDetails('+q.id+')"><i class="bi bi-eye"></i> View</button> <button class="btn btn-sm btn-danger delete-quotation-early-btn" data-id="'+q.id+'" data-name="'+safeName+'" style="padding:2px 6px;"><i class="bi bi-trash"></i> Delete</button></td></tr>';
             });
             h+='</tbody></table></div>';
             c.innerHTML = h;
             setTimeout(function(){
                 var si = document.getElementById('quotationsSearch');
                 if(si) si.onkeyup = function(){var t=this.value.toLowerCase();document.querySelectorAll("#quotationsContainer tbody tr").forEach(function(r){r.style.display=r.textContent.toLowerCase().includes(t)?"":"none"});};
+                // Bind delete buttons
+                document.querySelectorAll('.delete-quotation-early-btn').forEach(function(btn){
+                    btn.onclick = function(){
+                        var id = parseInt(this.dataset.id);
+                        var name = this.dataset.name;
+                        if (!confirm('⚠️ Delete Quotation #'+id+' for "'+name+'"?\n\nThis action cannot be undone.')) return;
+                        fetch('/api/quotations/'+id,{method:'DELETE',headers:{'Content-Type':'application/json'}})
+                        .then(function(r){return r.json()}).then(function(data){
+                            if (data.success) {
+                                alert('✅ Quotation #'+id+' deleted successfully!');
+                                if (typeof window.loadQuotations==='function') window.loadQuotations();
+                            } else {
+                                alert('Error: '+(data.error||'Delete failed'));
+                            }
+                        }).catch(function(err){alert('Error: '+err.message);});
+                    };
+                });
             }, 50);
         } else {
             c.innerHTML = '<p class="text-muted text-center" style="padding:6px;">No quotations saved yet</p>';
