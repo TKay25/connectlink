@@ -3701,15 +3701,25 @@ window.loadQuotations = window.loadQuotations || function() {
     c.innerHTML = '<p class="text-muted text-center" style="padding:40px;">Loading quotations...</p>';
     fetch('/api/get-quotations').then(function(r){return r.json()}).then(function(result){
         if(result.success && result.data && result.data.length>0){
-            var h='<div style="overflow-x:auto;max-height:500px;border:1px solid #dee2e6;border-radius:6px;background:white;"><table style="width:100%;font-size:0.7rem;border-collapse:collapse;"><thead style="position:sticky;top:0;background:#0A1A3A;z-index:10;"><tr style="color:white;"><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">ID</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Client</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Category</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Size</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Markup</th><th style="padding:5px 4px;text-align:right;border:1px solid #1E2A56;">Total</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Date</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Items</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Tasks</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Notes</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Actions</th></tr></thead><tbody>';
+            var h='<div style="margin-bottom:10px;"><input type="text" id="quotationsSearch" class="form-control form-control-sm" placeholder="🔍 Search quotations..." style="max-width:250px;font-size:0.7rem;padding:3px 6px;"></div><div style="overflow-x:auto;overflow-y:auto;max-height:500px;border:1px solid #dee2e6;border-radius:6px;background:white;"><table style="width:100%;font-size:0.7rem;margin-bottom:0;border-collapse:collapse;"><thead style="position:sticky;top:0;background:#0A1A3A;z-index:10;"><tr style="color:white;"><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">ID</th><th style="padding:5px 4px;text-align:left;width:180px;border:1px solid #1E2A56;">Client Name</th><th style="padding:5px 4px;text-align:left;width:80px;border:1px solid #1E2A56;">Category</th><th style="padding:5px 4px;text-align:center;width:65px;border:1px solid #1E2A56;">Size</th><th style="padding:5px 4px;text-align:center;width:60px;border:1px solid #1E2A56;">Markup</th><th style="padding:5px 4px;text-align:right;width:100px;border:1px solid #1E2A56;">Total Cost</th><th style="padding:5px 4px;text-align:center;width:75px;border:1px solid #1E2A56;">Date</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Items</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Tasks</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Notes</th><th style="padding:5px 4px;text-align:center;width:140px;border:1px solid #1E2A56;">Actions</th></tr></thead><tbody>';
             var sorted = result.data.slice().sort(function(a,b){return b.id-a.id});
             sorted.forEach(function(q){
-                var d=q.quotationDate?q.quotationDate.split('T')[0]:'N/A';
-                var tc=Number(q.totalCost||0);
-                h+='<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;text-align:center;">#'+q.id+'</td><td style="padding:5px 4px;text-align:left;">'+(q.clientName||'Client')+'</td><td style="padding:5px 4px;text-align:left;">'+(q.category||'')+'</td><td style="padding:5px 4px;text-align:center;">'+(q.size||'')+'</td><td style="padding:5px 4px;text-align:center;">'+(q.markup||'')+'%</td><td style="padding:5px 4px;text-align:right;font-weight:700;">$'+tc.toFixed(2)+'</td><td style="padding:5px 4px;text-align:center;">'+d+'</td><td style="padding:5px 4px;text-align:center;">'+(q.items||0)+'</td><td style="padding:5px 4px;text-align:center;">'+(q.schedules||0)+'</td><td style="padding:5px 4px;text-align:center;">'+(q.notes||'')+'</td><td style="padding:5px 4px;text-align:center;"><button class="btn btn-sm btn-info" style="padding:2px 6px;font-size:0.65rem;" onclick="viewQuotation('+q.id+')">View</button></td></tr>';
+                var itemCount = (q.items||[]).length;
+                var taskCount = (q.schedules||[]).length;
+                var tc = Number(q.totalCost||0);
+                var d = q.quotationDate ? (function(dt){try{return new Date(dt).toLocaleDateString("en-GB")}catch(e){return dt.split("T")[0]}})(q.quotationDate) : 'N/A';
+                var cat = q.category||'N/A';
+                var catMap = {'construction_single':'Single Storey','construction_double':'Double Storey','kitchen':'Kitchen','tv_units':'TV Units'};
+                cat = catMap[cat]||cat;
+                var hasNotes = q.notes && q.notes.trim() ? 1 : 0;
+                h+='<tr style="border-bottom:1px solid #e8e8e8;"><td style="padding:4px 4px;text-align:center;font-weight:600;">'+q.id+'</td><td style="padding:4px 4px;text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(q.clientName||'N/A')+'</td><td style="padding:4px 4px;text-align:left;">'+cat+'</td><td style="padding:4px 4px;text-align:center;">'+(q.projectSize||'0')+'</td><td style="padding:4px 4px;text-align:center;">'+(q.markup||'0')+'%</td><td style="padding:4px 4px;text-align:right;font-weight:600;color:var(--primary);">USD '+tc.toLocaleString("en-US",{minimumFractionDigits:2})+'</td><td style="padding:4px 4px;text-align:center;">'+d+'</td><td style="padding:4px 4px;text-align:center;"><span class="badge bg-secondary">'+itemCount+'</span></td><td style="padding:4px 4px;text-align:center;"><span class="badge bg-secondary">'+taskCount+'</span></td><td style="padding:4px 4px;text-align:center;">'+(hasNotes?'<span style="color:var(--success);font-size:0.85rem;" title="'+(q.notes||'').replace(/"/g,"&quot;").substring(0,80)+'"><i class="bi bi-sticky-fill"></i></span>':'<span style="color:var(--text-muted);font-size:0.75rem;"><i class="bi bi-sticky"></i></span>')+'</td><td style="padding:4px 4px;text-align:center;"><button class="btn btn-sm btn-primary" style="padding:2px 6px;margin-right:4px;" onclick="viewQuotationDetails('+q.id+')"><i class="bi bi-eye"></i> View</button> <button class="btn btn-sm btn-danger" style="padding:2px 6px;" onclick="deleteQuotationEarly('+q.id+',\''+(q.clientName||'Client').replace(/'/g,"\\'")+'\')"><i class="bi bi-trash"></i> Delete</button></td></tr>';
             });
             h+='</tbody></table></div>';
             c.innerHTML = h;
+            setTimeout(function(){
+                var si = document.getElementById('quotationsSearch');
+                if(si) si.onkeyup = function(){var t=this.value.toLowerCase();document.querySelectorAll("#quotationsContainer tbody tr").forEach(function(r){r.style.display=r.textContent.toLowerCase().includes(t)?"":"none"});};
+            }, 50);
         } else {
             c.innerHTML = '<p class="text-muted text-center" style="padding:6px;">No quotations saved yet</p>';
         }
@@ -3797,6 +3807,58 @@ window.loadWhatsAppChats = window.loadWhatsAppChats || function() {
     });
 };
 window.loadActivityLog = window.loadActivityLog || function() { console.log('loadActivityLog stub'); };
+
+// Early implementations for View/Delete quotation actions
+window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
+    console.log('viewQuotationDetails (early init)');
+    if (typeof openModal === 'function') openModal('quotationDetailsModal');
+    var cd = document.getElementById('quotationDetailsContent');
+    if (cd) cd.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3">Loading...</p></div>';
+    fetch('/api/get-quotations').then(function(r){return r.json()}).then(function(res){
+        if (res.success && res.data) {
+            var q = res.data.find(function(x){return x.id===qId});
+            if (q) {
+                window.currentViewingQuotation = q;
+                var tc = Number(q.totalCost||0);
+                var cat = q.category||'N/A';
+                var catMap = {'construction_single':'Single Storey','construction_double':'Double Storey','kitchen':'Kitchen','tv_units':'TV Units'};
+                cat = catMap[cat]||cat;
+                var d = q.quotationDate ? new Date(q.quotationDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}) : 'N/A';
+                var itemCount = (q.items||[]).length;
+                var taskCount = (q.schedules||[]).length;
+                var h = '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">';
+                h += '<div style="flex:1;min-width:140px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Quotation ID</div><div style="font-size:0.85rem;font-weight:800;color:var(--crimson-bright);">#'+q.id+'</div></div>';
+                h += '<div style="flex:1;min-width:140px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Date</div><div style="font-size:0.75rem;font-weight:600;">'+d+'</div></div>';
+                h += '<div style="flex:1;min-width:100px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Category</div><div style="font-size:0.75rem;font-weight:600;">'+cat+'</div></div>';
+                h += '</div>';
+                h += '<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 14px;margin-bottom:10px;"><table style="width:100%;font-size:0.75rem;"><tr><td style="padding:4px 0;"><strong>Client:</strong></td><td style="padding:4px 0;">'+(q.clientName||'N/A')+'</td></tr><tr><td style="padding:4px 0;"><strong>WhatsApp:</strong></td><td style="padding:4px 0;">'+(q.clientWhatsapp||'N/A')+'</td></tr><tr><td style="padding:4px 0;"><strong>Total Cost:</strong></td><td style="padding:4px 0;font-weight:700;color:var(--primary);">USD '+tc.toLocaleString('en-US',{minimumFractionDigits:2})+'</td></tr><tr><td style="padding:4px 0;"><strong>Markup:</strong></td><td style="padding:4px 0;">'+(q.markup||'0')+'%</td></tr><tr><td style="padding:4px 0;"><strong>Items:</strong></td><td style="padding:4px 0;">'+itemCount+'</td></tr><tr><td style="padding:4px 0;"><strong>Tasks:</strong></td><td style="padding:4px 0;">'+taskCount+'</td></tr></table></div>';
+                if (q.notes && q.notes.trim()) {
+                    h += '<div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:10px 14px;margin-bottom:10px;"><div style="font-size:0.65rem;font-weight:700;color:#d48806;margin-bottom:4px;"><i class="bi bi-sticky-fill"></i> Notes</div><div style="font-size:0.7rem;">'+q.notes+'</div></div>';
+                }
+                if (cd) cd.innerHTML = h;
+            } else {
+                if (cd) cd.innerHTML = '<div class="alert alert-danger">Quotation not found</div>';
+            }
+        }
+    }).catch(function(err){
+        if (cd) cd.innerHTML = '<div class="alert alert-danger">Error loading quotation</div>';
+    });
+};
+
+window.deleteQuotationEarly = window.deleteQuotationEarly || function(qId, cName) {
+    if (!confirm('⚠️ Delete Quotation #'+qId+' for "'+cName+'"?\n\nThis action cannot be undone.')) return;
+    fetch('/api/quotations/'+qId,{method:'DELETE',headers:{'Content-Type':'application/json'}})
+    .then(function(r){return r.json()}).then(function(data){
+        if (data.success) {
+            alert('✅ Quotation #'+qId+' deleted successfully!');
+            if (typeof window.loadQuotations==='function') window.loadQuotations();
+        } else {
+            alert('Error: '+(data.error||'Delete failed'));
+        }
+    }).catch(function(err){
+        alert('Error: '+err.message);
+    });
+};
 </script>
 
 <!-- Background Pattern Layers (from mainindex.html) -->
