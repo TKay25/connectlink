@@ -3692,6 +3692,10 @@ body { font-family: Arial; margin: 20px; }
 
 <body>
 <script>
+// Global fallbacks for variables defined in later scripts
+var quillGeneratorNotes = null;
+var quillDetailsNotes = null;
+
 // Early stubs for functions defined in later scripts - prevents "not defined" errors
 // Real implementations in later scripts override these
 window.loadQuotations = window.loadQuotations || function() {
@@ -3826,6 +3830,102 @@ window.loadWhatsAppChats = window.loadWhatsAppChats || function() {
 };
 window.loadActivityLog = window.loadActivityLog || function() { console.log('loadActivityLog stub'); };
 
+// Early init for quotation generator category/size/markup handlers
+(function(){
+    var qc = document.getElementById('quotationCategory');
+    if (!qc) return;
+    qc.addEventListener('change', function(){
+        var cat = this.value;
+        var isCon = cat === 'construction_single' || cat === 'construction_double';
+        var sc = document.getElementById('quotationSizeContainer');
+        var dc = document.getElementById('constructionDetailsContainer');
+        var kc = document.getElementById('kitchenCabinetContainer');
+        var tc = document.getElementById('tvUnitsContainer');
+        var oc = document.getElementById('otherCategoryNameContainer');
+        if(sc) sc.style.display = isCon ? 'block' : 'none';
+        if(dc) dc.style.display = isCon ? 'block' : 'none';
+        if(kc) kc.style.display = cat === 'kitchen' ? 'block' : 'none';
+        if(tc) tc.style.display = (cat === 'tv_units' || cat === 'other') ? 'block' : 'none';
+        if(oc) oc.style.display = cat === 'other' ? 'block' : 'none';
+        if(isCon && typeof window.loadConstructionItemsFromDatabase==='function') window.loadConstructionItemsFromDatabase();
+    });
+    var qs = document.getElementById('quotationSize');
+    var qm = document.getElementById('quotationMarkup');
+    if(qs) qs.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); });
+    if(qm) qm.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); });
+})();
+
+// Early construction items loader (standalone, no jQuery)
+var quotationRatesCache = window.quotationRatesCache || [];
+window.loadConstructionItemsFromDatabase = window.loadConstructionItemsFromDatabase || function() {
+    fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(data){
+        quotationRatesCache = data.success ? data.data : [];
+        window.quotationRatesCache = quotationRatesCache;
+        if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList();
+    }).catch(function(err){
+        var el=document.getElementById('constructionItemsList');
+        if(el) el.innerHTML='<p class="text-danger p-3">Failed to load items</p>';
+    });
+};
+window.renderConstructionItemsList = window.renderConstructionItemsList || function() {
+    var sqm = parseFloat(document.getElementById('quotationSize')?.value) || 0;
+    var markup = parseFloat(document.getElementById('quotationMarkup')?.value) || 30;
+    var category = document.getElementById('quotationCategory')?.value || '';
+    var isSingleStorey = category === 'construction_single';
+    var excluded = ['Deck Pouring', 'Shattering', 'Steel Fixing'];
+    
+    var ds = document.getElementById('displaySqm');
+    var dm = document.getElementById('displayMarkup');
+    if(ds) ds.textContent = sqm > 0 ? sqm : '--';
+    if(dm) dm.textContent = markup+'%';
+    
+    var listEl = document.getElementById('constructionItemsList');
+    var totalEl = document.getElementById('constructionTotal');
+    if(!listEl) return;
+    
+    if(quotationRatesCache.length === 0){
+        listEl.innerHTML = '<p class="text-muted p-3">No items available</p>';
+        if(totalEl) totalEl.textContent='0.00';
+        return;
+    }
+    if(sqm <= 0){
+        listEl.innerHTML = '<p class="text-muted p-3">Enter square meters to see pricing</p>';
+        if(totalEl) totalEl.textContent='0.00';
+        return;
+    }
+    
+    var html = '';
+    var markupMultiplier = 1 + (markup / 100);
+    var totalCost = 0;
+    
+    quotationRatesCache.forEach(function(rate){
+        var clientRatePerSqm = Number(rate.inhouseRate) || 0;
+        var clientPrice = clientRatePerSqm * sqm;
+        var basePrice = clientPrice / markupMultiplier;
+        var isExcluded = isSingleStorey && excluded.some(function(e){return (rate.item||'').toLowerCase().includes(e.toLowerCase());});
+        var style = isExcluded ? 'opacity:0.6;background:#f5f5f5;' : '';
+        var disabled = isExcluded ? 'disabled' : '';
+        
+        html += '<div class="construction-item-row" style="display:flex;align-items:center;padding:3px 8px;border-bottom:1px solid #eee;'+style+'">';
+        html += '<input type="checkbox" class="construction-item-checkbox me-2" '+disabled+' style="flex-shrink:0;">';
+        html += '<div style="flex:1;min-width:0;"><strong style="font-size:0.7rem;">'+(rate.item||'')+'</strong><br><small class="text-muted" style="font-size:0.65rem;">'+(rate.daysPerSqMeter||0)+' days/sqm - $'+(rate.inhouseRate||0)+'/sqm</small></div>';
+        html += '<div style="text-align:right;flex-shrink:0;margin-left:8px;"><div style="font-weight:700;color:#2196F3;font-size:0.7rem;">$'+clientPrice.toFixed(2)+'</div><small style="font-size:0.6rem;color:#999;">Base: $'+basePrice.toFixed(2)+'</small></div></div>';
+        
+        if(!isExcluded) totalCost += clientPrice;
+    });
+    
+    listEl.innerHTML = html;
+    if(totalEl) totalEl.textContent = totalCost.toFixed(2);
+    
+    // Attach checkbox change handlers
+    listEl.querySelectorAll('.construction-item-checkbox').forEach(function(cb){
+        cb.addEventListener('change', function(){
+            if(typeof window.updateSelectedItemsList==='function') window.updateSelectedItemsList();
+            if(typeof window.calculateConstructionTotal==='function') window.calculateConstructionTotal();
+        });
+    });
+};
+
 // Early implementations for View/Delete quotation actions
 window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
     console.log('viewQuotationDetails (early init)');
@@ -3838,21 +3938,55 @@ window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
             if (q) {
                 window.currentViewingQuotation = q;
                 var tc = Number(q.totalCost||0);
+                var markup = Number(q.markup||0);
+                var mm = 1 + (markup/100);
+                var bc = tc / mm;
+                var ma = tc - bc;
                 var cat = q.category||'N/A';
                 var catMap = {'construction_single':'Single Storey','construction_double':'Double Storey','kitchen':'Kitchen','tv_units':'TV Units'};
                 cat = catMap[cat]||cat;
+                var isCon = (q.category||'').includes('construction');
                 var d = q.quotationDate ? new Date(q.quotationDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}) : 'N/A';
                 var itemCount = (q.items||[]).length;
                 var taskCount = (q.schedules||[]).length;
+                
                 var h = '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">';
                 h += '<div style="flex:1;min-width:140px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Quotation ID</div><div style="font-size:0.85rem;font-weight:800;color:var(--crimson-bright);">#'+q.id+'</div></div>';
-                h += '<div style="flex:1;min-width:140px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Date</div><div style="font-size:0.75rem;font-weight:600;">'+d+'</div></div>';
+                h += '<div style="flex:1;min-width:140px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Date Created</div><div style="font-size:0.75rem;font-weight:600;">'+d+'</div></div>';
                 h += '<div style="flex:1;min-width:100px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Category</div><div style="font-size:0.75rem;font-weight:600;">'+cat+'</div></div>';
+                if(isCon) h += '<div style="flex:1;min-width:100px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Project Size</div><div style="font-size:0.75rem;font-weight:600;">'+(q.projectSize||'0')+' sq.m</div></div>';
                 h += '</div>';
-                h += '<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 14px;margin-bottom:10px;"><table style="width:100%;font-size:0.75rem;"><tr><td style="padding:4px 0;"><strong>Client:</strong></td><td style="padding:4px 0;">'+(q.clientName||'N/A')+'</td></tr><tr><td style="padding:4px 0;"><strong>WhatsApp:</strong></td><td style="padding:4px 0;">'+(q.clientWhatsapp||'N/A')+'</td></tr><tr><td style="padding:4px 0;"><strong>Total Cost:</strong></td><td style="padding:4px 0;font-weight:700;color:var(--primary);">USD '+tc.toLocaleString('en-US',{minimumFractionDigits:2})+'</td></tr><tr><td style="padding:4px 0;"><strong>Markup:</strong></td><td style="padding:4px 0;">'+(q.markup||'0')+'%</td></tr><tr><td style="padding:4px 0;"><strong>Items:</strong></td><td style="padding:4px 0;">'+itemCount+'</td></tr><tr><td style="padding:4px 0;"><strong>Tasks:</strong></td><td style="padding:4px 0;">'+taskCount+'</td></tr></table></div>';
+                
+                h += '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">';
+                h += '<div style="flex:3;min-width:240px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.3px;">Client Information</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:0.7rem;"><div><span style="color:var(--text-muted);">Name:</span> <strong>'+(q.clientName||'N/A')+'</strong></div><div><span style="color:var(--text-muted);">WhatsApp:</span> <strong>'+(q.clientWhatsapp||'N/A')+'</strong></div></div></div>';
+                h += '<div style="flex:2;min-width:200px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.3px;">Cost Summary</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;"><div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">Base Cost</div><div style="font-size:0.7rem;font-weight:700;">USD '+bc.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div><div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">Markup ('+markup+'%)</div><div style="font-size:0.7rem;font-weight:700;">USD '+ma.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div><div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">Total Cost</div><div style="font-size:0.75rem;font-weight:800;color:var(--crimson-bright);">USD '+tc.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div></div></div>';
+                h += '</div>';
+                
+                // Items table
+                if (q.items && q.items.length > 0) {
+                    h += '<div style="background:white;border:1px solid var(--gray-200);border-radius:8px;overflow:hidden;margin-bottom:10px;"><div style="background:var(--crimson-bright);color:white;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">Items ('+itemCount+')</div><table style="width:100%;font-size:0.7rem;border-collapse:collapse;"><thead><tr style="background:var(--gray-100);"><th style="padding:4px 6px;text-align:center;width:30px;">#</th><th style="padding:4px 6px;text-align:left;">Item</th><th style="padding:4px 6px;text-align:center;width:50px;">Qty</th><th style="padding:4px 6px;text-align:right;width:70px;">Rate</th><th style="padding:4px 6px;text-align:right;width:70px;">Total</th></tr></thead><tbody>';
+                    (q.items||[]).forEach(function(item,idx){
+                        var qty = item.quantity||0;
+                        var rate = item.amount||item.unitRate||0;
+                        var total = item.totalPrice||(qty*rate)||0;
+                        h += '<tr><td style="padding:4px 6px;text-align:center;font-weight:700;">'+(idx+1)+'</td><td style="padding:4px 6px;">'+(item.name||'Item')+'</td><td style="padding:4px 6px;text-align:center;">'+qty+'</td><td style="padding:4px 6px;text-align:right;">'+rate.toLocaleString('en-US',{minimumFractionDigits:2})+ '</td><td style="padding:4px 6px;text-align:right;font-weight:700;">'+total.toLocaleString('en-US',{minimumFractionDigits:2})+'</td></tr>';
+                    });
+                    h += '</tbody></table></div>';
+                }
+                
+                // Schedule table
+                if (q.schedules && q.schedules.length > 0) {
+                    h += '<div style="background:white;border:1px solid var(--gray-200);border-radius:8px;overflow:hidden;margin-bottom:10px;"><div style="background:var(--dark-blue-deep);color:white;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">Work Schedule ('+taskCount+')</div><table style="width:100%;font-size:0.7rem;border-collapse:collapse;"><thead><tr style="background:var(--gray-100);"><th style="padding:4px 6px;text-align:center;width:30px;">#</th><th style="padding:4px 6px;text-align:left;">Task</th><th style="padding:4px 6px;text-align:center;width:90px;">Start</th><th style="padding:4px 6px;text-align:center;width:90px;">End</th><th style="padding:4px 6px;text-align:center;width:50px;">Days</th></tr></thead><tbody>';
+                    (q.schedules||[]).forEach(function(s,idx){
+                        h += '<tr><td style="padding:4px 6px;text-align:center;font-weight:700;">'+(idx+1)+'</td><td style="padding:4px 6px;">'+(s.workScope||s.item||'Task')+'</td><td style="padding:4px 6px;text-align:center;">'+(s.startDate||'')+'</td><td style="padding:4px 6px;text-align:center;">'+(s.endDate||'')+'</td><td style="padding:4px 6px;text-align:center;color:#2196F3;font-weight:700;">'+(s.days||0)+'</td></tr>';
+                    });
+                    h += '</tbody></table></div>';
+                }
+                
                 if (q.notes && q.notes.trim()) {
                     h += '<div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:10px 14px;margin-bottom:10px;"><div style="font-size:0.65rem;font-weight:700;color:#d48806;margin-bottom:4px;"><i class="bi bi-sticky-fill"></i> Notes</div><div style="font-size:0.7rem;">'+q.notes+'</div></div>';
                 }
+                
                 if (cd) cd.innerHTML = h;
             } else {
                 if (cd) cd.innerHTML = '<div class="alert alert-danger">Quotation not found</div>';
