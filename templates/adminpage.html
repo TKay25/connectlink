@@ -37959,12 +37959,9 @@ document.addEventListener('DOMContentLoaded', function(){
                     var psEl=document.getElementById('previewSize');
                     if(psEl) psEl.textContent = (qd.category||'').includes('construction') ? (qd.size||'0')+' sqm' : '-';
                 }
-                if(typeof window.renderPreviewItemsTable==='function' && qd){
-                    window.renderPreviewItemsTable(qd);
-                }
-                // Fallback: if items table still empty, build it directly
+                // Build preview items table directly from quotationData
                 var qit = document.getElementById('quotationItemsTable');
-                if(qit && (!qit.children || qit.children.length === 0 || (qit.children.length === 1 && !qit.children[0].tagName))){
+                if(qit){
                     var fbItems = (qd && qd.items) || [];
                     if(fbItems.length){
                         var fh = '', fTotal = 0, fDays = 0;
@@ -37977,10 +37974,14 @@ document.addEventListener('DOMContentLoaded', function(){
                             fTotal += total; fDays += days;
                             fh += '<tr><td style="font-size:0.75rem;padding:4px 6px;text-align:left;">'+(it.item||it.name||'Item')+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;">'+qty.toFixed(2)+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;">'+(typeof formatCurrency==='function'?formatCurrency(rate):'$'+rate.toFixed(2))+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;font-weight:600;color:#2196F3;">'+days+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;font-weight:700;color:var(--primary);">'+(typeof formatCurrency==='function'?formatCurrency(total):'$'+total.toFixed(2))+'</td></tr>';
                         });
-                        if(fbItems.length) fh += '<tr><td colspan="3" style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);"><strong>TOTAL</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid var(--primary);color:#2196F3;"><strong>'+fDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);color:var(--primary);"><strong>'+(typeof formatCurrency==='function'?formatCurrency(fTotal):'$'+fTotal.toFixed(2))+'</strong></td></tr>';
+                        fh += '<tr><td colspan="3" style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);"><strong>TOTAL</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid var(--primary);color:#2196F3;"><strong>'+fDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);color:var(--primary);"><strong>'+(typeof formatCurrency==='function'?formatCurrency(fTotal):'$'+fTotal.toFixed(2))+'</strong></td></tr>';
                         qit.innerHTML = fh;
                         var tdd = document.getElementById('totalDurationDays');
                         if(tdd) tdd.textContent = fDays;
+                        var qtc = document.getElementById('quotationTotalCost');
+                        if(qtc) qtc.textContent = fTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+                    } else {
+                        qit.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#999;">No items to display</td></tr>';
                     }
                 }
                 if(typeof window.displayGanttChartInPreview==='function'){
@@ -38047,6 +38048,47 @@ document.addEventListener('DOMContentLoaded', function(){
         window.ganttItems.push(newItem);
         if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
     };
+    
+    // 7b2. Preview modal buttons (Save & Download / Send Quotation)
+    var dlBtn = document.getElementById('downloadQuotationBtn');
+    if(dlBtn && !dlBtn._rec){
+        dlBtn._rec = true;
+        dlBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            if(typeof window.saveAndDownloadQuotation==='function') window.saveAndDownloadQuotation();
+            else alert('Save function not available');
+        });
+    }
+    var sdBtn = document.getElementById('sendQuotationBtn');
+    if(sdBtn && !sdBtn._rec){
+        sdBtn._rec = true;
+        sdBtn.addEventListener('click', async function(e){
+            e.preventDefault();
+            var qd = window.quotationData;
+            if(!qd){alert('No quotation data. Generate a quotation first.');return;}
+            var wa = qd.clientWhatsapp||qd.clientWhatsApp||'';
+            if(!wa.toString().trim()){alert('No WhatsApp number. Edit the quotation to add one.');return;}
+            var btn = this;
+            var orig = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+            try {
+                var pdfDataUri = null;
+                if(typeof window.generateQuotationPDF==='function'){
+                    pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
+                }
+                var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
+                var r = await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:qd.clientName,whatsappNumber:wa,quotationId:0,pdfBase64:pdfBase64,category:qd.category,size:qd.size||0,totalCost:qd.totalCost||0,markup:qd.markup||0,quotationDate:qd.quotationDate})}).then(function(rr){return rr.json()});
+                if(r.success){
+                    if(r.used_template) alert('Sent via template with download button.\n\nShare link: '+r.share_url);
+                    else alert('Quotation sent successfully!');
+                } else {
+                    if(r.requires_template) alert('24-hour window reached. Template send also failed.\n\nHint: '+r.hint);
+                    else alert('Failed to send: '+(r.error||'Unknown error'));
+                }
+            } catch(e){alert('Error: '+e.message);}
+            btn.disabled = false; btn.innerHTML = orig;
+        });
+    }
     
     console.log('✅ Quotation buttons fixed');
     
