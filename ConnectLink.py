@@ -20307,13 +20307,14 @@ def update_project_completion_status():
             today = datetime.now().date()
             
             # 1. Update projects where (start_date + duration) < today to "COMPLETED"
+            # Handles both NULL and empty string statuses
             update_query = """
                 UPDATE connectlinkdatabase 
                 SET projectcompletionstatus = 'Completed'
                 WHERE projectstartdate IS NOT NULL 
                 AND projectduration IS NOT NULL 
                 AND projectduration > 0
-                AND projectcompletionstatus != 'Completed'
+                AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus != 'Completed')
                 AND (projectstartdate + INTERVAL '1 day' * projectduration) <= %s
             """
             cursor.execute(update_query, (today,))
@@ -20326,18 +20327,18 @@ def update_project_completion_status():
                 WHERE projectstartdate IS NOT NULL 
                 AND projectduration IS NOT NULL 
                 AND projectduration > 0
-                AND (projectcompletionstatus IS NULL OR projectcompletionstatus NOT IN ('Completed', 'Cancelled'))
+                AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus NOT IN ('Completed', 'Cancelled'))
                 AND (projectstartdate + INTERVAL '1 day' * projectduration) > %s
             """
             cursor.execute(ongoing_query, (today,))
             ongoing_count = cursor.rowcount
             
-            # 3. Update projects with missing duration to "PENDING" or keep existing status
+            # 3. Update projects with missing or zero duration to "PENDING"
             missing_duration_query = """
                 UPDATE connectlinkdatabase 
-                SET projectcompletionstatus = COALESCE(projectcompletionstatus, 'Pending')
+                SET projectcompletionstatus = 'Pending'
                 WHERE (projectduration IS NULL OR projectduration <= 0)
-                AND projectcompletionstatus IS NULL
+                AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus = 'Pending')
             """
             cursor.execute(missing_duration_query)
             pending_count = cursor.rowcount
