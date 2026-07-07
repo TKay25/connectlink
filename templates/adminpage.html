@@ -3694,11 +3694,108 @@ body { font-family: Arial; margin: 20px; }
 <script>
 // Early stubs for functions defined in later scripts - prevents "not defined" errors
 // Real implementations in later scripts override these
-window.loadQuotations = window.loadQuotations || function() { console.log('loadQuotations stub'); };
-window.reloadQuotations = window.reloadQuotations || function() { console.log('reloadQuotations stub'); };
-window.openSentQuotationsModal = window.openSentQuotationsModal || function() { console.log('openSentQuotationsModal stub'); };
-window.loadSentQuotations = window.loadSentQuotations || function() { console.log('loadSentQuotations stub'); };
-window.loadWhatsAppChats = window.loadWhatsAppChats || function() { console.log('loadWhatsAppChats stub'); };
+window.loadQuotations = window.loadQuotations || function() {
+    console.log('loadQuotations (early init)');
+    var c = document.getElementById('quotationsContainer');
+    if (!c) return;
+    c.innerHTML = '<p class="text-muted text-center" style="padding:40px;">Loading quotations...</p>';
+    fetch('/api/get-quotations').then(function(r){return r.json()}).then(function(result){
+        if(result.success && result.data && result.data.length>0){
+            var h='<div style="overflow-x:auto;max-height:500px;border:1px solid #dee2e6;border-radius:6px;background:white;"><table style="width:100%;font-size:0.7rem;border-collapse:collapse;"><thead style="position:sticky;top:0;background:#0A1A3A;z-index:10;"><tr style="color:white;"><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">ID</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Client</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Category</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Size</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Markup</th><th style="padding:5px 4px;text-align:right;border:1px solid #1E2A56;">Total</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Date</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Items</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Tasks</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Notes</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Actions</th></tr></thead><tbody>';
+            var sorted = result.data.slice().sort(function(a,b){return b.id-a.id});
+            sorted.forEach(function(q){
+                var d=q.quotationDate?q.quotationDate.split('T')[0]:'N/A';
+                var tc=Number(q.totalCost||0);
+                h+='<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px 4px;text-align:center;">#'+q.id+'</td><td style="padding:5px 4px;text-align:left;">'+(q.clientName||'Client')+'</td><td style="padding:5px 4px;text-align:left;">'+(q.category||'')+'</td><td style="padding:5px 4px;text-align:center;">'+(q.size||'')+'</td><td style="padding:5px 4px;text-align:center;">'+(q.markup||'')+'%</td><td style="padding:5px 4px;text-align:right;font-weight:700;">$'+tc.toFixed(2)+'</td><td style="padding:5px 4px;text-align:center;">'+d+'</td><td style="padding:5px 4px;text-align:center;">'+(q.items||0)+'</td><td style="padding:5px 4px;text-align:center;">'+(q.schedules||0)+'</td><td style="padding:5px 4px;text-align:center;">'+(q.notes||'')+'</td><td style="padding:5px 4px;text-align:center;"><button class="btn btn-sm btn-info" style="padding:2px 6px;font-size:0.65rem;" onclick="viewQuotation('+q.id+')">View</button></td></tr>';
+            });
+            h+='</tbody></table></div>';
+            c.innerHTML = h;
+        } else {
+            c.innerHTML = '<p class="text-muted text-center" style="padding:6px;">No quotations saved yet</p>';
+        }
+    }).catch(function(err){
+        c.innerHTML = '<p class="text-danger text-center" style="padding:6px;">Error: '+err.message+'</p>';
+    });
+};
+window.reloadQuotations = window.reloadQuotations || function() {
+    console.log('reloadQuotations (early init)');
+    var c = document.getElementById('quotationsContainer');
+    if(c){c.innerHTML='<p class="text-muted text-center" style="padding:40px;">Loading quotations...</p>';}
+    window.loadQuotations();
+};
+window.openSentQuotationsModal = window.openSentQuotationsModal || function() {
+    console.log('openSentQuotationsModal (early init)');
+    if(typeof openModal==='function'){openModal('sentQuotationsModal');}
+    if(typeof window.loadSentQuotations==='function'){window.loadSentQuotations();}
+};
+window.loadSentQuotations = window.loadSentQuotations || function() {
+    console.log('loadSentQuotations (early init)');
+    var c = document.getElementById('sentQuotationsContainer');
+    var s = document.getElementById('sentQuotationsSummary');
+    if(!c||!s) return;
+    s.textContent='Loading...';
+    c.innerHTML='<p class="text-muted" style="padding:20px;">Loading...</p>';
+    fetch('/api/get-sent-quotations').then(function(r){return r.json()}).then(function(result){
+        if(result.success){
+            var rows=result.data||[];
+            if(rows.length>0){
+                var h='<table style="width:100%;font-size:0.7rem;border-collapse:collapse;"><thead style="background:#0A1A3A;color:white;position:sticky;top:0;"><tr><th style="padding:5px;text-align:left;">Sent At</th><th style="padding:5px;text-align:left;">Client</th><th style="padding:5px;text-align:left;">WhatsApp</th><th style="padding:5px;text-align:left;">Category</th><th style="padding:5px;text-align:right;">Cost</th><th style="padding:5px;text-align:center;">Type</th><th style="padding:5px;text-align:center;">Status</th><th style="padding:5px;text-align:center;">Download</th></tr></thead><tbody>';
+                rows.forEach(function(r){
+                    var tc=Number(r.totalCost||0);
+                    h+='<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px;">'+(r.sentAt||'N/A')+'</td><td style="padding:5px;">'+(r.clientName||'Client')+'</td><td style="padding:5px;">'+(r.whatsappNumber||'N/A')+'</td><td style="padding:5px;">'+(r.category||'N/A')+'</td><td style="padding:5px;text-align:right;font-weight:bold;">$'+tc.toFixed(2)+'</td><td style="padding:5px;text-align:center;">'+(r.sendType||'Document')+'</td><td style="padding:5px;text-align:center;">'+(r.sendStatus||'Success')+'</td><td style="padding:5px;text-align:center;">'+(r.downloaded?'✓':'—')+'</td></tr>';
+                });
+                h+='</tbody></table>';
+                c.innerHTML=h;
+                s.textContent=rows.length+' sent quotation(s)';
+            } else {
+                c.innerHTML='<p class="text-muted text-center" style="padding:20px;">No sent quotations yet</p>';
+                s.textContent='No sent quotations';
+            }
+        }
+    }).catch(function(err){
+        c.innerHTML='<p class="text-danger text-center" style="padding:20px;">Error: '+err.message+'</p>';
+    });
+};
+window.loadWhatsAppChats = window.loadWhatsAppChats || function() {
+    console.log('loadWhatsAppChats (early init)');
+    var c = document.getElementById('whatsappChatList');
+    if (!c) return;
+    c.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>';
+    if (typeof window.loadWhatsAppChatStats === 'function' && typeof window.loadChatModeStats === 'function') {
+        try { window.loadWhatsAppChatStats(); } catch(e) {}
+        try { window.loadChatModeStats(); } catch(e) {}
+    }
+    fetch('/api/whatsapp-chats').then(function(r){return r.json()}).then(function(res){
+        if (!res.success || !res.data || !res.data.length) {
+            c.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-whatsapp"></i></div><div class="empty-title">No Conversations</div><div class="empty-desc">No WhatsApp chats found yet.</div></div>';
+            var countEl = document.getElementById('whatsappChatCount');
+            if (countEl) countEl.textContent = '0 conversations';
+            return;
+        }
+        var chats = res.data;
+        var countEl = document.getElementById('whatsappChatCount');
+        if (countEl) countEl.textContent = chats.length + ' conversations';
+        window.whatsappRecipients = chats;
+        var html = '<div style="display:flex;flex-direction:column;gap:2px;">';
+        chats.forEach(function(chat){
+            var isNew = chat.status === 'pending' ? 'background:#dcf8c6;' : '';
+            var statusColor = chat.status === 'pending' ? '#25D366' : chat.status === 'completed' ? '#666' : '#ff9800';
+            var name = (chat.name || '?')[0].toUpperCase();
+            html += '<div class="clickable-row" onclick="openChat(\''+chat.whatsapp+'\',\''+(chat.name||'').replace(/'/g,"\\'")+'\')" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;'+isNew+'border:1px solid var(--border-color);font-size:0.7rem;cursor:pointer;">';
+            html += '<div style="width:32px;height:32px;border-radius:50%;background:#25D366;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight:700;">'+name+'</div>';
+            html += '<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:0.7rem;">'+(chat.name||'Unknown')+'</div>';
+            html += '<div style="font-size:0.65rem;"><a href="https://wa.me/'+chat.whatsapp+'" target="_blank" style="color:#0d6efd;text-decoration:underline;" onclick="event.stopPropagation();">+'+chat.whatsapp+'</a></div>';
+            html += '<div style="font-size:0.65rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(chat.last_message||'No messages')+'</div></div>';
+            html += '<div style="text-align:right;flex-shrink:0;"><div style="font-size:0.65rem;color:var(--text-muted);">'+(chat.last_time||'')+'</div>';
+            html += '<div style="font-size:0.65rem;color:'+statusColor+';font-weight:600;">'+(chat.message_count||0)+' msgs</div></div></div>';
+        });
+        html += '</div>';
+        c.innerHTML = html;
+    }).catch(function(err){
+        console.error('WhatsApp chats error:', err);
+        c.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div></div>';
+    });
+};
 window.loadActivityLog = window.loadActivityLog || function() { console.log('loadActivityLog stub'); };
 </script>
 
