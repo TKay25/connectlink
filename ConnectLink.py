@@ -2419,30 +2419,78 @@ def webhook():
 
                                         try:
                                             
+                                            # Check admin_users first (new unified admin table), then fallback to connectlinkusers
                                             query = """
-                                                SELECT id, datecreated, name, password, email, whatsapp
-                                                FROM connectlinkusers
-                                                WHERE whatsapp::TEXT LIKE %s
+                                                SELECT id, source_id, full_name, username, email, whatsapp
+                                                FROM admin_users
+                                                WHERE whatsapp::TEXT LIKE %s AND is_active = TRUE
                                             """
-
                                             cursor.execute(query, (f"%{sender_number}%",))
                                             result = cursor.fetchone()
 
-                                            print(result)
+                                            if not result:
+                                                query = """
+                                                    SELECT id, datecreated, name, password, email, whatsapp
+                                                    FROM connectlinkusers
+                                                    WHERE whatsapp::TEXT LIKE %s
+                                                """
+                                                cursor.execute(query, (f"%{sender_number}%",))
+                                                result = cursor.fetchone()
 
                                             if result:
-
-                                                found = True 
-
-                                                id_user = result[0]  
-                                                admin_name = result[2]  
+                                                found = True
+                                                # admin_users query returns: id, source_id, full_name, ...
+                                                # connectlinkusers returns: id, datecreated, name, ...
+                                                # source_id is an int, datecreated is a datetime/string
+                                                is_from_admin_users = len(result) >= 6 and result[1] is not None and not isinstance(result[1], str)
+                                                if is_from_admin_users:
+                                                    id_user = result[1]  # source_id for admin_users
+                                                    admin_name = result[2]  # full_name
+                                                else:
+                                                    id_user = result[0]  # id from connectlinkusers
+                                                    admin_name = result[2]  # name
 
                                                 print(id_user)
                                                 print(admin_name)
 
                                                 try:
                                                 
-                                                    if message.get("type") == "interactive" and not (
+                                                    # --- Keyword matching for text messages (admin) ---
+                                                    text_keyword_handled = False
+                                                    if message_type == "text":
+                                                        kw_match = resolve_chatbot_keyword(msg_text)
+                                                        if kw_match:
+                                                            keyword, handler_id = kw_match
+                                                            print(f"🔑 Admin keyword match: '{keyword}' → handler: {handler_id}")
+                                                            log_chatbot_interaction(sender_id, admin_name, 'keyword', keyword, handler_id)
+                                                            text_keyword_handled = True
+                                                            button_id = ''
+                                                            selected_option = ''
+                                                            if handler_id == 'main_menu':
+                                                                button_id = 'main_menu'
+                                                            elif handler_id in ('projects', 'getportfolio', 'getnotes', 'portfolio'):
+                                                                button_id = 'portfolio'
+                                                                if handler_id == 'getportfolio':
+                                                                    selected_option = 'getportfolio'
+                                                                elif handler_id == 'getnotes':
+                                                                    selected_option = 'getnotes'
+                                                            elif handler_id == 'enquirylog':
+                                                                button_id = 'enquirylog'
+                                                            elif handler_id in ('kitchen_cabinels', 'building', 'renovation', 'other'):
+                                                                selected_option = handler_id
+                                                                button_id = ''
+                                                            elif handler_id == 'paymenthist':
+                                                                button_id = 'paymenthist'
+                                                            elif handler_id in ('contracts', 'contract'):
+                                                                button_id = 'contracts'
+                                                            elif handler_id == 'payments_schedule':
+                                                                selected_option = 'payments_schedule'
+                                                            elif handler_id == 'contact_us':
+                                                                button_id = 'contact_us'
+                                                            elif handler_id == 'about_us':
+                                                                button_id = 'about_us'
+                                                    
+                                                    if (message.get("type") == "interactive" or text_keyword_handled) and not (
                                                         message.get("interactive", {}).get("type") == "button_reply"
                                                         and (
                                                             (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
@@ -5972,7 +6020,42 @@ def webhook():
 
                                                     try:
 
-                                                        if message.get("type") == "interactive" and not (
+                                                        # --- Keyword matching for text messages (client) ---
+                                                        text_keyword_handled = False
+                                                        if message_type == "text":
+                                                            kw_match = resolve_chatbot_keyword(msg_text)
+                                                            if kw_match:
+                                                                keyword, handler_id = kw_match
+                                                                print(f"🔑 Client keyword match: '{keyword}' → handler: {handler_id}")
+                                                                log_chatbot_interaction(sender_id, profile_name or 'Client', 'keyword', keyword, handler_id)
+                                                                text_keyword_handled = True
+                                                                button_id = ''
+                                                                selected_option = ''
+                                                                if handler_id in ('contracts', 'contract'):
+                                                                    button_id = 'contracts'
+                                                                elif handler_id in ('paymenthist', 'payments_schedule', 'payments', 'payment history'):
+                                                                    button_id = 'paymenthist'
+                                                                elif handler_id == 'enquiries':
+                                                                    button_id = 'enquiries'
+                                                                elif handler_id == 'main_menu':
+                                                                    button_id = 'main_menu'
+                                                                elif handler_id in ('projects', 'getportfolio', 'getnotes', 'portfolio'):
+                                                                    button_id = 'portfolio'
+                                                                    if handler_id == 'getportfolio':
+                                                                        selected_option = 'getportfolio'
+                                                                    elif handler_id == 'getnotes':
+                                                                        selected_option = 'getnotes'
+                                                                elif handler_id in ('kitchen_cabinels', 'building', 'renovation', 'other'):
+                                                                    selected_option = handler_id
+                                                                    button_id = ''
+                                                                elif handler_id == 'enquirylog':
+                                                                    button_id = 'enquirylog'
+                                                                elif handler_id == 'contact_us':
+                                                                    button_id = 'contact_us'
+                                                                elif handler_id == 'about_us':
+                                                                    button_id = 'about_us'
+
+                                                        if (message.get("type") == "interactive" or text_keyword_handled) and not (
                                                             message.get("interactive", {}).get("type") == "button_reply"
                                                             and (
                                                                 (message.get("interactive", {}).get("button_reply", {}).get("id", "") or "").lower().startswith("quotation_")
