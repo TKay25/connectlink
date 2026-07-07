@@ -3757,9 +3757,14 @@ body { font-family: Arial; margin: 20px; }
 <!-- ===== FIXED TOP NAVBAR ===== -->
 <nav class="app-navbar">
     <div class="brand">
-        <span class="brand-text"><span class="brand-connect">Connect</span><span class="brand-link">Link <span class="brand-badge">Building Projects</span></span>
+        <a href="javascript:location.reload()" style="text-decoration:none;color:inherit;">
+            <span class="brand-text"><span class="brand-connect">Connect</span><span class="brand-link">Link <span class="brand-badge">Building Projects</span></span>
+        </a>
     </div>
     <div class="nav-actions" style="position:relative;">
+        <button onclick="location.reload()" title="Refresh page" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;margin-right:4px;">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
         <button class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;">
             <i id="themeIcon" class="bi bi-moon"></i>
         </button>
