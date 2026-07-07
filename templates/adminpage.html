@@ -3846,41 +3846,47 @@ window.loadActivityLog = window.loadActivityLog || function() { console.log('loa
 
 // Early init for quotation generator category/size/markup handlers
 (function(){
-    var qc = document.getElementById('quotationCategory');
-    if (!qc) return;
-    
-    // Add change handler for category
-    qc.addEventListener('change', function(){
-        var cat = this.value;
-        var isCon = cat === 'construction_single' || cat === 'construction_double';
-        var sc = document.getElementById('quotationSizeContainer');
-        var dc = document.getElementById('constructionDetailsContainer');
-        var kc = document.getElementById('kitchenCabinetContainer');
-        var tc = document.getElementById('tvUnitsContainer');
-        var oc = document.getElementById('otherCategoryNameContainer');
-        if(sc) sc.style.display = isCon ? 'block' : 'none';
-        if(dc) dc.style.display = isCon ? 'block' : 'none';
-        if(kc) kc.style.display = cat === 'kitchen' ? 'block' : 'none';
-        if(tc) tc.style.display = (cat === 'tv_units' || cat === 'other') ? 'block' : 'none';
-        if(oc) oc.style.display = cat === 'other' ? 'block' : 'none';
-        if(isCon){
-            var el=document.getElementById('constructionItemsList');
-            if(el) el.innerHTML='<p class="text-muted p-3">Loading items...</p>';
-            fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(data){
-                quotationRatesCache = data.success ? data.data : [];
-                window.quotationRatesCache = quotationRatesCache;
-                // Also trigger sizing if sqm already entered
-                if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList();
-            }).catch(function(err){
-                var cel=document.getElementById('constructionItemsList');
-                if(cel) cel.innerHTML='<p class="text-danger p-3">Failed to load items: '+(err.message||'Server unavailable')+'. Make sure your server is running.</p>';
+    function tryBindQC(){
+        var qc = document.getElementById('quotationCategory');
+        if (!qc || qc._earlyBound) return false;
+        qc._earlyBound = true;
+        qc.addEventListener('change', function(){
+            var cat = this.value;
+            var isCon = cat === 'construction_single' || cat === 'construction_double';
+            ['quotationSizeContainer','constructionDetailsContainer'].forEach(function(id){
+                var el=document.getElementById(id);
+                if(el) el.style.display = isCon ? 'block' : 'none';
             });
-        }
-    });
-    var qs = document.getElementById('quotationSize');
-    var qm = document.getElementById('quotationMarkup');
-    if(qs) qs.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); });
-    if(qm) qm.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); });
+            var kc=document.getElementById('kitchenCabinetContainer');
+            if(kc) kc.style.display = cat === 'kitchen' ? 'block' : 'none';
+            var tc=document.getElementById('tvUnitsContainer');
+            if(tc) tc.style.display = (cat === 'tv_units' || cat === 'other') ? 'block' : 'none';
+            var oc=document.getElementById('otherCategoryNameContainer');
+            if(oc) oc.style.display = cat === 'other' ? 'block' : 'none';
+            if(isCon){
+                var el=document.getElementById('constructionItemsList');
+                if(el) el.innerHTML='<p class="text-muted p-3">Loading items...</p>';
+                fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(data){
+                    var rates = data.success ? data.data : [];
+                    quotationRatesCache = rates;
+                    window.quotationRatesCache = rates;
+                    if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList();
+                }).catch(function(err){
+                    var cel=document.getElementById('constructionItemsList');
+                    if(cel) cel.innerHTML='<p class="text-danger p-3">Failed: '+(err.message||'Server unavailable')+'. Restart server.</p>';
+                });
+            }
+        });
+        ['quotationSize','quotationMarkup'].forEach(function(id){
+            var el=document.getElementById(id);
+            if(el && !el._earlyBound){ el._earlyBound=true; el.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); }); }
+        });
+        return true;
+    }
+    tryBindQC();
+    var si = setInterval(function(){ if(tryBindQC()) clearInterval(si); }, 300);
+    document.addEventListener('DOMContentLoaded', tryBindQC);
+})();
     
     // Bind Generate Quotation button
     var genBtn = document.getElementById('generateQuotationBtn');
@@ -3932,7 +3938,6 @@ window.loadActivityLog = window.loadActivityLog || function() { console.log('loa
             window.openModal._earlyPatched = true;
         }
     }
-})();
 
 // Early construction items loader (standalone, no jQuery)
 var quotationRatesCache = window.quotationRatesCache || [];
