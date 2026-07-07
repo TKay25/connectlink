@@ -27885,6 +27885,18 @@ def save_quotation():
             print(f"Construction total cost: {total_cost}")
         
         with get_db() as (cursor, connection):
+            # Check for duplicate: same client + category + date (within last 24h)
+            cursor.execute("""
+                SELECT id FROM quotations
+                WHERE client_name = %s AND category = %s AND quotation_date = %s
+                AND created_at >= NOW() - INTERVAL '24 hours'
+                ORDER BY id DESC LIMIT 1
+            """, (client_name, category, quotation_date))
+            existing = cursor.fetchone()
+            if existing:
+                print(f"DUPLICATE DETECTED: Quotation #{existing[0]} already exists for {client_name} / {category} on {quotation_date}")
+                return jsonify({'success': False, 'error': 'A quotation for this client, category, and date already exists (ID: #' + str(existing[0]) + '). Please edit it instead.', 'duplicate_id': existing[0]})
+
             # Insert quotation header
             cursor.execute("""
                 INSERT INTO quotations

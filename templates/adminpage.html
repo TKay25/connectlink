@@ -4327,10 +4327,7 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
     var btn=event&&event.target?event.target:null;
     if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Sending...';}
     try {
-        var qData={clientName:q.clientName,clientWhatsapp:q.clientWhatsapp,quotationDate:q.quotationDate,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,items:(q.items||[]).map(function(it,i){return{name:it.name||it.item||'Item',quantity:it.quantity||0,unitRate:it.unitRate||it.amount||0,totalPrice:it.totalPrice||0,item_order:i+1};}),schedules:(q.schedules||[]).map(function(s,i){return{workScope:s.workScope||s.item||'Task',startDate:s.startDate,endDate:s.endDate,days:s.days||0,task_order:i+1};})};
-        var sr=await fetch('/api/save-quotation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(qData)}).then(function(r){return r.json()});
-        if(!sr.success){alert('Save failed: '+(sr.error||'Unknown error'));if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-whatsapp"></i> Send';}return;}
-        var sendR=await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:q.clientName||'Client',whatsappNumber:q.clientWhatsapp,quotationId:sr.quotation_id||qId,pdfBase64:''})}).then(function(r){return r.json()});
+        var sendR=await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:q.clientName||'Client',whatsappNumber:q.clientWhatsapp,quotationId:qId,pdfBase64:''})}).then(function(r){return r.json()});
         if(sendR.success){alert('Quotation sent successfully!');}else{alert('Failed to send: '+(sendR.error||'Unknown error'));}
     } catch(e){alert('Error: '+e.message);}
     if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-whatsapp"></i> Send';}
@@ -19589,6 +19586,30 @@ async function saveAndDownloadQuotation() {
         return;
     }
     window.quotationPdfTablePlacement = tablePlacement;
+
+    // Check for duplicate before saving
+    if (!window.editingQuotationId && typeof checkDuplicateQuotation === 'function') {
+        const dupCheck = await checkDuplicateQuotation({
+            clientName: data.clientName,
+            category: data.category,
+            size: parseFloat(data.size) || 0,
+            totalCost: parseFloat(data.totalCost) || 0,
+            markup: parseFloat(data.markup) || 0,
+            items: data.items || []
+        });
+        if (dupCheck.isDuplicate) {
+            const choice = confirm(
+                `${dupCheck.message}\n\n` +
+                `A matching quotation already exists (ID: #${dupCheck.existingQuotation.id}).\n\n` +
+                `Do you want to update the existing quotation instead?`
+            );
+            if (choice) {
+                window.editingQuotationId = dupCheck.existingQuotation.id;
+            } else {
+                return;
+            }
+        }
+    }
 
     // Build payload for backend
     const payload = {
@@ -37621,6 +37642,9 @@ document.addEventListener('DOMContentLoaded', function(){
             var isCon = cat==='construction_single'||cat==='construction_double';
             var isSingle = cat==='construction_single';
             var isTvOrOther = cat==='tv_units'||cat==='other';
+            
+            // Clear any editing context so this creates a NEW quotation
+            delete window.editingQuotationId;
             
             if(isCon){
                 var sz=document.getElementById('quotationSize')?.value;
