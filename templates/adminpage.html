@@ -3980,7 +3980,6 @@ window.renderConstructionItemsList = window.renderConstructionItemsList || funct
     
     var html = '';
     var markupMultiplier = 1 + (markup / 100);
-    var totalCost = 0;
     
     quotationRatesCache.forEach(function(rate, idx){
         var clientRatePerSqm = Number(rate.inhouseRate) || 0;
@@ -3997,12 +3996,10 @@ window.renderConstructionItemsList = window.renderConstructionItemsList || funct
         html += '<div style="flex:1;"><div class="fw-bold" style="font-size:0.95rem;margin-bottom:4px;">'+(rate.item||'')+(isExcluded?' <span class="badge bg-secondary ms-2" style="font-size:0.7rem;">Not for Single Storey</span>':'')+'</div>';
         html += '<small class="text-muted" style="display:block;line-height:1.5;">Client Rate: <strong>$'+clientRatePerSqm.toFixed(2)+'</strong>/sqm × <strong>'+sqm+'</strong> sqm = <strong style="color:#2196F3;">$'+clientPrice.toFixed(2)+'</strong>';
         html += '<br><span style="color:#6c757d;">Inhouse (at '+markup+'% markup): <strong>$'+basePrice.toFixed(2)+'</strong></span></small></div></div></div>';
-        
-        if(!isExcluded) totalCost += clientPrice;
     });
     
     listEl.innerHTML = html;
-    if(totalEl) totalEl.textContent = totalCost.toFixed(2);
+    if(totalEl) totalEl.textContent = '0.00';
     
     // Attach checkbox change handlers
     listEl.querySelectorAll('.construction-item-checkbox').forEach(function(cb){
@@ -37650,8 +37647,30 @@ document.addEventListener('DOMContentLoaded', function(){
                 qData.items = orderedItems;
                 qData.totalCost = totalC;
                 window.quotationData = qData;
+                // Populate ganttItems from selected items with rate data
                 window.ganttChartData = [];
                 window.ganttItems = [];
+                var rates = window.quotationRatesCache||[];
+                document.querySelectorAll('.selected-item-drag').forEach(function(el, idx){
+                    var nm = el.querySelector('strong')?.textContent||'Item';
+                    var sm = el.querySelector('small')?.textContent||'0';
+                    var sqm = parseFloat(sm)||0;
+                    var rt = rates.find(function(r){return r.item===nm;})||{daysPerSqMeter:0,inhouseRate:0};
+                    var daysPerSqm = parseFloat(rt.daysPerSqMeter)||0;
+                    var duration = Math.max(1, Math.round(daysPerSqm * sqm));
+                    var startDate = new Date();
+                    if(window.ganttItems.length > 0){
+                        var last = window.ganttItems[window.ganttItems.length-1];
+                        startDate = new Date(last.endDate);
+                        startDate.setDate(startDate.getDate() + 1);
+                    }
+                    var endDate = new Date(startDate);
+                    endDate.setDate(endDate.getDate() + duration - 1);
+                    var fmt = function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+                    var item = {id:rt.id||0, item:nm, price:0, daysPerSqMeter:daysPerSqm, startDate:fmt(startDate), endDate:fmt(endDate), days:duration};
+                    window.ganttItems.push(item);
+                    window.ganttChartData.push(item);
+                });
                 closeModal('quotationgeneratorModal');
                 setTimeout(function(){
                     if(typeof openModal==='function'){
@@ -37741,6 +37760,56 @@ document.addEventListener('DOMContentLoaded', function(){
         if(typeof closeModal==='function') closeModal('quotationDetailsModal');
         window.editQuotationFromPortal(window.currentViewingQuotation.id);
     });
+    
+    // 6. Select All visible items button
+    var selBtn = document.getElementById('selectAllVisibleBtn');
+    if(selBtn && !selBtn._earlyBound){
+        selBtn._earlyBound = true;
+        selBtn.addEventListener('click', function(){
+            var visible = document.querySelectorAll('.construction-item-row:not([style*="display:none"]):not([style*="display: none"])');
+            var checked = 0;
+            visible.forEach(function(row){
+                var cb = row.querySelector('.construction-item-checkbox');
+                if(cb && !cb.disabled && cb.checked) checked++;
+            });
+            var shouldCheck = checked < visible.length;
+            visible.forEach(function(row){
+                var cb = row.querySelector('.construction-item-checkbox');
+                if(cb && !cb.disabled){ cb.checked = shouldCheck; cb.dispatchEvent(new Event('change')); }
+            });
+            if(typeof window.updateSelectedItemsList==='function') window.updateSelectedItemsList();
+            if(typeof window.calculateConstructionTotal==='function') window.calculateConstructionTotal();
+        });
+    }
+    
+    // 7. Preview Quotation button (Gantt Chart save/preview)
+    var ganttBtn = document.getElementById('saveGanttChartBtn');
+    if(ganttBtn && !ganttBtn._earlyBound){
+        ganttBtn._earlyBound = true;
+        ganttBtn.addEventListener('click', function(){
+            if(!window.ganttItems || window.ganttItems.length === 0){
+                alert('Please add at least one task to the schedule.');
+                return;
+            }
+            window.ganttChartData = window.ganttItems;
+            if(typeof closeModal==='function') closeModal('ganttChartBuilderModal');
+            setTimeout(function(){
+                if(typeof openModal==='function') openModal('quotationPreviewModal');
+                if(typeof displayGanttChartInPreview==='function'){
+                    setTimeout(function(){ displayGanttChartInPreview(); }, 100);
+                }
+            }, 300);
+        });
+    }
+    
+    console.log('✅ Quotation buttons fixed');
+    
+    // 8. Set default date to today on quotation generator modal
+    var dateEl = document.getElementById('quotationDate');
+    if(dateEl && !dateEl.value){
+        var d = new Date();
+        dateEl.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }
 });
 </script>
 </body>
