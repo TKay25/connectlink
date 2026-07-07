@@ -32954,15 +32954,9 @@ function renderGanttItemsList() {
         }
     };
 
-    function reloadQuotations() {
-        console.log('Reloading quotations...');
-        const container = document.getElementById('quotationsContainer');
-        if (container) {
-            container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>';
-            loadQuotations(); // This should fetch and display again
-        }
-    }
-
+    // reloadQuotations is already assigned to window above
+    // Remove duplicate function declaration to avoid confusion
+    
     window.openSentQuotationsModal = function() {
         openModal('sentQuotationsModal');
         const statusFilter = document.getElementById('sentQuotationsStatusFilter');
@@ -33117,7 +33111,7 @@ function renderGanttItemsList() {
             });
     }
     
-    function loadQuotations() {
+    window.loadQuotations = function() {
         console.log('loadQuotations function called');
         const container = document.getElementById('quotationsContainer');
         if (!container) {
