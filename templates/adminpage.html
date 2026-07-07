@@ -4133,6 +4133,43 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         if(typeof openModal==='function') openModal('quotationgeneratorModal');
     }).catch(function(e){alert('Error: '+e.message);});
 };
+
+// Bind quotation details modal footer buttons (standalone, no jQuery/ready dependency)
+(function(){
+    function bindBtn(id, fn){
+        var el=document.getElementById(id);
+        if(el && !el._earlyBound){
+            el._earlyBound=true;
+            el.addEventListener('click', fn);
+        }
+    }
+    // Check periodically for dynamically loaded modal buttons
+    function tryBindButtons(){
+        bindBtn('downloadQuotationFromModalBtn', async function(){
+            if(!window.currentViewingQuotation){alert('No quotation selected');return;}
+            var btn=this, ts=document.getElementById('downloadBtnText'), sp=document.getElementById('downloadBtnSpinner');
+            if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
+            try{await window.downloadQuotationPDFFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
+            if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
+        });
+        bindBtn('sendQuotationFromModalBtn', async function(){
+            if(!window.currentViewingQuotation){alert('No quotation selected');return;}
+            var btn=this, ts=document.getElementById('sendBtnText'), sp=document.getElementById('sendBtnSpinner');
+            if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
+            try{await window.sendQuotationFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
+            if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
+        });
+        bindBtn('editQuotationFromModalBtn', function(){
+            if(!window.currentViewingQuotation){alert('No quotation selected');return;}
+            if(typeof closeModal==='function')closeModal('quotationDetailsModal');
+            window.editQuotationFromPortal(window.currentViewingQuotation.id);
+        });
+    }
+    tryBindButtons();
+    // Retry in case modal wasn't in DOM yet
+    setTimeout(tryBindButtons, 500);
+    setTimeout(tryBindButtons, 1500);
+})();
 </script>
 
 <!-- Background Pattern Layers (from mainindex.html) -->
