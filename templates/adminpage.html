@@ -4158,58 +4158,65 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         
         var isCon = (category||'').toLowerCase().includes('construction');
         
-        var htmlContent = '<div style="font-family:Arial,sans-serif;background:#ffffff;color:#1E2A56;padding:0;margin:0;">';
+        // Category name mapping (same as formatCategoryName)
+        var catMap = {'construction_single':'Single Storey Construction','construction_double':'Double Storey Construction','kitchen':'Kitchen and Cabinets','tv_units':'TV Units','doors':'Doors','windows':'Windows','flooring':'Flooring','other':'Other'};
+        var displayCat = catMap[(category||'').toLowerCase()]||category;
+        
+        var htmlContent = '<div style="font-family:Roboto,Arial,sans-serif;background:#ffffff;color:#1E2A56;padding:0;margin:0;">';
         htmlContent += '<div style="background:#ffffff;width:100%;padding:14px 16px;border:2px solid #1E2A56;border-radius:10px;box-sizing:border-box;">';
-        htmlContent += '<img src="/static/images/web-logo.png" style="display:block;margin:0 auto 10px auto;width:130px;max-width:100%;">';
+        htmlContent += '<img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display:block;margin:0 auto 10px auto;width:130px;max-width:100%;">';
         htmlContent += '<h1 style="margin:0 0 6px 0;text-align:center;font-size:16px;font-weight:900;color:#1E2A56;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>';
         htmlContent += '<div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px auto;border-radius:10px;"></div>';
         htmlContent += '<p style="font-size:12px;margin:0 0 12px 0;line-height:1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>'+clientName+'</strong>.</p>';
         
         // Project Details
-        htmlContent += '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">PROJECT DETAILS</h4>';
+        htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">PROJECT DETAILS</h4>';
         htmlContent += '<div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;box-sizing:border-box;">';
         htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>';
         htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div></div>';
-        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>'+(category||'')+'</span></div>';
-        htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>'+fmtDate(quotationDate)+'</span></div></div></div>';
+        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>'+displayCat+'</span></div>';
+        htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>'+fmtDate(quotationDate)+'</span></div></div></div></div>';
         
-        // Summary
-        htmlContent += '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">QUOTATION SUMMARY</h4>';
+        // Quotation Summary
+        htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">QUOTATION SUMMARY</h4>';
         htmlContent += '<div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">';
         var cols = isCon ? 4 : 5;
         htmlContent += '<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:10px;text-align:center;">';
-        htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Total Amount</div><div style="font-size:13px;font-weight:900;color:#1E2A56;">$'+totalCost.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+balanceAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Monthly (6 months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        if(!isCon) htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+totalConstructionDays+' Days</div></div>';
-        htmlContent += '</div></div>';
+        htmlContent += '<div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;color:#1E2A56;">$'+tc.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+balanceAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over 6 months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        if(!isCon) htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+totalConstructionDays+' Days</div></div>';
+        htmlContent += '</div></div></div>';
         
-        // Items table
-        if(showConstruction && items.length>0){
-            htmlContent += '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">CONSTRUCTION ITEMS</h4>';
-            htmlContent += '<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px;"><thead><tr style="background:#1E2A56;color:white;"><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:left;width:50%;">Item Description</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:10%;">Qty</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:right;width:12%;">Rate (USD)</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:8%;">Days</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:right;width:14%;">Total (USD)</th></tr></thead><tbody>'+itemRows+'</tbody></table>';
+        // Quotation Notes (if any)
+        if(quotationNotes && quotationNotes.replace(/<[^>]*>/g,'').trim()){
+            htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;"><div style="border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;"><div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;">Quotation Notes</div><div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">'+quotationNotes+'</div></div></div>';
         }
         
-        // Work Schedule
-        if(showConstruction && schedules.length>0){
-            htmlContent += '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">WORK SCHEDULE</h4>';
-            htmlContent += '<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px;"><thead><tr style="background:#1E2A56;color:white;"><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:left;width:46%;">Item Description</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:24%;">Start Date</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:24%;">End Date</th></tr></thead><tbody>'+scheduleRows+'</tbody></table>';
-        }
-        
-        // Important Note & Banking
+        // Important Note & Banking Details
         htmlContent += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">';
         htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">';
-        htmlContent += '<strong style="color:#C12B3E;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.';
-        htmlContent += '<div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div></div>';
-        htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">';
-        htmlContent += '<strong style="color:#C12B3E;">Banking Details:</strong><div style="margin-top:6px;"><div><strong>Bank:</strong> CBZ</div><div><strong>Branch:</strong> Msasa</div><div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div><div><strong>Account No:</strong> 450600586638405</div><div><strong>Account Type:</strong> USD Account</div></div></div></div>';
-        
-        if(quotationNotes && quotationNotes.replace(/<[^>]*>/g,'').trim()){
-            htmlContent += '<div style="margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;"><div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;"><i class="bi bi-sticky-fill"></i> Quotation Notes</div><div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">'+quotationNotes+'</div></div>';
+        htmlContent += '<strong style="color:#C12B3E;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.';
+        htmlContent += '<div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>';
+        if(isCon){
+            htmlContent += '<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>';
+            htmlContent += '<div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;"><strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong>';
+            htmlContent += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">';
+            htmlContent += '<div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div>';
+            htmlContent += '<div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div>';
+            htmlContent += '<div>Double Storey:</div><div><strong>120-180 days</strong></div>';
+            htmlContent += '<div>Perimeter Wall:</div><div><strong>30-40 days</strong></div>';
+            htmlContent += '<div>Roofing:</div><div><strong>10-14 days</strong></div>';
+            htmlContent += '<div>Finishings:</div><div><strong>30 days</strong></div>';
+            htmlContent += '</div></div>';
         }
-        
-        htmlContent += '<div style="text-align:center;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:10px;margin-top:10px;">ConnectLink Building Projects &bull; This quotation is valid for 30 days</div>';
+        htmlContent += '</div>';
+        // Banking Details
+        htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.7;">';
+        htmlContent += '<strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong>';
+        htmlContent += '<div><strong>Bank:</strong> ZB BANK</div><div><strong>Branch:</strong> Msasa</div><div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div><div><strong>Account No:</strong> 450600586638405</div><div><strong>Account Type:</strong> USD Account</div>';
+        htmlContent += '</div></div>';
         htmlContent += '</div></div>';
         
         // Use html2pdf to generate the PDF
