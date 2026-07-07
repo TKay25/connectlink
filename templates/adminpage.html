@@ -3861,7 +3861,18 @@ window.loadActivityLog = window.loadActivityLog || function() { console.log('loa
         if(kc) kc.style.display = cat === 'kitchen' ? 'block' : 'none';
         if(tc) tc.style.display = (cat === 'tv_units' || cat === 'other') ? 'block' : 'none';
         if(oc) oc.style.display = cat === 'other' ? 'block' : 'none';
-        if(isCon && typeof window.loadConstructionItemsFromDatabase==='function') window.loadConstructionItemsFromDatabase();
+        if(isCon){
+            var el=document.getElementById('constructionItemsList');
+            if(el) el.innerHTML='<p class="text-muted p-3">Loading items...</p>';
+            fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(data){
+                quotationRatesCache = data.success ? data.data : [];
+                window.quotationRatesCache = quotationRatesCache;
+                if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList();
+            }).catch(function(err){
+                var cel=document.getElementById('constructionItemsList');
+                if(cel) cel.innerHTML='<p class="text-danger p-3">Failed to load items: '+(err.message||'Server unavailable')+'</p>';
+            });
+        }
     });
     var qs = document.getElementById('quotationSize');
     var qm = document.getElementById('quotationMarkup');
