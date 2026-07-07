@@ -19752,10 +19752,10 @@ async function saveAndDownloadQuotation() {
         showLoader('Generating PDF', 'Building your quotation document');
         
         // Generate PDF
-        if (typeof generateQuotationPDF === 'function') {
-            await generateQuotationPDF('download', window.quotationPdfTablePlacement || 'default');
+        if (typeof window.generateQuotationPDF === 'function') {
+            await window.generateQuotationPDF('download', window.quotationPdfTablePlacement || 'default');
         } else {
-            console.warn('generateQuotationPDF not defined');
+            console.warn('generateQuotationPDF not defined on window');
         }
         
         hideLoader();
