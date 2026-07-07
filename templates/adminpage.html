@@ -18076,6 +18076,65 @@ body { font-family: Arial; margin: 20px; }
                     </div>
                 </div>
 
+                <!-- Custom category name for "Other" -->
+                <div id="otherCategoryNameContainer" style="display: none;" class="mb-3">
+                    <label class="form-label fw-bold">Custom Category Name</label>
+                    <input type="text" class="form-control" id="otherCategoryName" placeholder="Enter a name for this category..." style="font-size:0.85rem;padding:6px 10px;" oninput="document.getElementById('tvUnitsTitle').textContent = this.value || 'Other Items'">
+                </div>
+
+                <!-- TV Units / Other Items Container (like kitchen but with inline add) -->
+                <div id="tvUnitsContainer" style="display: none;">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold d-block mb-3">
+                            <i class="bi bi-tv"></i> <span id="tvUnitsTitle">TV Units & Items</span>
+                        </label>
+
+                        <!-- Summary Box -->
+                        <div class="alert alert-light border mb-3 py-2" style="font-size: 0.75rem;">
+                            <div class="row g-2">
+                                <div class="col-4 d-flex align-items-center gap-1">
+                                    <strong>Items:</strong>
+                                    <span id="tvUnitItemCount" class="fw-bold text-primary">0</span>
+                                </div>
+                                <div class="col-4 d-flex align-items-center gap-1">
+                                    <strong>Total Days:</strong>
+                                    <span id="tvUnitTotalDays" class="fw-bold text-primary">0</span>
+                                </div>
+                                <div class="col-4 d-flex align-items-center justify-content-end gap-1">
+                                    <strong>Total:</strong>
+                                    <span style="color: #2196F3; font-weight: bold;">$<span id="tvUnitTotalCost">0.00</span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Item Button -->
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-success btn-sm" onclick="addTvUnitItem()">
+                                <i class="bi bi-plus-circle"></i> Add Item
+                            </button>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered table-theme" id="tvUnitItemsTable">
+                                <thead style="background-color: #1E2A56; color: white;">
+                                    <tr>
+                                        <th style="width: 35%;">Item Name</th>
+                                        <th style="width: 15%;">Qty</th>
+                                        <th style="width: 15%;">Amount (USD)</th>
+                                        <th style="width: 15%;">Days</th>
+                                        <th style="width: 15%;">Subtotal</th>
+                                        <th style="width: 5%;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tvUnitItemsBody">
+                                    <tr><td class="text-center py-3 text-muted" colspan="6">Click "Add Item" to add items</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Quotation Notes -->
                 <div class="mb-3" id="quotationGeneratorNotesContainer" style="margin-top:10px;">
                     <label class="form-label fw-bold d-block">
@@ -18434,10 +18493,27 @@ $('#quotationCategory').change(function() {
         $('#quotationSizeContainer').hide();
         $('#constructionDetailsContainer').hide();
         $('#kitchenCabinetContainer').show();
+        $('#tvUnitsContainer').hide();
+    } else if (category === 'tv_units' || category === 'other') {
+        $('#quotationSizeContainer').hide();
+        $('#constructionDetailsContainer').hide();
+        $('#kitchenCabinetContainer').hide();
+        $('#tvUnitsContainer').show();
+        if (category === 'other') {
+            $('#otherCategoryNameContainer').show();
+            var customName = $('#otherCategoryName').val() || 'Other Items';
+            $('#tvUnitsTitle').text(customName);
+        } else {
+            $('#otherCategoryNameContainer').hide();
+            $('#otherCategoryName').val('');
+            $('#tvUnitsTitle').text('TV Units & Items');
+        }
     } else {
         $('#quotationSizeContainer').hide();
         $('#constructionDetailsContainer').hide();
         $('#kitchenCabinetContainer').hide();
+        $('#tvUnitsContainer').hide();
+        $('#otherCategoryNameContainer').hide();
     }
 });
 
@@ -18482,6 +18558,77 @@ $('#addKitchenItemModal').on('hidden.bs.modal', function() {
 });
 
 window.kitchenCabinetItems = window.kitchenCabinetItems || [];
+
+// ===== TV UNITS / OTHER ITEMS MANAGEMENT =====
+window.tvUnitItems = window.tvUnitItems || [];
+
+function addTvUnitItem() {
+    window.tvUnitItems.push({
+        name: '',
+        quantity: 1,
+        amount: 0,
+        days: 1
+    });
+    renderTvUnitsTable();
+}
+
+function removeTvUnitItem(index) {
+    if (window.tvUnitItems && window.tvUnitItems[index]) {
+        window.tvUnitItems.splice(index, 1);
+        renderTvUnitsTable();
+    }
+}
+
+function updateTvUnitItem(index, field, value) {
+    if (!window.tvUnitItems[index]) return;
+    if (field === 'quantity') {
+        window.tvUnitItems[index].quantity = parseInt(value) || 1;
+    } else if (field === 'amount') {
+        window.tvUnitItems[index].amount = parseFloat(value) || 0;
+    } else if (field === 'days') {
+        window.tvUnitItems[index].days = parseInt(value) || 1;
+    } else if (field === 'name') {
+        window.tvUnitItems[index].name = value;
+    }
+    renderTvUnitsTable();
+}
+
+function renderTvUnitsTable() {
+    const tbody = document.getElementById('tvUnitItemsBody');
+    if (!tbody) return;
+    
+    let totalCostValue = 0;
+    let totalDaysValue = 0;
+    
+    if (!window.tvUnitItems || window.tvUnitItems.length === 0) {
+        tbody.innerHTML = '<tr><td class="text-center py-3 text-muted" colspan="6">Click "Add Item" to add items</td></tr>';
+        document.getElementById('tvUnitItemCount').textContent = '0';
+        document.getElementById('tvUnitTotalCost').textContent = '0.00';
+        document.getElementById('tvUnitTotalDays').textContent = '0';
+        return;
+    }
+    
+    let html = '';
+    window.tvUnitItems.forEach((item, index) => {
+        const itemTotal = (item.quantity || 1) * (item.amount || 0);
+        totalCostValue += itemTotal;
+        totalDaysValue += (item.days || 1);
+        
+        html += '<tr>' +
+            '<td><input type="text" class="form-control form-control-sm" value="' + escapeHtml(item.name || '') + '" onchange="updateTvUnitItem(' + index + ', \'name\', this.value)" placeholder="Enter item name"></td>' +
+            '<td><input type="number" class="form-control form-control-sm" value="' + (item.quantity || 1) + '" min="1" onchange="updateTvUnitItem(' + index + ', \'quantity\', this.value)"></td>' +
+            '<td><input type="number" class="form-control form-control-sm" value="' + (item.amount || 0) + '" min="0" step="100" onchange="updateTvUnitItem(' + index + ', \'amount\', this.value)"></td>' +
+            '<td><input type="number" class="form-control form-control-sm" value="' + (item.days || 1) + '" min="1" onchange="updateTvUnitItem(' + index + ', \'days\', this.value)"></td>' +
+            '<td><strong>$' + itemTotal.toLocaleString() + '</strong></td>' +
+            '<td><button class="btn btn-sm btn-danger" onclick="removeTvUnitItem(' + index + ')"><i class="bi bi-trash"></i></button></td>' +
+            '</tr>';
+    });
+    
+    tbody.innerHTML = html;
+    document.getElementById('tvUnitItemCount').textContent = window.tvUnitItems.length;
+    document.getElementById('tvUnitTotalCost').textContent = totalCostValue.toLocaleString();
+    document.getElementById('tvUnitTotalDays').textContent = totalDaysValue;
+}
 
 function renderKitchenItemsTable() {
     const tbody = document.getElementById('kitchenItemsBody');
@@ -18714,9 +18861,9 @@ async function saveAndDownloadQuotation() {
         markup: parseFloat(data.markup) || 0,
         items: (data.items || []).map((item, index) => ({
             name: item.name || item.item || 'Item',
-            quantity: parseFloat(item.sqm) || 0,
-            unitRate: parseFloat(item.inhouseRate) || 0,
-            totalPrice: parseFloat(item.total || item.clientPrice) || 0,
+            quantity: parseFloat(item.sqm || item.quantity) || 0,
+            unitRate: parseFloat(item.inhouseRate || item.amount) || 0,
+            totalPrice: parseFloat(item.totalPrice || item.total || item.clientPrice) || 0,
             item_order: index + 1
         })),
         schedules: (ganttData || []).map((schedule, index) => ({
@@ -18823,6 +18970,11 @@ function formatCategoryName(category) {
         return 'Double Storey Construction';
     } else if (category === 'kitchen') {
         return 'Kitchen & Cabinets';
+    } else if (category === 'tv_units') {
+        return 'TV Units';
+    } else if (category === 'other') {
+        var customName = document.getElementById('tvUnitsTitle');
+        return customName ? customName.textContent : 'Other Items';
     }
     return category || '';
 }
@@ -23249,6 +23401,9 @@ $(document).ready(function() {
         const category = $(this).val();
         if (category !== 'kitchen') {
             $('#kitchenCabinetContainer').hide();
+        }
+        if (category !== 'tv_units' && category !== 'other') {
+            $('#tvUnitsContainer').hide();
         }
     });
 });
@@ -30920,6 +31075,7 @@ let quillDetailsNotes = null;
                     $('#quotationSizeContainer').hide();
                     $('#constructionDetailsContainer').hide();
                     $('#kitchenCabinetContainer').show();
+                    $('#tvUnitsContainer').hide();
                     
                     // Initialize kitchen items array if not exists
                     if (!window.kitchenCabinetItems) {
@@ -30927,9 +31083,32 @@ let quillDetailsNotes = null;
                     }
                     renderKitchenItemsTable();
             } 
+            else if (selectedCategory === 'tv_units' || selectedCategory === 'other') {
+                $('#quotationSizeContainer').hide();
+                $('#constructionDetailsContainer').hide();
+                $('#kitchenCabinetContainer').hide();
+                $('#tvUnitsContainer').show();
+                if (selectedCategory === 'other') {
+                    $('#otherCategoryNameContainer').show();
+                    var customName = $('#otherCategoryName').val() || 'Other Items';
+                    $('#tvUnitsTitle').text(customName);
+                } else {
+                    $('#otherCategoryNameContainer').hide();
+                    $('#otherCategoryName').val('');
+                    $('#tvUnitsTitle').text('TV Units & Items');
+                }
+                
+                if (!window.tvUnitItems) {
+                    window.tvUnitItems = [];
+                }
+                renderTvUnitsTable();
+            }
             else {
                 $('#quotationSizeContainer').hide();
                 $('#constructionDetailsContainer').hide();
+                $('#kitchenCabinetContainer').hide();
+                $('#tvUnitsContainer').hide();
+                $('#otherCategoryNameContainer').hide();
                 $('#quotationSize').prop('required', false);
                 $('#quotationSize').val('');
                 $('#quotationMarkup').prop('required', false);
@@ -31128,17 +31307,23 @@ $('#generateQuotationBtn').click(function() {
     const isConstruction = (category === 'construction_single' || category === 'construction_double');
     const isSingleStorey = (category === 'construction_single');
 
-    if (category === 'kitchen') {
-        if (!window.kitchenCabinetItems || window.kitchenCabinetItems.length === 0) {
-            alert('Please add at least one kitchen/cabinet item.');
+    const isTvUnitsOrOther = (category === 'tv_units' || category === 'other');
+
+    // Shared variables for all categories
+    let totalCost = 0;
+    let totalDays = 0;
+
+    if (category === 'kitchen' || isTvUnitsOrOther) {
+        const items = isTvUnitsOrOther ? (window.tvUnitItems || []) : (window.kitchenCabinetItems || []);
+        
+        if (!items || items.length === 0) {
+            alert('Please add at least one item.');
             return;
         }
         
-        // Calculate total cost and total days - MAKE SURE THIS IS CORRECT
-        let totalCost = 0;
-        let totalDays = 0;
+        // Calculate total cost and total days
         
-        const itemsForQuotation = window.kitchenCabinetItems.map(item => {
+        const itemsForQuotation = items.map(item => {
             const quantity = item.quantity || 1;
             const amount = item.amount || 0;
             const itemTotal = quantity * amount;
@@ -31163,7 +31348,7 @@ $('#generateQuotationBtn').click(function() {
         let currentStartDate = new Date(quotationDate);
         const schedules = [];
         
-        window.kitchenCabinetItems.forEach((item) => {
+        items.forEach((item) => {
             const endDate = new Date(currentStartDate);
             endDate.setDate(endDate.getDate() + (item.days || 1) - 1);
             
@@ -31178,29 +31363,66 @@ $('#generateQuotationBtn').click(function() {
             currentStartDate.setDate(currentStartDate.getDate() + 1);
         });
         
-        // Store data for kitchen
-        const quotationNotes = quillGeneratorNotes ? quillGeneratorNotes.root.innerHTML : '';
-        window.kitchenQuotationData = {
-            category: category,
-            clientName: clientName,
-            clientWhatsapp: clientWhatsapp,
-            quotationDate: quotationDate,
-            items: itemsForQuotation,
-            schedules: schedules,
-            totalCost: totalCost,
-            totalDays: totalDays,
-            notes: quotationNotes
-        };
+        if (category === 'kitchen') {
+            // Store data for kitchen
+            const quotationNotes = quillGeneratorNotes ? quillGeneratorNotes.root.innerHTML : '';
+            window.kitchenQuotationData = {
+                category: category,
+                clientName: clientName,
+                clientWhatsapp: clientWhatsapp,
+                quotationDate: quotationDate,
+                items: itemsForQuotation,
+                schedules: schedules,
+                totalCost: totalCost,
+                totalDays: totalDays,
+                notes: quotationNotes
+            };
+            
+            console.log('Kitchen quotation data saved:', window.kitchenQuotationData);
+            
+            // Close generator and open KITCHEN preview modal
+            closeModal('quotationgeneratorModal');
+            setTimeout(() => {
+                displayKitchenPreview();
+                openModal('kitchenPreviewModal');
+            }, 300);
+            return;
+        }
         
-        console.log('Kitchen quotation data saved:', window.kitchenQuotationData);
-        
-        // Close generator and open KITCHEN preview modal
-        closeModal('quotationgeneratorModal');
-        setTimeout(() => {
-            displayKitchenPreview();
-            openModal('kitchenPreviewModal');
-        }, 300);
-        return;
+        // TV Units / Other category - store data and use general preview
+        if (isTvUnitsOrOther) {
+            const quotationNotes = quillGeneratorNotes ? quillGeneratorNotes.root.innerHTML : '';
+            // Use custom category name for "Other"
+            var displayCategory = category;
+            if (category === 'other') {
+                var customName = document.getElementById('otherCategoryName');
+                if (customName && customName.value.trim()) {
+                    displayCategory = customName.value.trim();
+                }
+            }
+            window.quotationData = {
+                category: displayCategory,
+                clientName: clientName,
+                clientWhatsapp: clientWhatsapp,
+                quotationDate: quotationDate,
+                items: itemsForQuotation.map(item => ({
+                    name: item.name,
+                    item: item.name,
+                    quantity: item.quantity,
+                    amount: item.amount,
+                    days: item.days || 1,
+                    total: item.totalPrice
+                })),
+                totalCost: totalCost,
+                notes: quotationNotes
+            };
+            
+            closeModal('quotationgeneratorModal');
+            setTimeout(() => {
+                openModal('quotationPreviewModal');
+            }, 300);
+            return;
+        }
     }
 
     // If construction is selected, validate additional fields
@@ -31221,7 +31443,7 @@ $('#generateQuotationBtn').click(function() {
 
     // Populate preview modal
     let selectedItems = [];
-    let totalCost = 0;
+    totalCost = 0;
     let baseCost = 0;
     let orderedConstructionItems = [];
     let markup = 0;
@@ -31990,11 +32212,12 @@ function renderPreviewItemsTable(data) {
     });
 
     previewItems.forEach((item, index) => {
-        const qty = Number(item.sqm) || 0;
-        const rate = Number(item.inhouseRate) || 0;
+        // Support both construction format (sqm, inhouseRate) and TV Units format (quantity, amount)
+        const qty = Number(item.sqm || item.quantity) || 0;
+        const rate = Number(item.inhouseRate || item.amount) || 0;
         // Get days from schedules by index
         const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
-        const total = Number(item.clientPrice || item.total || 0);
+        const total = Number(item.clientPrice || item.total || item.totalPrice || 0);
         
         totalDaysSum += days;
         totalCostPreview += total;
@@ -32038,8 +32261,10 @@ function getItemsForQuotationOutput(data) {
         item: item.item || item.name,
         sqm: item.sqm || 0,
         inhouseRate: item.inhouseRate || 0,
+        quantity: item.quantity || item.sqm || 0,
+        amount: item.amount || item.inhouseRate || 0,
         days: item.days || 0,
-        clientPrice: item.clientPrice || item.total || 0
+        clientPrice: item.clientPrice || item.total || item.totalPrice || 0
     }));
 }
 
