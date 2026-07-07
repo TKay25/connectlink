@@ -3848,6 +3848,8 @@ window.loadActivityLog = window.loadActivityLog || function() { console.log('loa
 (function(){
     var qc = document.getElementById('quotationCategory');
     if (!qc) return;
+    
+    // Add change handler for category
     qc.addEventListener('change', function(){
         var cat = this.value;
         var isCon = cat === 'construction_single' || cat === 'construction_double';
@@ -3867,10 +3869,11 @@ window.loadActivityLog = window.loadActivityLog || function() { console.log('loa
             fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(data){
                 quotationRatesCache = data.success ? data.data : [];
                 window.quotationRatesCache = quotationRatesCache;
+                // Also trigger sizing if sqm already entered
                 if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList();
             }).catch(function(err){
                 var cel=document.getElementById('constructionItemsList');
-                if(cel) cel.innerHTML='<p class="text-danger p-3">Failed to load items: '+(err.message||'Server unavailable')+'</p>';
+                if(cel) cel.innerHTML='<p class="text-danger p-3">Failed to load items: '+(err.message||'Server unavailable')+'. Make sure your server is running.</p>';
             });
         }
     });
@@ -3878,6 +3881,57 @@ window.loadActivityLog = window.loadActivityLog || function() { console.log('loa
     var qm = document.getElementById('quotationMarkup');
     if(qs) qs.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); });
     if(qm) qm.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); });
+    
+    // Bind Generate Quotation button
+    var genBtn = document.getElementById('generateQuotationBtn');
+    if(genBtn && !genBtn._earlyBound){
+        genBtn._earlyBound = true;
+        genBtn.addEventListener('click', function(){
+            var cat = document.getElementById('quotationCategory')?.value;
+            var name = document.getElementById('quotationClientName')?.value;
+            var date = document.getElementById('quotationDate')?.value;
+            if(!cat||!name||!date){alert('Please fill in all required fields.');return;}
+            // Trigger the jQuery-based handler if it exists (from doc.ready), otherwise show instructions
+            if(typeof $ !== 'undefined' && $._data && $(this).data('events')){
+                // jQuery handler is bound, it will handle it
+            } else {
+                // Fallback: show instructions
+                alert('Please use the "Generate Quotation" process:\n1. Select category\n2. Enter client details\n3. Add items\n4. Click Generate');
+            }
+            // Try to find and call the jQuery handler as well
+            try { if(typeof $==='function') $('#generateQuotationBtn').trigger('click'); } catch(e){}
+        });
+    }
+    
+    // Bind View Quotation Rates button to load data when modal opens
+    var ratesBtn = document.querySelector('[onclick*="quotationRatesModal"]');
+    if(ratesBtn){
+        var origOpen = window.openModal;
+        if(!origOpen || !origOpen._earlyPatched){
+            var prevOpen = origOpen || function(id){
+                var el=document.getElementById(id);
+                if(el) el.classList.add('active');
+            };
+            window.openModal = function(modalId){
+                if(modalId==='quotationRatesModal'){
+                    fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(data){
+                        var rates = data.success ? data.data : [];
+                        var tbody = document.getElementById('quotationRatesBody');
+                        if(tbody && rates.length>0){
+                            tbody.innerHTML = '';
+                            rates.forEach(function(rate){
+                                var tr = document.createElement('tr');
+                                tr.innerHTML = '<td><input class="form-control form-control-sm quotation-item-input" value="'+(rate.item||'')+'"></td><td><input type="number" class="form-control form-control-sm quotation-days-input" step="0.01" value="'+(rate.daysPerSqMeter||0)+'"></td><td><input type="number" class="form-control form-control-sm quotation-rate-input" step="any" value="'+(rate.inhouseRate||0)+'"></td><td style="text-align:center;"><button class="btn btn-sm btn-danger delete-rate-btn" type="button"><i class="bi bi-trash"></i></button></td>';
+                                tbody.appendChild(tr);
+                            });
+                        }
+                    }).catch(function(){});
+                }
+                prevOpen(modalId);
+            };
+            window.openModal._earlyPatched = true;
+        }
+    }
 })();
 
 // Early construction items loader (standalone, no jQuery)
