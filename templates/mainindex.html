@@ -1906,17 +1906,18 @@
 
         function render() {
             console.log('[render] modals:', JSON.stringify(state.modals));
-            dom.projectsModal.classList.toggle('active', state.modals.projects);
-            dom.hardwareModal.classList.toggle('active', state.modals.hardware);
-            dom.hrModal.classList.toggle('active', state.modals.hr);
-            dom.usersModal.classList.toggle('active', state.modals.users);
+            // Safety check — ensure modal elements exist before toggling
+            if (dom.projectsModal) dom.projectsModal.classList.toggle('active', state.modals.projects);
+            if (dom.hardwareModal) dom.hardwareModal.classList.toggle('active', state.modals.hardware);
+            if (dom.hrModal) dom.hrModal.classList.toggle('active', state.modals.hr);
+            if (dom.usersModal) dom.usersModal.classList.toggle('active', state.modals.users);
             document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr || state.modals.users) ? 'hidden' : '';
             // Log which modals ended up active
             const active = [];
-            if (dom.projectsModal.classList.contains('active')) active.push('projects');
-            if (dom.hardwareModal.classList.contains('active')) active.push('hardware');
-            if (dom.hrModal.classList.contains('active')) active.push('hr');
-            if (dom.usersModal.classList.contains('active')) active.push('users');
+            if (dom.projectsModal?.classList.contains('active')) active.push('projects');
+            if (dom.hardwareModal?.classList.contains('active')) active.push('hardware');
+            if (dom.hrModal?.classList.contains('active')) active.push('hr');
+            if (dom.usersModal?.classList.contains('active')) active.push('users');
             console.log('[render] active overlay classes:', active.length ? active : 'none');
             
             // Loading overlay
@@ -1929,13 +1930,16 @@
             }
             
             ['projects', 'hardware', 'hr', 'users'].forEach(type => {
-                const el = type === 'projects' ? dom.projectsError : type === 'hardware' ? dom.hardwareError : type === 'hr' ? dom.hrError : dom.usersError;
+                const errorEl = type === 'projects' ? dom.projectsError :
+                               type === 'hardware' ? dom.hardwareError :
+                               type === 'hr' ? dom.hrError : dom.usersError;
+                if (!errorEl) return;
                 const msg = state.errors[type];
                 if (msg) {
-                    el.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
-                    el.style.display = 'flex';
+                    errorEl.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+                    errorEl.style.display = 'flex';
                 } else {
-                    el.style.display = 'none';
+                    errorEl.style.display = 'none';
                 }
             });
         }
@@ -1947,24 +1951,15 @@
             Object.keys(state.errors).forEach(k => state.errors[k] = '');
             state.modals[portal] = true;
             console.log('[openPortal] state.modals:', JSON.stringify(state.modals));
-            render();
-            // Focus the first input
-            const focusId = { projects:'projectsEmail', hardware:'hardwareUsername', hr:'hrEmail', users:'usersEmail' }[portal];
-            const inputEl = document.getElementById(focusId);
-            console.log('[openPortal] focusId:', focusId, 'element found:', !!inputEl);
-            // CHECK COMPUTED STYLES — this will tell us if the modal is actually visible
+            // Use setTimeout to ensure render happens after any pending DOM tasks
             setTimeout(() => {
-                const overlay = document.getElementById(portal + 'LoginModal');
-                const loginModal = overlay?.querySelector('.login-modal');
-                if (overlay) {
-                    const oCS = getComputedStyle(overlay);
-                    console.log('[openPortal] overlay', portal, 'display:', oCS.display, 'opacity:', oCS.opacity);
-                }
-                if (loginModal) {
-                    const lCS = getComputedStyle(loginModal);
-                    console.log('[openPortal] login-modal', portal, 'display:', lCS.display, 'opacity:', lCS.opacity, 'transform:', lCS.transform);
-                }
-            }, 500);
+                render();
+                // Focus the first input
+                const focusId = { projects:'projectsEmail', hardware:'hardwareUsername', hr:'hrEmail', users:'usersEmail' }[portal];
+                const inputEl = document.getElementById(focusId);
+                console.log('[openPortal] focusId:', focusId, 'element found:', !!inputEl);
+                if (inputEl) inputEl.focus();
+            }, 0);
         }
 
         function closeProjectsModal() {
