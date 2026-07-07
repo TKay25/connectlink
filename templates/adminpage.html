@@ -31236,7 +31236,9 @@ let quillGeneratorNotes = null;
 let quillDetailsNotes = null;
 
     // Quotation Generator Modal Logic
+    console.log('DOCREADY: callback starting');
     $(document).ready(function() {
+        console.log('DOCREADY: callback FIRED - DOM is ready');
         // Set today's date automatically
         const today = new Date().toISOString().split('T')[0];
         $('#quotationDate').val(today);
