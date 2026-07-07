@@ -207,9 +207,11 @@
 
         /* ===== MAIN CONTENT ===== */
         .hr-main {
-            flex: 1; padding: 14px 18px; overflow-y: auto;
+            flex: 1; padding: 10px 14px; overflow-y: auto;
             background: linear-gradient(170deg, #F8FAFC 0%, #EEF2F7 40%, #E8EDF3 100%);
             min-height: calc(100vh - var(--nav-height));
+            display: flex;
+            flex-direction: column;
         }
 
         /* Page header */
@@ -474,16 +476,52 @@
         .quick-action-card .qa-arrow { font-size: 0.65rem; color: var(--gray-300); transition: var(--transition); }
         .quick-action-card:hover .qa-arrow { color: var(--primary); transform: translateX(2px); }
 
-        /* ===== DASHBOARD GRID ===== */
-        .dash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .dash-col { min-width: 0; }
-        .dash-col .hr-stat-card, .dash-col .hr-card { margin-bottom: 6px; }
-        .dash-col .hr-stat-card:last-child, .dash-col .hr-card:last-child { margin-bottom: 0; }
+        /* ===== DASHBOARD GRID — Full-screen filling ===== */
+        .dash-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            flex: 1;
+            min-height: 0;
+            align-content: stretch;
+        }
+        .dash-col {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .dash-col .hr-stat-card { margin-bottom: 0; flex-shrink: 0; }
+        .dash-col .hr-card { margin-bottom: 0; flex-shrink: 0; }
+        .dash-col .dash-fill {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .dash-col .dash-fill .hr-card {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .dash-col .dash-fill .hr-card .card-body-custom {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
         .dash-col-header div { font-size: 0.6rem !important; letter-spacing: 0.4px !important; }
 
-        /* ===== MODULE TRANSITIONS ===== */
+        /* ===== MODULE TRANSITIONS — Fill full viewport ===== */
         .hr-module { display: none; }
-        .hr-module.active { display: flex; flex-direction: column; animation: moduleIn 0.3s ease; min-height: calc(100vh - var(--nav-height) - 28px); }
+        .hr-module.active {
+            display: flex;
+            flex-direction: column;
+            animation: moduleIn 0.3s ease;
+            min-height: calc(100vh - var(--nav-height) - 28px);
+            height: calc(100vh - var(--nav-height) - 28px);
+        }
+        #module-dashboard.active .page-header { flex-shrink: 0; }
         @keyframes moduleIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
 
         .hr-module.active .fill-height-card { flex:1; display:flex; flex-direction:column; min-height:0; }
@@ -902,10 +940,10 @@
             <div class="dash-grid">
                 <!-- HR Column -->
                 <div class="dash-col">
-                    <div class="dash-col-header" style="border-left:3px solid #2563eb;padding-left:8px;margin-bottom:6px;">
+                    <div class="dash-col-header" style="border-left:3px solid #2563eb;padding-left:8px;">
                         <div style="font-size:0.65rem;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-people-fill"></i> Human Resources</div>
                     </div>
-                    <div class="hr-stat-card" style="margin-bottom:4px;">
+                    <div class="hr-stat-card">
                         <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Total Employees</div>
@@ -913,13 +951,13 @@
                             <div class="stat-sub">Active workforce</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" style="margin-bottom:4px;padding:6px 10px;">
+                    <div class="hr-stat-card" style="padding:6px 10px;">
                         <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Departments</div>
                         <div id="deptBreakdown" style="font-size:0.55rem;color:var(--text-secondary);">
                             <span style="color:#9ca3af;">Loading...</span>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;margin-bottom:0;">
+                    <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;margin-top:auto;">
                         <div class="stat-icon blue"><i class="bi bi-person-plus"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
@@ -931,10 +969,10 @@
 
                 <!-- Leave Column -->
                 <div class="dash-col">
-                    <div class="dash-col-header" style="border-left:3px solid #d97706;padding-left:8px;margin-bottom:6px;">
+                    <div class="dash-col-header" style="border-left:3px solid #d97706;padding-left:8px;">
                         <div style="font-size:0.65rem;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-calendar-check"></i> Leave Management</div>
                     </div>
-                    <div class="hr-stat-card" style="margin-bottom:4px;">
+                    <div class="hr-stat-card">
                         <div class="stat-icon amber"><i class="bi bi-calendar-check"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">On Leave Today</div>
@@ -942,7 +980,7 @@
                             <div class="stat-sub">Approved leave</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" style="margin-bottom:4px;">
+                    <div class="hr-stat-card">
                         <div class="stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Pending Requests</div>
@@ -950,14 +988,14 @@
                             <div class="stat-sub">Awaiting approval</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" style="margin-bottom:4px;padding:6px 10px;">
+                    <div class="hr-stat-card" style="padding:6px 10px;">
                         <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">This Month</div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
                             <span style="font-size:0.55rem;color:var(--text-secondary);"><span style="font-weight:700;" id="statApprovedLeaves">0</span> Approved</span>
                             <span style="font-size:0.55rem;color:var(--text-secondary);"><span style="font-weight:700;" id="statTotalDays">0</span> Days taken</span>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;margin-bottom:0;">
+                    <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;margin-top:auto;">
                         <div class="stat-icon green"><i class="bi bi-send-plus"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
@@ -969,10 +1007,10 @@
 
                 <!-- Finance & Assets Column -->
                 <div class="dash-col">
-                    <div class="dash-col-header" style="border-left:3px solid #7c3aed;padding-left:8px;margin-bottom:6px;">
+                    <div class="dash-col-header" style="border-left:3px solid #7c3aed;padding-left:8px;">
                         <div style="font-size:0.65rem;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-briefcase-fill"></i> Finance &amp; Assets</div>
                     </div>
-                    <div class="hr-stat-card" style="margin-bottom:4px;">
+                    <div class="hr-stat-card">
                         <div class="stat-icon purple"><i class="bi bi-wallet2"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Payroll (This Month)</div>
@@ -980,19 +1018,19 @@
                             <div class="stat-sub">Total payroll</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" style="margin-bottom:4px;padding:6px 10px;">
+                    <div class="hr-stat-card" style="padding:6px 10px;">
                         <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">PAYE Tax Table</div>
                         <div id="payeDashboardStatus" style="font-size:0.55rem;color:var(--text-secondary);">
                             <span style="color:#9ca3af;">Loading...</span>
                         </div>
                     </div>
-                    <div class="hr-stat-card" style="margin-bottom:4px;padding:6px 10px;">
+                    <div class="hr-stat-card" style="padding:6px 10px;">
                         <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Asset Summary</div>
                         <div id="assetSummary" style="font-size:0.55rem;color:var(--text-secondary);">
                             <span style="color:#9ca3af;">Loading...</span>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('payroll')" style="cursor:pointer;margin-bottom:4px;">
+                    <div class="hr-stat-card" onclick="showModule('payroll')" style="cursor:pointer;">
                         <div class="stat-icon purple"><i class="bi bi-wallet2"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
@@ -1000,7 +1038,7 @@
                             <div class="stat-sub">Process →</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;margin-bottom:0;">
+                    <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;margin-top:auto;">
                         <div class="stat-icon teal"><i class="bi bi-boxes"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
@@ -1012,38 +1050,40 @@
 
                 <!-- Activity Column -->
                 <div class="dash-col">
-                    <div class="dash-col-header" style="border-left:3px solid #0891b2;padding-left:8px;margin-bottom:6px;">
+                    <div class="dash-col-header" style="border-left:3px solid #0891b2;padding-left:8px;">
                         <div style="font-size:0.65rem;font-weight:700;color:#0891b2;text-transform:uppercase;letter-spacing:0.3px;"><i class="bi bi-activity"></i> Activity &amp; Events</div>
                     </div>
-                    <div class="hr-card" style="margin-bottom:4px;">
-                        <div class="card-header-custom" style="padding:5px 8px;">
-                            <span style="font-size:0.5rem;font-weight:600;"><i class="bi bi-clock-history"></i> Recent Activity</span>
-                            <span style="font-size:0.45rem;color:var(--text-muted);">Last 7 days</span>
-                        </div>
-                        <div class="card-body-custom" style="max-height:120px;overflow-y:auto;padding:0;">
-                            <div id="activityTimeline" style="padding:10px;text-align:center;color:var(--text-muted);font-size:0.5rem;">
-                                <i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:3px;"></i>
-                                No recent activity.
+                    <div class="dash-fill">
+                        <div class="hr-card">
+                            <div class="card-header-custom" style="padding:5px 8px;">
+                                <span style="font-size:0.5rem;font-weight:600;"><i class="bi bi-clock-history"></i> Recent Activity</span>
+                                <span style="font-size:0.45rem;color:var(--text-muted);">Last 7 days</span>
+                            </div>
+                            <div class="card-body-custom" style="padding:0;">
+                                <div id="activityTimeline" style="padding:10px;text-align:center;color:var(--text-muted);font-size:0.5rem;">
+                                    <i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:3px;"></i>
+                                    No recent activity.
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="hr-card" style="margin-bottom:4px;">
-                        <div class="card-header-custom" style="padding:5px 8px;">
-                            <span style="font-size:0.5rem;font-weight:600;"><i class="bi bi-gift"></i> Upcoming Birthdays</span>
-                            <span style="font-size:0.45rem;color:var(--text-muted);">This month</span>
-                        </div>
-                        <div class="card-body-custom" style="padding:0;">
-                            <div id="birthdaysList" style="padding:10px;text-align:center;color:var(--text-muted);font-size:0.5rem;">
-                                <i class="bi bi-calendar-heart" style="font-size:0.9rem;display:block;margin-bottom:3px;"></i>
-                                No upcoming birthdays.
+                        <div class="hr-card">
+                            <div class="card-header-custom" style="padding:5px 8px;">
+                                <span style="font-size:0.5rem;font-weight:600;"><i class="bi bi-gift"></i> Upcoming Birthdays</span>
+                                <span style="font-size:0.45rem;color:var(--text-muted);">This month</span>
+                            </div>
+                            <div class="card-body-custom" style="padding:0;">
+                                <div id="birthdaysList" style="padding:10px;text-align:center;color:var(--text-muted);font-size:0.5rem;">
+                                    <i class="bi bi-calendar-heart" style="font-size:0.9rem;display:block;margin-bottom:3px;"></i>
+                                    No upcoming birthdays.
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="hr-stat-card" style="margin-bottom:0;padding:6px 10px;">
-                        <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Quick Stats</div>
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;color:var(--text-secondary);"><span id="statActivePct">0</span>% Active</span>
-                            <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;color:var(--text-secondary);"><span id="statDeptCount">0</span> Depts</span>
+                        <div class="hr-stat-card" style="padding:6px 10px;margin-top:auto;">
+                            <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Quick Stats</div>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;color:var(--text-secondary);"><span id="statActivePct">0</span>% Active</span>
+                                <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:4px;color:var(--text-secondary);"><span id="statDeptCount">0</span> Depts</span>
+                            </div>
                         </div>
                     </div>
                 </div>
