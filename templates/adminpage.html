@@ -37962,6 +37962,27 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(typeof window.renderPreviewItemsTable==='function' && qd){
                     window.renderPreviewItemsTable(qd);
                 }
+                // Fallback: if items table still empty, build it directly
+                var qit = document.getElementById('quotationItemsTable');
+                if(qit && (!qit.children || qit.children.length === 0 || (qit.children.length === 1 && !qit.children[0].tagName))){
+                    var fbItems = (qd && qd.items) || [];
+                    if(fbItems.length){
+                        var fh = '', fTotal = 0, fDays = 0;
+                        var gantt = window.ganttChartData || [];
+                        fbItems.forEach(function(it, idx){
+                            var qty = Number(it.sqm || it.quantity) || 0;
+                            var rate = Number(it.inhouseRate || it.amount) || 0;
+                            var days = (gantt[idx] && gantt[idx].days) || it.days || 0;
+                            var total = Number(it.clientPrice || it.total || it.totalPrice || 0);
+                            fTotal += total; fDays += days;
+                            fh += '<tr><td style="font-size:0.75rem;padding:4px 6px;text-align:left;">'+(it.item||it.name||'Item')+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;">'+qty.toFixed(2)+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;">'+(typeof formatCurrency==='function'?formatCurrency(rate):'$'+rate.toFixed(2))+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;font-weight:600;color:#2196F3;">'+days+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;font-weight:700;color:var(--primary);">'+(typeof formatCurrency==='function'?formatCurrency(total):'$'+total.toFixed(2))+'</td></tr>';
+                        });
+                        if(fbItems.length) fh += '<tr><td colspan="3" style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);"><strong>TOTAL</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid var(--primary);color:#2196F3;"><strong>'+fDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);color:var(--primary);"><strong>'+(typeof formatCurrency==='function'?formatCurrency(fTotal):'$'+fTotal.toFixed(2))+'</strong></td></tr>';
+                        qit.innerHTML = fh;
+                        var tdd = document.getElementById('totalDurationDays');
+                        if(tdd) tdd.textContent = fDays;
+                    }
+                }
                 if(typeof window.displayGanttChartInPreview==='function'){
                     setTimeout(function(){ window.displayGanttChartInPreview(); }, 100);
                 }
