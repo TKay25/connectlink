@@ -4182,7 +4182,18 @@ body { font-family: Arial; margin: 20px; }
 
                         <!-- ACTIVITY LOG TAB -->
                         <div class="tab-pane fade" id="activity-tab">
-                            <div style="display:flex;flex-wrap:nowrap;gap:6px;margin-bottom:6px;align-items:center;width:100%;">
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;align-items:center;width:100%;">
+                                <select id="activityLogDateFilter" style="font-size:0.75rem;padding:4px 10px;border:1px solid #ddd;border-radius:4px;flex-shrink:0;" onchange="loadActivityLog()">
+                                    <option value="today">Today</option>
+                                    <option value="yesterday">Yesterday</option>
+                                    <option value="this_week">This Week</option>
+                                    <option value="last_week">Last Week</option>
+                                    <option value="this_month">This Month</option>
+                                    <option value="last_month">Last Month</option>
+                                    <option value="this_year">This Year</option>
+                                    <option value="last_year">Last Year</option>
+                                    <option value="">All Time</option>
+                                </select>
                                 <input type="text" id="activityLogSearch" placeholder="🔍 Search activity..." style="font-size:0.75rem;padding:4px 10px;border:1px solid #ddd;border-radius:4px;flex:1;min-width:80px;" oninput="filterActivityLog()">
                                 <select id="activityLogUserFilter" style="font-size:0.75rem;padding:4px 10px;border:1px solid #ddd;border-radius:4px;flex-shrink:0;" onchange="filterActivityLog()">
                                     <option value="">All users</option>
@@ -4237,7 +4248,8 @@ body { font-family: Arial; margin: 20px; }
                                     <option value="note_added">Notes Added</option>
                                 </select>
                             </div>
-                            <div class="container2" style="overflow-y:auto; background:#fafafa; border-radius:4px; padding:4px; max-height:65vh;">
+                            <div id="activityLogSummary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px;margin-bottom:6px;"></div>
+                            <div class="container2" style="overflow-y:auto; background:#fafafa; border-radius:4px; padding:4px; max-height:55vh;">
                                 <div id="activityLogContainer">
                                     <div class="empty-state">
                                         <div class="empty-icon"><i class="bi bi-clock-history"></i></div>
@@ -34768,21 +34780,78 @@ function loadActivityLog() {
     
     const filterVal = document.getElementById('activityLogFilter')?.value || '';
     const userVal = document.getElementById('activityLogUserFilter')?.value || '';
+    const dateVal = document.getElementById('activityLogDateFilter')?.value || '';
     let url = '/api/activity-log?limit=500';
     if (filterVal) url += '&action_type=' + encodeURIComponent(filterVal);
     if (userVal) url += (filterVal ? '&' : '') + '&user_name=' + encodeURIComponent(userVal);
+    if (dateVal) url += (filterVal || userVal ? '&' : '') + '&date_range=' + encodeURIComponent(dateVal);
     
     fetch(url)
         .then(r => r.json())
         .then(res => {
             if (!res.success) { container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="empty-title">Failed to load</div><div class="empty-desc">' + (res.error || 'Unknown error') + '</div></div>'; return; }
             _activityLogData = res.data || [];
+            renderActivityLogSummary(_activityLogData);
             renderActivityLog(_activityLogData);
         })
         .catch(err => {
             console.error('loadActivityLog fetch error:', err);
             container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div><div class="empty-desc">Could not reach server. Check your connection.</div></div>';
         });
+}
+
+function renderActivityLogSummary(data) {
+    var summaryEl = document.getElementById('activityLogSummary');
+    if (!summaryEl) return;
+    if (!data || !data.length) { summaryEl.innerHTML = ''; return; }
+
+    // Build per-user summary
+    var userStats = {};
+    var actionLabels = {
+        'quotation_created': 'Quotations',
+        'whatsapp_message_sent': 'WhatsApp Chats',
+        'contract_sent_whatsapp': 'Contracts Sent',
+        'contract_downloaded': 'Contracts Downloaded',
+        'project_created': 'Projects Created',
+        'project_updated': 'Projects Updated',
+        'user_login': 'Logins',
+        'user_logout': 'Logouts',
+        'enquiry_status_changed': 'Enquiries',
+        'installment_paid': 'Payments',
+        'payment_reminder_sent': 'Reminders',
+        'template_sent': 'Templates Sent',
+        'bulk_message_sent': 'Bulk Messages'
+    };
+
+    data.forEach(function(item) {
+        var user = item.user_name || 'Unknown';
+        if (!userStats[user]) userStats[user] = { total: 0, actions: {} };
+        userStats[user].total++;
+        var type = item.action_type || 'other';
+        userStats[user].actions[type] = (userStats[user].actions[type] || 0) + 1;
+    });
+
+    var html = '';
+    Object.keys(userStats).forEach(function(user) {
+        var stats = userStats[user];
+        html += '<div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;padding:6px 8px;font-size:0.65rem;">';
+        html += '<div style="font-weight:600;margin-bottom:3px;">' + user + ' <span style="color:var(--text-muted);font-weight:400;">(' + stats.total + ')</span></div>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:2px 6px;">';
+        Object.keys(actionLabels).forEach(function(atype) {
+            var count = stats.actions[atype] || 0;
+            if (count > 0) {
+                html += '<span style="background:#e8f4f8;padding:1px 6px;border-radius:3px;"><strong>' + count + '</strong> ' + actionLabels[atype] + '</span>';
+            }
+        });
+        // Show remaining action types not in the predefined labels
+        Object.keys(stats.actions).forEach(function(atype) {
+            if (!actionLabels[atype]) {
+                html += '<span style="background:#f0f0f0;padding:1px 6px;border-radius:3px;"><strong>' + stats.actions[atype] + '</strong> ' + atype.replace(/_/g, ' ') + '</span>';
+            }
+        });
+        html += '</div></div>';
+    });
+    summaryEl.innerHTML = html;
 }
 
 function filterActivityLog() {

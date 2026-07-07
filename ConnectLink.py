@@ -10136,10 +10136,53 @@ def handle_activity_log():
         limit = request.args.get('limit', 100, type=int)
         action_filter = request.args.get('action_type', '')
         user_filter = request.args.get('user_name', '')
+        date_range = request.args.get('date_range', 'today')
         
         with get_db() as (cursor, connection):
             conditions = []
             params = []
+            
+            # Apply date range filter
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            if date_range == 'today':
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                conditions.append("created_at >= %s")
+                params.append(start_date)
+            elif date_range == 'yesterday':
+                start_date = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                conditions.append("created_at >= %s AND created_at < %s")
+                params.extend([start_date, end_date])
+            elif date_range == 'this_week':
+                start_date = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                conditions.append("created_at >= %s")
+                params.append(start_date)
+            elif date_range == 'last_week':
+                end_date = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                start_date = end_date - timedelta(days=7)
+                conditions.append("created_at >= %s AND created_at < %s")
+                params.extend([start_date, end_date])
+            elif date_range == 'this_month':
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                conditions.append("created_at >= %s")
+                params.append(start_date)
+            elif date_range == 'last_month':
+                first_of_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end_date = first_of_this
+                start_date = (first_of_this - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                conditions.append("created_at >= %s AND created_at < %s")
+                params.extend([start_date, end_date])
+            elif date_range == 'this_year':
+                start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                conditions.append("created_at >= %s")
+                params.append(start_date)
+            elif date_range == 'last_year':
+                start_date = now.replace(year=now.year-1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                end_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                conditions.append("created_at >= %s AND created_at < %s")
+                params.extend([start_date, end_date])
+            # 'all_time' — no date filter
             
             if action_filter:
                 conditions.append("action_type = %s")
