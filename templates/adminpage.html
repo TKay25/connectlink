@@ -3982,18 +3982,21 @@ window.renderConstructionItemsList = window.renderConstructionItemsList || funct
     var markupMultiplier = 1 + (markup / 100);
     var totalCost = 0;
     
-    quotationRatesCache.forEach(function(rate){
+    quotationRatesCache.forEach(function(rate, idx){
         var clientRatePerSqm = Number(rate.inhouseRate) || 0;
         var clientPrice = clientRatePerSqm * sqm;
         var basePrice = clientPrice / markupMultiplier;
         var isExcluded = isSingleStorey && excluded.some(function(e){return (rate.item||'').toLowerCase().includes(e.toLowerCase());});
         var style = isExcluded ? 'opacity:0.6;background:#f5f5f5;' : '';
         var disabled = isExcluded ? 'disabled' : '';
+        var rowBg = idx % 2 === 0 ? '#fff' : '#f8f9fa';
         
-        html += '<div class="construction-item-row" style="display:flex;align-items:center;padding:3px 8px;border-bottom:1px solid #eee;'+style+'">';
-        html += '<input type="checkbox" class="construction-item-checkbox me-2" '+disabled+' style="flex-shrink:0;">';
-        html += '<div style="flex:1;min-width:0;"><strong style="font-size:0.7rem;">'+(rate.item||'')+'</strong><br><small class="text-muted" style="font-size:0.65rem;">'+(rate.daysPerSqMeter||0)+' days/sqm - $'+(rate.inhouseRate||0)+'/sqm</small></div>';
-        html += '<div style="text-align:right;flex-shrink:0;margin-left:8px;"><div style="font-weight:700;color:#2196F3;font-size:0.7rem;">$'+clientPrice.toFixed(2)+'</div><small style="font-size:0.6rem;color:#999;">Base: $'+basePrice.toFixed(2)+'</small></div></div>';
+        html += '<div class="border-bottom p-3 construction-item-row" style="background-color:'+rowBg+';'+style+'">';
+        html += '<div style="display:flex;align-items:flex-start;gap:10px;">';
+        html += '<input type="checkbox" class="construction-item-checkbox me-2" '+disabled+' style="margin-top:3px;flex-shrink:0;">';
+        html += '<div style="flex:1;"><div class="fw-bold" style="font-size:0.95rem;margin-bottom:4px;">'+(rate.item||'')+(isExcluded?' <span class="badge bg-secondary ms-2" style="font-size:0.7rem;">Not for Single Storey</span>':'')+'</div>';
+        html += '<small class="text-muted" style="display:block;line-height:1.5;">Client Rate: <strong>$'+clientRatePerSqm.toFixed(2)+'</strong>/sqm × <strong>'+sqm+'</strong> sqm = <strong style="color:#2196F3;">$'+clientPrice.toFixed(2)+'</strong>';
+        html += '<br><span style="color:#6c757d;">Inhouse (at '+markup+'% markup): <strong>$'+basePrice.toFixed(2)+'</strong></span></small></div></div></div>';
         
         if(!isExcluded) totalCost += clientPrice;
     });
