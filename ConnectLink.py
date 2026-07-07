@@ -13332,12 +13332,12 @@ def hr_payroll_api():
                         'cumulative': float(br[3] or 0)
                     })
 
-                def calc_paye_tax(annual_salary, brackets):
-                    """Calculate PAYE tax using progressive tax brackets."""
+                def calc_paye_tax(monthly_salary, brackets):
+                    """Calculate PAYE tax using monthly progressive tax brackets."""
                     if not brackets:
                         return 0
                     tax = 0
-                    remaining = annual_salary
+                    remaining = monthly_salary
                     for b in brackets:
                         if remaining <= 0:
                             break
@@ -13401,10 +13401,8 @@ def hr_payroll_api():
                     allowances = 0
                     gross = basic + allowances
 
-                    # Calculate PAYE tax (annualize salary, compute tax, then monthly)
-                    annual_salary = basic * 12
-                    annual_paye = calc_paye_tax(annual_salary, paye_brackets)
-                    monthly_paye = annual_paye / 12
+                    # Calculate PAYE tax using monthly brackets directly
+                    monthly_paye = calc_paye_tax(basic, paye_brackets)
 
                     # Calculate all statutory deductions
                     stats = calc_statutory_deductions(basic, monthly_paye)
@@ -13605,7 +13603,7 @@ def hr_payroll_api():
 ALLOWED_PAYE_EXTENSIONS = {'pdf'}
 
 def parse_paye_pdf(file_bytes):
-    """Parse a PAYE tax table PDF and extract brackets."""
+    """Parse a ZIMRA PAYE tax table PDF — extracts ONLY the Monthly Table section."""
     import re
     from PyPDF2 import PdfReader
     import io
@@ -13615,98 +13613,115 @@ def parse_paye_pdf(file_bytes):
     for page in reader.pages:
         text += page.extract_text() + "\n"
 
-    brackets = []
+    # Split into lines
     lines = text.split('\n')
-    
-    # Common patterns in PAYE tables:
-    # Pattern 1: "Up to $X" or "1 - $X" → rate
-    # Pattern 2: "$X - $Y" → rate
-    # Pattern 3: "Above $X" or "Over $X" → rate
-    # Try to extract tabular data
-    
-    # Pattern: look for lines with dollar amounts and percentages
-    for line in lines:
+
+    # Step 1: Locate the MONTHLY TABLE section.
+    # The PDF has sections: DAILY TABLE, WEEKLY TABLE, FORTNIGHTLY TABLE, MONTHLY TABLE, ANNUAL TABLE
+    monthly_start = -1
+    monthly_end = -1
+    for i, line in enumerate(lines):
+        upper = line.strip().upper()
+        if 'MONTHLY TABLE' in upper:
+            monthly_start = i
+        if monthly_start >= 0 and ('WEEKLY TABLE' in upper or 'FORTNIGHTLY TABLE' in upper or 'ANNUAL TABLE' in upper):
+            # Only stop if we find another section header AFTER monthly
+            if i > monthly_start:
+                monthly_end = i
+                break
+
+    if monthly_start < 0:
+        # Fallback: use the whole text if "MONTHLY TABLE" not found
+        monthly_lines = lines
+    else:
+        monthly_lines = lines[monthly_start + 1:] if monthly_end < 0 else lines[monthly_start + 1:monthly_end]
+
+    # Step 2: Parse bracket lines from the monthly section.
+    # Format: from X to Y multiply by Z% [Deduct W]
+    #         or: from X and above multiply by Z% Deduct W
+    #         or: from - to Y multiply by Z% (first bracket with 0%)
+    brackets = []
+
+    bracket_pattern = re.compile(
+        r'from\s+([\d,]+(?:\.\d+)?)\s*(?:[-–—]|to)\s*([\d,]+(?:\.\d+)?|above)\s+multiply\s+by\s+([\d.]+)\s*%\s*(?:Deduct\s+([\d,]+(?:\.\d+)?))?',
+        re.I
+    )
+
+    for line in monthly_lines:
         line = line.strip()
         if not line:
             continue
-            
-        # Match: "1 - 5,000 0%" or "5,001 - 10,000 20%" etc.
-        m = re.match(r'^[\d\.]+\s*[-–—to]+\s*([\d,]+)\s+([\d\.]+)\s*%?', line.replace(',','').replace(' ',''))
-        if m:
-            # This might be numbered bracket, skip as first num might be index
+
+        m = bracket_pattern.search(line)
+        if not m:
             continue
-            
-        # Match: ranges like "0 - 5,000" or "$0 - $5,000"
-        m = re.search(r'(?:Up to)\s*\$?([\d,]+)', line, re.I)
-        if m:
-            upper = float(m.group(1).replace(',', ''))
-            brackets.append({'from': 0, 'to': upper, 'rate': 0})
-            continue
-            
-        m = re.search(r'(?:Over|Above|Beyond)\s*\$?([\d,]+)', line, re.I)
-        if m:
-            lower = float(m.group(1).replace(',', ''))
-            # Check if there's a percentage on this line
-            rate_m = re.search(r'([\d\.]+)\s*%', line)
-            rate = float(rate_m.group(1)) if rate_m else 0
-            brackets.append({'from': lower, 'to': -1, 'rate': rate})
-            continue
-    
-    # If we didn't find structured brackets, try harder parsing
-    if len(brackets) < 2:
-        brackets = []
-        # Find all lines with percentages
-        for line in lines:
+
+        lower_str = m.group(1).strip()
+        upper_str = m.group(2).strip()
+        rate_str = m.group(3).strip()
+        deduct_str = m.group(4)
+
+        # Clean commas and parse
+        try:
+            from_val = float(lower_str.replace(',', ''))
+        except ValueError:
+            # 'from - to ...' case – from is '-', treat as 0
+            from_val = 0.0
+
+        is_open_ended = 'above' in upper_str.lower()
+        to_val = -1 if is_open_ended else float(upper_str.replace(',', ''))
+
+        rate = float(rate_str.replace(',', ''))
+
+        cumulative = float(deduct_str.replace(',', '')) if deduct_str else 0.0
+
+        brackets.append({
+            'from': from_val,
+            'to': to_val,
+            'rate': rate,
+            'cumulative': cumulative
+        })
+
+    # Step 3: If no brackets found via the pattern, fall back to simpler line matching
+    if not brackets:
+        # Fallback: look for percentage + range patterns within monthly section
+        for line in monthly_lines:
             line = line.strip()
             if not line:
                 continue
-            # Look for percentage
-            pct_m = re.search(r'([\d\.]+)\s*%', line)
+            pct_m = re.search(r'([\d.]+)\s*%', line)
             if not pct_m:
                 continue
             rate = float(pct_m.group(1))
-            
-            # Look for range: X - Y or X–Y or X to Y
-            range_m = re.search(r'\$?([\d,]+)\s*[-–—to]+\s*\$?([\d,]+)', line, re.I)
+
+            # "from X to Y" or "X to Y" or "X – Y"
+            range_m = re.search(r'(?:from\s+)?([\d,]+(?:\.\d+)?)\s*[-–—to]+\s*([\d,]+(?:\.\d+)?)', line, re.I)
             if range_m:
-                frm = float(range_m.group(1).replace(',', ''))
-                to = float(range_m.group(2).replace(',', ''))
-                brackets.append({'from': frm, 'to': to, 'rate': rate})
+                from_val = float(range_m.group(1).replace(',', ''))
+                to_val = float(range_m.group(2).replace(',', ''))
+                deduct_m = re.search(r'(?:Deduct|–)\s*\$?([\d,]+(?:\.\d+)?)', line, re.I)
+                cumulative = float(deduct_m.group(1).replace(',', '')) if deduct_m else 0
+                brackets.append({'from': from_val, 'to': to_val, 'rate': rate, 'cumulative': cumulative})
                 continue
-            
-            # Look for "Up to X"
-            up_m = re.search(r'(?:Up to|First|Below)\s*\$?([\d,]+)', line, re.I)
-            if up_m:
-                upper = float(up_m.group(1).replace(',', ''))
-                brackets.append({'from': 0, 'to': upper, 'rate': rate})
+
+            # "X and above"
+            above_m = re.search(r'([\d,]+(?:\.\d+)?)\s*and\s*above', line, re.I)
+            if above_m:
+                from_val = float(above_m.group(1).replace(',', ''))
+                deduct_m = re.search(r'(?:Deduct|–)\s*\$?([\d,]+(?:\.\d+)?)', line, re.I)
+                cumulative = float(deduct_m.group(1).replace(',', '')) if deduct_m else 0
+                brackets.append({'from': from_val, 'to': -1, 'rate': rate, 'cumulative': cumulative})
                 continue
-            
-            # Look for "Over X" or "Above X"
-            over_m = re.search(r'(?:Over|Above|Beyond|Exceeding)\s*\$?([\d,]+)', line, re.I)
-            if over_m:
-                lower = float(over_m.group(1).replace(',', ''))
-                brackets.append({'from': lower, 'to': -1, 'rate': rate})
-                continue
-        
-        # Sort by from
+
+    # Step 4: Sort by 'from' value and ensure 'to' values are consistent
+    if brackets:
         brackets.sort(key=lambda b: b['from'])
-        
-        # Fill in 'to' values based on next bracket's 'from'
         for i in range(len(brackets) - 1):
-            if brackets[i]['to'] == -1 or brackets[i]['to'] == 0:
+            if brackets[i]['to'] <= 0 or brackets[i]['to'] == 0:
                 brackets[i]['to'] = brackets[i + 1]['from']
         if brackets and brackets[-1]['to'] <= 0:
-            brackets[-1]['to'] = -1  # open-ended top bracket
-    
-    # Calculate cumulative tax for each bracket
-    cumulative = 0
-    for b in brackets:
-        if b['to'] > 0 and b['rate'] > 0:
-            bracket_income = b['to'] - b['from']
-            if bracket_income > 0:
-                cumulative += bracket_income * (b['rate'] / 100)
-        b['cumulative'] = cumulative
-    
+            brackets[-1]['to'] = -1
+
     return brackets
 
 
@@ -13945,10 +13960,11 @@ def hr_paye_download_pdf(table_id):
 <body>
     <div class="header">
         <h1>{table_name}</h1>
-        <h2>PAYE Tax Table</h2>
+        <h2>PAYE Tax Table (Monthly)</h2>
     </div>
     <div class="meta">
         <span><strong>Period:</strong> {period}</span>
+        <span><strong>Type:</strong> Monthly</span>
         <span><strong>Uploaded by:</strong> {uploaded_by}</span>
         <span><strong>Date:</strong> {uploaded_at}</span>
         <span><strong>Status:</strong> {'Active' if is_active else 'Inactive'}</span>
