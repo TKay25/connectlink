@@ -4192,7 +4192,7 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         
         var isKitchen = (category||'').toLowerCase().includes('kitchen');
         var isCon = (category||'').toLowerCase().includes('construction');
-        var depositRate = isKitchen ? 0 : 0.30;
+        var depositRate = 0.30;
         var numMonths = isKitchen ? 3 : 6;
         
         var fmtDate = function(v){
@@ -4262,9 +4262,9 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         var cols = isCon ? 4 : 5;
         htmlContent += '<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:10px;text-align:center;">';
         htmlContent += '<div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;color:#1E2A56;">$'+totalCost.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">'+(isKitchen?'Deposit':'Deposit (30%)')+'</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
         htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+balanceAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over '+numMonths+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over '+numMonths+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
         if(!isCon) htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+totalConstructionDays+' Days</div></div>';
         htmlContent += '</div></div></div>';
         
