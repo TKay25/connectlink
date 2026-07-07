@@ -7527,8 +7527,8 @@ def webhook():
                                                                                 <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
                                                                                 <div class="field-row"><div class="field-label">TIN Number:</div><div class="field-value">{project.get('company_tin','')}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
-                                                                                <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
-                                                                                <div class="field-row"><div class="field-label">WhatsApp Chatbot:</div><div class="field-value">0{project.get('companycontact3','')} (Download contract agreements &amp; payment history here)</div></div>
+                                                                                <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">+{project['companycontact1']} / +{project['companycontact2']}</div></div>
+                                                                                <div class="field-row"><div class="field-label">WhatsApp Chatbot:</div><div class="field-value">+{project.get('companycontact3','')} (Download contract agreements &amp; payment history here)</div></div>
                                                                                 <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
                                                                                 
                                                                                 <!-- Page break -->
@@ -16855,8 +16855,8 @@ def download_contract(project_id):
                     <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
                     <div class="field-row"><div class="field-label">TIN Number:</div><div class="field-value">{project.get('company_tin','')}</div></div>
                     <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
-                    <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
-                    <div class="field-row"><div class="field-label">WhatsApp Chatbot:</div><div class="field-value">0{project.get('companycontact3','')} (Download contract agreements &amp; payment history here)</div></div>
+                    <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">+{project['companycontact1']} / +{project['companycontact2']}</div></div>
+                    <div class="field-row"><div class="field-label">WhatsApp Chatbot:</div><div class="field-value">+{project.get('companycontact3','')} (Download contract agreements &amp; payment history here)</div></div>
                     <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
                     
                     <!-- Page break -->
