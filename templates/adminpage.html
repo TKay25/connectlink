@@ -38088,20 +38088,81 @@ document.addEventListener('DOMContentLoaded', function(){
             if(!wa.toString().trim()){alert('No WhatsApp number. Edit the quotation to add one.');return;}
             var btn = this;
             var orig = btn.innerHTML;
-            btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+            btn.disabled = true;
+            
             try {
+                // Step 1: Check for duplicates
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Checking for duplicates...';
+                var dupCheck = {isDuplicate:false};
+                if(typeof checkDuplicateQuotation==='function'){
+                    dupCheck = await checkDuplicateQuotation({
+                        clientName: qd.clientName, category: qd.category,
+                        size: parseFloat(qd.size)||0, totalCost: parseFloat(qd.totalCost)||0,
+                        markup: parseFloat(qd.markup)||0, items: qd.items||[]
+                    });
+                }
+                if(dupCheck.isDuplicate){
+                    var choice = confirm(
+                        dupCheck.message+'\n\nA matching quotation already exists (ID: #'+dupCheck.existingQuotation.id+').\n\nDo you want to send the existing quotation instead?'
+                    );
+                    if(choice && dupCheck.existingQuotation){
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending existing...';
+                        if(typeof window.sendQuotationFromPortal==='function'){
+                            await window.sendQuotationFromPortal(dupCheck.existingQuotation.id);
+                        }
+                        btn.disabled = false; btn.innerHTML = orig;
+                        return;
+                    } else {
+                        btn.disabled = false; btn.innerHTML = orig;
+                        return;
+                    }
+                }
+                
+                // Step 2: Save quotation first
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+                var notesVal = '';
+                try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML; }catch(e){}
+                if(notesVal) qd.notes = notesVal;
+                
+                var payload = {
+                    clientName: qd.clientName, clientWhatsapp: wa,
+                    quotationDate: qd.quotationDate || new Date().toISOString().split('T')[0],
+                    category: qd.category, size: parseFloat(qd.size)||0,
+                    totalCost: parseFloat(qd.totalCost)||0, markup: parseFloat(qd.markup)||0,
+                    notes: qd.notes || '',
+                    items: (qd.items||[]).map(function(it,i){
+                        return {name:it.name||it.item||'Item',quantity:parseFloat(it.sqm||it.quantity)||0,unitRate:parseFloat(it.inhouseRate||it.amount)||0,totalPrice:parseFloat(it.totalPrice||it.total||it.clientPrice)||0,item_order:i+1};
+                    }),
+                    schedules: (window.ganttChartData||[]).map(function(s,i){
+                        return {workScope:s.workScope||s.item||'Task',startDate:s.startDate,endDate:s.endDate,days:s.days||0,task_order:i+1};
+                    })
+                };
+                var isEditing = !!window.editingQuotationId;
+                var saveUrl = isEditing ? '/api/update-quotation/'+window.editingQuotationId : '/api/save-quotation';
+                var saveMethod = isEditing ? 'PUT' : 'POST';
+                var sr = await fetch(saveUrl,{method:saveMethod,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json()});
+                if(!sr.success){alert('Save failed: '+(sr.error||'Unknown error'));btn.disabled=false;btn.innerHTML=orig;return;}
+                if(isEditing) window.editingQuotationId = null;
+                else window.editingQuotationId = sr.quotation_id;
+                
+                // Step 3: Generate PDF
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating PDF...';
                 var pdfDataUri = null;
                 if(typeof window.generateQuotationPDF==='function'){
                     pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
                 }
                 var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
-                var r = await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:qd.clientName,whatsappNumber:wa,quotationId:0,pdfBase64:pdfBase64,category:qd.category,size:qd.size||0,totalCost:qd.totalCost||0,markup:qd.markup||0,quotationDate:qd.quotationDate})}).then(function(rr){return rr.json()});
+                
+                // Step 4: Send via WhatsApp
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+                var r = await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:qd.clientName,whatsappNumber:wa,quotationId:sr.quotation_id||0,pdfBase64:pdfBase64,category:qd.category,size:qd.size||0,totalCost:qd.totalCost||0,markup:qd.markup||0,quotationDate:qd.quotationDate})}).then(function(rr){return rr.json()});
                 if(r.success){
                     if(r.used_template) alert('Sent via template with download button.\n\nShare link: '+r.share_url);
-                    else alert('Quotation sent successfully!');
+                    else alert('Quotation saved & sent successfully!');
+                    if(typeof loadQuotations==='function') loadQuotations();
                 } else {
-                    if(r.requires_template) alert('24-hour window reached. Template send also failed.\n\nHint: '+r.hint);
-                    else alert('Failed to send: '+(r.error||'Unknown error'));
+                    if(r.requires_template) alert('Saved but send failed (24hr window). Template also failed.\n\nHint: '+r.hint);
+                    else alert('Saved but send failed: '+(r.error||'Unknown error'));
                 }
             } catch(e){alert('Error: '+e.message);}
             btn.disabled = false; btn.innerHTML = orig;
