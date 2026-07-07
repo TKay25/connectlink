@@ -2931,6 +2931,33 @@ async function viewEmployee(empId) {
         }
 
         document.getElementById('mixedCurrencyRow').style.display = emp.currency === 'Mixed' ? '' : 'none';
+
+        // Load leave balances for this employee
+        try {
+            const lbRes = await fetch(`/api/hr/leave-balances/${emp.id}`);
+            const lbData = await lbRes.json();
+            if (lbData.success && lbData.data && lbData.data.length) {
+                const balances = lbData.data;
+                const tbody = document.getElementById('leaveBalancesBody');
+                const template = document.getElementById('leaveBalancesTemplate');
+                if (tbody && template) {
+                    tbody.innerHTML = balances.map(b => 
+                        template.innerHTML
+                            .replace(/\{type\}/g, b.leave_type || 'Unknown')
+                            .replace(/\{balance\}/g, b.current_balance ?? 0)
+                            .replace(/\{monthly\}/g, b.monthly_accrual ?? 0)
+                            .replace(/\{annual\}/g, b.annual_accrual ?? 0)
+                            .replace(/\{carry\}/g, b.carry_forward ?? 0)
+                    ).join('');
+                }
+            } else {
+                renderLeaveBalances();
+            }
+        } catch(e) {
+            console.warn('Could not load leave balances, using defaults:', e);
+            renderLeaveBalances();
+        }
+
         openModal('addEmployeeModal');
     } catch(e) {
         alert('Error loading employee: ' + e.message);
