@@ -3693,8 +3693,11 @@ body { font-family: Arial; margin: 20px; }
 <body>
 <script>
 // Early stubs for functions defined in later scripts - prevents "not defined" errors
-window.loadQuotations = window.loadQuotations || function() { console.log('loadQuotations stub - full implementation loading...'); };
-window.reloadQuotations = window.reloadQuotations || function() { console.log('reloadQuotations stub - full implementation loading...'); };
+// Real implementations in later scripts override these
+window.loadQuotations = window.loadQuotations || function() { console.log('loadQuotations stub'); };
+window.reloadQuotations = window.reloadQuotations || function() { console.log('reloadQuotations stub'); };
+window.openSentQuotationsModal = window.openSentQuotationsModal || function() { console.log('openSentQuotationsModal stub'); };
+window.loadSentQuotations = window.loadSentQuotations || function() { console.log('loadSentQuotations stub'); };
 window.loadWhatsAppChats = window.loadWhatsAppChats || function() { console.log('loadWhatsAppChats stub'); };
 window.loadActivityLog = window.loadActivityLog || function() { console.log('loadActivityLog stub'); };
 </script>
