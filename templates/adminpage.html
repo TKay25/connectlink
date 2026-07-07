@@ -35380,7 +35380,7 @@ function loadWhatsAppChats() {
                         </div>
                         <div style="flex:1;min-width:0;">
                             <div style="font-weight:600;color:var(--text-primary);font-size:0.7rem;">${escapeHtml(chat.name)}</div>
-                            <div style="font-size:0.7rem;color:var(--gray-400);">${chat.whatsapp}</div>
+                            <div style="font-size:0.7rem;color:var(--gray-400);"><a href="https://wa.me/${chat.whatsapp}" target="_blank" style="color:inherit;text-decoration:none;" onclick="event.stopPropagation();">${chat.whatsapp}</a></div>
                             <div style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                 ${escapeHtml(chat.last_message || 'No messages')}
                             </div>

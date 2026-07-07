@@ -1,6 +1,6 @@
 {
-  "last_sync": "2026-07-06T18:40:27.629Z",
-  "module_count": 46,
+  "last_sync": "2026-07-07T09:16:48.063Z",
+  "module_count": 47,
   "empty_project": false,
   "planning_ready": true,
   "orphaned_count": 8,
@@ -38,5 +38,14 @@
       "source": "test_pagination_api.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "_test_server.py",
+      "ts": "2026-07-06T19:39:15.084Z"
+    },
+    {
+      "rel": "_test_server.py",
+      "ts": "2026-07-06T19:34:58.125Z"
+    }
+  ]
 }

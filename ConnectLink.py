@@ -28789,22 +28789,13 @@ def save_contractor_details():
         tin_number = data.get('tin_number', '')
 
         with get_db() as (cursor, connection):
-            # Check if record exists
-            cursor.execute("SELECT COUNT(*) FROM connectlinkdetails;")
-            count = cursor.fetchone()[0]
-
-            if count > 0:
-                cursor.execute("""
-                    UPDATE connectlinkdetails SET
-                        companyname = %s, address = %s, contact1 = %s,
-                        contact2 = %s, contact3 = %s, email = %s, tinnumber = %s
-                    WHERE ctid = (SELECT ctid FROM connectlinkdetails LIMIT 1)
-                """, (company_name, address, phone1, phone2, phone3, email, tin_number))
-            else:
-                cursor.execute("""
-                    INSERT INTO connectlinkdetails (companyname, address, contact1, contact2, contact3, email, tinnumber)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (company_name, address, phone1, phone2, phone3, email, tin_number))
+            # Delete all existing rows first (this is a singleton config table)
+            cursor.execute("DELETE FROM connectlinkdetails;")
+            # Insert single row with all values
+            cursor.execute("""
+                INSERT INTO connectlinkdetails (companyname, address, contact1, contact2, contact3, email, tinnumber)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (company_name, address, phone1, phone2, phone3, email, tin_number))
             connection.commit()
 
         return jsonify({'success': True, 'message': 'Contractor details saved successfully'})
