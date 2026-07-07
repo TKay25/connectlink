@@ -24224,6 +24224,12 @@ async function generateKitchenPDF(outputMode = 'download') {
     return null;
 }
 
+// Expose kitchen functions globally
+window.displayKitchenPreview = displayKitchenPreview;
+window.saveKitchenQuotation = saveKitchenQuotation;
+window.sendKitchenQuotation = sendKitchenQuotation;
+window.generateKitchenPDF = generateKitchenPDF;
+
 // Attach event listeners for kitchen modal buttons
 $(document).ready(function() {
     $('#kitchenDownloadQuotationBtn').off('click').on('click', saveKitchenQuotation);
@@ -37787,7 +37793,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 window.kitchenQuotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:items,totalCost:totalC,totalDays:totalD,notes:''};
                 closeModal('quotationgeneratorModal');
                 setTimeout(function(){
-                    if(typeof displayKitchenPreview==='function') displayKitchenPreview();
+                    if(typeof window.displayKitchenPreview==='function') window.displayKitchenPreview();
                     if(typeof openModal==='function') openModal('kitchenPreviewModal');
                 },300);
                 return;
@@ -37976,6 +37982,24 @@ document.addEventListener('DOMContentLoaded', function(){
     };
     
     console.log('✅ Quotation buttons fixed');
+    
+    // 7c. Kitchen modal buttons (Download / Send)
+    var kdBtn = document.getElementById('kitchenDownloadQuotationBtn');
+    if(kdBtn && !kdBtn._rec){
+        kdBtn._rec = true;
+        kdBtn.addEventListener('click', function(){
+            if(typeof window.saveKitchenQuotation==='function') window.saveKitchenQuotation();
+            else alert('Kitchen save function not available.');
+        });
+    }
+    var ksBtn = document.getElementById('kitchenSendQuotationBtn');
+    if(ksBtn && !ksBtn._rec){
+        ksBtn._rec = true;
+        ksBtn.addEventListener('click', function(){
+            if(typeof window.sendKitchenQuotation==='function') window.sendKitchenQuotation();
+            else alert('Kitchen send function not available.');
+        });
+    }
     
     // 8. Quotation Rates modal buttons (Add Item / Save Changes)
     var addRateBtn = document.getElementById('addQuotationItemBtn');
