@@ -7051,13 +7051,14 @@ def webhook():
                                                                         # Get company details
                                                                         cursor.execute("SELECT * FROM connectlinkdetails;")
                                                                         detailscompdata = cursor.fetchall()
-                                                                        detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber','contact3'])
-                                                                        companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
-                                                                        address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
-                                                                        contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
-                                                                        contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
-                                                                        contact3 = detailscompdata.iat[0,6] if not detailscompdata.empty else ""
-                                                                        compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
+                                                                        col_names = [desc[0] for desc in cursor.description]
+                                                                        detailscompdata = pd.DataFrame(detailscompdata, columns=col_names)
+                                                                        companyname = detailscompdata.iat[0, col_names.index('companyname')] if not detailscompdata.empty and 'companyname' in col_names else "ConnectLink Properties"
+                                                                        address = detailscompdata.iat[0, col_names.index('address')] if not detailscompdata.empty and 'address' in col_names else ""
+                                                                        contact1 = detailscompdata.iat[0, col_names.index('contact1')] if not detailscompdata.empty and 'contact1' in col_names else ""
+                                                                        contact2 = detailscompdata.iat[0, col_names.index('contact2')] if not detailscompdata.empty and 'contact2' in col_names else ""
+                                                                        contact3 = detailscompdata.iat[0, col_names.index('contact3')] if not detailscompdata.empty and 'contact3' in col_names else ""
+                                                                        compemail = detailscompdata.iat[0, col_names.index('email')] if not detailscompdata.empty and 'email' in col_names else ""
 
                                                                         # Calculate days difference
                                                                         def days_between(date1, date2):
@@ -7519,7 +7520,6 @@ def webhook():
                                                                                 <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
                                                                                 <div class="field-row"><div class="field-label">WhatsApp Chatbot:</div><div class="field-value">0{project.get('companycontact3','')} (Download contract agreements &amp; payment history here)</div></div>
                                                                                 <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
-                                                                                <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
                                                                                 
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
@@ -16207,14 +16207,15 @@ def download_contract(project_id):
             # Fetch company details
             cursor.execute("SELECT * FROM connectlinkdetails;")
             detailscompdata = cursor.fetchall()
-            detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber','contact3'])
-            companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
-            address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
-            contact1 = str(detailscompdata.iat[0,1] or '') if not detailscompdata.empty else ""
-            contact2 = str(detailscompdata.iat[0,2] or '') if not detailscompdata.empty else ""
-            contact3 = str(detailscompdata.iat[0,6] or '') if not detailscompdata.empty else ""
-            compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
-            tinnumber = str(detailscompdata.iat[0,5] or '') if not detailscompdata.empty else ""
+            col_names = [desc[0] for desc in cursor.description]
+            detailscompdata = pd.DataFrame(detailscompdata, columns=col_names)
+            companyname = detailscompdata.iat[0, col_names.index('companyname')] if not detailscompdata.empty and 'companyname' in col_names else "ConnectLink Properties"
+            address = detailscompdata.iat[0, col_names.index('address')] if not detailscompdata.empty and 'address' in col_names else ""
+            contact1 = str(detailscompdata.iat[0, col_names.index('contact1')] or '') if not detailscompdata.empty and 'contact1' in col_names else ""
+            contact2 = str(detailscompdata.iat[0, col_names.index('contact2')] or '') if not detailscompdata.empty and 'contact2' in col_names else ""
+            contact3 = str(detailscompdata.iat[0, col_names.index('contact3')] or '') if not detailscompdata.empty and 'contact3' in col_names else ""
+            compemail = detailscompdata.iat[0, col_names.index('email')] if not detailscompdata.empty and 'email' in col_names else ""
+            tinnumber = str(detailscompdata.iat[0, col_names.index('tinnumber')] or '') if not detailscompdata.empty and 'tinnumber' in col_names else ""
 
             # Calculate days difference
             def days_between(date1, date2):
@@ -16802,7 +16803,6 @@ def download_contract(project_id):
                     <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
                     <div class="field-row"><div class="field-label">WhatsApp Chatbot:</div><div class="field-value">0{project.get('companycontact3','')} (Download contract agreements &amp; payment history here)</div></div>
                     <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
-                    <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
                     
                     <!-- Page break -->
                     <div class="page-break"></div>
@@ -17416,17 +17416,16 @@ def download_payments_history(project_id):
             # Fetch company details
             cursor.execute("SELECT * FROM connectlinkdetails;")
             details = cursor.fetchall()
-            details = pd.DataFrame(details, columns=[
-                'address','contact1','contact2','email','companyname','tinnumber','contact3'
-            ])
+            col_names = [desc[0] for desc in cursor.description]
+            details = pd.DataFrame(details, columns=col_names)
 
-            companyname = details.iat[0,4] if not details.empty else ""
-            address = details.iat[0,0] if not details.empty else ""
-            contact1 = details.iat[0,1] if not details.empty else ""
-            contact2 = details.iat[0,2] if not details.empty else ""
-            contact3 = details.iat[0,6] if not details.empty else ""
-            compemail = details.iat[0,3] if not details.empty else ""
-            tinnumber = details.iat[0,5] if not details.empty else ""
+            companyname = details.iat[0, col_names.index('companyname')] if not details.empty and 'companyname' in col_names else ""
+            address = details.iat[0, col_names.index('address')] if not details.empty and 'address' in col_names else ""
+            contact1 = details.iat[0, col_names.index('contact1')] if not details.empty and 'contact1' in col_names else ""
+            contact2 = details.iat[0, col_names.index('contact2')] if not details.empty and 'contact2' in col_names else ""
+            contact3 = details.iat[0, col_names.index('contact3')] if not details.empty and 'contact3' in col_names else ""
+            compemail = details.iat[0, col_names.index('email')] if not details.empty and 'email' in col_names else ""
+            tinnumber = details.iat[0, col_names.index('tinnumber')] if not details.empty and 'tinnumber' in col_names else ""
 
             # Payment fields (same index references as your system)
             payments = [
@@ -19067,17 +19066,18 @@ def run1(userid):
 
         detailscompquery = f"SELECT * FROM connectlinkdetails;"
         cursor.execute(detailscompquery)
+        col_names = [desc[0] for desc in cursor.description]
         detailscompdata = cursor.fetchall()
         print(detailscompdata)
 
-        detailscompdata = pd.DataFrame(detailscompdata, columns= ['address', 'contact1', 'contact2', 'email', 'companyname', 'tinnumber', 'contact3'])
-        companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
-        address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
-        contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
-        contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
-        contact3 = detailscompdata.iat[0,6] if not detailscompdata.empty else ""
-        compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
-        tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
+        detailscompdata = pd.DataFrame(detailscompdata, columns=col_names)
+        companyname = detailscompdata.iat[0, col_names.index('companyname')] if not detailscompdata.empty and 'companyname' in col_names else "ConnectLink Properties"
+        address = detailscompdata.iat[0, col_names.index('address')] if not detailscompdata.empty and 'address' in col_names else ""
+        contact1 = detailscompdata.iat[0, col_names.index('contact1')] if not detailscompdata.empty and 'contact1' in col_names else ""
+        contact2 = detailscompdata.iat[0, col_names.index('contact2')] if not detailscompdata.empty and 'contact2' in col_names else ""
+        contact3 = detailscompdata.iat[0, col_names.index('contact3')] if not detailscompdata.empty and 'contact3' in col_names else ""
+        compemail = detailscompdata.iat[0, col_names.index('email')] if not detailscompdata.empty and 'email' in col_names else ""
+        tinnumber = detailscompdata.iat[0, col_names.index('tinnumber')] if not detailscompdata.empty and 'tinnumber' in col_names else ""
         
         cursor.execute("""
             SELECT DISTINCT 
