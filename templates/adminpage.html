@@ -3770,15 +3770,29 @@ window.loadSentQuotations = window.loadSentQuotations || function() {
     fetch('/api/get-sent-quotations').then(function(r){return r.json()}).then(function(result){
         if(result.success){
             var rows=result.data||[];
+            var successCount=rows.filter(function(r){return(r.sendStatus||'success').toLowerCase()!=='failed'}).length;
+            var failedCount=rows.filter(function(r){return(r.sendStatus||'').toLowerCase()==='failed'}).length;
+            s.textContent='Total sent quotations: '+rows.length+' | Success: '+successCount+' | Failed: '+failedCount;
             if(rows.length>0){
-                var h='<table style="width:100%;font-size:0.7rem;border-collapse:collapse;"><thead style="background:#0A1A3A;color:white;position:sticky;top:0;"><tr><th style="padding:5px;text-align:left;">Sent At</th><th style="padding:5px;text-align:left;">Client</th><th style="padding:5px;text-align:left;">WhatsApp</th><th style="padding:5px;text-align:left;">Category</th><th style="padding:5px;text-align:right;">Cost</th><th style="padding:5px;text-align:center;">Type</th><th style="padding:5px;text-align:center;">Status</th><th style="padding:5px;text-align:center;">Download</th></tr></thead><tbody>';
-                rows.forEach(function(r){
+                var h='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.7rem;"><thead><tr style="background:#0A1A3A;color:white;border-bottom:2px solid var(--primary);"><th style="padding:6px;text-align:left;">Sent At</th><th style="padding:6px;text-align:left;">Client</th><th style="padding:6px;text-align:left;">WhatsApp</th><th style="padding:6px;text-align:left;">Category</th><th style="padding:6px;text-align:right;">Total Cost</th><th style="padding:6px;text-align:center;">Type</th><th style="padding:6px;text-align:center;">Status</th><th style="padding:6px;text-align:center;">Downloaded</th><th style="padding:6px;text-align:center;">Quotation</th></tr></thead><tbody>';
+                rows.forEach(function(r,i){
+                    var t=new Date(r.sentAt);
+                    var fmt=t.toLocaleString('en-ZW',{timeZone:'Africa/Harare',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})||r.sentAt.substring(0,10);
                     var tc=Number(r.totalCost||0);
-                    h+='<tr style="border-bottom:1px solid #ddd;"><td style="padding:5px;">'+(r.sentAt||'N/A')+'</td><td style="padding:5px;">'+(r.clientName||'Client')+'</td><td style="padding:5px;">'+(r.whatsappNumber||'N/A')+'</td><td style="padding:5px;">'+(r.category||'N/A')+'</td><td style="padding:5px;text-align:right;font-weight:bold;">$'+tc.toFixed(2)+'</td><td style="padding:5px;text-align:center;">'+(r.sendType||'Document')+'</td><td style="padding:5px;text-align:center;">'+(r.sendStatus||'Success')+'</td><td style="padding:5px;text-align:center;">'+(r.downloaded?'✓':'—')+'</td></tr>';
+                    var type=(r.sendType||'document').toLowerCase();
+                    var st=(r.sendStatus||'success').toLowerCase();
+                    var typeBadge=type==='template_fallback'?'<span style="background:#fff3cd;color:#7a5a00;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">Template Fallback</span>':'<span style="background:#d1ecf1;color:#0c5460;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">PDF Document</span>';
+                    var stBadge=st==='failed'?'<span style="background:#f8d7da;color:#721c24;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">Failed</span>':'<span style="background:#d4edda;color:#155724;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">Success</span>';
+                    var dlBadge=r.downloaded?'<span style="background:#d1e7dd;color:#0f5132;padding:3px 7px;border-radius:10px;font-size:0.65rem;font-weight:600;" title="'+(r.downloadSentAt||r.downloadClickedAt||'')+'">Downloaded</span>':(r.downloadClickedAt?'<span style="background:#fff3cd;color:#856404;padding:3px 7px;border-radius:10px;font-size:0.65rem;font-weight:600;" title="Clicked: '+r.downloadClickedAt+'">Clicked</span>':'<span style="background:#f8d7da;color:#842029;padding:3px 7px;border-radius:10px;font-size:0.65rem;font-weight:600;">Not Downloaded</span>');
+                    var bg=i%2===0?'#fff':'#f9f9f9';
+                    h+='<tr style="border-bottom:1px solid #ddd;background-color:'+bg+';">';
+                    h+='<td style="padding:6px;">'+fmt+'</td><td style="padding:6px;">'+(r.clientName||'Client')+'</td><td style="padding:6px;">'+(r.whatsappNumber||'N/A')+'</td><td style="padding:6px;">'+(r.category||'N/A')+'</td>';
+                    h+='<td style="padding:6px;text-align:right;color:var(--primary);font-weight:bold;">USD '+tc.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>';
+                    h+='<td style="padding:6px;text-align:center;">'+typeBadge+'</td><td style="padding:6px;text-align:center;">'+stBadge+'</td><td style="padding:6px;text-align:center;">'+dlBadge+'</td>';
+                    h+='<td style="padding:6px;text-align:center;">#'+(r.quotationId||'')+'</td></tr>';
                 });
-                h+='</tbody></table>';
+                h+='</tbody></table></div>';
                 c.innerHTML=h;
-                s.textContent=rows.length+' sent quotation(s)';
             } else {
                 c.innerHTML='<p class="text-muted text-center" style="padding:20px;">No sent quotations yet</p>';
                 s.textContent='No sent quotations';
@@ -4020,20 +4034,55 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
     var q=r.data.find(function(x){return x.id===qId});
     if(!q){alert('Quotation not found');return;}
     try {
+        // Show the table placement modal for construction quotes
+        var tablePlacement = 'default';
+        if(typeof promptQuotationTablePlacementIfNeeded==='function'){
+            tablePlacement = await promptQuotationTablePlacementIfNeeded(q.category);
+            if(tablePlacement===null) return; // user cancelled
+        }
         var w=window.open('','_blank');
         if(w){
             var d=q.quotationDate?new Date(q.quotationDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}):'N/A';
+            var isCon=(q.category||'').includes('construction');
             var h='<html><head><title>Quotation #'+qId+'</title>';
-            h+='<style>body{font-family:Arial,sans-serif;padding:40px;color:#1E2A56;}h1{color:#C12B3E;border-bottom:2px solid #C12B3E;padding-bottom:10px;}.info{margin:20px 0;}table{width:100%;border-collapse:collapse;margin:20px 0;}th{background:#1E2A56;color:white;padding:8px 10px;text-align:left;}td{padding:6px 8px;border-bottom:1px solid #ddd;}.total{font-weight:700;color:#C12B3E;font-size:1.1em;}.footer{margin-top:40px;border-top:1px solid #ddd;padding-top:20px;font-size:0.85em;color:#666;}</style></head><body>';
+            h+='<style>body{font-family:Arial,sans-serif;padding:40px;color:#1E2A56;}h1{color:#C12B3E;border-bottom:2px solid #C12B3E;padding-bottom:10px;}.info{margin:20px 0;}table{width:100%;border-collapse:collapse;margin:20px 0;}th{background:#1E2A56;color:white;padding:8px 10px;text-align:left;}td{padding:6px 8px;border-bottom:1px solid #ddd;}.total{font-weight:700;color:#C12B3E;font-size:1.1em;}.card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:12px;margin:10px 0;}.footer{margin-top:40px;border-top:1px solid #ddd;padding-top:20px;font-size:0.85em;color:#666;}</style></head><body>';
             h+='<img src="/static/images/web-logo.png" style="max-width:150px;"><h1>Project Quotation</h1>';
             h+='<div class="info"><strong>Client:</strong> '+(q.clientName||'N/A')+'<br><strong>Date:</strong> '+d+'<br><strong>Category:</strong> '+(q.category||'N/A')+'<br><strong>Total:</strong> <span class="total">USD '+Number(q.totalCost||0).toLocaleString('en-US',{minimumFractionDigits:2})+'</span></div>';
-            if(q.items&&q.items.length>0){
-                h+='<h3>Items</h3><table><tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr>';
+            
+            // Show items table (for construction: only if user chose to include it)
+            var showItems = tablePlacement==='default'||tablePlacement==='include'||tablePlacement==='exclude';
+            if(q.items&&q.items.length>0&&showItems){
+                h+='<h3>Items</h3><table><thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead><tbody>';
                 q.items.forEach(function(it,i){
                     h+='<tr><td>'+(i+1)+'</td><td>'+(it.name||'Item')+'</td><td>'+(it.quantity||0)+'</td><td>$'+Number(it.amount||it.unitRate||0).toFixed(2)+'</td><td>$'+Number(it.totalPrice||0).toFixed(2)+'</td></tr>';
                 });
-                h+='</table>';
+                h+='</tbody></table>';
             }
+            
+            // Show work schedule
+            if(q.schedules&&q.schedules.length>0&&showItems){
+                h+='<h3>Work Schedule</h3><table><thead><tr><th>#</th><th>Task</th><th>Start Date</th><th>End Date</th><th>Days</th></tr></thead><tbody>';
+                q.schedules.forEach(function(s,i){
+                    h+='<tr><td>'+(i+1)+'</td><td>'+(s.workScope||s.item||'Task')+'</td><td>'+(s.startDate||'')+'</td><td>'+(s.endDate||'')+'</td><td>'+Number(s.days||0)+'</td></tr>';
+                });
+                h+='</tbody></table>';
+            }
+            
+            // Payment summary
+            var tc=Number(q.totalCost||0);
+            var dp=tc*0.3;
+            var bl=tc-dp;
+            var mi=bl/6;
+            h+='<h3>Payment Summary</h3><div style="display:flex;gap:10px;flex-wrap:wrap;">';
+            h+='<div class="card" style="flex:1;min-width:120px;text-align:center;"><div style="font-size:0.75rem;color:#666;">Total Amount</div><div style="font-size:1.1rem;font-weight:900;color:#1E2A56;">USD '+tc.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+            h+='<div class="card" style="flex:1;min-width:120px;text-align:center;"><div style="font-size:0.75rem;color:#666;">Deposit (30%)</div><div style="font-size:1rem;font-weight:700;color:#1E2A56;">USD '+dp.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+            h+='<div class="card" style="flex:1;min-width:120px;text-align:center;"><div style="font-size:0.75rem;color:#666;">Balance</div><div style="font-size:1rem;font-weight:700;color:#1E2A56;">USD '+bl.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+            h+='<div class="card" style="flex:1;min-width:120px;text-align:center;"><div style="font-size:0.75rem;color:#666;">Monthly (6 months)</div><div style="font-size:1rem;font-weight:700;color:#1E2A56;">USD '+mi.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+            h+='</div>';
+            
+            // Banking details
+            h+='<div class="card"><strong>Banking Details:</strong><br>Bank: CBZ<br>Branch: Msasa<br>Account Name: Connectlink Agency (Pvt) Ltd<br>Account No: 450600586638405<br>Account Type: USD Account</div>';
+            
             if(q.notes) h+='<div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:10px;margin:20px 0;"><strong>Notes:</strong> '+q.notes+'</div>';
             h+='<div class="footer"><p>ConnectLink Building Projects</p><p>This quotation is valid for 30 days from the date of issue.</p></div></body></html>';
             w.document.write(h);
