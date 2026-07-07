@@ -4013,6 +4013,73 @@ window.renderConstructionItemsList = window.renderConstructionItemsList || funct
     });
 };
 
+// Early implementations for selected items and totals
+window.updateSelectedItemsList = window.updateSelectedItemsList || function() {
+    var container = document.getElementById('selectedItemsContainer');
+    var emptyMsg = document.getElementById('emptyDropZoneMsg');
+    if(!container) return;
+    var checkedItems = [];
+    document.querySelectorAll('.construction-item-checkbox:checked').forEach(function(cb){
+        var row = cb.closest('.construction-item-row');
+        if(row){
+            var nameEl = row.querySelector('.fw-bold');
+            var name = nameEl ? nameEl.textContent.replace('Not for Single Storey','').trim() : 'Item';
+            var priceText = row.querySelector('[style*="color:#2196F3"]');
+            var price = priceText ? parseFloat(priceText.textContent.replace('$','').replace(',','')) || 0 : 0;
+            var smallText = row.querySelector('small.text-muted');
+            var sqm = 0;
+            if(smallText){
+                var match = smallText.textContent.match(/×\s*(\d+)/);
+                if(match) sqm = parseFloat(match[1]) || 0;
+            }
+            checkedItems.push({name:name, sqm:sqm, price:price, element:row});
+        }
+    });
+    if(checkedItems.length === 0){
+        container.innerHTML = '';
+        if(emptyMsg) emptyMsg.style.display = 'block';
+        return;
+    }
+    if(emptyMsg) emptyMsg.style.display = 'none';
+    var html = '';
+    checkedItems.forEach(function(item, idx){
+        html += '<div class="selected-item-drag" draggable="true" data-index="'+idx+'" style="display:flex;align-items:center;padding:6px 8px;margin-bottom:4px;background:white;border:1px solid #2196F3;border-radius:6px;cursor:grab;font-size:0.75rem;">';
+        html += '<span style="cursor:grab;margin-right:8px;color:#999;"><i class="bi bi-grip-vertical"></i></span>';
+        html += '<div style="flex:1;"><strong>'+item.name+'</strong><br><small style="color:#999;">'+item.sqm+' sqm</small></div>';
+        html += '<div style="text-align:right;font-weight:700;color:#2196F3;">$'+item.price.toFixed(2)+'</div>';
+        html += '<button class="btn btn-sm btn-danger ms-2" style="padding:1px 4px;font-size:0.65rem;" onclick="removeSelectedItem('+idx+')"><i class="bi bi-x"></i></button>';
+        html += '</div>';
+    });
+    container.innerHTML = html;
+    window.calculateConstructionTotal();
+};
+
+window.removeSelectedItem = window.removeSelectedItem || function(idx) {
+    var items = document.querySelectorAll('.selected-item-drag');
+    if(items[idx]){
+        var name = items[idx].querySelector('strong')?.textContent || '';
+        document.querySelectorAll('.construction-item-row').forEach(function(row){
+            var n = row.querySelector('.fw-bold');
+            if(n && n.textContent.includes(name)){
+                var cb = row.querySelector('.construction-item-checkbox');
+                if(cb) cb.checked = false;
+            }
+        });
+        if(typeof window.updateSelectedItemsList==='function') window.updateSelectedItemsList();
+    }
+};
+
+window.calculateConstructionTotal = window.calculateConstructionTotal || function() {
+    var total = 0;
+    document.querySelectorAll('.selected-item-drag').forEach(function(item){
+        var priceEl = item.querySelector('[style*="color:#2196F3"]');
+        if(priceEl) total += parseFloat(priceEl.textContent.replace('$','').replace(',','')) || 0;
+    });
+    var totalEl = document.getElementById('constructionTotal');
+    if(totalEl) totalEl.textContent = total.toFixed(2);
+    return total;
+};
+
 // Early implementations for View/Delete quotation actions
 window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
     console.log('viewQuotationDetails (early init)');
@@ -4335,7 +4402,17 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
             if(!window.currentViewingQuotation){alert('No quotation selected');return;}
             var btn=this, ts=document.getElementById('downloadBtnText'), sp=document.getElementById('downloadBtnSpinner');
             if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
-            try{await window.downloadQuotationPDFFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
+            // Safety timeout: reset button after 30s
+            var timeout = setTimeout(function(){
+                if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
+            }, 30000);
+            try{
+                await window.downloadQuotationPDFFromPortal(window.currentViewingQuotation.id);
+                clearTimeout(timeout);
+            }catch(e){
+                clearTimeout(timeout);
+                alert('Error: '+e.message);
+            }
             if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
         });
         bindBtn('sendQuotationFromModalBtn', async function(){
@@ -37541,16 +37618,75 @@ document.addEventListener('DOMContentLoaded', function(){
             var cat = document.getElementById('quotationCategory')?.value;
             var name = document.getElementById('quotationClientName')?.value;
             var date = document.getElementById('quotationDate')?.value;
+            var wa = document.getElementById('quotationClientWhatsapp')?.value||'';
             if(!cat||!name||!date){alert('Please fill in all required fields.');return;}
-            if(cat==='construction_single'||cat==='construction_double'){
+            
+            var isCon = cat==='construction_single'||cat==='construction_double';
+            var isSingle = cat==='construction_single';
+            var isTvOrOther = cat==='tv_units'||cat==='other';
+            
+            if(isCon){
                 var sz=document.getElementById('quotationSize')?.value;
                 var mk=document.getElementById('quotationMarkup')?.value;
                 if(!sz||!mk){alert('Please enter square meters and markup percentage.');return;}
-                if(!document.querySelectorAll('.selected-item-drag').length){alert('Please select at least one construction item.');return;}
+                var checked = document.querySelectorAll('.construction-item-checkbox:checked');
+                if(!checked.length){alert('Please select at least one construction item.');return;}
+                
+                var qData = {clientName:name,clientWhatsapp:wa,quotationDate:date,category:cat,size:sz,markup:mk,totalCost:0,items:[],notes:''};
+                var markupM = 1 + (parseFloat(mk)||0)/100;
+                var totalC = 0;
+                var orderedItems = [];
+                document.querySelectorAll('.selected-item-drag').forEach(function(el){
+                    var nm = el.querySelector('strong')?.textContent||'Item';
+                    var sm = el.querySelector('small')?.textContent||'0';
+                    var sqm = parseFloat(sm)||0;
+                    var rates = window.quotationRatesCache||[];
+                    var rt = rates.find(function(r){return r.item===nm;})||{inhouseRate:0};
+                    var clientRate = parseFloat(rt.inhouseRate)||0;
+                    var itemTotal = clientRate * sqm;
+                    totalC += itemTotal;
+                    orderedItems.push({name:nm,item:nm,sqm:sqm,inhouseRate:clientRate,days:0,clientPrice:itemTotal,total:itemTotal});
+                });
+                qData.items = orderedItems;
+                qData.totalCost = totalC;
+                window.quotationData = qData;
+                window.ganttChartData = [];
+                window.ganttItems = [];
+                closeModal('quotationgeneratorModal');
+                setTimeout(function(){
+                    if(typeof openModal==='function'){
+                        var ganttModal = document.getElementById('ganttChartBuilderModal');
+                        if(ganttModal){ openModal('ganttChartBuilderModal'); if(typeof window.initializeGanttChart==='function') window.initializeGanttChart(); }
+                        else { openModal('quotationPreviewModal'); if(typeof window.renderPreviewItemsTable==='function') window.renderPreviewItemsTable(qData); }
+                    }
+                }, 300);
+                return;
             }
-            if(cat==='kitchen'&&(!window.kitchenCabinetItems||!window.kitchenCabinetItems.length)){alert('Please add at least one kitchen item.');return;}
-            if((cat==='tv_units'||cat==='other')&&(!window.tvUnitItems||!window.tvUnitItems.length)){alert('Please add at least one item.');return;}
-            try { if(typeof $==='function') { console.log('Triggering jQuery generate handler'); $('#generateQuotationBtn').trigger('click'); } } catch(ex){console.error(ex);}
+            
+            if(cat==='kitchen'){
+                var items = window.kitchenCabinetItems||[];
+                if(!items.length){alert('Please add at least one kitchen item.');return;}
+                var totalC=0,totalD=0;
+                items.forEach(function(it){totalC+=(it.quantity||1)*(it.amount||0);totalD+=(it.days||1);});
+                window.kitchenQuotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:items,totalCost:totalC,totalDays:totalD,notes:''};
+                closeModal('quotationgeneratorModal');
+                setTimeout(function(){
+                    if(typeof displayKitchenPreview==='function') displayKitchenPreview();
+                    if(typeof openModal==='function') openModal('kitchenPreviewModal');
+                },300);
+                return;
+            }
+            
+            if(isTvOrOther){
+                var items = window.tvUnitItems||[];
+                if(!items.length){alert('Please add at least one item.');return;}
+                var totalC=0;
+                var itemsF = items.map(function(it){totalC+=(it.quantity||1)*(it.amount||0);return{name:it.name,item:it.name,quantity:it.quantity,amount:it.amount,days:it.days||1,total:(it.quantity||1)*(it.amount||0)};});
+                window.quotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:itemsF,totalCost:totalC,notes:''};
+                closeModal('quotationgeneratorModal');
+                setTimeout(function(){if(typeof openModal==='function') openModal('quotationPreviewModal');},300);
+                return;
+            }
         });
     }
     
@@ -37581,15 +37717,24 @@ document.addEventListener('DOMContentLoaded', function(){
     // 5. Quotation Details modal buttons
     function bindModalBtn(id, fn){
         var el=document.getElementById(id);
-        if(el && !el._rec){ el._rec=true; el.addEventListener('click', fn); }
+        if(el && !el._earlyBound){ el._earlyBound=true; el.addEventListener('click', fn); }
     }
     bindModalBtn('downloadQuotationFromModalBtn', async function(){
         if(!window.currentViewingQuotation){alert('No quotation selected');return;}
-        try{await window.downloadQuotationPDFFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
+        var btn=this, ts=document.getElementById('downloadBtnText'), sp=document.getElementById('downloadBtnSpinner');
+        if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
+        var timeout = setTimeout(function(){
+            if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
+        }, 30000);
+        try{await window.downloadQuotationPDFFromPortal(window.currentViewingQuotation.id);clearTimeout(timeout);}catch(e){clearTimeout(timeout);alert('Error: '+e.message);}
+        if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
     });
     bindModalBtn('sendQuotationFromModalBtn', async function(){
         if(!window.currentViewingQuotation){alert('No quotation selected');return;}
+        var btn=this, ts=document.getElementById('sendBtnText'), sp=document.getElementById('sendBtnSpinner');
+        if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
         try{await window.sendQuotationFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
+        if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
     });
     bindModalBtn('editQuotationFromModalBtn', function(){
         if(!window.currentViewingQuotation){alert('No quotation selected');return;}
