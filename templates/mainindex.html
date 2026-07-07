@@ -1443,13 +1443,14 @@
                                 <input type="password" class="form-input-modal" id="projectsPassword" placeholder="••••••••" required>
                                 <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
                                 <button type="button" class="password-toggle-modal" onclick="toggleProjectsPassword(event)"><i class="fas fa-eye"></i></button>
+                            </div>
                         </div>
+                        <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+                    </form>
+                    <div class="modal-footer-links">
+                        <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')">Forgot Password?</a>
+                        <a href="#">Need help?</a>
                     </div>
-                    <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
-                </form>
-                <div class="modal-footer-links">
-                    <a href="#" onclick="event.preventDefault(); toggleResetForm('projects')">Forgot Password?</a>
-                    <a href="#">Need help?</a>
                 </div>
             </div>
             <!-- First Login: Set New Password -->
