@@ -23967,11 +23967,11 @@ async function saveKitchenQuotation() {
         size: 0,
         totalCost: calculatedTotal,  // This already includes 30% markup
         markup: 30,  // Explicitly set markup to 30%
-        items: data.items.map((item, index) => ({
+        items: (data.items||[]).map((item, index) => ({
             name: item.name,
             quantity: item.quantity || 1,
-            amount: item.amount || 0,  // Per-unit price (includes markup)
-            unitRate: item.amount / 1.30,  // Base unit rate (without markup) - for reference
+            amount: item.amount || 0,
+            unitRate: (item.amount||0) / 1.30,
             days: item.days || 1,
             totalPrice: (item.quantity || 1) * (item.amount || 0)
         })),
@@ -24070,7 +24070,7 @@ async function sendKitchenQuotation() {
             size: 0,
             totalCost: finalTotal,
             markup: 0,
-            items: data.items.map((item, index) => ({
+            items: (data.items||[]).map((item, index) => ({
                 name: item.name,
                 quantity: item.quantity || 1,
                 amount: item.amount || 0,
@@ -24079,7 +24079,7 @@ async function sendKitchenQuotation() {
                 days: item.days || 1,
                 item_order: index + 1
             })),
-            schedules: data.schedules.map((schedule, index) => ({
+            schedules: (data.schedules||[]).map((schedule, index) => ({
                 workScope: schedule.workScope,
                 startDate: schedule.startDate,
                 endDate: schedule.endDate,
