@@ -27755,7 +27755,8 @@ def update_quotation(quotation_id):
             if cursor.fetchone() is None:
                 return jsonify({'success': False, 'error': 'Quotation not found'}), 404
 
-            # Update header
+            # Update header (including notes)
+            notes = data.get('notes', '')
             cursor.execute("""
                 UPDATE quotations
                 SET client_name = %s,
@@ -27764,10 +27765,11 @@ def update_quotation(quotation_id):
                     category = %s,
                     project_size = %s,
                     total_cost = %s,
-                    markup_percentage = %s
+                    markup_percentage = %s,
+                    notes = %s
                 WHERE id = %s
             """, (client_name, client_whatsapp, quotation_date, category,
-                  project_size, total_cost, markup, quotation_id))
+                  project_size, total_cost, markup, notes, quotation_id))
 
             # Replace items
             cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
@@ -27897,15 +27899,16 @@ def save_quotation():
                 print(f"DUPLICATE DETECTED: Quotation #{existing[0]} already exists for {client_name} / {category} on {quotation_date}")
                 return jsonify({'success': False, 'error': 'A quotation for this client, category, and date already exists (ID: #' + str(existing[0]) + '). Please edit it instead.', 'duplicate_id': existing[0]})
 
-            # Insert quotation header
+            # Insert quotation header (including notes)
+            notes = data.get('notes', '')
             cursor.execute("""
                 INSERT INTO quotations
-                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage, notes)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (
                 client_name, client_whatsapp, quotation_date, category, 
-                project_size, total_cost, markup
+                project_size, total_cost, markup, notes
             ))
             quotation_id = cursor.fetchone()[0]
             print(f"Created quotation ID: {quotation_id}")

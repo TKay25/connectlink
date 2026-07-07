@@ -19722,6 +19722,11 @@ async function saveAndDownloadQuotation() {
         }
     }
 
+    // Capture notes from Quill editor
+    var notesVal = '';
+    try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML; }catch(e){}
+    if(notesVal) data.notes = notesVal;
+
     // Build payload for backend
     const payload = {
         clientName: data.clientName,
@@ -19731,6 +19736,7 @@ async function saveAndDownloadQuotation() {
         size: parseFloat(data.size) || 0,
         totalCost: parseFloat(data.totalCost) || 0,
         markup: parseFloat(data.markup) || 0,
+        notes: data.notes || '',
         items: (data.items || []).map((item, index) => ({
             name: item.name || item.item || 'Item',
             quantity: parseFloat(item.sqm || item.quantity) || 0,
@@ -37776,7 +37782,9 @@ document.addEventListener('DOMContentLoaded', function(){
                 var checked = document.querySelectorAll('.construction-item-checkbox:checked');
                 if(!checked.length){alert('Please select at least one construction item.');return;}
                 
-                var qData = {clientName:name,clientWhatsapp:wa,quotationDate:date,category:cat,size:sz,markup:mk,totalCost:0,items:[],notes:''};
+                var notesVal = '';
+                try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML; }catch(e){}
+                var qData = {clientName:name,clientWhatsapp:wa,quotationDate:date,category:cat,size:sz,markup:mk,totalCost:0,items:[],notes:notesVal};
                 var markupM = 1 + (parseFloat(mk)||0)/100;
                 var totalC = 0;
                 var orderedItems = [];
@@ -38048,6 +38056,16 @@ document.addEventListener('DOMContentLoaded', function(){
         window.ganttItems.push(newItem);
         if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
     };
+    
+    // Auto-save notes from Quill editor every 2 seconds
+    setInterval(function(){
+        try{
+            if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root){
+                var h = quillGeneratorNotes.root.innerHTML || '';
+                if(window.quotationData) window.quotationData.notes = h;
+            }
+        }catch(e){}
+    }, 2000);
     
     // 7b2. Preview modal buttons (Save & Download / Send Quotation)
     var dlBtn = document.getElementById('downloadQuotationBtn');
