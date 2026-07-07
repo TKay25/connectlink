@@ -23975,7 +23975,7 @@ async function saveKitchenQuotation() {
             days: item.days || 1,
             totalPrice: (item.quantity || 1) * (item.amount || 0)
         })),
-        schedules: data.schedules.map((schedule, index) => ({
+        schedules: (data.schedules||[]).map((schedule, index) => ({
             workScope: schedule.workScope,
             startDate: schedule.startDate,
             endDate: schedule.endDate,
@@ -37844,7 +37844,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(!items.length){alert('Please add at least one kitchen item.');return;}
                 var totalC=0,totalD=0;
                 items.forEach(function(it){totalC+=(it.quantity||1)*(it.amount||0);totalD+=(it.days||1);});
-                window.kitchenQuotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:items,totalCost:totalC,totalDays:totalD,notes:''};
+                window.kitchenQuotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:items,totalCost:totalC,totalDays:totalD,notes:'',schedules:[]};
                 closeModal('quotationgeneratorModal');
                 setTimeout(function(){
                     if(typeof window.displayKitchenPreview==='function') window.displayKitchenPreview();
