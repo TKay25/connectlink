@@ -4049,58 +4049,132 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         var tablePlacement = 'default';
         if(typeof promptQuotationTablePlacementIfNeeded==='function'){
             tablePlacement = await promptQuotationTablePlacementIfNeeded(q.category);
-            if(tablePlacement===null) return; // user cancelled
+            if(tablePlacement===null) return;
         }
-        var w=window.open('','_blank');
-        if(w){
-            var d=q.quotationDate?new Date(q.quotationDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}):'N/A';
-            var isCon=(q.category||'').includes('construction');
-            var h='<html><head><title>Quotation #'+qId+'</title>';
-            h+='<style>body{font-family:Arial,sans-serif;padding:40px;color:#1E2A56;}h1{color:#C12B3E;border-bottom:2px solid #C12B3E;padding-bottom:10px;}.info{margin:20px 0;}table{width:100%;border-collapse:collapse;margin:20px 0;}th{background:#1E2A56;color:white;padding:8px 10px;text-align:left;}td{padding:6px 8px;border-bottom:1px solid #ddd;}.total{font-weight:700;color:#C12B3E;font-size:1.1em;}.card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:12px;margin:10px 0;}.footer{margin-top:40px;border-top:1px solid #ddd;padding-top:20px;font-size:0.85em;color:#666;}</style></head><body>';
-            h+='<img src="/static/images/web-logo.png" style="max-width:150px;"><h1>Project Quotation</h1>';
-            h+='<div class="info"><strong>Client:</strong> '+(q.clientName||'N/A')+'<br><strong>Date:</strong> '+d+'<br><strong>Category:</strong> '+(q.category||'N/A')+'<br><strong>Total:</strong> <span class="total">USD '+Number(q.totalCost||0).toLocaleString('en-US',{minimumFractionDigits:2})+'</span></div>';
-            
-            // Show items table (for construction: only if user chose to include it)
-            var showItems = tablePlacement==='default'||tablePlacement==='include'||tablePlacement==='exclude';
-            if(q.items&&q.items.length>0&&showItems){
-                h+='<h3>Items</h3><table><thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead><tbody>';
-                q.items.forEach(function(it,i){
-                    h+='<tr><td>'+(i+1)+'</td><td>'+(it.name||'Item')+'</td><td>'+(it.quantity||0)+'</td><td>$'+Number(it.amount||it.unitRate||0).toFixed(2)+'</td><td>$'+Number(it.totalPrice||0).toFixed(2)+'</td></tr>';
-                });
-                h+='</tbody></table>';
-            }
-            
-            // Show work schedule
-            if(q.schedules&&q.schedules.length>0&&showItems){
-                h+='<h3>Work Schedule</h3><table><thead><tr><th>#</th><th>Task</th><th>Start Date</th><th>End Date</th><th>Days</th></tr></thead><tbody>';
-                q.schedules.forEach(function(s,i){
-                    h+='<tr><td>'+(i+1)+'</td><td>'+(s.workScope||s.item||'Task')+'</td><td>'+(s.startDate||'')+'</td><td>'+(s.endDate||'')+'</td><td>'+Number(s.days||0)+'</td></tr>';
-                });
-                h+='</tbody></table>';
-            }
-            
-            // Payment summary
-            var tc=Number(q.totalCost||0);
-            var dp=tc*0.3;
-            var bl=tc-dp;
-            var mi=bl/6;
-            h+='<h3>Payment Summary</h3><div style="display:flex;gap:10px;flex-wrap:wrap;">';
-            h+='<div class="card" style="flex:1;min-width:120px;text-align:center;"><div style="font-size:0.75rem;color:#666;">Total Amount</div><div style="font-size:1.1rem;font-weight:900;color:#1E2A56;">USD '+tc.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-            h+='<div class="card" style="flex:1;min-width:120px;text-align:center;"><div style="font-size:0.75rem;color:#666;">Deposit (30%)</div><div style="font-size:1rem;font-weight:700;color:#1E2A56;">USD '+dp.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-            h+='<div class="card" style="flex:1;min-width:120px;text-align:center;"><div style="font-size:0.75rem;color:#666;">Balance</div><div style="font-size:1rem;font-weight:700;color:#1E2A56;">USD '+bl.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-            h+='<div class="card" style="flex:1;min-width:120px;text-align:center;"><div style="font-size:0.75rem;color:#666;">Monthly (6 months)</div><div style="font-size:1rem;font-weight:700;color:#1E2A56;">USD '+mi.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-            h+='</div>';
-            
-            // Banking details
-            h+='<div class="card"><strong>Banking Details:</strong><br>Bank: CBZ<br>Branch: Msasa<br>Account Name: Connectlink Agency (Pvt) Ltd<br>Account No: 450600586638405<br>Account Type: USD Account</div>';
-            
-            if(q.notes) h+='<div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:8px;padding:10px;margin:20px 0;"><strong>Notes:</strong> '+q.notes+'</div>';
-            h+='<div class="footer"><p>ConnectLink Building Projects</p><p>This quotation is valid for 30 days from the date of issue.</p></div></body></html>';
-            w.document.write(h);
-            w.document.close();
-            setTimeout(function(){w.print();},500);
+        
+        var clientName = q.clientName||'Client';
+        var category = q.category||'General';
+        var quotationDate = q.quotationDate||'';
+        var totalCost = Number(q.totalCost||0);
+        var items = q.items||[];
+        var schedules = q.schedules||[];
+        var quotationNotes = q.notes||'';
+        var size = q.projectSize||'0';
+        
+        var fmtDate = function(v){
+            if(!v) return '';
+            try{return new Date(v).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});}catch(e){return v;}
+        };
+        
+        var depositAmount = totalCost * 0.3;
+        var balanceAmount = totalCost - depositAmount;
+        var monthlyInstallment = balanceAmount / 6;
+        var totalConstructionDays = 0;
+        schedules.forEach(function(s){totalConstructionDays += Number(s.days)||0;});
+        
+        var showItemsTable = tablePlacement!=='exclude';
+        var placementBefore = showItemsTable && (tablePlacement==='default'||tablePlacement==='include'||tablePlacement==='after_schedule') ? 'block' : 'none';
+        var placementAfter = showItemsTable && tablePlacement==='after_schedule' ? 'block' : 'none';
+        var showConstruction = showItemsTable && (tablePlacement==='default'||tablePlacement==='include');
+        
+        var itemRows = '';
+        var totalDisplayCost = 0;
+        (items||[]).forEach(function(item, idx){
+            var nm = item.name||item.item||'Item';
+            var qty = Number(item.quantity||item.sqm||0);
+            var rate = Number(item.amount||item.unitRate||item.inhouseRate||0);
+            var itmTotal = Number(item.totalPrice||item.total||item.clientPrice||0);
+            totalDisplayCost += itmTotal;
+            var sDays = (schedules[idx]&&schedules[idx].days)||item.days||0;
+            itemRows += '<tr style="border-bottom:1px solid #ddd;"><td style="padding:6px;text-align:center;">'+(idx+1)+'</td><td style="padding:6px;text-align:left;">'+nm+'</td><td style="padding:6px;text-align:center;">'+qty.toFixed(2)+'</td><td style="padding:6px;text-align:right;">$'+rate.toFixed(2)+'</td><td style="padding:6px;text-align:center;font-weight:600;color:#2196F3;">'+sDays+'</td><td style="padding:6px;text-align:right;font-weight:700;color:var(--primary);">$'+itmTotal.toFixed(2)+'</td></tr>';
+        });
+        
+        if(items.length>0){
+            itemRows += '<tr><td colspan="4" style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);"><strong>TOTAL</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid var(--primary);color:#2196F3;"><strong>'+totalConstructionDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);color:var(--primary);"><strong>$'+totalDisplayCost.toFixed(2)+'</strong></td></tr>';
+        }
+        
+        var scheduleRows = '';
+        (schedules||[]).forEach(function(s, idx){
+            var bg = idx%2===0?'#f9f9f9':'#ffffff';
+            var w = s.workScope||s.item||'Task';
+            var sd = s.startDate?new Date(s.startDate).toLocaleDateString('en-GB'):'';
+            var ed = s.endDate?new Date(s.endDate).toLocaleDateString('en-GB'):'';
+            scheduleRows += '<tr style="border-bottom:1px solid #ddd;background-color:'+bg+';"><td style="padding:6px;text-align:center;">'+(idx+1)+'</td><td style="padding:6px;text-align:left;">'+w+'</td><td style="padding:6px;text-align:center;">'+sd+'</td><td style="padding:6px;text-align:center;">'+ed+'</td></tr>';
+        });
+        
+        var isCon = (category||'').toLowerCase().includes('construction');
+        
+        var htmlContent = '<div style="font-family:Arial,sans-serif;background:#ffffff;color:#1E2A56;padding:0;margin:0;">';
+        htmlContent += '<div style="background:#ffffff;width:100%;padding:14px 16px;border:2px solid #1E2A56;border-radius:10px;box-sizing:border-box;">';
+        htmlContent += '<img src="/static/images/web-logo.png" style="display:block;margin:0 auto 10px auto;width:130px;max-width:100%;">';
+        htmlContent += '<h1 style="margin:0 0 6px 0;text-align:center;font-size:16px;font-weight:900;color:#1E2A56;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>';
+        htmlContent += '<div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px auto;border-radius:10px;"></div>';
+        htmlContent += '<p style="font-size:12px;margin:0 0 12px 0;line-height:1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>'+clientName+'</strong>.</p>';
+        
+        // Project Details
+        htmlContent += '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">PROJECT DETAILS</h4>';
+        htmlContent += '<div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;box-sizing:border-box;">';
+        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>';
+        htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div></div>';
+        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>'+(category||'')+'</span></div>';
+        htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>'+fmtDate(quotationDate)+'</span></div></div></div>';
+        
+        // Summary
+        htmlContent += '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">QUOTATION SUMMARY</h4>';
+        htmlContent += '<div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">';
+        var cols = isCon ? 4 : 5;
+        htmlContent += '<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:10px;text-align:center;">';
+        htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Total Amount</div><div style="font-size:13px;font-weight:900;color:#1E2A56;">$'+totalCost.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+balanceAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Monthly (6 months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        if(!isCon) htmlContent += '<div><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+totalConstructionDays+' Days</div></div>';
+        htmlContent += '</div></div>';
+        
+        // Items table
+        if(showConstruction && items.length>0){
+            htmlContent += '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">CONSTRUCTION ITEMS</h4>';
+            htmlContent += '<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px;"><thead><tr style="background:#1E2A56;color:white;"><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:left;width:50%;">Item Description</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:10%;">Qty</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:right;width:12%;">Rate (USD)</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:8%;">Days</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:right;width:14%;">Total (USD)</th></tr></thead><tbody>'+itemRows+'</tbody></table>';
+        }
+        
+        // Work Schedule
+        if(showConstruction && schedules.length>0){
+            htmlContent += '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">WORK SCHEDULE</h4>';
+            htmlContent += '<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px;"><thead><tr style="background:#1E2A56;color:white;"><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:left;width:46%;">Item Description</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:24%;">Start Date</th><th style="padding:6px 8px;border:1px solid #2a3a78;text-align:center;width:24%;">End Date</th></tr></thead><tbody>'+scheduleRows+'</tbody></table>';
+        }
+        
+        // Important Note & Banking
+        htmlContent += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">';
+        htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">';
+        htmlContent += '<strong style="color:#C12B3E;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.';
+        htmlContent += '<div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div></div>';
+        htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">';
+        htmlContent += '<strong style="color:#C12B3E;">Banking Details:</strong><div style="margin-top:6px;"><div><strong>Bank:</strong> CBZ</div><div><strong>Branch:</strong> Msasa</div><div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div><div><strong>Account No:</strong> 450600586638405</div><div><strong>Account Type:</strong> USD Account</div></div></div></div>';
+        
+        if(quotationNotes && quotationNotes.replace(/<[^>]*>/g,'').trim()){
+            htmlContent += '<div style="margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;"><div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;"><i class="bi bi-sticky-fill"></i> Quotation Notes</div><div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">'+quotationNotes+'</div></div>';
+        }
+        
+        htmlContent += '<div style="text-align:center;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:10px;margin-top:10px;">ConnectLink Building Projects &bull; This quotation is valid for 30 days</div>';
+        htmlContent += '</div></div>';
+        
+        // Use html2pdf to generate the PDF
+        if(typeof html2pdf !== 'undefined' && typeof html2pdf === 'function'){
+            var pdfOptions = {
+                margin: [6,6,6,6],
+                filename: 'Quotation_'+clientName.replace(/\s+/g,'_')+'_'+Date.now()+'.pdf',
+                image: {type:'jpeg',quality:0.98},
+                html2canvas: {scale:1.5,useCORS:true,scrollY:0},
+                pagebreak: {mode:['css','legacy']},
+                jsPDF: {orientation:'portrait',unit:'mm',format:'a4'}
+            };
+            var worker = html2pdf().set(pdfOptions).from(htmlContent);
+            await worker.save();
         } else {
-            alert('Please allow pop-ups to download the PDF');
+            // Fallback: open in new window
+            var w=window.open('','_blank');
+            if(w){w.document.write(htmlContent);w.document.close();setTimeout(function(){w.print();},500);}
+            else alert('Please allow pop-ups to download the PDF');
         }
     } catch(e){alert('Error generating PDF: '+e.message);}
 };
@@ -4132,16 +4206,44 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         var q=result.data.find(function(x){return x.id===qId});
         if(!q){alert('Quotation not found.');return;}
         window.editingQuotationId=qId;
+        var isKitchen = q.category === 'kitchen';
+        if(isKitchen){
+            window.kitchenCabinetItems = (q.items||[]).map(function(item){return{
+                name: item.name||'',
+                quantity: item.quantity||1,
+                amount: item.amount||item.unitRate||item.totalPrice||0,
+                days: item.days||1,
+                totalPrice: item.totalPrice||((item.quantity||1)*(item.amount||item.unitRate||0))
+            };});
+        } else {
+            window.ganttChartData = (q.schedules||[]).map(function(s){return{
+                item: s.workScope,
+                startDate: s.startDate,
+                endDate: s.endDate,
+                days: s.days,
+                price: 0
+            };});
+            window._editingQuotationData = q;
+            window._editingPreSelectItems = (q.items||[]).map(function(item,idx){
+                var ms = q.schedules ? q.schedules[idx] : null;
+                return{name:item.name,sqm:item.quantity,quantity:item.quantity,inhouseRate:item.unitRate,unitRate:item.unitRate,clientPrice:item.totalPrice,totalPrice:item.totalPrice,total:item.totalPrice,days:ms?ms.days:0,markup:q.markup};
+            });
+        }
         try{
             document.getElementById('quotationClientName')&&(document.getElementById('quotationClientName').value=q.clientName||'');
             document.getElementById('quotationClientWhatsapp')&&(document.getElementById('quotationClientWhatsapp').value=q.clientWhatsapp||'');
             document.getElementById('quotationDate')&&(document.getElementById('quotationDate').value=q.quotationDate?q.quotationDate.substring(0,10):new Date().toISOString().split('T')[0]);
+            if(!isKitchen){
+                document.getElementById('quotationMarkup')&&(document.getElementById('quotationMarkup').value=q.markup!=null?q.markup:30);
+                document.getElementById('quotationSize')&&(document.getElementById('quotationSize').value=q.projectSize||'');
+            }
             var catEl=document.getElementById('quotationCategory');
             if(catEl){catEl.value=q.category||'';catEl.dispatchEvent(new Event('change'));}
-            document.getElementById('quotationMarkup')&&(document.getElementById('quotationMarkup').value=q.markup!=null?q.markup:30);
-            document.getElementById('quotationSize')&&(document.getElementById('quotationSize').value=q.projectSize||'');
         }catch(e){}
-        if(typeof openModal==='function') openModal('quotationgeneratorModal');
+        setTimeout(function(){
+            if(isKitchen && typeof renderKitchenItemsTable==='function') renderKitchenItemsTable();
+            if(typeof openModal==='function') openModal('quotationgeneratorModal');
+        }, 200);
     }).catch(function(e){alert('Error: '+e.message);});
 };
 
