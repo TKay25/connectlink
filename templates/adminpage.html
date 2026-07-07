@@ -37526,16 +37526,27 @@ document.addEventListener('DOMContentLoaded', function(){
         if(e && !e._rec){ e._rec=true; e.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); }); }
     });
     
-    // 3. Generate Quotation button
+    // 3. Generate Quotation button - clone to remove conflicting listeners
     var genBtn = document.getElementById('generateQuotationBtn');
-    if(genBtn && !genBtn._rec){
-        genBtn._rec = true;
-        genBtn.addEventListener('click', function(){
+    if(genBtn){
+        var newBtn = genBtn.cloneNode(true);
+        genBtn.parentNode.replaceChild(newBtn, genBtn);
+        newBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            e.stopPropagation();
             var cat = document.getElementById('quotationCategory')?.value;
             var name = document.getElementById('quotationClientName')?.value;
             var date = document.getElementById('quotationDate')?.value;
             if(!cat||!name||!date){alert('Please fill in all required fields.');return;}
-            try { if(typeof $==='function') $('#generateQuotationBtn').trigger('click'); } catch(e){}
+            if(cat==='construction_single'||cat==='construction_double'){
+                var sz=document.getElementById('quotationSize')?.value;
+                var mk=document.getElementById('quotationMarkup')?.value;
+                if(!sz||!mk){alert('Please enter square meters and markup percentage.');return;}
+                if(!document.querySelectorAll('.selected-item-drag').length){alert('Please select at least one construction item.');return;}
+            }
+            if(cat==='kitchen'&&(!window.kitchenCabinetItems||!window.kitchenCabinetItems.length)){alert('Please add at least one kitchen item.');return;}
+            if((cat==='tv_units'||cat==='other')&&(!window.tvUnitItems||!window.tvUnitItems.length)){alert('Please add at least one item.');return;}
+            try { if(typeof $==='function') { console.log('Triggering jQuery generate handler'); $('#generateQuotationBtn').trigger('click'); } } catch(ex){console.error(ex);}
         });
     }
     
