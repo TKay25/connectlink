@@ -1382,6 +1382,16 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"Note: Could not add can_edit_projects column: {e}")
 
+            # Add can_download_master_file column if it doesn't exist
+            try:
+                cursor.execute("""
+                    ALTER TABLE user_permissions
+                    ADD COLUMN IF NOT EXISTS can_download_master_file BOOLEAN DEFAULT TRUE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add can_download_master_file column: {e}")
+
             print("✅ User permissions table initialized!")
 
             # ========== HR MODULE TABLES ==========
@@ -12024,6 +12034,7 @@ def Dashboard():
                 perms = get_user_permissions(source_sys, source_id)
                 print(f"🔍 Dashboard perms for user {userid} ({source_sys},{source_id}): can_view_payments={perms.get('can_view_payments')}, is_super_admin={perms.get('is_super_admin')}")
                 can_view_payments = perms.get('can_view_payments', False) or perms.get('is_super_admin', False)
+                can_download_master_file = perms.get('can_download_master_file', True) or perms.get('is_super_admin', False)
 
                 can_edit_projects = perms.get('can_edit_projects', True)
                 # Only override to True if user is super admin
@@ -12054,7 +12065,8 @@ def Dashboard():
                 return render_template('adminpage.html', **results, userid=userid, user_name=user_name,
                                        can_view_payments=can_view_payments, can_edit_projects=can_edit_projects,
                                        can_manage_hr=can_manage_hr, can_manage_hardware=can_manage_hardware,
-                                       can_manage_roles=can_manage_roles)
+                                       can_manage_roles=can_manage_roles,
+                                       can_download_master_file=can_download_master_file)
                     
             except Exception as e:
 
@@ -24741,7 +24753,8 @@ def get_user_permissions(user_type, user_id):
                 SELECT can_manage_projects, can_manage_hardware, can_manage_hr,
                        can_add_users, can_edit_users, can_delete_users,
                        can_export_data, can_view_audit, can_manage_roles,
-                       is_super_admin, can_view_payments, can_edit_projects
+                       is_super_admin, can_view_payments, can_edit_projects,
+                       can_download_master_file
                 FROM user_permissions WHERE user_type=%s AND user_id=%s
             """, (user_type, user_id))
             row = cursor.fetchone()
@@ -24752,7 +24765,8 @@ def get_user_permissions(user_type, user_id):
                     'can_edit_users': row[4], 'can_delete_users': row[5],
                     'can_export_data': row[6], 'can_view_audit': row[7],
                     'can_manage_roles': row[8], 'is_super_admin': row[9],
-                    'can_view_payments': row[10], 'can_edit_projects': row[11] if len(row) > 11 else True
+                    'can_view_payments': row[10], 'can_edit_projects': row[11] if len(row) > 11 else True,
+                    'can_download_master_file': row[12] if len(row) > 12 else True
                 }
                 print(f"📊 get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}")
                 return result
@@ -24764,17 +24778,18 @@ def get_user_permissions(user_type, user_id):
                     INSERT INTO user_permissions (user_type, user_id, is_super_admin,
                         can_manage_projects, can_manage_hardware, can_manage_hr,
                         can_add_users, can_edit_users, can_delete_users,
-                        can_export_data, can_view_audit, can_manage_roles, can_view_payments)
-                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                        can_export_data, can_view_audit, can_manage_roles, can_view_payments,
+                        can_edit_projects, can_download_master_file)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
                 """, (user_type, user_id))
                 connection.commit()
                 return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects']}
+                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file']}
             # Default: no permissions
             return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                 'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects']}
+                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file']}
     except Exception as e:
         print(f"Permissions error: {e}")
         return {}
@@ -24794,7 +24809,8 @@ def um_permissions_api():
                            up.is_super_admin, up.can_manage_projects, up.can_manage_hardware,
                            up.can_manage_hr, up.can_add_users, up.can_edit_users,
                            up.can_delete_users, up.can_export_data, up.can_view_audit,
-                           up.can_manage_roles, up.can_view_payments, up.can_edit_projects
+                           up.can_manage_roles, up.can_view_payments, up.can_edit_projects,
+                           up.can_download_master_file
                     FROM user_permissions up
                     LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
                     LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
@@ -24810,7 +24826,8 @@ def um_permissions_api():
                         'can_add_users': r[8], 'can_edit_users': r[9],
                         'can_delete_users': r[10], 'can_export_data': r[11],
                         'can_view_audit': r[12], 'can_manage_roles': r[13],
-                        'can_view_payments': r[14], 'can_edit_projects': r[15]
+                        'can_view_payments': r[14], 'can_edit_projects': r[15],
+                        'can_download_master_file': r[16] if len(r) > 16 else True
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
@@ -24828,7 +24845,7 @@ def um_permissions_api():
             fields = ['is_super_admin', 'can_manage_projects', 'can_manage_hardware',
                       'can_manage_hr', 'can_add_users', 'can_edit_users', 'can_delete_users',
                       'can_export_data', 'can_view_audit', 'can_manage_roles',
-                      'can_view_payments', 'can_edit_projects']
+                      'can_view_payments', 'can_edit_projects', 'can_download_master_file']
 
             with get_db() as (cursor, connection):
                 # Upsert

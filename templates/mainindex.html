@@ -2564,7 +2564,11 @@
 
         // Counter Animation for Stats
         function animateCounter(element) {
-            const target = parseInt(element.textContent);
+            const text = element.textContent;
+            const match = text.match(/^([\d.]+)([+%]?)$/);
+            if (!match) return;
+            const target = parseInt(match[1]);
+            const suffix = match[2] || '';
             const duration = 1000;
             const start = Date.now();
 
@@ -2572,7 +2576,7 @@
                 const elapsed = Date.now() - start;
                 const progress = Math.min(elapsed / duration, 1);
                 const value = Math.floor(target * progress);
-                element.textContent = value;
+                element.textContent = value + suffix;
 
                 if (progress < 1) {
                     requestAnimationFrame(animate);

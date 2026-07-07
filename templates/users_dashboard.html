@@ -945,6 +945,13 @@
                 <span class="perm-label"><i class="bi bi-pencil-square"></i> Edit Projects</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_edit_projects"><span class="toggle-slider"></span></label>
             </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
+                <i class="bi bi-download"></i> Master File & AI
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-download"></i> Download Master File &amp; Ask AI</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_download_master_file"><span class="toggle-slider"></span></label>
+            </div>
             <div id="permModalMsg" style="font-size:0.6rem;margin-top:8px;text-align:center;min-height:18px;"></div>
         </div>
         <div class="modal-footer-custom">
@@ -1196,6 +1203,7 @@ function renderOverview() {
         { key: 'can_manage_hr', label: 'HR', color: '#8b5cf6' },
         { key: 'can_view_payments', label: 'Payments', color: '#ef4444' },
         { key: 'can_manage_roles', label: 'Roles', color: '#06b6d4' },
+        { key: 'can_download_master_file', label: 'Master File', color: '#0d6efd' },
     ];
     permDist.innerHTML = permDefs.map(d => {
         const count = admin.filter(u => has(u, d.key)).length;
@@ -1219,7 +1227,7 @@ function renderOverview() {
     const thisWeek = admin.filter(u => u.created_at && new Date(u.created_at) >= startOfWeek).length;
     const thisMonth = admin.filter(u => u.created_at && new Date(u.created_at) >= startOfMonth).length;
     const adminRoleCount = admin.filter(u => u.role === 'admin').length;
-    const withPerms = admin.filter(u => { const p = getPerm(u); return p.is_super_admin || p.can_manage_projects || p.can_manage_hardware || p.can_manage_hr || p.can_view_payments; }).length;
+    const withPerms = admin.filter(u => { const p = getPerm(u); return p.is_super_admin || p.can_manage_projects || p.can_manage_hardware || p.can_manage_hr || p.can_view_payments || p.can_download_master_file; }).length;
     const lastMonth = admin.filter(u => u.created_at && new Date(u.created_at) >= new Date(now.getFullYear(), now.getMonth()-1, 1) && new Date(u.created_at) < startOfMonth).length;
     const growth = lastMonth > 0 ? Math.round((thisMonth - lastMonth) / lastMonth * 100) : (thisMonth > 0 ? 100 : 0);
     const utilPct = total > 0 ? Math.round(withPerms / total * 100) : 0;
@@ -1248,6 +1256,7 @@ function getPortalAccessBadges(p) {
     if (p.can_manage_hardware) badges.push('<span class="badge-um admin" style="font-size:0.5rem;">Hardware</span>');
     if (p.can_manage_hr) badges.push('<span class="badge-um ordinary" style="font-size:0.5rem;">HR</span>');
     if (p.can_view_payments) badges.push('<span class="badge-um amber" style="font-size:0.5rem;background:#fff3e0;color:#ef6c00;">Payments</span>');
+    if (p.can_download_master_file) badges.push('<span class="badge-um" style="font-size:0.5rem;background:#e3f2fd;color:#1565c0;">Master File</span>');
     return badges.length ? badges.join(' ') : '<span class="badge-um inactive" style="font-size:0.5rem;">None</span>';
 }
 
@@ -1628,7 +1637,8 @@ async function loadAuditLog() {
 const PERM_TOGGLE_IDS = [
     'can_manage_projects', 'can_manage_hardware', 'can_manage_hr',
     'can_add_users', 'can_edit_users', 'can_delete_users',
-    'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments'
+    'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments',
+    'can_edit_projects', 'can_download_master_file'
 ];
 
 function toggleAllPermissions(checked) {
@@ -1660,7 +1670,8 @@ function openPermModal(userType, userId, userName) {
 async function loadPermModalData(userType, userId) {
     const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                     'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects'];
+                     'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
+                     'can_download_master_file'];
     // Reset all toggles to off
     toggles.forEach(t => {
         const el = document.getElementById('toggle-' + t);
@@ -1691,7 +1702,8 @@ async function loadPermModalData(userType, userId) {
 async function savePermModal() {
     const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                     'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects'];
+                     'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
+                     'can_download_master_file'];  
     const payload = {
         user_type: permModalUserType,
         user_id: permModalUserId
