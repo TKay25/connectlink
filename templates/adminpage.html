@@ -33108,6 +33108,7 @@ function getItemsForQuotationOutput(data) {
 window.generateQuotationPDF = generateQuotationPDF;
 window.renderPreviewItemsTable = renderPreviewItemsTable;
 window.getItemsForQuotationOutput = getItemsForQuotationOutput;
+window.displayGanttChartInPreview = displayGanttChartInPreview;
 
 
 // Update the sendQuotationBtn click handler
@@ -37891,8 +37892,26 @@ document.addEventListener('DOMContentLoaded', function(){
             if(typeof closeModal==='function') closeModal('ganttChartBuilderModal');
             setTimeout(function(){
                 if(typeof openModal==='function') openModal('quotationPreviewModal');
-                if(typeof displayGanttChartInPreview==='function'){
-                    setTimeout(function(){ displayGanttChartInPreview(); }, 100);
+                // Fill client info in preview
+                var qd = window.quotationData;
+                if(qd){
+                    var cnEl=document.getElementById('previewClientName');
+                    if(cnEl) cnEl.textContent = qd.clientName||'';
+                    var pcEl=document.getElementById('previewCategory');
+                    if(pcEl){
+                        var cm = {'construction_single':'Single Storey Construction','construction_double':'Double Storey Construction','kitchen':'Kitchen','tv_units':'TV Units'};
+                        pcEl.textContent = cm[qd.category] || (qd.category||'').replace(/_/g,' ').toUpperCase();
+                    }
+                    var pdEl=document.getElementById('previewDate');
+                    if(pdEl && qd.quotationDate) pdEl.textContent = new Date(qd.quotationDate).toLocaleDateString('en-US');
+                    var psEl=document.getElementById('previewSize');
+                    if(psEl) psEl.textContent = (qd.category||'').includes('construction') ? (qd.size||'0')+' sqm' : '-';
+                }
+                if(typeof window.renderPreviewItemsTable==='function' && qd){
+                    window.renderPreviewItemsTable(qd);
+                }
+                if(typeof window.displayGanttChartInPreview==='function'){
+                    setTimeout(function(){ window.displayGanttChartInPreview(); }, 100);
                 }
             }, 300);
         });
