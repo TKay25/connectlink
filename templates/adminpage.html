@@ -37871,7 +37871,7 @@ document.addEventListener('DOMContentLoaded', function(){
                         tb.innerHTML = '';
                         rates.forEach(function(rt){
                             var tr=document.createElement('tr');
-                            tr.innerHTML='<td><input class="form-control form-control-sm" value="'+(rt.item||'')+'"></td><td><input type="number" class="form-control form-control-sm" step="0.01" value="'+(rt.daysPerSqMeter||0)+'"></td><td><input type="number" class="form-control form-control-sm" step="any" value="'+(rt.inhouseRate||0)+'"></td><td style="text-align:center;"><button class="btn btn-sm btn-danger" type="button"><i class="bi bi-trash"></i></button></td>';
+                            tr.innerHTML='<td><input class="form-control form-control-sm quotation-item-input" value="'+(rt.item||'')+'"></td><td><input type="number" class="form-control form-control-sm quotation-days-input" step="0.01" value="'+(rt.daysPerSqMeter||0)+'"></td><td><input type="number" class="form-control form-control-sm quotation-rate-input" step="any" value="'+(rt.inhouseRate||0)+'"></td><td style="text-align:center;"><button class="btn btn-sm btn-danger delete-rate-btn" type="button"><i class="bi bi-trash"></i></button></td>';
                             tb.appendChild(tr);
                         });
                     }
