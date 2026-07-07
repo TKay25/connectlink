@@ -3691,6 +3691,13 @@ body { font-family: Arial; margin: 20px; }
 </head>
 
 <body>
+<script>
+// Early stubs for functions defined in later scripts - prevents "not defined" errors
+window.loadQuotations = window.loadQuotations || function() { console.log('loadQuotations stub - full implementation loading...'); };
+window.reloadQuotations = window.reloadQuotations || function() { console.log('reloadQuotations stub - full implementation loading...'); };
+window.loadWhatsAppChats = window.loadWhatsAppChats || function() { console.log('loadWhatsAppChats stub'); };
+window.loadActivityLog = window.loadActivityLog || function() { console.log('loadActivityLog stub'); };
+</script>
 
 <!-- Background Pattern Layers (from mainindex.html) -->
 <div class="bg-layer bg-gradient"></div>
