@@ -31952,6 +31952,7 @@ let quillDetailsNotes = null;
             }
         });
 
+console.log('DOCREADY: before generateQuotationBtn handler');
 $('#generateQuotationBtn').click(function() {
     // Get form data
     const category = $('#quotationCategory').val();
@@ -34621,6 +34622,7 @@ $(document).ready(function() {
             alert('No quotation selected');
         }
     });
+    console.log('DOCREADY: callback COMPLETED successfully');
 });
 // Helper function to escape HTML
 function escapeHtml(text) {
@@ -37611,5 +37613,100 @@ document.getElementById('saveContractorBtn')?.addEventListener('click', function
 <footer class="app-footer">
     <p>&copy; 2026 ConnectLink Properties &amp; Hardware — From Concept to Creation, Let's Build Together &nbsp;|&nbsp; <a href="/privacy-policy" style="color:var(--gray-500);text-decoration:underline;">Privacy Policy</a></p>
 </footer>
+<script>
+// === RECOVERY: Bind critical quotation handlers (runs after all DOM exists) ===
+document.addEventListener('DOMContentLoaded', function(){
+    
+    // 1. Category change handler for construction items
+    var catEl = document.getElementById('quotationCategory');
+    if(catEl && !catEl._rec){
+        catEl._rec = true;
+        catEl.addEventListener('change', function(){
+            var v = this.value;
+            var isCon = v === 'construction_single' || v === 'construction_double';
+            ['quotationSizeContainer','constructionDetailsContainer'].forEach(function(id){
+                var e=document.getElementById(id);
+                if(e) e.style.display = isCon ? 'block' : 'none';
+            });
+            var kc=document.getElementById('kitchenCabinetContainer');
+            if(kc) kc.style.display = v === 'kitchen' ? 'block' : 'none';
+            var tc=document.getElementById('tvUnitsContainer');
+            if(tc) tc.style.display = (v === 'tv_units' || v === 'other') ? 'block' : 'none';
+            var oc=document.getElementById('otherCategoryNameContainer');
+            if(oc) oc.style.display = v === 'other' ? 'block' : 'none';
+            if(isCon && typeof window.renderConstructionItemsList==='function'){
+                var el2=document.getElementById('constructionItemsList');
+                if(el2) el2.innerHTML='<p class="text-muted p-3">Loading items...</p>';
+                fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(d){
+                    window.quotationRatesCache = d.success ? d.data : [];
+                    if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList();
+                }).catch(function(){});
+            }
+        });
+    }
+    
+    // 2. Size/markup input handlers
+    ['quotationSize','quotationMarkup'].forEach(function(id){
+        var e=document.getElementById(id);
+        if(e && !e._rec){ e._rec=true; e.addEventListener('input', function(){ if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList(); }); }
+    });
+    
+    // 3. Generate Quotation button
+    var genBtn = document.getElementById('generateQuotationBtn');
+    if(genBtn && !genBtn._rec){
+        genBtn._rec = true;
+        genBtn.addEventListener('click', function(){
+            var cat = document.getElementById('quotationCategory')?.value;
+            var name = document.getElementById('quotationClientName')?.value;
+            var date = document.getElementById('quotationDate')?.value;
+            if(!cat||!name||!date){alert('Please fill in all required fields.');return;}
+            try { if(typeof $==='function') $('#generateQuotationBtn').trigger('click'); } catch(e){}
+        });
+    }
+    
+    // 4. View Quotation Rates - populate on modal open
+    var _origOpen = window.openModal;
+    if(!_origOpen || !_origOpen._rec){
+        var _baseOpen = _origOpen || function(id){ var e=document.getElementById(id); if(e) e.classList.add('active'); };
+        window.openModal = function(mId){
+            if(mId==='quotationRatesModal'){
+                fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(d){
+                    var rates = d.success ? d.data : [];
+                    var tb = document.getElementById('quotationRatesBody');
+                    if(tb && rates.length){
+                        tb.innerHTML = '';
+                        rates.forEach(function(rt){
+                            var tr=document.createElement('tr');
+                            tr.innerHTML='<td><input class="form-control form-control-sm" value="'+(rt.item||'')+'"></td><td><input type="number" class="form-control form-control-sm" step="0.01" value="'+(rt.daysPerSqMeter||0)+'"></td><td><input type="number" class="form-control form-control-sm" step="any" value="'+(rt.inhouseRate||0)+'"></td><td style="text-align:center;"><button class="btn btn-sm btn-danger" type="button"><i class="bi bi-trash"></i></button></td>';
+                            tb.appendChild(tr);
+                        });
+                    }
+                }).catch(function(){});
+            }
+            _baseOpen(mId);
+        };
+        window.openModal._rec = true;
+    }
+    
+    // 5. Quotation Details modal buttons
+    function bindModalBtn(id, fn){
+        var el=document.getElementById(id);
+        if(el && !el._rec){ el._rec=true; el.addEventListener('click', fn); }
+    }
+    bindModalBtn('downloadQuotationFromModalBtn', async function(){
+        if(!window.currentViewingQuotation){alert('No quotation selected');return;}
+        try{await window.downloadQuotationPDFFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
+    });
+    bindModalBtn('sendQuotationFromModalBtn', async function(){
+        if(!window.currentViewingQuotation){alert('No quotation selected');return;}
+        try{await window.sendQuotationFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
+    });
+    bindModalBtn('editQuotationFromModalBtn', function(){
+        if(!window.currentViewingQuotation){alert('No quotation selected');return;}
+        if(typeof closeModal==='function') closeModal('quotationDetailsModal');
+        window.editQuotationFromPortal(window.currentViewingQuotation.id);
+    });
+});
+</script>
 </body>
 </html>
