@@ -4413,10 +4413,33 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
     if(!q.clientWhatsapp||!q.clientWhatsapp.toString().trim()){alert('No WhatsApp number saved for this quotation. Edit the quotation first to add one.');return;}
     if(!confirm('Send Quotation #'+qId+' to '+(q.clientName||'Client')+' via WhatsApp?\n\nNumber: '+q.clientWhatsapp)) return;
     var btn=event&&event.target?event.target:null;
-    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Sending...';}
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Generating PDF...';}
     try {
-        var sendR=await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:q.clientName||'Client',whatsappNumber:q.clientWhatsapp,quotationId:qId,pdfBase64:''})}).then(function(r){return r.json()});
-        if(sendR.success){alert('Quotation sent successfully!');}else{alert('Failed to send: '+(sendR.error||'Unknown error'));}
+        // Build quotation data and generate PDF first
+        var qData={clientName:q.clientName,clientWhatsapp:q.clientWhatsapp,quotationDate:q.quotationDate,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,items:(q.items||[]).map(function(it,i){return{name:it.name||it.item||'Item',quantity:it.quantity||0,unitRate:it.unitRate||it.amount||0,totalPrice:it.totalPrice||0,item_order:i+1};}),schedules:(q.schedules||[]).map(function(s,i){return{workScope:s.workScope||s.item||'Task',startDate:s.startDate,endDate:s.endDate,days:s.days||0,task_order:i+1};})};
+        window.quotationData = qData;
+        window.ganttChartData = qData.schedules||[];
+        var pdfDataUri = null;
+        if(typeof window.generateQuotationPDF==='function'){
+            btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Building PDF...';
+            pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
+        }
+        var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
+        btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Sending...';
+        var sendR=await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:q.clientName||'Client',whatsappNumber:q.clientWhatsapp,quotationId:qId,pdfBase64:pdfBase64,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,quotationDate:q.quotationDate})}).then(function(r){return r.json()});
+        if(sendR.success){
+            if(sendR.used_template){
+                alert('Sent via template with download button (outside 24-hour window).\n\nShare link: '+sendR.share_url);
+            } else {
+                alert('Quotation sent successfully!');
+            }
+        } else {
+            if(sendR.requires_template){
+                alert('24-hour window reached. The system attempted to send a template message but it failed.\n\nHint: '+sendR.hint);
+            } else {
+                alert('Failed to send: '+(sendR.error||'Unknown error'));
+            }
+        }
     } catch(e){alert('Error: '+e.message);}
     if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-whatsapp"></i> Send';}
 };

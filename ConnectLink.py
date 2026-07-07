@@ -27213,7 +27213,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
                     "parameters": [
                         {
                             "type": "payload",
-                            "payload": share_token  # share_token carries quotation_{id}
+                            "payload": share_token
                         }
                     ]
                 }
