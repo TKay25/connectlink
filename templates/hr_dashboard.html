@@ -207,7 +207,7 @@
 
         /* ===== MAIN CONTENT ===== */
         .hr-main {
-            flex: 1; padding: 10px 14px; overflow-y: auto;
+            flex: 1; padding: 6px 10px; overflow-y: hidden;
             background: linear-gradient(170deg, #F8FAFC 0%, #EEF2F7 40%, #E8EDF3 100%);
             min-height: calc(100vh - var(--nav-height));
             display: flex;
@@ -217,17 +217,17 @@
         /* Page header */
         .page-header {
             display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+            margin-bottom: 6px; flex-wrap: wrap; gap: 4px;
             background: rgba(255,255,255,0.6);
-            backdrop-filter: blur(8px); border-radius: 12px;
-            padding: 10px 14px; border: 1px solid rgba(226,232,240,0.6);
+            backdrop-filter: blur(8px); border-radius: 10px;
+            padding: 6px 10px; border: 1px solid rgba(226,232,240,0.6);
         }
         .page-header h4 {
-            font-size: 0.85rem; font-weight: 700; color: var(--text-primary);
-            margin: 0; display: flex; align-items: center; gap: 6px;
+            font-size: 0.75rem; font-weight: 700; color: var(--text-primary);
+            margin: 0; display: flex; align-items: center; gap: 4px;
         }
-        .page-header h4 i { color: var(--primary); font-size: 0.75rem; }
-        .page-header .breadcrumb { font-size: 0.55rem; color: var(--text-muted); margin: 0; background: none; padding: 0; }
+        .page-header h4 i { color: var(--primary); font-size: 0.65rem; }
+        .page-header .breadcrumb { font-size: 0.5rem; color: var(--text-muted); margin: 0; background: none; padding: 0; }
 
         /* ===== STATS CARDS ===== */
         .stats-grid {
@@ -239,11 +239,11 @@
 
         .hr-stat-card {
             background: var(--white);
-            border-radius: var(--radius-md);
-            padding: 12px 14px;
+            border-radius: 8px;
+            padding: 7px 10px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow-xs);
             transition: var(--transition);
@@ -264,10 +264,10 @@
             border-color: rgba(193,43,62,0.15);
         }
         .hr-stat-card .stat-icon {
-            width: 38px; height: 38px;
-            border-radius: 10px;
+            width: 30px; height: 30px;
+            border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 0.9rem; flex-shrink: 0;
+            font-size: 0.75rem; flex-shrink: 0;
         }
         .hr-stat-card .stat-icon.blue { background: linear-gradient(135deg,#e8f0fe,#d4e4fc); color: #1a73e8; }
         .hr-stat-card .stat-icon.green { background: linear-gradient(135deg,#e6f7e6,#c8f0c8); color: #2e7d32; }
@@ -277,23 +277,23 @@
         .hr-stat-card .stat-icon.teal { background: linear-gradient(135deg,#e0f2f1,#b2dfdb); color: #00796b; }
 
         .hr-stat-card .stat-body { flex: 1; min-width: 0; }
-        .hr-stat-card .stat-label { font-size: 0.55rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
-        .hr-stat-card .stat-value { font-size: 1rem; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
-        .hr-stat-card .stat-sub { font-size: 0.55rem; color: var(--text-muted); }
+        .hr-stat-card .stat-label { font-size: 0.5rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 1px; }
+        .hr-stat-card .stat-value { font-size: 0.85rem; font-weight: 800; color: var(--text-primary); line-height: 1.1; }
+        .hr-stat-card .stat-sub { font-size: 0.5rem; color: var(--text-muted); }
 
         /* ===== CARDS ===== */
         .hr-card {
             background: var(--white);
-            border-radius: var(--radius-md);
+            border-radius: 8px;
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow-xs);
-            margin-bottom: 14px;
+            margin-bottom: 0;
             overflow: hidden;
             transition: var(--transition);
         }
         .hr-card:hover { box-shadow: var(--shadow-md); }
         .hr-card .card-header-custom {
-            padding: 8px 12px;
+            padding: 5px 8px;
             border-bottom: 1px solid var(--border-color);
             display: flex; align-items: center; justify-content: space-between;
             background: linear-gradient(135deg, #FAFBFC, #F3F6F9);
@@ -476,11 +476,11 @@
         .quick-action-card .qa-arrow { font-size: 0.65rem; color: var(--gray-300); transition: var(--transition); }
         .quick-action-card:hover .qa-arrow { color: var(--primary); transform: translateX(2px); }
 
-        /* ===== DASHBOARD GRID — Full-screen filling ===== */
+        /* ===== DASHBOARD GRID — Full viewport no scroll ===== */
         .dash-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
+            gap: 5px;
             flex: 1;
             min-height: 0;
             align-content: stretch;
@@ -489,7 +489,7 @@
             min-width: 0;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
         .dash-col .hr-stat-card { margin-bottom: 0; flex-shrink: 0; }
         .dash-col .hr-card { margin-bottom: 0; flex-shrink: 0; }
@@ -512,14 +512,14 @@
         }
         .dash-col-header div { font-size: 0.6rem !important; letter-spacing: 0.4px !important; }
 
-        /* ===== MODULE TRANSITIONS — Fill full viewport ===== */
+        /* ===== MODULE TRANSITIONS — Tight full viewport ===== */
         .hr-module { display: none; }
         .hr-module.active {
             display: flex;
             flex-direction: column;
             animation: moduleIn 0.3s ease;
-            min-height: calc(100vh - var(--nav-height) - 28px);
-            height: calc(100vh - var(--nav-height) - 28px);
+            min-height: calc(100vh - var(--nav-height) - 16px);
+            height: calc(100vh - var(--nav-height) - 16px);
         }
         #module-dashboard.active .page-header { flex-shrink: 0; }
         @keyframes moduleIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
@@ -2537,14 +2537,15 @@ async function loadDashboardStats() {
         // Department breakdown
         const deptEl = document.getElementById('deptBreakdown');
         if (deptEl && dept.success) {
-            const depts = dept.data || [];
-            document.getElementById('statDeptCount').textContent = depts.length;
-            if (depts.length) {
-                deptEl.innerHTML = depts.slice(0, 5).map(d =>
-                    `<span style="display:inline-block;background:#f3f4f6;padding:1px 5px;border-radius:3px;margin:1px;font-size:0.5rem;">${d.department || 'N/A'}: ${d.cnt}</span>`
+            // API returns { total, departments: [{name, count, active, ...}], employment_types }
+            const rawDepts = dept.data && dept.data.departments ? dept.data.departments : [];
+            document.getElementById('statDeptCount').textContent = rawDepts.length;
+            if (rawDepts.length) {
+                deptEl.innerHTML = rawDepts.slice(0, 5).map(d =>
+                    `<span style="display:inline-block;background:#f3f4f6;padding:1px 5px;border-radius:3px;margin:1px;font-size:0.5rem;">${d.name || 'N/A'}: ${d.count||d.cnt||0}</span>`
                 ).join('');
-                if (depts.length > 5) {
-                    deptEl.innerHTML += `<span style="font-size:0.5rem;color:var(--text-muted);margin-left:2px;">+${depts.length - 5} more</span>`;
+                if (rawDepts.length > 5) {
+                    deptEl.innerHTML += `<span style="font-size:0.5rem;color:var(--text-muted);margin-left:2px;">+${rawDepts.length - 5} more</span>`;
                 }
             } else {
                 deptEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">No departments</span>';
