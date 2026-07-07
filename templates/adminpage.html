@@ -4360,6 +4360,10 @@ body { font-family: Arial; margin: 20px; }
                                 </div>
                                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-bottom:8px;">
                                     <div class="stat-card" style="padding:8px 10px;">
+                                        <div class="stat-icon success"><i class="bi bi-whatsapp"></i></div>
+                                        <div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">WhatsApp Chatbot</div><div class="stat-value" style="font-size:0.7rem;">{{ contact3 }}</div></div>
+                                    </div>
+                                    <div class="stat-card" style="padding:8px 10px;">
                                         <div class="stat-icon purple"><i class="bi bi-envelope"></i></div>
                                         <div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">Email</div><div class="stat-value" style="font-size:0.7rem;">{{ compemail }}</div></div>
                                     </div>
@@ -14155,6 +14159,11 @@ body { font-family: Arial; margin: 20px; }
                 </div>
 
                 <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="companyPhone3" class="form-label fw-semibold mb-1">WhatsApp Chatbot Number</label>
+                        <input type="text" class="form-control editable-field" id="companyPhone3" name="phone3" value="{{ contact3 }}">
+                        <small class="text-muted">Clients can download contract agreements &amp; payment history here</small>
+                    </div>
                     <div class="col-md-6">
                         <label for="companyEmail" class="form-label fw-semibold mb-1">Email</label>
                         <input type="email" class="form-control editable-field" id="companyEmail" name="email" value="{{ compemail }}">
@@ -29813,6 +29822,15 @@ function populateProjectConfirmationModal() {
 function backToProjectForm() {
     closeModal('projectConfirmationModal');
     openModal('addnewProjectModal');
+    // Restore Quill project scope content — it gets lost when modal display:none
+    setTimeout(function() {
+        if (quillProjectScope && (quillProjectScope.root.innerHTML === '<p><br></p>' || quillProjectScope.getText().trim() === '')) {
+            var savedScope = document.getElementById('project_description').value;
+            if (savedScope) {
+                quillProjectScope.root.innerHTML = savedScope;
+            }
+        }
+    }, 200);
 }
 
 // Confirm save handler
@@ -36584,6 +36602,40 @@ function updateLoaderMessage(mainMsg, subMsg) {
     if (mainEl) mainEl.innerHTML = (mainMsg || 'Processing') + ' <span style="color: var(--primary);">...</span>';
     if (subEl) subEl.textContent = subMsg || 'Please wait';
 }
+
+// Save Contractor Details
+document.getElementById('saveContractorBtn')?.addEventListener('click', function() {
+    var data = {
+        company_name: document.getElementById('companyName')?.value || '',
+        address: document.querySelector('#contractorEditForm textarea[name="address"]')?.value || '',
+        phone1: document.getElementById('companyPhone1')?.value || '',
+        phone2: document.getElementById('companyPhone2')?.value || '',
+        phone3: document.getElementById('companyPhone3')?.value || '',
+        email: document.getElementById('companyEmail')?.value || '',
+        tin_number: document.getElementById('companyTinNumber')?.value || ''
+    };
+    fetch('/api/save-contractor-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(resp) {
+        if (resp.success) {
+            if (typeof showToast === 'function') showToast('Contractor details saved!', 'success');
+            else alert('Contractor details saved!');
+            closeModal('editContractorModal');
+            location.reload();
+        } else {
+            if (typeof showToast === 'function') showToast(resp.message || 'Error saving', 'error');
+            else alert(resp.message || 'Error saving');
+        }
+    })
+    .catch(function(err) {
+        if (typeof showToast === 'function') showToast('Connection error', 'error');
+        else alert('Connection error');
+    });
+});
 </script>
 
 

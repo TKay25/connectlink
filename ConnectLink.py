@@ -181,7 +181,8 @@ def initialize_database_tables():
 
             comp_details_alters = [
                 "ALTER TABLE connectlinkusers ADD COLUMN IF NOT EXISTS whatsapp INT;",
-                "ALTER TABLE connectlinkdetails ADD COLUMN IF NOT EXISTS tinnumber VARCHAR(100);"
+                "ALTER TABLE connectlinkdetails ADD COLUMN IF NOT EXISTS tinnumber VARCHAR(100);",
+                "ALTER TABLE connectlinkdetails ADD COLUMN IF NOT EXISTS contact3 VARCHAR(100);"
             ]
 
             for sql_stmt in comp_details_alters:
@@ -189,7 +190,7 @@ def initialize_database_tables():
 
 
             '''cursor.execute("""
-                INSERT INTO connectlinkdetails (address, contact1, contact2, email, companyname, tinnumber)
+                INSERT INTO connectlinkdetails (address, contact1, contact2, email, companyname, tinnumber, contact3)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (
                 "38A Coronation Avenue Greendale Harare",
@@ -7050,11 +7051,12 @@ def webhook():
                                                                         # Get company details
                                                                         cursor.execute("SELECT * FROM connectlinkdetails;")
                                                                         detailscompdata = cursor.fetchall()
-                                                                        detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber'])
+                                                                        detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber','contact3'])
                                                                         companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
                                                                         address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
                                                                         contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
                                                                         contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
+                                                                        contact3 = detailscompdata.iat[0,6] if not detailscompdata.empty else ""
                                                                         compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
 
                                                                         # Calculate days difference
@@ -7117,7 +7119,9 @@ def webhook():
                                                                             'companyaddress': address,
                                                                             'companycontact1': contact1,
                                                                             'companycontact2': contact2,
+                                                                            'companycontact3': contact3,
                                                                             'companyemail': compemail,
+                                                                            'company_tin': tinnumber,
                                                                             'days_difference': days_difference,
                                                                             'generated_on': datetime.now().strftime('%d %B %Y')
                                                                         }
@@ -7510,8 +7514,10 @@ def webhook():
 
                                                                                 <div class="section-header">CONTRACTOR DETAILS</div>
                                                                                 <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
+                                                                                <div class="field-row"><div class="field-label">TIN Number:</div><div class="field-value">{project.get('company_tin','')}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
+                                                                                <div class="field-row"><div class="field-label">WhatsApp Chatbot:</div><div class="field-value">0{project.get('companycontact3','')} (Download contract agreements &amp; payment history here)</div></div>
                                                                                 <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
                                                                                 
@@ -16201,12 +16207,14 @@ def download_contract(project_id):
             # Fetch company details
             cursor.execute("SELECT * FROM connectlinkdetails;")
             detailscompdata = cursor.fetchall()
-            detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber'])
+            detailscompdata = pd.DataFrame(detailscompdata, columns=['address','contact1','contact2','email','companyname','tinnumber','contact3'])
             companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
             address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
             contact1 = str(detailscompdata.iat[0,1] or '') if not detailscompdata.empty else ""
             contact2 = str(detailscompdata.iat[0,2] or '') if not detailscompdata.empty else ""
+            contact3 = str(detailscompdata.iat[0,6] or '') if not detailscompdata.empty else ""
             compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
+            tinnumber = str(detailscompdata.iat[0,5] or '') if not detailscompdata.empty else ""
 
             # Calculate days difference
             def days_between(date1, date2):
@@ -16266,7 +16274,9 @@ def download_contract(project_id):
                 'companyaddress': address,
                 'companycontact1': contact1,
                 'companycontact2': contact2,
+                'companycontact3': contact3,
                 'companyemail': compemail,
+                'company_tin': tinnumber,
                 'days_difference': days_difference,
                 'relationship': row[9] if len(row) > 9 else ""
             }
@@ -16787,8 +16797,10 @@ def download_contract(project_id):
 
                     <div class="section-header">CONTRACTOR DETAILS</div>
                     <div class="field-row"><div class="field-label">Company Name:</div><div class="field-value">{project['companyname']}</div></div>
+                    <div class="field-row"><div class="field-label">TIN Number:</div><div class="field-value">{project.get('company_tin','')}</div></div>
                     <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{project['companyaddress']}</div></div>
                     <div class="field-row"><div class="field-label">Contact Numbers:</div><div class="field-value">0{project['companycontact1']} / 0{project['companycontact2']}</div></div>
+                    <div class="field-row"><div class="field-label">WhatsApp Chatbot:</div><div class="field-value">0{project.get('companycontact3','')} (Download contract agreements &amp; payment history here)</div></div>
                     <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{project['companyemail']}</div></div>
                     <div class="field-row"><div class="field-label">Project Administrator:</div><div class="field-value">{project['project_administrator']}</div></div>
                     
@@ -17405,14 +17417,16 @@ def download_payments_history(project_id):
             cursor.execute("SELECT * FROM connectlinkdetails;")
             details = cursor.fetchall()
             details = pd.DataFrame(details, columns=[
-                'address','contact1','contact2','email','companyname','tinnumber'
+                'address','contact1','contact2','email','companyname','tinnumber','contact3'
             ])
 
             companyname = details.iat[0,4] if not details.empty else ""
             address = details.iat[0,0] if not details.empty else ""
             contact1 = details.iat[0,1] if not details.empty else ""
             contact2 = details.iat[0,2] if not details.empty else ""
+            contact3 = details.iat[0,6] if not details.empty else ""
             compemail = details.iat[0,3] if not details.empty else ""
+            tinnumber = details.iat[0,5] if not details.empty else ""
 
             # Payment fields (same index references as your system)
             payments = [
@@ -19056,11 +19070,12 @@ def run1(userid):
         detailscompdata = cursor.fetchall()
         print(detailscompdata)
 
-        detailscompdata = pd.DataFrame(detailscompdata, columns= ['address', 'contact1', 'contact2', 'email', 'companyname', 'tinnumber'])
+        detailscompdata = pd.DataFrame(detailscompdata, columns= ['address', 'contact1', 'contact2', 'email', 'companyname', 'tinnumber', 'contact3'])
         companyname = detailscompdata.iat[0,4] if not detailscompdata.empty else "ConnectLink Properties"
         address = detailscompdata.iat[0,0] if not detailscompdata.empty else ""
         contact1 = detailscompdata.iat[0,1] if not detailscompdata.empty else ""
         contact2 = detailscompdata.iat[0,2] if not detailscompdata.empty else ""
+        contact3 = detailscompdata.iat[0,6] if not detailscompdata.empty else ""
         compemail = detailscompdata.iat[0,3] if not detailscompdata.empty else ""
         tinnumber = detailscompdata.iat[0,5] if not detailscompdata.empty else ""
         
@@ -19422,6 +19437,7 @@ def run1(userid):
             "address": address,
             "contact1": contact1,
             "contact2": contact2,
+            "contact3": contact3,
             "compemail": compemail,
             "tinnumber": tinnumber,
             'today_date': today_date,
@@ -28757,4 +28773,42 @@ def get_enquiries_pending_summary():
     except Exception as e:
         logging.error(f'Error fetching pending summary: {str(e)}')
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/save-contractor-details', methods=['POST'])
+def save_contractor_details():
+    """Save contractor/company details"""
+    try:
+        data = request.get_json()
+        company_name = data.get('company_name', '')
+        address = data.get('address', '')
+        phone1 = data.get('phone1', '')
+        phone2 = data.get('phone2', '')
+        phone3 = data.get('phone3', '')
+        email = data.get('email', '')
+        tin_number = data.get('tin_number', '')
+
+        with get_db() as (cursor, connection):
+            # Check if record exists
+            cursor.execute("SELECT COUNT(*) FROM connectlinkdetails;")
+            count = cursor.fetchone()[0]
+
+            if count > 0:
+                cursor.execute("""
+                    UPDATE connectlinkdetails SET
+                        companyname = %s, address = %s, contact1 = %s,
+                        contact2 = %s, contact3 = %s, email = %s, tinnumber = %s
+                    WHERE ctid = (SELECT ctid FROM connectlinkdetails LIMIT 1)
+                """, (company_name, address, phone1, phone2, phone3, email, tin_number))
+            else:
+                cursor.execute("""
+                    INSERT INTO connectlinkdetails (companyname, address, contact1, contact2, contact3, email, tinnumber)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (company_name, address, phone1, phone2, phone3, email, tin_number))
+            connection.commit()
+
+        return jsonify({'success': True, 'message': 'Contractor details saved successfully'})
+    except Exception as e:
+        logging.error(f'Error saving contractor details: {str(e)}')
+        return jsonify({'success': False, 'message': str(e)}), 500
 
