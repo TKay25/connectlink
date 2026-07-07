@@ -13642,9 +13642,11 @@ def parse_paye_pdf(file_bytes):
     #         or: from - to Y multiply by Z% (first bracket with 0%)
     brackets = []
 
+    # Primary pattern: matches lines that START with "from" to avoid picking up calculation examples
+    # Handles: "from - to 100.00", "from 100.01 to 300.00", "from 3,000.01 and above"
     bracket_pattern = re.compile(
-        r'from\s+([\d,]+(?:\.\d+)?)\s*(?:[-–—]|to)\s*([\d,]+(?:\.\d+)?|above)\s+multiply\s+by\s+([\d.]+)\s*%\s*(?:Deduct\s+([\d,]+(?:\.\d+)?))?',
-        re.I
+        r'^from\s+(-|[\d,]+(?:\.\d+)?)\s*(?:[-–—]|to|and)\s*(above|[\d,]+(?:\.\d+)?)\s+multiply\s+by\s+([\d.]+)\s*%\s*(?:Deduct\s+(-?[\d,]+(?:\.\d+)?))?',
+        re.I | re.M
     )
 
     for line in monthly_lines:
@@ -13658,21 +13660,32 @@ def parse_paye_pdf(file_bytes):
 
         lower_str = m.group(1).strip()
         upper_str = m.group(2).strip()
-        rate_str = m.group(3).strip()
-        deduct_str = m.group(4)
 
-        # Clean commas and parse
-        try:
-            from_val = float(lower_str.replace(',', ''))
-        except ValueError:
-            # 'from - to ...' case – from is '-', treat as 0
+        # from '-' means zero
+        if lower_str == '-':
             from_val = 0.0
+        else:
+            try:
+                from_val = float(lower_str.replace(',', ''))
+            except ValueError:
+                continue
 
         is_open_ended = 'above' in upper_str.lower()
-        to_val = -1 if is_open_ended else float(upper_str.replace(',', ''))
+        if is_open_ended:
+            to_val = -1
+        else:
+            try:
+                to_val = float(upper_str.replace(',', ''))
+            except ValueError:
+                continue
 
-        rate = float(rate_str.replace(',', ''))
+        rate_str = m.group(3).strip()
+        try:
+            rate = float(rate_str.replace(',', ''))
+        except ValueError:
+            continue
 
+        deduct_str = m.group(4)
         cumulative = float(deduct_str.replace(',', '')) if deduct_str else 0.0
 
         brackets.append({
@@ -13682,35 +13695,46 @@ def parse_paye_pdf(file_bytes):
             'cumulative': cumulative
         })
 
-    # Step 3: If no brackets found via the pattern, fall back to simpler line matching
+    # Step 3: If still no brackets found, try a stricter fallback
+    # Only match lines that start with "from" to avoid calculation example lines
     if not brackets:
-        # Fallback: look for percentage + range patterns within monthly section
+        fallback_pattern = re.compile(
+            r'^from\s+([\d,]+(?:\.\d+)?)\s*[-–—to]+\s*([\d,]+(?:\.\d+)?)\s+multiply\s+by\s+([\d.]+)\s*%',
+            re.I | re.M
+        )
         for line in monthly_lines:
             line = line.strip()
             if not line:
                 continue
-            pct_m = re.search(r'([\d.]+)\s*%', line)
-            if not pct_m:
+            m = fallback_pattern.search(line)
+            if not m:
                 continue
-            rate = float(pct_m.group(1))
-
-            # "from X to Y" or "X to Y" or "X – Y"
-            range_m = re.search(r'(?:from\s+)?([\d,]+(?:\.\d+)?)\s*[-–—to]+\s*([\d,]+(?:\.\d+)?)', line, re.I)
-            if range_m:
-                from_val = float(range_m.group(1).replace(',', ''))
-                to_val = float(range_m.group(2).replace(',', ''))
-                deduct_m = re.search(r'(?:Deduct|–)\s*\$?([\d,]+(?:\.\d+)?)', line, re.I)
+            try:
+                from_val = float(m.group(1).replace(',', ''))
+                to_val = float(m.group(2).replace(',', ''))
+                rate = float(m.group(3).replace(',', ''))
+                deduct_m = re.search(r'Deduct\s+(-?[\d,]+(?:\.\d+)?)', line, re.I)
                 cumulative = float(deduct_m.group(1).replace(',', '')) if deduct_m else 0
                 brackets.append({'from': from_val, 'to': to_val, 'rate': rate, 'cumulative': cumulative})
+            except ValueError:
                 continue
 
-            # "X and above"
-            above_m = re.search(r'([\d,]+(?:\.\d+)?)\s*and\s*above', line, re.I)
-            if above_m:
-                from_val = float(above_m.group(1).replace(',', ''))
-                deduct_m = re.search(r'(?:Deduct|–)\s*\$?([\d,]+(?:\.\d+)?)', line, re.I)
+        # Also try "from X and above" pattern
+        above_pattern = re.compile(
+            r'^from\s+([\d,]+(?:\.\d+)?)\s+and\s+above\s+multiply\s+by\s+([\d.]+)\s*%',
+            re.I | re.M
+        )
+        for line in monthly_lines:
+            m = above_pattern.search(line.strip())
+            if not m:
+                continue
+            try:
+                from_val = float(m.group(1).replace(',', ''))
+                rate = float(m.group(2).replace(',', ''))
+                deduct_m = re.search(r'Deduct\s+(-?[\d,]+(?:\.\d+)?)', line, re.I)
                 cumulative = float(deduct_m.group(1).replace(',', '')) if deduct_m else 0
                 brackets.append({'from': from_val, 'to': -1, 'rate': rate, 'cumulative': cumulative})
+            except ValueError:
                 continue
 
     # Step 4: Sort by 'from' value and ensure 'to' values are consistent
