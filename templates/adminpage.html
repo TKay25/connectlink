@@ -4536,7 +4536,56 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
             var btn=this, ts=document.getElementById('sendBtnText'), sp=document.getElementById('sendBtnSpinner');
             if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
             try{
-                await window.sendQuotationFromPortal(window.currentViewingQuotation.id);
+                var q = window.currentViewingQuotation;
+                var cat = (q.category||'').toLowerCase();
+                if(cat.includes('kitchen') && typeof window.sendKitchenQuotationFromPortal==='function'){
+                    await window.sendKitchenQuotationFromPortal(q);
+                } else {
+                    // Fetch full quotation data, then generate PDF and send (same flow as sendQuotationBtn)
+                    var rr = await fetch('/api/get-quotations').then(function(r){return r.json()});
+                    if(!rr.success||!rr.data) throw new Error('Failed to fetch quotation');
+                    var qd = rr.data.find(function(x){return x.id===q.id});
+                    if(!qd) throw new Error('Quotation not found');
+                    if(!qd.clientWhatsapp||!qd.clientWhatsapp.toString().trim()) throw new Error('No WhatsApp number');
+                    
+                    // Build data like downloadConstructionQuotationPDFFromPortal does
+                    var sendData = {
+                        clientName: qd.clientName, clientWhatsapp: qd.clientWhatsapp||'',
+                        quotationDate: qd.quotationDate, category: qd.category,
+                        size: qd.projectSize, totalCost: qd.totalCost, markup: qd.markup,
+                        items: (qd.items||[]).map(function(it){return{
+                            item: it.name, name: it.name, sqm: it.quantity,
+                            inhouseRate: it.unitRate, clientPrice: it.totalPrice, total: it.totalPrice
+                        }}),
+                        notes: qd.notes||''
+                    };
+                    var ganttData = (qd.schedules||[]).map(function(s){return{
+                        item: s.workScope, startDate: s.startDate, endDate: s.endDate,
+                        days: s.days, price: 0
+                    }});
+                    window.quotationData = sendData;
+                    window.ganttChartData = ganttData;
+                    
+                    // Ask table placement
+                    if(typeof promptQuotationTablePlacementIfNeeded==='function'){
+                        var tp = await promptQuotationTablePlacementIfNeeded(qd.category);
+                        if(tp===null){btn.disabled=false;btn.innerHTML='Send via WhatsApp';return;}
+                        window.quotationPdfTablePlacement = tp;
+                    }
+                    
+                    showLoader('Generating PDF', 'Building your quotation document');
+                    var dataUri = typeof window.generateQuotationPDF==='function' ? await window.generateQuotationPDF('datauri', window.quotationPdfTablePlacement||'default') : null;
+                    hideLoader();
+                    var pdfBase64 = (dataUri&&dataUri.includes(',')) ? dataUri.split(',')[1] : '';
+                    if(!pdfBase64) throw new Error('Failed to generate PDF');
+                    
+                    var sr = await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+                        clientName: qd.clientName||'Client', whatsappNumber: qd.clientWhatsapp,
+                        quotationId: qd.id, pdfBase64: pdfBase64
+                    })}).then(function(r){return r.json()});
+                    if(sr.success) alert('Quotation sent successfully!');
+                    else throw new Error(sr.error||'Failed to send');
+                }
             }catch(e){alert('Error: '+e.message);}
             if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
         });
