@@ -19781,7 +19781,24 @@ async function saveAndDownloadQuotation() {
         const result = await response.json();
         
         if (!result.success) {
-            throw new Error(result.error || 'Failed to save quotation');
+            // Auto-retry with PUT if backend reports a duplicate
+            if (result.duplicate_id) {
+                console.log('Duplicate detected, retrying as update for ID:', result.duplicate_id);
+                window.editingQuotationId = result.duplicate_id;
+                const retryResponse = await fetch(`/api/update-quotation/${result.duplicate_id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const retryResult = await retryResponse.json();
+                if (!retryResult.success) {
+                    throw new Error(retryResult.error || 'Failed to save quotation');
+                }
+                result.quotation_id = retryResult.quotation_id || result.duplicate_id;
+                result.success = true;
+            } else {
+                throw new Error(result.error || 'Failed to save quotation');
+            }
         }
         
         alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id})`);
@@ -38142,7 +38159,14 @@ document.addEventListener('DOMContentLoaded', function(){
                 var saveUrl = isEditing ? '/api/update-quotation/'+window.editingQuotationId : '/api/save-quotation';
                 var saveMethod = isEditing ? 'PUT' : 'POST';
                 var sr = await fetch(saveUrl,{method:saveMethod,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json()});
-                if(!sr.success){alert('Save failed: '+(sr.error||'Unknown error'));btn.disabled=false;btn.innerHTML=orig;return;}
+                if(!sr.success){
+                    // Auto-retry with PUT if backend reports a duplicate
+                    if(sr.duplicate_id){
+                        window.editingQuotationId = sr.duplicate_id;
+                        sr = await fetch('/api/update-quotation/'+sr.duplicate_id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json()});
+                    }
+                    if(!sr.success){alert('Save failed: '+(sr.error||'Unknown error'));btn.disabled=false;btn.innerHTML=orig;return;}
+                }
                 if(isEditing) window.editingQuotationId = null;
                 else window.editingQuotationId = sr.quotation_id;
                 
