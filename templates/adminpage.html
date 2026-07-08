@@ -4461,10 +4461,19 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
         var qData={clientName:q.clientName,clientWhatsapp:q.clientWhatsapp,quotationDate:q.quotationDate,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,items:(q.items||[]).map(function(it,i){return{name:it.name||it.item||'Item',item:it.name||it.item||'Item',sqm:it.quantity||it.sqm||0,quantity:it.quantity||0,unitRate:it.unitRate||it.amount||0,inhouseRate:it.unitRate||it.amount||0,amount:it.amount||it.unitRate||0,totalPrice:it.totalPrice||0,clientPrice:it.totalPrice||it.clientPrice||0,total:it.totalPrice||it.total||0,days:it.days||0,item_order:i+1};}),schedules:(q.schedules||[]).map(function(s,i){return{workScope:s.workScope||s.item||'Task',startDate:s.startDate,endDate:s.endDate,days:s.days||0,task_order:i+1};})};
         window.quotationData = qData;
         window.ganttChartData = qData.schedules||[];
+        
+        // Prompt for table placement (like download flow does)
+        var tablePlacement = 'default';
+        if(typeof promptQuotationTablePlacementIfNeeded==='function'){
+            tablePlacement = await promptQuotationTablePlacementIfNeeded(qData.category);
+            if(tablePlacement === null){ hideLoader(); if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-whatsapp"></i> Send';} return; }
+        }
+        window.quotationPdfTablePlacement = tablePlacement;
+        
         showLoader('Generating PDF', 'Building your quotation document');
         var pdfDataUri = null;
         if(typeof window.generateQuotationPDF==='function'){
-            pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
+            pdfDataUri = await window.generateQuotationPDF('datauri', tablePlacement);
         }
         hideLoader();
         var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
@@ -24155,6 +24164,7 @@ async function sendKitchenQuotation() {
         
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
         
+        var qIdToSend = null;
         const saveResponse = await fetch('/api/save-quotation', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -24165,7 +24175,15 @@ async function sendKitchenQuotation() {
         console.log('Save result:', saveResult);
         
         if (!saveResult.success) {
-            throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
+            // If duplicate exists, send the existing one instead
+            if(saveResult.duplicate_id){
+                console.log('Duplicate found (ID: '+saveResult.duplicate_id+'), sending existing quotation');
+                qIdToSend = saveResult.duplicate_id;
+            } else {
+                throw new Error('Save failed: ' + (saveResult.error || 'Unknown error'));
+            }
+        } else {
+            qIdToSend = saveResult.quotation_id;
         }
         
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
@@ -24183,7 +24201,7 @@ async function sendKitchenQuotation() {
             body: JSON.stringify({
                 clientName: data.clientName,
                 whatsappNumber: clientWhatsapp,
-                quotationId: saveResult.quotation_id,
+                quotationId: qIdToSend,
                 pdfBase64: pdfBase64
             })
         });
@@ -32844,6 +32862,7 @@ function debugQuotationRates() {
 }
 
 async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'default') {
+    console.log('generateQuotationPDF CALLED with outputMode:', outputMode, 'tablePlacement:', tablePlacement, 'hasData:', !!window.quotationData, 'itemsCount:', window.quotationData?.items?.length);
     const data = window.quotationData;
     const ganttData = window.ganttChartData || [];
 
@@ -38307,11 +38326,17 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(isEditing) window.editingQuotationId = null;
                 else window.editingQuotationId = sr.quotation_id;
                 
-                // Step 3: Generate PDF
+                // Step 3: Prompt for table placement then generate PDF
+                var tblPlacement = 'default';
+                if(typeof promptQuotationTablePlacementIfNeeded==='function'){
+                    tblPlacement = await promptQuotationTablePlacementIfNeeded(qd.category);
+                    if(tblPlacement === null){ hideLoader(); btn.disabled=false; btn.innerHTML=orig; return; }
+                }
+                window.quotationPdfTablePlacement = tblPlacement;
                 showLoader('Generating PDF', 'Building your quotation document');
                 var pdfDataUri = null;
                 if(typeof window.generateQuotationPDF==='function'){
-                    pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
+                    pdfDataUri = await window.generateQuotationPDF('datauri', tblPlacement);
                 }
                 hideLoader();
                 var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
