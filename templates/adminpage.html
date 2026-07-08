@@ -4467,7 +4467,10 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
             pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
         }
         var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
-        if(!pdfBase64){throw new Error('Failed to generate PDF for sending. Please try downloading the quotation first.');}
+        if(!pdfBase64){
+            console.error('PDF generation failed. pdfDataUri:', pdfDataUri, 'quotationData:', window.quotationData);
+            throw new Error('Failed to generate PDF. Check browser console (F12) for details.');
+        }
         if(btn) btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Sending...';
         var sendR=await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:q.clientName||'Client',whatsappNumber:q.clientWhatsapp,quotationId:qId,pdfBase64:pdfBase64,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,quotationDate:q.quotationDate})}).then(function(r){return r.json()});
         if(sendR.success){
