@@ -38285,6 +38285,41 @@ document.addEventListener('DOMContentLoaded', function(){
         var d = new Date();
         dateEl.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     }
+    
+    // 10. Add Administrator button
+    var adminBtn = document.getElementById('saveAdminBtn');
+    if(adminBtn && !adminBtn._rec){
+        adminBtn._rec = true;
+        adminBtn.addEventListener('click', function(){
+            var name = document.getElementById('adminName')?.value.trim();
+            var phone = document.getElementById('adminPhone')?.value.trim();
+            if(!name || !phone){ alert('Please fill in all fields'); return; }
+            var st = document.getElementById('saveText');
+            var sl = document.getElementById('saveLoader');
+            if(st) st.classList.add('d-none');
+            if(sl) sl.classList.remove('d-none');
+            adminBtn.disabled = true;
+            fetch('/addadmin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminName:name,adminPhone:phone})})
+            .then(function(r){return r.json()})
+            .then(function(d){
+                if(st) st.classList.remove('d-none');
+                if(sl) sl.classList.add('d-none');
+                adminBtn.disabled = false;
+                if(d.status==='success'){
+                    alert('Administrator added!');
+                    if(typeof closeModal==='function') closeModal('addAdminplusModal');
+                    else{ var me=document.getElementById('addAdminplusModal'); if(me) me.classList.remove('active'); }
+                    location.reload();
+                } else { alert('Error: '+d.message); }
+            })
+            .catch(function(err){
+                if(st) st.classList.remove('d-none');
+                if(sl) sl.classList.add('d-none');
+                adminBtn.disabled = false;
+                alert('Request failed: '+err);
+            });
+        });
+    }
 });
 </script>
 </body>
