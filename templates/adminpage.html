@@ -4461,11 +4461,12 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
         var qData={clientName:q.clientName,clientWhatsapp:q.clientWhatsapp,quotationDate:q.quotationDate,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,items:(q.items||[]).map(function(it,i){return{name:it.name||it.item||'Item',item:it.name||it.item||'Item',sqm:it.quantity||it.sqm||0,quantity:it.quantity||0,unitRate:it.unitRate||it.amount||0,inhouseRate:it.unitRate||it.amount||0,amount:it.amount||it.unitRate||0,totalPrice:it.totalPrice||0,clientPrice:it.totalPrice||it.clientPrice||0,total:it.totalPrice||it.total||0,days:it.days||0,item_order:i+1};}),schedules:(q.schedules||[]).map(function(s,i){return{workScope:s.workScope||s.item||'Task',startDate:s.startDate,endDate:s.endDate,days:s.days||0,task_order:i+1};})};
         window.quotationData = qData;
         window.ganttChartData = qData.schedules||[];
+        showLoader('Generating PDF', 'Building your quotation document');
         var pdfDataUri = null;
         if(typeof window.generateQuotationPDF==='function'){
-            if(btn) btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Building PDF...';
             pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
         }
+        hideLoader();
         var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
         if(!pdfBase64){
             console.error('PDF generation failed. pdfDataUri:', pdfDataUri, 'quotationData:', window.quotationData);
@@ -33393,7 +33394,6 @@ $('#sendQuotationBtn').click(async function() {
         else { window.editingQuotationId = saveResult.quotation_id; }
 
         // Generate and send PDF...
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
         const tablePlacement = await promptQuotationTablePlacementIfNeeded(data.category);
         if (tablePlacement === null) {
             btn.disabled = false;
@@ -33401,7 +33401,9 @@ $('#sendQuotationBtn').click(async function() {
             return;
         }
         window.quotationPdfTablePlacement = tablePlacement;
+        showLoader('Generating PDF', 'Building your quotation document');
         const dataUri = await generateQuotationPDF('datauri', tablePlacement);
+        hideLoader();
         const pdfBase64 = (dataUri && dataUri.includes(',')) ? dataUri.split(',')[1] : '';
 
         if (!pdfBase64) {
@@ -38306,11 +38308,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 else window.editingQuotationId = sr.quotation_id;
                 
                 // Step 3: Generate PDF
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating PDF...';
+                showLoader('Generating PDF', 'Building your quotation document');
                 var pdfDataUri = null;
                 if(typeof window.generateQuotationPDF==='function'){
                     pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
                 }
+                hideLoader();
                 var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
                 if(!pdfBase64){throw new Error('Failed to generate PDF for sending. Please try downloading first.');}
                 
