@@ -4531,13 +4531,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
             }
             if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
         });
-        bindBtn('sendQuotationFromModalBtn', async function(){
-            if(!window.currentViewingQuotation){alert('No quotation selected');return;}
-            var btn=this, ts=document.getElementById('sendBtnText'), sp=document.getElementById('sendBtnSpinner');
-            if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
-            try{await window.sendQuotationFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
-            if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
-        });
+        // sendQuotationFromModalBtn is handled by jQuery at line 34791
         bindBtn('editQuotationFromModalBtn', function(){
             if(!window.currentViewingQuotation){alert('No quotation selected');return;}
             if(typeof closeModal==='function')closeModal('quotationDetailsModal');
@@ -38034,13 +38028,7 @@ document.addEventListener('DOMContentLoaded', function(){
         try{await window.downloadQuotationPDFFromPortal(window.currentViewingQuotation.id);clearTimeout(timeout);}catch(e){clearTimeout(timeout);alert('Error: '+e.message);}
         if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
     });
-    bindModalBtn('sendQuotationFromModalBtn', async function(){
-        if(!window.currentViewingQuotation){alert('No quotation selected');return;}
-        var btn=this, ts=document.getElementById('sendBtnText'), sp=document.getElementById('sendBtnSpinner');
-        if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
-        try{await window.sendQuotationFromPortal(window.currentViewingQuotation.id);}catch(e){alert('Error: '+e.message);}
-        if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
-    });
+    // sendQuotationFromModalBtn handled by jQuery at line 34791
     bindModalBtn('editQuotationFromModalBtn', function(){
         if(!window.currentViewingQuotation){alert('No quotation selected');return;}
         if(typeof closeModal==='function') closeModal('quotationDetailsModal');
