@@ -32884,6 +32884,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     let itemRows = '';
     let totalDisplayCost = 0;
     let totalDaysSum = 0;
+    let maxItemDays = 0;
     
     // In your generateQuotationPDF function, update the unit rate calculation:
 
@@ -32894,15 +32895,14 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     // Then when building each item row:
     items.forEach((item, index) => {
         const itemName = item.item || item.name || 'Item';
-        const qty = Number(item.sqm) || 0;
-        // CRITICAL: The stored inhouseRate is actually the CLIENT rate per sqm (already includes markup)
-        const clientRatePerSqm = Number(item.inhouseRate) || Number(item.unitRate) || 0;
-        const clientUnitRate = clientRatePerSqm;  // Stored value IS the client rate
+        const qty = isNonConstruction ? (Number(item.quantity) || 0) : (Number(item.sqm) || 0);
+        const clientUnitRate = isNonConstruction ? (Number(item.amount) || 0) : (Number(item.inhouseRate) || Number(item.unitRate) || 0);
         const days = daysByIndex[index] !== undefined ? daysByIndex[index] : (Number(item.days) || 0);
-        const itemTotal = Number(item.clientPrice || item.total || 0);
+        const itemTotal = Number(item.clientPrice || item.total || item.totalPrice || (qty * clientUnitRate));
         
         totalDisplayCost += itemTotal;
         totalDaysSum += days;
+        if(isNonConstruction) maxItemDays = Math.max(maxItemDays, days);
         const bg = index % 2 === 0 ? '#ffffff' : '#fafbff';
         
         itemRows += `
@@ -32937,6 +32937,8 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
     const isTvUnitsOrOther = String(category || '').toLowerCase() === 'tv_units' || String(category || '').toLowerCase() === 'other';
+    const isKitchenCat = String(category || '').toLowerCase() === 'kitchen';
+    const isNonConstruction = isTvUnitsOrOther || isKitchenCat;
     const monthTerms = isTvUnitsOrOther ? 3 : 6;
     const monthlyInstallment = balanceAmount / monthTerms;
     const normalizedPlacement = ['default', 'after_schedule', 'exclude'].includes(tablePlacement) ? tablePlacement : 'default';
@@ -33017,7 +33019,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                             ${!isConstruction ? `
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Duration</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #2196F3;">${totalConstructionDays} Days</div>
+                                <div style="font-size: 13px; font-weight: 700; color: #2196F3;">${isNonConstruction ? maxItemDays : totalConstructionDays} Days</div>
                             </div>` : ''}
                         </div>`;
                         })()}
@@ -33035,6 +33037,42 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                             ${quotationNotes}
                         </div>
                     </div>
+                </div>` : ''}
+
+                ${isNonConstruction ? `
+                <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
+                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">ITEMS</h4>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 46%;">Item</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 20%;">Price</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Days</th>
+                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 16%;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(function(it, idx){
+                                var nm = it.item || it.name || 'Item';
+                                var amt = Number(it.amount || it.inhouseRate || it.unitRate || 0);
+                                var dy = it.days || 0;
+                                var tot = Number(it.clientPrice || it.total || it.totalPrice || (amt * (it.quantity||1)));
+                                return '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#f9f9f9':'#ffffff')+';">'+
+                                    '<td style="padding:6px;text-align:center;">'+(idx+1)+'</td>'+
+                                    '<td style="padding:6px;text-align:left;">'+escapeHtml(nm)+'</td>'+
+                                    '<td style="padding:6px;text-align:right;">'+formatCurrency(amt)+'</td>'+
+                                    '<td style="padding:6px;text-align:center;color:#2196F3;">'+dy+'</td>'+
+                                    '<td style="padding:6px;text-align:right;font-weight:700;">'+formatCurrency(tot)+'</td></tr>';
+                            }).join('')}
+                            <tr style="background:#1E2A56;color:white;font-weight:bold;">
+                                <td colspan="2" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td>
+                                <td style="padding:8px 10px;text-align:right;"></td>
+                                <td style="padding:8px 10px;text-align:center;"><strong>${maxItemDays}</strong></td>
+                                <td style="padding:8px 10px;text-align:right;"><strong>${formatCurrency(totalDisplayCost)}</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>` : ''}
 
                 <!-- IMPORTANT NOTE & BANKING DETAILS -->
