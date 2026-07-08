@@ -27887,17 +27887,48 @@ def save_quotation():
             print(f"Construction total cost: {total_cost}")
         
         with get_db() as (cursor, connection):
-            # Check for duplicate: same client + category + date (within last 24h)
+            # Check for duplicate: same client name + same items (names and amounts)
             cursor.execute("""
-                SELECT id FROM quotations
-                WHERE client_name = %s AND category = %s AND quotation_date = %s
+                SELECT id, category FROM quotations
+                WHERE client_name = %s
                 AND created_at >= NOW() - INTERVAL '24 hours'
-                ORDER BY id DESC LIMIT 1
-            """, (client_name, category, quotation_date))
-            existing = cursor.fetchone()
-            if existing:
-                print(f"DUPLICATE DETECTED: Quotation #{existing[0]} already exists for {client_name} / {category} on {quotation_date}")
-                return jsonify({'success': False, 'error': 'A quotation for this client, category, and date already exists (ID: #' + str(existing[0]) + '). Please edit it instead.', 'duplicate_id': existing[0]})
+                ORDER BY id DESC
+            """, (client_name,))
+            existing_quotations = cursor.fetchall()
+            for eq in existing_quotations:
+                eq_id = eq[0]
+                eq_cat = eq[1] or ''
+                eq_is_kitchen = eq_cat in ('kitchen', 'kitchen_cabinets')
+                
+                # Fetch existing items
+                if eq_is_kitchen:
+                    cursor.execute("SELECT item_name, amount, quantity FROM quotation_kitchen_items WHERE quotation_id = %s ORDER BY item_order", (eq_id,))
+                else:
+                    cursor.execute("SELECT item_name, unit_rate, quantity FROM quotation_items WHERE quotation_id = %s ORDER BY item_order", (eq_id,))
+                eq_items = cursor.fetchall()
+                
+                # Compare item count
+                if len(eq_items) != len(items):
+                    continue
+                
+                # Compare each item (name and amount)
+                items_match = True
+                for i, (eq_item, new_item) in enumerate(zip(eq_items, items)):
+                    eq_name = (eq_item[0] or '').strip().lower()
+                    eq_amount = float(eq_item[1] or 0)
+                    eq_qty = float(eq_item[2] or 0)
+                    
+                    new_name = (new_item.get('name') or new_item.get('item') or '').strip().lower()
+                    new_amount = float(new_item.get('unitRate') or new_item.get('amount') or 0)
+                    new_qty = float(new_item.get('quantity') or 0)
+                    
+                    if eq_name != new_name or abs(eq_amount - new_amount) > 0.01 or abs(eq_qty - new_qty) > 0.01:
+                        items_match = False
+                        break
+                
+                if items_match:
+                    print(f"DUPLICATE DETECTED: Quotation #{eq_id} has same client+items for {client_name}")
+                    return jsonify({'success': False, 'error': 'A quotation with the same client name, items, and amounts already exists (ID: #' + str(eq_id) + '). Please edit it instead.', 'duplicate_id': eq_id})
 
             # Insert quotation header (including notes)
             notes = data.get('notes', '')
