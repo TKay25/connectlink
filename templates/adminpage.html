@@ -4556,6 +4556,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                     }
                     
                     showLoader('Generating PDF', 'Building your quotation document');
+                    if(typeof window.generateQuotationPDF!=='function') throw new Error('PDF generator not ready. Please refresh and try again.');
                     var dataUri = await window.generateQuotationPDF('datauri', window.quotationPdfTablePlacement||'default');
                     hideLoader();
                     var pdfBase64 = (dataUri&&dataUri.includes(',')) ? dataUri.split(',')[1] : '';
@@ -31538,6 +31539,8 @@ let quillDetailsNotes = null;
     console.log('DOCREADY: callback starting');
     $(document).ready(function() {
         console.log('DOCREADY: callback FIRED - DOM is ready');
+        // Ensure generateQuotationPDF is on window ASAP (function is hoisted in this scope)
+        window.generateQuotationPDF = typeof generateQuotationPDF !== 'undefined' ? generateQuotationPDF : null;
         // Set today's date automatically
         const today = new Date().toISOString().split('T')[0];
         $('#quotationDate').val(today);
