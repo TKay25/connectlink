@@ -33173,13 +33173,34 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
         jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
     };
 
-    const worker = html2pdf().set(options).from(htmlContent);
+    let worker;
+    try {
+        worker = html2pdf().set(options).from(htmlContent);
+    } catch(e) {
+        console.error('html2pdf init error:', e);
+        throw new Error('PDF library error: ' + e.message);
+    }
     
     if (outputMode === 'datauri') {
-        return worker.outputPdf('datauristring');
+        try {
+            const result = await worker.outputPdf('datauristring');
+            if (!result || typeof result !== 'string') {
+                console.error('outputPdf returned unexpected:', typeof result, result);
+                throw new Error('PDF generation returned empty result');
+            }
+            return result;
+        } catch(e) {
+            console.error('outputPdf error:', e);
+            throw new Error('PDF generation failed: ' + e.message);
+        }
     }
 
-    await worker.save();
+    try {
+        await worker.save();
+    } catch(e) {
+        console.error('save error:', e);
+        throw new Error('PDF save failed: ' + e.message);
+    }
     return null;
 }
 // Assign to window immediately after function definition
