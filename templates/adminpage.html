@@ -4541,34 +4541,21 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                 if(cat.includes('kitchen') && typeof window.sendKitchenQuotationFromPortal==='function'){
                     await window.sendKitchenQuotationFromPortal(q);
                 } else {
-                    // Fetch full quotation data, then generate PDF and send (same flow as sendQuotationBtn)
-                    var rr = await fetch('/api/get-quotations').then(function(r){return r.json()});
-                    if(!rr.success||!rr.data) throw new Error('Failed to fetch quotation');
-                    var qd = rr.data.find(function(x){return x.id===q.id});
-                    if(!qd) throw new Error('Quotation not found');
-                    if(!qd.clientWhatsapp||!qd.clientWhatsapp.toString().trim()) throw new Error('No WhatsApp number');
-                    
-                    // Build data like downloadConstructionQuotationPDFFromPortal does
-                    var sendData = {
-                        clientName: qd.clientName, clientWhatsapp: qd.clientWhatsapp||'',
-                        quotationDate: qd.quotationDate, category: qd.category,
-                        size: qd.projectSize, totalCost: qd.totalCost, markup: qd.markup,
-                        items: (qd.items||[]).map(function(it){return{
-                            item: it.name, name: it.name, sqm: it.quantity,
-                            inhouseRate: it.unitRate, clientPrice: it.totalPrice, total: it.totalPrice
-                        }}),
-                        notes: qd.notes||''
+                    if(!q.clientWhatsapp||!q.clientWhatsapp.toString().trim()) throw new Error('No WhatsApp number');
+                    // Use the quotation data already in currentViewingQuotation
+                    window.quotationData = {
+                        clientName: q.clientName, clientWhatsapp: q.clientWhatsapp||'',
+                        quotationDate: q.quotationDate, category: q.category,
+                        size: q.projectSize||q.size||0, totalCost: q.totalCost||0, markup: q.markup||0,
+                        items: q.items||[], notes: q.notes||''
                     };
-                    var ganttData = (qd.schedules||[]).map(function(s){return{
-                        item: s.workScope, startDate: s.startDate, endDate: s.endDate,
+                    window.ganttChartData = (q.schedules||[]).map(function(s){return{
+                        item: s.workScope||s.item, startDate: s.startDate, endDate: s.endDate,
                         days: s.days, price: 0
                     }});
-                    window.quotationData = sendData;
-                    window.ganttChartData = ganttData;
                     
-                    // Ask table placement
                     if(typeof promptQuotationTablePlacementIfNeeded==='function'){
-                        var tp = await promptQuotationTablePlacementIfNeeded(qd.category);
+                        var tp = await promptQuotationTablePlacementIfNeeded(q.category);
                         if(tp===null){btn.disabled=false;btn.innerHTML='Send via WhatsApp';return;}
                         window.quotationPdfTablePlacement = tp;
                     }
@@ -4580,8 +4567,8 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                     if(!pdfBase64) throw new Error('Failed to generate PDF');
                     
                     var sr = await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-                        clientName: qd.clientName||'Client', whatsappNumber: qd.clientWhatsapp,
-                        quotationId: qd.id, pdfBase64: pdfBase64
+                        clientName: q.clientName||'Client', whatsappNumber: q.clientWhatsapp,
+                        quotationId: q.id, pdfBase64: pdfBase64
                     })}).then(function(r){return r.json()});
                     if(sr.success) alert('Quotation sent successfully!');
                     else throw new Error(sr.error||'Failed to send');
@@ -33209,14 +33196,27 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     
     if (outputMode === 'datauri') {
         try {
-            const result = await worker.outputPdf('datauristring');
-            if (!result || typeof result !== 'string') {
+            // Use outputPdf to get data URI - fall back to blob conversion if that fails
+            let result;
+            try {
+                result = await worker.outputPdf('datauristring');
+            } catch(e) {
+                console.warn('outputPdf failed, trying outputPdf blob:', e);
+                // Fallback: get blob and convert to base64
+                var blob = await worker.outputPdf('blob');
+                result = await new Promise(function(resolve) {
+                    var reader = new FileReader();
+                    reader.onloadend = function() { resolve(reader.result); };
+                    reader.readAsDataURL(blob);
+                });
+            }
+            if (!result || typeof result !== 'string' || !result.includes(',')) {
                 console.error('outputPdf returned unexpected:', typeof result, result);
                 throw new Error('PDF generation returned empty result');
             }
             return result;
         } catch(e) {
-            console.error('outputPdf error:', e);
+            console.error('outputPdf/datauri error:', e);
             throw new Error('PDF generation failed: ' + e.message);
         }
     }
