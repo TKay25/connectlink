@@ -3715,7 +3715,7 @@ window.loadQuotations = window.loadQuotations || function() {
                 var cat = q.category||'N/A';
                 var catMap = {'construction_single':'Single Storey','construction_double':'Double Storey','kitchen':'Kitchen','tv_units':'TV Units'};
                 cat = catMap[cat]||cat;
-                var hasNotes = q.notes && q.notes.trim() ? 1 : 0;
+                var hasNotes = q.notes && q.notes.replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').trim() ? 1 : 0;
                 var safeName = (q.clientName||'Client').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
                 h+='<tr style="border-bottom:1px solid #e8e8e8;"><td style="padding:4px 4px;text-align:center;font-weight:600;">'+q.id+'</td><td style="padding:4px 4px;text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(q.clientName||'N/A')+'</td><td style="padding:4px 4px;text-align:left;">'+cat+'</td><td style="padding:4px 4px;text-align:center;">'+(q.projectSize||'0')+'</td><td style="padding:4px 4px;text-align:center;">'+(q.markup||'0')+'%</td><td style="padding:4px 4px;text-align:right;font-weight:600;color:var(--primary);">USD '+tc.toLocaleString("en-US",{minimumFractionDigits:2})+'</td><td style="padding:4px 4px;text-align:center;">'+d+'</td><td style="padding:4px 4px;text-align:center;"><span class="badge bg-secondary">'+itemCount+'</span></td><td style="padding:4px 4px;text-align:center;"><span class="badge bg-secondary">'+taskCount+'</span></td><td style="padding:4px 4px;text-align:center;">'+(hasNotes?'<span style="color:var(--success);font-size:0.85rem;" title="'+(q.notes||'').replace(/"/g,"&quot;").substring(0,80)+'"><i class="bi bi-sticky-fill"></i></span>':'<span style="color:var(--text-muted);font-size:0.75rem;"><i class="bi bi-sticky"></i></span>')+'</td><td style="padding:4px 4px;text-align:center;"><button class="btn btn-sm btn-primary" style="padding:2px 6px;margin-right:4px;" onclick="viewQuotationDetails('+q.id+')"><i class="bi bi-eye"></i> View</button> <button class="btn btn-sm btn-danger delete-quotation-early-btn" data-id="'+q.id+'" data-name="'+safeName+'" style="padding:2px 6px;"><i class="bi bi-trash"></i> Delete</button></td></tr>';
             });
@@ -19730,8 +19730,8 @@ async function saveAndDownloadQuotation() {
 
     // Capture notes from Quill editor
     var notesVal = '';
-    try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML; }catch(e){}
-    if(notesVal) data.notes = notesVal;
+    try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML.replace(/<p><\/p>/gi,'').replace(/<p><br><\/p>/gi,'').replace(/<p><br\/?><\/p>/gi,'').trim(); }catch(e){}
+    if(notesVal && notesVal.length > 3) data.notes = notesVal; else data.notes = '';
 
     // Build payload for backend
     const payload = {
@@ -37846,8 +37846,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(!checked.length){alert('Please select at least one construction item.');return;}
                 
                 var notesVal = '';
-                try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML; }catch(e){}
-                var qData = {clientName:name,clientWhatsapp:wa,quotationDate:date,category:cat,size:sz,markup:mk,totalCost:0,items:[],notes:notesVal};
+                try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML.replace(/<p><\/p>/gi,'').replace(/<p><br><\/p>/gi,'').replace(/<p><br\/?><\/p>/gi,'').trim(); }catch(e){}
+                var qData = {clientName:name,clientWhatsapp:wa,quotationDate:date,category:cat,size:sz,markup:mk,totalCost:0,items:[],notes:(notesVal&&notesVal.length>3?notesVal:'')};
                 var markupM = 1 + (parseFloat(mk)||0)/100;
                 var totalC = 0;
                 var orderedItems = [];
@@ -38128,8 +38128,8 @@ document.addEventListener('DOMContentLoaded', function(){
     setInterval(function(){
         try{
             if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root){
-                var h = quillGeneratorNotes.root.innerHTML || '';
-                if(window.quotationData) window.quotationData.notes = h;
+                var h = (quillGeneratorNotes.root.innerHTML || '').replace(/<p><\/p>/gi,'').replace(/<p><br><\/p>/gi,'').replace(/<p><br\/?><\/p>/gi,'').trim();
+                if(window.quotationData) window.quotationData.notes = (h&&h.length>3?h:'');
             }
         }catch(e){}
     }, 2000);
@@ -38188,8 +38188,8 @@ document.addEventListener('DOMContentLoaded', function(){
                 // Step 2: Save quotation first
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
                 var notesVal = '';
-                try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML; }catch(e){}
-                if(notesVal) qd.notes = notesVal;
+                try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML.replace(/<p><\/p>/gi,'').replace(/<p><br><\/p>/gi,'').replace(/<p><br\/?><\/p>/gi,'').trim(); }catch(e){}
+                if(notesVal && notesVal.length > 3) qd.notes = notesVal; else qd.notes = '';
                 
                 var payload = {
                     clientName: qd.clientName, clientWhatsapp: wa,
