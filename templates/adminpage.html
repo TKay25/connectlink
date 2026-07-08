@@ -19821,7 +19821,27 @@ async function saveAndDownloadQuotation() {
         
         // Generate PDF
         if (typeof window.generateQuotationPDF === 'function') {
-            await window.generateQuotationPDF('download', window.quotationPdfTablePlacement || 'default');
+            try {
+                await Promise.race([
+                    window.generateQuotationPDF('download', window.quotationPdfTablePlacement || 'default'),
+                    new Promise(function(_, reject){ setTimeout(function(){ reject(new Error('PDF generation timed out')); }, 45000); })
+                ]);
+            } catch(pdfErr) {
+                console.error('PDF generation failed:', pdfErr);
+                // Fallback: try building simple HTML version
+                var fbHtml = '<html><head><title>Quotation</title></head><body style="font-family:Arial;padding:20px;">';
+                fbHtml += '<h1 style="text-align:center;">Project Quotation</h1>';
+                fbHtml += '<p><strong>Client:</strong> '+(data.clientName||'')+'</p>';
+                fbHtml += '<p><strong>Category:</strong> '+(data.category||'')+'</p>';
+                fbHtml += '<p><strong>Date:</strong> '+(data.quotationDate||'')+'</p>';
+                fbHtml += '<p><strong>Total:</strong> $'+(data.totalCost||0).toLocaleString('en-US',{minimumFractionDigits:2})+'</p>';
+                fbHtml += '<table border="1" style="width:100%;border-collapse:collapse;"><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr>';
+                (data.items||[]).forEach(function(it){fbHtml+='<tr><td>'+(it.item||it.name||'Item')+'</td><td>'+(it.sqm||it.quantity||0)+'</td><td>$'+((it.inhouseRate||it.amount||0).toFixed(2))+'</td><td>$'+((it.total||it.clientPrice||0).toFixed(2))+'</td></tr>';});
+                fbHtml += '</table></body></html>';
+                var w=window.open('','_blank');
+                if(w){w.document.write(fbHtml);w.document.close();setTimeout(function(){w.print();},500);}
+                else alert('PDF generation failed. Please allow pop-ups or try again.\n\nError: '+pdfErr.message);
+            }
         } else {
             console.warn('generateQuotationPDF not defined on window');
         }
