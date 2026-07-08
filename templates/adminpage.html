@@ -4542,13 +4542,8 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                     await window.sendKitchenQuotationFromPortal(q);
                 } else {
                     if(!q.clientWhatsapp||!q.clientWhatsapp.toString().trim()) throw new Error('No WhatsApp number');
-                    // Use the quotation data already in currentViewingQuotation
-                    window.quotationData = {
-                        clientName: q.clientName, clientWhatsapp: q.clientWhatsapp||'',
-                        quotationDate: q.quotationDate, category: q.category,
-                        size: q.projectSize||q.size||0, totalCost: q.totalCost||0, markup: q.markup||0,
-                        items: q.items||[], notes: q.notes||''
-                    };
+                    // Same as sendQuotationBtn: just set window.quotationData and call generateQuotationPDF
+                    window.quotationData = q;
                     window.ganttChartData = (q.schedules||[]).map(function(s){return{
                         item: s.workScope||s.item, startDate: s.startDate, endDate: s.endDate,
                         days: s.days, price: 0
@@ -4561,7 +4556,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                     }
                     
                     showLoader('Generating PDF', 'Building your quotation document');
-                    var dataUri = typeof window.generateQuotationPDF==='function' ? await window.generateQuotationPDF('datauri', window.quotationPdfTablePlacement||'default') : null;
+                    var dataUri = await window.generateQuotationPDF('datauri', window.quotationPdfTablePlacement||'default');
                     hideLoader();
                     var pdfBase64 = (dataUri&&dataUri.includes(',')) ? dataUri.split(',')[1] : '';
                     if(!pdfBase64) throw new Error('Failed to generate PDF');
