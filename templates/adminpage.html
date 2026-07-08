@@ -37872,13 +37872,17 @@ document.addEventListener('DOMContentLoaded', function(){
             }
             
             if(isTvOrOther){
-                var items = window.tvUnitItems||[];
-                if(!items.length){alert('Please add at least one item.');return;}
-                var totalC=0;
-                var itemsF = items.map(function(it){totalC+=(it.quantity||1)*(it.amount||0);return{name:it.name,item:it.name,quantity:it.quantity,amount:it.amount,days:it.days||1,total:(it.quantity||1)*(it.amount||0)};});
-                window.quotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:itemsF,totalCost:totalC,notes:''};
-                closeModal('quotationgeneratorModal');
-                setTimeout(function(){if(typeof openModal==='function') openModal('quotationPreviewModal');},300);
+                try {
+                    var items = window.tvUnitItems||[];
+                    if(!items.length){alert('Please add at least one item. Click "Add Item" below to add TV Units or items.');return;}
+                    var totalC=0;
+                    var itemsF = items.map(function(it){totalC+=(it.quantity||1)*(it.amount||0);return{name:it.name||'Item',item:it.name||'Item',quantity:it.quantity||1,amount:it.amount||0,days:it.days||1,total:(it.quantity||1)*(it.amount||0)};});
+                    window.quotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:itemsF,totalCost:totalC,notes:''};
+                    closeModal('quotationgeneratorModal');
+                    setTimeout(function(){
+                        if(typeof openModal==='function') openModal('quotationPreviewModal');
+                    },300);
+                } catch(ee){alert('Error generating TV Units quotation: '+ee.message);}
                 return;
             }
         });
