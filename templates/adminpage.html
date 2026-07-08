@@ -4309,7 +4309,10 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         var balanceAmount = totalCost - depositAmount;
         var monthlyInstallment = numMonths > 0 ? balanceAmount / numMonths : 0;
         var totalConstructionDays = 0;
+        var maxItemDays = 0;
         schedules.forEach(function(s){totalConstructionDays += Number(s.days)||0;});
+        var isNonConstruction = isKitchen || isTvUnitsOrOther;
+        (items||[]).forEach(function(it){maxItemDays = Math.max(maxItemDays, Number(it.days)||0);});
         
         var showItemsTable = tablePlacement!=='exclude';
         var placementBefore = showItemsTable && (tablePlacement==='default'||tablePlacement==='include'||tablePlacement==='after_schedule') ? 'block' : 'none';
@@ -4357,7 +4360,7 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         // Project Details
         htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">PROJECT DETAILS</h4>';
         htmlContent += '<div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;box-sizing:border-box;">';
-        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>'+((isCon||isKitchen)?'<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div>':'')+'</div>';
+        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>'+(isCon?'<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div>':'')+'</div>';
         htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>'+displayCat+'</span></div>';
         htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>'+fmtDate(quotationDate)+'</span></div></div></div></div>';
         
@@ -4370,7 +4373,7 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
         htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+balanceAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
         htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over '+numMonths+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
-        if(!isCon) htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+totalConstructionDays+' Days</div></div>';
+        if(!isCon) htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+(isNonConstruction?maxItemDays:totalConstructionDays)+' Days</div></div>';
         htmlContent += '</div></div></div>';
         
         // Quotation Notes (if any)
@@ -4378,6 +4381,37 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
             htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;"><div style="border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;"><div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;">Quotation Notes</div><div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">'+quotationNotes+'</div></div></div>';
         }
         
+        // Items Table (non-construction only)
+        if(isNonConstruction && items.length>0){
+            var ncItemRows = '';
+            var ncTotal = 0;
+            items.forEach(function(it, idx){
+                var amt = Number(it.amount||it.unitRate||it.inhouseRate||0);
+                var tot = Number(it.totalPrice||it.total||it.clientPrice||(amt*(it.quantity||1)));
+                ncTotal += tot;
+                ncItemRows += '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#f9f9f9':'#ffffff')+';">'+
+                    '<td style="padding:6px;text-align:center;">'+(idx+1)+'</td>'+
+                    '<td style="padding:6px;text-align:left;">'+escapeHtml(it.name||it.item||'Item')+'</td>'+
+                    '<td style="padding:6px;text-align:right;">$'+amt.toFixed(2)+'</td>'+
+                    '<td style="padding:6px;text-align:center;color:#2196F3;">'+(it.days||0)+'</td>'+
+                    '<td style="padding:6px;text-align:right;font-weight:700;">$'+tot.toFixed(2)+'</td></tr>';
+            });
+            ncItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;">'+
+                '<td colspan="2" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td>'+
+                '<td style="padding:8px 10px;text-align:right;"></td>'+
+                '<td style="padding:8px 10px;text-align:center;"><strong>'+maxItemDays+'</strong></td>'+
+                '<td style="padding:8px 10px;text-align:right;"><strong>$'+ncTotal.toFixed(2)+'</strong></td></tr>';
+            htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;">'+
+                '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">ITEMS</h4>'+
+                '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;">'+
+                '<thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th>'+
+                '<th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:46%;">Item</th>'+
+                '<th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:20%;">Price</th>'+
+                '<th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:12%;">Days</th>'+
+                '<th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:16%;">Total</th></tr></thead>'+
+                '<tbody>'+ncItemRows+'</tbody></table></div>';
+        }
+
         // Important Note & Banking Details
         htmlContent += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">';
         htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">';
@@ -24209,9 +24243,11 @@ async function generateKitchenPDF(outputMode = 'download') {
     // Build items rows
     let itemsRows = '';
     let totalDays = 0;
+    let maxDays = 0;
     
     data.items.forEach((item, index) => {
         totalDays += item.days;
+        maxDays = Math.max(maxDays, item.days||0);
         const bg = index % 2 === 0 ? '#ffffff' : '#fafbff';
         itemsRows += `
             <tr style="background:${bg};">
@@ -24227,7 +24263,7 @@ async function generateKitchenPDF(outputMode = 'download') {
     const itemsTotalRow = `
         <tr style="background:#1E2A56; color:white;">
             <td colspan="4" style="padding:8px 10px; text-align:right;"><strong>TOTAL</strong></td>
-            <td style="padding:8px 10px; text-align:center;"><strong>${totalDays}</strong></td>
+            <td style="padding:8px 10px; text-align:center;"><strong>${maxDays}</strong></td>
             <td style="padding:8px 10px; text-align:right;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
         </tr>`;
     
@@ -24259,7 +24295,7 @@ async function generateKitchenPDF(outputMode = 'download') {
                         <div><div style="font-size:10px; color:#5a678a;">Deposit (30%)</div><div style="font-size:13px; font-weight:700;">USD ${depositAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Balance</div><div style="font-size:13px; font-weight:700;">USD ${balanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Monthly (3 months)</div><div style="font-size:13px; font-weight:700;">USD ${monthlyInstallment.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
-                        <div><div style="font-size:10px; color:#5a678a;">Duration</div><div style="font-size:13px; font-weight:700; color:#2196F3;">${totalDays} Days</div></div>
+                        <div><div style="font-size:10px; color:#5a678a;">Duration</div><div style="font-size:13px; font-weight:700; color:#2196F3;">${maxDays} Days</div></div>
                     </div>
                 </div>
                 
