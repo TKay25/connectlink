@@ -35605,6 +35605,23 @@ window.alert = function(msg) {
     }
 };
 
+// Global 401 session error handler — catch expired sessions on any fetch
+(function(){
+    var origFetch = window.fetch;
+    window.fetch = function(){
+        return origFetch.apply(this, arguments).then(function(resp){
+            if(resp.status === 401 || resp.status === 403){
+                resp.clone().json().then(function(d){
+                    if(d && d.session_expired){
+                        showToast((d.error || 'Session expired.') + '\n\nPlease logout and login again. Sessions last 6 hours.', 'error', 'Session Expired');
+                    }
+                }).catch(function(){});
+            }
+            return resp;
+        });
+    };
+})();
+
 // Button ripple effect
 document.addEventListener('click', function(e) {
     const btn = e.target.closest('.btn');

@@ -10164,7 +10164,7 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            return jsonify({'error': 'Authentication required'}), 401
+            return jsonify({'error': 'Session not found. Sessions last 6 hours. Please logout and login again to start a new session.', 'session_expired': True}), 401
         return f(*args, **kwargs)
     return decorated_function
 
@@ -10173,9 +10173,9 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            return jsonify({'error': 'Authentication required'}), 401
+            return jsonify({'error': 'Session not found. Sessions last 6 hours. Please logout and login again to start a new session.', 'session_expired': True}), 401
         if session.get('role') != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
+            return jsonify({'error': 'Admin access required. Sessions last 6 hours. Please logout and login as admin to start a new session.', 'session_expired': True}), 403
         return f(*args, **kwargs)
     return decorated_function
 
