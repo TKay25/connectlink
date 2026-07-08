@@ -4149,6 +4149,19 @@ window.removeGanttItem = window.removeGanttItem || function(idx){
     if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
 };
 
+// Early stub for generateQuotationPDF
+window.generateQuotationPDF = window.generateQuotationPDF || async function(outputMode, tablePlacement) {
+    if(outputMode === 'datauri') return null;
+    var fbHtml = '<html><head><title>Quotation</title></head><body style="font-family:Arial;padding:20px;">';
+    fbHtml += '<h1 style="text-align:center;">Project Quotation</h1>';
+    fbHtml += '<p><strong>Client:</strong> '+(window.quotationData?.clientName||'')+'</p>';
+    fbHtml += '<p><strong>Category:</strong> '+(window.quotationData?.category||'')+'</p>';
+    fbHtml += '<p><strong>Total:</strong> $'+((window.quotationData?.totalCost||0).toFixed(2))+'</p>';
+    fbHtml += '</body></html>';
+    var w=window.open('','_blank');
+    if(w){w.document.write(fbHtml);w.document.close();setTimeout(function(){w.print();},500);}
+};
+
 // Early stub for getItemsForQuotationOutput (used by renderPreviewItemsTable)
 window.getItemsForQuotationOutput = window.getItemsForQuotationOutput || function(data) {
     var items = (data && Array.isArray(data.items)) ? data.items : [];
@@ -33121,6 +33134,9 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     await worker.save();
     return null;
 }
+// Assign to window immediately after function definition
+window.generateQuotationPDF = generateQuotationPDF;
+
 // Helper function to escape HTML
 
 function renderPreviewItemsTable(data) {
