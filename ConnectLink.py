@@ -18019,6 +18019,32 @@ def remove_admin():
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)})
 
+@app.route('/updateadmin', methods=['POST'])
+def update_admin():
+    """Update an existing administrator's name and contact."""
+    data = request.get_json()
+    admin_id = data.get('id')
+    admin_name = data.get('adminName', '').strip()
+    admin_phone = data.get('adminPhone', '').strip()
+
+    if not admin_id:
+        return jsonify({"status": "error", "message": "No ID provided"})
+    if not admin_name or not admin_phone:
+        return jsonify({"status": "error", "message": "Name and phone are required"})
+
+    with get_db() as (cursor, connection):
+        try:
+            cursor.execute("""
+                UPDATE connectlinkadmin SET name = %s, contact = %s WHERE id = %s
+            """, (admin_name, admin_phone, admin_id))
+            connection.commit()
+            
+            log_activity('admin_updated', f'Admin "{admin_name}" (ID: {admin_id}) updated', 'admin', admin_id, {'name': admin_name, 'contact': admin_phone})
+            
+            return jsonify({"status": "success"})
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)})
+
 
 from flask import jsonify
 from datetime import datetime

@@ -38327,14 +38327,18 @@ document.addEventListener('DOMContentLoaded', function(){
             if(st) st.classList.add('d-none');
             if(sl) sl.classList.remove('d-none');
             adminBtn.disabled = true;
-            fetch('/addadmin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({adminName:name,adminPhone:phone})})
+            var isEdit = adminBtn._editingId;
+            var url = isEdit ? '/updateadmin' : '/addadmin';
+            var body = isEdit ? {id:isEdit, adminName:name, adminPhone:phone} : {adminName:name, adminPhone:phone};
+            fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
             .then(function(r){return r.json()})
             .then(function(d){
                 if(st) st.classList.remove('d-none');
                 if(sl) sl.classList.add('d-none');
                 adminBtn.disabled = false;
                 if(d.status==='success'){
-                    alert('Administrator added!');
+                    alert(isEdit ? 'Administrator updated!' : 'Administrator added!');
+                    adminBtn._editingId = null;
                     if(typeof closeModal==='function') closeModal('addAdminplusModal');
                     else{ var me=document.getElementById('addAdminplusModal'); if(me) me.classList.remove('active'); }
                     location.reload();
@@ -38348,6 +38352,42 @@ document.addEventListener('DOMContentLoaded', function(){
             });
         });
     }
+    
+    // Reset add admin form when opening for new admin
+    var addAdminPlusBtn = document.getElementById('addAdminplusBtn');
+    if(addAdminPlusBtn && !addAdminPlusBtn._rec){
+        addAdminPlusBtn._rec = true;
+        addAdminPlusBtn.addEventListener('click', function(){
+            var ne=document.getElementById('adminName'); if(ne) ne.value='';
+            var pe=document.getElementById('adminPhone'); if(pe) pe.value='';
+            var sb=document.getElementById('saveAdminBtn'); if(sb) sb._editingId=null;
+            var st=document.getElementById('saveText'); if(st) st.textContent='Save Administrator';
+        });
+    }
+    
+    // 11. Edit Administrator button handler
+    document.addEventListener('click', function(e){
+        var btn = e.target.closest('.edit-admin-details-btn');
+        if(!btn) return;
+        e.preventDefault();
+        var id = btn.getAttribute('data-ID');
+        var row = btn.closest('tr');
+        if(!row) return;
+        var cells = row.querySelectorAll('td');
+        // Table columns: id, name, contact, action
+        var currentName = cells.length > 1 ? (cells[1].textContent||'').trim() : '';
+        var currentPhone = cells.length > 2 ? (cells[2].textContent||'').trim() : '';
+        // Pre-fill the add admin modal
+        var nameEl = document.getElementById('adminName');
+        var phoneEl = document.getElementById('adminPhone');
+        if(nameEl) nameEl.value = currentName;
+        if(phoneEl) phoneEl.value = currentPhone;
+        var saveBtn = document.getElementById('saveAdminBtn');
+        if(saveBtn) saveBtn._editingId = id;
+        var saveText = document.getElementById('saveText');
+        if(saveText) saveText.textContent = 'Update Administrator';
+        if(typeof openModal==='function') openModal('addAdminplusModal');
+    });
 });
 </script>
 </body>
