@@ -14667,7 +14667,7 @@ body { font-family: Arial; margin: 20px; }
             </div>
         </div>
         <div class="modal-footer-custom" style="padding: 8px 10px;">
-            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" onclick="closeModal('kitchenPreviewModal')">Back</button>
+            <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" onclick="closeModal('kitchenPreviewModal');setTimeout(function(){if(typeof openModal==='function') openModal('quotationgeneratorModal');},200);">Back</button>
             <button type="button" class="btn btn-primary btn-sm" style="font-size: 0.95em; padding: 3px 14px;" id="kitchenDownloadQuotationBtn">
                 <i class="bi bi-download"></i> Save & Download Quotation
             </button>
