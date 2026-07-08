@@ -4531,7 +4531,15 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
             }
             if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
         });
-        // sendQuotationFromModalBtn is handled by jQuery at line 34791
+        bindBtn('sendQuotationFromModalBtn', async function(){
+            if(!window.currentViewingQuotation){alert('No quotation selected');return;}
+            var btn=this, ts=document.getElementById('sendBtnText'), sp=document.getElementById('sendBtnSpinner');
+            if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
+            try{
+                await window.sendQuotationFromPortal(window.currentViewingQuotation.id);
+            }catch(e){alert('Error: '+e.message);}
+            if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
+        });
         bindBtn('editQuotationFromModalBtn', function(){
             if(!window.currentViewingQuotation){alert('No quotation selected');return;}
             if(typeof closeModal==='function')closeModal('quotationDetailsModal');
@@ -34781,41 +34789,7 @@ $(document).ready(function() {
         }
     });
 
-    // Send via WhatsApp button in modal
-    $('#sendQuotationFromModalBtn').on('click', async function() {
-        console.log('SEND BTN: clicked, currentViewingQuotation=', !!currentViewingQuotation, currentViewingQuotation ? currentViewingQuotation.id : 'null');
-        if (currentViewingQuotation) {
-            var btn = this;
-            var textSpan = document.getElementById('sendBtnText');
-            var spinner = document.getElementById('sendBtnSpinner');
-            
-            console.log('SEND BTN: calling checkUnsavedNote');
-            await checkUnsavedNote(async function() {
-                console.log('SEND BTN: checkUnsavedNote callback fired');
-                if (textSpan) textSpan.style.display = 'none';
-                if (spinner) spinner.classList.remove('d-none');
-                btn.disabled = true;
-                
-                try {
-                    console.log('SEND BTN: calling sendQuotationFromPortal(' + currentViewingQuotation.id + ')');
-                    await sendQuotationFromPortal(currentViewingQuotation.id);
-                    console.log('SEND BTN: send complete');
-                } catch (error) {
-                    console.error('SEND BTN error:', error);
-                    showToast('Error sending quotation: ' + error.message, 'error', 'Send Failed');
-                } finally {
-                    if (textSpan) textSpan.style.display = 'inline';
-                    if (spinner) spinner.classList.add('d-none');
-                    btn.disabled = false;
-                    console.log('SEND BTN: finally done');
-                }
-            });
-            console.log('SEND BTN: after checkUnsavedNote');
-        } else {
-            console.log('SEND BTN: no currentViewingQuotation');
-            showToast('No quotation selected', 'warning', 'No Selection');
-        }
-    });
+    // Send via WhatsApp button in modal - handled by bindBtn in tryBindButtons (line 4534)
     
     // Edit Quotation button in modal
     $('#editQuotationFromModalBtn').on('click', function() {
