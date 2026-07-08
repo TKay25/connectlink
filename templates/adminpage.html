@@ -33184,47 +33184,13 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
         jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
     };
 
-    let worker;
-    try {
-        worker = html2pdf().set(options).from(htmlContent);
-    } catch(e) {
-        console.error('html2pdf init error:', e);
-        throw new Error('PDF library error: ' + e.message);
-    }
+    const worker = html2pdf().set(options).from(htmlContent);
     
     if (outputMode === 'datauri') {
-        try {
-            // Use outputPdf to get data URI - fall back to blob conversion if that fails
-            let result;
-            try {
-                result = await worker.outputPdf('datauristring');
-            } catch(e) {
-                console.warn('outputPdf failed, trying outputPdf blob:', e);
-                // Fallback: get blob and convert to base64
-                var blob = await worker.outputPdf('blob');
-                result = await new Promise(function(resolve) {
-                    var reader = new FileReader();
-                    reader.onloadend = function() { resolve(reader.result); };
-                    reader.readAsDataURL(blob);
-                });
-            }
-            if (!result || typeof result !== 'string' || !result.includes(',')) {
-                console.error('outputPdf returned unexpected:', typeof result, result);
-                throw new Error('PDF generation returned empty result');
-            }
-            return result;
-        } catch(e) {
-            console.error('outputPdf/datauri error:', e);
-            throw new Error('PDF generation failed: ' + e.message);
-        }
+        return worker.outputPdf('datauristring');
     }
 
-    try {
-        await worker.save();
-    } catch(e) {
-        console.error('save error:', e);
-        throw new Error('PDF save failed: ' + e.message);
-    }
+    await worker.save();
     return null;
 }
 // Assign to window immediately after function definition
