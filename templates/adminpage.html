@@ -4265,12 +4265,13 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
     var q=r.data.find(function(x){return x.id===qId});
     if(!q){alert('Quotation not found');return;}
     try {
-        // Show the table placement modal for construction quotes
-        var tablePlacement = 'default';
-        if(typeof promptQuotationTablePlacementIfNeeded==='function'){
+        // Show the table placement modal for construction quotes (skip if already chosen)
+        var tablePlacement = window.quotationPdfTablePlacement || 'default';
+        if(typeof promptQuotationTablePlacementIfNeeded==='function' && !window.quotationPdfTablePlacement){
             tablePlacement = await promptQuotationTablePlacementIfNeeded(q.category);
             if(tablePlacement===null) return;
         }
+        window.quotationPdfTablePlacement = tablePlacement;
         
         var clientName = q.clientName||'Client';
         var category = q.category||'General';
@@ -38199,6 +38200,7 @@ document.addEventListener('DOMContentLoaded', function(){
         dlBtn._rec = true;
         dlBtn.addEventListener('click', function(e){
             e.preventDefault();
+            e.stopImmediatePropagation();
             if(typeof window.saveAndDownloadQuotation==='function') window.saveAndDownloadQuotation();
             else alert('Save function not available');
         });
