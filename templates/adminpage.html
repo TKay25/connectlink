@@ -4177,7 +4177,13 @@ window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
             if (q) {
                 window.currentViewingQuotation = q;
                 var tc = Number(q.totalCost||0);
-                var markup = Number(q.markup||0);
+                var markup = Number(q.markup);
+                // TV Units and Other categories always use 30% markup even if DB shows 0
+                if((q.category||'').toLowerCase()==='tv_units'||(q.category||'').toLowerCase()==='other'){
+                    if(!markup) markup = 30;
+                } else {
+                    markup = markup || 0;
+                }
                 var mm = 1 + (markup/100);
                 var bc = tc / mm;
                 var ma = tc - bc;
@@ -37879,7 +37885,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     if(!items.length){alert('Please add at least one item. Click "Add Item" below to add TV Units or items.');return;}
                     var totalC=0;
                     var itemsF = items.map(function(it){totalC+=(it.quantity||1)*(it.amount||0);return{name:it.name||'Item',item:it.name||'Item',quantity:it.quantity||1,amount:it.amount||0,days:it.days||1,total:(it.quantity||1)*(it.amount||0)};});
-                    window.quotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:itemsF,totalCost:totalC,notes:''};
+                    window.quotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:itemsF,totalCost:totalC,markup:30,notes:''};
                     closeModal('quotationgeneratorModal');
                     setTimeout(function(){
                         if(typeof openModal==='function') openModal('quotationPreviewModal');
