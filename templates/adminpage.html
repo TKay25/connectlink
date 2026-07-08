@@ -19851,123 +19851,15 @@ async function saveAndDownloadQuotation() {
             saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
         }
         
-        // Show loading overlay during PDF generation
         showLoader('Generating PDF', 'Building your quotation document');
         
-        // Build PDF directly (same approach as portal download)
+        // Download PDF using the same function as the Quotations portal
         try {
-            var pdfClientName = data.clientName || 'Client';
-            var pdfCategory = data.category || 'General';
-            var pdfDate = data.quotationDate || '';
-            var pdfTotal = Number(data.totalCost || 0);
-            var pdfItems = data.items || [];
-            var pdfSchedules = window.ganttChartData || [];
-            var pdfNotes = data.notes || '';
-            var pdfSize = data.size || '0';
-            var pdfIsCon = String(pdfCategory || '').toLowerCase().includes('construction');
-            var pdfIsKitchen = String(pdfCategory || '').toLowerCase().includes('kitchen');
-            var pdfIsTvOrOther = String(pdfCategory || '').toLowerCase() === 'tv_units' || String(pdfCategory || '').toLowerCase() === 'other';
-            var pdfIsNonCon = pdfIsKitchen || pdfIsTvOrOther;
-            var pdfMonthTerms = pdfIsTvOrOther ? 3 : 6;
-            var pdfDeposit = pdfTotal * 0.30;
-            var pdfBalance = pdfTotal - pdfDeposit;
-            var pdfMonthly = pdfBalance / pdfMonthTerms;
-            var pdfMaxDays = 0;
-            var pdfFmtDate = function(v){ if(!v) return ''; try{return new Date(v).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});}catch(e){return v;} };
-            var pdfCatMap = {'construction_single':'Single Storey Construction','construction_double':'Double Storey Construction','kitchen':'Kitchen and Cabinets','tv_units':'TV Units','other':'Other'};
-            var pdfDisplayCat = pdfCatMap[pdfCategory.toLowerCase()] || pdfCategory;
-            
-            var pdfItemRows = '';
-            var pdfTotalDisplay = 0;
-            (pdfItems||[]).forEach(function(it, idx){
-                var nm = it.item || it.name || 'Item';
-                var qty = Number(it.sqm || it.quantity || 0);
-                var rate = Number(it.inhouseRate || it.unitRate || it.amount || 0);
-                var iTotal = Number(it.clientPrice || it.total || it.totalPrice || (qty * rate));
-                var sDays = (pdfSchedules[idx] && pdfSchedules[idx].days) || it.days || 0;
-                pdfTotalDisplay += iTotal;
-                pdfMaxDays = Math.max(pdfMaxDays, sDays);
-                var bg = idx % 2 === 0 ? '#ffffff' : '#fafbff';
-                pdfItemRows += '<tr style="background:'+bg+';page-break-inside:avoid;break-inside:avoid;"><td style="padding:8px 10px;border:1px solid #d8deef;text-align:center;width:6%;">'+(idx+1)+'</td><td style="padding:8px 10px;border:1px solid #d8deef;text-align:left;width:38%;">'+escapeHtml(nm)+'</td><td style="padding:8px 10px;border:1px solid #d8deef;text-align:center;width:13%;">'+qty.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td><td style="padding:8px 10px;border:1px solid #d8deef;text-align:right;width:15%;">'+formatCurrency(rate)+'</td><td style="padding:8px 10px;border:1px solid #d8deef;text-align:center;width:10%;font-weight:600;color:#2196F3;">'+sDays+'</td><td style="padding:8px 10px;border:1px solid #d8deef;text-align:right;width:18%;font-weight:700;color:#1E2A56;">'+formatCurrency(iTotal)+'</td></tr>';
-            });
-            if(pdfItems.length > 0){
-                pdfItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;"><strong>TOTAL</strong></td><td style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;font-weight:bold;font-size:13px;"><strong>'+(pdfIsCon ? pdfSchedules.reduce(function(s,sch){return s+(sch.days||0);},0) : pdfMaxDays)+'</strong></td><td style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;"><strong>'+formatCurrency(pdfTotalDisplay)+'</strong></td></tr>';
-            }
-            
-            var pdfScheduleRows = '';
-            (pdfSchedules||[]).forEach(function(s, idx){
-                var w = s.workScope || s.item || 'Task';
-                var sd = s.startDate ? new Date(s.startDate).toLocaleDateString('en-GB') : '';
-                var ed = s.endDate ? new Date(s.endDate).toLocaleDateString('en-GB') : '';
-                pdfScheduleRows += '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#f9f9f9':'#ffffff')+';"><td style="padding:6px;text-align:center;">'+(idx+1)+'</td><td style="padding:6px;text-align:left;">'+escapeHtml(w)+'</td><td style="padding:6px;text-align:center;">'+sd+'</td><td style="padding:6px;text-align:center;">'+ed+'</td></tr>';
-            });
-            
-            var pdfHtml = '<div style="font-family:Roboto,Arial,sans-serif;background:#ffffff;color:#1E2A56;padding:0;margin:0;"><div style="background:#ffffff;width:100%;padding:14px 16px;border:2px solid #1E2A56;border-radius:10px;box-sizing:border-box;">';
-            pdfHtml += '<img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display:block;margin:0 auto 10px auto;width:130px;max-width:100%;">';
-            pdfHtml += '<h1 style="margin:0 0 6px 0;text-align:center;font-size:16px;font-weight:900;color:#1E2A56;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>';
-            pdfHtml += '<div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px auto;border-radius:10px;"></div>';
-            pdfHtml += '<p style="font-size:12px;margin:0 0 12px 0;line-height:1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>'+escapeHtml(pdfClientName)+'</strong>.</p>';
-            
-            // PROJECT DETAILS
-            pdfHtml += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">PROJECT DETAILS</h4>';
-            pdfHtml += '<div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;box-sizing:border-box;"><div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;box-sizing:border-box;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+escapeHtml(pdfClientName)+'</span></div>'+(pdfIsCon?'<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+pdfSize+' Sq. Meters</span></div>':'')+'</div><div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;box-sizing:border-box;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>'+escapeHtml(pdfDisplayCat)+'</span></div><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>'+pdfFmtDate(pdfDate)+'</span></div></div></div></div>';
-            
-            // QUOTATION SUMMARY
-            pdfHtml += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">QUOTATION SUMMARY</h4>';
-            pdfHtml += '<div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;"><div style="display:grid;grid-template-columns:repeat('+(pdfIsCon?4:5)+',1fr);gap:10px;text-align:center;">';
-            pdfHtml += '<div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;color:#1E2A56;">'+formatCurrency(pdfTotal)+'</div></div>';
-            pdfHtml += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+formatCurrency(pdfDeposit)+'</div></div>';
-            pdfHtml += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+formatCurrency(pdfBalance)+'</div></div>';
-            pdfHtml += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over '+pdfMonthTerms+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+formatCurrency(pdfMonthly)+'</div></div>';
-            if(!pdfIsCon) pdfHtml += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+(pdfIsNonCon?pdfMaxDays:pdfSchedules.reduce(function(s,sch){return s+(sch.days||0);},0))+' Days</div></div>';
-            pdfHtml += '</div></div></div>';
-            
-            // ITEMS TABLE (non-construction)
-            if(pdfIsNonCon && pdfItems.length > 0){
-                var ncRows = '';
-                var ncTotal = 0;
-                pdfItems.forEach(function(it, idx){
-                    var amt = Number(it.amount || it.inhouseRate || it.unitRate || 0);
-                    var tot = Number(it.totalPrice || it.total || it.clientPrice || (amt*(it.quantity||1)));
-                    ncTotal += tot;
-                    ncRows += '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#f9f9f9':'#ffffff')+';"><td style="padding:6px;text-align:center;">'+(idx+1)+'</td><td style="padding:6px;text-align:left;">'+escapeHtml(it.name||it.item||'Item')+'</td><td style="padding:6px;text-align:right;">'+formatCurrency(amt)+'</td><td style="padding:6px;text-align:center;color:#2196F3;">'+(it.days||0)+'</td><td style="padding:6px;text-align:right;font-weight:700;">'+formatCurrency(tot)+'</td></tr>';
-                });
-                ncRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="2" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td><td style="padding:8px 10px;text-align:right;"></td><td style="padding:8px 10px;text-align:center;"><strong>'+pdfMaxDays+'</strong></td><td style="padding:8px 10px;text-align:right;"><strong>'+formatCurrency(ncTotal)+'</strong></td></tr>';
-                pdfHtml += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">ITEMS</h4><table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:46%;">Item</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:20%;">Price</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:12%;">Days</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:16%;">Total</th></tr></thead><tbody>'+ncRows+'</tbody></table></div>';
-            }
-            
-            // Notes
-            if(pdfNotes && pdfNotes.replace(/<[^>]*>/g,'').trim()){
-                pdfHtml += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;"><div style="border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;"><div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;">Quotation Notes</div><div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">'+pdfNotes+'</div></div></div>';
-            }
-            
-            // Important Note & Banking
-            pdfHtml += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;"><div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;"><strong style="color:var(--primary);">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.<div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>';
-            if(pdfIsCon){
-                pdfHtml += '<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div><div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;"><strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;"><div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div><div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div><div>Double Storey:</div><div><strong>120-180 days</strong></div><div>Perimeter Wall:</div><div><strong>30-40 days</strong></div><div>Roofing:</div><div><strong>10-14 days</strong></div><div>Finishings:</div><div><strong>30 days</strong></div></div></div>';
-            }
-            pdfHtml += '</div><div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.7;"><strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong><div><strong>Bank:</strong> ZB BANK</div><div><strong>Branch:</strong> Msasa</div><div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div><div><strong>Account No:</strong> 450600586638405</div><div><strong>Account Type:</strong> USD Account</div></div></div>';
-            
-            // Items Table (construction)
-            if(pdfIsCon && pdfItems.length > 0){
-                var constDaysTotal = pdfSchedules.reduce(function(s,sch){return s+(sch.days||0);},0);
-                pdfHtml += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">CONSTRUCTION ITEMS</h4><table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:70%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:12%;">Days</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:12%;">Total (USD)</th></tr></thead><tbody>'+pdfItemRows+'</tbody></table></div>';
-                pdfHtml += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">WORK SCHEDULE</h4><table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:46%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:24%;">Start Date</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:24%;">End Date</th></tr></thead><tbody>'+pdfScheduleRows+'</tbody></table></div>';
-            }
-            
-            pdfHtml += '</div></div>';
-            
-            if(typeof html2pdf !== 'undefined' && typeof html2pdf === 'function'){
-                var pdfOpts = {margin:[6,6,6,6],filename:'Quotation_'+pdfClientName.replace(/\s+/g,'_')+'_'+Date.now()+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:1.5,useCORS:true,scrollY:0},pagebreak:{mode:['css','legacy']},jsPDF:{orientation:'portrait',unit:'mm',format:'a4'}};
-                await html2pdf().set(pdfOpts).from(pdfHtml).save();
-            } else {
-                var w2=window.open('','_blank');
-                if(w2){w2.document.write(pdfHtml);w2.document.close();setTimeout(function(){w2.print();},500);}
-                else alert('Please allow pop-ups to download the PDF');
+            if(typeof window.downloadQuotationPDFFromPortal === 'function'){
+                await window.downloadQuotationPDFFromPortal(result.quotation_id);
             }
         } catch(pdfErr) {
-            console.error('PDF build failed:', pdfErr);
-            alert('PDF generation failed. Try downloading from the Quotations portal.\n\nError: '+pdfErr.message);
+            console.error('PDF download failed:', pdfErr);
         }
         
         hideLoader();
