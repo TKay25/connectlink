@@ -4458,7 +4458,7 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
     if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Generating PDF...';}
     try {
         // Build quotation data and generate PDF first
-        var qData={clientName:q.clientName,clientWhatsapp:q.clientWhatsapp,quotationDate:q.quotationDate,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,items:(q.items||[]).map(function(it,i){return{name:it.name||it.item||'Item',quantity:it.quantity||0,unitRate:it.unitRate||it.amount||0,totalPrice:it.totalPrice||0,item_order:i+1};}),schedules:(q.schedules||[]).map(function(s,i){return{workScope:s.workScope||s.item||'Task',startDate:s.startDate,endDate:s.endDate,days:s.days||0,task_order:i+1};})};
+        var qData={clientName:q.clientName,clientWhatsapp:q.clientWhatsapp,quotationDate:q.quotationDate,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,items:(q.items||[]).map(function(it,i){return{name:it.name||it.item||'Item',item:it.name||it.item||'Item',sqm:it.quantity||it.sqm||0,quantity:it.quantity||0,unitRate:it.unitRate||it.amount||0,inhouseRate:it.unitRate||it.amount||0,amount:it.amount||it.unitRate||0,totalPrice:it.totalPrice||0,clientPrice:it.totalPrice||it.clientPrice||0,total:it.totalPrice||it.total||0,days:it.days||0,item_order:i+1};}),schedules:(q.schedules||[]).map(function(s,i){return{workScope:s.workScope||s.item||'Task',startDate:s.startDate,endDate:s.endDate,days:s.days||0,task_order:i+1};})};
         window.quotationData = qData;
         window.ganttChartData = qData.schedules||[];
         var pdfDataUri = null;
@@ -4467,6 +4467,7 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
             pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
         }
         var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
+        if(!pdfBase64){throw new Error('Failed to generate PDF for sending. Please try downloading the quotation first.');}
         if(btn) btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Sending...';
         var sendR=await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientName:q.clientName||'Client',whatsappNumber:q.clientWhatsapp,quotationId:qId,pdfBase64:pdfBase64,category:q.category,size:q.projectSize||0,totalCost:q.totalCost||0,markup:q.markup||0,quotationDate:q.quotationDate})}).then(function(r){return r.json()});
         if(sendR.success){
@@ -38287,6 +38288,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     pdfDataUri = await window.generateQuotationPDF('datauri', 'default');
                 }
                 var pdfBase64 = (pdfDataUri&&pdfDataUri.includes(',')) ? pdfDataUri.split(',')[1] : '';
+                if(!pdfBase64){throw new Error('Failed to generate PDF for sending. Please try downloading first.');}
                 
                 // Step 4: Send via WhatsApp
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
