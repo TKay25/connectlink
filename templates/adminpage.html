@@ -4149,19 +4149,6 @@ window.removeGanttItem = window.removeGanttItem || function(idx){
     if(typeof window.renderGanttItemsList==='function') window.renderGanttItemsList();
 };
 
-// Early stub for generateQuotationPDF
-window.generateQuotationPDF = window.generateQuotationPDF || async function(outputMode, tablePlacement) {
-    if(outputMode === 'datauri') return null;
-    var fbHtml = '<html><head><title>Quotation</title></head><body style="font-family:Arial;padding:20px;">';
-    fbHtml += '<h1 style="text-align:center;">Project Quotation</h1>';
-    fbHtml += '<p><strong>Client:</strong> '+(window.quotationData?.clientName||'')+'</p>';
-    fbHtml += '<p><strong>Category:</strong> '+(window.quotationData?.category||'')+'</p>';
-    fbHtml += '<p><strong>Total:</strong> $'+((window.quotationData?.totalCost||0).toFixed(2))+'</p>';
-    fbHtml += '</body></html>';
-    var w=window.open('','_blank');
-    if(w){w.document.write(fbHtml);w.document.close();setTimeout(function(){w.print();},500);}
-};
-
 // Early stub for getItemsForQuotationOutput (used by renderPreviewItemsTable)
 window.getItemsForQuotationOutput = window.getItemsForQuotationOutput || function(data) {
     var items = (data && Array.isArray(data.items)) ? data.items : [];
@@ -19876,19 +19863,14 @@ async function saveAndDownloadQuotation() {
                 ]);
             } catch(pdfErr) {
                 console.error('PDF generation failed:', pdfErr);
-                // Fallback: try building simple HTML version
-                var fbHtml = '<html><head><title>Quotation</title></head><body style="font-family:Arial;padding:20px;">';
-                fbHtml += '<h1 style="text-align:center;">Project Quotation</h1>';
-                fbHtml += '<p><strong>Client:</strong> '+(data.clientName||'')+'</p>';
-                fbHtml += '<p><strong>Category:</strong> '+(data.category||'')+'</p>';
-                fbHtml += '<p><strong>Date:</strong> '+(data.quotationDate||'')+'</p>';
-                fbHtml += '<p><strong>Total:</strong> $'+(data.totalCost||0).toLocaleString('en-US',{minimumFractionDigits:2})+'</p>';
-                fbHtml += '<table border="1" style="width:100%;border-collapse:collapse;"><tr><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr>';
-                (data.items||[]).forEach(function(it){fbHtml+='<tr><td>'+(it.item||it.name||'Item')+'</td><td>'+(it.sqm||it.quantity||0)+'</td><td>$'+((it.inhouseRate||it.amount||0).toFixed(2))+'</td><td>$'+((it.total||it.clientPrice||0).toFixed(2))+'</td></tr>';});
-                fbHtml += '</table></body></html>';
-                var w=window.open('','_blank');
-                if(w){w.document.write(fbHtml);w.document.close();setTimeout(function(){w.print();},500);}
-                else alert('PDF generation failed. Please allow pop-ups or try again.\n\nError: '+pdfErr.message);
+                // Fallback: try calling the function directly if window assignment failed
+                if(typeof generateQuotationPDF === 'function'){
+                    try {
+                        await generateQuotationPDF('download', window.quotationPdfTablePlacement || 'default');
+                        return;
+                    } catch(e2){}
+                }
+                alert('PDF generation failed. Please try downloading from the Quotations portal instead.\n\nError: '+pdfErr.message);
             }
         } else {
             console.warn('generateQuotationPDF not defined on window');
