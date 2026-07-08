@@ -32891,7 +32891,11 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     let totalDaysSum = 0;
     let maxItemDays = 0;
     
-    // In your generateQuotationPDF function, update the unit rate calculation:
+    // Category type flags (must be declared before forEach loop that uses them)
+    const isTvUnitsOrOther = String(category || '').toLowerCase() === 'tv_units' || String(category || '').toLowerCase() === 'other';
+    const isKitchenCat = String(category || '').toLowerCase() === 'kitchen';
+    const isNonConstruction = isTvUnitsOrOther || isKitchenCat;
+    const monthTerms = isTvUnitsOrOther ? 3 : 6;
 
     // Get markup percentage from data
     const markupPercentage = data.markup || 30;
@@ -32941,10 +32945,6 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     // Calculate deposit and monthly installments
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
-    const isTvUnitsOrOther = String(category || '').toLowerCase() === 'tv_units' || String(category || '').toLowerCase() === 'other';
-    const isKitchenCat = String(category || '').toLowerCase() === 'kitchen';
-    const isNonConstruction = isTvUnitsOrOther || isKitchenCat;
-    const monthTerms = isTvUnitsOrOther ? 3 : 6;
     const monthlyInstallment = balanceAmount / monthTerms;
     const normalizedPlacement = ['default', 'after_schedule', 'exclude'].includes(tablePlacement) ? tablePlacement : 'default';
     const showConstructionItemsTable = normalizedPlacement !== 'exclude';
