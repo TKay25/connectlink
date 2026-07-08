@@ -32896,7 +32896,9 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     // Calculate deposit and monthly installments
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
-    const monthlyInstallment = balanceAmount / 6;
+    const isTvUnitsOrOther = String(category || '').toLowerCase() === 'tv_units' || String(category || '').toLowerCase() === 'other';
+    const monthTerms = isTvUnitsOrOther ? 3 : 6;
+    const monthlyInstallment = balanceAmount / monthTerms;
     const normalizedPlacement = ['default', 'after_schedule', 'exclude'].includes(tablePlacement) ? tablePlacement : 'default';
     const showConstructionItemsTable = normalizedPlacement !== 'exclude';
 
@@ -32938,7 +32940,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                     <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 12px 16px; box-sizing: border-box;">
                         <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 10px; box-sizing: border-box;">
                             <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Client Name:</strong> <span>${escapeHtml(clientName)}</span></div>
-                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Project Size:</strong> <span>${size} Sq. Meters</span></div>
+                            ${String(category || '').toLowerCase().includes('construction') ? `<div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Project Size:</strong> <span>${size} Sq. Meters</span></div>` : ''}
                         </div>
                         <div style="display: table-cell; width: 50%; vertical-align: top; padding-left: 10px; box-sizing: border-box;">
                             <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Category:</strong> <span>${escapeHtml(formatCategoryName(category))}</span></div>
@@ -32969,7 +32971,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
                             </div>
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over 6 months)</div>
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over ${monthTerms} months)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
                             </div>
                             ${!isConstruction ? `
