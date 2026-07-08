@@ -4503,6 +4503,27 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
     }).catch(function(e){alert('Error: '+e.message);});
 };
 
+// Fallback PDF generator for portal buttons
+if(typeof window.generateQuotationPDF !== 'function'){
+    window.generateQuotationPDF = async function(outputMode, tablePlacement) {
+        var data = window.quotationData;
+        if(!data) throw new Error('No quotation data');
+        var clientName = data.clientName || 'Client';
+        var cat = data.category || 'General';
+        var totalCost = data.totalCost || 0;
+        var items = data.items || [];
+        var rows = items.map(function(it,i){return '<tr'+(i%2===0?' style="background:#f9f9f9"':'')+'><td style="padding:6px;border:1px solid #ddd;text-align:center;">'+(i+1)+'</td><td style="padding:6px;border:1px solid #ddd;">'+(it.name||it.item||'Item')+'</td><td style="padding:6px;border:1px solid #ddd;text-align:right;">$'+(Number(it.sqm||it.quantity||0)).toFixed(2)+'</td><td style="padding:6px;border:1px solid #ddd;text-align:right;">$'+(Number(it.inhouseRate||it.unitRate||it.amount||0)).toFixed(2)+'</td><td style="padding:6px;border:1px solid #ddd;text-align:right;font-weight:bold;">$'+(Number(it.totalPrice||it.clientPrice||it.total||0)).toFixed(2)+'</td></tr>';}).join('');
+        var htmlContent = '<div style="font-family:Arial,sans-serif;padding:20px;max-width:800px;margin:auto;"><div style="text-align:center;margin-bottom:20px;"><h1 style="color:#1E2A56;font-size:18px;margin:0;">PROJECT QUOTATION</h1><div style="width:80px;height:2px;background:#C12B3E;margin:8px auto;"></div></div><div style="border:1px solid #1E2A56;border-radius:8px;padding:12px;margin-bottom:16px;background:#fafbff;"><p><strong>Client:</strong> '+clientName+'</p><p><strong>Category:</strong> '+cat+'</p><p><strong>Total:</strong> <strong>$'+totalCost.toFixed(2)+'</strong></p></div><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#1E2A56;color:white;"><th style="padding:8px;border:1px solid #2a3a78;text-align:center;">#</th><th style="padding:8px;border:1px solid #2a3a78;text-align:left;">Item</th><th style="padding:8px;border:1px solid #2a3a78;text-align:right;">Qty</th><th style="padding:8px;border:1px solid #2a3a78;text-align:right;">Rate</th><th style="padding:8px;border:1px solid #2a3a78;text-align:right;">Total</th></tr></thead><tbody>'+rows+'</tbody></table><div style="text-align:center;margin-top:30px;font-size:11px;color:#666;"><p>ConnectLink Agency (Pvt) Ltd</p></div></div>';
+        var worker = html2pdf().set({margin:[8,8,8,8],filename:'Quotation_'+clientName.replace(/\s+/g,'_')+'.pdf',html2canvas:{scale:1.5,useCORS:true},jsPDF:{orientation:'portrait',unit:'mm',format:'a4'}}).from(htmlContent);
+        var result;
+        try { result = await worker.outputPdf('datauristring'); } catch(e) {
+            var blob = await worker.outputPdf('blob');
+            result = await new Promise(function(r){var f=new FileReader();f.onloadend=function(){r(f.result);};f.readAsDataURL(blob);});
+        }
+        return result;
+    };
+}
+
 // Bind quotation details modal footer buttons (standalone, no jQuery/ready dependency)
 (function(){
     function bindBtn(id, fn){
@@ -31539,8 +31560,6 @@ let quillDetailsNotes = null;
     console.log('DOCREADY: callback starting');
     $(document).ready(function() {
         console.log('DOCREADY: callback FIRED - DOM is ready');
-        // Ensure generateQuotationPDF is on window ASAP (function is hoisted in this scope)
-        window.generateQuotationPDF = typeof generateQuotationPDF !== 'undefined' ? generateQuotationPDF : null;
         // Set today's date automatically
         const today = new Date().toISOString().split('T')[0];
         $('#quotationDate').val(today);
