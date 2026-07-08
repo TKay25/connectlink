@@ -4296,8 +4296,9 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         
         var isKitchen = (category||'').toLowerCase().includes('kitchen');
         var isCon = (category||'').toLowerCase().includes('construction');
+        var isTvUnitsOrOther = (category||'').toLowerCase() === 'tv_units' || (category||'').toLowerCase() === 'other';
         var depositRate = 0.30;
-        var numMonths = isKitchen ? 3 : 6;
+        var numMonths = isKitchen || isTvUnitsOrOther ? 3 : 6;
         
         var fmtDate = function(v){
             if(!v) return '';
@@ -4356,7 +4357,7 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         // Project Details
         htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">PROJECT DETAILS</h4>';
         htmlContent += '<div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;box-sizing:border-box;">';
-        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>'+(!isKitchen?'<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div>':'')+'</div>';
+        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>'+((isCon||isKitchen)?'<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div>':'')+'</div>';
         htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>'+displayCat+'</span></div>';
         htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>'+fmtDate(quotationDate)+'</span></div></div></div></div>';
         
