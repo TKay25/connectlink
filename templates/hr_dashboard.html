@@ -207,8 +207,7 @@
 
         /* ===== MAIN CONTENT ===== */
         .hr-main {
-            flex: 1; padding: 6px 10px; overflow-y: hidden;
-            background: linear-gradient(170deg, #F8FAFC 0%, #EEF2F7 40%, #E8EDF3 100%);
+    flex: 1; padding: 6px 10px; overflow-y: auto;
             min-height: calc(100vh - var(--nav-height));
             display: flex;
             flex-direction: column;
@@ -518,8 +517,8 @@
             display: flex;
             flex-direction: column;
             animation: moduleIn 0.3s ease;
-            min-height: calc(100vh - var(--nav-height) - 16px);
-            height: calc(100vh - var(--nav-height) - 16px);
+            flex: 1;
+            min-height: 0;
         }
         #module-dashboard.active .page-header { flex-shrink: 0; }
         @keyframes moduleIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
@@ -799,7 +798,10 @@
         .dash-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
+            gap: 6px;
+            flex: 1;
+            min-height: 0;
+            align-content: start;
         }
         .dash-col {
             min-width: 0;
@@ -993,7 +995,15 @@
                             <span style="color:#9ca3af;">Loading...</span>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;margin-top:auto;">
+                    <div class="hr-stat-card" style="padding:6px 10px;">
+                        <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Employee Status</div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <span style="font-size:0.55rem;color:#16a34a;"><span style="font-weight:700;" id="statActiveEmployees">0</span> Active</span>
+                            <span style="font-size:0.55rem;color:#dc2626;"><span style="font-weight:700;" id="statInactiveEmployees">0</span> Inactive</span>
+                            <span style="font-size:0.55rem;color:#d97706;"><span style="font-weight:700;" id="statOnLeaveEmployees">0</span> On Leave</span>
+                        </div>
+                    </div>
+                    <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;">
                         <div class="stat-icon blue"><i class="bi bi-person-plus"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
@@ -1031,7 +1041,15 @@
                             <span style="font-size:0.55rem;color:var(--text-secondary);"><span style="font-weight:700;" id="statTotalDays">0</span> Days taken</span>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;margin-top:auto;">
+                    <div class="hr-stat-card" style="padding:6px 10px;">
+                        <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Leave Types</div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <span style="font-size:0.55rem;color:#2563eb;"><span style="font-weight:700;" id="statAnnualLeave">0</span> Annual</span>
+                            <span style="font-size:0.55rem;color:#7c3aed;"><span style="font-weight:700;" id="statSickLeave">0</span> Sick</span>
+                            <span style="font-size:0.55rem;color:#0891b2;"><span style="font-weight:700;" id="statOtherLeave">0</span> Other</span>
+                        </div>
+                    </div>
+                    <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;">
                         <div class="stat-icon green"><i class="bi bi-send-plus"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
@@ -1066,6 +1084,13 @@
                             <span style="color:#9ca3af;">Loading...</span>
                         </div>
                     </div>
+                    <div class="hr-stat-card" style="padding:6px 10px;">
+                        <div style="font-size:0.5rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:3px;">Department Budget</div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <span style="font-size:0.55rem;color:var(--text-secondary);"><span style="font-weight:700;" id="statDeptBudget">$0</span> Allocated</span>
+                            <span style="font-size:0.55rem;color:#16a34a;"><span style="font-weight:700;" id="statDeptSpent">$0</span> Spent</span>
+                        </div>
+                    </div>
                     <div class="hr-stat-card" onclick="showModule('payroll')" style="cursor:pointer;">
                         <div class="stat-icon purple"><i class="bi bi-wallet2"></i></div>
                         <div class="stat-body">
@@ -1074,7 +1099,7 @@
                             <div class="stat-sub">Process →</div>
                         </div>
                     </div>
-                    <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;margin-top:auto;">
+                    <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;">
                         <div class="stat-icon teal"><i class="bi bi-boxes"></i></div>
                         <div class="stat-body">
                             <div class="stat-label">Quick Action</div>
