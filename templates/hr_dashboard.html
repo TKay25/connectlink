@@ -809,8 +809,8 @@
             flex-shrink: 0;
         }
         .dash-cols {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            display: flex;
+            flex-direction: column;
             gap: 6px;
             flex: 1;
             min-height: 0;
@@ -828,11 +828,9 @@
         }
         @media (max-width: 1200px) {
             .dash-kpi { grid-template-columns: repeat(2, 1fr); }
-            .dash-cols { grid-template-columns: repeat(2, 1fr); }
         }
         @media (max-width: 768px) {
             .dash-kpi { grid-template-columns: repeat(2, 1fr); }
-            .dash-cols { grid-template-columns: 1fr; }
         }
 </style>
 </head>
