@@ -2539,6 +2539,79 @@ def webhook():
 
                                                             print("📋 User submitted flow response:", form_response)
 
+                                                            # Check if this is a leave application flow submission
+                                                            leave_type_raw = form_response.get("screen_0_Leave_Type_0", "")
+                                                            leave_start = form_response.get("screen_0_Leave_Start_date_1", "")
+                                                            leave_end = form_response.get("screen_0_Leave_End_Date_2", "")
+                                                            if leave_type_raw and leave_start and leave_end and has_hr_access:
+                                                                # Map leave type ID to display name
+                                                                leave_type_map_nfm = {
+                                                                    "0_Annual": "Annual Leave",
+                                                                    "1_Sick": "Sick Leave",
+                                                                    "2_Study": "Study Leave",
+                                                                    "3_Parental": "Parental Leave",
+                                                                    "4_Other": "Other Leave"
+                                                                }
+                                                                leave_type_display = leave_type_map_nfm.get(leave_type_raw, leave_type_raw)
+                                                                
+                                                                # Calculate days
+                                                                from datetime import datetime as _dt2
+                                                                try:
+                                                                    fd = _dt2.strptime(leave_start, '%Y-%m-%d')
+                                                                    td = _dt2.strptime(leave_end, '%Y-%m-%d')
+                                                                    days = (td - fd).days + 1
+                                                                except:
+                                                                    days = 1
+
+                                                                # Store pending leave in temp table
+                                                                try:
+                                                                    pending_data = json.dumps({
+                                                                        'leave_type': leave_type_display,
+                                                                        'leave_start': leave_start,
+                                                                        'leave_end': leave_end,
+                                                                        'days': days,
+                                                                        'status': 'pending_confirmation'
+                                                                    })
+                                                                    cursor.execute("""
+                                                                        INSERT INTO appenqtemp (category, wanumber)
+                                                                        VALUES (%s, %s)
+                                                                        ON CONFLICT (wanumber) DO UPDATE SET category = EXCLUDED.category
+                                                                    """, (f'leave_pending_{pending_data}', sender_id))
+                                                                    connection.commit()
+                                                                except:
+                                                                    pass
+
+                                                                # Send confirmation with Submit/Cancel buttons
+                                                                confirm_buttons = [
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "leave_submit",
+                                                                            "title": "✅ Submit"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "leave_cancel",
+                                                                            "title": "❌ Cancel"
+                                                                        }
+                                                                    }
+                                                                ]
+
+                                                                send_whatsapp_button_message(
+                                                                    sender_id,
+                                                                    f"📋 *Please confirm your leave application:*\n\n"
+                                                                    f"*Leave Type:* {leave_type_display}\n"
+                                                                    f"*Start Date:* {leave_start}\n"
+                                                                    f"*End Date:* {leave_end}\n"
+                                                                    f"*Total Days:* {days}\n\n"
+                                                                    f"Do you want to submit this application?",
+                                                                    confirm_buttons,
+                                                                    footer_text="ConnectLink HR Portal"
+                                                                )
+                                                                continue
+
 
                                                         # Log button/list interaction for analytics
                                                         if button_id:
@@ -5444,35 +5517,100 @@ def webhook():
 
                                                         elif button_id == "apply_leave":
 
-                                                            sections = [
-                                                                {
-                                                                    "title": "Select Leave Type",
-                                                                    "rows": [
-                                                                        {"id": "leave_annual", "title": "Annual Leave", "description": "Paid time off"},
-                                                                        {"id": "leave_sick", "title": "Sick Leave", "description": "Medical reasons"},
-                                                                        {"id": "leave_other", "title": "Other Leave", "description": "Family, personal, etc"}
-                                                                    ]
-                                                                }
-                                                            ]
+                                                            url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+                                                            headers = {
+                                                                "Authorization": f"Bearer {ACCESS_TOKEN}",
+                                                                "Content-Type": "application/json"
+                                                            }
 
-                                                            # Store that this user is in leave application flow
+                                                            payload = {
+                                                                "messaging_product": "whatsapp",
+                                                                "to": sender_id,
+                                                                "type": "template",
+                                                                "template": {
+                                                                    "name": "leaveapp",
+                                                                    "language": {"code": "en"}
+                                                                }
+                                                            }
+
                                                             try:
-                                                                cursor.execute("""
-                                                                    INSERT INTO appenqtemp (category, wanumber)
-                                                                    VALUES (%s, %s)
-                                                                    ON CONFLICT (wanumber) DO UPDATE SET category = EXCLUDED.category
-                                                                """, ('leave_flow_start', sender_id))
+                                                                resp = requests.post(url, headers=headers, json=payload, timeout=30)
+                                                                print(f"📨 Leave app template response [{resp.status_code}]: {resp.text}")
+                                                            except Exception as e:
+                                                                print(f"❌ Error sending leave app template: {e}")
+                                                                send_text_message(sender_id, "❌ Could not open leave application form. Please contact HR.")
+
+                                                            continue
+
+                                                        elif button_id == "leave_submit":
+
+                                                            try:
+                                                                cursor.execute("SELECT category FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                temp_row = cursor.fetchone()
+                                                                if temp_row and 'leave_pending_' in (temp_row[0] or ''):
+                                                                    pending_str = temp_row[0].replace('leave_pending_', '', 1)
+                                                                    pending = json.loads(pending_str)
+                                                                    
+                                                                    leave_type = pending.get('leave_type', 'Other')
+                                                                    leave_start = pending.get('leave_start', '')
+                                                                    leave_end = pending.get('leave_end', '')
+                                                                    days = pending.get('days', 1)
+
+                                                                    # Look up employee
+                                                                    cursor.execute("""
+                                                                        SELECT id, first_name, last_name
+                                                                        FROM hr_employees
+                                                                        WHERE whatsapp::TEXT LIKE %s LIMIT 1
+                                                                    """, (f"%{sender_number}%",))
+                                                                    emp = cursor.fetchone()
+                                                                    
+                                                                    if emp:
+                                                                        emp_id = emp[0]
+                                                                        emp_name = f"{emp[1]} {emp[2]}"
+                                                                        
+                                                                        cursor.execute("""
+                                                                            INSERT INTO hr_leave_applications
+                                                                                (employee_id, employee_name, leave_type, from_date, to_date, days, reason, status)
+                                                                            VALUES (%s,%s,%s,%s,%s,%s,'Submitted via WhatsApp','Pending')
+                                                                            RETURNING id
+                                                                        """, (emp_id, emp_name, leave_type, leave_start, leave_end, days))
+                                                                        lid = cursor.fetchone()[0]
+                                                                        connection.commit()
+
+                                                                        # Clean up temp
+                                                                        try:
+                                                                            cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                            connection.commit()
+                                                                        except:
+                                                                            pass
+
+                                                                        send_text_message(sender_id,
+                                                                            f"✅ *Leave Application Submitted!*\n\n"
+                                                                            f"📋 *Reference:* #{lid}\n"
+                                                                            f"👤 *Employee:* {emp_name}\n"
+                                                                            f"📅 *Type:* {leave_type}\n"
+                                                                            f"📆 *From:* {leave_start} → *To:* {leave_end}\n"
+                                                                            f"📊 *Days:* {days}\n"
+                                                                            f"⏳ *Status:* Pending Approval\n\n"
+                                                                            f"You will be notified once your leave is approved."
+                                                                        )
+                                                                    else:
+                                                                        send_text_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
+                                                                else:
+                                                                    send_text_message(sender_id, "❌ No pending leave application found. Please start again.")
+                                                            except Exception as e:
+                                                                print(f"❌ Leave submit error: {e}")
+                                                                send_text_message(sender_id, "❌ Failed to submit leave. Please try again.")
+                                                            continue
+
+                                                        elif button_id == "leave_cancel":
+                                                            try:
+                                                                cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
                                                                 connection.commit()
                                                             except:
                                                                 pass
-
-                                                            send_whatsapp_list_message(
-                                                                sender_id,
-                                                                "Please select the type of leave you'd like to apply for:",
-                                                                "Apply for Leave",
-                                                                sections,
-                                                                footer_text="ConnectLink HR Portal"
-                                                            )
+                                                            send_text_message(sender_id, "❌ Leave application cancelled. You can start again anytime by selecting *Apply for Leave*.")
+                                                            continue
 
 
 
