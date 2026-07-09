@@ -35113,10 +35113,10 @@ function editQuotationFromPortal(quotationId) {
             window.editingQuotationId = quotationId;
             
             const isKitchen = (quotation.category === 'kitchen');
+            const isTvUnitsOrOther = (quotation.category === 'tv_units' || quotation.category === 'other');
 
             if (isKitchen) {
                 // Load kitchen quotation for editing
-                // Restore kitchen quotation items for editing with proper field mapping
                 window.kitchenCabinetItems = (quotation.items || []).map(item => ({
                     name: item.name || '',
                     quantity: item.quantity || 1,
@@ -35129,10 +35129,23 @@ function editQuotationFromPortal(quotationId) {
                 $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
                 $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
                 $('#quotationCategory').val('kitchen').change();
-                
-                // Render items table
                 renderKitchenItemsTable();
+                openModal('quotationgeneratorModal');
+            } else if (isTvUnitsOrOther) {
+                // Load TV Units/Other quotation for editing
+                window.tvUnitItems = (quotation.items || []).map(item => ({
+                    name: item.name || '',
+                    quantity: item.quantity || 1,
+                    amount: item.amount || item.unitRate || 0,
+                    days: item.days || 1,
+                    totalPrice: item.totalPrice || ((item.quantity || 1) * (item.amount || item.unitRate || 0))
+                }));
                 
+                $('#quotationClientName').val(quotation.clientName || '');
+                $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
+                $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
+                $('#quotationCategory').val(quotation.category || '').change();
+                renderTvUnitsTable();
                 openModal('quotationgeneratorModal');
             } else {
                 // Load construction quotation for editing (existing logic)
