@@ -4446,7 +4446,42 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
     } catch(e){alert('Error generating PDF: '+e.message);}
 };
 
-// sendQuotationFromPortal is defined inside $(document).ready() and exported to window there
+window.sendQuotationFromPortal = window.sendQuotationFromPortal || async function(qId) {
+    var q = window.currentViewingQuotation;
+    if(!q || q.id !== qId) {
+        // Fallback: fetch from API
+        var r=await fetch('/api/get-quotations').then(function(rr){return rr.json()});
+        if(!r.success||!r.data){alert('Error fetching quotation');return;}
+        q=r.data.find(function(x){return x.id===qId});
+    }
+    if(!q){alert('Quotation not found');return;}
+    if(!q.clientWhatsapp||!q.clientWhatsapp.toString().trim()){alert('No WhatsApp number saved');return;}
+    var cat=(q.category||'').toLowerCase();
+    if(cat.includes('kitchen') && typeof window.sendKitchenQuotationFromPortal==='function'){
+        return await window.sendKitchenQuotationFromPortal(q);
+    }
+    // For construction: use same approach as send quotation button
+    window.quotationData = q;
+    // Try the real PDF generator (exported from $(document).ready())
+    if(typeof window.generateQuotationPDF==='function'){
+        var tp = typeof promptQuotationTablePlacementIfNeeded==='function' ? await promptQuotationTablePlacementIfNeeded(q.category) : 'default';
+        if(tp===null) return;
+        window.quotationPdfTablePlacement = tp;
+        showLoader('Generating PDF', 'Building your quotation document');
+        var du = await window.generateQuotationPDF('datauri', tp);
+        hideLoader();
+        var b64 = (du&&du.includes(',')) ? du.split(',')[1] : '';
+        if(!b64) throw new Error('Failed to generate PDF');
+        var sr = await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+            clientName: q.clientName||'Client', whatsappNumber: q.clientWhatsapp,
+            quotationId: q.id, pdfBase64: b64, category: q.category
+        })}).then(function(rr){return rr.json()});
+        if(sr.success) alert('Quotation sent successfully!');
+        else throw new Error(sr.error||'Failed to send');
+    } else {
+        throw new Error('PDF generator not available');
+    }
+};
 
 window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId) {
     if(typeof window.__realEditQuotationFromPortal==='function') return window.__realEditQuotationFromPortal(qId);
