@@ -4502,6 +4502,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         if(!q){alert('Quotation not found.');return;}
         window.editingQuotationId=qId;
         var isKitchen = q.category === 'kitchen';
+        var isTvUnitsOrOther = q.category === 'tv_units' || q.category === 'other';
         if(isKitchen){
             window.kitchenCabinetItems = (q.items||[]).map(function(item){return{
                 name: item.name||'',
@@ -4510,7 +4511,14 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                 days: item.days||1,
                 totalPrice: item.totalPrice||((item.quantity||1)*(item.amount||item.unitRate||0))
             };});
-        } else {
+        } else if(isTvUnitsOrOther){
+            window.tvUnitItems = (q.items||[]).map(function(item){return{
+                name: item.name||'',
+                quantity: item.quantity||1,
+                amount: item.amount||item.unitRate||0,
+                days: item.days||1,
+                totalPrice: item.totalPrice||((item.quantity||1)*(item.amount||item.unitRate||0))
+            };});
             window.ganttChartData = (q.schedules||[]).map(function(s){return{
                 item: s.workScope,
                 startDate: s.startDate,
@@ -4528,7 +4536,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
             document.getElementById('quotationClientName')&&(document.getElementById('quotationClientName').value=q.clientName||'');
             document.getElementById('quotationClientWhatsapp')&&(document.getElementById('quotationClientWhatsapp').value=q.clientWhatsapp||'');
             document.getElementById('quotationDate')&&(document.getElementById('quotationDate').value=q.quotationDate?q.quotationDate.substring(0,10):new Date().toISOString().split('T')[0]);
-            if(!isKitchen){
+            if(!isKitchen && !isTvUnitsOrOther){
                 document.getElementById('quotationMarkup')&&(document.getElementById('quotationMarkup').value=q.markup!=null?q.markup:30);
                 document.getElementById('quotationSize')&&(document.getElementById('quotationSize').value=q.projectSize||'');
             }
@@ -4537,6 +4545,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         }catch(e){}
         setTimeout(function(){
             if(isKitchen && typeof renderKitchenItemsTable==='function') renderKitchenItemsTable();
+            if(isTvUnitsOrOther && typeof renderTvUnitsTable==='function') renderTvUnitsTable();
             if(typeof openModal==='function') openModal('quotationgeneratorModal');
         }, 200);
     }).catch(function(e){alert('Error: '+e.message);});
