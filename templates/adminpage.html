@@ -4843,6 +4843,9 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                             </select>
                                         </div>
                                     </div>
+                                    <div class="col-md-4">
+                                        <input type="text" id="projectsSearch" class="form-control" placeholder="🔍 Search projects..." style="font-size:0.8rem;padding:0.2rem 0.5rem;">
+                                    </div>
                                 </div>
                                 <div class="container2" style="overflow-y:auto;">
                                     {{ table_datamain_html|safe }}
@@ -29304,6 +29307,13 @@ function setupStickyTableHeaders() {
             window.dataTable.search('').draw();
             window.currentMonthFilter = selectedMonth;
             window.dataTable.draw();
+        }
+    });
+
+    // Custom search input for projects table
+    document.getElementById('projectsSearch')?.addEventListener('keyup', function() {
+        if (window.dataTable) {
+            window.dataTable.search(this.value).draw();
         }
     });
 
