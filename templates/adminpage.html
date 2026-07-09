@@ -4536,39 +4536,9 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
             var btn=this, ts=document.getElementById('sendBtnText'), sp=document.getElementById('sendBtnSpinner');
             if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
             try{
-                var q = window.currentViewingQuotation;
-                var cat = (q.category||'').toLowerCase();
-                if(cat.includes('kitchen') && typeof window.sendKitchenQuotationFromPortal==='function'){
-                    await window.sendKitchenQuotationFromPortal(q);
-                } else {
-                    if(!q.clientWhatsapp||!q.clientWhatsapp.toString().trim()) throw new Error('No WhatsApp number');
-                    // Same as sendQuotationBtn: just set window.quotationData and call generateQuotationPDF
-                    window.quotationData = q;
-                    window.ganttChartData = (q.schedules||[]).map(function(s){return{
-                        item: s.workScope||s.item, startDate: s.startDate, endDate: s.endDate,
-                        days: s.days, price: 0
-                    }});
-                    
-                    if(typeof promptQuotationTablePlacementIfNeeded==='function'){
-                        var tp = await promptQuotationTablePlacementIfNeeded(q.category);
-                        if(tp===null){btn.disabled=false;btn.innerHTML='Send via WhatsApp';return;}
-                        window.quotationPdfTablePlacement = tp;
-                    }
-                    
-                    showLoader('Generating PDF', 'Building your quotation document');
-                    if(typeof window.generateQuotationPDF!=='function') throw new Error('PDF generator not ready. Please refresh and try again.');
-                    var dataUri = await window.generateQuotationPDF('datauri', window.quotationPdfTablePlacement||'default');
-                    hideLoader();
-                    var pdfBase64 = (dataUri&&dataUri.includes(',')) ? dataUri.split(',')[1] : '';
-                    if(!pdfBase64) throw new Error('Failed to generate PDF');
-                    
-                    var sr = await fetch('/api/send-quotation-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-                        clientName: q.clientName||'Client', whatsappNumber: q.clientWhatsapp,
-                        quotationId: q.id, pdfBase64: pdfBase64
-                    })}).then(function(r){return r.json()});
-                    if(sr.success) alert('Quotation sent successfully!');
-                    else throw new Error(sr.error||'Failed to send');
-                }
+                console.log('SEND VIA WA: checking functions', {sendPortal:typeof window.sendQuotationFromPortal, genPDF:typeof window.generateQuotationPDF});
+                if(typeof window.sendQuotationFromPortal!=='function') throw new Error('Send function not available');
+                await window.sendQuotationFromPortal(window.currentViewingQuotation.id);
             }catch(e){alert('Error: '+e.message);}
             if(ts)ts.style.display='inline';if(sp)sp.classList.add('d-none');btn.disabled=false;
         });
