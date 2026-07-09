@@ -5523,13 +5523,31 @@ def webhook():
                                                                 "Content-Type": "application/json"
                                                             }
 
+                                                            flow_token = f"leave_{sender_id}_{int(time.time())}"
+
                                                             payload = {
                                                                 "messaging_product": "whatsapp",
                                                                 "to": sender_id,
                                                                 "type": "template",
                                                                 "template": {
                                                                     "name": "leaveapp",
-                                                                    "language": {"code": "en"}
+                                                                    "language": {"code": "en"},
+                                                                    "components": [
+                                                                        {
+                                                                            "type": "button",
+                                                                            "sub_type": "flow",
+                                                                            "index": "0",
+                                                                            "parameters": [
+                                                                                {
+                                                                                    "type": "action",
+                                                                                    "action": {
+                                                                                        "flow_token": flow_token,
+                                                                                        "flow_action_data": {}
+                                                                                    }
+                                                                                }
+                                                                            ]
+                                                                        }
+                                                                    ]
                                                                 }
                                                             }
 
