@@ -2453,6 +2453,12 @@ def webhook():
                                                 print(id_user)
                                                 print(admin_name)
 
+                                                # Check if admin also has HR access (whatsapp in hr_employees)
+                                                has_hr_access = False
+                                                cursor.execute("SELECT id FROM hr_employees WHERE whatsapp::TEXT LIKE %s LIMIT 1", (f"%{sender_number}%",))
+                                                if cursor.fetchone():
+                                                    has_hr_access = True
+
                                                 try:
                                                 
                                                     # --- Keyword matching for text messages (admin) ---
@@ -2563,6 +2569,87 @@ def webhook():
                                                                     button_id = ''
                                                                 elif handler_id == 'paymenthist':
                                                                     button_id = 'paymenthist'
+
+                                                        # Check if this is a leave application text response
+                                                        if not button_id and not selected_option and message_type == "text" and has_hr_access:
+                                                            import re as _re
+                                                            leave_match = _re.search(r'From:\s*(\S+)\s*,\s*To:\s*(\S+)\s*,\s*Reason:\s*(.+)', msg_text, _re.IGNORECASE)
+                                                            if leave_match:
+                                                                from_date = leave_match.group(1)
+                                                                to_date = leave_match.group(2)
+                                                                reason = leave_match.group(3).strip()
+
+                                                                # Get leave type from temp table
+                                                                try:
+                                                                    cursor.execute("SELECT category FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                    temp_row = cursor.fetchone()
+                                                                    stored_cat = temp_row[0] if temp_row else ''
+                                                                    leave_type = 'Other'
+                                                                    if 'leave_annual' in stored_cat:
+                                                                        leave_type = 'Annual Leave'
+                                                                    elif 'leave_sick' in stored_cat:
+                                                                        leave_type = 'Sick Leave'
+                                                                    elif 'leave_other' in stored_cat:
+                                                                        leave_type = 'Other'
+                                                                except:
+                                                                    leave_type = 'Annual Leave'
+
+                                                                # Get employee info from hr_employees
+                                                                try:
+                                                                    cursor.execute("""
+                                                                        SELECT id, first_name, last_name, current_leave_balance
+                                                                        FROM hr_employees
+                                                                        WHERE whatsapp::TEXT LIKE %s LIMIT 1
+                                                                    """, (f"%{sender_number}%",))
+                                                                    emp = cursor.fetchone()
+                                                                    if emp:
+                                                                        emp_id = emp[0]
+                                                                        emp_name = f"{emp[1]} {emp[2]}"
+                                                                        leave_balance = emp[3]
+
+                                                                        # Calculate days
+                                                                        from datetime import datetime as _dt
+                                                                        try:
+                                                                            fd = _dt.strptime(from_date, '%Y-%m-%d')
+                                                                            td = _dt.strptime(to_date, '%Y-%m-%d')
+                                                                            days = (td - fd).days + 1
+                                                                        except:
+                                                                            days = 1
+
+                                                                        # Submit leave via API
+                                                                        cursor.execute("""
+                                                                            INSERT INTO hr_leave_applications
+                                                                                (employee_id, employee_name, leave_type, from_date, to_date, days, reason, status)
+                                                                            VALUES (%s,%s,%s,%s,%s,%s,%s,'Pending')
+                                                                            RETURNING id
+                                                                        """, (emp_id, emp_name, leave_type, from_date, to_date, days, reason))
+                                                                        lid = cursor.fetchone()[0]
+                                                                        connection.commit()
+
+                                                                        # Clean up temp
+                                                                        try:
+                                                                            cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                            connection.commit()
+                                                                        except:
+                                                                            pass
+
+                                                                        send_text_message(sender_id,
+                                                                            f"✅ *Leave Application Submitted!*\n\n"
+                                                                            f"📋 *Reference:* #{lid}\n"
+                                                                            f"👤 *Employee:* {emp_name}\n"
+                                                                            f"📅 *Type:* {leave_type}\n"
+                                                                            f"📆 *From:* {from_date} → *To:* {to_date}\n"
+                                                                            f"📊 *Days:* {days}\n"
+                                                                            f"📝 *Reason:* {reason}\n"
+                                                                            f"⏳ *Status:* Pending Approval\n\n"
+                                                                            f"You will be notified once your leave is approved."
+                                                                        )
+                                                                    else:
+                                                                        send_text_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
+                                                                except Exception as e:
+                                                                    print(f"❌ Leave submission error: {e}")
+                                                                    send_text_message(sender_id, "❌ Failed to submit leave. Please try again or contact HR.")
+                                                                continue
 
                                                         if button_id == "portfolio":
 
@@ -5273,7 +5360,14 @@ def webhook():
                                                                         }
                                                                     ]
 
-
+                                                                    if has_hr_access:
+                                                                        buttons.append({
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "apply_leave",
+                                                                                "title": "Apply for Leave"
+                                                                            }
+                                                                        })
 
                                                                     send_whatsapp_button_message(
                                                                         sender_id,
@@ -5328,7 +5422,14 @@ def webhook():
                                                                 }
                                                             ]
 
-
+                                                            if has_hr_access:
+                                                                buttons.append({
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "apply_leave",
+                                                                        "title": "Apply for Leave"
+                                                                    }
+                                                                })
 
                                                             send_whatsapp_button_image_message(
                                                                 sender_id,
@@ -5337,6 +5438,69 @@ def webhook():
                                                                 buttons,
                                                                 footer_text="ConnectLink Properties • Admin Panel"
 
+                                                            )
+
+
+
+                                                        elif button_id == "apply_leave":
+
+                                                            sections = [
+                                                                {
+                                                                    "title": "Select Leave Type",
+                                                                    "rows": [
+                                                                        {"id": "leave_annual", "title": "Annual Leave", "description": "Paid time off"},
+                                                                        {"id": "leave_sick", "title": "Sick Leave", "description": "Medical reasons"},
+                                                                        {"id": "leave_other", "title": "Other Leave", "description": "Family, personal, etc"}
+                                                                    ]
+                                                                }
+                                                            ]
+
+                                                            # Store that this user is in leave application flow
+                                                            try:
+                                                                cursor.execute("""
+                                                                    INSERT INTO appenqtemp (category, wanumber)
+                                                                    VALUES (%s, %s)
+                                                                    ON CONFLICT (wanumber) DO UPDATE SET category = EXCLUDED.category
+                                                                """, ('leave_flow_start', sender_id))
+                                                                connection.commit()
+                                                            except:
+                                                                pass
+
+                                                            send_whatsapp_list_message(
+                                                                sender_id,
+                                                                "Please select the type of leave you'd like to apply for:",
+                                                                "Apply for Leave",
+                                                                sections,
+                                                                footer_text="ConnectLink HR Portal"
+                                                            )
+
+
+
+                                                        elif selected_option in ("leave_annual", "leave_sick", "leave_other"):
+
+                                                            leave_type_map = {
+                                                                'leave_annual': 'Annual Leave',
+                                                                'leave_sick': 'Sick Leave',
+                                                                'leave_other': 'Other'
+                                                            }
+                                                            selected_leave_type = leave_type_map.get(selected_option, 'Other')
+
+                                                            # Store leave type selection in temp table
+                                                            try:
+                                                                cursor.execute("""
+                                                                    INSERT INTO appenqtemp (category, wanumber)
+                                                                    VALUES (%s, %s)
+                                                                    ON CONFLICT (wanumber) DO UPDATE SET category = EXCLUDED.category
+                                                                """, (f'leave_type_{selected_option}', sender_id))
+                                                                connection.commit()
+                                                            except:
+                                                                pass
+
+                                                            send_text_message(sender_id,
+                                                                f"✅ *{selected_leave_type}* selected.\n\n"
+                                                                f"Please reply with your leave details in this format:\n"
+                                                                f"`From: YYYY-MM-DD, To: YYYY-MM-DD, Reason: Your reason here`\n\n"
+                                                                f"Example: `From: 2026-07-10, To: 2026-07-12, Reason: Family vacation`"
                                                             )
 
 
@@ -5978,7 +6142,14 @@ def webhook():
                                                             }
                                                         ]
 
-
+                                                        if has_hr_access:
+                                                            buttons.append({
+                                                                "type": "reply",
+                                                                "reply": {
+                                                                    "id": "apply_leave",
+                                                                    "title": "Apply for Leave"
+                                                                }
+                                                            })
 
                                                         send_whatsapp_button_image_message(
                                                             sender_id,
@@ -25784,7 +25955,7 @@ File size: {file_size_mb:.1f} MB
         logging.exception(f"Mobile PDF send failed: {exc}")
         
         # Fallback: Send download link
-        download_link = f"https://your-domain.com/api/enquiries/{enquiry_id}/plan"
+        download_link = f"https://connectlink-wbax.onrender.com/api/enquiries/{enquiry_id}/plan"
         link_message = f"📎 *Enquiry Attachment*\n\nClick this link to download:\n{download_link}\n\nReference: #{enquiry_id}"
         
         if send_text_message:

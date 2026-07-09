@@ -37484,23 +37484,44 @@ function openBulkMessaging() {
     document.getElementById('bulkImageRemove').style.display = 'none';
     updateBulkPreview();
     
-    if (!whatsappRecipients.length) {
-        list.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.7rem;">Load WhatsApp chats first.</div>';
-    } else {
+    function renderRecipientList(recipients) {
+        if (!recipients.length) {
+            list.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.7rem;">No contacts found yet.</div>';
+            return;
+        }
         let html = '';
-        whatsappRecipients.forEach((chat, i) => {
+        recipients.forEach((chat, i) => {
             html += `<label style="display:flex;align-items:center;gap:6px;padding:3px 4px;font-size:0.7rem;border-bottom:1px solid var(--border-color);cursor:pointer;">
                 <input type="checkbox" class="bulk-recipient-cb" value="${chat.whatsapp}" data-name="${escapeHtml(chat.name)}">
                 <span>${escapeHtml(chat.name)} (${chat.whatsapp})</span>
             </label>`;
         });
         list.innerHTML = html;
+        updateBulkSelectedCount();
+    }
+    
+    if (whatsappRecipients.length) {
+        renderRecipientList(whatsappRecipients);
+    } else {
+        list.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Loading contacts...</div>';
+        fetch('/api/whatsapp-chats')
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data) {
+                    whatsappRecipients = res.data;
+                    renderRecipientList(res.data);
+                } else {
+                    list.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.7rem;">No contacts found.</div>';
+                }
+            })
+            .catch(() => {
+                list.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.7rem;">Failed to load contacts.</div>';
+            });
     }
     // Reset to text mode
     setBulkMode('text');
     document.getElementById('bulkTemplateName').value = '';
     document.getElementById('bulkTemplateParams').value = '';
-    updateBulkSelectedCount();
     openModal('bulkMessagingModal');
 }
 
