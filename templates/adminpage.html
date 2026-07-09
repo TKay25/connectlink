@@ -4320,7 +4320,7 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         });
         
         if(items.length>0){
-            itemRows += '<tr><td colspan="4" style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;"><strong>TOTAL</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid #1E2A56;color:#2196F3;"><strong>'+totalConstructionDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;color:#1E2A56;"><strong>$'+totalDisplayCost.toFixed(2)+'</strong></td></tr>';
+            itemRows += '<tr style="page-break-inside:avoid;break-inside:avoid;"><td colspan="4" style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;padding:8px 10px;"><strong>TOTAL</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid #1E2A56;color:#2196F3;padding:8px 10px;"><strong>'+totalConstructionDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;color:#1E2A56;padding:8px 10px;"><strong>$'+totalDisplayCost.toFixed(2)+'</strong></td></tr>';
         }
         
         var scheduleRows = '';
@@ -4429,8 +4429,8 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         if(showItemsTable){
             // Add the info note above the table
             htmlContent += '<div style="margin-bottom:22px;text-align:center;"><span style="display:inline-block;background:#fffbe6;color:#d48806;border:1px solid #ffe58f;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;"><i class="bi bi-info-circle-fill" style="margin-right:6px;"></i> For a full breakdown of your quotation, <span style="color:#C12B3E;">see the detailed quotation table below</span>.</span></div>';
-            htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">CONSTRUCTION ITEMS</h4>';
-            htmlContent += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:5%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:36%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:15%;">Sq. Meters Size</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:15%;">Unit Rate</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:12%;">Days</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:17%;">Total (USD)</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>';
+            htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;padding-bottom:20px;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">CONSTRUCTION ITEMS</h4>';
+            htmlContent += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:30px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:5%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:36%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:15%;">Sq. Meters Size</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:15%;">Unit Rate</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:12%;">Days</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:17%;">Total (USD)</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>';
             // Work schedule ONLY for "after_schedule" option
             if(tablePlacement === 'after_schedule' && schedules.length > 0){
                 htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">WORK SCHEDULE</h4><table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:46%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:24%;">Start Date</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:24%;">End Date</th></tr></thead><tbody>'+scheduleRows+'</tbody></table></div>';
@@ -32992,9 +32992,9 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     const showConstructionItemsTable = normalizedPlacement !== 'exclude';
 
     const constructionItemsTableHtml = showConstructionItemsTable ? `
-                <div style="page-break-inside: avoid; break-inside: avoid;">
+                <div style="page-break-inside: avoid; break-inside: avoid; padding-bottom: 20px;">
                     <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">CONSTRUCTION ITEMS</h4>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 30px;">
                         <thead>
                             <tr>
                                 <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 5%;">#</th>
