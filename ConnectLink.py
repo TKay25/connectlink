@@ -5437,8 +5437,8 @@ def webhook():
                                                                         buttons.append({
                                                                             "type": "reply",
                                                                             "reply": {
-                                                                                "id": "apply_leave",
-                                                                                "title": "Apply for Leave"
+                                                                                "id": "hr_menu",
+                                                                                "title": "HR Portal"
                                                                             }
                                                                         })
 
@@ -5499,8 +5499,8 @@ def webhook():
                                                                 buttons.append({
                                                                     "type": "reply",
                                                                     "reply": {
-                                                                        "id": "apply_leave",
-                                                                        "title": "Apply for Leave"
+                                                                        "id": "hr_menu",
+                                                                        "title": "HR Portal"
                                                                     }
                                                                 })
 
@@ -5514,6 +5514,144 @@ def webhook():
                                                             )
 
 
+
+                                                        elif button_id == "hr_menu":
+
+                                                            hr_buttons = [
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "apply_leave",
+                                                                        "title": "Apply for Leave"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "my_info",
+                                                                        "title": "My Info"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "main_menu",
+                                                                        "title": "↩ Main Menu"
+                                                                    }
+                                                                }
+                                                            ]
+
+                                                            send_whatsapp_button_message(
+                                                                sender_id,
+                                                                f"👤 *{admin_name} - HR Portal*\n\nPlease select an option below:",
+                                                                hr_buttons,
+                                                                footer_text="ConnectLink HR Portal"
+                                                            )
+
+                                                            continue
+
+                                                        elif button_id == "my_info":
+
+                                                            try:
+                                                                cursor.execute("""
+                                                                    SELECT id, first_name, last_name, email, whatsapp, role, department, designation,
+                                                                           date_joined, current_leave_balance, monthly_accumulation,
+                                                                           leave_approver_name, leave_approver_whatsapp, leave_approver_email
+                                                                    FROM hr_employees
+                                                                    WHERE whatsapp::TEXT LIKE %s LIMIT 1
+                                                                """, (f"%{sender_number}%",))
+                                                                emp = cursor.fetchone()
+
+                                                                if emp:
+                                                                    emp_id = emp[0]
+                                                                    full_name = f"{emp[1]} {emp[2]}"
+                                                                    email = emp[3] or 'N/A'
+                                                                    whatsapp = emp[4] or 'N/A'
+                                                                    role = emp[5] or 'Ordinary User'
+                                                                    department = emp[6] or 'N/A'
+                                                                    designation = emp[7] or 'N/A'
+                                                                    date_joined = emp[8].strftime('%d %B %Y') if emp[8] else 'N/A'
+                                                                    leave_balance = float(emp[9]) if emp[9] else 0
+                                                                    monthly_acc = float(emp[10]) if emp[10] else 0
+                                                                    approver_name = emp[11] or 'N/A'
+                                                                    approver_wa = emp[12] or 'N/A'
+                                                                    approver_email = emp[13] or 'N/A'
+
+                                                                    # Get user permissions
+                                                                    perms_text = ''
+                                                                    try:
+                                                                        cursor.execute("""
+                                                                            SELECT is_super_admin, can_manage_projects, can_manage_hardware, can_manage_hr,
+                                                                                   can_add_users, can_edit_users, can_delete_users, can_export_data,
+                                                                                   can_view_audit, can_manage_roles, can_view_payments, can_edit_projects,
+                                                                                   can_download_master_file
+                                                                            FROM user_permissions
+                                                                            WHERE user_type = 'projects' AND user_id = %s
+                                                                        """, (id_user if is_from_admin_users else emp_id,))
+                                                                        perms = cursor.fetchone()
+                                                                        if perms:
+                                                                            perm_labels = [
+                                                                                ('Super Admin', perms[0]), ('Manage Projects', perms[1]),
+                                                                                ('Manage Hardware', perms[2]), ('Manage HR', perms[3]),
+                                                                                ('Add Users', perms[4]), ('Edit Users', perms[5]),
+                                                                                ('Delete Users', perms[6]), ('Export Data', perms[7]),
+                                                                                ('View Audit', perms[8]), ('Manage Roles', perms[9]),
+                                                                                ('View Payments', perms[10]), ('Edit Projects', perms[11]),
+                                                                                ('Download Master File', perms[12])
+                                                                            ]
+                                                                            granted = [label for label, val in perm_labels if val]
+                                                                            perms_text = ', '.join(granted) if granted else 'None'
+                                                                        else:
+                                                                            perms_text = 'Standard Access'
+                                                                    except:
+                                                                        perms_text = 'Standard Access'
+
+                                                                    info_msg = (
+                                                                        f"📋 *Employee Information*\n\n"
+                                                                        f"*Name:* {full_name}\n"
+                                                                        f"*Role:* {role}\n"
+                                                                        f"*Department:* {department}\n"
+                                                                        f"*Designation:* {designation}\n"
+                                                                        f"*Email:* {email}\n"
+                                                                        f"*Date Joined:* {date_joined}\n"
+                                                                        f"*Leave Balance:* {leave_balance} days\n"
+                                                                        f"*Monthly Accrual:* {monthly_acc} days\n\n"
+                                                                        f"*Permissions:* {perms_text}\n\n"
+                                                                        f"*Leave Approver:* {approver_name}\n"
+                                                                        f"*Approver WhatsApp:* {approver_wa}\n"
+                                                                        f"*Approver Email:* {approver_email}"
+                                                                    )
+
+                                                                    # Show info with navigation buttons
+                                                                    nav_buttons = [
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "apply_leave",
+                                                                                "title": "Apply for Leave"
+                                                                            }
+                                                                        },
+                                                                        {
+                                                                            "type": "reply",
+                                                                            "reply": {
+                                                                                "id": "hr_menu",
+                                                                                "title": "↩ HR Menu"
+                                                                            }
+                                                                        }
+                                                                    ]
+
+                                                                    send_whatsapp_button_message(
+                                                                        sender_id,
+                                                                        info_msg,
+                                                                        nav_buttons,
+                                                                        footer_text="ConnectLink HR Portal"
+                                                                    )
+                                                                else:
+                                                                    send_text_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
+                                                            except Exception as e:
+                                                                print(f"❌ My Info error: {e}")
+                                                                send_text_message(sender_id, "❌ Failed to load your information. Please try again.")
+                                                            continue
 
                                                         elif button_id == "apply_leave":
 
@@ -6302,8 +6440,8 @@ def webhook():
                                                             buttons.append({
                                                                 "type": "reply",
                                                                 "reply": {
-                                                                    "id": "apply_leave",
-                                                                    "title": "Apply for Leave"
+                                                                    "id": "hr_menu",
+                                                                    "title": "HR Portal"
                                                                 }
                                                             })
 
