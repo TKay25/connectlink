@@ -4417,22 +4417,18 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
             htmlContent += '<div>Finishings:</div><div><strong>30 days</strong></div>';
             htmlContent += '</div></div>';
         }
-        htmlContent += '</div>';
-        // Banking Details
-        htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.7;">';
-        htmlContent += '<strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong>';
-        htmlContent += '<div><strong>Bank:</strong> ZB BANK</div><div><strong>Branch:</strong> Msasa</div><div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div><div><strong>Account No:</strong> 450600586638405</div><div><strong>Account Type:</strong> USD Account</div>';
-        // Construction Items Table (with highlighted note if included) — placed BEFORE banking details
+        htmlContent += '</div></div>';
+        htmlContent += '</div>';  // Close outer quotation wrapper
+
+        // Construction Items Table (after summary, before banking details)
         if(showItemsTable){
             htmlContent += '<div style="margin-bottom:22px;text-align:center;"><span style="display:inline-block;background:#fffbe6;color:#d48806;border:1px solid #ffe58f;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;"><i class="bi bi-info-circle-fill" style="margin-right:6px;"></i> For a full breakdown of your quotation, <span style="color:#C12B3E;">see the detailed quotation table below</span>.</span></div>';
             htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;padding-bottom:20px;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">CONSTRUCTION ITEMS</h4>';
             htmlContent += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:30px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:5%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:36%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:15%;">Sq. Meters Size</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:15%;">Unit Rate</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:12%;">Days</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:17%;">Total (USD)</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>';
-            // Work schedule ONLY for "after_schedule" option
             if(tablePlacement === 'after_schedule' && schedules.length > 0){
                 htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">WORK SCHEDULE</h4><table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:46%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:24%;">Start Date</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:24%;">End Date</th></tr></thead><tbody>'+scheduleRows+'</tbody></table></div>';
             }
         }
-        htmlContent += '</div></div>';
 
         // Important Note & Banking Details
         htmlContent += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">';
@@ -4452,7 +4448,6 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
             htmlContent += '</div></div>';
         }
         htmlContent += '</div>';
-        // Banking Details
         htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.7;">';
         htmlContent += '<strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong>';
         htmlContent += '<div><strong>Bank:</strong> ZB BANK</div><div><strong>Branch:</strong> Msasa</div><div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div><div><strong>Account No:</strong> 450600586638405</div><div><strong>Account Type:</strong> USD Account</div>';
