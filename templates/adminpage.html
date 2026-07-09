@@ -4833,7 +4833,6 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                     <div class="col-md-2">
                                         <div class="input-group" style="font-size:0.7rem;">
                                             <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-list-ol"></i></span>
-                                            <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-list-ol"></i></span>
                                             <select class="form-select" id="projectsPageLength" style="font-size:0.8rem;padding:0.2rem 0.5rem;">
                                                 <option value="25">25 entries</option>
                                                 <option value="50">50 entries</option>
@@ -4844,7 +4843,10 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                         </div>
                                     </div>
                                     <div class="col-md-4">
-                                        <input type="text" id="projectsSearch" class="form-control" placeholder="🔍 Search projects..." style="font-size:0.8rem;padding:0.2rem 0.5rem;">
+                                        <div class="input-group" style="font-size:0.7rem;">
+                                            <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem;"><i class="bi bi-search"></i></span>
+                                            <input type="text" id="projectsSearch" class="form-control" placeholder="Search projects..." style="font-size:0.8rem;padding:0.2rem 0.5rem;">
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="container2" style="overflow-y:auto;">
@@ -20474,6 +20476,7 @@ function initializeDataTableForProjects() {
         searching: true,
         ordering: false,
         info: false,
+        dom: 'lrtip',
         columnDefs: [
             // Hide all detail columns, show only: momid(0), clientname(1), projectname(10), projectadmin(13), date(24), id(58), QREF(59), Action(60)
             { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
@@ -29070,6 +29073,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 searching: true,
                 ordering: true,
                 info: false,
+                dom: 'lrtip',
                 columnDefs: [
                     // Hide columns 2-9, 11-12, 14, 15-57 (client details, addresses, projectstartdate, installment details)
                     { targets: [2,3,4,5,6,7,8,9,11,12,14,15,16,17,18,19,20,21,22,23,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57], visible: false },
