@@ -4446,14 +4446,7 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
     } catch(e){alert('Error generating PDF: '+e.message);}
 };
 
-window.sendQuotationFromPortal = window.sendQuotationFromPortal || async function(qId) {
-    if(typeof window.__realSendQuotationFromPortal==='function') return window.__realSendQuotationFromPortal(qId);
-    try {
-        await sendQuotationFromPortal(qId);
-    } catch(e) {
-        alert('Error: '+e.message);
-    }
-};
+// sendQuotationFromPortal is defined inside $(document).ready() and exported to window there
 
 window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId) {
     if(typeof window.__realEditQuotationFromPortal==='function') return window.__realEditQuotationFromPortal(qId);
@@ -35141,6 +35134,7 @@ async function sendQuotationFromPortal(quotationId) {
         await sendConstructionQuotationFromPortal(quotation);
     }
 }
+window.sendQuotationFromPortal = sendQuotationFromPortal;
 
 async function sendKitchenQuotationFromPortal(quotation) {
     // Convert to kitchen format
