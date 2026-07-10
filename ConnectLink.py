@@ -583,6 +583,7 @@ def initialize_database_tables():
                     ('TnCs', 0, 1),
                     ('Final fix Plumbing', 0.025974026, 9.25),
                     ('Final fix Electricals', 0.025974026, 5),
+                    ('Doors and door frames', 0, 1),
                     ('Cleaning', 0, 0)
                 ]
                 
@@ -624,8 +625,8 @@ def initialize_database_tables():
                 connection.commit()
                 print(f"✓ Renamed '{cursor.rowcount}' item(s) from 'Backfilling and compaction' to 'Backfilling and Compaction'")
 
-            # Check and add missing items: Screeding, Review, Beam filling, TnCs
-            for new_item in ['Screeding', 'Review', 'Beam filling', 'TnCs']:
+            # Check and add missing items: Screeding, Review, Beam filling, TnCs, Doors and door frames
+            for new_item in ['Screeding', 'Review', 'Beam filling', 'TnCs', 'Doors and door frames']:
                 cursor.execute("SELECT COUNT(*) FROM quotation_rates WHERE quotation_item = %s", (new_item,))
                 if cursor.fetchone()[0] == 0:
                     cursor.execute("""
@@ -26072,7 +26073,8 @@ def get_quotation_rates():
                         WHEN 'TnCs' THEN 31
                         WHEN 'Final fix Plumbing' THEN 32
                         WHEN 'Final fix Electricals' THEN 33
-                        WHEN 'Cleaning' THEN 34
+                        WHEN 'Doors and door frames' THEN 34
+                        WHEN 'Cleaning' THEN 35
                         ELSE 99
                     END ASC
             """)
