@@ -26001,7 +26001,8 @@ def get_quotation_rates():
             cursor.execute("""
                 SELECT id, quotation_item, days_per_sq_meter, inhouse_unit_rate
                 FROM quotation_rates
-                ORDER BY id ASC
+                ORDER BY 
+                    CASE WHEN quotation_item = 'Land Clearing' THEN 0 ELSE id END ASC
             """)
             rates = cursor.fetchall()
             

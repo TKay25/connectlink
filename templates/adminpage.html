@@ -31719,6 +31719,17 @@ let quillDetailsNotes = null;
                 updateSelectedItemsList();
                 calculateConstructionTotal();
             }
+            
+            // Re-apply search filter after re-render
+            const searchVal = $('#constructionItemsSearch').val().toLowerCase().trim();
+            if (searchVal !== '') {
+                $('.construction-item-row').each(function() {
+                    const itemName = $(this).data('item-name').toLowerCase();
+                    if (!itemName.includes(searchVal)) {
+                        $(this).hide();
+                    }
+                });
+            }
         }
 
         // Calculate and display total construction cost
