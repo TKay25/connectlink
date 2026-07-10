@@ -22677,10 +22677,10 @@ function displayPaymentReminders(data) {
     }
     
     // Fill tables
-    fillTable('dueSoonTableBody', dueSoon, 'soon');
-    fillTable('overdueTableBody', overdue, 'overdue');
-    fillTable('allRemindersTableBody', allPayments, 'all');
-    fillTable('outstandingTableBody', outstanding, 'outstanding');
+    try { fillTable('dueSoonTableBody', dueSoon, 'soon'); } catch(e) { console.error('dueSoon table error:', e); }
+    try { fillTable('overdueTableBody', overdue, 'overdue'); } catch(e) { console.error('overdue table error:', e); }
+    try { fillTable('allRemindersTableBody', allPayments, 'all'); } catch(e) { console.error('all reminders table error:', e); }
+    try { fillTable('outstandingTableBody', outstanding, 'outstanding'); } catch(e) { console.error('outstanding table error:', e); }
     
     // Update send button
     const sendBtn = document.getElementById('sendAllRemindersBtn');
@@ -22725,8 +22725,12 @@ function fillTable(tableId, payments, type) {
     }
     
     payments.forEach((payment, index) => {
-        const row = createTableRow(payment, index + 1, type);
-        tableBody.innerHTML += row;
+        try {
+            const row = createTableRow(payment, index + 1, type);
+            tableBody.innerHTML += row;
+        } catch(e) {
+            console.error('Error creating row for', payment?.client_name || 'unknown', ':', e);
+        }
     });
 }
 
@@ -22744,23 +22748,9 @@ function createTableRow(payment, index, type) {
         const balanceDue = payment.balance_due || 0;
         const daysOverdue = payment.days_overdue || 0;
         
-        const formattedContract = contractAmount.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2
-        });
-        
-        const formattedPaid = totalPaid.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2
-        });
-        
-        const formattedBalance = balanceDue.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2
-        });
+        const formattedContract = safeFormatCurrency(contractAmount);
+        const formattedPaid = safeFormatCurrency(totalPaid);
+        const formattedBalance = safeFormatCurrency(balanceDue);
         
         return `
             <tr>
@@ -22801,11 +22791,7 @@ function createTableRow(payment, index, type) {
     const dueDate = payment.due_date || payment.last_installment_duedate || 'N/A';
     
     const formattedDate = formatDate(dueDate);
-    const formattedAmount = amount.toLocaleString('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2
-    });
+    const formattedAmount = safeFormatCurrency(amount);
     
     let statusHtml = '';
     let daysInfo = '';
@@ -22874,24 +22860,40 @@ function formatDate(dateStr) {
 
 function formatPhone(phone) {
     if (!phone) return 'N/A';
-    const cleaned = phone.toString().replace(/\D/g, '');
-    
-    // Remove trailing zero if present
-    const trimmed = cleaned.endsWith('0') ? cleaned.slice(0, -1) : cleaned;
-    
-    if (trimmed.startsWith('263')) {
-        if (trimmed.length === 12) {
-            return `263 ${trimmed.substr(3, 3)} ${trimmed.substr(6, 3)} ${trimmed.substr(9, 3)}`;
+    try {
+        const cleaned = phone.toString().replace(/\D/g, '');
+        // Remove trailing zero if present
+        const trimmed = cleaned.endsWith('0') ? cleaned.slice(0, -1) : cleaned;
+        
+        if (trimmed.startsWith('263')) {
+            if (trimmed.length === 12) {
+                return `263 ${trimmed.substr(3, 3)} ${trimmed.substr(6, 3)} ${trimmed.substr(9, 3)}`;
+            }
+            return `263 ${trimmed.substr(3)}`;
+        } else if (trimmed.startsWith('0')) {
+            const withoutZero = trimmed.substr(1);
+            if (withoutZero.length === 9) {
+                return `263 ${withoutZero.substr(0, 3)} ${withoutZero.substr(3, 3)} ${withoutZero.substr(6, 3)}`;
+            }
+            return `263 ${withoutZero}`;
         }
-        return `263 ${trimmed.substr(3)}`;
-    } else if (trimmed.startsWith('0')) {
-        const withoutZero = trimmed.substr(1);
-        if (withoutZero.length === 9) {
-            return `263 ${withoutZero.substr(0, 3)} ${withoutZero.substr(3, 3)} ${withoutZero.substr(6, 3)}`;
-        }
-        return `263 ${withoutZero}`;
+        return `263 ${trimmed}`;
+    } catch(e) {
+        return phone.toString() || 'N/A';
     }
-    return `263 ${trimmed}`;
+}
+
+function safeFormatCurrency(value) {
+    try {
+        const num = Number(value) || 0;
+        return num.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2
+        });
+    } catch(e) {
+        return '$0.00';
+    }
 }
 
 // ==================== META TEMPLATE FUNCTIONS ====================
