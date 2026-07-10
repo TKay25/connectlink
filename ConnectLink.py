@@ -555,9 +555,10 @@ def initialize_database_tables():
                     ('Excavation', 0.05, 2.9),
                     ('Footing', 0.0375, 12),
                     ('Box', 0.075, 20),
+                    ('Removal', 0, 1),
+                    ('Backfilling and Compaction', 0.025, 7),
                     ('Slab', 0.025, 15),
                     ('Window sill level', 0.058333333, 20),
-                    ('Backfilling and compaction', 0.025, 7),
                     ('Window head', 0.025974026, 20),
                     ('Ring Beam', 0.032467532, 23),
                     ('Wall plate', 0.038961039, 10),
@@ -598,6 +599,26 @@ def initialize_database_tables():
                 """)
                 connection.commit()
                 print("✓ Added 'Land Clearing' to quotation_rates table")
+
+            # Check if Removal is missing and add it
+            cursor.execute("SELECT COUNT(*) FROM quotation_rates WHERE quotation_item = 'Removal'")
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("""
+                    INSERT INTO quotation_rates (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                    VALUES ('Removal', 0, 1)
+                """)
+                connection.commit()
+                print("✓ Added 'Removal' to quotation_rates table")
+
+            # Rename 'Backfilling and compaction' to 'Backfilling and Compaction' if old name exists
+            cursor.execute("""
+                UPDATE quotation_rates 
+                SET quotation_item = 'Backfilling and Compaction' 
+                WHERE quotation_item = 'Backfilling and compaction'
+            """)
+            if cursor.rowcount > 0:
+                connection.commit()
+                print(f"✓ Renamed '{cursor.rowcount}' item(s) from 'Backfilling and compaction' to 'Backfilling and Compaction'")
 
             # Create project_schedules table for Gantt charts
             cursor.execute("""
@@ -26002,7 +26023,39 @@ def get_quotation_rates():
                 SELECT id, quotation_item, days_per_sq_meter, inhouse_unit_rate
                 FROM quotation_rates
                 ORDER BY 
-                    CASE WHEN quotation_item = 'Land Clearing' THEN 0 ELSE id END ASC
+                    CASE quotation_item
+                        WHEN 'Land Clearing' THEN 1
+                        WHEN 'Setting out' THEN 2
+                        WHEN 'Excavation' THEN 3
+                        WHEN 'Footing' THEN 4
+                        WHEN 'Box' THEN 5
+                        WHEN 'Removal' THEN 6
+                        WHEN 'Backfilling and Compaction' THEN 7
+                        WHEN 'Slab' THEN 8
+                        WHEN 'Window sill level' THEN 9
+                        WHEN 'Window head' THEN 10
+                        WHEN 'Ring Beam' THEN 11
+                        WHEN 'Wall plate' THEN 12
+                        WHEN 'Roofing' THEN 13
+                        WHEN 'Aluminium' THEN 14
+                        WHEN 'Shattering' THEN 15
+                        WHEN 'Steel Fixing' THEN 16
+                        WHEN 'Deck Pouring' THEN 17
+                        WHEN '1st Fix Electricals' THEN 18
+                        WHEN '1st Fix Plumbing' THEN 19
+                        WHEN 'External Plastering' THEN 20
+                        WHEN 'Internal Plastering' THEN 21
+                        WHEN 'Ceiling' THEN 22
+                        WHEN 'Skimming' THEN 23
+                        WHEN 'Flooring' THEN 24
+                        WHEN 'Tiling' THEN 25
+                        WHEN 'Wall Tiling' THEN 26
+                        WHEN 'Painting' THEN 27
+                        WHEN 'Final fix Plumbing' THEN 28
+                        WHEN 'Final fix Electricals' THEN 29
+                        WHEN 'Cleaning' THEN 30
+                        ELSE 99
+                    END ASC
             """)
             rates = cursor.fetchall()
             
