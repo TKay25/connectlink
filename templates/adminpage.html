@@ -14359,7 +14359,7 @@ body { font-family: Arial; margin: 20px; }
 </div>
 
 <!-- HIDDEN DATA CONTAINER - Add this too -->
-<div id="paymentRemindersData" data-reminders='{{ payment_reminders|tojson|safe if payment_reminders else "{}" }}' style="display: none;"></div>
+<div id="paymentRemindersData" data-reminders="{{ payment_reminders|tojson|safe if payment_reminders else '{}' }}" style="display: none;"></div>
 
 <!-- View Interim Enquiries Modal - Blur Overlay Version -->
 <div id="viewEnquiriesModal" class="modal-overlay">
