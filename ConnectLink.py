@@ -550,6 +550,7 @@ def initialize_database_tables():
             if count == 0:
                 # Insert initial quotation rates data
                 quotation_data = [
+                    ('Land Clearing', 0, 1),
                     ('Setting out', 0, 1),
                     ('Excavation', 0.05, 2.9),
                     ('Footing', 0.0375, 12),
