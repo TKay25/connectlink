@@ -577,6 +577,10 @@ def initialize_database_tables():
                     ('Tiling', 0.051948052, 12),
                     ('Wall Tiling', 0.023529412, 0),
                     ('Painting', 0.051948052, 15),
+                    ('Screeding', 0, 1),
+                    ('Review', 0, 1),
+                    ('Beam filling', 0, 1),
+                    ('TnCs', 0, 1),
                     ('Final fix Plumbing', 0.025974026, 9.25),
                     ('Final fix Electricals', 0.025974026, 5),
                     ('Cleaning', 0, 0)
@@ -619,6 +623,17 @@ def initialize_database_tables():
             if cursor.rowcount > 0:
                 connection.commit()
                 print(f"✓ Renamed '{cursor.rowcount}' item(s) from 'Backfilling and compaction' to 'Backfilling and Compaction'")
+
+            # Check and add missing items: Screeding, Review, Beam filling, TnCs
+            for new_item in ['Screeding', 'Review', 'Beam filling', 'TnCs']:
+                cursor.execute("SELECT COUNT(*) FROM quotation_rates WHERE quotation_item = %s", (new_item,))
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute("""
+                        INSERT INTO quotation_rates (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                        VALUES (%s, 0, 1)
+                    """, (new_item,))
+                    connection.commit()
+                    print(f"✓ Added '{new_item}' to quotation_rates table")
 
             # Create project_schedules table for Gantt charts
             cursor.execute("""
@@ -26051,9 +26066,13 @@ def get_quotation_rates():
                         WHEN 'Tiling' THEN 25
                         WHEN 'Wall Tiling' THEN 26
                         WHEN 'Painting' THEN 27
-                        WHEN 'Final fix Plumbing' THEN 28
-                        WHEN 'Final fix Electricals' THEN 29
-                        WHEN 'Cleaning' THEN 30
+                        WHEN 'Screeding' THEN 28
+                        WHEN 'Review' THEN 29
+                        WHEN 'Beam filling' THEN 30
+                        WHEN 'TnCs' THEN 31
+                        WHEN 'Final fix Plumbing' THEN 32
+                        WHEN 'Final fix Electricals' THEN 33
+                        WHEN 'Cleaning' THEN 34
                         ELSE 99
                     END ASC
             """)
