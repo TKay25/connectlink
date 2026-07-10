@@ -589,6 +589,16 @@ def initialize_database_tables():
                 connection.commit()
                 print(f"✓ Initialized quotation_rates table with {len(quotation_data)} items")
 
+            # Check if Land Clearing is missing and add it (for databases seeded before this item existed)
+            cursor.execute("SELECT COUNT(*) FROM quotation_rates WHERE quotation_item = 'Land Clearing'")
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("""
+                    INSERT INTO quotation_rates (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                    VALUES ('Land Clearing', 0, 1)
+                """)
+                connection.commit()
+                print("✓ Added 'Land Clearing' to quotation_rates table")
+
             # Create project_schedules table for Gantt charts
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS project_schedules (
