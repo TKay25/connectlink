@@ -31013,6 +31013,7 @@ function populateProjectConfirmationModal() {
     document.getElementById("confirmProjectNotes").innerHTML = projectNotes
         ? `<div style="background:var(--gray-50, #f8f9fa);border-left:3px solid var(--dark-blue-deep);padding:10px 14px;border-radius:4px;">${projectNotes.replace(/\n/g, '<br>')}</div>`
         : '<em style="color:var(--text-muted);">No project notes provided.</em>';
+}
 
 // Function to return to form
 function backToProjectForm() {
@@ -31321,13 +31322,13 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 
 <script>
-    const paymentMethod = document.getElementById('paymentMethod');
+    const paymentMethodSelect = document.getElementById('paymentMethod');
     const paymentSchedule = document.getElementById('paymentschedule');
     const bulletpaymentdate = document.getElementById('bullet_payment_date');
     const depositRequired = document.getElementById('deposit_required');
     const totalContractPrice = document.getElementById('total_contract_price');
 
-    paymentMethod.addEventListener('change', function() {
+    paymentMethodSelect.addEventListener('change', function() {
         if (this.value === 'Installments') {
             paymentSchedule.style.display = 'block';
             bulletpaymentdate.style.display = 'none';
