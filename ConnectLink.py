@@ -7775,6 +7775,13 @@ def webhook():
 
                                                                 def generate_contract_html(project):
                                                                     """Generate HTML from your template"""
+                                                                    # Build installment rows filtering out zero-amount entries
+                                                                    installment_rows = ''
+                                                                    for i in range(1, 11):
+                                                                        amount = project.get(f'installment{i}amount')
+                                                                        due_date = project.get(f'installment{i}duedate')
+                                                                        if amount is not None and str(amount).strip() not in ('0', '0.0', '0.00', 'None', '', '0.000'):
+                                                                            installment_rows += f'<tr><td>{due_date}</td><td style="font-weight: 700;">{amount}</td></tr>\n                                                                            '
                                                                     # Your complete HTML template here (the one you provided)
                                                                     # I'll include a shortened version - use your actual full template
                                                                     html_template = f"""
@@ -8163,16 +8170,7 @@ def webhook():
                                                                                         </tr>
                                                                                     </thead>
                                                                                     <tbody>
-                                                                                        <tr><td>{project['installment1duedate']}</td><td style="font-weight: 700;">{project['installment1amount']}</td></tr>
-                                                                                        <tr><td>{project['installment2duedate']}</td><td style="font-weight: 700;">{project['installment2amount']}</td></tr>
-                                                                                        <tr><td>{project['installment3duedate']}</td><td style="font-weight: 700;">{project['installment3amount']}</td></tr>
-                                                                                        <tr><td>{project['installment4duedate']}</td><td style="font-weight: 700;">{project['installment4amount']}</td></tr>
-                                                                                        <tr><td>{project['installment5duedate']}</td><td style="font-weight: 700;">{project['installment5amount']}</td></tr>
-                                                                                        <tr><td>{project['installment6duedate']}</td><td style="font-weight: 700;">{project['installment6amount']}</td></tr>
-                                                                                        <tr><td>{project['installment7duedate']}</td><td style="font-weight: 700;">{project['installment7amount']}</td></tr>
-                                                                                        <tr><td>{project['installment8duedate']}</td><td style="font-weight: 700;">{project['installment8amount']}</td></tr>
-                                                                                        <tr><td>{project['installment9duedate']}</td><td style="font-weight: 700;">{project['installment9amount']}</td></tr>
-                                                                                        <tr><td>{project['installment10duedate']}</td><td style="font-weight: 700;">{project['installment10amount']}</td></tr>
+                                                                                        {installment_rows}
                                                                                     </tbody>
                                                                                 </table>
                                                                                 '''}
@@ -17277,6 +17275,14 @@ def download_contract(project_id):
                     <div class="page-break"></div>
                 """
 
+            # Build installment rows filtering out zero-amount entries
+            installment_rows_html = ''
+            for i in range(1, 11):
+                amount = project.get(f'installment{i}amount')
+                due_date = project.get(f'installment{i}duedate')
+                if amount is not None and str(amount).strip() not in ('0', '0.0', '0.00', 'None', '', '0.000'):
+                    installment_rows_html += f'<tr><td>{due_date}</td><td style="font-weight: 700;">{amount}</td></tr>\n                            '
+
             logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
             with open(logo_path, 'rb') as img_file:
                 logo_base64 = base64.b64encode(img_file.read()).decode('utf-8')
@@ -17671,16 +17677,7 @@ def download_contract(project_id):
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td>{project['installment1duedate']}</td><td style="font-weight: 700;">{project['installment1amount']}</td></tr>
-                            <tr><td>{project['installment2duedate']}</td><td style="font-weight: 700;">{project['installment2amount']}</td></tr>
-                            <tr><td>{project['installment3duedate']}</td><td style="font-weight: 700;">{project['installment3amount']}</td></tr>
-                            <tr><td>{project['installment4duedate']}</td><td style="font-weight: 700;">{project['installment4amount']}</td></tr>
-                            <tr><td>{project['installment5duedate']}</td><td style="font-weight: 700;">{project['installment5amount']}</td></tr>
-                            <tr><td>{project['installment6duedate']}</td><td style="font-weight: 700;">{project['installment6amount']}</td></tr>
-                            <tr><td>{project['installment7duedate']}</td><td style="font-weight: 700;">{project['installment7amount']}</td></tr>
-                            <tr><td>{project['installment8duedate']}</td><td style="font-weight: 700;">{project['installment8amount']}</td></tr>
-                            <tr><td>{project['installment9duedate']}</td><td style="font-weight: 700;">{project['installment9amount']}</td></tr>
-                            <tr><td>{project['installment10duedate']}</td><td style="font-weight: 700;">{project['installment10amount']}</td></tr>
+                            {installment_rows_html}
                         </tbody>
                     </table>
                     '''}
