@@ -1027,7 +1027,8 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS projectname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;",
-                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientnextofkinnumber INT;"
+                "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientnextofkinnumber INT;",
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS project_notes TEXT;"
 
             ]
 
@@ -7733,6 +7734,13 @@ def webhook():
                                                                             'generated_on': datetime.now().strftime('%d %B %Y')
                                                                         }
 
+                                                                        # Get project_notes from row
+                                                                        try:
+                                                                            project_notes_col_idx = [desc[0] for desc in cursor.description].index('project_notes')
+                                                                            project['project_notes'] = row[project_notes_col_idx] or ''
+                                                                        except (ValueError, IndexError):
+                                                                            project['project_notes'] = ''
+
                                                                         # Generate HTML using your exact template
                                                                         html = generate_contract_html(project)
                                                                         
@@ -8168,6 +8176,11 @@ def webhook():
                                                                                     </tbody>
                                                                                 </table>
                                                                                 '''}
+
+                                                                                {f'''
+                                                                                <div class="section-header">PROJECT NOTES</div>
+                                                                                <div class="scope-box">{project['project_notes']}</div>
+                                                                                ''' if project.get('project_notes', '').strip() else ''}
                                                                                 
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
@@ -17098,6 +17111,13 @@ def download_contract(project_id):
                 'relationship': row[9] if len(row) > 9 else ""
             }
 
+            # Get project_notes from the project row
+            try:
+                project_notes_index = column_names.index('project_notes')
+                project['project_notes'] = row[project_notes_index] or ''
+            except (ValueError, IndexError):
+                project['project_notes'] = ''
+
             project['generated_on'] = datetime.now().strftime('%d %B %Y')
             
             # Get quotation_id from the project row
@@ -17664,6 +17684,11 @@ def download_contract(project_id):
                         </tbody>
                     </table>
                     '''}
+
+                    {f'''
+                    <div class="section-header">PROJECT NOTES</div>
+                    <div class="scope-box">{project['project_notes']}</div>
+                    ''' if project.get('project_notes', '').strip() else ''}
                     
                     <!-- Page break -->
                     <div class="page-break"></div>
@@ -24009,6 +24034,9 @@ def contract_log():
                 # Get adjusted_schedules_json BEFORE inserting project
                 adjusted_schedules_json_str = request.form.get('adjusted_schedules_json', '')
                 
+                # Get project_notes from form
+                project_notes = request.form.get('project_notes', '') or ''
+                
                 try:
 
                     insert_query = """
@@ -24018,13 +24046,13 @@ def contract_log():
                             projectname, projectlocation, projectdescription, projectadministratorname,
                             projectstartdate, projectduration, contractagreementdate, totalcontractamount,
                             paymentmethod, monthstopay, depositorbullet, datedepositorbullet, monthlyinstallment, 
-                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate, quotation_id, adjusted_schedules_json
+                            installment1duedate, datecaptured, capturer, capturerid, projectcompletionstatus, latepaymentinterest, installment1amount, installment2amount, installment3amount, installment4amount, installment5amount, installment6amount, installment7amount, installment8amount, installment9amount, installment10amount, installment2duedate, installment3duedate, installment4duedate, installment5duedate, installment6duedate, installment7duedate, installment8duedate, installment9duedate, installment10duedate, quotation_id, adjusted_schedules_json, project_notes
                         ) VALUES (
                             %s, %s, %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
                             %s, %s, %s, %s,
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                         );
                     """
 
@@ -24078,7 +24106,8 @@ def contract_log():
                         installment9duedate,
                         installment10duedate,
                         quotation_id,
-                        adjusted_schedules_json_str if adjusted_schedules_json_str else None
+                        adjusted_schedules_json_str if adjusted_schedules_json_str else None,
+                        project_notes
                     )
 
         

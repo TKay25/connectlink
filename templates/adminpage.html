@@ -9217,6 +9217,12 @@ body { font-family: Arial; margin: 20px; }
                 <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-credit-card"></i> Payment Details</h5>
                 <div class="row" id="confirmPaymentDetails" style="color: var(--dark-blue-deep);"></div>
             </div>
+
+            <!-- Project Notes Section -->
+            <div class="card mb-3">
+                <h5 class="mb-3" style="color: var(--dark-blue-deep);"><i class="bi bi-journal-text"></i> Project Notes</h5>
+                <div id="confirmProjectNotes" style="font-size: 0.85rem; line-height: 1.6; color: var(--dark-blue-deep); padding: 0 10px;"></div>
+            </div>
         </div>
         <div class="modal-footer-custom">
             <button type="button" class="btn btn-primary" onclick="backToProjectForm()">
@@ -13127,6 +13133,18 @@ body { font-family: Arial; margin: 20px; }
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROJECT NOTES -->
+                <div class="row g-2 mb-2">
+                    <div class="col-12">
+                        <div class="card border" style="border-radius:var(--radius-md);overflow:hidden;">
+                            <div class="card-header" style="background:var(--dark-blue-deep);color:white;padding:4px 10px;font-size:0.7rem;font-weight:700;"><i class="bi bi-journal-text"></i> PROJECT NOTES</div>
+                            <div class="card-body" style="padding:8px 10px;">
+                                <textarea class="form-control editable-field" id="project_notes" name="project_notes" rows="3" style="font-size:0.7rem;padding:6px 10px;" placeholder="Enter any additional notes or remarks for this project..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -30989,7 +31007,12 @@ function populateProjectConfirmationModal() {
     }
 
     document.getElementById("confirmPaymentDetails").innerHTML = paymentDetails;
-}
+
+    // Project Notes
+    const projectNotes = document.getElementById("project_notes").value.trim();
+    document.getElementById("confirmProjectNotes").innerHTML = projectNotes
+        ? `<div style="background:var(--gray-50, #f8f9fa);border-left:3px solid var(--dark-blue-deep);padding:10px 14px;border-radius:4px;">${projectNotes.replace(/\n/g, '<br>')}</div>`
+        : '<em style="color:var(--text-muted);">No project notes provided.</em>';
 
 // Function to return to form
 function backToProjectForm() {
