@@ -30753,16 +30753,19 @@ async function sendContractViaWhatsApp() {
         if (data.success) {
             resultDiv.innerHTML = '<span style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Contract sent via WhatsApp!</span>';
             showToast(data.message || 'Contract sent via WhatsApp!', 'success', 'Contract Sent');
+            restoreTableButton();
             setTimeout(() => closeModal('downloadContractModal'), 1500);
         } else {
             const errMsg = data.error || 'Failed to send';
             resultDiv.innerHTML = '<span style="color:#d32f2f;">❌ ' + errMsg + '</span>';
             showToast(errMsg, 'error', 'Send Failed');
+            restoreTableButton();
         }
     } catch (err) {
         const errMsg = 'Network error: ' + err.message;
         resultDiv.innerHTML = '<span style="color:#d32f2f;">❌ ' + errMsg + '</span>';
         showToast(errMsg, 'error', 'Network Error');
+        restoreTableButton();
     } finally {
         const btn = document.querySelector('#dcWhatsAppSection .btn-success');
         if (btn) { btn.disabled = false; }
