@@ -1256,7 +1256,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-wallet2"></i> Payroll Management</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm admin-only" onclick="processPayroll()">
+                    <button class="btn btn-primary btn-sm admin-only" onclick="openPayrollPeriodPicker()">
                         <i class="bi bi-gear"></i> Process Payroll
                     </button>
                     <button class="btn btn-outline-info btn-sm admin-only" onclick="openDeductionsConfig()">
@@ -3965,12 +3965,30 @@ async function loadPayroll(period) {
     } catch(e) { console.error('Payroll error:', e); }
 }
 
-async function processPayroll() {
-    if (!confirm('Process payroll for this month? This will generate payslips for all active employees.')) return;
+function openPayrollPeriodPicker() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    document.getElementById('payrollYear').value = y;
+    document.getElementById('payrollMonth').value = m;
+    document.getElementById('payrollPeriodPickerModal').style.display = 'flex';
+    document.getElementById('payrollPeriodPickerModal').classList.add('active');
+}
+function closePayrollPeriodPicker() {
+    document.getElementById('payrollPeriodPickerModal').classList.remove('active');
+    document.getElementById('payrollPeriodPickerModal').style.display = 'none';
+}
+async function confirmProcessPayroll() {
+    const year = document.getElementById('payrollYear').value.trim();
+    const month = document.getElementById('payrollMonth').value.trim();
+    if (!year || !month) { alert('Please select both month and year.'); return; }
+    const period = year + '-' + String(parseInt(month)).padStart(2, '0');
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const label = monthNames[parseInt(month)-1] + ' ' + year;
+    if (!confirm('Process payroll for ' + label + '? This will generate payslips for all active employees.')) return;
+    closePayrollPeriodPicker();
     document.getElementById('hrLoader').classList.add('active');
     try {
-        const now = new Date();
-        const period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
         const res = await fetch('/api/hr/payroll', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3982,11 +4000,11 @@ async function processPayroll() {
             await loadPayroll();  // This will refresh dropdown and select latest period
             await loadDashboardStats();
             if (data.archive_saved) {
-                if (confirm('✅ Payroll processed for ' + data.processed + ' employees!\n\nExcel archive saved. Download now?')) {
+                if (confirm('✅ ' + label + ' payroll processed for ' + data.processed + ' employees!\n\nExcel archive saved. Download now?')) {
                     downloadCurrentPayroll();
                 }
             } else {
-                alert('✅ Payroll processed for ' + data.processed + ' employees!');
+                alert('✅ ' + label + ' payroll processed for ' + data.processed + ' employees!');
             }
         } else {
             alert('❌ ' + (data.error || 'Failed'));
@@ -4400,5 +4418,56 @@ async function doExport(format) {
 <footer class="app-footer">
     <p>&copy; 2026 ConnectLink Properties &amp; Hardware — From Concept to Creation, Let's Build Together &nbsp;|&nbsp; <a href="/privacy-policy" style="color:var(--gray-500);text-decoration:underline;">Privacy Policy</a></p>
 </footer>
+<!-- Payroll Period Picker Modal -->
+<div id="payrollPeriodPickerModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:380px;">
+        <div class="modal-header">
+            <h5><i class="bi bi-calendar"></i> Select Payroll Period</h5>
+            <button class="modal-close" onclick="closePayrollPeriodPicker()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:12px;">
+                <i class="bi bi-info-circle"></i> Choose the month and year for the payroll you are processing.
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;color:#4338ca;">Month</label>
+                    <select id="payrollMonth" style="font-size:0.75rem;padding:8px 10px;border:2px solid #6366f1;border-radius:8px;background:white;width:100%;cursor:pointer;font-weight:600;">
+                        <option value="01">January</option>
+                        <option value="02">February</option>
+                        <option value="03">March</option>
+                        <option value="04">April</option>
+                        <option value="05">May</option>
+                        <option value="06">June</option>
+                        <option value="07">July</option>
+                        <option value="08">August</option>
+                        <option value="09">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;color:#4338ca;">Year</label>
+                    <input type="number" id="payrollYear" min="2020" max="2100" style="font-size:0.75rem;padding:8px 10px;border:2px solid #6366f1;border-radius:8px;background:white;width:100%;font-weight:600;box-sizing:border-box;">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid #e5e7eb;">
+            <button class="btn btn-outline-secondary btn-sm" onclick="closePayrollPeriodPicker()">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmProcessPayroll()">
+                <i class="bi bi-gear"></i> Process Payroll
+            </button>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('payrollPeriodPickerModal');
+    if (modal && modal.style.display === 'flex' && e.target === modal) {
+        closePayrollPeriodPicker();
+    }
+});
+</script>
 </body>
 </html>
