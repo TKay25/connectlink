@@ -1658,6 +1658,17 @@ def initialize_database_tables():
                 ON paye_tax_tables ((true)) WHERE is_active = true;
             """)
 
+            # Add month_start/month_end columns if missing (migration for older tables)
+            try:
+                cursor.execute("""
+                    ALTER TABLE paye_tax_tables
+                    ADD COLUMN IF NOT EXISTS month_start VARCHAR(10),
+                    ADD COLUMN IF NOT EXISTS month_end VARCHAR(10)
+                """)
+                connection.commit()
+            except Exception:
+                connection.rollback()
+
             connection.commit()
             print("✅ PAYE tax tables initialized!")
 
@@ -14132,210 +14143,111 @@ def hr_payroll_api():
 
 
 # ============================================================
-# PAYE TAX TABLE MANAGEMENT
+# PAYE TAX TABLE MANAGEMENT (Manual Entry)
 # ============================================================
 
-ALLOWED_PAYE_EXTENSIONS = {'pdf'}
-
-def parse_paye_pdf(file_bytes):
-    """Parse a ZIMRA PAYE tax table PDF — extracts ONLY the Monthly Table section."""
-    import re
-    from PyPDF2 import PdfReader
-    import io
-
-    reader = PdfReader(io.BytesIO(file_bytes))
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text() + "\n"
-
-    # Split into lines
-    lines = text.split('\n')
-
-    # Step 1: Locate the MONTHLY TABLE section.
-    # The PDF has sections: DAILY TABLE, WEEKLY TABLE, FORTNIGHTLY TABLE, MONTHLY TABLE, ANNUAL TABLE
-    monthly_start = -1
-    monthly_end = -1
-    for i, line in enumerate(lines):
-        upper = line.strip().upper()
-        if 'MONTHLY TABLE' in upper:
-            monthly_start = i
-        if monthly_start >= 0 and ('WEEKLY TABLE' in upper or 'FORTNIGHTLY TABLE' in upper or 'ANNUAL TABLE' in upper):
-            # Only stop if we find another section header AFTER monthly
-            if i > monthly_start:
-                monthly_end = i
-                break
-
-    if monthly_start < 0:
-        # Fallback: use the whole text if "MONTHLY TABLE" not found
-        monthly_lines = lines
-    else:
-        monthly_lines = lines[monthly_start + 1:] if monthly_end < 0 else lines[monthly_start + 1:monthly_end]
-
-    # Step 2: Parse bracket lines from the monthly section.
-    # Format: from X to Y multiply by Z% [Deduct W]
-    #         or: from X and above multiply by Z% Deduct W
-    #         or: from - to Y multiply by Z% (first bracket with 0%)
-    brackets = []
-
-    # Primary pattern: matches lines that START with "from" to avoid picking up calculation examples
-    # Handles: "from - to 100.00", "from 100.01 to 300.00", "from 3,000.01 and above"
-    bracket_pattern = re.compile(
-        r'^from\s+(-|[\d,]+(?:\.\d+)?)\s*(?:[-–—]|to|and)\s*(above|[\d,]+(?:\.\d+)?)\s+multiply\s+by\s+([\d.]+)\s*%\s*(?:Deduct\s+(-?[\d,]+(?:\.\d+)?))?',
-        re.I | re.M
-    )
-
-    for line in monthly_lines:
-        line = line.strip()
-        if not line:
-            continue
-
-        m = bracket_pattern.search(line)
-        if not m:
-            continue
-
-        lower_str = m.group(1).strip()
-        upper_str = m.group(2).strip()
-
-        # from '-' means zero
-        if lower_str == '-':
-            from_val = 0.0
-        else:
-            try:
-                from_val = float(lower_str.replace(',', ''))
-            except ValueError:
-                continue
-
-        is_open_ended = 'above' in upper_str.lower()
-        if is_open_ended:
-            to_val = -1
-        else:
-            try:
-                to_val = float(upper_str.replace(',', ''))
-            except ValueError:
-                continue
-
-        rate_str = m.group(3).strip()
-        try:
-            rate = float(rate_str.replace(',', ''))
-        except ValueError:
-            continue
-
-        deduct_str = m.group(4)
-        cumulative = float(deduct_str.replace(',', '')) if deduct_str else 0.0
-
-        brackets.append({
-            'from': from_val,
-            'to': to_val,
-            'rate': rate,
-            'cumulative': cumulative
-        })
-
-    # Step 3: If still no brackets found, try a stricter fallback
-    # Only match lines that start with "from" to avoid calculation example lines
-    if not brackets:
-        fallback_pattern = re.compile(
-            r'^from\s+([\d,]+(?:\.\d+)?)\s*[-–—to]+\s*([\d,]+(?:\.\d+)?)\s+multiply\s+by\s+([\d.]+)\s*%',
-            re.I | re.M
-        )
-        for line in monthly_lines:
-            line = line.strip()
-            if not line:
-                continue
-            m = fallback_pattern.search(line)
-            if not m:
-                continue
-            try:
-                from_val = float(m.group(1).replace(',', ''))
-                to_val = float(m.group(2).replace(',', ''))
-                rate = float(m.group(3).replace(',', ''))
-                deduct_m = re.search(r'Deduct\s+(-?[\d,]+(?:\.\d+)?)', line, re.I)
-                cumulative = float(deduct_m.group(1).replace(',', '')) if deduct_m else 0
-                brackets.append({'from': from_val, 'to': to_val, 'rate': rate, 'cumulative': cumulative})
-            except ValueError:
-                continue
-
-        # Also try "from X and above" pattern
-        above_pattern = re.compile(
-            r'^from\s+([\d,]+(?:\.\d+)?)\s+and\s+above\s+multiply\s+by\s+([\d.]+)\s*%',
-            re.I | re.M
-        )
-        for line in monthly_lines:
-            m = above_pattern.search(line.strip())
-            if not m:
-                continue
-            try:
-                from_val = float(m.group(1).replace(',', ''))
-                rate = float(m.group(2).replace(',', ''))
-                deduct_m = re.search(r'Deduct\s+(-?[\d,]+(?:\.\d+)?)', line, re.I)
-                cumulative = float(deduct_m.group(1).replace(',', '')) if deduct_m else 0
-                brackets.append({'from': from_val, 'to': -1, 'rate': rate, 'cumulative': cumulative})
-            except ValueError:
-                continue
-
-    # Step 4: Sort by 'from' value and ensure 'to' values are consistent
-    if brackets:
-        brackets.sort(key=lambda b: b['from'])
-        for i in range(len(brackets) - 1):
-            if brackets[i]['to'] <= 0 or brackets[i]['to'] == 0:
-                brackets[i]['to'] = brackets[i + 1]['from']
-        if brackets and brackets[-1]['to'] <= 0:
-            brackets[-1]['to'] = -1
-
-    return brackets
-
-
-@app.route('/api/hr/paye/upload', methods=['POST'])
-def hr_paye_upload():
-    """Upload a PAYE tax table PDF, parse it, and store brackets."""
+@app.route('/api/hr/paye/tables', methods=['POST'])
+def hr_paye_create_table():
+    """Create a new PAYE tax table with manually entered brackets."""
     try:
-        if 'file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file provided'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'No file selected'}), 400
-        
-        if not file.filename.lower().endswith('.pdf'):
-            return jsonify({'success': False, 'error': 'Only PDF files are accepted'}), 400
-        
-        name = request.form.get('name', file.filename)
-        period = request.form.get('period', '')
-        description = request.form.get('description', '')
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        period = data.get('period', '')
+        month_start = data.get('month_start', '')
+        month_end = data.get('month_end', '')
+        description = data.get('description', '')
+        brackets = data.get('brackets', [])
         user_name = session.get('user_name', 'Unknown')
-        
-        file_bytes = file.read()
-        
-        # Parse the PDF
-        brackets = parse_paye_pdf(file_bytes)
-        
+
+        if not name:
+            return jsonify({'success': False, 'error': 'Table name is required'}), 400
         if not brackets or len(brackets) < 1:
-            return jsonify({'success': False, 'error': 'Could not parse tax brackets from PDF. Please check the file format.'}), 400
-        
+            return jsonify({'success': False, 'error': 'At least one tax bracket is required'}), 400
+
         with get_db() as (cursor, connection):
-            # Insert the tax table
             cursor.execute("""
-                INSERT INTO paye_tax_tables (name, description, filename, period, is_active, uploaded_by)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO paye_tax_tables (name, description, period, month_start, month_end, is_active, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (name, description, file.filename, period, False, user_name))
+            """, (name, description, period, month_start, month_end, False, user_name))
             table_id = cursor.fetchone()[0]
-            
-            # Insert brackets
+
             for i, b in enumerate(brackets):
                 cursor.execute("""
                     INSERT INTO paye_tax_brackets (table_id, income_from, income_to, tax_rate, cumulative_tax, bracket_order)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                """, (table_id, b['from'], b['to'], b['rate'], b.get('cumulative', 0), i))
-            
+                """, (
+                    table_id,
+                    float(b.get('income_from', 0)),
+                    float(b.get('income_to', 0)),
+                    float(b.get('tax_rate', 0)),
+                    float(b.get('cumulative_tax', 0)),
+                    i
+                ))
+
             connection.commit()
-        
+
         return jsonify({
             'success': True,
-            'message': f'PAYE tax table "{name}" uploaded with {len(brackets)} bracket(s)',
-            'table_id': table_id,
-            'brackets': brackets
+            'message': f'PAYE tax table "{name}" created with {len(brackets)} bracket(s)',
+            'table_id': table_id
         })
-    
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/paye/table/<int:table_id>', methods=['PUT'])
+def hr_paye_update_table(table_id):
+    """Update an existing PAYE tax table (name, period, brackets)."""
+    try:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        period = data.get('period', '')
+        month_start = data.get('month_start', '')
+        month_end = data.get('month_end', '')
+        description = data.get('description', '')
+        brackets = data.get('brackets', [])
+        user_name = session.get('user_name', 'Unknown')
+
+        if not name:
+            return jsonify({'success': False, 'error': 'Table name is required'}), 400
+        if not brackets or len(brackets) < 1:
+            return jsonify({'success': False, 'error': 'At least one tax bracket is required'}), 400
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE paye_tax_tables SET
+                    name = %s, description = %s, period = %s,
+                    month_start = %s, month_end = %s
+                WHERE id = %s
+            """, (name, description, period, month_start, month_end, table_id))
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'error': 'Table not found'}), 404
+
+            # Replace brackets: delete old, insert new
+            cursor.execute("DELETE FROM paye_tax_brackets WHERE table_id = %s", (table_id,))
+            for i, b in enumerate(brackets):
+                cursor.execute("""
+                    INSERT INTO paye_tax_brackets (table_id, income_from, income_to, tax_rate, cumulative_tax, bracket_order)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (
+                    table_id,
+                    float(b.get('income_from', 0)),
+                    float(b.get('income_to', 0)),
+                    float(b.get('tax_rate', 0)),
+                    float(b.get('cumulative_tax', 0)),
+                    i
+                ))
+
+            connection.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'PAYE tax table "{name}" updated',
+            'table_id': table_id
+        })
+
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -14348,7 +14260,8 @@ def hr_paye_list_tables():
             cursor.execute("""
                 SELECT t.id, t.name, t.description, t.filename, t.period,
                        t.is_active, t.uploaded_by, t.uploaded_at,
-                       COALESCE((SELECT COUNT(*) FROM paye_tax_brackets WHERE table_id = t.id), 0) as bracket_count
+                       COALESCE((SELECT COUNT(*) FROM paye_tax_brackets WHERE table_id = t.id), 0) as bracket_count,
+                       t.month_start, t.month_end
                 FROM paye_tax_tables t
                 ORDER BY t.uploaded_at DESC
             """)
@@ -14359,7 +14272,8 @@ def hr_paye_list_tables():
                     'id': r[0], 'name': r[1], 'description': r[2],
                     'filename': r[3], 'period': r[4], 'is_active': r[5],
                     'uploaded_by': r[6], 'uploaded_at': str(r[7]) if r[7] else None,
-                    'bracket_count': r[8]
+                    'bracket_count': r[8],
+                    'month_start': r[9] or '', 'month_end': r[10] or ''
                 })
             return jsonify({'success': True, 'data': tables})
     except Exception as e:
@@ -14372,7 +14286,8 @@ def hr_paye_get_table(table_id):
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, name, description, filename, period, is_active, uploaded_by, uploaded_at
+                SELECT id, name, description, filename, period, is_active, uploaded_by, uploaded_at,
+                       month_start, month_end
                 FROM paye_tax_tables WHERE id = %s
             """, (table_id,))
             t = cursor.fetchone()
@@ -14399,6 +14314,7 @@ def hr_paye_get_table(table_id):
                     'id': t[0], 'name': t[1], 'description': t[2],
                     'filename': t[3], 'period': t[4], 'is_active': t[5],
                     'uploaded_by': t[6], 'uploaded_at': str(t[7]) if t[7] else None,
+                    'month_start': t[8] or '', 'month_end': t[9] or '',
                     'brackets': brackets
                 }
             })
@@ -14570,7 +14486,8 @@ def hr_paye_get_active():
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, name, description, filename, period, uploaded_by, uploaded_at
+                SELECT id, name, description, filename, period, uploaded_by, uploaded_at,
+                       month_start, month_end
                 FROM paye_tax_tables WHERE is_active = TRUE
                 LIMIT 1
             """)
@@ -14597,6 +14514,7 @@ def hr_paye_get_active():
                     'id': t[0], 'name': t[1], 'description': t[2],
                     'filename': t[3], 'period': t[4],
                     'uploaded_by': t[5], 'uploaded_at': str(t[6]) if t[6] else None,
+                    'month_start': t[7] or '', 'month_end': t[8] or '',
                     'brackets': brackets
                 }
             })

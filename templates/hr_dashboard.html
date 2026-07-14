@@ -949,7 +949,7 @@
             <i class="bi bi-wallet2"></i> <span>Payroll</span>
         </button>
         <button class="nav-btn" data-module="paye" onclick="showModule('paye')" id="sidebar-paye">
-            <i class="bi bi-file-earmark-pdf"></i> <span>PAYE Tax Tables</span>
+            <i class="bi bi-calculator"></i> <span>PAYE Tax Tables</span>
         </button>
 
         <div class="sidebar-section" id="sidebarSectionAssets">Assets &amp; Records</div>
@@ -1402,10 +1402,10 @@
         <div id="module-paye" class="hr-module">
 
             <div class="page-header">
-                <h4><i class="bi bi-file-earmark-pdf"></i> PAYE Tax Tables</h4>
+                <h4><i class="bi bi-calculator"></i> PAYE Tax Tables</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm admin-only" onclick="openPayeUploadModal()">
-                        <i class="bi bi-upload"></i> Upload PAYE Table
+                    <button class="btn btn-primary btn-sm admin-only" onclick="openPayeModal()">
+                        <i class="bi bi-plus-lg"></i> New PAYE Table
                     </button>
                     <button class="btn btn-outline-primary btn-sm" onclick="loadPayeTables()">
                         <i class="bi bi-arrow-clockwise"></i> Refresh
@@ -1419,25 +1419,26 @@
                     <h6><i class="bi bi-check-circle-fill" style="color:#16a34a;"></i> Active PAYE Tax Table</h6>
                     <div style="display:flex;gap:4px;align-items:center;">
                         <span id="activePayeName" style="font-size:0.6rem;color:var(--text-muted);"></span>
-                        <button class="btn btn-sm btn-outline-info" onclick="downloadActivePayePdf()" title="Download PDF" style="font-size:0.55rem;padding:2px 6px;"><i class="bi bi-download"></i> PDF</button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="editActivePayeTable()" title="Edit" style="font-size:0.55rem;padding:2px 6px;"><i class="bi bi-pencil"></i></button>
                         <button class="btn btn-sm btn-warning" onclick="deactivateActivePaye()" title="Deactivate" style="font-size:0.55rem;padding:2px 6px;"><i class="bi bi-pause-circle"></i></button>
                     </div>
                 </div>
                 <div class="card-body-custom">
                     <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px;">
                         <div><strong>Period:</strong> <span id="activePayePeriod">—</span></div>
-                        <div><strong>Uploaded by:</strong> <span id="activePayeBy">—</span></div>
-                        <div><strong>Filename:</strong> <span id="activePayeFile">—</span></div>
-                        <div><strong>Uploaded:</strong> <span id="activePayeDate">—</span></div>
+                        <div><strong>Month Range:</strong> <span id="activePayeMonthRange">—</span></div>
+                        <div><strong>Created by:</strong> <span id="activePayeBy">—</span></div>
+                        <div><strong>Created:</strong> <span id="activePayeDate">—</span></div>
                     </div>
                     <div class="table-scroll">
                         <table class="table-hr table-sm" id="activePayeBracketsTable">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>Income Band</th>
-                                    <th>Tax Rate</th>
-                                    <th>Cumulative Tax</th>
+                                    <th>Income From ($)</th>
+                                    <th>Income To ($)</th>
+                                    <th>Tax Rate (%)</th>
+                                    <th>Cumulative Tax ($)</th>
                                 </tr>
                             </thead>
                             <tbody id="activePayeBracketsBody"></tbody>
@@ -1468,7 +1469,7 @@
             <!-- All Tables -->
             <div class="hr-card">
                 <div class="card-header-custom">
-                    <h6><i class="bi bi-list"></i> Uploaded PAYE Tables</h6>
+                    <h6><i class="bi bi-list"></i> Saved PAYE Tables</h6>
                 </div>
                 <div class="card-body-custom" style="padding:0;">
                     <div class="table-scroll">
@@ -1477,16 +1478,17 @@
                                 <tr>
                                     <th>Name</th>
                                     <th>Period</th>
+                                    <th>Month Range</th>
                                     <th>Brackets</th>
                                     <th>Status</th>
-                                    <th>Uploaded</th>
-                                    <th style="width:180px;">Actions</th>
+                                    <th>Created</th>
+                                    <th style="width:200px;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="payeTablesBody">
-                                <tr><td colspan="6" class="text-center text-muted py-4">
-                                    <i class="bi bi-file-earmark-pdf" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
-                                    No PAYE tax tables uploaded yet.
+                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                    <i class="bi bi-calculator" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
+                                    No PAYE tax tables created yet.
                                 </td></tr>
                             </tbody>
                         </table>
@@ -1495,40 +1497,67 @@
             </div>
         </div>
 
-        <!-- PAYE Upload Modal -->
-        <div id="payeUploadModal" class="modal-overlay" style="display:none;">
-            <div class="modal-content" style="max-width:520px;">
+        <!-- PAYE Create/Edit Modal -->
+        <div id="payeModal" class="modal-overlay" style="display:none;">
+            <div class="modal-content" style="max-width:750px;">
                 <div class="modal-header">
-                    <h5><i class="bi bi-upload"></i> Upload PAYE Tax Table</h5>
-                    <button class="modal-close" onclick="closePayeUploadModal()">&times;</button>
+                    <h5><i class="bi bi-table"></i> <span id="payeModalTitle">New PAYE Tax Table</span></h5>
+                    <button class="modal-close" onclick="closePayeModal()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info" style="font-size:0.65rem;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;margin-bottom:12px;">
-                        <i class="bi bi-info-circle"></i> Upload a PDF containing PAYE tax brackets.
-                        The system will automatically parse the tax rates and income bands.
-                    </div>
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;">Table Name *</label>
-                        <input type="text" id="payeTableName" class="form-control" placeholder="e.g. ZIMRA PAYE 2026" style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid #d1d5db;border-radius:4px;">
-                    </div>
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;">Tax Period</label>
-                        <input type="text" id="payeTablePeriod" class="form-control" placeholder="e.g. 2026" style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid #d1d5db;border-radius:4px;">
+                    <input type="hidden" id="payeEditId" value="">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                        <div class="form-group">
+                            <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;">Table Name *</label>
+                            <input type="text" id="payeTableName" class="form-control" placeholder="e.g. ZIMRA PAYE 2026" style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid #d1d5db;border-radius:4px;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;">Tax Period</label>
+                            <input type="text" id="payeTablePeriod" class="form-control" placeholder="e.g. 2026" style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid #d1d5db;border-radius:4px;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;">Month Start (for archive)</label>
+                            <input type="month" id="payeMonthStart" class="form-control" style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid #d1d5db;border-radius:4px;">
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;">Month End (for archive)</label>
+                            <input type="month" id="payeMonthEnd" class="form-control" style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid #d1d5db;border-radius:4px;">
+                        </div>
                     </div>
                     <div class="form-group" style="margin-bottom:12px;">
                         <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;">Description (optional)</label>
-                        <input type="text" id="payeTableDesc" class="form-control" placeholder="e.g. ZIMRA 2026 PAYE tables" style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid #d1d5db;border-radius:4px;">
+                        <input type="text" id="payeTableDesc" class="form-control" placeholder="e.g. ZIMRA 2026 Monthly PAYE tax brackets" style="width:100%;padding:6px 10px;font-size:0.7rem;border:1px solid #d1d5db;border-radius:4px;">
                     </div>
-                    <div class="form-group">
-                        <label style="font-size:0.65rem;font-weight:600;margin-bottom:4px;display:block;">PDF File *</label>
-                        <input type="file" id="payeFileInput" accept=".pdf" style="font-size:0.7rem;width:100%;">
-                        <div id="payeUploadStatus" style="font-size:0.6rem;margin-top:4px;color:var(--text-muted);"></div>
+
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <label style="font-size:0.65rem;font-weight:600;margin:0;">Tax Brackets</label>
+                        <div>
+                            <button class="btn btn-sm btn-outline-success" onclick="addPayeBracketRow()" style="font-size:0.6rem;padding:3px 8px;"><i class="bi bi-plus-lg"></i> Add Row</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeLastPayeBracketRow()" style="font-size:0.6rem;padding:3px 8px;"><i class="bi bi-dash-lg"></i> Remove Last</button>
+                        </div>
                     </div>
+                    <div class="table-scroll" style="max-height:300px;">
+                        <table class="table-hr table-sm" id="payeBracketsEditTable">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;">#</th>
+                                    <th>Income From ($)</th>
+                                    <th>Income To ($)</th>
+                                    <th>Tax Rate (%)</th>
+                                    <th>Cumulative Tax ($)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payeBracketsEditBody">
+                                <!-- Rows added dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="payeModalStatus" style="font-size:0.6rem;margin-top:6px;color:var(--text-muted);"></div>
                 </div>
                 <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid #e5e7eb;">
-                    <button class="btn btn-outline-secondary btn-sm" onclick="closePayeUploadModal()">Cancel</button>
-                    <button class="btn btn-primary btn-sm" onclick="uploadPayeTable()">
-                        <i class="bi bi-upload"></i> Upload &amp; Parse
+                    <button class="btn btn-outline-secondary btn-sm" onclick="closePayeModal()">Cancel</button>
+                    <button class="btn btn-primary btn-sm" onclick="savePayeTable()">
+                        <i class="bi bi-save"></i> <span id="payeSaveBtnText">Save Table</span>
                     </button>
                 </div>
             </div>
@@ -3327,9 +3356,9 @@ async function loadPayeTables() {
         if (!tbody) return;
 
         if (!data.success || !data.data || data.data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">' +
-                '<i class="bi bi-file-earmark-pdf" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
-                'No PAYE tax tables uploaded yet.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                '<i class="bi bi-calculator" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                'No PAYE tax tables created yet.</td></tr>';
             document.getElementById('activePayeCard').style.display = 'none';
             return;
         }
@@ -3342,15 +3371,17 @@ async function loadPayeTables() {
             const isActive = t.is_active;
             if (isActive) hasActive = true;
             const statusBadge = isActive ? 'badge-hr active' : 'badge-hr inactive';
+            const monthRange = (t.month_start || t.month_end) ? (t.month_start || '?') + ' to ' + (t.month_end || '?') : '—';
             row.innerHTML = `
                 <td><strong>${t.name}</strong>${t.description ? '<br><span style="font-size:0.55rem;color:var(--text-muted);">' + t.description + '</span>' : ''}</td>
                 <td>${t.period || '—'}</td>
+                <td style="font-size:0.6rem;">${monthRange}</td>
                 <td>${t.bracket_count}</td>
                 <td><span class="${statusBadge}">${isActive ? 'Active' : 'Inactive'}</span></td>
                 <td style="font-size:0.6rem;">${t.uploaded_by || '—'}<br>${t.uploaded_at ? new Date(t.uploaded_at).toLocaleDateString() : ''}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="viewPayeTable(${t.id})" title="View"><i class="bi bi-eye"></i></button>
-                    <button class="btn btn-sm btn-outline-info" onclick="downloadPayePdf(${t.id})" title="Download PDF"><i class="bi bi-download"></i></button>
+                    <button class="btn btn-sm btn-outline-info" onclick="editPayeTable(${t.id})" title="Edit"><i class="bi bi-pencil"></i></button>
                     ${isActive ? `<button class="btn btn-sm btn-warning" onclick="deactivatePayeTable(${t.id})" title="Deactivate"><i class="bi bi-pause-circle"></i></button>` : `<button class="btn btn-sm btn-success" onclick="activatePayeTable(${t.id})" title="Activate"><i class="bi bi-check-lg"></i></button>`}
                     <button class="btn btn-sm btn-outline-danger" onclick="deletePayeTable(${t.id})" title="Delete"><i class="bi bi-trash"></i></button>
                 </td>
@@ -3365,13 +3396,6 @@ async function loadPayeTables() {
             document.getElementById('activePayeCard').style.display = 'none';
         }
     } catch(e) { console.error('PAYE tables error:', e); }
-}
-
-function downloadActivePayePdf() {
-    const card = document.getElementById('activePayeCard');
-    const id = card ? card.getAttribute('data-active-paye-id') : null;
-    if (id) window.open(`/api/hr/paye/table/${id}/pdf`, '_blank');
-    else alert('No active PAYE table loaded.');
 }
 
 async function deactivateActivePaye() {
@@ -3408,8 +3432,9 @@ async function loadActivePayeTable() {
         const t = data.data;
         document.getElementById('activePayeName').textContent = t.name || '';
         document.getElementById('activePayePeriod').textContent = t.period || '—';
+        const monthRange = (t.month_start || t.month_end) ? (t.month_start || '?') + ' to ' + (t.month_end || '?') : '—';
+        document.getElementById('activePayeMonthRange').textContent = monthRange;
         document.getElementById('activePayeBy').textContent = t.uploaded_by || '—';
-        document.getElementById('activePayeFile').textContent = t.filename || '—';
         document.getElementById('activePayeDate').textContent = t.uploaded_at ? new Date(t.uploaded_at).toLocaleDateString() : '—';
 
         const tbody = document.getElementById('activePayeBracketsBody');
@@ -3417,18 +3442,16 @@ async function loadActivePayeTable() {
         tbody.innerHTML = '';
 
         if (!t.brackets || t.brackets.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No brackets parsed</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No brackets defined</td></tr>';
             return;
         }
 
         t.brackets.forEach((b, i) => {
-            const fromStr = '$' + Number(b.income_from).toLocaleString(undefined, {minimumFractionDigits:2});
-            const toStr = b.income_to <= 0 ? '∞' : '$' + Number(b.income_to).toLocaleString(undefined, {minimumFractionDigits:2});
-            const band = b.income_from === 0 ? `Up to ${toStr}` : `${fromStr} – ${toStr}`;
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${i + 1}</td>
-                <td>${band}</td>
+                <td>$${Number(b.income_from).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                <td>${b.income_to <= 0 ? '∞' : '$' + Number(b.income_to).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
                 <td>${b.tax_rate}%</td>
                 <td>$${(b.cumulative_tax || 0).toFixed(2)}</td>
             `;
@@ -3446,17 +3469,15 @@ async function viewPayeTable(tableId) {
             return;
         }
         const t = data.data;
+        const monthRange = (t.month_start || t.month_end) ? (t.month_start || '?') + ' to ' + (t.month_end || '?') : '—';
         let html = `<div style="margin-bottom:8px;">
             <strong>${t.name}</strong> ${t.period ? '— Period: ' + t.period : ''}<br>
-            <span style="font-size:0.6rem;color:var(--text-muted);">Uploaded by ${t.uploaded_by || '—'} on ${t.uploaded_at ? new Date(t.uploaded_at).toLocaleDateString() : '—'}</span>
+            <span style="font-size:0.6rem;color:var(--text-muted);">Month Range: ${monthRange} | Created by ${t.uploaded_by || '—'} on ${t.uploaded_at ? new Date(t.uploaded_at).toLocaleDateString() : '—'}</span>
         </div>`;
         if (t.brackets && t.brackets.length > 0) {
-            html += '<table class="table-hr" style="font-size:0.6rem;"><thead><tr><th>#</th><th>Income Band</th><th>Rate</th><th>Cumulative Tax</th></tr></thead><tbody>';
+            html += '<table class="table-hr" style="font-size:0.6rem;"><thead><tr><th>#</th><th>Income From</th><th>Income To</th><th>Rate</th><th>Cumulative Tax</th></tr></thead><tbody>';
             t.brackets.forEach((b, i) => {
-                const fromStr = '$' + Number(b.income_from).toLocaleString(undefined, {minimumFractionDigits:2});
-                const toStr = b.income_to <= 0 ? '∞' : '$' + Number(b.income_to).toLocaleString(undefined, {minimumFractionDigits:2});
-                const band = b.income_from === 0 ? `Up to ${toStr}` : `${fromStr} – ${toStr}`;
-                html += `<tr><td>${i+1}</td><td>${band}</td><td>${b.tax_rate}%</td><td>$${(b.cumulative_tax||0).toFixed(2)}</td></tr>`;
+                html += `<tr><td>${i+1}</td><td>$${Number(b.income_from).toLocaleString(undefined, {minimumFractionDigits:2})}</td><td>${b.income_to <= 0 ? '∞' : '$' + Number(b.income_to).toLocaleString(undefined, {minimumFractionDigits:2})}</td><td>${b.tax_rate}%</td><td>$${(b.cumulative_tax||0).toFixed(2)}</td></tr>`;
             });
             html += '</tbody></table>';
         }
@@ -3518,10 +3539,6 @@ async function deactivatePayeTable(tableId) {
     } catch(e) { alert('Error: ' + e.message); }
 }
 
-function downloadPayePdf(tableId) {
-    window.open(`/api/hr/paye/table/${tableId}/pdf`, '_blank');
-}
-
 async function deletePayeTable(tableId) {
     if (!confirm('Delete this PAYE tax table permanently?')) return;
     try {
@@ -3535,51 +3552,111 @@ async function deletePayeTable(tableId) {
     } catch(e) { alert('Error: ' + e.message); }
 }
 
-function openPayeUploadModal() {
+// ===== PAYE TABLE EDITOR (Manual Entry) =====
+
+function openPayeModal() {
+    document.getElementById('payeEditId').value = '';
+    document.getElementById('payeModalTitle').textContent = 'New PAYE Tax Table';
+    document.getElementById('payeSaveBtnText').textContent = 'Save Table';
     document.getElementById('payeTableName').value = '';
     document.getElementById('payeTablePeriod').value = '';
+    document.getElementById('payeMonthStart').value = '';
+    document.getElementById('payeMonthEnd').value = '';
     document.getElementById('payeTableDesc').value = '';
-    document.getElementById('payeFileInput').value = '';
-    document.getElementById('payeUploadStatus').textContent = '';
-    document.getElementById('payeUploadModal').style.display = 'flex';
-    document.getElementById('payeUploadModal').classList.add('active');
+    document.getElementById('payeModalStatus').textContent = '';
+    // Add 3 default empty rows
+    const tbody = document.getElementById('payeBracketsEditBody');
+    tbody.innerHTML = '';
+    for (let i = 0; i < 3; i++) addPayeBracketRow();
+    document.getElementById('payeModal').style.display = 'flex';
+    document.getElementById('payeModal').classList.add('active');
 }
 
-function closePayeUploadModal() {
-    document.getElementById('payeUploadModal').classList.remove('active');
-    document.getElementById('payeUploadModal').style.display = 'none';
+function closePayeModal() {
+    document.getElementById('payeModal').classList.remove('active');
+    document.getElementById('payeModal').style.display = 'none';
 }
 
-async function uploadPayeTable() {
+function addPayeBracketRow(income_from, income_to, tax_rate, cumulative_tax) {
+    const tbody = document.getElementById('payeBracketsEditBody');
+    const rowCount = tbody.children.length;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td style="text-align:center;font-size:0.65rem;">${rowCount + 1}</td>
+        <td><input type="number" step="0.01" min="0" class="bracket-from form-control" value="${income_from ?? ''}" placeholder="0.00" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
+        <td><input type="number" step="0.01" min="0" class="bracket-to form-control" value="${income_to ?? ''}" placeholder="0.00 (∞ if 0)" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
+        <td><input type="number" step="0.01" min="0" max="100" class="bracket-rate form-control" value="${tax_rate ?? ''}" placeholder="0.00" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
+        <td><input type="number" step="0.01" min="0" class="bracket-cumulative form-control" value="${cumulative_tax ?? ''}" placeholder="0.00" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
+    `;
+    tbody.appendChild(tr);
+    // Update row numbers
+    updatePayeBracketNumbers();
+}
+
+function removeLastPayeBracketRow() {
+    const tbody = document.getElementById('payeBracketsEditBody');
+    if (tbody.children.length > 1) {
+        tbody.removeChild(tbody.lastChild);
+        updatePayeBracketNumbers();
+    } else {
+        alert('Need at least one bracket row.');
+    }
+}
+
+function updatePayeBracketNumbers() {
+    const tbody = document.getElementById('payeBracketsEditBody');
+    Array.from(tbody.children).forEach((tr, i) => {
+        tr.cells[0].textContent = i + 1;
+    });
+}
+
+function collectPayeBrackets() {
+    const tbody = document.getElementById('payeBracketsEditBody');
+    const brackets = [];
+    Array.from(tbody.children).forEach(tr => {
+        const from = parseFloat(tr.querySelector('.bracket-from').value) || 0;
+        const to = parseFloat(tr.querySelector('.bracket-to').value) || 0;
+        const rate = parseFloat(tr.querySelector('.bracket-rate').value) || 0;
+        const cumulative = parseFloat(tr.querySelector('.bracket-cumulative').value) || 0;
+        brackets.push({ income_from: from, income_to: to, tax_rate: rate, cumulative_tax: cumulative });
+    });
+    return brackets;
+}
+
+async function savePayeTable() {
+    const editId = document.getElementById('payeEditId').value;
     const name = document.getElementById('payeTableName').value.trim();
-    const fileInput = document.getElementById('payeFileInput');
-    const statusEl = document.getElementById('payeUploadStatus');
+    const statusEl = document.getElementById('payeModalStatus');
 
     if (!name) { alert('Please enter a table name'); return; }
-    if (!fileInput.files || fileInput.files.length === 0) { alert('Please select a PDF file'); return; }
 
-    const file = fileInput.files[0];
-    if (!file.name.toLowerCase().endsWith('.pdf')) { alert('Only PDF files are accepted'); return; }
+    const brackets = collectPayeBrackets();
+    if (brackets.length === 0) { alert('Please add at least one tax bracket'); return; }
 
-    statusEl.textContent = '⏳ Uploading and parsing PDF...';
+    const payload = {
+        name: name,
+        period: document.getElementById('payeTablePeriod').value.trim(),
+        month_start: document.getElementById('payeMonthStart').value,
+        month_end: document.getElementById('payeMonthEnd').value,
+        description: document.getElementById('payeTableDesc').value.trim(),
+        brackets: brackets
+    };
+
+    statusEl.textContent = '⏳ Saving...';
     statusEl.style.color = 'var(--text-muted)';
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('name', name);
-    formData.append('period', document.getElementById('payeTablePeriod').value.trim());
-    formData.append('description', document.getElementById('payeTableDesc').value.trim());
-
     try {
-        const res = await fetch('/api/hr/paye/upload', { method: 'POST', body: formData });
+        const url = editId ? `/api/hr/paye/table/${editId}` : '/api/hr/paye/tables';
+        const method = editId ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
         if (data.success) {
             statusEl.textContent = '✅ ' + data.message;
             statusEl.style.color = '#16a34a';
-            setTimeout(() => { closePayeUploadModal(); }, 1500);
+            setTimeout(() => { closePayeModal(); }, 1000);
             await loadPayeTables();
         } else {
-            statusEl.textContent = '❌ ' + (data.error || 'Upload failed');
+            statusEl.textContent = '❌ ' + (data.error || 'Save failed');
             statusEl.style.color = '#dc2626';
         }
     } catch(e) {
@@ -3588,11 +3665,52 @@ async function uploadPayeTable() {
     }
 }
 
-// Close upload modal on overlay click
+async function editPayeTable(tableId) {
+    try {
+        const res = await fetch(`/api/hr/paye/table/${tableId}`);
+        const data = await res.json();
+        if (!data.success || !data.data) { alert('Could not load table'); return; }
+
+        const t = data.data;
+        document.getElementById('payeEditId').value = t.id;
+        document.getElementById('payeModalTitle').textContent = 'Edit PAYE Tax Table';
+        document.getElementById('payeSaveBtnText').textContent = 'Update Table';
+        document.getElementById('payeTableName').value = t.name || '';
+        document.getElementById('payeTablePeriod').value = t.period || '';
+        document.getElementById('payeMonthStart').value = t.month_start || '';
+        document.getElementById('payeMonthEnd').value = t.month_end || '';
+        document.getElementById('payeTableDesc').value = t.description || '';
+        document.getElementById('payeModalStatus').textContent = '';
+
+        const tbody = document.getElementById('payeBracketsEditBody');
+        tbody.innerHTML = '';
+        if (t.brackets && t.brackets.length > 0) {
+            t.brackets.forEach(b => {
+                addPayeBracketRow(b.income_from, b.income_to, b.tax_rate, b.cumulative_tax);
+            });
+        } else {
+            for (let i = 0; i < 3; i++) addPayeBracketRow();
+        }
+
+        document.getElementById('payeModal').style.display = 'flex';
+        document.getElementById('payeModal').classList.add('active');
+    } catch(e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+function editActivePayeTable() {
+    const card = document.getElementById('activePayeCard');
+    const id = card ? card.getAttribute('data-active-paye-id') : null;
+    if (id) editPayeTable(parseInt(id));
+    else alert('No active PAYE table loaded.');
+}
+
+// Close modal on overlay click
 document.addEventListener('click', function(e) {
-    const modal = document.getElementById('payeUploadModal');
+    const modal = document.getElementById('payeModal');
     if (modal && modal.style.display === 'flex' && e.target === modal) {
-        closePayeUploadModal();
+        closePayeModal();
     }
 });
 
