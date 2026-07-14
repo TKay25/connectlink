@@ -1719,7 +1719,14 @@ def initialize_database_tables():
                     cursor.execute(f"ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS {col}")
                 except Exception:
                     pass
-            connection.commit()
+            # Add run_version column to hr_payroll if missing (migration)
+            try:
+                cursor.execute("""
+                    ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS run_version INT DEFAULT 1
+                """)
+                connection.commit()
+            except Exception:
+                connection.rollback()
             print("✅ Payroll deduction columns added!")
 
             # ========== PAYROLL ARCHIVES TABLE ==========
@@ -1728,33 +1735,25 @@ def initialize_database_tables():
                     id SERIAL PRIMARY KEY,
                     period VARCHAR(20) NOT NULL,
                     filename VARCHAR(255) NOT NULL,
+                    run_version INT DEFAULT 1,
                     file_data BYTEA NOT NULL,
                     file_size INT DEFAULT 0,
                     employee_count INT DEFAULT 0,
                     total_gross DECIMAL(15,2) DEFAULT 0,
                     total_net DECIMAL(15,2) DEFAULT 0,
                     generated_by VARCHAR(100),
-                    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(period)
+                    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
-            connection.commit()
-            # Ensure unique constraint exists on period (might be missing on older tables)
+            # Add run_version column and remove old unique constraint if missing
             try:
                 cursor.execute("""
-                    DO $$ BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 FROM pg_constraint
-                            WHERE conrelid = 'payroll_archives'::regclass
-                            AND conname = 'payroll_archives_period_key'
-                        ) THEN
-                            ALTER TABLE payroll_archives ADD UNIQUE (period);
-                        END IF;
-                    END $$;
+                    ALTER TABLE payroll_archives ADD COLUMN IF NOT EXISTS run_version INT DEFAULT 1
                 """)
                 connection.commit()
             except Exception:
                 connection.rollback()
+            connection.commit()
             print("✅ Payroll archives table initialized!")
 
     except Exception as e:
@@ -13828,14 +13827,21 @@ def hr_attendance_api():
 
 @app.route('/api/hr/payroll/periods', methods=['GET'])
 def hr_payroll_periods():
-    """Return list of distinct periods that have payroll data, newest first."""
+    """Return list of periods with available run versions, newest first."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT DISTINCT period FROM hr_payroll ORDER BY period DESC
+                SELECT DISTINCT period, run_version FROM hr_payroll
+                ORDER BY period DESC, run_version DESC
             """)
-            periods = [r[0] for r in cursor.fetchall()]
-            return jsonify({'success': True, 'data': periods})
+            versions = {}
+            for r in cursor.fetchall():
+                p = r[0]
+                v = r[1] or 1
+                if p not in versions:
+                    versions[p] = []
+                versions[p].append(v)
+            return jsonify({'success': True, 'data': versions})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -13846,17 +13852,30 @@ def hr_payroll_api():
     if request.method == 'GET':
         try:
             period = request.args.get('period', datetime.now().strftime('%Y-%m'))
+            run_version = request.args.get('run_version')
             with get_db() as (cursor, connection):
-                cursor.execute("""
-                    SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
-                           p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
-                           p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
-                           p.nssa, p.zimdef
-                    FROM hr_payroll p
-                    JOIN hr_employees e ON p.employee_id = e.id
-                    WHERE p.period = %s
-                    ORDER BY e.last_name
-                """, (period,))
+                if run_version:
+                    cursor.execute("""
+                        SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
+                               p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
+                               p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
+                               p.nssa, p.zimdef, p.run_version
+                        FROM hr_payroll p
+                        JOIN hr_employees e ON p.employee_id = e.id
+                        WHERE p.period = %s AND p.run_version = %s
+                        ORDER BY e.last_name
+                    """, (period, int(run_version)))
+                else:
+                    cursor.execute("""
+                        SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
+                               p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
+                               p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
+                               p.nssa, p.zimdef, p.run_version
+                        FROM hr_payroll p
+                        JOIN hr_employees e ON p.employee_id = e.id
+                        WHERE p.period = %s
+                        ORDER BY e.last_name
+                    """, (period,))
                 rows = cursor.fetchall()
                 records = []
                 for r in rows:
@@ -13868,7 +13887,8 @@ def hr_payroll_api():
                         'processed_at': str(r[11]) if r[11] else None,
                         'gross_pay': float(r[12] or 0),
                         'paye_tax': float(r[13] or 0), 'aids_levy': float(r[14] or 0),
-                        'nssa': float(r[15] or 0), 'zimdef': float(r[16] or 0)
+                        'nssa': float(r[15] or 0), 'zimdef': float(r[16] or 0),
+                        'run_version': r[17] or 1
                     })
                 return jsonify({'success': True, 'data': records, 'period': period})
         except Exception as e:
@@ -13950,6 +13970,10 @@ def hr_payroll_api():
                     }
 
                 # Process payroll for all active employees
+                # Determine the run version for this period
+                cursor.execute("SELECT COALESCE(MAX(run_version), 0) FROM hr_payroll WHERE period = %s", (period,))
+                run_version = (cursor.fetchone()[0] or 0) + 1
+
                 cursor.execute("""
                     SELECT id, first_name, last_name, basic_salary, usd_percent, zwg_percent, exchange_rate
                     FROM hr_employees WHERE status = 'Active'
@@ -13972,13 +13996,12 @@ def hr_payroll_api():
 
                     cursor.execute("""
                         INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, gross_pay,
-                            deductions, paye_tax, aids_levy, nssa, zimdef, net_pay, status, processed_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP)
-                        ON CONFLICT DO NOTHING
+                            deductions, paye_tax, aids_levy, nssa, zimdef, net_pay, status, processed_at, run_version)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
                     """, (emp_id, period, basic, allowances, gross,
                           round(total_deductions, 2), round(monthly_paye, 2),
                           round(stats['aids_levy'], 2), round(stats['nssa'], 2),
-                          round(stats['zimdef'], 2), round(net, 2)))
+                          round(stats['zimdef'], 2), round(net, 2), run_version))
                     processed += 1
 
                 # Generate payroll archive Excel
@@ -14119,6 +14142,7 @@ def hr_payroll_api():
                             id SERIAL PRIMARY KEY,
                             period VARCHAR(20) NOT NULL,
                             filename VARCHAR(255) NOT NULL,
+                            run_version INT DEFAULT 1,
                             file_data BYTEA NOT NULL,
                             file_size INT DEFAULT 0,
                             employee_count INT DEFAULT 0,
@@ -14128,20 +14152,19 @@ def hr_payroll_api():
                             generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         );
                     """)
-                    filename = f"Payroll_{period}.xlsx"
-                    cursor.execute("DELETE FROM payroll_archives WHERE period = %s", (period,))
+                    filename = f"Payroll_{period}_v{run_version}.xlsx"
                     cursor.execute("""
-                        INSERT INTO payroll_archives (period, filename, file_data, file_size, employee_count, total_gross, total_net, generated_by)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO payroll_archives (period, filename, file_data, file_size, employee_count, total_gross, total_net, generated_by, run_version)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (period, filename, psycopg2.Binary(excel_bytes), file_size, emp_count,
-                          round(total_gross, 2), round(total_net, 2), user_name))
+                          round(total_gross, 2), round(total_net, 2), user_name, run_version))
 
                     connection.commit()
                     archive_saved = True
                     archive_filename = filename
                     archive_id = None
                     # Get the archive id
-                    cursor.execute("SELECT id FROM payroll_archives WHERE period = %s", (period,))
+                    cursor.execute("SELECT id FROM payroll_archives WHERE period = %s AND run_version = %s", (period, run_version))
                     row = cursor.fetchone()
                     if row:
                         archive_id = row[0]
@@ -14157,6 +14180,7 @@ def hr_payroll_api():
                     'success': True,
                     'message': f'Payroll processed for {processed} employees',
                     'processed': processed,
+                    'run_version': run_version,
                     'archive_saved': archive_saved if 'archive_saved' in dir() else False,
                     'archive_id': archive_id if 'archive_id' in dir() else None,
                     'archive_filename': archive_filename if 'archive_filename' in dir() else None
@@ -14889,9 +14913,9 @@ def hr_payroll_archives():
             """)
             cursor.execute("""
                 SELECT id, period, filename, file_size, employee_count,
-                       total_gross, total_net, generated_by, generated_at
+                       total_gross, total_net, generated_by, generated_at, run_version
                 FROM payroll_archives
-                ORDER BY period DESC
+                ORDER BY period DESC, run_version DESC
             """)
             rows = cursor.fetchall()
             archives = []
@@ -14902,7 +14926,8 @@ def hr_payroll_archives():
                     'file_size': r[3], 'file_size_str': file_size_str,
                     'employee_count': r[4],
                     'total_gross': float(r[5] or 0), 'total_net': float(r[6] or 0),
-                    'generated_by': r[7], 'generated_at': str(r[8]) if r[8] else None
+                    'generated_by': r[7], 'generated_at': str(r[8]) if r[8] else None,
+                    'run_version': r[9] or 1
                 })
             return jsonify({'success': True, 'data': archives})
     except Exception as e:

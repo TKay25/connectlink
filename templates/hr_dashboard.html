@@ -1276,7 +1276,7 @@
                     <div class="stat-icon blue"><i class="bi bi-calendar-range"></i></div>
                     <div class="stat-body">
                         <div class="stat-label">Payroll Period</div>
-                        <select id="payrollPeriodSelect" onchange="loadPayroll(this.value)" style="font-size:0.7rem;padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;background:white;width:100%;max-width:160px;cursor:pointer;margin-top:2px;">
+                        <select id="payrollPeriodSelect" onchange="loadPayroll(this.value)" style="font-size:0.65rem;padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;background:white;width:100%;max-width:180px;cursor:pointer;margin-top:2px;">
                             <option value="">Loading...</option>
                         </select>
                     </div>
@@ -3837,35 +3837,65 @@ async function loadPayroll(period) {
     try {
         const select = document.getElementById('payrollPeriodSelect');
         if (!select) return;
+        let runVersion;
 
         // If no period specified, load available periods and pick the latest
         if (!period) {
             try {
                 const periodsRes = await fetch('/api/hr/payroll/periods');
                 const periodsData = await periodsRes.json();
-                if (periodsData.success && periodsData.data && periodsData.data.length > 0) {
-                    select.innerHTML = periodsData.data.map(p => {
-                        const [y, m] = p.split('-');
-                        const label = ['January','February','March','April','May','June','July','August','September','October','November','December'][parseInt(m)-1] + ' ' + y;
-                        return `<option value="${p}">${label}</option>`;
-                    }).join('');
-                    // Auto-select the latest period (already first since ORDER BY DESC)
-                    period = periodsData.data[0];
-                    select.value = period;
+                if (periodsData.success && periodsData.data) {
+                    const versions = periodsData.data;
+                    const keys = Object.keys(versions);
+                    if (keys.length > 0) {
+                        select.innerHTML = '';
+                        const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                        keys.forEach(p => {
+                            const [y, m] = p.split('-');
+                            const label = monthNames[parseInt(m)-1] + ' ' + y;
+                            const vers = versions[p] || [1];
+                            vers.forEach(v => {
+                                const opt = document.createElement('option');
+                                opt.value = p + '|' + v;
+                                opt.textContent = label + ' (Run ' + v + ')';
+                                select.appendChild(opt);
+                            });
+                        });
+                        // Auto-select the latest period + version (first since ORDER BY DESC)
+                        const firstKey = keys[0];
+                        const firstVer = (versions[firstKey] || [1])[0];
+                        const val = firstKey + '|' + firstVer;
+                        select.value = val;
+                        period = firstKey;
+                        runVersion = firstVer;
+                    } else {
+                        select.innerHTML = '<option value="">No payroll processed</option>';
+                        const now = new Date();
+                        period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                        runVersion = null;
+                    }
                 } else {
                     select.innerHTML = '<option value="">No payroll processed</option>';
-                    // Fall back to current month display
                     const now = new Date();
                     period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                    runVersion = null;
                 }
             } catch(e) {
                 select.innerHTML = '<option value="">Error loading periods</option>';
                 const now = new Date();
                 period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                runVersion = null;
             }
+        } else {
+            // Parse period|runVersion from dropdown value
+            const parts = period.split('|');
+            period = parts[0];
+            runVersion = parts[1] || null;
         }
 
-        const res = await fetch(`/api/hr/payroll?period=${period}`);
+        let url = `/api/hr/payroll?period=${period}`;
+        if (runVersion) url += `&run_version=${runVersion}`;
+        const res = await fetch(url);
         const data = await res.json();
         const tbody = document.getElementById('payrollTableBody');
         if (!tbody) return;
@@ -4095,7 +4125,7 @@ async function loadPayrollArchives() {
         data.data.forEach(arc => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td><strong>${arc.period}</strong></td>
+                <td><strong>${arc.period}</strong>${arc.run_version ? ' <span style="font-size:0.55rem;color:var(--text-muted);">(Run ' + arc.run_version + ')</span>' : ''}</td>
                 <td>${arc.employee_count}</td>
                 <td>$${(arc.total_gross || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
                 <td>$${(arc.total_net || 0).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
@@ -4114,8 +4144,27 @@ function downloadPayrollArchive(archiveId, period) {
 
 function downloadCurrentPayroll() {
     const select = document.getElementById('payrollPeriodSelect');
-    const period = select?.value || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
-    window.open(`/api/hr/payroll/archives/${period}/download`, '_blank');
+    const val = select?.value || '';
+    const parts = val.split('|');
+    const period = parts[0] || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+    const runVer = parts[1] || null;
+
+    // Try downloading by period+version via the archives list
+    fetch('/api/hr/payroll/archives')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.data) {
+                // Find matching archive
+                const match = data.data.find(a => a.period === period && (!runVer || a.run_version == runVer));
+                if (match) {
+                    window.open(`/api/hr/payroll/archives/${match.id}/download`, '_blank');
+                } else {
+                    // Fallback: try by period
+                    window.open(`/api/hr/payroll/archives/${period}/download`, '_blank');
+                }
+            }
+        })
+        .catch(() => window.open(`/api/hr/payroll/archives/${period}/download`, '_blank'));
 }
 
 // Close archives modal on overlay click
