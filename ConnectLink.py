@@ -13880,26 +13880,22 @@ def hr_payroll_api():
                         'from': float(br[0] or 0),
                         'to': float(br[1] or 0),
                         'rate': float(br[2] or 0),
-                        'cumulative': float(br[3] or 0)
+                        'deduction': float(br[3] or 0)
                     })
 
                 def calc_paye_tax(monthly_salary, brackets):
-                    """Calculate PAYE tax using monthly progressive tax brackets."""
+                    """Calculate PAYE tax: find applicable bracket, then PAYE = (salary × rate%) - deduction."""
                     if not brackets:
                         return 0
-                    tax = 0
-                    remaining = monthly_salary
                     for b in brackets:
-                        if remaining <= 0:
-                            break
-                        bracket_income = b['to'] - b['from']
-                        taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
-                        if taxable > 0:
-                            tax += taxable * (b['rate'] / 100)
-                        remaining -= taxable
-                        if b['to'] <= 0:  # top bracket (open-ended)
-                            break
-                    return tax
+                        inc_from = b['from']
+                        inc_to = b['to']
+                        # Check if salary falls in this bracket
+                        if monthly_salary >= inc_from:
+                            if inc_to <= 0 or monthly_salary <= inc_to:
+                                tax = (monthly_salary * (b['rate'] / 100)) - b['deduction']
+                                return max(0, round(tax, 2))
+                    return 0
 
                 # Load deduction configs
                 cursor.execute("""
@@ -14181,7 +14177,7 @@ def hr_paye_create_table():
                     float(b.get('income_from', 0)),
                     float(b.get('income_to', 0)),
                     float(b.get('tax_rate', 0)),
-                    float(b.get('cumulative_tax', 0)),
+                    float(b.get('deduction', b.get('cumulative_tax', 0))),
                     i
                 ))
 
@@ -14236,7 +14232,7 @@ def hr_paye_update_table(table_id):
                     float(b.get('income_from', 0)),
                     float(b.get('income_to', 0)),
                     float(b.get('tax_rate', 0)),
-                    float(b.get('cumulative_tax', 0)),
+                    float(b.get('deduction', b.get('cumulative_tax', 0))),
                     i
                 ))
 
@@ -14304,7 +14300,7 @@ def hr_paye_get_table(table_id):
             for b in bracket_rows:
                 brackets.append({
                     'id': b[0], 'income_from': float(b[1]), 'income_to': float(b[2]),
-                    'tax_rate': float(b[3]), 'cumulative_tax': float(b[4] or 0),
+                    'tax_rate': float(b[3]), 'deduction': float(b[4] or 0),
                     'bracket_order': b[5]
                 })
             
@@ -14505,14 +14501,14 @@ def hr_paye_get_active():
             for b in bracket_rows:
                 brackets.append({
                     'income_from': float(b[0]), 'income_to': float(b[1]),
-                    'tax_rate': float(b[2]), 'cumulative_tax': float(b[3] or 0)
+                    'tax_rate': float(b[2]), 'deduction': float(b[3] or 0)
                 })
             
             return jsonify({
                 'success': True,
                 'data': {
                     'id': t[0], 'name': t[1], 'description': t[2],
-                    'filename': t[3], 'period': t[4],
+                    'period': t[4],
                     'uploaded_by': t[5], 'uploaded_at': str(t[6]) if t[6] else None,
                     'month_start': t[7] or '', 'month_end': t[8] or '',
                     'brackets': brackets
@@ -14545,42 +14541,41 @@ def hr_paye_calculate():
             for br in bracket_rows:
                 brackets.append({
                     'from': float(br[0] or 0), 'to': float(br[1] or 0),
-                    'rate': float(br[2] or 0), 'cumulative': float(br[3] or 0)
+                    'rate': float(br[2] or 0), 'deduction': float(br[3] or 0)
                 })
             
-            # Calculate tax
+            # Calculate tax: find the bracket where salary falls, then PAYE = (salary × rate%) - deduction
             tax = 0
-            remaining = salary
-            details = []
+            selected = None
             for b in brackets:
-                if remaining <= 0:
-                    break
-                bracket_income = b['to'] - b['from']
-                taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
-                bracket_tax = taxable * (b['rate'] / 100)
-                if taxable > 0:
-                    tax += bracket_tax
-                    range_str = f"${b['from']:,.2f} - $"
-                    if b['to'] <= 0:
-                        range_str += "∞"
-                    else:
-                        range_str += f"{b['to']:,.2f}"
-                    details.append({
-                        'range': range_str,
-                        'taxable': round(taxable, 2),
-                        'rate': b['rate'],
-                        'tax': round(bracket_tax, 2)
-                    })
-                remaining -= taxable
-                if b['to'] <= 0:
-                    break
+                if salary >= b['from']:
+                    if b['to'] <= 0 or salary <= b['to']:
+                        tax = (salary * (b['rate'] / 100)) - b['deduction']
+                        tax = max(0, round(tax, 2))
+                        selected = b
+                        break
+            
+            details = []
+            if selected:
+                range_str = f"${selected['from']:,.2f} - $"
+                if selected['to'] <= 0:
+                    range_str += "∞"
+                else:
+                    range_str += f"{selected['to']:,.2f}"
+                details.append({
+                    'range': range_str,
+                    'salary': salary,
+                    'rate': selected['rate'],
+                    'deduction': selected['deduction'],
+                    'tax': tax,
+                    'formula': f"${salary:,.2f} × {selected['rate']}% - ${selected['deduction']:,.2f} = ${tax:,.2f}"
+                })
             
             return jsonify({
                 'success': True,
                 'data': {
                     'salary': salary,
-                    'annual_tax': round(tax, 2),
-                    'monthly_tax': round(tax / 12, 2),
+                    'monthly_tax': tax,
                     'effective_rate': round((tax / salary * 100) if salary > 0 else 0, 2),
                     'details': details
                 }
@@ -14673,7 +14668,7 @@ def hr_payroll_calculate_full():
             # 1. Load active PAYE brackets
             paye_brackets = []
             cursor.execute("""
-                SELECT b.income_from, b.income_to, b.tax_rate
+                SELECT b.income_from, b.income_to, b.tax_rate, b.cumulative_tax
                 FROM paye_tax_brackets b
                 JOIN paye_tax_tables t ON b.table_id = t.id
                 WHERE t.is_active = TRUE
@@ -14682,7 +14677,7 @@ def hr_payroll_calculate_full():
             for br in cursor.fetchall():
                 paye_brackets.append({
                     'from': float(br[0] or 0), 'to': float(br[1] or 0),
-                    'rate': float(br[2] or 0)
+                    'rate': float(br[2] or 0), 'deduction': float(br[3] or 0)
                 })
 
             # 2. Load deduction configs
@@ -14698,26 +14693,19 @@ def hr_payroll_calculate_full():
                     'is_employee': bool(dc[5])
                 }
 
-        # 3. Calculate PAYE
+        # 3. Calculate PAYE using deduction formula: PAYE = (salary × rate%) - deduction
         def calc_paye(salary, brackets):
             if not brackets:
                 return 0
-            tax = 0
-            remaining = salary
             for b in brackets:
-                if remaining <= 0:
-                    break
-                bracket_income = b['to'] - b['from']
-                taxable = min(remaining, bracket_income) if b['to'] > 0 else remaining
-                if taxable > 0:
-                    tax += taxable * (b['rate'] / 100)
-                remaining -= taxable
-                if b['to'] <= 0:
-                    break
-            return tax
+                if salary >= b['from']:
+                    if b['to'] <= 0 or salary <= b['to']:
+                        tax = (salary * (b['rate'] / 100)) - b['deduction']
+                        return max(0, round(tax, 2))
+            return 0
 
         annual_paye = calc_paye(annual_salary, paye_brackets)
-        monthly_paye = annual_paye / 12
+        monthly_paye = calc_paye(salary, paye_brackets)
 
         # 4. Calculate other deductions
         deductions = {}

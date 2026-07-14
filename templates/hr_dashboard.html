@@ -1438,7 +1438,7 @@
                                     <th>Income From ($)</th>
                                     <th>Income To ($)</th>
                                     <th>Tax Rate (%)</th>
-                                    <th>Cumulative Tax ($)</th>
+                                    <th>Deduction ($)</th>
                                 </tr>
                             </thead>
                             <tbody id="activePayeBracketsBody"></tbody>
@@ -1544,7 +1544,7 @@
                                     <th>Income From ($)</th>
                                     <th>Income To ($)</th>
                                     <th>Tax Rate (%)</th>
-                                    <th>Cumulative Tax ($)</th>
+                                    <th>Deduction ($)</th>
                                 </tr>
                             </thead>
                             <tbody id="payeBracketsEditBody">
@@ -3453,7 +3453,7 @@ async function loadActivePayeTable() {
                 <td>$${Number(b.income_from).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
                 <td>${b.income_to <= 0 ? '∞' : '$' + Number(b.income_to).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
                 <td>${b.tax_rate}%</td>
-                <td>$${(b.cumulative_tax || 0).toFixed(2)}</td>
+                <td>$${(b.deduction || 0).toFixed(2)}</td>
             `;
             tbody.appendChild(row);
         });
@@ -3475,9 +3475,9 @@ async function viewPayeTable(tableId) {
             <span style="font-size:0.6rem;color:var(--text-muted);">Month Range: ${monthRange} | Created by ${t.uploaded_by || '—'} on ${t.uploaded_at ? new Date(t.uploaded_at).toLocaleDateString() : '—'}</span>
         </div>`;
         if (t.brackets && t.brackets.length > 0) {
-            html += '<table class="table-hr" style="font-size:0.6rem;"><thead><tr><th>#</th><th>Income From</th><th>Income To</th><th>Rate</th><th>Cumulative Tax</th></tr></thead><tbody>';
+            html += '<table class="table-hr" style="font-size:0.6rem;"><thead><tr><th>#</th><th>Income From</th><th>Income To</th><th>Rate</th><th>Deduction</th></tr></thead><tbody>';
             t.brackets.forEach((b, i) => {
-                html += `<tr><td>${i+1}</td><td>$${Number(b.income_from).toLocaleString(undefined, {minimumFractionDigits:2})}</td><td>${b.income_to <= 0 ? '∞' : '$' + Number(b.income_to).toLocaleString(undefined, {minimumFractionDigits:2})}</td><td>${b.tax_rate}%</td><td>$${(b.cumulative_tax||0).toFixed(2)}</td></tr>`;
+                html += `<tr><td>${i+1}</td><td>$${Number(b.income_from).toLocaleString(undefined, {minimumFractionDigits:2})}</td><td>${b.income_to <= 0 ? '∞' : '$' + Number(b.income_to).toLocaleString(undefined, {minimumFractionDigits:2})}</td><td>${b.tax_rate}%</td><td>$${(b.deduction||0).toFixed(2)}</td></tr>`;
             });
             html += '</tbody></table>';
         }
@@ -3577,7 +3577,7 @@ function closePayeModal() {
     document.getElementById('payeModal').style.display = 'none';
 }
 
-function addPayeBracketRow(income_from, income_to, tax_rate, cumulative_tax) {
+function addPayeBracketRow(income_from, income_to, tax_rate, deduction) {
     const tbody = document.getElementById('payeBracketsEditBody');
     const rowCount = tbody.children.length;
     const tr = document.createElement('tr');
@@ -3586,7 +3586,7 @@ function addPayeBracketRow(income_from, income_to, tax_rate, cumulative_tax) {
         <td><input type="number" step="0.01" min="0" class="bracket-from form-control" value="${income_from ?? ''}" placeholder="0.00" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
         <td><input type="number" step="0.01" min="0" class="bracket-to form-control" value="${income_to ?? ''}" placeholder="0.00 (∞ if 0)" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
         <td><input type="number" step="0.01" min="0" max="100" class="bracket-rate form-control" value="${tax_rate ?? ''}" placeholder="0.00" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
-        <td><input type="number" step="0.01" min="0" class="bracket-cumulative form-control" value="${cumulative_tax ?? ''}" placeholder="0.00" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
+        <td><input type="number" step="0.01" min="0" class="bracket-deduction form-control" value="${deduction ?? ''}" placeholder="0.00" style="width:100%;padding:4px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;"></td>
     `;
     tbody.appendChild(tr);
     // Update row numbers
@@ -3617,8 +3617,8 @@ function collectPayeBrackets() {
         const from = parseFloat(tr.querySelector('.bracket-from').value) || 0;
         const to = parseFloat(tr.querySelector('.bracket-to').value) || 0;
         const rate = parseFloat(tr.querySelector('.bracket-rate').value) || 0;
-        const cumulative = parseFloat(tr.querySelector('.bracket-cumulative').value) || 0;
-        brackets.push({ income_from: from, income_to: to, tax_rate: rate, cumulative_tax: cumulative });
+        const deduction = parseFloat(tr.querySelector('.bracket-deduction').value) || 0;
+        brackets.push({ income_from: from, income_to: to, tax_rate: rate, deduction: deduction });
     });
     return brackets;
 }
@@ -3686,7 +3686,7 @@ async function editPayeTable(tableId) {
         tbody.innerHTML = '';
         if (t.brackets && t.brackets.length > 0) {
             t.brackets.forEach(b => {
-                addPayeBracketRow(b.income_from, b.income_to, b.tax_rate, b.cumulative_tax);
+                addPayeBracketRow(b.income_from, b.income_to, b.tax_rate, b.deduction);
             });
         } else {
             for (let i = 0; i < 3; i++) addPayeBracketRow();
