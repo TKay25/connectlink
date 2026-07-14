@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "FixDupEmployees",
+  "file": "fix_dup_employees.py",
+  "purpose": "Link duplicate employees between hr_employees and admin_users by email.",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "fix_dup_employees → cursor.execute, cursor.fetchall, connection.commit"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "3c9993df1aafecaf",
+  "file_mtime": 1784039929567.0024,
+  "file_size": 2356,
+  "file_birthtime": 1784039929017.0955,
+  "generated_at": "2026-07-14T14:46:17.599705Z",
+  "stale": false,
+  "stale_reason": "source file deleted"
+}

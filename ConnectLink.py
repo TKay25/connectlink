@@ -13231,9 +13231,12 @@ def hr_employees_api():
                 """)
                 rows = cursor.fetchall()
                 employee_ids = set()
+                employee_emails = set()
                 employees = []
                 for r in rows:
                     employee_ids.add(r[1] or r[0])
+                    if r[5]:  # email
+                        employee_emails.add(r[5].lower().strip())
                     employees.append({
                         'id': r[0], 'user_id': r[1], 'first_name': r[2], 'last_name': r[3],
                         'whatsapp': r[4], 'email': r[5], 'address': r[6],
@@ -13253,7 +13256,8 @@ def hr_employees_api():
                 """)
                 for au in cursor.fetchall():
                     au_id = au[0]
-                    if au_id in employee_ids:
+                    au_email = (au[3] or '').lower().strip()
+                    if au_id in employee_ids or (au_email and au_email in employee_emails):
                         continue
                     full_name = au[2] or ''
                     parts = full_name.split(' ', 1)
@@ -13270,6 +13274,8 @@ def hr_employees_api():
                         'source': 'admin_users'
                     })
                     employee_ids.add(au_id)
+                    if au_email:
+                        employee_emails.add(au_email)
 
                 # Also include connectlinkusers not yet in hr_employees or admin_users
                 cursor.execute("""
@@ -13278,7 +13284,8 @@ def hr_employees_api():
                 """)
                 for clu in cursor.fetchall():
                     clu_id = clu[0]
-                    if clu_id in employee_ids:
+                    clu_email = (clu[2] or '').lower().strip()
+                    if clu_id in employee_ids or (clu_email and clu_email in employee_emails):
                         continue
                     full_name = clu[1] or ''
                     parts = full_name.split(' ', 1)
@@ -13325,21 +13332,29 @@ def hr_employees_api():
                 ))
                 emp_id = cursor.fetchone()[0]
 
-                # Sync to admin_users if not already there
+                # Sync to admin_users if not already there, and link user_id
                 email = data.get('email', '') or ''
                 whatsapp = data.get('whatsapp', '') or ''
                 first = (data.get('first_name', '') or '').strip()
                 last = (data.get('last_name', '') or '').strip()
                 full_name = f"{first} {last}".strip()
-                # Generate a unique username if no email provided
                 username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
                 if full_name:
                     try:
-                        cursor.execute("""
-                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
-                            VALUES (%s, %s, %s, %s, 'hr', 'operator', TRUE, NOW())
-                            ON CONFLICT (username) DO NOTHING
-                        """, (username, data.get('password', 'conlink123'), full_name, email))
+                        # Check if admin_user already exists by email or username
+                        cursor.execute("SELECT id FROM admin_users WHERE email = %s OR username = %s", (email, username))
+                        existing = cursor.fetchone()
+                        if existing:
+                            au_id = existing[0]
+                        else:
+                            cursor.execute("""
+                                INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
+                                VALUES (%s, %s, %s, %s, 'hr', 'operator', TRUE, NOW())
+                                RETURNING id
+                            """, (username, data.get('password', 'conlink123'), full_name, email))
+                            au_id = cursor.fetchone()[0]
+                        # Link user_id in hr_employees
+                        cursor.execute("UPDATE hr_employees SET user_id = %s WHERE id = %s", (au_id, emp_id))
                     except Exception:
                         pass
 
