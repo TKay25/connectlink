@@ -14118,37 +14118,6 @@ def hr_payroll_api():
                         col_letter = get_column_letter(i)
                         ws.column_dimensions[col_letter].width = w
 
-                    # Banking Info Summary section
-                    summary_row = len(payroll_rows) + 7
-                    ws.merge_cells(f'A{summary_row}:U{summary_row}')
-                    ws.cell(row=summary_row, column=1).value = "Employee Banking Details"
-                    ws.cell(row=summary_row, column=1).font = XlFont(bold=True, size=11, color='1E2A56')
-
-                    bank_headers = ['#', 'Employee', 'Bank', 'Account Number', 'Branch', 'Branch Code', 'Net Pay']
-                    for col_idx, h in enumerate(bank_headers, 1):
-                        cell = ws.cell(row=summary_row + 1, column=col_idx, value=h)
-                        cell.fill = header_fill
-                        cell.font = header_font
-                        cell.border = thin_border
-
-                    for row_idx, r in enumerate(payroll_rows, summary_row + 2):
-                        emp_name = f"{r[0] or ''} {r[1] or ''}".strip()
-                        bank_vals = [
-                            row_idx - summary_row - 1,
-                            emp_name,
-                            r[7] or '',
-                            r[8] or '',
-                            r[9] or '',
-                            r[10] or '',
-                            float(r[26] or 0)
-                        ]
-                        for col_idx, val in enumerate(bank_vals, 1):
-                            cell = ws.cell(row=row_idx, column=col_idx, value=val)
-                            cell.font = data_font
-                            cell.border = thin_border
-                            if isinstance(val, float):
-                                cell.number_format = '#,##0.00'
-
                     # Save to bytes
                     output = io.BytesIO()
                     wb.save(output)

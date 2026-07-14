@@ -2111,6 +2111,7 @@
                             <option>NBS</option>
                             <option>Nedbank</option>
                             <option>POSB</option>
+                            <option>EcoCash</option>
                             <option>Standard Chartered</option>
                             <option>Stanbic</option>
                             <option>ZABG</option>
@@ -4006,7 +4007,7 @@ async function confirmProcessPayroll() {
             await loadDashboardStats();
             if (data.archive_saved) {
                 if (confirm('✅ ' + label + ' payroll processed for ' + data.processed + ' employees!\n\nExcel archive saved. Download now?')) {
-                    downloadCurrentPayroll();
+                    downloadCurrentPayroll(data.archive_id);
                 }
             } else {
                 let msg = '✅ ' + label + ' payroll processed for ' + data.processed + ' employees!';
@@ -4207,29 +4208,17 @@ async function deleteCurrentPayrollRun() {
     }
 }
 
-function downloadCurrentPayroll() {
+function downloadCurrentPayroll(archiveId) {
+    if (archiveId) {
+        window.open(`/api/hr/payroll/archives/${archiveId}/download`, '_blank');
+        return;
+    }
     const select = document.getElementById('payrollPeriodSelect');
     const val = select?.value || '';
     const parts = val.split('|');
     const period = parts[0] || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
     const runVer = parts[1] || null;
-
-    // Try downloading by period+version via the archives list
-    fetch('/api/hr/payroll/archives')
-        .then(r => r.json())
-        .then(data => {
-            if (data.success && data.data) {
-                // Find matching archive
-                const match = data.data.find(a => a.period === period && (!runVer || a.run_version == runVer));
-                if (match) {
-                    window.open(`/api/hr/payroll/archives/${match.id}/download`, '_blank');
-                } else {
-                    // Fallback: try by period
-                    window.open(`/api/hr/payroll/archives/${period}/download`, '_blank');
-                }
-            }
-        })
-        .catch(() => window.open(`/api/hr/payroll/archives/${period}/download`, '_blank'));
+    window.open(`/api/hr/payroll/archives/${period}/download?_=${runVer || ''}`, '_blank');
 }
 
 // Close archives modal on overlay click
