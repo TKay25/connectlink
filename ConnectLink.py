@@ -14099,9 +14099,22 @@ def hr_payroll_api():
                     file_size = len(excel_bytes)
 
                     # Store in payroll_archives
+                    # Ensure the table exists (create if not - handles pre-migration DBs)
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS payroll_archives (
+                            id SERIAL PRIMARY KEY,
+                            period VARCHAR(20) NOT NULL,
+                            filename VARCHAR(255) NOT NULL,
+                            file_data BYTEA NOT NULL,
+                            file_size INT DEFAULT 0,
+                            employee_count INT DEFAULT 0,
+                            total_gross DECIMAL(15,2) DEFAULT 0,
+                            total_net DECIMAL(15,2) DEFAULT 0,
+                            generated_by VARCHAR(100),
+                            generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
                     filename = f"Payroll_{period}.xlsx"
-                    # Delete existing archive for this period first (avoids ON CONFLICT issues
-                    # if the unique constraint doesn't exist on older tables)
                     cursor.execute("DELETE FROM payroll_archives WHERE period = %s", (period,))
                     cursor.execute("""
                         INSERT INTO payroll_archives (period, filename, file_data, file_size, employee_count, total_gross, total_net, generated_by)
@@ -14845,6 +14858,21 @@ def hr_payroll_archives():
     """List all payroll archive periods."""
     try:
         with get_db() as (cursor, connection):
+            # Ensure table exists (handles pre-migration DBs)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS payroll_archives (
+                    id SERIAL PRIMARY KEY,
+                    period VARCHAR(20) NOT NULL,
+                    filename VARCHAR(255) NOT NULL,
+                    file_data BYTEA NOT NULL,
+                    file_size INT DEFAULT 0,
+                    employee_count INT DEFAULT 0,
+                    total_gross DECIMAL(15,2) DEFAULT 0,
+                    total_net DECIMAL(15,2) DEFAULT 0,
+                    generated_by VARCHAR(100),
+                    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
             cursor.execute("""
                 SELECT id, period, filename, file_size, employee_count,
                        total_gross, total_net, generated_by, generated_at

@@ -3840,6 +3840,12 @@ async function loadPayroll() {
     try {
         const now = new Date();
         const period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        // Update the period display
+        const periodEl = document.getElementById('payrollPeriod');
+        if (periodEl) {
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            periodEl.textContent = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+        }
         const res = await fetch(`/api/hr/payroll?period=${period}`);
         const data = await res.json();
         const tbody = document.getElementById('payrollTableBody');
