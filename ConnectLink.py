@@ -13525,6 +13525,15 @@ def hr_employee_detail(emp_id):
             return jsonify({'success': False, 'error': 'Access denied: cannot delete employees.'}), 403
         try:
             with get_db() as (cursor, connection):
+                # Also remove from admin_users and connectlinkusers if linked
+                cursor.execute("SELECT email, first_name, last_name FROM hr_employees WHERE id = %s", (emp_id,))
+                emp_data = cursor.fetchone()
+                if emp_data:
+                    email = emp_data[0] or ''
+                    first = emp_data[1] or ''
+                    last = emp_data[2] or ''
+                    # Try to remove from admin_users by id or email
+                    cursor.execute("DELETE FROM admin_users WHERE id = %s OR email = %s", (emp_id, email))
                 cursor.execute("DELETE FROM hr_employees WHERE id = %s", (emp_id,))
                 connection.commit()
                 return jsonify({'success': True, 'message': 'Employee removed'})
