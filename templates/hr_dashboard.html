@@ -1273,10 +1273,12 @@
 
             <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
                 <div class="hr-stat-card">
-                    <div class="stat-icon blue"><i class="bi bi-people"></i></div>
+                    <div class="stat-icon blue"><i class="bi bi-calendar-range"></i></div>
                     <div class="stat-body">
                         <div class="stat-label">Payroll Period</div>
-                        <div class="stat-value" style="font-size:0.8rem;" id="payrollPeriod">June 2026</div>
+                        <select id="payrollPeriodSelect" onchange="loadPayroll(this.value)" style="font-size:0.7rem;padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;background:white;width:100%;max-width:160px;cursor:pointer;margin-top:2px;">
+                            <option value="">Loading...</option>
+                        </select>
                     </div>
                 </div>
                 <div class="hr-stat-card">
@@ -2388,11 +2390,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     const dateEl = document.getElementById('currentDate');
     if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', options);
-
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'];
-    const periodEl = document.getElementById('payrollPeriod');
-    if (periodEl) periodEl.textContent = monthNames[now.getMonth()] + ' ' + now.getFullYear();
 
     // Load data
     loadDashboardStats();
@@ -3836,16 +3833,38 @@ async function loadAttendance() {
 }
 
 // ===== PAYROLL =====
-async function loadPayroll() {
+async function loadPayroll(period) {
     try {
-        const now = new Date();
-        const period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-        // Update the period display
-        const periodEl = document.getElementById('payrollPeriod');
-        if (periodEl) {
-            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-            periodEl.textContent = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+        const select = document.getElementById('payrollPeriodSelect');
+        if (!select) return;
+
+        // If no period specified, load available periods and pick the latest
+        if (!period) {
+            try {
+                const periodsRes = await fetch('/api/hr/payroll/periods');
+                const periodsData = await periodsRes.json();
+                if (periodsData.success && periodsData.data && periodsData.data.length > 0) {
+                    select.innerHTML = periodsData.data.map(p => {
+                        const [y, m] = p.split('-');
+                        const label = ['January','February','March','April','May','June','July','August','September','October','November','December'][parseInt(m)-1] + ' ' + y;
+                        return `<option value="${p}">${label}</option>`;
+                    }).join('');
+                    // Auto-select the latest period (already first since ORDER BY DESC)
+                    period = periodsData.data[0];
+                    select.value = period;
+                } else {
+                    select.innerHTML = '<option value="">No payroll processed</option>';
+                    // Fall back to current month display
+                    const now = new Date();
+                    period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                }
+            } catch(e) {
+                select.innerHTML = '<option value="">Error loading periods</option>';
+                const now = new Date();
+                period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+            }
         }
+
         const res = await fetch(`/api/hr/payroll?period=${period}`);
         const data = await res.json();
         const tbody = document.getElementById('payrollTableBody');
@@ -3921,7 +3940,7 @@ async function processPayroll() {
         const data = await res.json();
         document.getElementById('hrLoader').classList.remove('active');
         if (data.success) {
-            await loadPayroll();
+            await loadPayroll();  // This will refresh dropdown and select latest period
             await loadDashboardStats();
             if (data.archive_saved) {
                 if (confirm('✅ Payroll processed for ' + data.processed + ' employees!\n\nExcel archive saved. Download now?')) {
@@ -4094,8 +4113,8 @@ function downloadPayrollArchive(archiveId, period) {
 }
 
 function downloadCurrentPayroll() {
-    const now = new Date();
-    const period = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const select = document.getElementById('payrollPeriodSelect');
+    const period = select?.value || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
     window.open(`/api/hr/payroll/archives/${period}/download`, '_blank');
 }
 

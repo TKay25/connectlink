@@ -13826,6 +13826,20 @@ def hr_attendance_api():
             return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/hr/payroll/periods', methods=['GET'])
+def hr_payroll_periods():
+    """Return list of distinct periods that have payroll data, newest first."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT DISTINCT period FROM hr_payroll ORDER BY period DESC
+            """)
+            periods = [r[0] for r in cursor.fetchall()]
+            return jsonify({'success': True, 'data': periods})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/hr/payroll', methods=['GET', 'POST'])
 def hr_payroll_api():
     """HR: List payroll records or process payroll for a period"""
