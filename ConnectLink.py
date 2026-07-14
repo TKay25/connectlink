@@ -14253,14 +14253,37 @@ def hr_paye_list_tables():
     """List all uploaded PAYE tax tables."""
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT t.id, t.name, t.description, t.filename, t.period,
-                       t.is_active, t.uploaded_by, t.uploaded_at,
-                       COALESCE((SELECT COUNT(*) FROM paye_tax_brackets WHERE table_id = t.id), 0) as bracket_count,
-                       t.month_start, t.month_end
-                FROM paye_tax_tables t
-                ORDER BY t.uploaded_at DESC
-            """)
+            # Use information_schema to check if month_start/month_end columns exist
+            # (they may not exist if the app hasn't run the startup migration)
+            try:
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'paye_tax_tables' AND column_name IN ('month_start', 'month_end')
+                """)
+                existing_cols = {r[0] for r in cursor.fetchall()}
+            except Exception:
+                existing_cols = set()
+
+            has_month_cols = 'month_start' in existing_cols and 'month_end' in existing_cols
+
+            if has_month_cols:
+                cursor.execute("""
+                    SELECT t.id, t.name, t.description, t.filename, t.period,
+                           t.is_active, t.uploaded_by, t.uploaded_at,
+                           COALESCE((SELECT COUNT(*) FROM paye_tax_brackets WHERE table_id = t.id), 0) as bracket_count,
+                           t.month_start, t.month_end
+                    FROM paye_tax_tables t
+                    ORDER BY t.uploaded_at DESC
+                """)
+            else:
+                cursor.execute("""
+                    SELECT t.id, t.name, t.description, t.filename, t.period,
+                           t.is_active, t.uploaded_by, t.uploaded_at,
+                           COALESCE((SELECT COUNT(*) FROM paye_tax_brackets WHERE table_id = t.id), 0) as bracket_count,
+                           NULL as month_start, NULL as month_end
+                    FROM paye_tax_tables t
+                    ORDER BY t.uploaded_at DESC
+                """)
             rows = cursor.fetchall()
             tables = []
             for r in rows:
@@ -14281,11 +14304,28 @@ def hr_paye_get_table(table_id):
     """Get a specific PAYE tax table with its brackets."""
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT id, name, description, filename, period, is_active, uploaded_by, uploaded_at,
-                       month_start, month_end
-                FROM paye_tax_tables WHERE id = %s
-            """, (table_id,))
+            # Check if month_start/month_end columns exist (safety for pre-migration DB)
+            try:
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'paye_tax_tables' AND column_name = 'month_start'
+                """)
+                has_ms = cursor.fetchone() is not None
+            except Exception:
+                has_ms = False
+
+            if has_ms:
+                cursor.execute("""
+                    SELECT id, name, description, filename, period, is_active, uploaded_by, uploaded_at,
+                           month_start, month_end
+                    FROM paye_tax_tables WHERE id = %s
+                """, (table_id,))
+            else:
+                cursor.execute("""
+                    SELECT id, name, description, filename, period, is_active, uploaded_by, uploaded_at,
+                           NULL as month_start, NULL as month_end
+                    FROM paye_tax_tables WHERE id = %s
+                """, (table_id,))
             t = cursor.fetchone()
             if not t:
                 return jsonify({'success': False, 'error': 'Table not found'}), 404
@@ -14481,12 +14521,30 @@ def hr_paye_get_active():
     """Get the currently active PAYE tax table with brackets."""
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT id, name, description, filename, period, uploaded_by, uploaded_at,
-                       month_start, month_end
-                FROM paye_tax_tables WHERE is_active = TRUE
-                LIMIT 1
-            """)
+            # Check if month_start/month_end columns exist
+            try:
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'paye_tax_tables' AND column_name = 'month_start'
+                """)
+                has_ms = cursor.fetchone() is not None
+            except Exception:
+                has_ms = False
+
+            if has_ms:
+                cursor.execute("""
+                    SELECT id, name, description, filename, period, uploaded_by, uploaded_at,
+                           month_start, month_end
+                    FROM paye_tax_tables WHERE is_active = TRUE
+                    LIMIT 1
+                """)
+            else:
+                cursor.execute("""
+                    SELECT id, name, description, filename, period, uploaded_by, uploaded_at,
+                           NULL as month_start, NULL as month_end
+                    FROM paye_tax_tables WHERE is_active = TRUE
+                    LIMIT 1
+                """)
             t = cursor.fetchone()
             if not t:
                 return jsonify({'success': True, 'data': None, 'message': 'No active PAYE tax table'})
