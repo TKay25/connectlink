@@ -13825,6 +13825,25 @@ def hr_attendance_api():
             return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/hr/payroll/run/<period>/<int:run_version>', methods=['DELETE'])
+def hr_payroll_delete_run(period, run_version):
+    """Delete a specific payroll run (records + archive)."""
+    try:
+        with get_db() as (cursor, connection):
+            # Delete payroll records for this period+version
+            cursor.execute("DELETE FROM hr_payroll WHERE period = %s AND run_version = %s", (period, run_version))
+            deleted_count = cursor.rowcount
+            # Delete archive for this period+version
+            cursor.execute("DELETE FROM payroll_archives WHERE period = %s AND run_version = %s", (period, run_version))
+            connection.commit()
+            return jsonify({
+                'success': True,
+                'message': f'Deleted {deleted_count} payroll record(s) for {period} (Run {run_version})'
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/hr/payroll/periods', methods=['GET'])
 def hr_payroll_periods():
     """Return list of periods with available run versions, newest first."""
@@ -14136,7 +14155,7 @@ def hr_payroll_api():
                     file_size = len(excel_bytes)
 
                     # Store in payroll_archives
-                    # Ensure the table exists (create if not - handles pre-migration DBs)
+                    # Ensure the table exists and has run_version column (handles pre-migration DBs)
                     cursor.execute("""
                         CREATE TABLE IF NOT EXISTS payroll_archives (
                             id SERIAL PRIMARY KEY,
@@ -14152,6 +14171,10 @@ def hr_payroll_api():
                             generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         );
                     """)
+                    try:
+                        cursor.execute("ALTER TABLE payroll_archives ADD COLUMN IF NOT EXISTS run_version INT DEFAULT 1")
+                    except Exception:
+                        pass
                     filename = f"Payroll_{period}_v{run_version}.xlsx"
                     cursor.execute("""
                         INSERT INTO payroll_archives (period, filename, file_data, file_size, employee_count, total_gross, total_net, generated_by, run_version)
@@ -14170,11 +14193,15 @@ def hr_payroll_api():
                         archive_id = row[0]
 
                 except Exception as excel_err:
-                    print(f"Note: Could not generate payroll archive: {excel_err}")
+                    import traceback
+                    err_detail = traceback.format_exc()
+                    print(f"⚠️ Payroll archive error: {excel_err}")
+                    print(f"⚠️ Traceback: {err_detail}")
                     connection.commit()
                     archive_saved = False
                     archive_filename = None
                     archive_id = None
+                    archive_error = str(excel_err)
 
                 return jsonify({
                     'success': True,
@@ -14183,7 +14210,8 @@ def hr_payroll_api():
                     'run_version': run_version,
                     'archive_saved': archive_saved if 'archive_saved' in dir() else False,
                     'archive_id': archive_id if 'archive_id' in dir() else None,
-                    'archive_filename': archive_filename if 'archive_filename' in dir() else None
+                    'archive_filename': archive_filename if 'archive_filename' in dir() else None,
+                    'archive_error': archive_error if 'archive_error' in dir() else None
                 })
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
