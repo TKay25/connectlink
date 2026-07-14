@@ -1728,6 +1728,22 @@ def initialize_database_tables():
                 );
             """)
             connection.commit()
+            # Ensure unique constraint exists on period (might be missing on older tables)
+            try:
+                cursor.execute("""
+                    DO $$ BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint
+                            WHERE conrelid = 'payroll_archives'::regclass
+                            AND conname = 'payroll_archives_period_key'
+                        ) THEN
+                            ALTER TABLE payroll_archives ADD UNIQUE (period);
+                        END IF;
+                    END $$;
+                """)
+                connection.commit()
+            except Exception:
+                connection.rollback()
             print("✅ Payroll archives table initialized!")
 
     except Exception as e:
@@ -13445,7 +13461,7 @@ def hr_employee_detail(emp_id):
                     data.get('department'), data.get('subsidiary', ''), data.get('designation'), data.get('gender'),
                     data.get('dob'), data.get('marital_status'), data.get('nationality'),
                     data.get('date_joined'), data.get('current_leave_balance', 21),
-                    data.get('monthly_accumulation', 1.75), data.get('basic_salary', 0),
+                    data.get('monthly_accumulation', 1.75), data.get('salary', data.get('basic_salary', 0)),
                     data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
                     data.get('bank_holder_name'), data.get('bank_holder_surname'),
                     data.get('bank_name'), data.get('bank_account_number'),
@@ -14077,17 +14093,12 @@ def hr_payroll_api():
 
                     # Store in payroll_archives
                     filename = f"Payroll_{period}.xlsx"
+                    # Delete existing archive for this period first (avoids ON CONFLICT issues
+                    # if the unique constraint doesn't exist on older tables)
+                    cursor.execute("DELETE FROM payroll_archives WHERE period = %s", (period,))
                     cursor.execute("""
                         INSERT INTO payroll_archives (period, filename, file_data, file_size, employee_count, total_gross, total_net, generated_by)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (period) DO UPDATE SET
-                            file_data = EXCLUDED.file_data,
-                            file_size = EXCLUDED.file_size,
-                            employee_count = EXCLUDED.employee_count,
-                            total_gross = EXCLUDED.total_gross,
-                            total_net = EXCLUDED.total_net,
-                            generated_by = EXCLUDED.generated_by,
-                            generated_at = CURRENT_TIMESTAMP
                     """, (period, filename, psycopg2.Binary(excel_bytes), file_size, emp_count,
                           round(total_gross, 2), round(total_net, 2), user_name))
 
