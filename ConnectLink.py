@@ -14114,7 +14114,8 @@ def hr_payroll_api():
                     # Column widths
                     widths = [5, 16, 16, 18, 18, 12, 10, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
                     for i, w in enumerate(widths, 1):
-                        col_letter = ws.cell(row=1, column=i).column_letter
+                        from openpyxl.utils import get_column_letter
+                        col_letter = get_column_letter(i)
                         ws.column_dimensions[col_letter].width = w
 
                     # Banking Info Summary section
