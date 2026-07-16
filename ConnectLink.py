@@ -20478,7 +20478,7 @@ def run1(userid):
         payment_stats = calculate_payment_stats(datamain2)
 
         # Calculate total due = total overdue + future installments (everything still owed)
-        future_due = 0
+        future_due = 0.0
         for _, row in datamain2.iterrows():
             for i in range(1, 11):
                 due_date_col = f'installment{i}duedate'
@@ -20490,7 +20490,7 @@ def run1(userid):
                     
                     # Count installments due today or in the future
                     if due_date >= current_date:
-                        future_due += amount
+                        future_due += float(amount)
 
         # Total Due = overdue (unpaid past-due) + future installments + outstanding balances
         outstanding_total = float(datamain2['outstanding_balance'].sum()) if 'outstanding_balance' in datamain2.columns else 0
