@@ -30065,3 +30065,132 @@ def save_contractor_details():
         logging.error(f'Error saving contractor details: {str(e)}')
         return jsonify({'success': False, 'message': str(e)}), 500
 
+
+# ----------------------------------------------------------------------
+# Quick View Stats API – aggregated project activity for the dashboard modal
+# ----------------------------------------------------------------------
+@app.route('/api/quick-view-stats', methods=['GET'])
+def quick_view_stats():
+    """Return aggregated activity stats for the Quick View modal."""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    date_range = request.args.get('date_range', 'today')
+    now = datetime.now()
+
+    # Compute date boundaries (same logic as activity log)
+    if date_range == 'today':
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = None
+    elif date_range == 'yesterday':
+        start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif date_range == 'this_week':
+        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        end = None
+    elif date_range == 'last_week':
+        end = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = end - timedelta(days=7)
+    elif date_range == 'this_month':
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = None
+    elif date_range == 'last_month':
+        first_of_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = first_of_this
+        start = (first_of_this - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif date_range == 'this_year':
+        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = None
+    elif date_range == 'last_year':
+        start = now.replace(year=now.year-1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:  # 'all_time'
+        start = None
+        end = None
+
+    def date_filter(col):
+        """Return (sql_fragment, params_list) for the given time window."""
+        if start and end:
+            return f"{col} >= %s AND {col} < %s", [start, end]
+        elif start:
+            return f"{col} >= %s", [start]
+        else:
+            return "1=1", []
+
+    try:
+        with get_db() as (cursor, connection):
+            result = {}
+
+            # --- 1. ENQUIRIES ---
+            cond, params = date_filter("timestamp")
+            cursor.execute(f"SELECT COUNT(*) FROM connectlinkenquiries WHERE {cond}", params)
+            result['enquiries_new'] = cursor.fetchone()[0]
+
+            # Enquiries responded to – status not 'pending'
+            cond, params = date_filter("timestamp")
+            cursor.execute(f"SELECT COUNT(*) FROM connectlinkenquiries WHERE status IS NOT NULL AND status != 'pending' AND {cond}", params)
+            result['enquiries_responded'] = cursor.fetchone()[0]
+
+            # --- 2. QUOTATIONS ---
+            cond, params = date_filter("created_at")
+            cursor.execute(f"SELECT COUNT(*) FROM quotations WHERE {cond}", params)
+            result['quotations_created'] = cursor.fetchone()[0]
+
+            # Quotations downloaded
+            cond, params = date_filter("download_clicked_at")
+            cursor.execute(f"SELECT COUNT(*) FROM quotation_share_links WHERE download_clicked_at IS NOT NULL AND {cond}", params)
+            result['quotations_downloaded'] = cursor.fetchone()[0]
+
+            # Quotations sent via WhatsApp
+            cond, params = date_filter("created_at")
+            cursor.execute(f"SELECT COUNT(*) FROM quotation_whatsapp_send_logs WHERE send_status = 'success' AND {cond}", params)
+            result['quotations_sent'] = cursor.fetchone()[0]
+
+            # Quotation send failures
+            cond, params = date_filter("created_at")
+            cursor.execute(f"SELECT COUNT(*) FROM quotation_whatsapp_send_logs WHERE send_status != 'success' AND {cond}", params)
+            result['quotations_failed'] = cursor.fetchone()[0]
+
+            # --- 3. CONTRACTS ---
+            # Contracts sent
+            cond, params = date_filter("created_at")
+            cursor.execute(f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE send_status = 'sent' AND {cond}", params)
+            result['contracts_sent'] = cursor.fetchone()[0]
+
+            # Contracts downloaded (template fallback sent = PDF download)
+            cond, params = date_filter("created_at")
+            cursor.execute(f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE template_fallback_sent = TRUE AND {cond}", params)
+            result['contracts_downloaded'] = cursor.fetchone()[0]
+
+            # Contract send failures
+            cond, params = date_filter("created_at")
+            cursor.execute(f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE send_status != 'sent' AND {cond}", params)
+            result['contracts_failed'] = cursor.fetchone()[0]
+
+            # --- 4. CHATS NEEDING REPLY ---
+            # Free-text incoming messages (not button/list menu selections)
+            cond, params = date_filter("created_at")
+            cursor.execute(f"""
+                SELECT COUNT(*) FROM whatsapp_messages 
+                WHERE direction = 'incoming' 
+                AND (message_type IS NULL OR message_type NOT IN ('interactive', 'button', 'list', 'order'))
+                AND {cond}
+            """, params)
+            result['chats_needing_reply'] = cursor.fetchone()[0]
+
+            # --- 5. SYSTEM FAILURES / ERRORS ---
+            cond, params = date_filter("created_at")
+            cursor.execute(f"""
+                SELECT COUNT(*) FROM activity_log 
+                WHERE (action_type LIKE '%error%' OR action_type LIKE '%fail%' OR description LIKE '%error%' OR description LIKE '%fail%')
+                AND {cond}
+            """, params)
+            result['system_errors'] = cursor.fetchone()[0]
+
+            return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logging.error(f'Error in quick_view_stats: {str(e)}')
+        return jsonify({'success': False, 'message': str(e)}), 500
+

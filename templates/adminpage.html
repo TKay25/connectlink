@@ -4802,6 +4802,14 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                 </div>
                                 <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
                             </div>
+                            <div class="quick-action-card" onclick="openQuickViewModal()">
+                                <div class="action-icon"><i class="bi bi-speedometer2"></i></div>
+                                <div class="action-content">
+                                    <div class="action-title">Quick View</div>
+                                    <div class="action-description">Activity overview</div>
+                                </div>
+                                <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -28868,6 +28876,210 @@ body { font-family: Arial; margin: 20px; }
                 </tbody>
             </table>
         
+<!-- ===== QUICK VIEW MODAL ===== -->
+<div id="quickViewModal" class="modal-overlay">
+    <div class="modal-container xlarge" style="max-width:900px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-speedometer2"></i> QUICK VIEW <span id="quickViewPeriod" style="font-size:0.6rem;font-weight:400;opacity:0.7;">— Today</span></h3>
+            <button class="close-modal" onclick="closeModal('quickViewModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height:75vh;overflow-y:auto;">
+            <!-- Date Filter -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:8px 12px;background:linear-gradient(135deg,#f0f4ff,#e8eeff);border-radius:10px;border:1px solid rgba(30,42,86,0.08);">
+                <i class="bi bi-funnel" style="color:#1E2A56;font-size:0.8rem;"></i>
+                <select id="quickViewDateFilter" onchange="loadQuickViewStats()" style="flex:1;padding:5px 10px;border:1px solid rgba(30,42,86,0.15);border-radius:6px;font-size:0.75rem;background:white;color:#1E2A56;font-weight:500;">
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="this_week">This Week</option>
+                    <option value="last_week">Last Week</option>
+                    <option value="this_month">This Month</option>
+                    <option value="last_month">Last Month</option>
+                    <option value="this_year">This Year</option>
+                    <option value="last_year">Last Year</option>
+                    <option value="all_time">All Time</option>
+                </select>
+                <span id="quickViewLoading" style="display:none;font-size:0.7rem;color:#C12B3E;"><i class="bi bi-arrow-clockwise spinning"></i></span>
+            </div>
+
+            <!-- Flash Cards Grid -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;">
+                
+                <!-- ENQUIRIES -->
+                <div class="qv-card" style="background:linear-gradient(135deg,#e8f0fe,#dce6fa);border:1px solid rgba(30,42,86,0.1);border-radius:12px;padding:10px 12px;transition:all 0.2s;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <div style="width:24px;height:24px;border-radius:6px;background:#1E2A56;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-person-badge-fill"></i></div>
+                        <span style="font-size:0.65rem;font-weight:700;color:#1E2A56;text-transform:uppercase;letter-spacing:0.3px;">Enquiries</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">New</span>
+                        <span id="qvEnquiriesNew" style="font-weight:700;color:#1E2A56;">—</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Responded</span>
+                        <span id="qvEnquiriesResponded" style="font-weight:700;color:#2e7d32;">—</span>
+                    </div>
+                </div>
+
+                <!-- QUOTATIONS -->
+                <div class="qv-card" style="background:linear-gradient(135deg,#fce8eb,#fce0e4);border:1px solid rgba(193,43,62,0.1);border-radius:12px;padding:10px 12px;transition:all 0.2s;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <div style="width:24px;height:24px;border-radius:6px;background:#C12B3E;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-file-text"></i></div>
+                        <span style="font-size:0.65rem;font-weight:700;color:#C12B3E;text-transform:uppercase;letter-spacing:0.3px;">Quotations</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Created</span>
+                        <span id="qvQuotationsCreated" style="font-weight:700;color:#1E2A56;">—</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Downloaded</span>
+                        <span id="qvQuotationsDownloaded" style="font-weight:700;color:#0d6efd;">—</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Sent via WhatsApp</span>
+                        <span id="qvQuotationsSent" style="font-weight:700;color:#2e7d32;">—</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Failed</span>
+                        <span id="qvQuotationsFailed" style="font-weight:700;color:#dc3545;">—</span>
+                    </div>
+                </div>
+
+                <!-- CONTRACTS -->
+                <div class="qv-card" style="background:linear-gradient(135deg,#e6f7e6,#d8f0d8);border:1px solid rgba(46,125,50,0.1);border-radius:12px;padding:10px 12px;transition:all 0.2s;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <div style="width:24px;height:24px;border-radius:6px;background:#2e7d32;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-file-earmark-check"></i></div>
+                        <span style="font-size:0.65rem;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:0.3px;">Contracts</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Sent</span>
+                        <span id="qvContractsSent" style="font-weight:700;color:#2e7d32;">—</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Downloaded</span>
+                        <span id="qvContractsDownloaded" style="font-weight:700;color:#0d6efd;">—</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Failed</span>
+                        <span id="qvContractsFailed" style="font-weight:700;color:#dc3545;">—</span>
+                    </div>
+                </div>
+
+                <!-- CHATS NEEDING REPLY -->
+                <div class="qv-card" style="background:linear-gradient(135deg,#fff3e0,#ffe8cc);border:1px solid rgba(239,108,0,0.1);border-radius:12px;padding:10px 12px;transition:all 0.2s;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <div style="width:24px;height:24px;border-radius:6px;background:#ef6c00;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-chat-dots"></i></div>
+                        <span style="font-size:0.65rem;font-weight:700;color:#ef6c00;text-transform:uppercase;letter-spacing:0.3px;">Chats</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Need Reply</span>
+                        <span id="qvChatsNeedingReply" style="font-weight:700;color:#ef6c00;">—</span>
+                    </div>
+                    <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(239,108,0,0.15);font-size:0.6rem;color:#5a678a;">
+                        <i class="bi bi-info-circle"></i> Free-text messages not from menus
+                    </div>
+                </div>
+
+                <!-- SYSTEM ERRORS -->
+                <div class="qv-card" style="background:linear-gradient(135deg,#fce8eb,#f5d0d4);border:1px solid rgba(220,53,69,0.1);border-radius:12px;padding:10px 12px;transition:all 0.2s;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <div style="width:24px;height:24px;border-radius:6px;background:#dc3545;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-exclamation-triangle"></i></div>
+                        <span style="font-size:0.65rem;font-weight:700;color:#dc3545;text-transform:uppercase;letter-spacing:0.3px;">System</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                        <span style="color:#5a678a;">Errors / Failures</span>
+                        <span id="qvSystemErrors" style="font-weight:700;color:#dc3545;">—</span>
+                    </div>
+                    <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(220,53,69,0.15);font-size:0.6rem;color:#5a678a;">
+                        <i class="bi bi-info-circle"></i> Logged system issues
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('quickViewModal')" style="font-size:0.7rem;padding:4px 14px;">Close</button>
+            <button type="button" class="btn btn-primary" onclick="loadQuickViewStats()" style="font-size:0.7rem;padding:4px 14px;">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.qv-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+@keyframes qvSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.spinning {
+    animation: qvSpin 0.8s linear infinite;
+    display:inline-block;
+}
+</style>
+
+<script>
+// Quick View Modal functions
+function openQuickViewModal() {
+    document.getElementById('quickViewDateFilter').value = 'today';
+    openModal('quickViewModal');
+    setTimeout(loadQuickViewStats, 200);
+}
+
+function loadQuickViewStats() {
+    const filter = document.getElementById('quickViewDateFilter').value;
+    const loading = document.getElementById('quickViewLoading');
+    const period = document.getElementById('quickViewPeriod');
+    
+    loading.style.display = 'inline-block';
+    
+    // Update period label
+    const labels = {
+        'today': 'Today',
+        'yesterday': 'Yesterday',
+        'this_week': 'This Week',
+        'last_week': 'Last Week',
+        'this_month': 'This Month',
+        'last_month': 'Last Month',
+        'this_year': 'This Year',
+        'last_year': 'Last Year',
+        'all_time': 'All Time'
+    };
+    period.textContent = '\u2014 ' + (labels[filter] || 'Today');
+    
+    fetch('/api/quick-view-stats?date_range=' + filter)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            loading.style.display = 'none';
+            if (!data.success) return;
+            var d = data.data;
+            setText('qvEnquiriesNew', d.enquiries_new);
+            setText('qvEnquiriesResponded', d.enquiries_responded);
+            setText('qvQuotationsCreated', d.quotations_created);
+            setText('qvQuotationsDownloaded', d.quotations_downloaded);
+            setText('qvQuotationsSent', d.quotations_sent);
+            setText('qvQuotationsFailed', d.quotations_failed);
+            setText('qvContractsSent', d.contracts_sent);
+            setText('qvContractsDownloaded', d.contracts_downloaded);
+            setText('qvContractsFailed', d.contracts_failed);
+            setText('qvChatsNeedingReply', d.chats_needing_reply);
+            setText('qvSystemErrors', d.system_errors);
+        })
+        .catch(function() {
+            loading.style.display = 'none';
+        });
+}
+
+function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = (val !== null && val !== undefined) ? val : '\u2014';
+}
+</script>
+
 <!-- ===== PAGE FOOTER ===== -->
 
 <footer class="app-footer">
