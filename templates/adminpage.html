@@ -38838,10 +38838,16 @@ function loadQuickViewStats() {
     period.textContent = '\u2014 ' + (labels[filter] || 'Today');
     
     fetch('/api/quick-view-stats?date_range=' + filter)
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            if (!r.ok) { console.error('Quick View API error:', r.status, r.statusText); }
+            return r.json();
+        })
         .then(function(data) {
             loading.style.display = 'none';
-            if (!data.success) return;
+            if (!data.success) {
+                console.error('Quick View API returned error:', data.message || 'unknown');
+                return;
+            }
             var d = data.data;
             setText('qvEnquiriesNew', d.enquiries_new);
             setText('qvEnquiriesResponded', d.enquiries_responded);
@@ -38855,8 +38861,9 @@ function loadQuickViewStats() {
             setText('qvChatsNeedingReply', d.chats_needing_reply);
             setText('qvSystemErrors', d.system_errors);
         })
-        .catch(function() {
+        .catch(function(err) {
             loading.style.display = 'none';
+            console.error('Quick View fetch failed:', err);
         });
 }
 
