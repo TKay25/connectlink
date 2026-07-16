@@ -3767,6 +3767,36 @@ window.openSentContractsModal = window.openSentContractsModal || function() {
 };
 window.loadSentContracts = window.loadSentContracts || function() {
     console.log('loadSentContracts (early init)');
+    var c = document.getElementById('sentContractsContainer');
+    var s = document.getElementById('sentContractsSummary');
+    if(!c||!s) return;
+    s.textContent='Loading...';
+    c.innerHTML='<p class="text-muted" style="padding:20px;">Loading...</p>';
+    fetch('/api/get-sent-contracts').then(function(r){return r.json()}).then(function(result){
+        if(result.success){
+            var rows=result.data||[];
+            s.textContent=rows.length+' contract(s) sent via WhatsApp';
+            if(rows.length===0){
+                c.innerHTML='<p class="text-muted" style="padding:20px;">No contracts have been sent via WhatsApp yet.</p>';
+                return;
+            }
+            var h='<div style="overflow-x:auto;border:1px solid #dee2e6;border-radius:6px;background:white;"><table style="width:100%;border-collapse:collapse;"><thead style="position:sticky;top:0;background-color:#0A1A3A;z-index:10;color:white;"><tr><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">#</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Client</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Project</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">WhatsApp</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Sent</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Type</th></tr></thead><tbody>';
+            for(var i=0;i<rows.length;i++){
+                var r=rows[i];
+                var sentAt=r.createdAt?new Date(r.createdAt).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'N/A';
+                var badge=r.fallbackSent?'<span style="background:#fff3cd;color:#7a5a00;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">Template</span>':'<span style="background:#d1ecf1;color:#0c5460;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">PDF Doc</span>';
+                h+='<tr style="border-bottom:1px solid #ddd;background-color:'+(i%2===0?'#fff':'#f9f9f9')+'"><td style="padding:6px;text-align:center;">'+(r.projectId||'')+'</td><td style="padding:6px;">'+(r.clientName||'')+'</td><td style="padding:6px;">'+(r.projectName||'')+'</td><td style="padding:6px;">'+(r.whatsappNumber||'')+'</td><td style="padding:6px;text-align:center;white-space:nowrap;">'+sentAt+'</td><td style="padding:6px;text-align:center;">'+badge+'</td></tr>';
+            }
+            h+='</tbody></table></div>';
+            c.innerHTML=h;
+        } else {
+            s.textContent='Unable to load';
+            c.innerHTML='<p class="text-danger" style="padding:20px;">Error: '+(result.error||'Unknown error')+'</p>';
+        }
+    }).catch(function(err){
+        s.textContent='Unable to load';
+        c.innerHTML='<p class="text-danger" style="padding:20px;">Error: '+err.message+'</p>';
+    });
 };
 window.sendContractViaWhatsAppDirect = window.sendContractViaWhatsAppDirect || function() {
     console.log('sendContractViaWhatsAppDirect (early init)');

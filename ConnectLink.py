@@ -29012,6 +29012,23 @@ def get_sent_contracts():
     """Retrieve contract WhatsApp send history from the contract outbox."""
     try:
         with get_db() as (cursor, connection):
+            # Ensure table exists (in case server hasn't been restarted)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS contract_whatsapp_outbox (
+                    id SERIAL PRIMARY KEY,
+                    outbound_message_id VARCHAR(255) NOT NULL UNIQUE,
+                    project_id INT NOT NULL,
+                    whatsapp_number VARCHAR(20),
+                    client_name VARCHAR(255),
+                    project_description TEXT DEFAULT '',
+                    project_location VARCHAR(255) DEFAULT '',
+                    template_fallback_sent BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            connection.commit()
+
             cursor.execute("""
                 SELECT
                     co.id,
