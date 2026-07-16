@@ -20118,6 +20118,15 @@ def run1(userid):
             else f'<span class="badge bg-primary font-weight-bold">{x}</span>'
         )
         
+        # Step 4b: Wrap ALL other text values in badge spans (like QREF) so text has pill background
+        for col in datamain.columns:
+            if col not in ('QREF', 'Action'):
+                datamain[col] = datamain[col].apply(
+                    lambda x: f'<span class="badge-text-cell">{x}</span>' 
+                    if pd.notna(x) and str(x).strip() != '' 
+                    else '<span class="badge-text-cell">—</span>'
+                )
+        
         # Step 5: Create Action column AFTER everything else
         datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row['clientname']}" data-client-wa-number="{row['clientwanumber']}" onclick="return handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
         
