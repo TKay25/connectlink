@@ -38705,11 +38705,11 @@ document.addEventListener('DOMContentLoaded', function(){
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">New</span>
-                        <span id="qvEnquiriesNew" style="font-weight:700;color:#1E2A56;">—</span>
+                        <span id="qvEnquiriesNew" class="qv-clickable" onclick="openQvDetails('enquiries_new')" style="font-weight:700;color:#1E2A56;cursor:pointer;text-decoration:underline dotted rgba(30,42,86,0.3);">—</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Responded</span>
-                        <span id="qvEnquiriesResponded" style="font-weight:700;color:#2e7d32;">—</span>
+                        <span id="qvEnquiriesResponded" class="qv-clickable" onclick="openQvDetails('enquiries_responded')" style="font-weight:700;color:#2e7d32;cursor:pointer;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
                     </div>
                 </div>
 
@@ -38721,19 +38721,19 @@ document.addEventListener('DOMContentLoaded', function(){
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Created</span>
-                        <span id="qvQuotationsCreated" style="font-weight:700;color:#1E2A56;">—</span>
+                        <span id="qvQuotationsCreated" class="qv-clickable" onclick="openQvDetails('quotations_created')" style="font-weight:700;color:#1E2A56;cursor:pointer;text-decoration:underline dotted rgba(30,42,86,0.3);">—</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Downloaded</span>
-                        <span id="qvQuotationsDownloaded" style="font-weight:700;color:#0d6efd;">—</span>
+                        <span id="qvQuotationsDownloaded" class="qv-clickable" onclick="openQvDetails('quotations_downloaded')" style="font-weight:700;color:#0d6efd;cursor:pointer;text-decoration:underline dotted rgba(13,110,253,0.3);">—</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Sent via WhatsApp</span>
-                        <span id="qvQuotationsSent" style="font-weight:700;color:#2e7d32;">—</span>
+                        <span id="qvQuotationsSent" class="qv-clickable" onclick="openQvDetails('quotations_sent')" style="font-weight:700;color:#2e7d32;cursor:pointer;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Failed</span>
-                        <span id="qvQuotationsFailed" style="font-weight:700;color:#dc3545;">—</span>
+                        <span id="qvQuotationsFailed" class="qv-clickable" onclick="openQvDetails('quotations_failed')" style="font-weight:700;color:#dc3545;cursor:pointer;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
                     </div>
                 </div>
 
@@ -38745,15 +38745,15 @@ document.addEventListener('DOMContentLoaded', function(){
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Sent</span>
-                        <span id="qvContractsSent" style="font-weight:700;color:#2e7d32;">—</span>
+                        <span id="qvContractsSent" class="qv-clickable" onclick="openQvDetails('contracts_sent')" style="font-weight:700;color:#2e7d32;cursor:pointer;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Downloaded</span>
-                        <span id="qvContractsDownloaded" style="font-weight:700;color:#0d6efd;">—</span>
+                        <span id="qvContractsDownloaded" class="qv-clickable" onclick="openQvDetails('contracts_downloaded')" style="font-weight:700;color:#0d6efd;cursor:pointer;text-decoration:underline dotted rgba(13,110,253,0.3);">—</span>
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Failed</span>
-                        <span id="qvContractsFailed" style="font-weight:700;color:#dc3545;">—</span>
+                        <span id="qvContractsFailed" class="qv-clickable" onclick="openQvDetails('contracts_failed')" style="font-weight:700;color:#dc3545;cursor:pointer;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
                     </div>
                 </div>
 
@@ -38765,7 +38765,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Need Reply</span>
-                        <span id="qvChatsNeedingReply" style="font-weight:700;color:#ef6c00;">—</span>
+                        <span id="qvChatsNeedingReply" class="qv-clickable" onclick="openQvDetails('chats_needing_reply')" style="font-weight:700;color:#ef6c00;cursor:pointer;text-decoration:underline dotted rgba(239,108,0,0.3);">—</span>
                     </div>
                     <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(239,108,0,0.15);font-size:0.6rem;color:#5a678a;">
                         <i class="bi bi-info-circle"></i> Free-text messages not from menus
@@ -38780,7 +38780,7 @@ document.addEventListener('DOMContentLoaded', function(){
                     </div>
                     <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
                         <span style="color:#5a678a;">Errors / Failures</span>
-                        <span id="qvSystemErrors" style="font-weight:700;color:#dc3545;">—</span>
+                        <span id="qvSystemErrors" class="qv-clickable" onclick="openQvDetails('system_errors')" style="font-weight:700;color:#dc3545;cursor:pointer;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
                     </div>
                     <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(220,53,69,0.15);font-size:0.6rem;color:#5a678a;">
                         <i class="bi bi-info-circle"></i> Logged system issues
@@ -38798,10 +38798,40 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
 </div>
 
+<!-- ===== QUICK VIEW DETAILS MODAL ===== -->
+<div id="quickViewDetailsModal" class="modal-overlay">
+    <div class="modal-container xlarge" style="max-width:900px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-list-ul"></i> <span id="qvdTitle">Details</span></h3>
+            <button class="close-modal" onclick="closeModal('quickViewDetailsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height:75vh;overflow-y:auto;position:relative;padding:8px 12px;">
+            <div id="qvdLoading" style="display:none;text-align:center;padding:40px 0;">
+                <div style="width:32px;height:32px;border:3px solid #e0e0e0;border-top-color:#C12B3E;border-radius:50%;animation:qvLoadSpin 0.7s linear infinite;margin:0 auto 10px;"></div>
+                <span style="font-size:0.75rem;color:#5a678a;font-weight:500;">Loading...</span>
+            </div>
+            <div id="qvdEmpty" style="display:none;text-align:center;padding:40px 0;color:#5a678a;">
+                <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:8px;opacity:0.4;"></i>
+                <span style="font-size:0.75rem;font-weight:500;">No records found for this period.</span>
+            </div>
+            <div id="qvdContent" style="display:none;"></div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('quickViewDetailsModal')" style="font-size:0.7rem;padding:4px 14px;">Close</button>
+        </div>
+    </div>
+</div>
+
 <style>
 .qv-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.qv-clickable:hover {
+    opacity:0.8;
+    text-decoration:underline solid !important;
 }
 @keyframes qvSpin {
     from { transform: rotate(0deg); }
@@ -38882,6 +38912,153 @@ function loadQuickViewStats() {
 function setText(id, val) {
     var el = document.getElementById(id);
     if (el) el.textContent = (val !== null && val !== undefined) ? val : '\u2014';
+}
+
+// === QUICK VIEW DETAILS DRILL-DOWN ===
+var qvdCategoryInfo = {
+    'enquiries_new':         { icon:'bi-person-badge-fill', title:'New Enquiries', cols:['WhatsApp','Type','Message','Date'] },
+    'enquiries_responded':   { icon:'bi-person-badge-fill', title:'Responded Enquiries', cols:['WhatsApp','Type','Status','Date'] },
+    'quotations_created':    { icon:'bi-file-text', title:'Quotations Created', cols:['Client','WhatsApp','Amount','Capturer','Date'] },
+    'quotations_downloaded': { icon:'bi-file-text', title:'Quotations Downloaded', cols:['Client','WhatsApp','Amount','Date'] },
+    'quotations_sent':       { icon:'bi-file-text', title:'Quotations Sent via WhatsApp', cols:['Client','WhatsApp','Amount','Date'] },
+    'quotations_failed':     { icon:'bi-file-text', title:'Quotations Failed', cols:['Client','WhatsApp','Amount','Status','Date'] },
+    'contracts_sent':        { icon:'bi-file-earmark-check', title:'Contracts Sent', cols:['Client','Project','Amount','Capturer','Date'] },
+    'contracts_downloaded':  { icon:'bi-file-earmark-check', title:'Contracts Downloaded', cols:['Client','Project','Amount','Capturer','Date'] },
+    'contracts_failed':      { icon:'bi-file-earmark-check', title:'Contracts Failed', cols:['Client','Project','Amount','Capturer','Date'] },
+    'chats_needing_reply':   { icon:'bi-chat-dots', title:'Chats Needing Reply', cols:['Username','WA ID','Message','Date','Action'] },
+    'system_errors':         { icon:'bi-exclamation-triangle', title:'System Errors / Failures', cols:['Type','Description','Date'] }
+};
+
+function openQvDetails(category) {
+    var info = qvdCategoryInfo[category];
+    if (!info) return;
+    
+    document.getElementById('qvdTitle').innerHTML = '<i class="bi ' + info.icon + '"></i> ' + info.title;
+    document.getElementById('qvdLoading').style.display = 'block';
+    document.getElementById('qvdEmpty').style.display = 'none';
+    document.getElementById('qvdContent').style.display = 'none';
+    document.getElementById('qvdContent').innerHTML = '';
+    
+    openModal('quickViewDetailsModal');
+    
+    var filter = document.getElementById('quickViewDateFilter').value;
+    
+    fetch('/api/quick-view-details?category=' + category + '&date_range=' + filter)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('qvdLoading').style.display = 'none';
+            if (!data.success || !data.data || data.data.length === 0) {
+                document.getElementById('qvdEmpty').style.display = 'block';
+                return;
+            }
+            
+            var records = data.data;
+            var html = '<div style="font-size:0.65rem;color:#5a678a;margin-bottom:8px;"><i class="bi bi-info-circle"></i> Showing ' + records.length + ' record(s)</div>';
+            html += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.7rem;">';
+            html += '<thead><tr style="background:#1E293B;color:white;">';
+            
+            var cols = info.cols;
+            for (var ci = 0; ci < cols.length; ci++) {
+                html += '<th style="padding:6px 8px;text-align:left;white-space:nowrap;">' + cols[ci] + '</th>';
+            }
+            html += '</tr></thead><tbody>';
+            
+            for (var i = 0; i < records.length; i++) {
+                var r = records[i];
+                var bg = (i % 2 === 0) ? 'background:#fff;' : 'background:#f8f9fa;';
+                html += '<tr style="' + bg + 'border-bottom:1px solid #eee;">';
+                
+                if (category === 'enquiries_new' || category === 'enquiries_responded') {
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.whatsapp || '—') + '</td>';
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.type || '—') + '</td>';
+                    if (category === 'enquiries_new') {
+                        html += '<td style="padding:5px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escAttr(r.message || '') + '">' + escHtml((r.message || '—').substring(0,100)) + '</td>';
+                    } else {
+                        html += '<td style="padding:5px 8px;">' + escHtml(r.status || '—') + '</td>';
+                    }
+                    html += '<td style="padding:5px 8px;white-space:nowrap;">' + escHtml(r.timestamp || '') + '</td>';
+                }
+                else if (category === 'quotations_created' || category === 'quotations_downloaded' || category === 'quotations_sent' || category === 'quotations_failed') {
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.client_name || '—') + '</td>';
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.whatsapp || '—') + '</td>';
+                    html += '<td style="padding:5px 8px;font-weight:600;">' + formatCurrency(r.amount) + '</td>';
+                    if (category === 'quotations_created') {
+                        html += '<td style="padding:5px 8px;">' + escHtml(r.capturer || '—') + '</td>';
+                    } else if (category === 'quotations_failed') {
+                        html += '<td style="padding:5px 8px;color:#dc3545;">' + escHtml(r.status || '—') + '</td>';
+                    }
+                    html += '<td style="padding:5px 8px;white-space:nowrap;">' + escHtml(r.timestamp || '') + '</td>';
+                }
+                else if (category === 'contracts_sent' || category === 'contracts_downloaded' || category === 'contracts_failed') {
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.client_name || '—') + '</td>';
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.project_name || '—') + '</td>';
+                    html += '<td style="padding:5px 8px;font-weight:600;">' + formatCurrency(r.amount) + '</td>';
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.capturer || '—') + '</td>';
+                    html += '<td style="padding:5px 8px;white-space:nowrap;">' + escHtml(r.timestamp || '') + '</td>';
+                }
+                else if (category === 'chats_needing_reply') {
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.username || '—') + '</td>';
+                    html += '<td style="padding:5px 8px;">' + escHtml(r.wa_id || '—') + '</td>';
+                    html += '<td style="padding:5px 8px;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escAttr(r.message || '') + '">' + escHtml((r.message || '—').substring(0,150)) + '</td>';
+                    html += '<td style="padding:5px 8px;white-space:nowrap;">' + escHtml(r.timestamp || '') + '</td>';
+                    html += '<td style="padding:5px 8px;"><button class="btn btn-sm btn-outline-primary" style="font-size:0.6rem;padding:2px 8px;" onclick="openChatFor(\'' + escAttr(r.wa_id || '') + '\',\'' + escAttr(r.username || '') + '\')"><i class="bi bi-chat"></i> Chat</button></td>';
+                }
+                else if (category === 'system_errors') {
+                    html += '<td style="padding:5px 8px;"><span class="badge bg-danger" style="font-size:0.6rem;">' + escHtml(r.action_type || 'Error') + '</span></td>';
+                    html += '<td style="padding:5px 8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escAttr(r.description || '') + '">' + escHtml((r.description || '—').substring(0,200)) + '</td>';
+                    html += '<td style="padding:5px 8px;white-space:nowrap;">' + escHtml(r.timestamp || '') + '</td>';
+                }
+                
+                html += '</tr>';
+            }
+            
+            html += '</tbody></table></div>';
+            document.getElementById('qvdContent').innerHTML = html;
+            document.getElementById('qvdContent').style.display = 'block';
+        })
+        .catch(function(err) {
+            document.getElementById('qvdLoading').style.display = 'none';
+            document.getElementById('qvdContent').innerHTML = '<div style="text-align:center;padding:20px;color:#dc3545;"><i class="bi bi-exclamation-circle"></i> Failed to load details.</div>';
+            document.getElementById('qvdContent').style.display = 'block';
+            console.error('Quick View details fetch failed:', err);
+        });
+}
+
+function openChatFor(waId, username) {
+    closeModal('quickViewDetailsModal');
+    // Find the user's chat in WhatsApp panel - navigate to it
+    // Try to use the existing chat system
+    var chatSelect = document.getElementById('chatContactSelect');
+    if (chatSelect) {
+        // Look for option matching wa_id
+        for (var i = 0; i < chatSelect.options.length; i++) {
+            var opt = chatSelect.options[i];
+            if (opt.value && (opt.value.indexOf(waId) >= 0 || waId.indexOf(opt.value) >= 0)) {
+                chatSelect.value = opt.value;
+                chatSelect.dispatchEvent(new Event('change'));
+                break;
+            }
+        }
+    }
+    // Also try to find and click a chat contact
+    var contacts = document.querySelectorAll('.chat-contact-item, .contact-item');
+    for (var i = 0; i < contacts.length; i++) {
+        var c = contacts[i];
+        if (c.textContent.indexOf(waId) >= 0 || c.textContent.indexOf(username) >= 0) {
+            c.click();
+            break;
+        }
+    }
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 </script>
 

@@ -30194,3 +30194,256 @@ def quick_view_stats():
         logging.error(f'Error in quick_view_stats: {str(e)}\n{tb}')
         return jsonify({'success': False, 'message': str(e)}), 500
 
+
+@app.route('/api/quick-view-details', methods=['GET'])
+def quick_view_details():
+    """Return detailed records for a specific Quick View category."""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    category = request.args.get('category', '')
+    date_range = request.args.get('date_range', 'today')
+    now = datetime.now()
+
+    # Compute date boundaries
+    if date_range == 'today':
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = None
+    elif date_range == 'yesterday':
+        start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif date_range == 'this_week':
+        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        end = None
+    elif date_range == 'last_week':
+        end = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = end - timedelta(days=7)
+    elif date_range == 'this_month':
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = None
+    elif date_range == 'last_month':
+        first_of_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = first_of_this
+        start = (first_of_this - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif date_range == 'this_year':
+        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = None
+    elif date_range == 'last_year':
+        start = now.replace(year=now.year-1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        start = None
+        end = None
+
+    def date_filter(col):
+        if start and end:
+            return f"{col} >= %s AND {col} < %s", [start, end]
+        elif start:
+            return f"{col} >= %s", [start]
+        else:
+            return "1=1", []
+
+    try:
+        with get_db() as (cursor, connection):
+            records = []
+
+            if category == 'enquiries_new':
+                cond2, p2 = date_filter("timestamp")
+                cursor.execute(f"""
+                    SELECT id, wanumber, enqtype, message, timestamp
+                    FROM connectlinkenquiries WHERE {cond2}
+                    ORDER BY timestamp DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'whatsapp': r[1], 'type': r[2],
+                        'message': (r[3] or '')[:200], 'timestamp': str(r[4]) if r[4] else ''
+                    })
+
+            elif category == 'enquiries_responded':
+                cond2, p2 = date_filter("timestamp")
+                cursor.execute(f"""
+                    SELECT id, wanumber, enqtype, status, timestamp
+                    FROM connectlinkenquiries WHERE status IS NOT NULL AND status != 'pending' AND {cond2}
+                    ORDER BY timestamp DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'whatsapp': r[1], 'type': r[2],
+                        'status': r[3] or '', 'timestamp': str(r[4]) if r[4] else ''
+                    })
+
+            elif category == 'quotations_created':
+                cond2, p2 = date_filter("created_at")
+                cursor.execute(f"""
+                    SELECT q.id, q.client_name, q.client_whatsapp, q.total_amount, q.created_at,
+                           COALESCE(u.username, u2.username, 'Admin') as capturer
+                    FROM quotations q
+                    LEFT JOIN system_users u ON CAST(u.id AS TEXT) = CAST(q.created_by AS TEXT)
+                    LEFT JOIN system_users u2 ON u2.id = q.created_by
+                    WHERE {cond2}
+                    ORDER BY q.created_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'client_name': r[1] or 'Unknown', 'whatsapp': r[2] or '',
+                        'amount': float(r[3]) if r[3] else 0,
+                        'timestamp': str(r[4]) if r[4] else '',
+                        'capturer': r[5] or 'Admin'
+                    })
+
+            elif category == 'quotations_downloaded':
+                cond2, p2 = date_filter("download_clicked_at")
+                cursor.execute(f"""
+                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_amount, ql.download_clicked_at
+                    FROM quotation_share_links ql
+                    JOIN quotations q ON q.id = ql.quotation_id
+                    WHERE ql.download_clicked_at IS NOT NULL AND {cond2}
+                    ORDER BY ql.download_clicked_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'client_name': r[1] or 'Unknown', 'whatsapp': r[2] or '',
+                        'amount': float(r[3]) if r[3] else 0,
+                        'timestamp': str(r[4]) if r[4] else ''
+                    })
+
+            elif category == 'quotations_sent':
+                cond2, p2 = date_filter("created_at")
+                cursor.execute(f"""
+                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_amount, ql.created_at
+                    FROM quotation_whatsapp_send_logs ql
+                    JOIN quotations q ON q.id = ql.quotation_id
+                    WHERE ql.send_status = 'success' AND {cond2}
+                    ORDER BY ql.created_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'client_name': r[1] or 'Unknown', 'whatsapp': r[2] or '',
+                        'amount': float(r[3]) if r[3] else 0,
+                        'timestamp': str(r[4]) if r[4] else ''
+                    })
+
+            elif category == 'quotations_failed':
+                cond2, p2 = date_filter("created_at")
+                cursor.execute(f"""
+                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_amount, ql.created_at, ql.send_status
+                    FROM quotation_whatsapp_send_logs ql
+                    JOIN quotations q ON q.id = ql.quotation_id
+                    WHERE ql.send_status != 'success' AND {cond2}
+                    ORDER BY ql.created_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'client_name': r[1] or 'Unknown', 'whatsapp': r[2] or '',
+                        'amount': float(r[3]) if r[3] else 0,
+                        'timestamp': str(r[4]) if r[4] else '',
+                        'status': r[5] or ''
+                    })
+
+            elif category == 'contracts_sent':
+                cond2, p2 = date_filter("c.created_at")
+                cursor.execute(f"""
+                    SELECT c.id, p.clientname, p.projectname, p.totalcontractamount,
+                           p.projectadministratorname, c.created_at
+                    FROM contract_whatsapp_outbox c
+                    JOIN allprojects p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
+                    WHERE c.send_status = 'sent' AND {cond2}
+                    ORDER BY c.created_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'client_name': r[1] or 'Unknown', 'project_name': r[2] or '',
+                        'amount': float(r[3]) if r[3] else 0,
+                        'capturer': r[4] or 'N/A', 'timestamp': str(r[5]) if r[5] else ''
+                    })
+
+            elif category == 'contracts_downloaded':
+                cond2, p2 = date_filter("c.created_at")
+                cursor.execute(f"""
+                    SELECT c.id, p.clientname, p.projectname, p.totalcontractamount,
+                           p.projectadministratorname, c.created_at
+                    FROM contract_whatsapp_outbox c
+                    JOIN allprojects p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
+                    WHERE c.template_fallback_sent = TRUE AND {cond2}
+                    ORDER BY c.created_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'client_name': r[1] or 'Unknown', 'project_name': r[2] or '',
+                        'amount': float(r[3]) if r[3] else 0,
+                        'capturer': r[4] or 'N/A', 'timestamp': str(r[5]) if r[5] else ''
+                    })
+
+            elif category == 'contracts_failed':
+                cond2, p2 = date_filter("c.created_at")
+                cursor.execute(f"""
+                    SELECT c.id, p.clientname, p.projectname, p.totalcontractamount,
+                           p.projectadministratorname, c.created_at
+                    FROM contract_whatsapp_outbox c
+                    JOIN allprojects p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
+                    WHERE c.send_status != 'sent' AND {cond2}
+                    ORDER BY c.created_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'client_name': r[1] or 'Unknown', 'project_name': r[2] or '',
+                        'amount': float(r[3]) if r[3] else 0,
+                        'capturer': r[4] or 'N/A', 'timestamp': str(r[5]) if r[5] else ''
+                    })
+
+            elif category == 'chats_needing_reply':
+                cond2, p2 = date_filter("created_at")
+                cursor.execute(f"""
+                    SELECT id, username, wa_id, message, created_at
+                    FROM whatsapp_messages
+                    WHERE direction = 'incoming'
+                    AND (message_type IS NULL OR message_type NOT IN ('interactive', 'button', 'list', 'order'))
+                    AND {cond2}
+                    ORDER BY created_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'username': r[1] or 'Unknown', 'wa_id': r[2] or '',
+                        'message': (r[3] or '')[:500], 'timestamp': str(r[4]) if r[4] else ''
+                    })
+
+            elif category == 'system_errors':
+                cond2, p2 = date_filter("created_at")
+                cursor.execute(f"""
+                    SELECT id, action_type, description, created_at
+                    FROM activity_log
+                    WHERE (action_type LIKE '%%error%%' OR action_type LIKE '%%fail%%' OR description LIKE '%%error%%' OR description LIKE '%%fail%%')
+                    AND {cond2}
+                    ORDER BY created_at DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'action_type': r[1] or '',
+                        'description': (r[2] or '')[:500],
+                        'timestamp': str(r[3]) if r[3] else ''
+                    })
+
+            else:
+                return jsonify({'success': False, 'message': f'Unknown category: {category}'}), 400
+
+            return jsonify({'success': True, 'data': records, 'category': category})
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        logging.error(f'Error in quick_view_details: {str(e)}\n{tb}')
+        return jsonify({'success': False, 'message': str(e)}), 500
+
