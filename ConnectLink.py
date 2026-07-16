@@ -30106,49 +30106,52 @@ def quick_view_stats():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
 
     date_range = request.args.get('date_range', 'today')
-    now = datetime.now()
-
-    # Compute date boundaries (same logic as activity log)
-    if date_range == 'today':
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = None
-    elif date_range == 'yesterday':
-        start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif date_range == 'this_week':
-        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-        end = None
-    elif date_range == 'last_week':
-        end = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-        start = end - timedelta(days=7)
-    elif date_range == 'this_month':
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = None
-    elif date_range == 'last_month':
-        first_of_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = first_of_this
-        start = (first_of_this - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    elif date_range == 'this_year':
-        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = None
-    elif date_range == 'last_year':
-        start = now.replace(year=now.year-1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-    else:  # 'all_time'
-        start = None
-        end = None
-
-    def date_filter(col):
-        """Return (sql_fragment, params_list) for the given time window."""
-        if start and end:
-            return f"{col} >= %s AND {col} < %s", [start, end]
-        elif start:
-            return f"{col} >= %s", [start]
-        else:
-            return "1=1", []
 
     try:
         with get_db() as (cursor, connection):
+            # Get current time from database (respects session timezone Africa/Harare)
+            cursor.execute("SELECT NOW()")
+            db_now = cursor.fetchone()[0]
+
+            # Compute date boundaries using database time (timezone-aware)
+            if date_range == 'today':
+                start = db_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                end = None
+            elif date_range == 'yesterday':
+                start = (db_now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                end = db_now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif date_range == 'this_week':
+                start = (db_now - timedelta(days=db_now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                end = None
+            elif date_range == 'last_week':
+                end = (db_now - timedelta(days=db_now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                start = end - timedelta(days=7)
+            elif date_range == 'this_month':
+                start = db_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = None
+            elif date_range == 'last_month':
+                first_of_this = db_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = first_of_this
+                start = (first_of_this - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            elif date_range == 'this_year':
+                start = db_now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = None
+            elif date_range == 'last_year':
+                start = db_now.replace(year=db_now.year-1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = db_now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:  # 'all_time'
+                start = None
+                end = None
+
+            def date_filter(col):
+                """Return (sql_fragment, params_list) for the given time window."""
+                if start and end:
+                    return f"{col} >= %s AND {col} < %s", [start, end]
+                elif start:
+                    return f"{col} >= %s", [start]
+                else:
+                    return "1=1", []
+
             result = {}
 
             def safe_count(sql, params_list):
@@ -30233,50 +30236,53 @@ def quick_view_details():
 
     category = request.args.get('category', '')
     date_range = request.args.get('date_range', 'today')
-    now = datetime.now()
-
-    # Compute date boundaries
-    if date_range == 'today':
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = None
-    elif date_range == 'yesterday':
-        start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif date_range == 'this_week':
-        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-        end = None
-    elif date_range == 'last_week':
-        end = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-        start = end - timedelta(days=7)
-    elif date_range == 'this_month':
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = None
-    elif date_range == 'last_month':
-        first_of_this = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = first_of_this
-        start = (first_of_this - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    elif date_range == 'this_year':
-        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = None
-    elif date_range == 'last_year':
-        start = now.replace(year=now.year-1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-    else:
-        start = None
-        end = None
-
-    logging.info(f'quick_view_details called: category={category!r}, date_range={date_range!r}, start={start!r}, end={end!r}')
-
-    def date_filter(col):
-        if start and end:
-            return f"{col} >= %s AND {col} < %s", [start, end]
-        elif start:
-            return f"{col} >= %s", [start]
-        else:
-            return "1=1", []
 
     try:
         with get_db() as (cursor, connection):
+            # Get current time from database (respects session timezone Africa/Harare)
+            cursor.execute("SELECT NOW()")
+            db_now = cursor.fetchone()[0]
+            
+            # Compute date boundaries using database time (timezone-aware)
+            if date_range == 'today':
+                start = db_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                end = None
+            elif date_range == 'yesterday':
+                start = (db_now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                end = db_now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif date_range == 'this_week':
+                start = (db_now - timedelta(days=db_now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                end = None
+            elif date_range == 'last_week':
+                end = (db_now - timedelta(days=db_now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                start = end - timedelta(days=7)
+            elif date_range == 'this_month':
+                start = db_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = None
+            elif date_range == 'last_month':
+                first_of_this = db_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = first_of_this
+                start = (first_of_this - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            elif date_range == 'this_year':
+                start = db_now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = None
+            elif date_range == 'last_year':
+                start = db_now.replace(year=db_now.year-1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = db_now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:
+                start = None
+                end = None
+
+            logging.info(f'quick_view_details called: category={category!r}, date_range={date_range!r}, start={start!r}, end={end!r}, db_now={db_now!r}')
+
+            def date_filter(col):
+                if start and end:
+                    return f"{col} >= %s AND {col} < %s", [start, end]
+                elif start:
+                    return f"{col} >= %s", [start]
+                else:
+                    return "1=1", []
+
             records = []
 
             if category == 'enquiries_new':
@@ -30309,6 +30315,12 @@ def quick_view_details():
 
             elif category == 'quotations_created':
                 cond2, p2 = date_filter("created_at")
+                # Debug: run the same COUNT query as stats to verify consistency
+                debug_count_sql = f"SELECT COUNT(*) FROM quotations WHERE {cond2}"
+                cursor.execute(debug_count_sql, p2)
+                debug_count = cursor.fetchone()[0]
+                logging.info(f'[QV_DEBUG] quotations_created COUNT={debug_count}, cond={cond2!r}, params={p2!r}')
+                
                 cursor.execute(f"""
                     SELECT q.id, q.client_name, q.client_whatsapp, q.total_amount, q.created_at,
                            COALESCE(u.username, u2.username, 'Admin') as capturer
@@ -30319,6 +30331,8 @@ def quick_view_details():
                     ORDER BY q.created_at DESC LIMIT 100
                 """, p2)
                 rows = cursor.fetchall()
+                logging.info(f'[QV_DEBUG] quotations_created SELECT returned {len(rows)} rows')
+                
                 for r in rows:
                     records.append({
                         'id': r[0], 'client_name': r[1] or 'Unknown', 'whatsapp': r[2] or '',

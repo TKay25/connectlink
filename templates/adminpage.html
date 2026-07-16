@@ -38957,15 +38957,27 @@ function openQvDetails(category) {
     var info = qvdCategoryInfo[category];
     if (!info) return;
     
-    document.getElementById('qvdTitle').innerHTML = '<i class="bi ' + info.icon + '"></i> ' + info.title;
+    var filter = document.getElementById('quickViewDateFilter').value;
+    var filterLabels = {
+        'today': 'Today',
+        'yesterday': 'Yesterday',
+        'this_week': 'This Week',
+        'last_week': 'Last Week',
+        'this_month': 'This Month',
+        'last_month': 'Last Month',
+        'this_year': 'This Year',
+        'last_year': 'Last Year',
+        'all_time': 'All Time'
+    };
+    var filterLabel = filterLabels[filter] || 'Today';
+    
+    document.getElementById('qvdTitle').innerHTML = '<i class="bi ' + info.icon + '"></i> ' + info.title + ' <span style="font-size:0.6rem;font-weight:400;opacity:0.7;">&mdash; ' + filterLabel + '</span>';
     document.getElementById('qvdLoading').style.display = 'block';
     document.getElementById('qvdEmpty').style.display = 'none';
     document.getElementById('qvdContent').style.display = 'none';
     document.getElementById('qvdContent').innerHTML = '';
     
     openModal('quickViewDetailsModal');
-    
-    var filter = document.getElementById('quickViewDateFilter').value;
     
     var url = '/api/quick-view-details?category=' + category + '&date_range=' + filter;
     console.log('[QV Details] Fetching:', url);
