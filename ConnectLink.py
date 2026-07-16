@@ -30183,7 +30183,7 @@ def quick_view_stats():
             cond, params = date_filter("created_at")
             result['system_errors'] = safe_count(f"""
                 SELECT COUNT(*) FROM activity_log 
-                WHERE (action_type LIKE '%error%' OR action_type LIKE '%fail%' OR description LIKE '%error%' OR description LIKE '%fail%')
+                WHERE (action_type LIKE '%%error%%' OR action_type LIKE '%%fail%%' OR description LIKE '%%error%%' OR description LIKE '%%fail%%')
                 AND {cond}
             """, params)
 
