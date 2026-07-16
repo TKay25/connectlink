@@ -30123,74 +30123,74 @@ def quick_view_stats():
         with get_db() as (cursor, connection):
             result = {}
 
+            def safe_count(sql, params_list):
+                """Execute COUNT query and safely extract the result."""
+                cursor.execute(sql, params_list)
+                row = cursor.fetchone()
+                if row is None:
+                    return 0
+                return row[0]
+
             # --- 1. ENQUIRIES ---
             cond, params = date_filter("timestamp")
-            cursor.execute(f"SELECT COUNT(*) FROM connectlinkenquiries WHERE {cond}", params)
-            result['enquiries_new'] = cursor.fetchone()[0]
+            result['enquiries_new'] = safe_count(
+                f"SELECT COUNT(*) FROM connectlinkenquiries WHERE {cond}", params)
 
-            # Enquiries responded to – status not 'pending'
             cond, params = date_filter("timestamp")
-            cursor.execute(f"SELECT COUNT(*) FROM connectlinkenquiries WHERE status IS NOT NULL AND status != 'pending' AND {cond}", params)
-            result['enquiries_responded'] = cursor.fetchone()[0]
+            result['enquiries_responded'] = safe_count(
+                f"SELECT COUNT(*) FROM connectlinkenquiries WHERE status IS NOT NULL AND status != 'pending' AND {cond}", params)
 
             # --- 2. QUOTATIONS ---
             cond, params = date_filter("created_at")
-            cursor.execute(f"SELECT COUNT(*) FROM quotations WHERE {cond}", params)
-            result['quotations_created'] = cursor.fetchone()[0]
+            result['quotations_created'] = safe_count(
+                f"SELECT COUNT(*) FROM quotations WHERE {cond}", params)
 
-            # Quotations downloaded
             cond, params = date_filter("download_clicked_at")
-            cursor.execute(f"SELECT COUNT(*) FROM quotation_share_links WHERE download_clicked_at IS NOT NULL AND {cond}", params)
-            result['quotations_downloaded'] = cursor.fetchone()[0]
+            result['quotations_downloaded'] = safe_count(
+                f"SELECT COUNT(*) FROM quotation_share_links WHERE download_clicked_at IS NOT NULL AND {cond}", params)
 
-            # Quotations sent via WhatsApp
             cond, params = date_filter("created_at")
-            cursor.execute(f"SELECT COUNT(*) FROM quotation_whatsapp_send_logs WHERE send_status = 'success' AND {cond}", params)
-            result['quotations_sent'] = cursor.fetchone()[0]
+            result['quotations_sent'] = safe_count(
+                f"SELECT COUNT(*) FROM quotation_whatsapp_send_logs WHERE send_status = 'success' AND {cond}", params)
 
-            # Quotation send failures
             cond, params = date_filter("created_at")
-            cursor.execute(f"SELECT COUNT(*) FROM quotation_whatsapp_send_logs WHERE send_status != 'success' AND {cond}", params)
-            result['quotations_failed'] = cursor.fetchone()[0]
+            result['quotations_failed'] = safe_count(
+                f"SELECT COUNT(*) FROM quotation_whatsapp_send_logs WHERE send_status != 'success' AND {cond}", params)
 
             # --- 3. CONTRACTS ---
-            # Contracts sent
             cond, params = date_filter("created_at")
-            cursor.execute(f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE send_status = 'sent' AND {cond}", params)
-            result['contracts_sent'] = cursor.fetchone()[0]
+            result['contracts_sent'] = safe_count(
+                f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE send_status = 'sent' AND {cond}", params)
 
-            # Contracts downloaded (template fallback sent = PDF download)
             cond, params = date_filter("created_at")
-            cursor.execute(f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE template_fallback_sent = TRUE AND {cond}", params)
-            result['contracts_downloaded'] = cursor.fetchone()[0]
+            result['contracts_downloaded'] = safe_count(
+                f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE template_fallback_sent = TRUE AND {cond}", params)
 
-            # Contract send failures
             cond, params = date_filter("created_at")
-            cursor.execute(f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE send_status != 'sent' AND {cond}", params)
-            result['contracts_failed'] = cursor.fetchone()[0]
+            result['contracts_failed'] = safe_count(
+                f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE send_status != 'sent' AND {cond}", params)
 
             # --- 4. CHATS NEEDING REPLY ---
-            # Free-text incoming messages (not button/list menu selections)
             cond, params = date_filter("created_at")
-            cursor.execute(f"""
+            result['chats_needing_reply'] = safe_count(f"""
                 SELECT COUNT(*) FROM whatsapp_messages 
                 WHERE direction = 'incoming' 
                 AND (message_type IS NULL OR message_type NOT IN ('interactive', 'button', 'list', 'order'))
                 AND {cond}
             """, params)
-            result['chats_needing_reply'] = cursor.fetchone()[0]
 
             # --- 5. SYSTEM FAILURES / ERRORS ---
             cond, params = date_filter("created_at")
-            cursor.execute(f"""
+            result['system_errors'] = safe_count(f"""
                 SELECT COUNT(*) FROM activity_log 
                 WHERE (action_type LIKE '%error%' OR action_type LIKE '%fail%' OR description LIKE '%error%' OR description LIKE '%fail%')
                 AND {cond}
             """, params)
-            result['system_errors'] = cursor.fetchone()[0]
 
             return jsonify({'success': True, 'data': result})
     except Exception as e:
-        logging.error(f'Error in quick_view_stats: {str(e)}')
+        import traceback
+        tb = traceback.format_exc()
+        logging.error(f'Error in quick_view_stats: {str(e)}\n{tb}')
         return jsonify({'success': False, 'message': str(e)}), 500
 
