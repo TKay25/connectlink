@@ -20121,15 +20121,6 @@ def run1(userid):
         # Step 5: Create Action column (uses raw id/clientname values for data attributes)
         datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row['clientname']}" data-client-wa-number="{row['clientwanumber']}" onclick="return handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
         
-        # Step 5b: Wrap specific text columns in badge-style spans (like QREF)
-        # Do this AFTER Action column so data-id attributes use raw values
-        badge_columns = ['momid', 'clientname', 'projectname', 'projectadministratorname', 'datedepositorbullet', 'id']
-        for col in badge_columns:
-            if col in datamain.columns:
-                datamain[col] = datamain[col].astype(str).apply(
-                    lambda x: f'<span class="badge-text-cell">{x}</span>'
-                )
-        
         # Step 6: Sort by ID
         datamain = datamain.sort_values('id', ascending=False)
         
