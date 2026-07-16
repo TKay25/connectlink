@@ -3780,12 +3780,14 @@ window.loadSentContracts = window.loadSentContracts || function() {
                 c.innerHTML='<p class="text-muted" style="padding:20px;">No contracts have been sent via WhatsApp yet.</p>';
                 return;
             }
-            var h='<div style="overflow-x:auto;border:1px solid #dee2e6;border-radius:6px;background:white;"><table style="width:100%;border-collapse:collapse;"><thead style="position:sticky;top:0;background-color:#0A1A3A;z-index:10;color:white;"><tr><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">#</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Client</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Project</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">WhatsApp</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Sent</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Type</th></tr></thead><tbody>';
+            var h='<div style="overflow-x:auto;border:1px solid #dee2e6;border-radius:6px;background:white;"><table style="width:100%;border-collapse:collapse;"><thead style="position:sticky;top:0;background-color:#0A1A3A;z-index:10;color:white;"><tr><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">#</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Client</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">Project</th><th style="padding:5px 4px;text-align:left;border:1px solid #1E2A56;">WhatsApp</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Sent</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Type</th><th style="padding:5px 4px;text-align:center;border:1px solid #1E2A56;">Status</th></tr></thead><tbody>';
             for(var i=0;i<rows.length;i++){
                 var r=rows[i];
                 var sentAt=r.createdAt?new Date(r.createdAt).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'N/A';
                 var badge=r.fallbackSent?'<span style="background:#fff3cd;color:#7a5a00;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">Template</span>':'<span style="background:#d1ecf1;color:#0c5460;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">PDF Doc</span>';
-                h+='<tr style="border-bottom:1px solid #ddd;background-color:'+(i%2===0?'#fff':'#f9f9f9')+'"><td style="padding:6px;text-align:center;">'+(r.projectId||'')+'</td><td style="padding:6px;">'+(r.clientName||'')+'</td><td style="padding:6px;">'+(r.projectName||'')+'</td><td style="padding:6px;">'+(r.whatsappNumber||'')+'</td><td style="padding:6px;text-align:center;white-space:nowrap;">'+sentAt+'</td><td style="padding:6px;text-align:center;">'+badge+'</td></tr>';
+                var st=(r.sendStatus||'sent').toLowerCase();
+                var stBadge=st==='sent'?'<span style="background:#d4edda;color:#155724;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">Sent</span>':st==='failed'?'<span style="background:#f8d7da;color:#721c24;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">Failed</span>':'<span style="background:#e2e3e5;color:#383d41;padding:3px 8px;border-radius:12px;font-size:0.65rem;font-weight:600;">'+(r.sendStatus||'Unknown')+'</span>';
+                h+='<tr style="border-bottom:1px solid #ddd;background-color:'+(i%2===0?'#fff':'#f9f9f9')+'"><td style="padding:6px;text-align:center;">'+(r.projectId||'')+'</td><td style="padding:6px;">'+(r.clientName||'')+'</td><td style="padding:6px;">'+(r.projectName||'')+'</td><td style="padding:6px;">'+(r.whatsappNumber||'')+'</td><td style="padding:6px;text-align:center;white-space:nowrap;">'+sentAt+'</td><td style="padding:6px;text-align:center;">'+badge+'</td><td style="padding:6px;text-align:center;">'+stBadge+'</td></tr>';
             }
             h+='</tbody></table></div>';
             c.innerHTML=h;
@@ -34334,6 +34336,7 @@ function renderGanttItemsList() {
                                     <th style="padding: 5px 4px; text-align: left; border: 1px solid #1E2A56;">WhatsApp</th>
                                     <th style="padding: 5px 4px; text-align: center; border: 1px solid #1E2A56;">Sent At</th>
                                     <th style="padding: 5px 4px; text-align: center; border: 1px solid #1E2A56;">Type</th>
+                                    <th style="padding: 5px 4px; text-align: center; border: 1px solid #1E2A56;">Status</th>
                                     <th style="padding: 5px 4px; text-align: center; border: 1px solid #1E2A56;">Action</th>
                                 </tr>
                             </thead>
@@ -34345,6 +34348,15 @@ function renderGanttItemsList() {
                     const typeBadge = row.fallbackSent
                         ? '<span style="background:#fff3cd; color:#7a5a00; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">Template</span>'
                         : '<span style="background:#d1ecf1; color:#0c5460; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">PDF Doc</span>';
+                    const status = (row.sendStatus || 'sent').toLowerCase();
+                    let statusBadge;
+                    if (status === 'sent') {
+                        statusBadge = '<span style="background:#d4edda; color:#155724; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">Sent</span>';
+                    } else if (status === 'failed') {
+                        statusBadge = '<span style="background:#f8d7da; color:#721c24; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">Failed</span>';
+                    } else {
+                        statusBadge = '<span style="background:#e2e3e5; color:#383d41; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">' + (row.sendStatus || 'Unknown') + '</span>';
+                    }
                     const bg = index % 2 === 0 ? '#fff' : '#f9f9f9';
                     html += `
                         <tr style="border-bottom: 1px solid #ddd; background-color: ${bg};">
@@ -34354,6 +34366,7 @@ function renderGanttItemsList() {
                             <td style="padding: 6px;">${row.whatsappNumber || 'N/A'}</td>
                             <td style="padding: 6px; text-align: center; white-space: nowrap;">${sentAt}</td>
                             <td style="padding: 6px; text-align: center;">${typeBadge}</td>
+                            <td style="padding: 6px; text-align: center;">${statusBadge}</td>
                             <td style="padding: 6px; text-align: center;">
                                 <a href="/download_contract/${row.projectId}" class="btn btn-sm btn-primary" style="padding:2px 8px; font-size:0.65rem;" target="_blank"><i class="bi bi-file-earmark-pdf"></i></a>
                                 <button class="btn btn-sm btn-success" style="padding:2px 8px; font-size:0.65rem;" onclick="event.stopPropagation(); sendContractViaWhatsAppDirect(${row.projectId}, '${row.whatsappNumber}', '${row.clientName.replace(/'/g, "\\'")}')"><i class="bi bi-send"></i></button>

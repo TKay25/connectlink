@@ -744,10 +744,21 @@ def initialize_database_tables():
                     project_description TEXT DEFAULT '',
                     project_location VARCHAR(255) DEFAULT '',
                     template_fallback_sent BOOLEAN DEFAULT FALSE,
+                    send_status VARCHAR(20) NOT NULL DEFAULT 'sent',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+
+            # Add send_status column if missing on older databases
+            try:
+                cursor.execute("""
+                    ALTER TABLE contract_whatsapp_outbox
+                    ADD COLUMN IF NOT EXISTS send_status VARCHAR(20) NOT NULL DEFAULT 'sent'
+                """)
+                connection.commit()
+            except Exception:
+                connection.rollback()
 
             # Log WhatsApp quotation send outcomes for portal reporting
             cursor.execute("""
@@ -2449,6 +2460,15 @@ def webhook():
                                             contract_loc = contract_row[4] or ''
                                             contract_fallback_done = bool(contract_row[5])
 
+                                            # Mark as failed before attempting fallback
+                                            cursor.execute("""
+                                                UPDATE contract_whatsapp_outbox
+                                                SET send_status = 'failed',
+                                                    updated_at = CURRENT_TIMESTAMP
+                                                WHERE outbound_message_id = %s
+                                            """, (outbound_message_id,))
+                                            connection.commit()
+
                                             if contract_fallback_done:
                                                 print(f"ℹ️ Contract template fallback already sent for message_id={outbound_message_id}")
                                             elif not contract_number:
@@ -2464,6 +2484,7 @@ def webhook():
                                                 cursor.execute("""
                                                     UPDATE contract_whatsapp_outbox
                                                     SET template_fallback_sent = TRUE,
+                                                        send_status = 'sent',
                                                         updated_at = CURRENT_TIMESTAMP
                                                     WHERE outbound_message_id = %s
                                                 """, (outbound_message_id,))
@@ -18248,8 +18269,8 @@ def send_contract_whatsapp():
                         with get_db() as (oc, oconn):
                             oc.execute("""
                                 INSERT INTO contract_whatsapp_outbox
-                                (outbound_message_id, project_id, whatsapp_number, client_name, project_description, project_location)
-                                VALUES (%s, %s, %s, %s, %s, %s)
+                                (outbound_message_id, project_id, whatsapp_number, client_name, project_description, project_location, send_status)
+                                VALUES (%s, %s, %s, %s, %s, %s, 'sent')
                                 ON CONFLICT (outbound_message_id)
                                 DO UPDATE SET
                                     project_id = EXCLUDED.project_id,
@@ -18257,6 +18278,7 @@ def send_contract_whatsapp():
                                     client_name = EXCLUDED.client_name,
                                     project_description = EXCLUDED.project_description,
                                     project_location = EXCLUDED.project_location,
+                                    send_status = 'sent',
                                     updated_at = CURRENT_TIMESTAMP
                             """, (outbound_message_id, project_id, phone_clean, client_name, project_description, project_location))
                             oconn.commit()
@@ -18280,6 +18302,28 @@ def send_contract_whatsapp():
             # Fallback: send template with download button (works outside 24hr window)
             try:
                 send_contract_download_template(phone_clean, project_id, client_name, project_description, project_location)
+                # Also record the template fallback in the outbox so it appears in sent contracts
+                try:
+                    with get_db() as (oc, oconn):
+                        oc.execute("""
+                            INSERT INTO contract_whatsapp_outbox
+                            (outbound_message_id, project_id, whatsapp_number, client_name, project_description, project_location, template_fallback_sent, send_status)
+                            VALUES (%s, %s, %s, %s, %s, %s, TRUE, 'sent')
+                            ON CONFLICT (outbound_message_id)
+                            DO UPDATE SET
+                                project_id = EXCLUDED.project_id,
+                                whatsapp_number = EXCLUDED.whatsapp_number,
+                                client_name = EXCLUDED.client_name,
+                                project_description = EXCLUDED.project_description,
+                                project_location = EXCLUDED.project_location,
+                                template_fallback_sent = TRUE,
+                                send_status = 'sent',
+                                updated_at = CURRENT_TIMESTAMP
+                        """, (f"template_fallback_{project_id}_{int(time.time())}", project_id, phone_clean, client_name, project_description, project_location))
+                        oconn.commit()
+                except Exception as outbox_err2:
+                    print(f"⚠️ Could not persist template fallback outbox record: {outbox_err2}")
+
                 log_activity(
                     'contract_sent_whatsapp',
                     f'Contract for {client_name} ({project_name}) download template sent to {phone_clean}',
@@ -29023,11 +29067,22 @@ def get_sent_contracts():
                     project_description TEXT DEFAULT '',
                     project_location VARCHAR(255) DEFAULT '',
                     template_fallback_sent BOOLEAN DEFAULT FALSE,
+                    send_status VARCHAR(20) NOT NULL DEFAULT 'sent',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
             connection.commit()
+
+            # Add send_status column if missing on older databases
+            try:
+                cursor.execute("""
+                    ALTER TABLE contract_whatsapp_outbox
+                    ADD COLUMN IF NOT EXISTS send_status VARCHAR(20) NOT NULL DEFAULT 'sent'
+                """)
+                connection.commit()
+            except Exception:
+                connection.rollback()
 
             cursor.execute("""
                 SELECT
@@ -29037,6 +29092,7 @@ def get_sent_contracts():
                     COALESCE(NULLIF(p.projectname, ''), 'Contract') AS project_name,
                     COALESCE(co.whatsapp_number, p.clientwanumber::text, '') AS whatsapp_number,
                     co.template_fallback_sent,
+                    COALESCE(co.send_status, 'sent') AS send_status,
                     co.created_at,
                     co.updated_at
                 FROM contract_whatsapp_outbox co
@@ -29053,8 +29109,9 @@ def get_sent_contracts():
                     'projectName': row[3] or 'Contract',
                     'whatsappNumber': row[4] or '',
                     'fallbackSent': bool(row[5]),
-                    'createdAt': row[6].isoformat() if row[6] else None,
-                    'updatedAt': row[7].isoformat() if row[7] else None
+                    'sendStatus': row[6] or 'sent',
+                    'createdAt': row[7].isoformat() if row[7] else None,
+                    'updatedAt': row[8].isoformat() if row[8] else None
                 }
                 for row in rows
             ]
