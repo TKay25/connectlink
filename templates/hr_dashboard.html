@@ -2060,7 +2060,11 @@
                 <div class="row g-2 mb-2">
                     <div class="col-md-3">
                         <label class="form-label">Basic Salary (USD)</label>
-                        <input type="number" class="form-control" id="empSalary" step="0.01">
+                        <input type="number" class="form-control" id="empSalary" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Allowances (USD)</label>
+                        <input type="number" class="form-control" id="empAllowances" step="0.01" placeholder="0.00">
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Currency</label>
@@ -2069,6 +2073,12 @@
                             <option>ZWG</option>
                             <option>Mixed</option>
                         </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end" style="padding-bottom:2px;">
+                        <label class="d-flex align-items-center gap-2" style="cursor:pointer;font-size:0.7rem;font-weight:500;color:var(--text-primary);">
+                            <input type="checkbox" id="empOmitPayroll" style="width:14px;height:14px;cursor:pointer;">
+                            Omit from Payroll
+                        </label>
                     </div>
                 </div>
                 <div class="row g-2 mb-2" id="mixedCurrencyRow" style="display:none;">
@@ -2864,6 +2874,8 @@ async function saveEmployee() {
         leave_balance: 0,
         monthly_accrual: 0,
         salary: parseFloat(document.getElementById('empSalary').value) || 0,
+        allowances: parseFloat(document.getElementById('empAllowances').value) || 0,
+        omit_from_payroll: document.getElementById('empOmitPayroll').checked,
         currency: document.getElementById('empCurrency').value,
         usd_percent: parseFloat(document.getElementById('empUsdPercent').value) || 100,
         zwg_percent: parseFloat(document.getElementById('empZwgPercent').value) || 0,
@@ -2949,6 +2961,8 @@ async function viewEmployee(empId) {
         document.getElementById('empRole').value = emp.role || 'Ordinary User';
         document.getElementById('empStatus').value = emp.status || 'Active';
         document.getElementById('empSalary').value = emp.basic_salary || 0;
+        document.getElementById('empAllowances').value = emp.allowances || 0;
+        document.getElementById('empOmitPayroll').checked = emp.omit_from_payroll ? true : false;
         document.getElementById('empCurrency').value = emp.currency || 'USD';
         document.getElementById('empUsdPercent').value = emp.usd_percent || 100;
         document.getElementById('empZwgPercent').value = emp.zwg_percent || 0;

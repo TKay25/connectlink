@@ -1525,6 +1525,26 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"Note: Could not add subsidiary column to hr_employees: {e}")
 
+            # Add allowances column to hr_employees if not exists
+            try:
+                cursor.execute("""
+                    ALTER TABLE hr_employees
+                    ADD COLUMN IF NOT EXISTS allowances DECIMAL(12,2) DEFAULT 0
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add allowances column to hr_employees: {e}")
+
+            # Add omit_from_payroll column to hr_employees if not exists
+            try:
+                cursor.execute("""
+                    ALTER TABLE hr_employees
+                    ADD COLUMN IF NOT EXISTS omit_from_payroll BOOLEAN DEFAULT FALSE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add omit_from_payroll column to hr_employees: {e}")
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_leave_applications (
                     id SERIAL PRIMARY KEY,
@@ -13486,7 +13506,7 @@ def hr_employee_detail(emp_id):
                         'marital_status': '', 'nationality': 'Zimbabwean',
                         'date_joined': str(au[5])[:10] if au[5] else None,
                         'current_leave_balance': 21, 'monthly_accumulation': 1.75,
-                        'basic_salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'basic_salary': 0, 'allowances': 0, 'omit_from_payroll': False, 'employment_type': 'Permanent', 'status': 'Active',
                         'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
                         'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
                         'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
@@ -13508,7 +13528,7 @@ def hr_employee_detail(emp_id):
                         'marital_status': '', 'nationality': 'Zimbabwean',
                         'date_joined': str(clu[3])[:10] if clu[3] else None,
                         'current_leave_balance': 21, 'monthly_accumulation': 1.75,
-                        'basic_salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'basic_salary': 0, 'allowances': 0, 'omit_from_payroll': False, 'employment_type': 'Permanent', 'status': 'Active',
                         'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
                         'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
                         'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
@@ -13563,7 +13583,8 @@ def hr_employee_detail(emp_id):
                         role=%s, department=%s, subsidiary=%s, designation=%s, gender=%s, dob=%s,
                         marital_status=%s, nationality=%s, date_joined=%s,
                         current_leave_balance=%s, monthly_accumulation=%s,
-                        basic_salary=%s, employment_type=%s, status=%s,
+                        basic_salary=%s, allowances=%s, omit_from_payroll=%s,
+                        employment_type=%s, status=%s,
                         bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
                         bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
                         usd_percent=%s, zwg_percent=%s, exchange_rate=%s,
@@ -13575,7 +13596,10 @@ def hr_employee_detail(emp_id):
                     data.get('department'), data.get('subsidiary', ''), data.get('designation'), data.get('gender'),
                     data.get('dob'), data.get('marital_status'), data.get('nationality'),
                     data.get('date_joined'), data.get('current_leave_balance', 21),
-                    data.get('monthly_accumulation', 1.75), data.get('salary', data.get('basic_salary', 0)),
+                    data.get('monthly_accumulation', 1.75),
+                    data.get('salary', data.get('basic_salary', 0)),
+                    data.get('allowances', 0),
+                    data.get('omit_from_payroll', False),
                     data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
                     data.get('bank_holder_name'), data.get('bank_holder_surname'),
                     data.get('bank_name'), data.get('bank_account_number'),
@@ -14107,15 +14131,15 @@ def hr_payroll_api():
                 run_version = (cursor.fetchone()[0] or 0) + 1
 
                 cursor.execute("""
-                    SELECT id, first_name, last_name, basic_salary, usd_percent, zwg_percent, exchange_rate
-                    FROM hr_employees WHERE status = 'Active'
+                    SELECT id, first_name, last_name, basic_salary, allowances, usd_percent, zwg_percent, exchange_rate
+                    FROM hr_employees WHERE status = 'Active' AND (omit_from_payroll IS NULL OR omit_from_payroll = FALSE)
                 """)
                 employees = cursor.fetchall()
                 processed = 0
                 for emp in employees:
                     emp_id = emp[0]
                     basic = float(emp[3] or 0)
-                    allowances = 0
+                    allowances = float(emp[4] or 0)
                     gross = basic + allowances
 
                     # Calculate PAYE tax using monthly brackets directly
@@ -20453,8 +20477,8 @@ def run1(userid):
         # Calculate payment statistics
         payment_stats = calculate_payment_stats(datamain2)
 
-        # Also calculate total due (all amounts due by today)
-        total_due = 0
+        # Calculate total due = total overdue + future installments (everything still owed)
+        future_due = 0
         for _, row in datamain2.iterrows():
             for i in range(1, 11):
                 due_date_col = f'installment{i}duedate'
@@ -20464,9 +20488,13 @@ def run1(userid):
                     due_date = row[due_date_col].date()
                     amount = row.get(amount_col, 0) or 0
                     
-                    if due_date <= current_date:
-                        total_due += amount
+                    # Count installments due today or in the future
+                    if due_date >= current_date.date():
+                        future_due += amount
 
+        # Total Due = overdue (unpaid past-due) + future installments + outstanding balances
+        outstanding_total = float(datamain2['outstanding_balance'].sum()) if 'outstanding_balance' in datamain2.columns else 0
+        total_due = float(payment_stats['total_overdue']) + future_due + outstanding_total
         payment_stats['total_due'] = total_due
 
         # Calculate payment reminders data
