@@ -3760,6 +3760,17 @@ window.openSentQuotationsModal = window.openSentQuotationsModal || function() {
     if(typeof openModal==='function'){openModal('sentQuotationsModal');}
     if(typeof window.loadSentQuotations==='function'){window.loadSentQuotations();}
 };
+window.openSentContractsModal = window.openSentContractsModal || function() {
+    console.log('openSentContractsModal (early init)');
+    if(typeof openModal==='function'){openModal('sentContractsModal');}
+    if(typeof window.loadSentContracts==='function'){window.loadSentContracts();}
+};
+window.loadSentContracts = window.loadSentContracts || function() {
+    console.log('loadSentContracts (early init)');
+};
+window.sendContractViaWhatsAppDirect = window.sendContractViaWhatsAppDirect || function() {
+    console.log('sendContractViaWhatsAppDirect (early init)');
+};
 window.loadSentQuotations = window.loadSentQuotations || function() {
     console.log('loadSentQuotations (early init)');
     var c = document.getElementById('sentQuotationsContainer');
@@ -4837,6 +4848,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                 {% else %}
                                 <button id="aiAssistantBtn" class="btn btn-danger" style="padding:4px 12px;opacity:0.4;pointer-events:none;cursor:not-allowed;" disabled><i class="bi bi-robot"></i> Ask AI</button>
                                 {% endif %}
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="openSentContractsModal()"><i class="bi bi-whatsapp"></i> Sent Contracts</button>
                             </div>
                             <div class="container" style="padding:4px; background:#fafafa; border-radius:4px;">
                                 <div class="row mb-2 align-items-center">
@@ -14036,6 +14048,31 @@ body { font-family: Arial; margin: 20px; }
         <div class="modal-footer-custom">
             <button type="button" class="btn btn-primary" onclick="loadSentQuotations()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
             <button type="button" class="btn btn-danger" onclick="closeModal('sentQuotationsModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- SENT CONTRACTS MODAL -->
+<div id="sentContractsModal" class="modal-overlay">
+    <div class="modal-container xlarge">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-whatsapp me-2"></i> Sent Contracts</h3>
+            <button class="close-modal" onclick="closeModal('sentContractsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom">
+            <!-- Summary -->
+            <div id="sentContractsSummary" style="font-size:0.7rem; color:#666; margin-bottom:6px; padding:4px 6px; background:#f0f0f0; border-radius:4px;">Loading...</div>
+
+            <!-- Container -->
+            <div id="sentContractsContainer" style="max-height:500px; overflow-y:auto; font-size:0.7rem;">
+                <p class="text-muted text-center" style="padding:20px;">Loading sent contracts...</p>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-primary" onclick="loadSentContracts()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
+            <button type="button" class="btn btn-danger" onclick="closeModal('sentContractsModal')">Close</button>
         </div>
     </div>
 </div>
@@ -34223,6 +34260,107 @@ function renderGanttItemsList() {
                 container.innerHTML = `<p class="text-danger text-center" style="padding: 20px;">Error loading sent quotations: ${error.message}</p>`;
             });
     }
+    
+    window.openSentContractsModal = function() {
+        openModal('sentContractsModal');
+        loadSentContracts();
+    };
+
+    window.loadSentContracts = function() {
+        const container = document.getElementById('sentContractsContainer');
+        const summary = document.getElementById('sentContractsSummary');
+        if (!container || !summary) return;
+
+        summary.textContent = 'Loading contract send history...';
+        container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">Loading sent contracts...</p>';
+
+        fetch('/api/get-sent-contracts')
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP error, status = ' + response.status);
+                return response.json();
+            })
+            .then(result => {
+                if (!result.success) throw new Error(result.error || 'Failed to load sent contracts');
+
+                const rows = result.data || [];
+                const totalCount = rows.length;
+                const fallbackCount = rows.filter(r => r.fallbackSent).length;
+
+                summary.textContent = `${totalCount} contract(s) sent via WhatsApp | ${fallbackCount} template fallback(s)`;
+
+                if (rows.length === 0) {
+                    container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No contracts have been sent via WhatsApp yet.</p>';
+                    return;
+                }
+
+                let html = `
+                    <div style="overflow-x: auto; border: 1px solid #dee2e6; border-radius: 6px; background: white;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="position: sticky; top: 0; background-color: #0A1A3A; z-index: 10;">
+                                <tr style="color: white;">
+                                    <th style="padding: 5px 4px; text-align: center; width: 45px; border: 1px solid #1E2A56;">#</th>
+                                    <th style="padding: 5px 4px; text-align: left; border: 1px solid #1E2A56;">Client</th>
+                                    <th style="padding: 5px 4px; text-align: left; border: 1px solid #1E2A56;">Project</th>
+                                    <th style="padding: 5px 4px; text-align: left; border: 1px solid #1E2A56;">WhatsApp</th>
+                                    <th style="padding: 5px 4px; text-align: center; border: 1px solid #1E2A56;">Sent At</th>
+                                    <th style="padding: 5px 4px; text-align: center; border: 1px solid #1E2A56;">Type</th>
+                                    <th style="padding: 5px 4px; text-align: center; border: 1px solid #1E2A56;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                rows.forEach((row, index) => {
+                    const sentAt = row.createdAt ? new Date(row.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+                    const typeBadge = row.fallbackSent
+                        ? '<span style="background:#fff3cd; color:#7a5a00; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">Template</span>'
+                        : '<span style="background:#d1ecf1; color:#0c5460; padding:3px 8px; border-radius:12px; font-size:0.65rem; font-weight:600;">PDF Doc</span>';
+                    const bg = index % 2 === 0 ? '#fff' : '#f9f9f9';
+                    html += `
+                        <tr style="border-bottom: 1px solid #ddd; background-color: ${bg};">
+                            <td style="padding: 6px; text-align: center;">${row.projectId || 'N/A'}</td>
+                            <td style="padding: 6px;">${row.clientName || 'Client'}</td>
+                            <td style="padding: 6px;">${row.projectName || 'Contract'}</td>
+                            <td style="padding: 6px;">${row.whatsappNumber || 'N/A'}</td>
+                            <td style="padding: 6px; text-align: center; white-space: nowrap;">${sentAt}</td>
+                            <td style="padding: 6px; text-align: center;">${typeBadge}</td>
+                            <td style="padding: 6px; text-align: center;">
+                                <a href="/download_contract/${row.projectId}" class="btn btn-sm btn-primary" style="padding:2px 8px; font-size:0.65rem;" target="_blank"><i class="bi bi-file-earmark-pdf"></i></a>
+                                <button class="btn btn-sm btn-success" style="padding:2px 8px; font-size:0.65rem;" onclick="event.stopPropagation(); sendContractViaWhatsAppDirect(${row.projectId}, '${row.whatsappNumber}', '${row.clientName.replace(/'/g, "\\'")}')"><i class="bi bi-send"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `</tbody></table></div>`;
+                container.innerHTML = html;
+            })
+            .catch(error => {
+                summary.textContent = 'Unable to load contract send history';
+                container.innerHTML = `<p class="text-danger text-center" style="padding: 20px;">Error: ${error.message}</p>`;
+            });
+    };
+
+    window.sendContractViaWhatsAppDirect = function(projectId, whatsappNumber, clientName) {
+        if (!confirm(`Re-send contract for ${clientName} to ${whatsappNumber}?`)) return;
+        const btn = event && event.target ? event.target : null;
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; }
+        fetch('/send-contract-whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: projectId, whatsapp_number: whatsappNumber })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                loadSentContracts();
+            } else {
+                alert('Failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => alert('Error: ' + err.message))
+        .finally(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i>'; } });
+    };
     
     window.loadQuotations = function() {
         console.log('loadQuotations function called');

@@ -29007,6 +29007,53 @@ def save_quotation_notes():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/get-sent-contracts', methods=['GET'])
+def get_sent_contracts():
+    """Retrieve contract WhatsApp send history from the contract outbox."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT
+                    co.id,
+                    co.project_id,
+                    COALESCE(NULLIF(co.client_name, ''), p.clientname, 'Client') AS client_name,
+                    COALESCE(NULLIF(p.projectname, ''), 'Contract') AS project_name,
+                    COALESCE(co.whatsapp_number, p.clientwanumber::text, '') AS whatsapp_number,
+                    co.template_fallback_sent,
+                    co.created_at,
+                    co.updated_at
+                FROM contract_whatsapp_outbox co
+                LEFT JOIN connectlinkdatabase p ON p.id = co.project_id
+                ORDER BY co.created_at DESC
+            """)
+            rows = cursor.fetchall()
+
+            data = [
+                {
+                    'id': row[0],
+                    'projectId': row[1],
+                    'clientName': row[2] or 'Client',
+                    'projectName': row[3] or 'Contract',
+                    'whatsappNumber': row[4] or '',
+                    'fallbackSent': bool(row[5]),
+                    'createdAt': row[6].isoformat() if row[6] else None,
+                    'updatedAt': row[7].isoformat() if row[7] else None
+                }
+                for row in rows
+            ]
+
+            return jsonify({
+                'success': True,
+                'count': len(data),
+                'data': data
+            })
+    except Exception as e:
+        logging.error(f'Error fetching sent contracts: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/get-sent-quotations', methods=['GET'])
 def get_sent_quotations():
     """Retrieve quotation send outcomes to WhatsApp for Quotations Portal modal."""
