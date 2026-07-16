@@ -20396,6 +20396,10 @@ function closeModal(modalId) {
         modal.style.zIndex = '';
         document.body.style.overflow = '';
     }
+    // Force DataTable to re-read all rows after modal overlay changes DOM layout
+    if (window.dataTable) {
+        try { window.dataTable.draw(false); } catch(e) {}
+    }
 }
 
 // Save other details form
