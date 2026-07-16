@@ -20489,7 +20489,7 @@ def run1(userid):
                     amount = row.get(amount_col, 0) or 0
                     
                     # Count installments due today or in the future
-                    if due_date >= current_date.date():
+                    if due_date >= current_date:
                         future_due += amount
 
         # Total Due = overdue (unpaid past-due) + future installments + outstanding balances

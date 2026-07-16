@@ -20383,6 +20383,11 @@ function openModal(modalId) {
             modal.style.zIndex = 1060;
         }
         
+        // Quick View drill-down modal should appear above Quick View
+        if (modalId === 'quickViewDetailsModal') {
+            modal.style.zIndex = 1060;
+        }
+        
         // Load installments audit data when audit modal opens
         if (modalId === 'auditInstallmentsModal') {
             loadAuditData();
