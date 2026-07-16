@@ -733,6 +733,22 @@ def initialize_database_tables():
                 );
             """)
 
+            # Track outbound contract WhatsApp messages so async status failures can trigger template fallback
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS contract_whatsapp_outbox (
+                    id SERIAL PRIMARY KEY,
+                    outbound_message_id VARCHAR(255) NOT NULL UNIQUE,
+                    project_id INT NOT NULL,
+                    whatsapp_number VARCHAR(20),
+                    client_name VARCHAR(255),
+                    project_description TEXT DEFAULT '',
+                    project_location VARCHAR(255) DEFAULT '',
+                    template_fallback_sent BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
             # Log WhatsApp quotation send outcomes for portal reporting
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS quotation_whatsapp_send_logs (
@@ -2309,6 +2325,9 @@ def webhook():
                                         if not is_template_window_error(error_text):
                                             continue
 
+                                        handled = False
+
+                                        # Check quotation outbox
                                         cursor.execute("""
                                             SELECT quotation_id, whatsapp_number, client_name, template_fallback_sent
                                             FROM quotation_whatsapp_outbox
@@ -2316,106 +2335,143 @@ def webhook():
                                         """, (outbound_message_id,))
                                         outbox_row = cursor.fetchone()
 
-                                        if not outbox_row:
-                                            print(f"ℹ️ No quotation outbox match for failed message_id={outbound_message_id}")
-                                            continue
+                                        if outbox_row:
+                                            handled = True
+                                            safe_qid = int(outbox_row[0])
+                                            target_number = normalize_whatsapp_number(outbox_row[1] or recipient_id)
+                                            target_client_name = (outbox_row[2] or 'Client').strip() or 'Client'
+                                            fallback_already_sent = bool(outbox_row[3])
 
-                                        safe_qid = int(outbox_row[0])
-                                        target_number = normalize_whatsapp_number(outbox_row[1] or recipient_id)
-                                        target_client_name = (outbox_row[2] or 'Client').strip() or 'Client'
-                                        fallback_already_sent = bool(outbox_row[3])
+                                            q_category = ''
+                                            q_size = 0
+                                            q_total = 0
+                                            q_markup = 0
+                                            q_date = None
+                                            try:
+                                                cursor.execute("""
+                                                    SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                                                    FROM quotations
+                                                    WHERE id = %s
+                                                """, (safe_qid,))
+                                                qrow = cursor.fetchone()
+                                                if qrow:
+                                                    q_category = qrow[0] or ''
+                                                    q_size = float(qrow[1]) if qrow[1] else 0
+                                                    q_total = float(qrow[2]) if qrow[2] else 0
+                                                    q_markup = float(qrow[3]) if qrow[3] else 0
+                                                    q_date = qrow[4] if qrow[4] else None
+                                            except Exception as qerr:
+                                                print(f"⚠️ Could not fetch quotation metadata for fallback: {qerr}")
 
-                                        q_category = ''
-                                        q_size = 0
-                                        q_total = 0
-                                        q_markup = 0
-                                        q_date = None
-                                        try:
+                                            # Record the failure once so portal can show Failed status entries
                                             cursor.execute("""
-                                                SELECT category, project_size, total_cost, markup_percentage, quotation_date
-                                                FROM quotations
-                                                WHERE id = %s
-                                            """, (safe_qid,))
-                                            qrow = cursor.fetchone()
-                                            if qrow:
-                                                q_category = qrow[0] or ''
-                                                q_size = float(qrow[1]) if qrow[1] else 0
-                                                q_total = float(qrow[2]) if qrow[2] else 0
-                                                q_markup = float(qrow[3]) if qrow[3] else 0
-                                                q_date = qrow[4] if qrow[4] else None
-                                        except Exception as qerr:
-                                            print(f"⚠️ Could not fetch quotation metadata for fallback: {qerr}")
+                                                SELECT COUNT(*)
+                                                FROM quotation_whatsapp_send_logs
+                                                WHERE whatsapp_message_id = %s
+                                                  AND send_status = 'failed'
+                                                  AND send_type = 'document'
+                                            """, (outbound_message_id,))
+                                            existing_failed = cursor.fetchone()[0]
+                                            if existing_failed == 0:
+                                                log_quotation_whatsapp_send(
+                                                    safe_qid,
+                                                    target_number,
+                                                    target_client_name,
+                                                    'document',
+                                                    outbound_message_id,
+                                                    'webhook_status',
+                                                    send_status='failed',
+                                                    error_details=error_text,
+                                                    snapshot_category=q_category,
+                                                    snapshot_project_size=q_size,
+                                                    snapshot_total_cost=q_total,
+                                                    snapshot_markup=q_markup,
+                                                    snapshot_quotation_date=q_date
+                                                )
 
-                                        # Record the failure once so portal can show Failed status entries
+                                            if fallback_already_sent:
+                                                print(f"ℹ️ Quotation template fallback already sent for message_id={outbound_message_id}")
+                                            else:
+                                                if not target_number:
+                                                    print(f"⚠️ Could not derive WhatsApp number for failed message_id={outbound_message_id}")
+                                                else:
+                                                    share_token = create_quotation_share_token(safe_qid)
+                                                    template_response = send_quotation_download_template(
+                                                        target_number,
+                                                        share_token,
+                                                        client_name=target_client_name,
+                                                        category=q_category,
+                                                        project_size=q_size
+                                                    )
+
+                                                    fallback_message_id = template_response.get('messages', [{}])[0].get('id', '')
+                                                    log_quotation_whatsapp_send(
+                                                        safe_qid,
+                                                        target_number,
+                                                        target_client_name,
+                                                        'template_fallback',
+                                                        fallback_message_id,
+                                                        'webhook_async_fallback',
+                                                        snapshot_category=q_category,
+                                                        snapshot_project_size=q_size,
+                                                        snapshot_total_cost=q_total,
+                                                        snapshot_markup=q_markup,
+                                                        snapshot_quotation_date=q_date
+                                                    )
+
+                                                    cursor.execute("""
+                                                        UPDATE quotation_whatsapp_outbox
+                                                        SET template_fallback_sent = TRUE,
+                                                            updated_at = CURRENT_TIMESTAMP
+                                                        WHERE outbound_message_id = %s
+                                                    """, (outbound_message_id,))
+                                                    connection.commit()
+
+                                                    print(
+                                                        f"✅ Async fallback template sent for quotation {safe_qid} "
+                                                        f"to {target_number} after status failure 131047. response={template_response}"
+                                                    )
+
+                                        # Check contract outbox independently
                                         cursor.execute("""
-                                            SELECT COUNT(*)
-                                            FROM quotation_whatsapp_send_logs
-                                            WHERE whatsapp_message_id = %s
-                                              AND send_status = 'failed'
-                                              AND send_type = 'document'
-                                        """, (outbound_message_id,))
-                                        existing_failed = cursor.fetchone()[0]
-                                        if existing_failed == 0:
-                                            log_quotation_whatsapp_send(
-                                                safe_qid,
-                                                target_number,
-                                                target_client_name,
-                                                'document',
-                                                outbound_message_id,
-                                                'webhook_status',
-                                                send_status='failed',
-                                                error_details=error_text,
-                                                snapshot_category=q_category,
-                                                snapshot_project_size=q_size,
-                                                snapshot_total_cost=q_total,
-                                                snapshot_markup=q_markup,
-                                                snapshot_quotation_date=q_date
-                                            )
-
-                                        if fallback_already_sent:
-                                            print(f"ℹ️ Template fallback already sent for message_id={outbound_message_id}")
-                                            continue
-
-                                        if not target_number:
-                                            print(f"⚠️ Could not derive WhatsApp number for failed message_id={outbound_message_id}")
-                                            continue
-
-                                        share_token = create_quotation_share_token(safe_qid)
-                                        template_response = send_quotation_download_template(
-                                            target_number,
-                                            share_token,
-                                            client_name=target_client_name,
-                                            category=q_category,
-                                            project_size=q_size
-                                        )
-
-                                        fallback_message_id = template_response.get('messages', [{}])[0].get('id', '')
-                                        log_quotation_whatsapp_send(
-                                            safe_qid,
-                                            target_number,
-                                            target_client_name,
-                                            'template_fallback',
-                                            fallback_message_id,
-                                            'webhook_async_fallback',
-                                            snapshot_category=q_category,
-                                            snapshot_project_size=q_size,
-                                            snapshot_total_cost=q_total,
-                                            snapshot_markup=q_markup,
-                                            snapshot_quotation_date=q_date
-                                        )
-
-                                        cursor.execute("""
-                                            UPDATE quotation_whatsapp_outbox
-                                            SET template_fallback_sent = TRUE,
-                                                updated_at = CURRENT_TIMESTAMP
+                                            SELECT project_id, whatsapp_number, client_name, project_description, project_location, template_fallback_sent
+                                            FROM contract_whatsapp_outbox
                                             WHERE outbound_message_id = %s
                                         """, (outbound_message_id,))
-                                        connection.commit()
+                                        contract_row = cursor.fetchone()
 
-                                        print(
-                                            f"✅ Async fallback template sent for quotation {safe_qid} "
-                                            f"to {target_number} after status failure 131047. response={template_response}"
-                                        )
+                                        if contract_row:
+                                            handled = True
+                                            contract_project_id = int(contract_row[0])
+                                            contract_number = normalize_whatsapp_number(contract_row[1] or recipient_id)
+                                            contract_client = (contract_row[2] or 'Client').strip() or 'Client'
+                                            contract_desc = contract_row[3] or ''
+                                            contract_loc = contract_row[4] or ''
+                                            contract_fallback_done = bool(contract_row[5])
+
+                                            if contract_fallback_done:
+                                                print(f"ℹ️ Contract template fallback already sent for message_id={outbound_message_id}")
+                                            elif not contract_number:
+                                                print(f"⚠️ Could not derive WhatsApp number for contract message_id={outbound_message_id}")
+                                            else:
+                                                send_contract_download_template(
+                                                    contract_number,
+                                                    contract_project_id,
+                                                    client_name=contract_client,
+                                                    project_description=contract_desc,
+                                                    project_location=contract_loc
+                                                )
+                                                cursor.execute("""
+                                                    UPDATE contract_whatsapp_outbox
+                                                    SET template_fallback_sent = TRUE,
+                                                        updated_at = CURRENT_TIMESTAMP
+                                                    WHERE outbound_message_id = %s
+                                                """, (outbound_message_id,))
+                                                connection.commit()
+                                                print(f"✅ Async contract template fallback sent for project {contract_project_id} to {contract_number}")
+
+                                        if not handled:
+                                            print(f"ℹ️ No quotation or contract outbox match for failed message_id={outbound_message_id}")
                                     except Exception as status_err:
                                         connection.rollback()
                                         print(f"❌ Error handling failed WhatsApp status fallback: {status_err}")
@@ -18185,6 +18241,28 @@ def send_contract_whatsapp():
             whatsapp_resp = send_pdf_document_whatsapp(phone_clean, pdf_bytes, filename, caption)
             
             if whatsapp_resp and whatsapp_resp.get('messages'):
+                # Save to contract outbox so async webhook failure can trigger template fallback
+                try:
+                    outbound_message_id = ((whatsapp_resp or {}).get('messages') or [{}])[0].get('id', '')
+                    if outbound_message_id:
+                        with get_db() as (oc, oconn):
+                            oc.execute("""
+                                INSERT INTO contract_whatsapp_outbox
+                                (outbound_message_id, project_id, whatsapp_number, client_name, project_description, project_location)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                                ON CONFLICT (outbound_message_id)
+                                DO UPDATE SET
+                                    project_id = EXCLUDED.project_id,
+                                    whatsapp_number = EXCLUDED.whatsapp_number,
+                                    client_name = EXCLUDED.client_name,
+                                    project_description = EXCLUDED.project_description,
+                                    project_location = EXCLUDED.project_location,
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (outbound_message_id, project_id, phone_clean, client_name, project_description, project_location))
+                            oconn.commit()
+                except Exception as outbox_err:
+                    print(f"⚠️ Could not persist contract outbox record: {outbox_err}")
+
                 log_activity(
                     'contract_sent_whatsapp',
                     f'Contract for {client_name} ({project_name}) sent via WhatsApp to {phone_clean}',
