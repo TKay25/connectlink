@@ -30265,6 +30265,8 @@ def quick_view_details():
         start = None
         end = None
 
+    logging.info(f'quick_view_details called: category={category!r}, date_range={date_range!r}, start={start!r}, end={end!r}')
+
     def date_filter(col):
         if start and end:
             return f"{col} >= %s AND {col} < %s", [start, end]
@@ -30468,6 +30470,7 @@ def quick_view_details():
             else:
                 return jsonify({'success': False, 'message': f'Unknown category: {category}'}), 400
 
+            logging.info(f'quick_view_details returning {len(records)} records for category={category!r}')
             return jsonify({'success': True, 'data': records, 'category': category})
     except Exception as e:
         import traceback

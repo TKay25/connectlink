@@ -38838,6 +38838,16 @@ document.addEventListener('DOMContentLoaded', function(){
     opacity:0.8;
     text-decoration:underline solid !important;
 }
+/* Hover highlight for entire stat rows - subtle dark overlay that works on all card backgrounds */
+.qv-card div[onclick] {
+    transition: background 0.15s ease;
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: 0 -2px;
+}
+.qv-card div[onclick]:hover {
+    background: rgba(0,0,0,0.055);
+}
 @keyframes qvSpin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
@@ -38948,11 +38958,18 @@ function openQvDetails(category) {
     
     var filter = document.getElementById('quickViewDateFilter').value;
     
-    fetch('/api/quick-view-details?category=' + category + '&date_range=' + filter)
-        .then(function(r) { return r.json(); })
+    var url = '/api/quick-view-details?category=' + category + '&date_range=' + filter;
+    console.log('[QV Details] Fetching:', url);
+    fetch(url)
+        .then(function(r) { 
+            console.log('[QV Details] Response status:', r.status);
+            return r.json(); 
+        })
         .then(function(data) {
+            console.log('[QV Details] Response data:', data);
             document.getElementById('qvdLoading').style.display = 'none';
             if (!data.success || !data.data || data.data.length === 0) {
+                console.log('[QV Details] No records - success:', data.success, 'data length:', data.data ? data.data.length : 'N/A', 'message:', data.message);
                 document.getElementById('qvdEmpty').style.display = 'block';
                 return;
             }
