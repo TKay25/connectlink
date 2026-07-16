@@ -38734,13 +38734,13 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div style="width:24px;height:24px;border-radius:6px;background:#1E2A56;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-person-badge-fill"></i></div>
                         <span style="font-size:0.65rem;font-weight:700;color:#1E2A56;text-transform:uppercase;letter-spacing:0.3px;">Enquiries</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('enquiries_new')">
                         <span style="color:#5a678a;">New</span>
-                        <span id="qvEnquiriesNew" class="qv-clickable" onclick="openQvDetails('enquiries_new')" style="font-weight:700;color:#1E2A56;cursor:pointer;text-decoration:underline dotted rgba(30,42,86,0.3);">—</span>
+                        <span id="qvEnquiriesNew" class="qv-clickable" style="font-weight:700;color:#1E2A56;text-decoration:underline dotted rgba(30,42,86,0.3);">—</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('enquiries_responded')">
                         <span style="color:#5a678a;">Responded</span>
-                        <span id="qvEnquiriesResponded" class="qv-clickable" onclick="openQvDetails('enquiries_responded')" style="font-weight:700;color:#2e7d32;cursor:pointer;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
+                        <span id="qvEnquiriesResponded" class="qv-clickable" style="font-weight:700;color:#2e7d32;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
                     </div>
                 </div>
 
@@ -38750,21 +38750,21 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div style="width:24px;height:24px;border-radius:6px;background:#C12B3E;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-file-text"></i></div>
                         <span style="font-size:0.65rem;font-weight:700;color:#C12B3E;text-transform:uppercase;letter-spacing:0.3px;">Quotations</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('quotations_created')">
                         <span style="color:#5a678a;">Created</span>
-                        <span id="qvQuotationsCreated" class="qv-clickable" onclick="openQvDetails('quotations_created')" style="font-weight:700;color:#1E2A56;cursor:pointer;text-decoration:underline dotted rgba(30,42,86,0.3);">—</span>
+                        <span id="qvQuotationsCreated" class="qv-clickable" style="font-weight:700;color:#1E2A56;text-decoration:underline dotted rgba(30,42,86,0.3);">—</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('quotations_downloaded')">
                         <span style="color:#5a678a;">Downloaded</span>
-                        <span id="qvQuotationsDownloaded" class="qv-clickable" onclick="openQvDetails('quotations_downloaded')" style="font-weight:700;color:#0d6efd;cursor:pointer;text-decoration:underline dotted rgba(13,110,253,0.3);">—</span>
+                        <span id="qvQuotationsDownloaded" class="qv-clickable" style="font-weight:700;color:#0d6efd;text-decoration:underline dotted rgba(13,110,253,0.3);">—</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('quotations_sent')">
                         <span style="color:#5a678a;">Sent via WhatsApp</span>
-                        <span id="qvQuotationsSent" class="qv-clickable" onclick="openQvDetails('quotations_sent')" style="font-weight:700;color:#2e7d32;cursor:pointer;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
+                        <span id="qvQuotationsSent" class="qv-clickable" style="font-weight:700;color:#2e7d32;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('quotations_failed')">
                         <span style="color:#5a678a;">Failed</span>
-                        <span id="qvQuotationsFailed" class="qv-clickable" onclick="openQvDetails('quotations_failed')" style="font-weight:700;color:#dc3545;cursor:pointer;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
+                        <span id="qvQuotationsFailed" class="qv-clickable" style="font-weight:700;color:#dc3545;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
                     </div>
                 </div>
 
@@ -38774,17 +38774,17 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div style="width:24px;height:24px;border-radius:6px;background:#2e7d32;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-file-earmark-check"></i></div>
                         <span style="font-size:0.65rem;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:0.3px;">Contracts</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('contracts_sent')">
                         <span style="color:#5a678a;">Sent</span>
-                        <span id="qvContractsSent" class="qv-clickable" onclick="openQvDetails('contracts_sent')" style="font-weight:700;color:#2e7d32;cursor:pointer;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
+                        <span id="qvContractsSent" class="qv-clickable" style="font-weight:700;color:#2e7d32;text-decoration:underline dotted rgba(46,125,50,0.3);">—</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('contracts_downloaded')">
                         <span style="color:#5a678a;">Downloaded</span>
-                        <span id="qvContractsDownloaded" class="qv-clickable" onclick="openQvDetails('contracts_downloaded')" style="font-weight:700;color:#0d6efd;cursor:pointer;text-decoration:underline dotted rgba(13,110,253,0.3);">—</span>
+                        <span id="qvContractsDownloaded" class="qv-clickable" style="font-weight:700;color:#0d6efd;text-decoration:underline dotted rgba(13,110,253,0.3);">—</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('contracts_failed')">
                         <span style="color:#5a678a;">Failed</span>
-                        <span id="qvContractsFailed" class="qv-clickable" onclick="openQvDetails('contracts_failed')" style="font-weight:700;color:#dc3545;cursor:pointer;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
+                        <span id="qvContractsFailed" class="qv-clickable" style="font-weight:700;color:#dc3545;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
                     </div>
                 </div>
 
@@ -38794,9 +38794,9 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div style="width:24px;height:24px;border-radius:6px;background:#ef6c00;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-chat-dots"></i></div>
                         <span style="font-size:0.65rem;font-weight:700;color:#ef6c00;text-transform:uppercase;letter-spacing:0.3px;">Chats</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('chats_needing_reply')">
                         <span style="color:#5a678a;">Need Reply</span>
-                        <span id="qvChatsNeedingReply" class="qv-clickable" onclick="openQvDetails('chats_needing_reply')" style="font-weight:700;color:#ef6c00;cursor:pointer;text-decoration:underline dotted rgba(239,108,0,0.3);">—</span>
+                        <span id="qvChatsNeedingReply" class="qv-clickable" style="font-weight:700;color:#ef6c00;text-decoration:underline dotted rgba(239,108,0,0.3);">—</span>
                     </div>
                     <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(239,108,0,0.15);font-size:0.6rem;color:#5a678a;">
                         <i class="bi bi-info-circle"></i> Free-text messages not from menus
@@ -38809,9 +38809,9 @@ document.addEventListener('DOMContentLoaded', function(){
                         <div style="width:24px;height:24px;border-radius:6px;background:#dc3545;display:flex;align-items:center;justify-content:center;color:white;font-size:0.65rem;"><i class="bi bi-exclamation-triangle"></i></div>
                         <span style="font-size:0.65rem;font-weight:700;color:#dc3545;text-transform:uppercase;letter-spacing:0.3px;">System</span>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:2px 0;cursor:pointer;" onclick="openQvDetails('system_errors')">
                         <span style="color:#5a678a;">Errors / Failures</span>
-                        <span id="qvSystemErrors" class="qv-clickable" onclick="openQvDetails('system_errors')" style="font-weight:700;color:#dc3545;cursor:pointer;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
+                        <span id="qvSystemErrors" class="qv-clickable" style="font-weight:700;color:#dc3545;text-decoration:underline dotted rgba(220,53,69,0.3);">—</span>
                     </div>
                     <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(220,53,69,0.15);font-size:0.6rem;color:#5a678a;">
                         <i class="bi bi-info-circle"></i> Logged system issues
