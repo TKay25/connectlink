@@ -39474,20 +39474,7 @@ table.dataTable tbody tr:hover {
 .empty-state { padding: 50px 20px !important; }
 .empty-state .empty-icon { font-size: 2.5rem !important; margin-bottom: 16px !important; }
 
-/* === 21. TABLE CELL TEXT — INLINE BADGE/PILL STYLING (like QREF column) === */
-/* Each text value gets wrapped in <span class="badge-text-cell"> server-side */
-.badge-text-cell {
-    display: inline-block;
-    background: #eef1f7;
-    color: #1E293B;
-    border-radius: 20px;
-    padding: 2px 10px;
-    font-weight: 600;
-    font-size: 0.65rem;
-    letter-spacing: 0.2px;
-    white-space: nowrap;
-    line-height: 1.6;
-}
+/* === 21. TABLE CELL STYLING === */
 table.dataTable tbody td, .table-theme tbody td {
     padding: 4px 6px !important;
     font-weight: 500 !important;
@@ -39499,7 +39486,7 @@ table.dataTable tbody td, .table-theme tbody td {
     border-radius: 12px !important;
     overflow: hidden !important;
 }
-/* Row hover: clean highlight WITHOUT individual cell rounding */
+/* Row hover: clean highlight */
 table.dataTable tbody tr:hover td,
 .table-theme tbody tr:hover td {
     background: rgba(30,42,86,0.06) !important;
