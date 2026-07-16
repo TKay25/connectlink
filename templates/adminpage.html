@@ -38671,7 +38671,12 @@ document.addEventListener('DOMContentLoaded', function(){
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <div class="modal-body-custom" style="max-height:75vh;overflow-y:auto;">
+        <div class="modal-body-custom" style="max-height:75vh;overflow-y:auto;position:relative;">
+            <!-- Loading Overlay -->
+            <div id="quickViewLoadingOverlay" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);backdrop-filter:blur(2px);z-index:10;border-radius:0 0 16px 16px;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+                <div style="width:32px;height:32px;border:3px solid #e0e0e0;border-top-color:#C12B3E;border-radius:50%;animation:qvLoadSpin 0.7s linear infinite;"></div>
+                <span style="font-size:0.75rem;color:#5a678a;font-weight:500;">Loading...</span>
+            </div>
             <!-- Date Filter -->
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:8px 12px;background:linear-gradient(135deg,#f0f4ff,#e8eeff);border-radius:10px;border:1px solid rgba(30,42,86,0.08);">
                 <i class="bi bi-funnel" style="color:#1E2A56;font-size:0.8rem;"></i>
@@ -38802,6 +38807,9 @@ document.addEventListener('DOMContentLoaded', function(){
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+@keyframes qvLoadSpin {
+    to { transform: rotate(360deg); }
+}
 .spinning {
     animation: qvSpin 0.8s linear infinite;
     display:inline-block;
@@ -38816,15 +38824,19 @@ function openQuickViewModal() {
     setTimeout(loadQuickViewStats, 200);
 }
 
+function showQuickViewLoading(show) {
+    var overlay = document.getElementById('quickViewLoadingOverlay');
+    if (overlay) overlay.style.display = show ? 'flex' : 'none';
+}
+
 function loadQuickViewStats() {
-    const filter = document.getElementById('quickViewDateFilter').value;
-    const loading = document.getElementById('quickViewLoading');
-    const period = document.getElementById('quickViewPeriod');
+    var filter = document.getElementById('quickViewDateFilter').value;
+    var period = document.getElementById('quickViewPeriod');
     
-    loading.style.display = 'inline-block';
+    showQuickViewLoading(true);
     
     // Update period label
-    const labels = {
+    var labels = {
         'today': 'Today',
         'yesterday': 'Yesterday',
         'this_week': 'This Week',
@@ -38843,7 +38855,7 @@ function loadQuickViewStats() {
             return r.json();
         })
         .then(function(data) {
-            loading.style.display = 'none';
+            showQuickViewLoading(false);
             if (!data.success) {
                 console.error('Quick View API returned error:', data.message || 'unknown');
                 return;
@@ -38862,7 +38874,7 @@ function loadQuickViewStats() {
             setText('qvSystemErrors', d.system_errors);
         })
         .catch(function(err) {
-            loading.style.display = 'none';
+            showQuickViewLoading(false);
             console.error('Quick View fetch failed:', err);
         });
 }
