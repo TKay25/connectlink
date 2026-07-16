@@ -27938,6 +27938,10 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
             Kindly click *Download Quotation* below to view your detailed cost breakdown.
     - Button (URL, CTA): Download Quotation → https://<your-public-domain>/quotation/share/{{1}}
     """
+    # Strip HTML tags from text parameters
+    client_name = strip_html_tags(client_name)
+    category = strip_html_tags(category)
+
     url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -28014,6 +28018,12 @@ def get_contract_download_url(project_id):
     return f"{public_base}/download_contract/{project_id}"
 
 
+def strip_html_tags(text):
+    """Remove HTML tags from a string, returning clean text."""
+    if not text:
+        return ''
+    return re.sub(r'<[^>]+>', '', str(text)).strip()
+
 def send_contract_download_template(recipient_number, project_id, client_name='', project_description='', project_location=''):
     """Send approved Meta template with quick-reply button for contract download.
 
@@ -28027,6 +28037,11 @@ def send_contract_download_template(recipient_number, project_id, client_name=''
     - Button text: Download Contract Agreement
     - Button payload: contract_{{project_id}} (set dynamically by API)
     """
+    # Strip HTML tags from all text parameters to avoid raw tags in WhatsApp template
+    client_name = strip_html_tags(client_name)
+    project_description = strip_html_tags(project_description)
+    project_location = strip_html_tags(project_location)
+
     url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
