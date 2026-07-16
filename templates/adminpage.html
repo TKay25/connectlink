@@ -4865,7 +4865,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                     <div class="col-md-4">
                                         <div class="input-group" style="font-size:0.7rem; display:flex; flex-wrap:nowrap;">
                                             <span class="input-group-text" style="background:#1E2A56;color:white;padding:0.1rem 0.3rem; flex:0 0 auto;"><i class="bi bi-search"></i></span>
-                                            <input type="text" id="projectsSearch" class="form-control" placeholder="Search projects..." autocomplete="off" style="font-size:0.8rem;padding:0.2rem 0.5rem; flex:1 1 auto; min-width:0;">
+                                            <input type="text" id="projectsSearch" class="form-control" placeholder="Search projects..." autocomplete="nope" data-lpignore="true" style="font-size:0.8rem;padding:0.2rem 0.5rem; flex:1 1 auto; min-width:0;">
                                         </div>
                                     </div>
                                 </div>
@@ -20396,6 +20396,10 @@ function closeModal(modalId) {
         modal.style.zIndex = '';
         document.body.style.overflow = '';
     }
+    // Restore download button if downloadContractModal is closed without action
+    if (modalId === 'downloadContractModal') {
+        restoreTableButton();
+    }
     // Force DataTable to re-read all rows after modal overlay changes DOM layout
     if (window.dataTable) {
         try { window.dataTable.draw(false); } catch(e) {}
@@ -29339,6 +29343,16 @@ function setupStickyTableHeaders() {
             console.log('Auto-filtering to latest month on page load:', selectedMonth);
             window.currentMonthFilter = selectedMonth;
             window.dataTable.draw();
+        }
+    }
+    
+    // Clear any browser autofill that snuck into the search box
+    const searchInput = document.getElementById('projectsSearch');
+    if (searchInput && searchInput.value.trim() !== '') {
+        // Only clear if it looks like autofill (email, long text, etc.)
+        if (searchInput.value.includes('@') || searchInput.value.length > 30) {
+            searchInput.value = '';
+            if (window.dataTable) window.dataTable.search('').draw(false);
         }
     }
     
