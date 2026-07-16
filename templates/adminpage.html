@@ -38662,6 +38662,32 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 
+<!-- ===== QUICK VIEW DETAILS MODAL ===== -->
+<div id="quickViewDetailsModal" class="modal-overlay">
+    <div class="modal-container xlarge" style="max-width:900px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-list-ul"></i> <span id="qvdTitle">Details</span></h3>
+            <button class="close-modal" onclick="closeModal('quickViewDetailsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" style="max-height:75vh;overflow-y:auto;position:relative;padding:8px 12px;">
+            <div id="qvdLoading" style="display:none;text-align:center;padding:40px 0;">
+                <div style="width:32px;height:32px;border:3px solid #e0e0e0;border-top-color:#C12B3E;border-radius:50%;animation:qvLoadSpin 0.7s linear infinite;margin:0 auto 10px;"></div>
+                <span style="font-size:0.75rem;color:#5a678a;font-weight:500;">Loading...</span>
+            </div>
+            <div id="qvdEmpty" style="display:none;text-align:center;padding:40px 0;color:#5a678a;">
+                <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:8px;opacity:0.4;"></i>
+                <span style="font-size:0.75rem;font-weight:500;">No records found for this period.</span>
+            </div>
+            <div id="qvdContent" style="display:none;"></div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('quickViewDetailsModal')" style="font-size:0.7rem;padding:4px 14px;">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- ===== QUICK VIEW MODAL ===== -->
 <div id="quickViewModal" class="modal-overlay">
     <div class="modal-container xlarge" style="max-width:900px;">
@@ -38794,32 +38820,6 @@ document.addEventListener('DOMContentLoaded', function(){
             <button type="button" class="btn btn-primary" onclick="loadQuickViewStats()" style="font-size:0.7rem;padding:4px 14px;">
                 <i class="bi bi-arrow-clockwise"></i> Refresh
             </button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== QUICK VIEW DETAILS MODAL ===== -->
-<div id="quickViewDetailsModal" class="modal-overlay">
-    <div class="modal-container xlarge" style="max-width:900px;">
-        <div class="modal-header-custom">
-            <h3><i class="bi bi-list-ul"></i> <span id="qvdTitle">Details</span></h3>
-            <button class="close-modal" onclick="closeModal('quickViewDetailsModal')">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <div class="modal-body-custom" style="max-height:75vh;overflow-y:auto;position:relative;padding:8px 12px;">
-            <div id="qvdLoading" style="display:none;text-align:center;padding:40px 0;">
-                <div style="width:32px;height:32px;border:3px solid #e0e0e0;border-top-color:#C12B3E;border-radius:50%;animation:qvLoadSpin 0.7s linear infinite;margin:0 auto 10px;"></div>
-                <span style="font-size:0.75rem;color:#5a678a;font-weight:500;">Loading...</span>
-            </div>
-            <div id="qvdEmpty" style="display:none;text-align:center;padding:40px 0;color:#5a678a;">
-                <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:8px;opacity:0.4;"></i>
-                <span style="font-size:0.75rem;font-weight:500;">No records found for this period.</span>
-            </div>
-            <div id="qvdContent" style="display:none;"></div>
-        </div>
-        <div class="modal-footer-custom">
-            <button type="button" class="btn btn-danger" onclick="closeModal('quickViewDetailsModal')" style="font-size:0.7rem;padding:4px 14px;">Close</button>
         </div>
     </div>
 </div>
@@ -39026,11 +39026,8 @@ function openQvDetails(category) {
 
 function openChatFor(waId, username) {
     closeModal('quickViewDetailsModal');
-    // Find the user's chat in WhatsApp panel - navigate to it
-    // Try to use the existing chat system
     var chatSelect = document.getElementById('chatContactSelect');
     if (chatSelect) {
-        // Look for option matching wa_id
         for (var i = 0; i < chatSelect.options.length; i++) {
             var opt = chatSelect.options[i];
             if (opt.value && (opt.value.indexOf(waId) >= 0 || waId.indexOf(opt.value) >= 0)) {
@@ -39040,7 +39037,6 @@ function openChatFor(waId, username) {
             }
         }
     }
-    // Also try to find and click a chat contact
     var contacts = document.querySelectorAll('.chat-contact-item, .contact-item');
     for (var i = 0; i < contacts.length; i++) {
         var c = contacts[i];
