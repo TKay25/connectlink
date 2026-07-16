@@ -6439,6 +6439,7 @@ def webhook():
 
                                                         elif payload and payload.lower().startswith('contract_'):
                                                             # Template quick-reply: "Download Contract Agreement" button
+                                                            # Payload format: contract_{project_id}
                                                             try:
                                                                 parts = payload.split('_')
                                                                 contract_project_id = int(parts[1])
@@ -6447,6 +6448,12 @@ def webhook():
 
                                                             if contract_project_id:
                                                                 print(f"📋 Contract download requested for project #{contract_project_id}")
+                                                                send_text_message = send_text_message or (lambda to, text: None)
+                                                                # Send initial processing message
+                                                                try:
+                                                                    send_text_message(sender_id, "⏳ Generating your contract agreement, please wait...")
+                                                                except:
+                                                                    pass
                                                                 # Generate and send contract PDF
                                                                 try:
                                                                     with app.test_client() as client:
@@ -6459,7 +6466,7 @@ def webhook():
                                                                             send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
                                                                             print(f"✅ Contract {contract_project_id} sent to {sender_id}")
                                                                         else:
-                                                                            raise ValueError(f"Contract generation failed: {resp.status_code}")
+                                                                            raise ValueError(f"Contract generation failed: HTTP {resp.status_code}")
                                                                 except Exception as ce:
                                                                     print(f"❌ Error sending contract {contract_project_id}: {ce}")
                                                                     # Fallback: send download URL
@@ -6470,6 +6477,10 @@ def webhook():
                                                                         send_text_message(sender_id, "❌ Could not generate contract. Please contact ConnectLink.")
                                                             else:
                                                                 print("❌ Invalid contract reference in button payload.")
+                                                                try:
+                                                                    send_text_message(sender_id, "❌ Invalid contract reference. Please contact ConnectLink.")
+                                                                except:
+                                                                    pass
                                                             return jsonify({"status": "received"}), 200
 
                                                         elif matched_type and project_id:
@@ -6851,7 +6862,7 @@ def webhook():
 
                                                                     
                                                                     def send_admin_notification(admin_number, client_whatsapp, enquiry_data):
-                                                                        url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+                                                                        url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{PHONE_NUMBER_ID}/messages"
                                                                         
                                                                         headers = {
                                                                             'Authorization': f'Bearer {ACCESS_TOKEN}',
@@ -9585,7 +9596,7 @@ def webhook():
 
                                                                     
                                                                     def send_admin_notification(admin_number, client_whatsapp, enquiry_data):
-                                                                        url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+                                                                        url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{PHONE_NUMBER_ID}/messages"
                                                                         
                                                                         headers = {
                                                                             'Authorization': f'Bearer {ACCESS_TOKEN}',
@@ -12396,7 +12407,8 @@ def get_direct_answer(question):
 ACCESS_TOKEN = "EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD"
 PHONE_NUMBER_ID = "977519838770637"
 VERIFY_TOKEN = "2012753506232550"
-WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+WHATSAPP_API_VERSION = "v22.0"
+WHATSAPP_API_URL = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{PHONE_NUMBER_ID}/messages"
 power = "Echelon Equipment Pvt Ltd"
 bot = "ConnectLink Properties"
 QUOTATION_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE', 'quotationdownload')
@@ -15813,7 +15825,7 @@ def whatsapp_debug():
     # Test Meta API connection
     try:
         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        test_url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}"
+        test_url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{PHONE_NUMBER_ID}"
         test_resp = requests.get(test_url, headers=headers, timeout=10)
         result['meta_api_status'] = 'ok' if test_resp.status_code == 200 else f'error: {test_resp.status_code}'
         if test_resp.status_code == 200:
@@ -19534,7 +19546,7 @@ def send_meta_template():
         print(f"{'='*50}\n")
 
         # Meta Graph API URL
-        url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
+        url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{PHONE_NUMBER_ID}/messages"
         
         # Request headers
         headers = {
@@ -27848,7 +27860,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
             Kindly click *Download Quotation* below to view your detailed cost breakdown.
     - Button (URL, CTA): Download Quotation → https://<your-public-domain>/quotation/share/{{1}}
     """
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
         "Content-Type": "application/json"
@@ -27876,7 +27888,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
                 {
                     "type": "button",
                     "sub_type": "quick_reply",
-                    "index": "0",
+                    "index": 0,
                     "parameters": [
                         {
                             "type": "payload",
@@ -27890,7 +27902,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
 
     response = requests.post(url, headers=headers, json=payload, timeout=45)
     response_data = response.json()
-    print(f"📨 Quotation template response [{response.status_code}]: {response_data}")
+    print(f"📨 Quotation template response [{response.status_code}]: {response_data[:1000] if isinstance(response_data, dict) else response_data}")
 
     if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
         error_payload = response_data.get('error', response_data)
@@ -27925,14 +27937,19 @@ def get_contract_download_url(project_id):
 
 
 def send_contract_download_template(recipient_number, project_id, client_name='', project_description='', project_location=''):
-    """Send approved CTA template with URL button to contract download page.
+    """Send approved Meta template with quick-reply button for contract download.
 
     Template must be configured in Meta as:
+    - Name: contractdownloadtemplate (or env WHATSAPP_CONTRACT_DOWNLOAD_TEMPLATE)
+    - Language: en
+    - Category: Marketing / Utility
     - Body: Hello {{1}}, your contract for the project with description *{{2}}* at *{{3}}* is ready for download.
             Kindly click the button "Download Contract Agreement" below to download and view your contract agreement.
-    - Button (URL, CTA): Download Contract Agreement → https://<your-public-domain>/download_contract/{{1}}
+    - Button type: Quick Reply
+    - Button text: Download Contract Agreement
+    - Button payload: contract_{{project_id}} (set dynamically by API)
     """
-    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {ACCESS_TOKEN}",
         "Content-Type": "application/json"
@@ -27957,7 +27974,7 @@ def send_contract_download_template(recipient_number, project_id, client_name=''
                 {
                     "type": "button",
                     "sub_type": "quick_reply",
-                    "index": "0",
+                    "index": 0,
                     "parameters": [
                         {
                             "type": "payload",
@@ -27971,11 +27988,20 @@ def send_contract_download_template(recipient_number, project_id, client_name=''
 
     response = requests.post(url, headers=headers, json=payload, timeout=45)
     response_data = response.json()
-    print(f"📨 Contract template response [{response.status_code}]: {response_data}")
+    print(f"📨 Contract template [{CONTRACT_DOWNLOAD_TEMPLATE_NAME}] response [{response.status_code}]: {json.dumps(response_data, indent=2)[:2000]}")
 
     if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
         error_payload = response_data.get('error', response_data)
-        raise ValueError(f"Contract template send failed: {error_payload}")
+        error_code = error_payload.get('code', '') if isinstance(error_payload, dict) else ''
+        error_msg = error_payload.get('message', str(error_payload)) if isinstance(error_payload, dict) else str(error_payload)
+        error_details = (error_payload.get('error_data') or {}).get('details', '') if isinstance(error_payload, dict) else ''
+        combined = f"Template [{CONTRACT_DOWNLOAD_TEMPLATE_NAME}] send failed"
+        if error_code:
+            combined += f" [code {error_code}]"
+        combined += f": {error_msg}"
+        if error_details:
+            combined += f" | Details: {error_details}"
+        raise ValueError(combined)
 
     # Save to whatsapp_messages so it appears in chat UI
     try:

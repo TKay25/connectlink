@@ -41,25 +41,25 @@
     "seaborn"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 12310"
+    "INSTRUCTIONS @ line 12321"
   ],
   "token_controls": [
-    "max_length = 0 @ line 20635",
-    "max_length = len(str(cell.value)) @ line 20640",
-    "adjusted_width = min(max_length + 2, 50) @ line 20643",
-    "max_length = 0 @ line 21456",
-    "max_length = cell_length @ line 21463",
-    "adjusted_width = min(max_length + 2, 50) @ line 21466",
-    "max_length = 0 @ line 22451",
-    "max_length = cell_length @ line 22458",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 22461"
+    "max_length = 0 @ line 20647",
+    "max_length = len(str(cell.value)) @ line 20652",
+    "adjusted_width = min(max_length + 2, 50) @ line 20655",
+    "max_length = 0 @ line 21468",
+    "max_length = cell_length @ line 21475",
+    "adjusted_width = min(max_length + 2, 50) @ line 21478",
+    "max_length = 0 @ line 22463",
+    "max_length = cell_length @ line 22470",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 22473"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "Key constants: GEMINI_API_KEY = 'AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g', VERIFY_TOKEN = '2012753506232550', ACCESS_TOKEN = 'EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD', PHONE_NUMBER_ID = '977519838770637', VERIFY_TOKEN = '2012753506232550', WHATSAPP_API_URL = f'https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages'",
+  "notes": "Key constants: GEMINI_API_KEY = 'AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g', VERIFY_TOKEN = '2012753506232550', ACCESS_TOKEN = 'EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD', PHONE_NUMBER_ID = '977519838770637', VERIFY_TOKEN = '2012753506232550', WHATSAPP_API_VERSION = 'v22.0'",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -69,6 +69,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-07-14T14:38:54.362706Z",
+  "generated_at": "2026-07-16T06:36:15.555829Z",
   "stale": false
 }

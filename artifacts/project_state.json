@@ -1,6 +1,6 @@
 {
-  "last_sync": "2026-07-14T09:53:02.778Z",
-  "module_count": 48,
+  "last_sync": "2026-07-15T10:55:09.977Z",
+  "module_count": 49,
   "empty_project": false,
   "planning_ready": true,
   "orphaned_count": 8,
@@ -38,5 +38,10 @@
       "source": "test_pagination_api.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "fix_dup_employees.py",
+      "ts": "2026-07-14T14:43:10.591Z"
+    }
+  ]
 }
