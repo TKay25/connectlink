@@ -30467,7 +30467,7 @@ def quick_view_details():
             elif category == 'chats_needing_reply':
                 cond2, p2 = date_filter("created_at")
                 cursor.execute(f"""
-                    SELECT id, username, wa_id, message, created_at
+                    SELECT id, sender_name, sender_phone, message_text, created_at
                     FROM whatsapp_messages
                     WHERE direction = 'incoming'
                     AND (message_type IS NULL OR message_type NOT IN ('interactive', 'button', 'list', 'order'))
@@ -30507,5 +30507,152 @@ def quick_view_details():
         import traceback
         tb = traceback.format_exc()
         logging.error(f'Error in quick_view_details: {str(e)}\n{tb}')
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/quick-view-chart', methods=['GET'])
+def quick_view_chart():
+    """Return time-series data for the Quick View trend chart."""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    date_range = request.args.get('date_range', 'today')
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT NOW()")
+            db_now = cursor.fetchone()[0]
+
+            # Compute date boundaries
+            if date_range == 'today':
+                start = db_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                end = None
+                trunc = 'hour'
+            elif date_range == 'yesterday':
+                start = (db_now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                end = db_now.replace(hour=0, minute=0, second=0, microsecond=0)
+                trunc = 'hour'
+            elif date_range == 'this_week':
+                start = (db_now - timedelta(days=db_now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                end = None
+                trunc = 'day'
+            elif date_range == 'last_week':
+                end = (db_now - timedelta(days=db_now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+                start = end - timedelta(days=7)
+                trunc = 'day'
+            elif date_range == 'this_month':
+                start = db_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = None
+                trunc = 'day'
+            elif date_range == 'last_month':
+                first_of_this = db_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = first_of_this
+                start = (first_of_this - timedelta(days=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                trunc = 'day'
+            elif date_range == 'this_year':
+                start = db_now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = None
+                trunc = 'month'
+            elif date_range == 'last_year':
+                start = db_now.replace(year=db_now.year-1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                end = db_now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                trunc = 'month'
+            else:  # 'all_time'
+                start = None
+                end = None
+                trunc = 'year'
+
+            def time_filter(col):
+                if start and end:
+                    return f"{col} >= %s AND {col} < %s", [start, end]
+                elif start:
+                    return f"{col} >= %s", [start]
+                else:
+                    return "1=1", []
+
+            # Build a series of all time buckets in the range
+            buckets = []
+            if trunc == 'hour':
+                cur = start.replace(minute=0, second=0, microsecond=0)
+                limit = end if end else db_now
+                while cur < limit:
+                    buckets.append(cur.strftime('%Y-%m-%d %H:00'))
+                    cur += timedelta(hours=1)
+            elif trunc == 'day':
+                cur = start
+                limit = end if end else (db_now + timedelta(days=1))
+                while cur < limit:
+                    buckets.append(cur.strftime('%Y-%m-%d'))
+                    cur += timedelta(days=1)
+            elif trunc == 'month':
+                cur = start
+                limit = end if end else (db_now.replace(day=1) + timedelta(days=32)).replace(day=1)
+                while cur < limit:
+                    buckets.append(cur.strftime('%Y-%m'))
+                    if cur.month == 12:
+                        cur = cur.replace(year=cur.year+1, month=1)
+                    else:
+                        cur = cur.replace(month=cur.month+1)
+            else:  # year
+                cur = start if start else db_now.replace(year=db_now.year-5, month=1, day=1)
+                limit = end if end else (db_now + timedelta(days=365))
+                year_end = db_now.year + 1
+                for y in range(cur.year, year_end):
+                    buckets.append(str(y))
+
+            def fetch_series(table, time_col, cond, params):
+                sql = f"""
+                    SELECT DATE_TRUNC('{trunc}', {time_col}) AS bucket, COUNT(*) AS cnt
+                    FROM {table}
+                    WHERE {cond}
+                    GROUP BY bucket
+                    ORDER BY bucket
+                """
+                cursor.execute(sql, params)
+                series = {}
+                for row in cursor.fetchall():
+                    key = row[0]
+                    if trunc == 'hour':
+                        key = key.strftime('%Y-%m-%d %H:00')
+                    elif trunc == 'day':
+                        key = key.strftime('%Y-%m-%d')
+                    elif trunc == 'month':
+                        key = key.strftime('%Y-%m')
+                    else:
+                        key = str(key.year)
+                    series[key] = row[1]
+                return series
+
+            cond, params = time_filter('timestamp')
+            enquiries_series = fetch_series('connectlinkenquiries', 'timestamp', cond, params)
+
+            cond, params = time_filter('created_at')
+            quotations_series = fetch_series('quotations', 'created_at', cond, params)
+
+            cond, params = time_filter('datecaptured')
+            contracts_series = fetch_series('connectlinkdatabase', 'datecaptured', cond, params)
+
+            # Build chart data
+            chart_data = []
+            for bucket in buckets:
+                enq = enquiries_series.get(bucket, 0)
+                quot = quotations_series.get(bucket, 0)
+                cont = contracts_series.get(bucket, 0)
+                ratio = round((cont / quot * 100), 1) if quot > 0 else 0
+                chart_data.append({
+                    'label': bucket,
+                    'enquiries': enq,
+                    'quotations': quot,
+                    'contracts': cont,
+                    'ratio': ratio
+                })
+
+            return jsonify({'success': True, 'data': chart_data})
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        logging.error(f'Error in quick_view_chart: {str(e)}\n{tb}')
         return jsonify({'success': False, 'message': str(e)}), 500
 

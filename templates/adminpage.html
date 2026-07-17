@@ -38832,6 +38832,18 @@ document.addEventListener('DOMContentLoaded', function(){
                 </div>
 
             </div>
+
+            <!-- Trend Chart -->
+            <div style="margin-top:14px;padding:10px 12px;background:white;border-radius:10px;border:1px solid rgba(30,42,86,0.08);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <span style="font-size:0.65rem;font-weight:700;color:#1E2A56;text-transform:uppercase;letter-spacing:0.3px;">
+                        <i class="bi bi-graph-up" style="color:#C12B3E;"></i> Trend
+                    </span>
+                    <span id="qvChartLoading" style="display:none;font-size:0.6rem;color:#5a678a;"><i class="bi bi-arrow-clockwise spinning"></i> Loading chart...</span>
+                </div>
+                <canvas id="qvTrendChart" height="180" style="width:100%;max-height:200px;"></canvas>
+            </div>
+
         </div>
         <div class="modal-footer-custom">
             <button type="button" class="btn btn-danger" onclick="closeModal('quickViewModal')" style="font-size:0.7rem;padding:4px 14px;">Close</button>
@@ -38931,11 +38943,174 @@ function loadQuickViewStats() {
             setText('qvContractsFailed', d.contracts_failed);
             setText('qvChatsNeedingReply', d.chats_needing_reply);
             setText('qvSystemErrors', d.system_errors);
+            
+            // Also load chart data
+            loadQuickViewChart(filter);
         })
         .catch(function(err) {
             showQuickViewLoading(false);
             console.error('Quick View fetch failed:', err);
         });
+}
+
+function loadQuickViewChart(filter) {
+    var chartLoading = document.getElementById('qvChartLoading');
+    if (chartLoading) chartLoading.style.display = 'inline';
+    
+    fetch('/api/quick-view-chart?date_range=' + filter)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (chartLoading) chartLoading.style.display = 'none';
+            if (!data.success || !data.data || data.data.length === 0) return;
+            
+            renderQvTrendChart(data.data);
+        })
+        .catch(function(err) {
+            if (chartLoading) chartLoading.style.display = 'none';
+            console.error('Quick View chart fetch failed:', err);
+        });
+}
+
+function renderQvTrendChart(chartData) {
+    var labels = chartData.map(function(d) { return d.label; });
+    var enquiries = chartData.map(function(d) { return d.enquiries; });
+    var quotations = chartData.map(function(d) { return d.quotations; });
+    var contracts = chartData.map(function(d) { return d.contracts; });
+    var ratios = chartData.map(function(d) { return d.ratio; });
+    
+    // Destroy existing chart if it exists
+    if (window.qvChartInstance) {
+        window.qvChartInstance.destroy();
+        window.qvChartInstance = null;
+    }
+    
+    var ctx = document.getElementById('qvTrendChart');
+    if (!ctx) return;
+    
+    window.qvChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Enquiries',
+                    data: enquiries,
+                    borderColor: '#1E2A56',
+                    backgroundColor: 'rgba(30,42,86,0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Quotations',
+                    data: quotations,
+                    borderColor: '#C12B3E',
+                    backgroundColor: 'rgba(193,43,62,0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Contracts',
+                    data: contracts,
+                    borderColor: '#2e7d32',
+                    backgroundColor: 'rgba(46,125,50,0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Contract:Quotation Ratio %',
+                    data: ratios,
+                    borderColor: '#ef6c00',
+                    backgroundColor: 'rgba(239,108,0,0.15)',
+                    borderDash: [4, 3],
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    borderWidth: 2,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 8,
+                        font: { size: 9 }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.dataset.label === 'Contract:Quotation Ratio %') {
+                                return context.dataset.label + ': ' + context.parsed.y + '%';
+                            }
+                            return context.dataset.label + ': ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        font: { size: 8 },
+                        maxRotation: 45,
+                        maxTicksLimit: 20
+                    },
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    position: 'left',
+                    ticks: {
+                        font: { size: 8 },
+                        precision: 0
+                    },
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                    title: {
+                        display: true,
+                        text: 'Count',
+                        font: { size: 9 }
+                    }
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    ticks: {
+                        font: { size: 8 },
+                        callback: function(value) { return value + '%'; }
+                    },
+                    grid: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Ratio %',
+                        font: { size: 9 }
+                    }
+                }
+            }
+        }
+    });
 }
 
 function setText(id, val) {
