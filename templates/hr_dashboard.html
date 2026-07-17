@@ -1031,7 +1031,7 @@
                     <div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e8f0fe,#d4e4fc);display:flex;align-items:center;justify-content:center;color:#2563eb;flex-shrink:0;"><i class="bi bi-people-fill"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">Total Employees</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statTotalEmployees">0</div></div></div></div>
                     <div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fff3e0,#ffe4b3);display:flex;align-items:center;justify-content:center;color:#d97706;flex-shrink:0;"><i class="bi bi-calendar-check"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">On Leave Today</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statOnLeave">0</div></div></div></div>
                     <div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f5f0ff,#e4d0fc);display:flex;align-items:center;justify-content:center;color:#7c3aed;flex-shrink:0;"><i class="bi bi-wallet2"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">Payroll (Month)</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statPayroll">$0</div></div></div></div>
-                    <div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fce4ec,#f8d0da);display:flex;align-items:center;justify-content:center;color:#dc2626;flex-shrink:0;"><i class="bi bi-exclamation-triangle"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">Pending Requests</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statPendingRequests">0</div></div></div></div>
+                    <div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fce4ec,#f8d0da);display:flex;align-items:center;justify-content:center;color:#dc2626;flex-shrink:0;"><i class="bi bi-exclamation-triangle"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">Pending Leave Requests</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statPendingRequests">0</div></div></div></div>
                 </div>
                 <div class="dash-cols">
                     <div class="dash-col dash-section-hr"><div class="dash-col-header"><i class="bi bi-people-fill" style="color:#2563eb;"></i> Human Resources</div>
@@ -2517,20 +2517,23 @@ document.addEventListener('keydown', function(e) {
 
 // ===== LOAD DASHBOARD STATS =====
 async function loadDashboardStats() {
-    try {
-        // Main stats
-        const [statsRes, deptRes, assetRes, leaveRes] = await Promise.all([
-            fetch('/api/hr/stats'),
-            fetch('/api/hr/employee-stats'),
-            fetch('/api/hr/assets'),
-            fetch('/api/hr/leave')
-        ]);
-        const stats = await statsRes.json();
-        const dept = await deptRes.json();
-        const assets = await assetRes.json();
-        const leaves = await leaveRes.json();
-
-        if (stats.success) {
+    // Fetch each API independently so one failure doesn't block others
+    const [statsRes, deptRes, assetRes, leaveRes] = await Promise.all([
+        fetch('/api/hr/stats').catch(function() { return null; }),
+        fetch('/api/hr/employee-stats').catch(function() { return null; }),
+        fetch('/api/hr/assets').catch(function() { return null; }),
+        fetch('/api/hr/leave').catch(function() { return null; })
+    ]);
+    
+    // Parse responses individually with error handling
+    var stats = null, dept = null, assets = null, leaves = null;
+    try { if (statsRes) stats = await statsRes.json(); } catch(e) {}
+    try { if (deptRes) dept = await deptRes.json(); } catch(e) {}
+    try { if (assetRes) assets = await assetRes.json(); } catch(e) {}
+    try { if (leaveRes) leaves = await leaveRes.json(); } catch(e) {}
+    
+    // --- MAIN STATS ---
+    if (stats && stats.success) {
             document.getElementById('statTotalEmployees').textContent = stats.data.total_employees;
             document.getElementById('statActiveEmployees').textContent = stats.data.active_employees;
             document.getElementById('statInactiveEmployees').textContent = Math.max(0, stats.data.total_employees - stats.data.active_employees);
@@ -2619,8 +2622,8 @@ async function loadDashboardStats() {
             const payeStatusEl = document.getElementById('payeDashboardStatus');
             if (payeStatusEl) payeStatusEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">Error loading</span>';
         }
-    } catch(e) { console.error('Dashboard stats error:', e); }
 }
+
 
 // ===== LOAD APPROVERS =====
 async function loadApprovers() {
