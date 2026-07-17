@@ -30189,6 +30189,10 @@ def quick_view_stats():
                 f"SELECT COUNT(*) FROM quotation_whatsapp_send_logs WHERE send_status != 'success' AND {cond}", params)
 
             # --- 3. CONTRACTS ---
+            cond, params = date_filter("datecaptured")
+            result['contracts_captured'] = safe_count(
+                f"SELECT COUNT(*) FROM allprojects WHERE {cond}", params)
+
             cond, params = date_filter("created_at")
             result['contracts_sent'] = safe_count(
                 f"SELECT COUNT(*) FROM contract_whatsapp_outbox WHERE send_status = 'sent' AND {cond}", params)
@@ -30388,6 +30392,22 @@ def quick_view_details():
                         'amount': float(r[3]) if r[3] else 0,
                         'timestamp': str(r[4]) if r[4] else '',
                         'status': r[5] or ''
+                    })
+
+            elif category == 'contracts_captured':
+                cond2, p2 = date_filter("datecaptured")
+                cursor.execute(f"""
+                    SELECT id, clientname, projectname, totalcontractamount,
+                           projectadministratorname, datecaptured
+                    FROM allprojects WHERE {cond2}
+                    ORDER BY datecaptured DESC LIMIT 100
+                """, p2)
+                rows = cursor.fetchall()
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'client_name': r[1] or 'Unknown', 'project_name': r[2] or '',
+                        'amount': float(r[3]) if r[3] else 0,
+                        'capturer': r[4] or 'N/A', 'timestamp': str(r[5]) if r[5] else ''
                     })
 
             elif category == 'contracts_sent':
