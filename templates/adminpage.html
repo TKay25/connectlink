@@ -4734,6 +4734,23 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                 <span class="stat-item"><i class="bi bi-building-check"></i> Projects Champion Today: <span id="tsProjectsChamp">—</span></span>
                 <span class="stat-item sep">|</span>
                 <span class="stat-item"><i class="bi bi-file-text-fill"></i> Quotations Champion: <span id="tsQuotesChamp">—</span></span>
+                <!-- Duplicate for seamless loop -->
+                <span class="stat-item sep">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+                <span class="stat-item"><i class="bi bi-journal-check"></i> Projects Captured Today: <b>0</b></span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-check-circle"></i> Projects Completed Today: <b>0</b></span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-file-text"></i> Quotations Created Today: <b>0</b></span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-send"></i> Quotations Sent Today: <b>0</b></span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-graph-up-arrow"></i> Contract:Quotation Ratio Today: <b>0</b>%</span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-lightning-fill"></i> Actions Champion Today: <span>—</span></span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-building-check"></i> Projects Champion Today: <span>—</span></span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-file-text-fill"></i> Quotations Champion: <span>—</span></span>
             </div>
         </div>
         <button onclick="showLoaderThenReload()" title="Refresh page" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;margin-right:4px;">
@@ -38994,7 +39011,7 @@ function loadTodayStats() {
             document.getElementById('tsRatio').textContent = d.contract_quotation_ratio;
             document.getElementById('tsActionsChamp').textContent = d.actions_champion !== 'N/A' ? d.actions_champion : '';
             document.getElementById('tsProjectsChamp').textContent = d.projects_champion !== 'N/A' ? d.projects_champion : '';
-            document.getElementById('tsQuotesChamp').textContent = d.quotations_champion !== 'N/A' ? d.quotations_champion : '';
+            document.getElementById('tsQuotesChamp').textContent = d.quotations_champion !== 'N/A' ? d.quotations_champion : '\u2014';
             // Show the bar with animation
             var bar = document.getElementById('todayStatsBar');
             if (bar) bar.classList.add('loaded');
@@ -39487,7 +39504,7 @@ function escAttr(str) {
     gap: 3px;
     animation: scrollStats 55s linear infinite;
     font-size: 0.64rem;
-    font-weight: 500;
+    font-weight: 700;
     color: var(--text-secondary);
     letter-spacing: 0.01em;
 }
@@ -39499,7 +39516,7 @@ function escAttr(str) {
     align-items: center;
     gap: 3px;
     padding: 0 3px;
-    font-weight: 500;
+    font-weight: 700;
     background: rgba(255,255,255,0.35);
     border-radius: 12px;
     padding: 1px 6px;
@@ -39522,8 +39539,8 @@ function escAttr(str) {
     border-radius: 0;
 }
 @keyframes scrollStats {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
 }
 
 /* === TODAY STATS MODAL === */

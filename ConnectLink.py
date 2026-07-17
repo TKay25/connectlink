@@ -30318,18 +30318,9 @@ def today_stats():
             projects_champion_count = row[1] if row else 0
 
             # Quotations champion - user who created most quotations today
-            cursor.execute("""
-                SELECT u.name, COUNT(*) as cnt
-                FROM quotations q
-                LEFT JOIN connectlinkusers u ON u.id = q.id
-                WHERE q.created_at >= %s AND q.created_at < %s
-                GROUP BY u.name
-                ORDER BY cnt DESC
-                LIMIT 1
-            """, (today_start, today_end))
-            row = cursor.fetchone()
-            quotations_champion = row[0] if row else 'N/A'
-            quotations_champion_count = row[1] if row else 0
+            # Note: quotations table has no created_by column, so this is unavailable
+            quotations_champion = 'N/A'
+            quotations_champion_count = 0
 
             # Contract to quotation ratio for today
             ratio = round((projects_captured_today / quotations_today * 100), 1) if quotations_today > 0 else 0
