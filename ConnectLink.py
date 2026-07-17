@@ -30288,7 +30288,7 @@ def quick_view_details():
             if category == 'enquiries_new':
                 cond2, p2 = date_filter("timestamp")
                 cursor.execute(f"""
-                    SELECT id, wanumber, enqtype, message, timestamp
+                    SELECT id, clientwhatsapp, enqcategory, enq, timestamp
                     FROM connectlinkenquiries WHERE {cond2}
                     ORDER BY timestamp DESC LIMIT 100
                 """, p2)
@@ -30302,7 +30302,7 @@ def quick_view_details():
             elif category == 'enquiries_responded':
                 cond2, p2 = date_filter("timestamp")
                 cursor.execute(f"""
-                    SELECT id, wanumber, enqtype, status, timestamp
+                    SELECT id, clientwhatsapp, enqcategory, status, timestamp
                     FROM connectlinkenquiries WHERE status IS NOT NULL AND status != 'pending' AND {cond2}
                     ORDER BY timestamp DESC LIMIT 100
                 """, p2)
