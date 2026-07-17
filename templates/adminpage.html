@@ -9180,9 +9180,6 @@ body { font-family: Arial; margin: 20px; }
 </div>
 
 <!-- Quotation Details Modal -->
-<div id="quotationDetailsModal" class="modal-overlay">
-</div>
-
 
 <div id="addcompAdminModal" class="modal-overlay">
     <div class="modal-container large">
@@ -35196,6 +35193,11 @@ function escapeHtml(text) {
 
     function displayQuotationDetails(quotation, container) {
         let html = '<div style="margin-bottom: 10px;">';
+        
+        // Created by info
+        html += '<div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:6px;">';
+        html += 'Created by: <strong>' + (quotation.createdBy ? escapeHtml(quotation.createdBy) : '<span style="color:var(--text-muted);font-style:italic;">—</span>') + '</strong>';
+        html += '</div>';
         
         // Action buttons at the top
         const wa = quotation.clientWhatsapp ? quotation.clientWhatsapp.toString().trim() : '';
