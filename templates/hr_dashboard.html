@@ -3361,6 +3361,26 @@ async function loadMyActivity() {
                 logEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:4px;"></i>No recent approvals.</div>';
             }
         }
+
+        // Populate Recent Activity timeline from leave data
+        const timelineEl = document.getElementById('activityTimeline');
+        if (timelineEl && leaves && leaves.success && leaves.data) {
+            var recent = leaves.data.filter(function(l) { return l.status === 'Approved' || l.status === 'Pending'; }).slice(0, 10);
+            if (recent.length) {
+                timelineEl.innerHTML = recent.map(function(l) {
+                    var icon = l.status === 'Approved' ? 'bi-check-circle-fill' : 'bi-clock';
+                    var color = l.status === 'Approved' ? '#2e7d32' : '#d97706';
+                    var label = l.status === 'Approved' ? 'Approved' : 'Requested';
+                    return '<div style="display:flex;align-items:flex-start;gap:6px;padding:4px 8px;border-bottom:1px solid var(--gray-100);font-size:0.5rem;">' +
+                        '<i class="bi ' + icon + '" style="color:' + color + ';font-size:0.55rem;margin-top:2px;"></i>' +
+                        '<div style="flex:1;"><strong>' + (l.employee_name || 'Unknown') + '</strong> ' + label + ' <em>' + (l.leave_type || 'leave') + '</em></div>' +
+                        '<span style="color:var(--text-muted);white-space:nowrap;">' + (l.days || 0) + 'd</span>' +
+                        '</div>';
+                }).join('');
+            } else {
+                timelineEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-inbox" style="font-size:1rem;display:block;margin-bottom:4px;opacity:0.5;"></i>No recent activity.</div>';
+            }
+        }
     } catch(e) { console.error('My activity error:', e); }
 }
 
