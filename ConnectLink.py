@@ -1385,6 +1385,26 @@ def initialize_database_tables():
                 connection.rollback()
                 print(f"Note: Could not create activity_log indexes: {e}")
 
+            # ========== HR DOCUMENTS ==========
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_documents (
+                    id SERIAL PRIMARY KEY,
+                    category VARCHAR(100) NOT NULL,
+                    original_filename VARCHAR(255) NOT NULL,
+                    stored_filename VARCHAR(255) NOT NULL,
+                    file_size INT DEFAULT 0,
+                    mime_type VARCHAR(100) DEFAULT 'application/octet-stream',
+                    description VARCHAR(500) DEFAULT '',
+                    uploaded_by VARCHAR(100),
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            try:
+                cursor.execute("ALTER TABLE hr_documents ADD COLUMN IF NOT EXISTS file_data BYTEA")
+                connection.commit()
+            except Exception:
+                pass
+
             connection.commit()
             print("✅ Database tables initialized successfully!")
 
@@ -15173,6 +15193,144 @@ def hr_assets_api():
                 return jsonify({'success': True, 'id': aid, 'message': 'Asset registered'})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ========== HR DOCUMENTS API ==========
+import uuid as _uuid
+import os as _os
+
+DOCUMENT_CATEGORIES = [
+    'Employment Contracts', 'CVs & Resumes', 'Certifications', 'Medical Records',
+    'HR Policies & Handbook', 'Tax Documents', 'Training Materials'
+]
+
+@app.route('/api/hr/documents', methods=['GET'])
+def hr_list_documents():
+    """List HR documents, optionally filtered by category"""
+    try:
+        category = request.args.get('category', '')
+        with get_db() as (cursor, connection):
+            if category:
+                cursor.execute("""
+                    SELECT id, category, original_filename, file_size, description, uploaded_by, uploaded_at
+                    FROM hr_documents WHERE category = %s ORDER BY uploaded_at DESC
+                """, (category,))
+            else:
+                cursor.execute("""
+                    SELECT id, category, original_filename, file_size, description, uploaded_by, uploaded_at
+                    FROM hr_documents ORDER BY uploaded_at DESC
+                """)
+            docs = cursor.fetchall()
+            result = []
+            for d in docs:
+                result.append({
+                    'id': d[0],
+                    'category': d[1],
+                    'filename': d[2],
+                    'file_size': d[3],
+                    'description': d[4] or '',
+                    'uploaded_by': d[5] or 'Unknown',
+                    'uploaded_at': d[6].isoformat() if d[6] else ''
+                })
+            return jsonify({'success': True, 'data': result, 'count': len(result)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/documents/counts', methods=['GET'])
+def hr_document_counts():
+    """Return file count per category"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT category, COUNT(*) FROM hr_documents GROUP BY category
+            """)
+            rows = cursor.fetchall()
+            counts = {r[0]: r[1] for r in rows}
+            return jsonify({'success': True, 'data': counts})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/documents', methods=['POST'])
+def hr_upload_document():
+    """Upload an HR document"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'Empty file'}), 400
+
+        category = request.form.get('category', '').strip()
+        description = request.form.get('description', '').strip()
+
+        if category not in DOCUMENT_CATEGORIES:
+            return jsonify({'success': False, 'error': 'Invalid category'}), 400
+
+        original_filename = file.filename
+        ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else ''
+        stored_filename = f"{_uuid.uuid4().hex}.{ext}" if ext else _uuid.uuid4().hex
+        file_bytes = file.read()
+        file_size = len(file_bytes)
+        mime_type = file.content_type or 'application/octet-stream'
+        uploaded_by = session.get('user_name') or session.get('username') or 'Admin'
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO hr_documents
+                    (category, original_filename, stored_filename, file_size, mime_type, description, uploaded_by, file_data)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (category, original_filename, stored_filename, file_size, mime_type, description, uploaded_by, psycopg2.Binary(file_bytes)))
+            doc_id = cursor.fetchone()[0]
+            connection.commit()
+
+        return jsonify({
+            'success': True,
+            'id': doc_id,
+            'message': f'{original_filename} uploaded successfully under "{category}"'
+        })
+    except Exception as e:
+        print(f"HR document upload error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/documents/<int:doc_id>/download', methods=['GET'])
+def hr_download_document(doc_id):
+    """Download an HR document"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT original_filename, file_data, mime_type FROM hr_documents WHERE id = %s
+            """, (doc_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Document not found'}), 404
+            filename, file_data, mime_type = row
+            if not file_data:
+                return jsonify({'success': False, 'error': 'File data missing'}), 404
+            return Response(
+                bytes(file_data),
+                mimetype=mime_type or 'application/octet-stream',
+                headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+            )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/documents/<int:doc_id>', methods=['DELETE'])
+def hr_delete_document(doc_id):
+    """Delete an HR document"""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM hr_documents WHERE id = %s", (doc_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Document deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 import io

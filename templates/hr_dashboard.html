@@ -1684,7 +1684,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-file-earmark-text"></i> Documents &amp; Records</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm" onclick="alert('Upload document...')">
+                    <button class="btn btn-primary btn-sm" onclick="openModal('uploadDocModal')">
                         <i class="bi bi-upload"></i> Upload Document
                     </button>
                 </div>
@@ -1700,22 +1700,22 @@
                             <div class="activity-item">
                                 <i class="bi bi-file-earmark-pdf" style="color:var(--primary);font-size:0.85rem;"></i>
                                 <div class="activity-text">Employment Contracts</div>
-                                <span class="activity-time">0 files</span>
+                                <span class="activity-time" id="docCount_EmploymentContracts">0 files</span>
                             </div>
                             <div class="activity-item">
                                 <i class="bi bi-file-earmark-text" style="color:#1a73e8;font-size:0.85rem;"></i>
                                 <div class="activity-text">CVs &amp; Resumes</div>
-                                <span class="activity-time">0 files</span>
+                                <span class="activity-time" id="docCount_CVsResumes">0 files</span>
                             </div>
                             <div class="activity-item">
                                 <i class="bi bi-file-earmark-check" style="color:#2e7d32;font-size:0.85rem;"></i>
                                 <div class="activity-text">Certifications</div>
-                                <span class="activity-time">0 files</span>
+                                <span class="activity-time" id="docCount_Certifications">0 files</span>
                             </div>
                             <div class="activity-item">
                                 <i class="bi bi-file-earmark-medical" style="color:#ef6c00;font-size:0.85rem;"></i>
                                 <div class="activity-text">Medical Records</div>
-                                <span class="activity-time">0 files</span>
+                                <span class="activity-time" id="docCount_MedicalRecords">0 files</span>
                             </div>
                         </div>
                     </div>
@@ -1729,17 +1729,17 @@
                             <div class="activity-item">
                                 <i class="bi bi-file-earmark-spreadsheet" style="color:#1a73e8;font-size:0.85rem;"></i>
                                 <div class="activity-text">HR Policies &amp; Handbook</div>
-                                <span class="activity-time">0 files</span>
+                                <span class="activity-time" id="docCount_HRPoliciesHandbook">0 files</span>
                             </div>
                             <div class="activity-item">
                                 <i class="bi bi-file-earmark-pdf" style="color:var(--primary);font-size:0.85rem;"></i>
                                 <div class="activity-text">Tax Documents</div>
-                                <span class="activity-time">0 files</span>
+                                <span class="activity-time" id="docCount_TaxDocuments">0 files</span>
                             </div>
                             <div class="activity-item">
                                 <i class="bi bi-file-earmark-text" style="color:#7c3aed;font-size:0.85rem;"></i>
                                 <div class="activity-text">Training Materials</div>
-                                <span class="activity-time">0 files</span>
+                                <span class="activity-time" id="docCount_TrainingMaterials">0 files</span>
                             </div>
                         </div>
                     </div>
@@ -2271,6 +2271,56 @@
     </div>
 </div>
 
+<!-- Upload Document Modal -->
+<div id="uploadDocModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-upload"></i> Upload Document</h3>
+            <button class="modal-close" onclick="closeModal('uploadDocModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom">
+            <form id="uploadDocForm" onsubmit="return false;">
+                <div class="mb-3">
+                    <label class="form-label">Document Category <span class="text-danger">*</span></label>
+                    <select class="form-select" id="docCategory">
+                        <option value="">-- Select Category --</option>
+                        <optgroup label="Employee Documents">
+                            <option value="Employment Contracts">Employment Contracts</option>
+                            <option value="CVs &amp; Resumes">CVs &amp; Resumes</option>
+                            <option value="Certifications">Certifications</option>
+                            <option value="Medical Records">Medical Records</option>
+                        </optgroup>
+                        <optgroup label="Company Documents">
+                            <option value="HR Policies &amp; Handbook">HR Policies &amp; Handbook</option>
+                            <option value="Tax Documents">Tax Documents</option>
+                            <option value="Training Materials">Training Materials</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Select File <span class="text-danger">*</span></label>
+                    <input type="file" class="form-control" id="docFileInput" style="font-size:0.65rem;padding:3px 6px;">
+                    <small class="text-muted" style="font-size:0.5rem;">PDF, Word, Excel, Images accepted</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description (optional)</label>
+                    <input type="text" class="form-control" id="docDescription" placeholder="Brief description of the document" style="font-size:0.65rem;">
+                </div>
+                <div id="docUploadProgress" style="display:none;text-align:center;padding:10px;">
+                    <div class="spinner-border spinner-border-sm text-primary"></div>
+                    <span style="font-size:0.6rem;margin-left:6px;">Uploading...</span>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('uploadDocModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="uploadDocument()">
+                <i class="bi bi-cloud-upload"></i> Upload &amp; Save
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ===== SCRIPTS ===== -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
@@ -2415,6 +2465,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadApprovers();
     loadAssetAssignees();
     loadPayeTables();
+    loadDocumentCounts();
     // Init leave view
     setLeaveView('all');
 
@@ -2452,6 +2503,8 @@ function showModule(moduleId) {
         loadPayeTables();
     } else if (moduleId === 'payroll') {
         loadPayroll();
+    } else if (moduleId === 'documents') {
+        loadDocumentCounts();
     }
 
     closeUserDropdown();
@@ -3361,6 +3414,68 @@ async function loadMyActivity() {
             }
         }
     } catch(e) { console.error('My activity error:', e); }
+}
+
+// ===== DOCUMENTS =====
+function uploadDocument() {
+    var category = document.getElementById('docCategory').value;
+    var fileInput = document.getElementById('docFileInput');
+    var file = fileInput.files[0];
+    var description = document.getElementById('docDescription').value;
+
+    if (!category) { alert('Please select a document category.'); return; }
+    if (!file) { alert('Please select a file to upload.'); return; }
+
+    var progress = document.getElementById('docUploadProgress');
+    var formData = new FormData();
+    formData.append('file', file);
+    formData.append('category', category);
+    formData.append('description', description);
+
+    progress.style.display = 'block';
+
+    fetch('/api/hr/documents', { method: 'POST', body: formData })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            progress.style.display = 'none';
+            if (result.success) {
+                alert(result.message);
+                closeModal('uploadDocModal');
+                fileInput.value = '';
+                document.getElementById('docDescription').value = '';
+                document.getElementById('docCategory').value = '';
+                loadDocumentCounts();
+            } else {
+                alert('Upload failed: ' + (result.error || 'Unknown error'));
+            }
+        })
+        .catch(function(err) {
+            progress.style.display = 'none';
+            alert('Upload error: ' + err.message);
+        });
+}
+
+function loadDocumentCounts() {
+    fetch('/api/hr/documents/counts')
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (!result.success) return;
+            var counts = result.data || {};
+            var catMap = {
+                'Employment Contracts': 'docCount_EmploymentContracts',
+                'CVs & Resumes': 'docCount_CVsResumes',
+                'Certifications': 'docCount_Certifications',
+                'Medical Records': 'docCount_MedicalRecords',
+                'HR Policies & Handbook': 'docCount_HRPoliciesHandbook',
+                'Tax Documents': 'docCount_TaxDocuments',
+                'Training Materials': 'docCount_TrainingMaterials'
+            };
+            for (var cat in catMap) {
+                var el = document.getElementById(catMap[cat]);
+                if (el) el.textContent = (counts[cat] || 0) + ' files';
+            }
+        })
+        .catch(function(err) { console.error('Doc count error:', err); });
 }
 
 function filterLeaveTable() {
