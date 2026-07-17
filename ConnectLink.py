@@ -28066,7 +28066,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
 
     response = requests.post(url, headers=headers, json=payload, timeout=45)
     response_data = response.json()
-    print(f"📨 Quotation template response [{response.status_code}]: {response_data[:1000] if isinstance(response_data, dict) else response_data}")
+    print(f"📨 Quotation template response [{response.status_code}]: {str(response_data)[:500]}")
 
     if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
         error_payload = response_data.get('error', response_data)
