@@ -35399,6 +35399,8 @@ async function downloadConstructionQuotationPDFFromPortal(quotation) {
     }
 
 function editQuotationFromPortal(quotationId) {
+    window.editQuotationFromPortal = editQuotationFromPortal;
+    window.__realEditQuotationFromPortal = editQuotationFromPortal;
     showLoader('Preparing Quotation Editor', 'Loading quotation details...');
     fetch('/api/get-quotations')
         .then(r => r.json())
