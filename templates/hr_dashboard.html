@@ -1043,7 +1043,6 @@
                         <div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">This Month</div><div style="display:flex;gap:12px;flex-wrap:wrap;"><span style="font-size:0.65rem;color:var(--text-secondary);font-weight:500;"><span style="font-weight:700;" id="statApprovedLeaves">0</span> Approved</span><span style="font-size:0.65rem;color:var(--text-secondary);font-weight:500;"><span style="font-weight:700;" id="statTotalDays">0</span> Days taken</span></div></div>
                         <div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Leave Types</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><span style="font-size:0.65rem;color:#2563eb;font-weight:500;"><span style="font-weight:700;" id="statAnnualLeave">0</span> Annual</span><span style="font-size:0.65rem;color:#7c3aed;font-weight:500;"><span style="font-weight:700;" id="statSickLeave">0</span> Sick</span><span style="font-size:0.65rem;color:#0891b2;font-weight:500;"><span style="font-weight:700;" id="statOtherLeave">0</span> Other</span></div></div>
                         <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;"><i class="bi bi-send-plus" style="color:#d97706;font-size:0.8rem;"></i><span style="font-size:0.7rem;font-weight:600;color:#d97706;">New Leave Request →</span></div></div>
-                        <div class="dash-fill" style="flex:1;min-height:0;"><div class="hr-card" style="flex:1;background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);"><div class="card-header-custom" style="padding:5px 10px;"><span style="font-size:0.55rem;font-weight:600;"><i class="bi bi-clock-history"></i> Recent Activity</span></div><div class="card-body-custom" style="padding:0;"><div id="activityTimeline" style="padding:10px;text-align:center;color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-inbox" style="font-size:1rem;display:block;margin-bottom:4px;opacity:0.5;"></i> No recent activity.</div></div></div></div>
                     </div>
                     <div class="dash-col dash-section-finance"><div class="dash-col-header"><i class="bi bi-briefcase-fill" style="color:#7c3aed;"></i> Finance &amp; Assets</div>
                         <div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">PAYE Tax Table</div><div id="payeDashboardStatus" style="font-size:0.65rem;color:var(--text-secondary);"><span style="color:#9ca3af;">Loading...</span></div></div>
@@ -3359,26 +3358,6 @@ async function loadMyActivity() {
                 `).join('');
             } else {
                 logEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-inbox" style="font-size:0.9rem;display:block;margin-bottom:4px;"></i>No recent approvals.</div>';
-            }
-        }
-
-        // Populate Recent Activity timeline from leave data
-        const timelineEl = document.getElementById('activityTimeline');
-        if (timelineEl && leaves && leaves.success && leaves.data) {
-            var recent = leaves.data.filter(function(l) { return l.status === 'Approved' || l.status === 'Pending'; }).slice(0, 10);
-            if (recent.length) {
-                timelineEl.innerHTML = recent.map(function(l) {
-                    var icon = l.status === 'Approved' ? 'bi-check-circle-fill' : 'bi-clock';
-                    var color = l.status === 'Approved' ? '#2e7d32' : '#d97706';
-                    var label = l.status === 'Approved' ? 'Approved' : 'Requested';
-                    return '<div style="display:flex;align-items:flex-start;gap:6px;padding:4px 8px;border-bottom:1px solid var(--gray-100);font-size:0.5rem;">' +
-                        '<i class="bi ' + icon + '" style="color:' + color + ';font-size:0.55rem;margin-top:2px;"></i>' +
-                        '<div style="flex:1;"><strong>' + (l.employee_name || 'Unknown') + '</strong> ' + label + ' <em>' + (l.leave_type || 'leave') + '</em></div>' +
-                        '<span style="color:var(--text-muted);white-space:nowrap;">' + (l.days || 0) + 'd</span>' +
-                        '</div>';
-                }).join('');
-            } else {
-                timelineEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-inbox" style="font-size:1rem;display:block;margin-bottom:4px;opacity:0.5;"></i>No recent activity.</div>';
             }
         }
     } catch(e) { console.error('My activity error:', e); }
