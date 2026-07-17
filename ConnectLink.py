@@ -671,6 +671,10 @@ def initialize_database_tables():
                 ALTER TABLE quotations 
                 ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''
             """)
+            cursor.execute("""
+                ALTER TABLE quotations 
+                ADD COLUMN IF NOT EXISTS created_by VARCHAR(200) DEFAULT ''
+            """)
 
             # Create quotation_items table to store construction items
             cursor.execute("""
@@ -28798,16 +28802,17 @@ def save_quotation():
                     print(f"DUPLICATE DETECTED: Quotation #{eq_id} has same client+items for {client_name}")
                     return jsonify({'success': False, 'error': 'A quotation with the same client name, items, and amounts already exists (ID: #' + str(eq_id) + '). Please edit it instead.', 'duplicate_id': eq_id})
 
-            # Insert quotation header (including notes)
+            # Insert quotation header (including notes and created_by)
             notes = data.get('notes', '')
+            user_name = session.get('user_name') or session.get('username') or 'Admin'
             cursor.execute("""
                 INSERT INTO quotations
-                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage, notes)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage, notes, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (
                 client_name, client_whatsapp, quotation_date, category, 
-                project_size, total_cost, markup, notes
+                project_size, total_cost, markup, notes, user_name
             ))
             quotation_id = cursor.fetchone()[0]
             print(f"Created quotation ID: {quotation_id}")
@@ -28916,7 +28921,8 @@ def get_quotations():
             # Get quotations
             cursor.execute("""
                 SELECT id, client_name, client_whatsapp, quotation_date, 
-                       category, project_size, total_cost, markup_percentage, notes
+                       category, project_size, total_cost, markup_percentage, notes,
+                       created_by
                 FROM quotations
                 ORDER BY id DESC
             """)
@@ -29016,6 +29022,7 @@ def get_quotations():
                     'totalCost': float(quotation[6]) if quotation[6] else 0,
                     'markup': float(quotation[7]) if quotation[7] else 0,
                     'notes': quotation[8] or '',
+                    'createdBy': quotation[9] or '',
                     'items': items,
                     'schedules': schedules_by_quotation.get(quotation_id, [])
                 })
@@ -30290,8 +30297,9 @@ def today_stats():
 
             # Actions champion - user who did most activity today
             cursor.execute("""
-                SELECT COALESCE(u.name, a.user_name, 'N/A') as display_name, COUNT(*) as cnt
+                SELECT COALESCE(au.full_name, u.name, a.user_name, 'N/A') as display_name, COUNT(*) as cnt
                 FROM activity_log a
+                LEFT JOIN admin_users au ON au.username = a.user_name OR au.email = a.user_name
                 LEFT JOIN connectlinkusers u ON u.email = a.user_name
                 WHERE a.created_at >= %s AND a.created_at < %s
                 AND a.user_name IS NOT NULL AND a.user_name != ''
@@ -30318,9 +30326,18 @@ def today_stats():
             projects_champion_count = row[1] if row else 0
 
             # Quotations champion - user who created most quotations today
-            # Note: quotations table has no created_by column, so this is unavailable
-            quotations_champion = 'N/A'
-            quotations_champion_count = 0
+            cursor.execute("""
+                SELECT created_by, COUNT(*) as cnt
+                FROM quotations 
+                WHERE created_at >= %s AND created_at < %s
+                AND created_by IS NOT NULL AND created_by != ''
+                GROUP BY created_by
+                ORDER BY cnt DESC
+                LIMIT 1
+            """, (today_start, today_end))
+            row = cursor.fetchone()
+            quotations_champion = row[0] if row else 'N/A'
+            quotations_champion_count = row[1] if row else 0
 
             # Contract to quotation ratio for today
             ratio = round((projects_captured_today / quotations_today * 100), 1) if quotations_today > 0 else 0

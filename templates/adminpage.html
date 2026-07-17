@@ -34853,6 +34853,10 @@ function displayQuotationDetailsInModal(quotation) {
                 <div style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.3px;">Category</div>
                 <div style="font-size:0.7rem; font-weight:600; color:var(--text-primary);">${escapeHtml(categoryDisplay)}</div>
             </div>
+            <div style="flex:1; min-width:120px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:8px 12px;">
+                <div style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.3px;">Created By</div>
+                <div style="font-size:0.7rem; font-weight:600; color:var(--text-primary);">${quotation.createdBy ? escapeHtml(quotation.createdBy) : '<span style="color:var(--text-muted); font-style:italic;">—</span>'}</div>
+            </div>
             ${isConstruction ? `<div style="flex:1; min-width:100px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:8px 12px;">
                 <div style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.3px;">Project Size</div>
                 <div style="font-size:0.7rem; font-weight:600; color:var(--text-primary);">${quotation.projectSize || '0'} sq.m</div>
