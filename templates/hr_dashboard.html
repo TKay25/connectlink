@@ -3526,7 +3526,7 @@ function viewDocuments(category) {
                 html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;">' +
                     '<i class="bi ' + icon + '" style="font-size:0.85rem;color:var(--primary);"></i>' +
                     '<div style="flex:1;min-width:0;">' +
-                        '<div style="font-size:0.6rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(doc.filename) + '</div>' +
+                        '<div style="font-size:0.6rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (doc.filename || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') + '</div>' +
                         '<div style="font-size:0.5rem;color:var(--text-muted);">' + (doc.uploaded_by || 'Unknown') + ' &middot; ' + size + '</div>' +
                     '</div>' +
                     '<a href="/api/hr/documents/' + doc.id + '/download" class="btn btn-sm btn-primary" style="font-size:0.55rem;padding:2px 8px;text-decoration:none;" target="_blank">' +
