@@ -39006,11 +39006,10 @@ function loadTodayStats() {
             if (track && spacer) {
                 var clones = [];
                 var kids = track.children;
-                var afterSpacer = false;
-                // Remove any previously added clones
+                // Remove any previously added clones (elements after the spacer)
                 for (var i = kids.length - 1; i >= 0; i--) {
-                    if (kids[i] === spacer) { afterSpacer = true; continue; }
-                    if (afterSpacer) { track.removeChild(kids[i]); }
+                    if (kids[i] === spacer) break;  // stop at the spacer itself
+                    track.removeChild(kids[i]);     // only removes elements AFTER spacer
                 }
                 // Clone all children before spacer
                 for (var i = 0; i < kids.length; i++) {
