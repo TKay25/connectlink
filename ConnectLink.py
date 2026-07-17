@@ -30360,7 +30360,7 @@ def quick_view_details():
                     })
 
             elif category == 'quotations_sent':
-                cond2, p2 = date_filter("created_at")
+                cond2, p2 = date_filter("ql.created_at")
                 cursor.execute(f"""
                     SELECT ql.id, q.client_name, q.client_whatsapp, q.total_cost, ql.created_at
                     FROM quotation_whatsapp_send_logs ql
@@ -30377,7 +30377,7 @@ def quick_view_details():
                     })
 
             elif category == 'quotations_failed':
-                cond2, p2 = date_filter("created_at")
+                cond2, p2 = date_filter("ql.created_at")
                 cursor.execute(f"""
                     SELECT ql.id, q.client_name, q.client_whatsapp, q.total_cost, ql.created_at, ql.send_status
                     FROM quotation_whatsapp_send_logs ql
