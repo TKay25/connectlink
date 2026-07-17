@@ -35399,6 +35399,7 @@ async function downloadConstructionQuotationPDFFromPortal(quotation) {
     }
 
 function editQuotationFromPortal(quotationId) {
+    showLoader('Preparing Quotation Editor', 'Loading quotation details...');
     fetch('/api/get-quotations')
         .then(r => r.json())
         .then(result => {
@@ -35433,6 +35434,7 @@ function editQuotationFromPortal(quotationId) {
                 $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
                 $('#quotationCategory').val('kitchen').change();
                 renderKitchenItemsTable();
+                hideLoader();
                 openModal('quotationgeneratorModal');
             } else if (isTvUnitsOrOther) {
                 // Load TV Units/Other quotation for editing
@@ -35449,6 +35451,7 @@ function editQuotationFromPortal(quotationId) {
                 $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
                 $('#quotationCategory').val(quotation.category || '').change();
                 renderTvUnitsTable();
+                hideLoader();
                 openModal('quotationgeneratorModal');
             } else {
                 // Load construction quotation for editing (existing logic)
@@ -35486,10 +35489,11 @@ function editQuotationFromPortal(quotationId) {
                 $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
                 $('#quotationCategory').val(quotation.category || '').change();
 
+                hideLoader();
                 openModal('quotationgeneratorModal');
             }
         })
-        .catch(error => alert('Error: ' + error.message));
+        .catch(error => { hideLoader(); alert('Error: ' + error.message); });
 }
 
 async function sendQuotationFromPortal(quotationId) {
