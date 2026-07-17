@@ -30290,10 +30290,11 @@ def today_stats():
 
             # Actions champion - user who did most activity today
             cursor.execute("""
-                SELECT capturer, COUNT(*) as cnt
+                SELECT user_name, COUNT(*) as cnt
                 FROM activity_log
                 WHERE created_at >= %s AND created_at < %s
-                GROUP BY capturer
+                AND user_name IS NOT NULL AND user_name != ''
+                GROUP BY user_name
                 ORDER BY cnt DESC
                 LIMIT 1
             """, (today_start, today_end))
