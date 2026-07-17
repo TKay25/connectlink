@@ -30322,11 +30322,8 @@ def quick_view_details():
                 logging.info(f'[QV_DEBUG] quotations_created COUNT={debug_count}, cond={cond2!r}, params={p2!r}')
                 
                 cursor.execute(f"""
-                    SELECT q.id, q.client_name, q.client_whatsapp, q.total_amount, q.created_at,
-                           COALESCE(u.username, u2.username, 'Admin') as capturer
+                    SELECT q.id, q.client_name, q.client_whatsapp, q.total_cost, q.created_at
                     FROM quotations q
-                    LEFT JOIN system_users u ON CAST(u.id AS TEXT) = CAST(q.created_by AS TEXT)
-                    LEFT JOIN system_users u2 ON u2.id = q.created_by
                     WHERE {cond2}
                     ORDER BY q.created_at DESC LIMIT 100
                 """, p2)
@@ -30338,13 +30335,13 @@ def quick_view_details():
                         'id': r[0], 'client_name': r[1] or 'Unknown', 'whatsapp': r[2] or '',
                         'amount': float(r[3]) if r[3] else 0,
                         'timestamp': str(r[4]) if r[4] else '',
-                        'capturer': r[5] or 'Admin'
+                        'capturer': 'Admin'
                     })
 
             elif category == 'quotations_downloaded':
                 cond2, p2 = date_filter("download_clicked_at")
                 cursor.execute(f"""
-                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_amount, ql.download_clicked_at
+                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_cost, ql.download_clicked_at
                     FROM quotation_share_links ql
                     JOIN quotations q ON q.id = ql.quotation_id
                     WHERE ql.download_clicked_at IS NOT NULL AND {cond2}
@@ -30361,7 +30358,7 @@ def quick_view_details():
             elif category == 'quotations_sent':
                 cond2, p2 = date_filter("created_at")
                 cursor.execute(f"""
-                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_amount, ql.created_at
+                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_cost, ql.created_at
                     FROM quotation_whatsapp_send_logs ql
                     JOIN quotations q ON q.id = ql.quotation_id
                     WHERE ql.send_status = 'success' AND {cond2}
@@ -30378,7 +30375,7 @@ def quick_view_details():
             elif category == 'quotations_failed':
                 cond2, p2 = date_filter("created_at")
                 cursor.execute(f"""
-                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_amount, ql.created_at, ql.send_status
+                    SELECT ql.id, q.client_name, q.client_whatsapp, q.total_cost, ql.created_at, ql.send_status
                     FROM quotation_whatsapp_send_logs ql
                     JOIN quotations q ON q.id = ql.quotation_id
                     WHERE ql.send_status != 'success' AND {cond2}
