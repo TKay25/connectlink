@@ -1697,22 +1697,22 @@
                             <h6><i class="bi bi-file-earmark-person"></i> Employee Documents</h6>
                         </div>
                         <div class="card-body-custom">
-                            <div class="activity-item">
+                            <div class="activity-item" onclick="viewDocuments('Employment Contracts')" style="cursor:pointer;">
                                 <i class="bi bi-file-earmark-pdf" style="color:var(--primary);font-size:0.85rem;"></i>
                                 <div class="activity-text">Employment Contracts</div>
                                 <span class="activity-time" id="docCount_EmploymentContracts">0 files</span>
                             </div>
-                            <div class="activity-item">
+                            <div class="activity-item" onclick="viewDocuments('CVs & Resumes')" style="cursor:pointer;">
                                 <i class="bi bi-file-earmark-text" style="color:#1a73e8;font-size:0.85rem;"></i>
                                 <div class="activity-text">CVs &amp; Resumes</div>
                                 <span class="activity-time" id="docCount_CVsResumes">0 files</span>
                             </div>
-                            <div class="activity-item">
+                            <div class="activity-item" onclick="viewDocuments('Certifications')" style="cursor:pointer;">
                                 <i class="bi bi-file-earmark-check" style="color:#2e7d32;font-size:0.85rem;"></i>
                                 <div class="activity-text">Certifications</div>
                                 <span class="activity-time" id="docCount_Certifications">0 files</span>
                             </div>
-                            <div class="activity-item">
+                            <div class="activity-item" onclick="viewDocuments('Medical Records')" style="cursor:pointer;">
                                 <i class="bi bi-file-earmark-medical" style="color:#ef6c00;font-size:0.85rem;"></i>
                                 <div class="activity-text">Medical Records</div>
                                 <span class="activity-time" id="docCount_MedicalRecords">0 files</span>
@@ -1726,17 +1726,17 @@
                             <h6><i class="bi bi-file-earmark-bar-graph"></i> Company Documents</h6>
                         </div>
                         <div class="card-body-custom">
-                            <div class="activity-item">
+                            <div class="activity-item" onclick="viewDocuments('HR Policies & Handbook')" style="cursor:pointer;">
                                 <i class="bi bi-file-earmark-spreadsheet" style="color:#1a73e8;font-size:0.85rem;"></i>
                                 <div class="activity-text">HR Policies &amp; Handbook</div>
                                 <span class="activity-time" id="docCount_HRPoliciesHandbook">0 files</span>
                             </div>
-                            <div class="activity-item">
+                            <div class="activity-item" onclick="viewDocuments('Tax Documents')" style="cursor:pointer;">
                                 <i class="bi bi-file-earmark-pdf" style="color:var(--primary);font-size:0.85rem;"></i>
                                 <div class="activity-text">Tax Documents</div>
                                 <span class="activity-time" id="docCount_TaxDocuments">0 files</span>
                             </div>
-                            <div class="activity-item">
+                            <div class="activity-item" onclick="viewDocuments('Training Materials')" style="cursor:pointer;">
                                 <i class="bi bi-file-earmark-text" style="color:#7c3aed;font-size:0.85rem;"></i>
                                 <div class="activity-text">Training Materials</div>
                                 <span class="activity-time" id="docCount_TrainingMaterials">0 files</span>
@@ -2317,6 +2317,27 @@
             <button class="btn btn-primary" onclick="uploadDocument()">
                 <i class="bi bi-cloud-upload"></i> Upload &amp; Save
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- View Documents Modal -->
+<div id="viewDocsModal" class="modal-overlay">
+    <div class="modal-container large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-files"></i> <span id="viewDocsTitle">Documents</span></h3>
+            <button class="modal-close" onclick="closeModal('viewDocsModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom" style="max-height:60vh;overflow-y:auto;">
+            <div id="viewDocsList">
+                <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:0.6rem;">
+                    <i class="bi bi-inbox" style="font-size:1.2rem;display:block;margin-bottom:6px;"></i>
+                    Loading...
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('viewDocsModal')">Close</button>
         </div>
     </div>
 </div>
@@ -3476,6 +3497,49 @@ function loadDocumentCounts() {
             }
         })
         .catch(function(err) { console.error('Doc count error:', err); });
+}
+
+function viewDocuments(category) {
+    document.getElementById('viewDocsTitle').textContent = category;
+    var list = document.getElementById('viewDocsList');
+    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:0.6rem;"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>';
+    openModal('viewDocsModal');
+
+    fetch('/api/hr/documents?category=' + encodeURIComponent(category))
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (!result.success || !result.data || !result.data.length) {
+                list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:0.6rem;">' +
+                    '<i class="bi bi-inbox" style="font-size:1.2rem;display:block;margin-bottom:6px;"></i>' +
+                    'No documents in this category.</div>';
+                return;
+            }
+            var html = '<div style="display:flex;flex-direction:column;gap:4px;">';
+            result.data.forEach(function(doc) {
+                var size = doc.file_size ? (doc.file_size / 1024).toFixed(1) + ' KB' : '';
+                var icon = 'bi-file-earmark';
+                var ext = (doc.filename || '').split('.').pop().toLowerCase();
+                if (['pdf'].indexOf(ext) !== -1) icon = 'bi-file-earmark-pdf';
+                else if (['doc','docx'].indexOf(ext) !== -1) icon = 'bi-file-earmark-word';
+                else if (['xls','xlsx'].indexOf(ext) !== -1) icon = 'bi-file-earmark-excel';
+                else if (['jpg','jpeg','png','gif','webp'].indexOf(ext) !== -1) icon = 'bi-file-earmark-image';
+                html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--gray-200);border-radius:6px;">' +
+                    '<i class="bi ' + icon + '" style="font-size:0.85rem;color:var(--primary);"></i>' +
+                    '<div style="flex:1;min-width:0;">' +
+                        '<div style="font-size:0.6rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(doc.filename) + '</div>' +
+                        '<div style="font-size:0.5rem;color:var(--text-muted);">' + (doc.uploaded_by || 'Unknown') + ' &middot; ' + size + '</div>' +
+                    '</div>' +
+                    '<a href="/api/hr/documents/' + doc.id + '/download" class="btn btn-sm btn-primary" style="font-size:0.55rem;padding:2px 8px;text-decoration:none;" target="_blank">' +
+                        '<i class="bi bi-download"></i> Open' +
+                    '</a>' +
+                '</div>';
+            });
+            html += '</div>';
+            list.innerHTML = html;
+        })
+        .catch(function(err) {
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:#dc2626;font-size:0.6rem;">Error loading documents: ' + err.message + '</div>';
+        });
 }
 
 function filterLeaveTable() {
