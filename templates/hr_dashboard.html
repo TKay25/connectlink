@@ -2545,25 +2545,29 @@ async function loadDashboardStats() {
             // Active percentage
             const total = stats.data.total_employees || 1;
             const active = stats.data.active_employees || 0;
-            const pct = Math.round((active / total) * 100);
-            document.getElementById('statActivePct').textContent = pct;
+            const pctEl = document.getElementById('statActivePct');
+            if (pctEl) pctEl.textContent = Math.round((active / total) * 100);
         }
 
         // Department breakdown
         const deptEl = document.getElementById('deptBreakdown');
-        if (deptEl && dept.success) {
-            // API returns { total, departments: [{name, count, active, ...}], employment_types }
-            const rawDepts = dept.data && dept.data.departments ? dept.data.departments : [];
-            document.getElementById('statDeptCount').textContent = rawDepts.length;
-            if (rawDepts.length) {
-                deptEl.innerHTML = rawDepts.slice(0, 5).map(d =>
-                    `<span style="display:inline-block;background:#f3f4f6;padding:1px 5px;border-radius:3px;margin:1px;font-size:0.5rem;">${d.name || 'N/A'}: ${d.count||d.cnt||0}</span>`
-                ).join('');
-                if (rawDepts.length > 5) {
-                    deptEl.innerHTML += `<span style="font-size:0.5rem;color:var(--text-muted);margin-left:2px;">+${rawDepts.length - 5} more</span>`;
+        if (deptEl) {
+            if (dept && dept.success) {
+                const rawDepts = dept.data && dept.data.departments ? dept.data.departments : [];
+                const countEl = document.getElementById('statDeptCount');
+                if (countEl) countEl.textContent = rawDepts.length;
+                if (rawDepts.length) {
+                    deptEl.innerHTML = rawDepts.slice(0, 5).map(d =>
+                        `<span style="display:inline-block;background:#f3f4f6;padding:1px 5px;border-radius:3px;margin:1px;font-size:0.5rem;">${d.name || 'N/A'}: ${d.count||d.cnt||0}</span>`
+                    ).join('');
+                    if (rawDepts.length > 5) {
+                        deptEl.innerHTML += `<span style="font-size:0.5rem;color:var(--text-muted);margin-left:2px;">+${rawDepts.length - 5} more</span>`;
+                    }
+                } else {
+                    deptEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">No departments</span>';
                 }
             } else {
-                deptEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">No departments</span>';
+                deptEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">Unable to load</span>';
             }
         }
 
@@ -2585,7 +2589,7 @@ async function loadDashboardStats() {
         }
 
         // Leave month stats
-        if (leaves.success && leaves.data) {
+        if (leaves && leaves.success && leaves.data) {
             const approved = leaves.data.filter(l => l.status === 'Approved').length;
             const totalDays = leaves.data.reduce((s, l) => s + (l.days || 0), 0);
             document.getElementById('statApprovedLeaves').textContent = approved;
