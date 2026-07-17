@@ -21335,15 +21335,27 @@ def get_project_count():
         return jsonify({'error': str(e)}), 500
 
 def update_project_completion_status():
-    """Update project completion status based on start date and duration"""
+    """Update project completion status based on start date and duration.
+    Only runs if there are projects with unset/outdated status.
+    """
     try:
         with get_db() as (cursor, connection):
-            # Get today's date
+            # Fast check: are there any projects needing status update?
+            cursor.execute("""
+                SELECT COUNT(*) FROM connectlinkdatabase 
+                WHERE projectcompletionstatus IS NULL 
+                   OR projectcompletionstatus = '' 
+                   OR projectcompletionstatus NOT IN ('Completed', 'Cancelled', 'Ongoing', 'Pending')
+                LIMIT 1
+            """)
+            need_update = cursor.fetchone()[0]
+            if need_update == 0:
+                return {'completed': 0, 'ongoing': 0, 'pending': 0, 'skipped': True}
+
             today = datetime.now().date()
             
-            # 1. Update projects where (start_date + duration) < today to "COMPLETED"
-            # Handles both NULL and empty string statuses
-            update_query = """
+            # 1. Mark projects past their end date as Completed
+            cursor.execute("""
                 UPDATE connectlinkdatabase 
                 SET projectcompletionstatus = 'Completed'
                 WHERE projectstartdate IS NOT NULL 
@@ -21351,12 +21363,11 @@ def update_project_completion_status():
                 AND projectduration > 0
                 AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus != 'Completed')
                 AND (projectstartdate + INTERVAL '1 day' * projectduration) <= %s
-            """
-            cursor.execute(update_query, (today,))
+            """, (today,))
             completed_count = cursor.rowcount
             
-            # 2. Update projects that are ongoing (not completed yet)
-            ongoing_query = """
+            # 2. Mark ongoing projects
+            cursor.execute("""
                 UPDATE connectlinkdatabase 
                 SET projectcompletionstatus = 'Ongoing'
                 WHERE projectstartdate IS NOT NULL 
@@ -21364,28 +21375,22 @@ def update_project_completion_status():
                 AND projectduration > 0
                 AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus NOT IN ('Completed', 'Cancelled'))
                 AND (projectstartdate + INTERVAL '1 day' * projectduration) > %s
-            """
-            cursor.execute(ongoing_query, (today,))
+            """, (today,))
             ongoing_count = cursor.rowcount
             
-            # 3. Update projects with missing or zero duration to "PENDING"
-            missing_duration_query = """
+            # 3. Mark projects with missing duration as Pending
+            cursor.execute("""
                 UPDATE connectlinkdatabase 
                 SET projectcompletionstatus = 'Pending'
                 WHERE (projectduration IS NULL OR projectduration <= 0)
                 AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus = 'Pending')
-            """
-            cursor.execute(missing_duration_query)
+            """)
             pending_count = cursor.rowcount
             
             connection.commit()
             
-            logging.info(f"""
-                Project Status Update Complete:
-                - Marked as COMPLETED: {completed_count} projects
-                - Marked as ONGOING: {ongoing_count} projects
-                - Set to PENDING: {pending_count} projects
-            """)
+            if completed_count or ongoing_count or pending_count:
+                logging.info(f"Project Status Update: {completed_count} completed, {ongoing_count} ongoing, {pending_count} pending")
             
             return {
                 'success': True,

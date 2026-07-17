@@ -47,12 +47,12 @@
     "max_length = 0 @ line 20797",
     "max_length = len(str(cell.value)) @ line 20802",
     "adjusted_width = min(max_length + 2, 50) @ line 20805",
-    "max_length = 0 @ line 21618",
-    "max_length = cell_length @ line 21625",
-    "adjusted_width = min(max_length + 2, 50) @ line 21628",
-    "max_length = 0 @ line 22613",
-    "max_length = cell_length @ line 22620",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 22623"
+    "max_length = 0 @ line 21623",
+    "max_length = cell_length @ line 21630",
+    "adjusted_width = min(max_length + 2, 50) @ line 21633",
+    "max_length = 0 @ line 22618",
+    "max_length = cell_length @ line 22625",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 22628"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-07-17T10:08:53.857586Z",
+  "generated_at": "2026-07-17T10:17:41.796527Z",
   "stale": false
 }
