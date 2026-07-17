@@ -20040,30 +20040,35 @@ def run1(userid):
         # quotation_id column is already added during initialize_database_tables()
         # No need to check/add it again here
         
-        # Quick fix: repair any date with year 72026 -> 2026 before fetching
+        # Quick fix: repair any date with year 72026 -> 2026 - only if needed
         try:
-            for repair_col in ['projectstartdate','contractagreementdate','datedepositorbullet',
-                               'installment1duedate','installment1date',
-                               'installment2duedate','installment2date',
-                               'installment3duedate','installment3date',
-                               'installment4duedate','installment4date',
-                               'installment5duedate','installment5date',
-                               'installment6duedate','installment6date',
-                               'installment7duedate','installment7date',
-                               'installment8duedate','installment8date',
-                               'installment9duedate','installment9date',
-                               'installment10duedate','installment10date']:
-                cursor.execute(f"""
-                    UPDATE connectlinkdatabase 
-                    SET {repair_col} = (regexp_replace({repair_col}::text, '^72026', '2026'))::date 
-                    WHERE {repair_col}::text LIKE '72026%'
-                """)
-                if cursor.rowcount > 0:
-                    print(f"🔧 Repaired 72026->2026 in {repair_col}")
-                    connection.commit()
+            # First check if any 72026 dates exist at all
+            cursor.execute("""
+                SELECT COUNT(*) FROM connectlinkdatabase WHERE 
+                projectstartdate::text LIKE '72026%' OR contractagreementdate::text LIKE '72026%' OR datedepositorbullet::text LIKE '72026%'
+            """)
+            if cursor.fetchone()[0] > 0:
+                for repair_col in ['projectstartdate','contractagreementdate','datedepositorbullet',
+                                   'installment1duedate','installment1date',
+                                   'installment2duedate','installment2date',
+                                   'installment3duedate','installment3date',
+                                   'installment4duedate','installment4date',
+                                   'installment5duedate','installment5date',
+                                   'installment6duedate','installment6date',
+                                   'installment7duedate','installment7date',
+                                   'installment8duedate','installment8date',
+                                   'installment9duedate','installment9date',
+                                   'installment10duedate','installment10date']:
+                    cursor.execute(f"""
+                        UPDATE connectlinkdatabase 
+                        SET {repair_col} = (regexp_replace({repair_col}::text, '^72026', '2026'))::date 
+                        WHERE {repair_col}::text LIKE '72026%'
+                    """)
+                    if cursor.rowcount > 0:
+                        print(f"🔧 Repaired 72026->2026 in {repair_col}")
+                connection.commit()
         except Exception as repair_err:
             print(f"Note: date repair skipped: {repair_err}")
-        
         # Only select needed columns to minimize memory - avoid large text fields if possible
         maindataquery = f"SELECT * FROM connectlinkdatabase ORDER BY id DESC LIMIT 200;"
         cursor.execute(maindataquery)

@@ -29198,7 +29198,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return yearMonth === window.currentMonthFilter;
     });
 
-    if ($('#allprojectsTable').length) {
+    if ($('#allprojectsTable').length && !$.fn.DataTable.isDataTable('#allprojectsTable')) {
         try {
             window.dataTable = $('#allprojectsTable').DataTable({
                 destroy: true,
@@ -29377,6 +29377,8 @@ $(document).ready(function() {
  * Uses a wrapper approach to avoid breaking DataTables internal layout.
  */
 function setupStickyTableHeaders() {
+    if (window._stickyHeadersDone) return;
+    window._stickyHeadersDone = true;
     document.querySelectorAll('.container2, .table-scroll-container').forEach(container => {
         // For DataTables: move the filter outside the scrollable wrapper into a sticky bar
         const wrapper = container.querySelector('.dataTables_wrapper');
@@ -29996,8 +29998,8 @@ document.getElementById("saveNewInstallmentDateBtn")?.addEventListener("click", 
 
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-
+// Defer chart rendering so page becomes interactive first
+setTimeout(function() {
     const loaderxyz = document.getElementById("edsLoader2");
     const formxyzg = document.getElementById("updateProjectForm");
 
@@ -30035,7 +30037,8 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+// Defer chart rendering
+setTimeout(function() {
     const completed = parseInt(document.getElementById('completed-projects').value, 10) || 0;
     const ongoing = parseInt(document.getElementById('ongoing-projects').value, 10) || 0;
     const total = completed + ongoing;
@@ -38072,10 +38075,9 @@ document.addEventListener('change', function(e) {
     }
 });
 
-// Preload activity log when page loads
+// Preload activity log when page loads (deferred to not block interactivity)
 document.addEventListener('DOMContentLoaded', function() {
-    // Load activity log data in background so it's ready when user clicks the tab
-    loadActivityLog();
+    setTimeout(loadActivityLog, 1000);
 });
 
 // PWA: Register Service Worker
