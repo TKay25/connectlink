@@ -2531,7 +2531,10 @@ async function loadDashboardStats() {
         const leaves = await leaveRes.json();
 
         if (stats.success) {
-            document.getElementById('statTotalEmployees').textContent = stats.data.active_employees;
+            document.getElementById('statTotalEmployees').textContent = stats.data.total_employees;
+            document.getElementById('statActiveEmployees').textContent = stats.data.active_employees;
+            document.getElementById('statInactiveEmployees').textContent = Math.max(0, stats.data.total_employees - stats.data.active_employees);
+            document.getElementById('statOnLeaveEmployees').textContent = stats.data.on_leave_today;
             document.getElementById('statOnLeave').textContent = stats.data.on_leave_today;
             document.getElementById('statPendingRequests').textContent = stats.data.pending_leave;
             document.getElementById('statPayroll').textContent = '$' + stats.data.payroll_total.toLocaleString();
