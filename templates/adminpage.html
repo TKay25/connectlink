@@ -4729,28 +4729,12 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                 <span class="stat-item sep">|</span>
                 <span class="stat-item"><i class="bi bi-graph-up-arrow"></i> Contract:Quotation Ratio Today: <b id="tsRatio">0</b>%</span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-lightning-fill"></i> Actions Champion Today: <span id="tsActionsChamp">—</span></span>
+                <span class="stat-item"><i class="bi bi-lightning-fill"></i> Actions Champion Today: <b id="tsActionsChamp">—</b></span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-building-check"></i> Projects Champion Today: <span id="tsProjectsChamp">—</span></span>
+                <span class="stat-item"><i class="bi bi-building-check"></i> Projects Champion Today: <b id="tsProjectsChamp">—</b></span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-file-text-fill"></i> Quotations Champion: <span id="tsQuotesChamp">—</span></span>
-                <!-- Duplicate for seamless loop -->
-                <span class="stat-item sep">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-                <span class="stat-item"><i class="bi bi-journal-check"></i> Projects Captured Today: <b>0</b></span>
-                <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-check-circle"></i> Projects Completed Today: <b>0</b></span>
-                <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-file-text"></i> Quotations Created Today: <b>0</b></span>
-                <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-send"></i> Quotations Sent Today: <b>0</b></span>
-                <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-graph-up-arrow"></i> Contract:Quotation Ratio Today: <b>0</b>%</span>
-                <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-lightning-fill"></i> Actions Champion Today: <span>—</span></span>
-                <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-building-check"></i> Projects Champion Today: <span>—</span></span>
-                <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-file-text-fill"></i> Quotations Champion: <span>—</span></span>
+                <span class="stat-item"><i class="bi bi-file-text-fill"></i> Quotations Champion: <b id="tsQuotesChamp">—</b></span>
+                <span class="stat-item sep" id="tsSpacer">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
             </div>
         </div>
         <button onclick="showLoaderThenReload()" title="Refresh page" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;margin-right:4px;">
@@ -39016,6 +39000,25 @@ function loadTodayStats() {
             document.getElementById('tsActionsChamp').textContent = d.actions_champion !== 'N/A' ? d.actions_champion : '';
             document.getElementById('tsProjectsChamp').textContent = d.projects_champion !== 'N/A' ? d.projects_champion : '';
             document.getElementById('tsQuotesChamp').textContent = d.quotations_champion !== 'N/A' ? d.quotations_champion : '\u2014';
+            // Dynamically duplicate the populated content for seamless loop (no hardcoded zeros)
+            var track = document.getElementById('statsTrack');
+            var spacer = document.getElementById('tsSpacer');
+            if (track && spacer) {
+                var clones = [];
+                var kids = track.children;
+                var afterSpacer = false;
+                // Remove any previously added clones
+                for (var i = kids.length - 1; i >= 0; i--) {
+                    if (kids[i] === spacer) { afterSpacer = true; continue; }
+                    if (afterSpacer) { track.removeChild(kids[i]); }
+                }
+                // Clone all children before spacer
+                for (var i = 0; i < kids.length; i++) {
+                    if (kids[i] === spacer) break;
+                    clones.push(kids[i].cloneNode(true));
+                }
+                clones.forEach(function(el) { track.appendChild(el); });
+            }
             // Show the bar with animation
             var bar = document.getElementById('todayStatsBar');
             if (bar) bar.classList.add('loaded');
@@ -39024,6 +39027,8 @@ function loadTodayStats() {
             console.error('Today stats error:', err);
         });
 }
+// Auto-refresh today stats every 30 seconds
+setInterval(loadTodayStats, 30000);
 
 function openTodayStatsModal() {
     // Populate modal with latest data from the bar
