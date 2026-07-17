@@ -30191,7 +30191,7 @@ def quick_view_stats():
             # --- 3. CONTRACTS ---
             cond, params = date_filter("datecaptured")
             result['contracts_captured'] = safe_count(
-                f"SELECT COUNT(*) FROM allprojects WHERE {cond}", params)
+                f"SELECT COUNT(*) FROM connectlinkdatabase WHERE {cond}", params)
 
             cond, params = date_filter("created_at")
             result['contracts_sent'] = safe_count(
@@ -30399,7 +30399,7 @@ def quick_view_details():
                 cursor.execute(f"""
                     SELECT id, clientname, projectname, totalcontractamount,
                            projectadministratorname, datecaptured
-                    FROM allprojects WHERE {cond2}
+                    FROM connectlinkdatabase WHERE {cond2}
                     ORDER BY datecaptured DESC LIMIT 100
                 """, p2)
                 rows = cursor.fetchall()
@@ -30416,7 +30416,7 @@ def quick_view_details():
                     SELECT c.id, p.clientname, p.projectname, p.totalcontractamount,
                            p.projectadministratorname, c.created_at
                     FROM contract_whatsapp_outbox c
-                    JOIN allprojects p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
+                    JOIN connectlinkdatabase p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
                     WHERE c.send_status = 'sent' AND {cond2}
                     ORDER BY c.created_at DESC LIMIT 100
                 """, p2)
@@ -30434,7 +30434,7 @@ def quick_view_details():
                     SELECT c.id, p.clientname, p.projectname, p.totalcontractamount,
                            p.projectadministratorname, c.created_at
                     FROM contract_whatsapp_outbox c
-                    JOIN allprojects p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
+                    JOIN connectlinkdatabase p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
                     WHERE c.template_fallback_sent = TRUE AND {cond2}
                     ORDER BY c.created_at DESC LIMIT 100
                 """, p2)
@@ -30452,7 +30452,7 @@ def quick_view_details():
                     SELECT c.id, p.clientname, p.projectname, p.totalcontractamount,
                            p.projectadministratorname, c.created_at
                     FROM contract_whatsapp_outbox c
-                    JOIN allprojects p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
+                    JOIN connectlinkdatabase p ON CAST(p.id AS TEXT) = CAST(c.project_id AS TEXT)
                     WHERE c.send_status != 'sent' AND {cond2}
                     ORDER BY c.created_at DESC LIMIT 100
                 """, p2)
