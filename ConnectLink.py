@@ -30290,11 +30290,12 @@ def today_stats():
 
             # Actions champion - user who did most activity today
             cursor.execute("""
-                SELECT user_name, COUNT(*) as cnt
-                FROM activity_log
-                WHERE created_at >= %s AND created_at < %s
-                AND user_name IS NOT NULL AND user_name != ''
-                GROUP BY user_name
+                SELECT COALESCE(u.name, a.user_name, 'N/A') as display_name, COUNT(*) as cnt
+                FROM activity_log a
+                LEFT JOIN connectlinkusers u ON u.email = a.user_name
+                WHERE a.created_at >= %s AND a.created_at < %s
+                AND a.user_name IS NOT NULL AND a.user_name != ''
+                GROUP BY display_name
                 ORDER BY cnt DESC
                 LIMIT 1
             """, (today_start, today_end))
