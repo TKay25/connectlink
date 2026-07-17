@@ -39485,7 +39485,7 @@ function escAttr(str) {
     display: flex;
     align-items: center;
     gap: 3px;
-    animation: scrollStats 40s linear infinite;
+    animation: scrollStats 55s linear infinite;
     font-size: 0.64rem;
     font-weight: 500;
     color: var(--text-secondary);
@@ -39522,10 +39522,8 @@ function escAttr(str) {
     border-radius: 0;
 }
 @keyframes scrollStats {
-    0% { transform: translateX(40%); opacity: 0; }
-    1.5% { transform: translateX(0); opacity: 1; }
-    97% { transform: translateX(0); opacity: 1; }
-    100% { transform: translateX(-100%); opacity: 0; }
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
 }
 
 /* === TODAY STATS MODAL === */
