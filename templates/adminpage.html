@@ -4719,19 +4719,21 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         <!-- Sliding Today Stats -->
         <div id="todayStatsBar" class="today-stats-bar" onclick="openTodayStatsModal()" title="Click for details">
             <div class="stats-track" id="statsTrack">
-                <span class="stat-item"><i class="bi bi-journal-check"></i> <b id="tsProjects">0</b> captured</span>
+                <span class="stat-item"><i class="bi bi-journal-check"></i> Projects Captured Today: <b id="tsProjects">0</b></span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-check-circle"></i> <b id="tsCompleted">0</b> completed</span>
+                <span class="stat-item"><i class="bi bi-check-circle"></i> Projects Completed Today: <b id="tsCompleted">0</b></span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-file-text"></i> <b id="tsQuotes">0</b> quotes</span>
+                <span class="stat-item"><i class="bi bi-file-text"></i> Quotations Created Today: <b id="tsQuotes">0</b></span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-send"></i> <b id="tsQuotesSent">0</b> sent</span>
+                <span class="stat-item"><i class="bi bi-send"></i> Quotations Sent Today: <b id="tsQuotesSent">0</b></span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-graph-up-arrow"></i> Ratio: <b id="tsRatio">0</b>%</span>
+                <span class="stat-item"><i class="bi bi-graph-up-arrow"></i> Contract:Quotation Ratio Today: <b id="tsRatio">0</b>%</span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-trophy"></i> <span id="tsActionsChamp">—</span></span>
+                <span class="stat-item"><i class="bi bi-lightning-fill"></i> Actions Champion Today: <span id="tsActionsChamp">—</span></span>
                 <span class="stat-item sep">|</span>
-                <span class="stat-item"><i class="bi bi-building"></i> <span id="tsProjectsChamp">—</span></span>
+                <span class="stat-item"><i class="bi bi-building-check"></i> Projects Champion Today: <span id="tsProjectsChamp">—</span></span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-file-text-fill"></i> Quotations Champion: <span id="tsQuotesChamp">—</span></span>
             </div>
         </div>
         <button onclick="showLoaderThenReload()" title="Refresh page" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;margin-right:4px;">
@@ -38990,8 +38992,9 @@ function loadTodayStats() {
             document.getElementById('tsQuotes').textContent = d.quotations_created;
             document.getElementById('tsQuotesSent').textContent = d.quotations_sent;
             document.getElementById('tsRatio').textContent = d.contract_quotation_ratio;
-            document.getElementById('tsActionsChamp').textContent = d.actions_champion !== 'N/A' ? '\u2694\uFE0F ' + d.actions_champion : '';
-            document.getElementById('tsProjectsChamp').textContent = d.projects_champion !== 'N/A' ? '\uD83C\uDFD7\uFE0F ' + d.projects_champion : '';
+            document.getElementById('tsActionsChamp').textContent = d.actions_champion !== 'N/A' ? d.actions_champion : '';
+            document.getElementById('tsProjectsChamp').textContent = d.projects_champion !== 'N/A' ? d.projects_champion : '';
+            document.getElementById('tsQuotesChamp').textContent = d.quotations_champion !== 'N/A' ? d.quotations_champion : '';
             // Show the bar with animation
             var bar = document.getElementById('todayStatsBar');
             if (bar) bar.classList.add('loaded');
@@ -39462,7 +39465,7 @@ function escAttr(str) {
     display: flex;
     align-items: center;
     gap: 4px;
-    animation: scrollStats 20s linear infinite;
+    animation: scrollStats 35s linear infinite;
     font-size: 0.65rem;
     color: var(--text-secondary);
 }
@@ -39490,8 +39493,6 @@ function escAttr(str) {
 }
 @keyframes scrollStats {
     0% { transform: translateX(100%); }
-    10% { transform: translateX(0); }
-    90% { transform: translateX(0); }
     100% { transform: translateX(-100%); }
 }
 
