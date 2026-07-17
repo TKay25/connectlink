@@ -4716,6 +4716,24 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         </a>
     </div>
     <div class="nav-actions" style="position:relative;">
+        <!-- Sliding Today Stats -->
+        <div id="todayStatsBar" class="today-stats-bar" onclick="openTodayStatsModal()" title="Click for details">
+            <div class="stats-track" id="statsTrack">
+                <span class="stat-item"><i class="bi bi-journal-check"></i> <b id="tsProjects">0</b> captured</span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-check-circle"></i> <b id="tsCompleted">0</b> completed</span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-file-text"></i> <b id="tsQuotes">0</b> quotes</span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-send"></i> <b id="tsQuotesSent">0</b> sent</span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-graph-up-arrow"></i> Ratio: <b id="tsRatio">0</b>%</span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-trophy"></i> <span id="tsActionsChamp">—</span></span>
+                <span class="stat-item sep">|</span>
+                <span class="stat-item"><i class="bi bi-building"></i> <span id="tsProjectsChamp">—</span></span>
+            </div>
+        </div>
         <button onclick="showLoaderThenReload()" title="Refresh page" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;margin-right:4px;">
             <i class="bi bi-arrow-clockwise"></i>
         </button>
@@ -38704,6 +38722,76 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
 </div>
 
+<!-- ===== TODAY STATS MODAL ===== -->
+<div id="todayStatsModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-trophy-fill"></i> Today's Champions</h3>
+            <button class="close-modal" onclick="closeModal('todayStatsModal')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" id="todayStatsBody" style="padding:12px;">
+            <div style="font-size:0.6rem;color:var(--text-muted);margin-bottom:12px;text-align:center;">
+                <i class="bi bi-calendar-event"></i> <span id="todayStatsDate"></span>
+            </div>
+
+            <!-- Summary KPI row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">
+                <div style="text-align:center;background:var(--gray-50);border-radius:8px;padding:8px 4px;border:1px solid var(--gray-200);">
+                    <div style="font-size:1rem;font-weight:800;color:#1E293B;" id="tsModalProjects">0</div>
+                    <div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;">Captured</div>
+                </div>
+                <div style="text-align:center;background:var(--gray-50);border-radius:8px;padding:8px 4px;border:1px solid var(--gray-200);">
+                    <div style="font-size:1rem;font-weight:800;color:#C12B3E;" id="tsModalQuotes">0</div>
+                    <div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;">Quotes</div>
+                </div>
+                <div style="text-align:center;background:var(--gray-50);border-radius:8px;padding:8px 4px;border:1px solid var(--gray-200);">
+                    <div style="font-size:1rem;font-weight:800;color:#2e7d32;" id="tsModalRatio">0%</div>
+                    <div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;">Ratio</div>
+                </div>
+            </div>
+
+            <div style="font-size:0.65rem;font-weight:700;color:var(--text-primary);margin-bottom:8px;">
+                <i class="bi bi-trophy"></i> Champions
+            </div>
+
+            <!-- Actions Champion -->
+            <div class="champion-card">
+                <div class="champion-icon gold"><i class="bi bi-lightning-charge-fill"></i></div>
+                <div>
+                    <div class="champion-name" id="tsModalActionsName">—</div>
+                    <div class="champion-title">\u2694\uFE0F Actions Champion \u2014 most activity today</div>
+                </div>
+                <div class="champion-count" id="tsModalActionsCount">0</div>
+            </div>
+
+            <!-- Projects Champion -->
+            <div class="champion-card">
+                <div class="champion-icon blue"><i class="bi bi-building-check"></i></div>
+                <div>
+                    <div class="champion-name" id="tsModalProjectsName">\u2014</div>
+                    <div class="champion-title">\uD83C\uDFD7\uFE0F Projects Champion \u2014 captured most contracts</div>
+                </div>
+                <div class="champion-count" id="tsModalProjectsCount">0</div>
+            </div>
+
+            <!-- Quotations Champion -->
+            <div class="champion-card">
+                <div class="champion-icon green"><i class="bi bi-file-text-fill"></i></div>
+                <div>
+                    <div class="champion-name" id="tsModalQuotesName">\u2014</div>
+                    <div class="champion-title">\uD83D\uDCC4 Quotations Champion \u2014 created most quotes</div>
+                </div>
+                <div class="champion-count" id="tsModalQuotesCount">0</div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('todayStatsModal')" style="font-size:0.7rem;padding:4px 14px;">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- ===== QUICK VIEW MODAL ===== -->
 <div id="quickViewModal" class="modal-overlay">
     <div class="modal-container xlarge" style="max-width:900px;">
@@ -38889,6 +38977,73 @@ document.addEventListener('DOMContentLoaded', function(){
 </style>
 
 <script>
+// ===== TODAY STATS SLIDING BAR =====
+function loadTodayStats() {
+    fetch('/api/today-stats')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success || !data.data) return;
+            var d = data.data;
+            // Update sliding bar stats
+            document.getElementById('tsProjects').textContent = d.projects_captured;
+            document.getElementById('tsCompleted').textContent = d.projects_completed;
+            document.getElementById('tsQuotes').textContent = d.quotations_created;
+            document.getElementById('tsQuotesSent').textContent = d.quotations_sent;
+            document.getElementById('tsRatio').textContent = d.contract_quotation_ratio;
+            document.getElementById('tsActionsChamp').textContent = d.actions_champion !== 'N/A' ? '\u2694\uFE0F ' + d.actions_champion : '';
+            document.getElementById('tsProjectsChamp').textContent = d.projects_champion !== 'N/A' ? '\uD83C\uDFD7\uFE0F ' + d.projects_champion : '';
+            // Show the bar with animation
+            var bar = document.getElementById('todayStatsBar');
+            if (bar) bar.classList.add('loaded');
+        })
+        .catch(function(err) {
+            console.error('Today stats error:', err);
+        });
+}
+
+function openTodayStatsModal() {
+    // Populate modal with latest data from the bar
+    var d = {
+        projects: document.getElementById('tsProjects').textContent,
+        completed: document.getElementById('tsCompleted').textContent,
+        quotes: document.getElementById('tsQuotes').textContent,
+        quotesSent: document.getElementById('tsQuotesSent').textContent,
+        ratio: document.getElementById('tsRatio').textContent
+    };
+    document.getElementById('tsModalProjects').textContent = d.projects;
+    document.getElementById('tsModalQuotes').textContent = d.quotes;
+    document.getElementById('tsModalRatio').textContent = d.ratio + '%';
+    document.getElementById('todayStatsDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+    
+    // Fetch fresh data for champions
+    fetch('/api/today-stats')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success || !data.data) return;
+            var d = data.data;
+            document.getElementById('tsModalActionsName').textContent = d.actions_champion || '—';
+            document.getElementById('tsModalActionsCount').textContent = d.actions_champion_count || 0;
+            document.getElementById('tsModalProjectsName').textContent = d.projects_champion || '—';
+            document.getElementById('tsModalProjectsCount').textContent = d.projects_champion_count || 0;
+            document.getElementById('tsModalQuotesName').textContent = d.quotations_champion || '—';
+            document.getElementById('tsModalQuotesCount').textContent = d.quotations_champion_count || 0;
+            // Update KPIs with fresh data
+            document.getElementById('tsModalProjects').textContent = d.projects_captured;
+            document.getElementById('tsModalQuotes').textContent = d.quotations_created;
+            document.getElementById('tsModalRatio').textContent = d.contract_quotation_ratio + '%';
+        })
+        .catch(function(err) {
+            console.error('Today stats modal error:', err);
+        });
+    
+    openModal('todayStatsModal');
+}
+
+// Load today stats on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(loadTodayStats, 500);
+});
+
 // Quick View Modal functions
 function openQuickViewModal() {
     document.getElementById('quickViewDateFilter').value = 'today';
@@ -39274,6 +39429,109 @@ function escAttr(str) {
 
 <!-- ===== COMPREHENSIVE AESTHETIC ENHANCEMENTS (NO GRADIENTS, SOLID BLUE) ===== -->
 <style>
+/* === SLIDING TODAY STATS BAR === */
+.today-stats-bar {
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+    max-width: 0;
+    opacity: 0;
+    transition: max-width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s ease, margin 0.5s ease;
+    cursor: pointer;
+    background: linear-gradient(135deg, rgba(193,43,62,0.08), rgba(30,42,86,0.05));
+    border-radius: 8px;
+    padding: 0;
+    margin: 0;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    height: 28px;
+    margin-right: 0;
+}
+.today-stats-bar.loaded {
+    max-width: 580px;
+    opacity: 1;
+    padding: 0 8px;
+    margin-right: 6px;
+    border-color: rgba(193,43,62,0.12);
+}
+.today-stats-bar:hover {
+    background: linear-gradient(135deg, rgba(193,43,62,0.14), rgba(30,42,86,0.08));
+    border-color: rgba(193,43,62,0.25);
+}
+.stats-track {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: scrollStats 20s linear infinite;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+.today-stats-bar.loaded:hover .stats-track {
+    animation-play-state: paused;
+}
+.stat-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 2px;
+}
+.stat-item i {
+    font-size: 0.6rem;
+    color: var(--crimson-bright, #C12B3E);
+}
+.stat-item b {
+    font-weight: 700;
+    color: var(--dark-blue-deep, #1E293B);
+}
+.stat-item.sep {
+    color: var(--gray-300, #d1d5db);
+    font-size: 0.5rem;
+    padding: 0 1px;
+}
+@keyframes scrollStats {
+    0% { transform: translateX(100%); }
+    10% { transform: translateX(0); }
+    90% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+}
+
+/* === TODAY STATS MODAL === */
+#todayStatsModal .modal-container {
+    max-width: 480px;
+}
+#todayStatsModal .champion-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #f8f9fc, #f0f2f7);
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+    margin-bottom: 8px;
+    transition: all 0.2s;
+}
+#todayStatsModal .champion-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+#todayStatsModal .champion-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+#todayStatsModal .champion-icon.gold { background: linear-gradient(135deg,#fbbf24,#f59e0b); color: white; }
+#todayStatsModal .champion-icon.blue { background: linear-gradient(135deg,#60a5fa,#2563eb); color: white; }
+#todayStatsModal .champion-icon.green { background: linear-gradient(135deg,#34d399,#10b981); color: white; }
+#todayStatsModal .champion-icon.crimson { background: linear-gradient(135deg,#f43f5e,#C12B3E); color: white; }
+#todayStatsModal .champion-name { font-weight: 700; font-size: 0.75rem; color: var(--text-primary); }
+#todayStatsModal .champion-title { font-size: 0.6rem; color: var(--text-muted); }
+#todayStatsModal .champion-count { font-weight: 800; font-size: 0.85rem; color: var(--crimson-bright, #C12B3E); margin-left: auto; }
+
 /* === 1. TABLE — GLASS PANEL WITH SOFT GLOW === */
 .dataTables_wrapper {
     background: #ffffff;

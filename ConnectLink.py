@@ -30240,6 +30240,121 @@ def quick_view_stats():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/today-stats', methods=['GET'])
+def today_stats():
+    """Return today's activity stats for the sliding info bar."""
+    user_uuid = session.get('user_uuid')
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_uuid and not user_id:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT NOW()")
+            db_now = cursor.fetchone()[0]
+            today_start = db_now.replace(hour=0, minute=0, second=0, microsecond=0)
+            today_end = today_start + timedelta(days=1)
+
+            # Projects captured today
+            cursor.execute("""
+                SELECT COUNT(*) FROM connectlinkdatabase 
+                WHERE datecaptured >= %s AND datecaptured < %s
+            """, (today_start, today_end))
+            projects_captured_today = cursor.fetchone()[0]
+
+            # Projects completed today
+            cursor.execute("""
+                SELECT COUNT(*) FROM connectlinkdatabase 
+                WHERE projectcompletionstatus = 'Completed'
+            """)
+            total_completed = cursor.fetchone()[0]
+            
+            # Estimate completed today (simplified)
+            projects_completed_today = 0
+            
+            # Quotations created today
+            cursor.execute("""
+                SELECT COUNT(*) FROM quotations 
+                WHERE created_at >= %s AND created_at < %s
+            """, (today_start, today_end))
+            quotations_today = cursor.fetchone()[0]
+
+            # Contracts (projects) captured today - same as projects_captured_today
+            # Quotations sent today
+            cursor.execute("""
+                SELECT COUNT(*) FROM quotation_whatsapp_send_logs 
+                WHERE created_at >= %s AND created_at < %s
+                AND send_status = 'success'
+            """, (today_start, today_end))
+            quotations_sent_today = cursor.fetchone()[0]
+
+            # Actions champion - user who did most activity today
+            cursor.execute("""
+                SELECT capturer, COUNT(*) as cnt
+                FROM activity_log
+                WHERE created_at >= %s AND created_at < %s
+                GROUP BY capturer
+                ORDER BY cnt DESC
+                LIMIT 1
+            """, (today_start, today_end))
+            row = cursor.fetchone()
+            actions_champion = row[0] if row else 'N/A'
+            actions_champion_count = row[1] if row else 0
+
+            # Projects champion - user who captured most contracts today
+            cursor.execute("""
+                SELECT capturer, COUNT(*) as cnt
+                FROM connectlinkdatabase 
+                WHERE datecaptured >= %s AND datecaptured < %s
+                AND capturer IS NOT NULL AND capturer != ''
+                GROUP BY capturer
+                ORDER BY cnt DESC
+                LIMIT 1
+            """, (today_start, today_end))
+            row = cursor.fetchone()
+            projects_champion = row[0] if row else 'N/A'
+            projects_champion_count = row[1] if row else 0
+
+            # Quotations champion - user who created most quotations today
+            cursor.execute("""
+                SELECT u.name, COUNT(*) as cnt
+                FROM quotations q
+                LEFT JOIN connectlinkusers u ON u.id = q.id
+                WHERE q.created_at >= %s AND q.created_at < %s
+                GROUP BY u.name
+                ORDER BY cnt DESC
+                LIMIT 1
+            """, (today_start, today_end))
+            row = cursor.fetchone()
+            quotations_champion = row[0] if row else 'N/A'
+            quotations_champion_count = row[1] if row else 0
+
+            # Contract to quotation ratio for today
+            ratio = round((projects_captured_today / quotations_today * 100), 1) if quotations_today > 0 else 0
+
+            return jsonify({
+                'success': True,
+                'data': {
+                    'projects_captured': projects_captured_today,
+                    'projects_completed': projects_completed_today or 0,
+                    'quotations_created': quotations_today,
+                    'quotations_sent': quotations_sent_today,
+                    'actions_champion': actions_champion,
+                    'actions_champion_count': actions_champion_count,
+                    'projects_champion': projects_champion,
+                    'projects_champion_count': projects_champion_count,
+                    'quotations_champion': quotations_champion,
+                    'quotations_champion_count': quotations_champion_count,
+                    'contract_quotation_ratio': ratio
+                }
+            })
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        logging.error(f'Error in today_stats: {str(e)}\n{tb}')
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/api/quick-view-details', methods=['GET'])
 def quick_view_details():
     """Return detailed records for a specific Quick View category."""
