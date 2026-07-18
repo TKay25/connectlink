@@ -2649,11 +2649,16 @@ def webhook():
                                                 print(id_user)
                                                 print(admin_name)
 
-                                                # Check if admin also has HR access (whatsapp in hr_employees)
+                                                # Check if admin also has HR access
                                                 has_hr_access = False
-                                                cursor.execute("SELECT id FROM hr_employees WHERE whatsapp::TEXT LIKE %s LIMIT 1", (f"%{sender_number}%",))
-                                                if cursor.fetchone():
+                                                # Admin users automatically get HR access (no separate hr_employees check needed)
+                                                if is_from_admin_users:
                                                     has_hr_access = True
+                                                else:
+                                                    # Fallback: check hr_employees for legacy connectlinkusers
+                                                    cursor.execute("SELECT id FROM hr_employees WHERE whatsapp::TEXT LIKE %s LIMIT 1", (f"%{sender_number}%",))
+                                                    if cursor.fetchone():
+                                                        has_hr_access = True
 
                                                 try:
                                                 
@@ -2923,13 +2928,6 @@ def webhook():
                                                         if button_id == "portfolio":
 
                                                             buttons = [
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "getportfolio",
-                                                                        "title": "🏗️ Get Master File"
-                                                                    }
-                                                                },
                                                                 {
                                                                     "type": "reply",
                                                                     "reply": {
@@ -3860,39 +3858,27 @@ def webhook():
                                                                 whatsapp_response = send_whatsapp_pdf_by_media_id(sender_id, media_id)
                                                                 
 
-                                                                sections = [
+                                                                buttons = [
                                                                     {
-                                                                        "title": "Portfolio Options",
-                                                                        "rows": [
-                                                                            {
-                                                                                "id": "getportfolio",
-                                                                                "title": "Get Master File",
-                                                                                "description": "Download full portfolio"
-                                                                            },
-                                                                            {
-                                                                                "id": "getnotes",
-                                                                                "title": "Get Notes",
-                                                                                "description": "Access project notes"
-                                                                            },
-                                                                            {
-                                                                                "id": "payments_schedule",
-                                                                                "title": "Get Payments Schedule",
-                                                                                "description": "Access Installments schedule report"
-                                                                            },
-                                                                            {
-                                                                                "id": "main_menu",
-                                                                                "title": "Main Menu",
-                                                                                "description": "Return to main menu"
-                                                                            }
-                                                                        ]
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "getnotes",
+                                                                            "title": "Get Notes"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "main_menu",
+                                                                            "title": " Main Menu"
+                                                                        }
                                                                     }
                                                                 ]
 
-                                                                send_whatsapp_list_message(
+                                                                send_whatsapp_message(
                                                                     sender_id,
                                                                     "Kindly select a portfolio option below.",
-                                                                    "ConnectLink Admin",
-                                                                    sections,
+                                                                    buttons,
                                                                     footer_text="ConnectLink Properties • Admin Panel"
                                                                 )
 
@@ -4351,39 +4337,27 @@ def webhook():
                                                             # Handle the "getnotes" option
                                                             result = send_notes_pdf_whatsapp(sender_id)
 
-                                                            sections = [
+                                                            buttons = [
                                                                 {
-                                                                    "title": "Portfolio Options",
-                                                                    "rows": [
-                                                                        {
-                                                                            "id": "getportfolio",
-                                                                            "title": "Get Master File",
-                                                                            "description": "Download full portfolio"
-                                                                        },
-                                                                        {
-                                                                            "id": "getnotes",
-                                                                            "title": "Get Notes",
-                                                                            "description": "Access project notes"
-                                                                        },
-                                                                        {
-                                                                            "id": "payments_schedule",
-                                                                            "title": "Get Payments Schedule",
-                                                                            "description": "Access Installments schedule report"
-                                                                        },
-                                                                        {
-                                                                            "id": "main_menu",
-                                                                            "title": "Main Menu",
-                                                                            "description": "Return to main menu"
-                                                                        }
-                                                                    ]
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "getnotes",
+                                                                        "title": "Get Notes"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "main_menu",
+                                                                        "title": " Main Menu"
+                                                                    }
                                                                 }
                                                             ]
 
-                                                            send_whatsapp_list_message(
+                                                            send_whatsapp_message(
                                                                 sender_id,
                                                                 "Kindly select a portfolio option below.",
-                                                                "ConnectLink Admin",
-                                                                sections,
+                                                                buttons,
                                                                 footer_text="ConnectLink Properties • Admin Panel"
                                                             )
                                                         
@@ -5097,39 +5071,27 @@ def webhook():
                                                                 media_id = upload_pdf_to_whatsapp(pdf_bytes, sender_id)
                                                                 whatsapp_response = send_whatsapp_pdf_by_media_id(sender_id, media_id)
    
-                                                                sections = [
+                                                                buttons = [
                                                                     {
-                                                                        "title": "Portfolio Options",
-                                                                        "rows": [
-                                                                            {
-                                                                                "id": "getportfolio",
-                                                                                "title": "Get Master File",
-                                                                                "description": "Download full portfolio"
-                                                                            },
-                                                                            {
-                                                                                "id": "getnotes",
-                                                                                "title": "Get Notes",
-                                                                                "description": "Access project notes"
-                                                                            },
-                                                                            {
-                                                                                "id": "payments_schedule",
-                                                                                "title": "Get Payments Schedule",
-                                                                                "description": "Access Installments schedule report"
-                                                                            },
-                                                                            {
-                                                                                "id": "main_menu",
-                                                                                "title": "Main Menu",
-                                                                                "description": "Return to main menu"
-                                                                            }
-                                                                        ]
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "getnotes",
+                                                                            "title": "Get Notes"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "main_menu",
+                                                                            "title": " Main Menu"
+                                                                        }
                                                                     }
                                                                 ]
 
-                                                                send_whatsapp_list_message(
+                                                                send_whatsapp_message(
                                                                     sender_id,
                                                                     "Kindly select a portfolio option below.",
-                                                                    "ConnectLink Admin",
-                                                                    sections,
+                                                                    buttons,
                                                                     footer_text="ConnectLink Properties • Admin Panel"
                                                                 )
 
@@ -5158,39 +5120,27 @@ def webhook():
 
                                                         elif button_id == "projects":
 
-                                                            sections = [
+                                                            buttons = [
                                                                 {
-                                                                    "title": "Portfolio Options",
-                                                                    "rows": [
-                                                                        {
-                                                                            "id": "getportfolio",
-                                                                            "title": "Get Master File",
-                                                                            "description": "Download full portfolio"
-                                                                        },
-                                                                        {
-                                                                            "id": "getnotes",
-                                                                            "title": "Get Notes",
-                                                                            "description": "Access project notes"
-                                                                        },
-                                                                        {
-                                                                            "id": "payments_schedule",
-                                                                            "title": "Get Payments Schedule",
-                                                                            "description": "Access Installments schedule report"
-                                                                        },
-                                                                        {
-                                                                            "id": "main_menu",
-                                                                            "title": "Main Menu",
-                                                                            "description": "Return to main menu"
-                                                                        }
-                                                                    ]
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "getnotes",
+                                                                        "title": "Get Notes"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "main_menu",
+                                                                        "title": " Main Menu"
+                                                                    }
                                                                 }
                                                             ]
 
-                                                            send_whatsapp_list_message(
+                                                            send_whatsapp_message(
                                                                 sender_id,
                                                                 "Kindly select a portfolio option below.",
-                                                                "ConnectLink Admin",
-                                                                sections,
+                                                                buttons,
                                                                 footer_text="ConnectLink Properties • Admin Panel"
                                                             )
 
