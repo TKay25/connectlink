@@ -22824,6 +22824,33 @@ function displayPaymentReminders(data) {
     try { fillTable('allRemindersTableBody', allPayments, 'all'); } catch(e) { console.error('all reminders table error:', e); }
     try { fillTable('outstandingTableBody', outstanding, 'outstanding'); } catch(e) { console.error('outstanding table error:', e); }
     
+    // Force activate the overdue tab programmatically
+    try {
+        const overdueTabBtn = document.getElementById('overdue-tab');
+        if (overdueTabBtn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+            const tab = new bootstrap.Tab(overdueTabBtn);
+            tab.show();
+            console.log('Forced overdue tab activation via Bootstrap API');
+        } else {
+            // Fallback: manually add/remove classes
+            const overduePane = document.getElementById('overdue');
+            const dueSoonPane = document.getElementById('dueSoon');
+            if (overduePane) {
+                overduePane.classList.add('show', 'active');
+                overduePane.style.display = 'block';
+            }
+            if (dueSoonPane) {
+                dueSoonPane.classList.remove('show', 'active');
+                dueSoonPane.style.display = '';
+            }
+            document.querySelectorAll('#reminderTabs .nav-link').forEach(btn => btn.classList.remove('active'));
+            if (overdueTabBtn) overdueTabBtn.classList.add('active');
+            console.log('Forced overdue tab activation via manual classes');
+        }
+    } catch(e) {
+        console.error('Tab activation error:', e);
+    }
+    
     // Also log the first overdue item to verify structure
     if (overdue.length > 0) {
         console.log('First overdue item:', JSON.stringify(overdue[0]));
