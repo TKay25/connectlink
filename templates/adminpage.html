@@ -22245,7 +22245,16 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script>
 // ==================== MAIN FUNCTION ====================
+let _paymentRemindersOpening = false;
+
 function Pushpaymentreminders() {
+    // Guard against double-triggering
+    if (_paymentRemindersOpening) {
+        console.log('Payment Reminders already opening, ignoring duplicate call');
+        return;
+    }
+    _paymentRemindersOpening = true;
+    
     console.log('Opening Payment Reminders...');
     
     // Show modal using custom modal system
@@ -22253,6 +22262,11 @@ function Pushpaymentreminders() {
     
     // Load data
     loadPaymentReminders();
+    
+    // Reset guard after a short delay
+    setTimeout(() => {
+        _paymentRemindersOpening = false;
+    }, 1000);
 }
 
 
@@ -23012,8 +23026,8 @@ function formatPhone(phone) {
     if (!phone) return 'N/A';
     try {
         const cleaned = phone.toString().replace(/\D/g, '');
-        // Remove trailing zero if present
-        const trimmed = cleaned.endsWith('0') ? cleaned.slice(0, -1) : cleaned;
+        // Don't strip trailing zeros - phone numbers can end in 0
+        const trimmed = cleaned;
         
         if (trimmed.startsWith('263')) {
             if (trimmed.length === 12) {
