@@ -14471,8 +14471,7 @@ body { font-family: Arial; margin: 20px; }
     </div>
 </div>
 
-<!-- HIDDEN DATA CONTAINER - Add this too -->
-<div id="paymentRemindersData" data-reminders="{{ payment_reminders|tojson|safe if payment_reminders else '{}' }}" style="display: none;"></div>
+<!-- Payment reminders now loaded via API -->
 
 <!-- View Interim Enquiries Modal - Blur Overlay Version -->
 <div id="viewEnquiriesModal" class="modal-overlay">
@@ -22604,23 +22603,8 @@ window.loadSentReminders = loadSentReminders;
 // ==================== DATA LOADING ====================
 async function loadPaymentReminders() {
     try {
-        // Try embedded data first (with safe parse)
-        const dataDiv = document.getElementById('paymentRemindersData');
-        if (dataDiv && dataDiv.dataset.reminders) {
-            try {
-                const data = JSON.parse(dataDiv.dataset.reminders);
-                if (data && (data.due_soon || data.overdue)) {
-                    console.log('Using embedded data');
-                    displayPaymentReminders(data);
-                    return;
-                }
-            } catch (parseErr) {
-                console.warn('Embedded data parse failed, falling through to API:', parseErr);
-            }
-        }
-        
-        // Fetch from API
-        console.log('Fetching from API...');
+        // Fetch from API directly (embedded data was unreliable)
+        console.log('Fetching payment reminders from API...');
         const response = await fetch('/api/payment-reminders');
         
         if (!response.ok) {
