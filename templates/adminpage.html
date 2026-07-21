@@ -14336,13 +14336,13 @@ body { font-family: Arial; margin: 20px; }
             <!-- Tabs -->
             <ul class="nav nav-tabs mb-3" id="reminderTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="dueSoon-tab" data-bs-toggle="tab" data-bs-target="#dueSoon" type="button" role="tab">
+                    <button class="nav-link" id="dueSoon-tab" data-bs-toggle="tab" data-bs-target="#dueSoon" type="button" role="tab">
                         <i class="bi bi-clock me-1"></i> Due within next 3 days 
                         <span class="badge bg-warning ms-2" id="dueSoonBadge">0</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">
+                    <button class="nav-link active" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">
                         <i class="bi bi-exclamation-triangle me-1"></i> Overdue 
                         <span class="badge bg-danger ms-2" id="overdueBadge">0</span>
                     </button>
@@ -14363,7 +14363,7 @@ body { font-family: Arial; margin: 20px; }
             <!-- Tab Content -->
             <div class="tab-content">
                 <!-- Due Soon Tab -->
-                <div class="tab-pane fade show active" id="dueSoon" role="tabpanel">
+                <div class="tab-pane fade" id="dueSoon" role="tabpanel">
                     <div style="max-height: 420px; overflow-y: auto; padding: 4px;">
                         <div class="table-container" style="border: none; border-radius: 0;">
                             <table class="table" id="dueSoonTable">
@@ -14389,7 +14389,7 @@ body { font-family: Arial; margin: 20px; }
                 </div>
 
                 <!-- Overdue Tab -->
-                <div class="tab-pane fade" id="overdue" role="tabpanel">
+                <div class="tab-pane fade show active" id="overdue" role="tabpanel">
                     <div style="max-height: 420px; overflow-y: auto; padding: 4px;">
                         <div class="table-container" style="border: none; border-radius: 0;">
                             <table class="table" id="overdueTable">
