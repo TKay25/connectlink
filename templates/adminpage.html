@@ -14390,25 +14390,27 @@ body { font-family: Arial; margin: 20px; }
 
                 <!-- Overdue Tab -->
                 <div class="tab-pane fade" id="overdue" role="tabpanel">
-                    <div style="max-height: 400px; overflow-y: auto; padding: 10px;">
-                        <table class="table table-hover table-theme">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Client</th>
-                                    <th>WhatsApp</th>
-                                    <th>Project</th>
-                                    <th>Installment</th>
-                                    <th>Amount</th>
-                                    <th>Due Date</th>
-                                    <th>Days Overdue</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="overdueTableBody">
-                                <!-- Filled by JavaScript -->
-                            </tbody>
-                        </table>
+                    <div style="max-height: 420px; overflow-y: auto; padding: 4px;">
+                        <div class="table-container" style="border: none; border-radius: 0;">
+                            <table class="table" id="overdueTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width:36px; text-align:center;">#</th>
+                                        <th>Client</th>
+                                        <th style="width:110px;">Contact</th>
+                                        <th>Project</th>
+                                        <th style="width:70px; text-align:center;">Inst.</th>
+                                        <th style="width:100px; text-align:right;">Amount</th>
+                                        <th style="width:110px;">Due Date</th>
+                                        <th style="width:110px;">Severity</th>
+                                        <th style="width:80px; text-align:center;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="overdueTableBody">
+                                    <!-- Filled by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -23044,16 +23046,96 @@ function createTableRow(payment, index, type) {
         `;
     }
     
-    // --- Overdue & All types ---
-    if (type === 'overdue' || statusType === 'overdue') {
+    // --- Overdue specific rendering ---
+    if (type === 'overdue') {
+        const overdueDays = payment.days_overdue || Math.abs(payment.days_diff) || 0;
+        daysInfo = overdueDays;
+        
+        // Severity color & bar - worse as days increase
+        let severityColor, barWidth, severityLabel;
+        if (overdueDays <= 7) {
+            severityColor = '#F59E0B'; barWidth = '30%';
+            severityLabel = `${overdueDays}d overdue`;
+        } else if (overdueDays <= 14) {
+            severityColor = '#F97316'; barWidth = '55%';
+            severityLabel = `${overdueDays}d overdue`;
+        } else if (overdueDays <= 30) {
+            severityColor = '#EF4444'; barWidth = '75%';
+            severityLabel = `${overdueDays}d overdue`;
+        } else {
+            severityColor = '#991B1B'; barWidth = '100%';
+            severityLabel = `${overdueDays}d overdue`;
+        }
+        
+        // Past due date for context
+        const pastDueText = overdueDays <= 7 ? 'Recently due' : overdueDays <= 14 ? 'Overdue' : overdueDays <= 30 ? 'Seriously overdue' : 'Critical';
+        
+        statusHtml = `
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:100px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.75rem; font-weight:700; color:${severityColor};">${pastDueText}</span>
+                    <span style="font-size:0.6rem; color:var(--text-muted);">${overdueDays}d</span>
+                </div>
+                <div style="height:4px; background:#FEE2E2; border-radius:4px; overflow:hidden;">
+                    <div style="height:100%; width:${barWidth}; background:${severityColor}; border-radius:4px;"></div>
+                </div>
+                <span style="font-size:0.6rem; color:${severityColor}; font-weight:600;">${severityLabel}</span>
+            </div>
+        `;
+        
+        return `
+            <tr>
+                <td style="text-align:center; color:var(--text-muted); font-size:0.75rem;">${index}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="width:28px; height:28px; border-radius:50%; background:${avatarColor}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:700; flex-shrink:0;">${initial}</div>
+                        <strong style="font-size:0.82rem;">${client}</strong>
+                    </div>
+                </td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:4px; font-size:0.75rem; color:var(--text-secondary);">
+                        <i class="bi bi-whatsapp" style="color:#25D366; font-size:0.8rem;"></i>
+                        <span>${formattedPhone}</span>
+                    </div>
+                </td>
+                <td style="font-size:0.8rem; color:var(--text-primary);">${project}</td>
+                <td style="text-align:center;">
+                    <span style="display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:22px; padding:0 6px; border-radius:999px; background:#FEF2F2; color:#991B1B; font-size:0.7rem; font-weight:700;">#${installment}</span>
+                </td>
+                <td style="text-align:right; font-size:0.82rem; font-weight:700; color:var(--text-primary);">${formattedAmount}</td>
+                <td style="font-size:0.75rem; color:var(--text-secondary); white-space:nowrap;">
+                    <div style="font-weight:600; color:var(--text-primary);">${formattedDate}</div>
+                </td>
+                <td>${statusHtml}</td>
+                <td style="text-align:center;">
+                    <button class="btn btn-primary3 btn-sm send-btn" 
+                            style="padding:3px 10px; font-size:0.7rem; border-radius:6px; background:var(--accent); color:#fff; border:none; cursor:pointer; transition:opacity 0.2s;"
+                            data-client="${client}"
+                            data-phone="${phone}"
+                            data-amount="${formattedAmount}"
+                            data-raw-amount="${amount}"
+                            data-installment="${installment}"
+                            data-project="${project}"
+                            data-status="overdue"
+                            data-days="${daysInfo}"
+                            data-due-date="${dueDate}">
+                        <i class="bi bi-whatsapp" style="font-size:0.7rem;"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // --- All tab rendering ---
+    if (statusType === 'overdue') {
         const overdueDays = payment.days_overdue || Math.abs(payment.days_diff) || 0;
         daysInfo = overdueDays;
         statusHtml = `<span class="badge-hr" style="background:#FEF2F2; color:#991B1B; border-color:#FECACA;">${overdueDays} day${overdueDays === 1 ? '' : 's'} overdue</span>`;
-    } else if (type === 'all' && statusType === 'outstanding') {
+    } else if (statusType === 'outstanding') {
         const daysOverdue = payment.days_overdue || 0;
         daysInfo = daysOverdue;
         statusHtml = `<span class="badge-hr pending">Outstanding</span>`;
-    } else if (type === 'all' && statusType === 'soon') {
+    } else if (statusType === 'soon') {
         const daysLeft = payment.days_diff || 0;
         daysInfo = daysLeft;
         statusHtml = `<span class="badge-hr pending">${daysLeft} day${daysLeft === 1 ? '' : 's'} left</span>`;
@@ -23082,7 +23164,7 @@ function createTableRow(payment, index, type) {
             <td style="font-size:0.75rem; color:var(--text-secondary); white-space:nowrap;">
                 <div style="font-weight:600; color:var(--text-primary);">${formattedDate}</div>
             </td>
-            <td>${type === 'all' ? statusHtml : (type === 'overdue' ? statusHtml : daysInfo)}</td>
+            <td>${statusHtml}</td>
             <td style="text-align:center;">
                 <button class="btn btn-primary3 btn-sm send-btn"
                         style="padding:3px 10px; font-size:0.7rem; border-radius:6px; background:var(--accent); color:#fff; border:none; cursor:pointer; transition:opacity 0.2s;"
