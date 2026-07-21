@@ -22604,14 +22604,18 @@ window.loadSentReminders = loadSentReminders;
 // ==================== DATA LOADING ====================
 async function loadPaymentReminders() {
     try {
-        // Try embedded data first
+        // Try embedded data first (with safe parse)
         const dataDiv = document.getElementById('paymentRemindersData');
         if (dataDiv && dataDiv.dataset.reminders) {
-            const data = JSON.parse(dataDiv.dataset.reminders);
-            if (data && (data.due_soon || data.overdue)) {
-                console.log('Using embedded data');
-                displayPaymentReminders(data);
-                return;
+            try {
+                const data = JSON.parse(dataDiv.dataset.reminders);
+                if (data && (data.due_soon || data.overdue)) {
+                    console.log('Using embedded data');
+                    displayPaymentReminders(data);
+                    return;
+                }
+            } catch (parseErr) {
+                console.warn('Embedded data parse failed, falling through to API:', parseErr);
             }
         }
         
