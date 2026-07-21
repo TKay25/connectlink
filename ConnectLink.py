@@ -19392,7 +19392,7 @@ def api_payment_reminders():
                 FROM connectlinkdatabase d
                 WHERE d.projectcompletionstatus = 'Ongoing'
                 AND d.installment1duedate IS NOT NULL
-                AND (d.installment1date IS NULL OR d.installment1date = '')
+                AND d.installment1date IS NULL
                 AND d.installment1amount > 0
                 
                 UNION ALL
@@ -19409,7 +19409,7 @@ def api_payment_reminders():
                 FROM connectlinkdatabase d
                 WHERE d.projectcompletionstatus = 'Ongoing'
                 AND d.installment2duedate IS NOT NULL
-                AND (d.installment2date IS NULL OR d.installment2date = '')
+                AND d.installment2date IS NULL
                 AND d.installment2amount > 0
                 
                 UNION ALL
@@ -19426,7 +19426,7 @@ def api_payment_reminders():
                 FROM connectlinkdatabase d
                 WHERE d.projectcompletionstatus = 'Ongoing'
                 AND d.installment3duedate IS NOT NULL
-                AND (d.installment3date IS NULL OR d.installment3date = '')
+                AND d.installment3date IS NULL
                 AND d.installment3amount > 0
                 
                 UNION ALL
@@ -19443,7 +19443,7 @@ def api_payment_reminders():
                 FROM connectlinkdatabase d
                 WHERE d.projectcompletionstatus = 'Ongoing'
                 AND d.installment4duedate IS NOT NULL
-                AND (d.installment4date IS NULL OR d.installment4date = '')
+                AND d.installment4date IS NULL
                 AND d.installment4amount > 0
                 
                 UNION ALL
@@ -19460,7 +19460,7 @@ def api_payment_reminders():
                 FROM connectlinkdatabase d
                 WHERE d.projectcompletionstatus = 'Ongoing'
                 AND d.installment5duedate IS NOT NULL
-                AND (d.installment5date IS NULL OR d.installment5date = '')
+                AND d.installment5date IS NULL
                 AND d.installment5amount > 0
                 
                 UNION ALL
@@ -19477,7 +19477,7 @@ def api_payment_reminders():
                 FROM connectlinkdatabase d
                 WHERE d.projectcompletionstatus = 'Ongoing'
                 AND d.installment6duedate IS NOT NULL
-                AND (d.installment6date IS NULL OR d.installment6date = '')
+                AND d.installment6date IS NULL
                 AND d.installment6amount > 0
                 
                 ORDER BY due_date
@@ -19594,7 +19594,7 @@ def api_payment_reminders():
                         balance_due = total_contract - total_paid
                         
                         if balance_due > 0:
-                            last_payment_dt = last_payment_date if isinstance(last_payment_date, datetime.date) else datetime.strptime(str(last_payment_date), '%Y-%m-%d').date()
+                            last_payment_dt = last_payment_date if isinstance(last_payment_date, date) else datetime.strptime(str(last_payment_date), '%Y-%m-%d').date()
                             days_overdue = (today - last_payment_dt).days
                             
                             underpaid.append({
@@ -19614,8 +19614,14 @@ def api_payment_reminders():
             # Sort underpaid by days overdue
             underpaid.sort(key=lambda x: x['days_overdue'], reverse=True)
             
-            total_amount = sum(p['amount_due'] for p in due_soon) + sum(p['amount_due'] for p in overdue) + sum(p['balance_due'] for p in underpaid)
-            all_clients = set(p['client_name'] for p in due_soon) | set(p['client_name'] for p in overdue) | set(p['client_name'] for p in underpaid)
+            try:
+                total_amount = float(sum(p.get('amount_due', 0) for p in due_soon) + sum(p.get('amount_due', 0) for p in overdue) + sum(p.get('balance_due', 0) for p in underpaid))
+                all_clients = list(set(p.get('client_name', '') for p in due_soon) | set(p.get('client_name', '') for p in overdue) | set(p.get('client_name', '') for p in underpaid))
+                all_clients = [c for c in all_clients if c]
+            except Exception as e:
+                print(f"Summary calc error: {e}")
+                total_amount = 0
+                all_clients = []
             
             return jsonify({
                 'due_soon': due_soon,
