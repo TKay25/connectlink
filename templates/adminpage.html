@@ -13443,7 +13443,12 @@ body { font-family: Arial; margin: 20px; }
 
                     <div class="col-lg-2 col-md-3 col-sm-6">
                         <label for="updateAdminName" class="form-label fw-bold">Admin Name</label>
-                        <input type="text" class="form-control editable-field" id="updateAdminName" name="AdminName">
+                        <select class="form-control editable-field" id="updateAdminName" name="AdminName">
+                            <option value="">Select Admin</option>
+                            {% for option in admin_options %}
+                            <option value="{{ option }}">{{ option }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
 
                     <div class="col-lg-2 col-md-3 col-sm-6">
