@@ -22800,10 +22800,16 @@ function displayPaymentReminders(data) {
     }
     
     // Fill tables
+    console.log('Filling tables:', { dueSoon: dueSoon.length, overdue: overdue.length, outstanding: outstanding.length, allPayments: allPayments.length });
     try { fillTable('dueSoonTableBody', dueSoon, 'soon'); } catch(e) { console.error('dueSoon table error:', e); }
     try { fillTable('overdueTableBody', overdue, 'overdue'); } catch(e) { console.error('overdue table error:', e); }
     try { fillTable('allRemindersTableBody', allPayments, 'all'); } catch(e) { console.error('all reminders table error:', e); }
     try { fillTable('outstandingTableBody', outstanding, 'outstanding'); } catch(e) { console.error('outstanding table error:', e); }
+    
+    // Also log the first overdue item to verify structure
+    if (overdue.length > 0) {
+        console.log('First overdue item:', JSON.stringify(overdue[0]));
+    }
     
     // Update send button
     const sendBtn = document.getElementById('sendAllRemindersBtn');
@@ -22819,7 +22825,10 @@ function displayPaymentReminders(data) {
 
 function fillTable(tableId, payments, type) {
     const tableBody = document.getElementById(tableId);
-    if (!tableBody) return;
+    if (!tableBody) {
+        console.warn('Table body not found:', tableId);
+        return;
+    }
     
     tableBody.innerHTML = '';
     
@@ -22847,14 +22856,32 @@ function fillTable(tableId, payments, type) {
         return;
     }
     
+    let rowsHtml = '';
+    let rowErrors = 0;
     payments.forEach((payment, index) => {
         try {
             const row = createTableRow(payment, index + 1, type);
-            tableBody.innerHTML += row;
+            rowsHtml += row;
         } catch(e) {
+            rowErrors++;
             console.error('Error creating row for', payment?.client_name || 'unknown', ':', e);
         }
     });
+    
+    if (rowsHtml) {
+        tableBody.innerHTML = rowsHtml;
+    } else if (rowErrors > 0) {
+        // All rows failed - show raw data for debugging
+        console.warn(`All ${rowErrors} rows failed to render for ${tableId}, showing debug info`);
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-2">
+                    <div class="text-danger small">Error rendering ${payments.length} rows. Check console.</div>
+                    <pre style="font-size:9px;text-align:left;max-height:120px;overflow:auto;background:#f5f5f5;padding:4px;border-radius:4px;">${JSON.stringify(payments.slice(0, 2), null, 1)}</pre>
+                </td>
+            </tr>
+        `;
+    }
 }
 
 function createTableRow(payment, index, type) {
