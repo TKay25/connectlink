@@ -22878,9 +22878,11 @@ function fillTable(tableId, payments, type) {
     
     // Special direct rendering for Overdue tab
     if (type === 'overdue') {
+        console.log('OVERDUE DIRECT RENDER: Entered, payments count:', payments.length);
         let html = '';
         const colors = ['#C12B3E','#0F1B2D','#10B981','#3B82F6','#F59E0B','#8B5CF6','#EC4899','#14B8A6'];
         payments.forEach((p, i) => {
+            console.log('OVERDUE DIRECT RENDER: Processing item', i, p.client_name);
             const idx = i + 1;
             const initial = (p.client_name || '?').charAt(0).toUpperCase();
             const color = colors[i % colors.length];
@@ -22909,7 +22911,9 @@ function fillTable(tableId, payments, type) {
                 </td>
             </tr>`;
         });
+        console.log('OVERDUE DIRECT RENDER: Generated HTML length:', html.length);
         tableBody.innerHTML = html;
+        console.log('OVERDUE DIRECT RENDER: Table body child count after set:', tableBody.children.length);
         return;
     }
     
