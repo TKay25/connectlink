@@ -23318,6 +23318,7 @@ def update_project():
         monthstopay = request.form.get('MonthsToPay')
         depositpaid = request.form.get('depositpaid')
         depositdatepaid = request.form.get('deposit_date_paid')
+        admin_name = request.form.get('AdminName')
 
         quotation_id_str = request.form.get('project_quotation_id')
 
@@ -23743,6 +23744,7 @@ def update_project():
             installment10_date,
             projscope,
             project_name,
+            admin_name,
             installment1amount,
             installment2amount,
             installment3amount,
@@ -23801,7 +23803,8 @@ def update_project():
                 installment9date = %s,
                 installment10date = %s,
                 projectdescription = %s,
-                projectname = %s,  
+                projectname = %s,
+                projectadministratorname = %s,
                 installment1amount = %s, 
                 installment2amount = %s, 
                 installment3amount = %s, 
