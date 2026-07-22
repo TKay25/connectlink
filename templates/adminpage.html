@@ -14391,6 +14391,12 @@ body { font-family: Arial; margin: 20px; }
                 <!-- Overdue Tab -->
                 <div class="tab-pane fade show active" id="overdue" role="tabpanel">
                     <div style="max-height: 420px; overflow-y: auto; padding: 4px;">
+                        <!-- TEST HARDCODED TABLE -->
+                        <table border="1" style="width:100%; background:yellow; color:red; font-size:20px; font-weight:bold;">
+                            <tr><td>TEST - THIS SHOULD BE VISIBLE</td></tr>
+                            <tr><td>Client: Ncube Ndondana | Amount: $1432.90</td></tr>
+                            <tr><td>Client: Kudakwashe Baloyi | Amount: $8266.66</td></tr>
+                        </table>
                         <div class="table-container" style="border: none; border-radius: 0;">
                             <table class="table" id="overdueTable">
                                 <thead>
@@ -22824,31 +22830,29 @@ function displayPaymentReminders(data) {
     try { fillTable('allRemindersTableBody', allPayments, 'all'); } catch(e) { console.error('all reminders table error:', e); }
     try { fillTable('outstandingTableBody', outstanding, 'outstanding'); } catch(e) { console.error('outstanding table error:', e); }
     
-    // Force activate the overdue tab programmatically
+    // Force show the overdue tab - bypass Bootstrap entirely
     try {
-        const overdueTabBtn = document.getElementById('overdue-tab');
-        if (overdueTabBtn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
-            const tab = new bootstrap.Tab(overdueTabBtn);
-            tab.show();
-            console.log('Forced overdue tab activation via Bootstrap API');
-        } else {
-            // Fallback: manually add/remove classes
-            const overduePane = document.getElementById('overdue');
-            const dueSoonPane = document.getElementById('dueSoon');
-            if (overduePane) {
-                overduePane.classList.add('show', 'active');
-                overduePane.style.display = 'block';
-            }
-            if (dueSoonPane) {
-                dueSoonPane.classList.remove('show', 'active');
-                dueSoonPane.style.display = '';
-            }
-            document.querySelectorAll('#reminderTabs .nav-link').forEach(btn => btn.classList.remove('active'));
-            if (overdueTabBtn) overdueTabBtn.classList.add('active');
-            console.log('Forced overdue tab activation via manual classes');
+        document.querySelectorAll('#paymentRemindersModal .tab-pane').forEach(function(p) {
+            p.classList.remove('show', 'active');
+            p.style.display = 'none';
+        });
+        document.querySelectorAll('#reminderTabs .nav-link').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        var overduePane = document.getElementById('overdue');
+        var overdueBtn = document.getElementById('overdue-tab');
+        if (overduePane) {
+            overduePane.classList.add('show', 'active');
+            overduePane.style.display = 'block';
+            overduePane.style.opacity = '1';
+            overduePane.style.visibility = 'visible';
         }
+        if (overdueBtn) {
+            overdueBtn.classList.add('active');
+        }
+        console.log('Forced overdue tab visible');
     } catch(e) {
-        console.error('Tab activation error:', e);
+        console.error('Tab force error:', e);
     }
     
     // Also log the first overdue item to verify structure
