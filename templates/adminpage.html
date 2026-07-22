@@ -13367,6 +13367,11 @@ body { font-family: Arial; margin: 20px; }
                     </div>
                     
                     <div class="col-md-6">
+                        <label for="updateAgreementDate" class="form-label fw-bold">Agreement Date</label>
+                        <input type="date" class="form-control" id="updateAgreementDate" name="agreement_date">
+                    </div>
+                    
+                    <div class="col-md-6">
                         <label class="form-label fw-bold">Completion Status</label>
                         <select class="form-select" id="updateCompletionStatus" name="completion_status">
                             <option value="ph" disabled selected hidden>Select Status</option>
@@ -30853,6 +30858,7 @@ $(document).on('click', '.update-project-btn', function () {
     const projectScope = getData(12);
     const adminName = getData(13);
     const projectStartDateref = getData(14);
+    const contractAgreementDate = getData(16);
     const totalcontractamount = getData(17);
     const monthstopay = getData(19);
     const depositorbullet = getData(23);
@@ -31049,6 +31055,10 @@ $(document).on('click', '.update-project-btn', function () {
     // Set project start date
     const formattedStartDate = formatForDateInput(projectStartDateref);
     $('#updateProjectStartDate').val(formattedStartDate);
+    
+    // Set agreement date
+    const formattedAgreementDate = formatForDateInput(contractAgreementDate);
+    $('#updateAgreementDate').val(formattedAgreementDate);
     
     // Store original project start date globally for Gantt chart updates
     window.originalProjectStartDate = formattedStartDate;

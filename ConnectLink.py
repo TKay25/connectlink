@@ -60,6 +60,16 @@ app.jinja_env.auto_reload = True
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 user_sessions = {}
 
+# Prevent browser caching on all responses
+@app.after_request
+def add_no_cache_headers(response):
+    """Add cache-control headers to prevent stale cached responses after edits"""
+    if response.mimetype and ('application/' in response.mimetype or 'text/' in response.mimetype):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
 database = 'connectlinkdata'
 
 GEMINI_API_KEY = "AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g"  # Replace with your actual key
@@ -23285,6 +23295,7 @@ def update_other_details():
             clientnextofkinphone = request.form.get('client_next_of_kin_phone')
             clientnextofkinaddress = request.form.get('client_next_of_kin_address')
             projectcompletionstatus = request.form.get('completion_status')
+            agreement_date = request.form.get('agreement_date')
             quotation_id = request.form.get('quotation_id')
 
             # Build update list with proper type casting
@@ -23301,6 +23312,9 @@ def update_other_details():
             if clientaddress:
                 updates.append("clientaddress = %s")
                 values.append(clientaddress)
+            if agreement_date:
+                updates.append("contractagreementdate = %s")
+                values.append(agreement_date)
             if clientnextofkin:
                 updates.append("clientnextofkinname = %s")
                 values.append(clientnextofkin)
