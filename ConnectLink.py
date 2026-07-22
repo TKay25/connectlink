@@ -19538,7 +19538,7 @@ def api_payment_reminders():
                 AND d.installment10date IS NULL
                 AND d.installment10amount > 0
                 
-                ORDER BY due_date
+                ORDER BY amount DESC
             """)
             
             payments = cursor.fetchall()
