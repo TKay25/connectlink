@@ -20616,6 +20616,11 @@ function refreshProjectsTableInRealTime() {
             // Reinitialize DataTables on the new table
             initializeDataTableForProjects();
             
+            // Re-initialize receipt buttons since DOM was replaced
+            if (typeof initReceiptButtons === 'function') {
+                setTimeout(initReceiptButtons, 100);
+            }
+            
             console.log('Table refreshed successfully');
         })
         .catch(error => {
@@ -30067,30 +30072,45 @@ document.addEventListener('click', async function (event) {
 </script>
 <script>
 
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded - initializing receipt buttons');
-    
-    // Get all receipt buttons
-    const receiptButtons = document.querySelectorAll('.get-receipt-btn');
-    console.log('Found ' + receiptButtons.length + ' receipt buttons');
-    
-    if (receiptButtons.length === 0) {
-        console.error('No buttons with class "get-receipt-btn" found!');
-        return;
-    }
-    
-    // Add click handler to each button
-    receiptButtons.forEach(button => {
-        button.addEventListener('click', handleReceiptClick);
+// Initialize receipt buttons - uses both direct binding and event delegation for reliability
+function initReceiptButtons() {
+    // Direct binding for buttons that already exist
+    document.querySelectorAll('.get-receipt-btn').forEach(function(btn) {
+        // Remove old listener to avoid duplicates, add fresh one
+        var clone = btn.cloneNode(true);
+        btn.parentNode.replaceChild(clone, btn);
+        clone.addEventListener('click', handleReceiptClick);
     });
     
-    // Also handle deposit receipt button if it exists
-    const depositBtn = document.getElementById('getdepositReceiptBtn');
+    // Also handle deposit receipt button
+    var depositBtn = document.getElementById('getdepositReceiptBtn');
     if (depositBtn) {
-        depositBtn.addEventListener('click', handleDepositReceipt);
+        var clone = depositBtn.cloneNode(true);
+        depositBtn.parentNode.replaceChild(clone, depositBtn);
+        clone.addEventListener('click', handleDepositReceipt);
     }
-});
+    
+    // Event delegation on the update modal body - catches clicks on ALL .get-receipt-btn
+    // even if they're dynamically added or replaced later
+    var modalBody = document.querySelector('#updateModal .modal-body-custom');
+    if (modalBody) {
+        modalBody.addEventListener('click', function(e) {
+            var btn = e.target.closest('.get-receipt-btn');
+            if (btn) {
+                handleReceiptClick(e);
+            }
+        });
+    }
+    
+    console.log('Receipt buttons initialized');
+}
+
+// Run on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initReceiptButtons);
+} else {
+    initReceiptButtons();
+}
 
 // Handle installment receipt clicks
 async function handleReceiptClick(e) {
