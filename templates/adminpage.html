@@ -22824,28 +22824,30 @@ function displayPaymentReminders(data) {
     try { fillTable('allRemindersTableBody', allPayments, 'all'); } catch(e) { console.error('all reminders table error:', e); }
     try { fillTable('outstandingTableBody', outstanding, 'outstanding'); } catch(e) { console.error('outstanding table error:', e); }
     
-    // Activate the overdue tab using Bootstrap's Tab API
+    // Ensure the overdue tab pane is visible
     try {
+        var overduePane = document.getElementById('overdue');
         var overdueBtn = document.getElementById('overdue-tab');
-        if (overdueBtn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
-            var tab = new bootstrap.Tab(overdueBtn);
-            tab.show();
-        } else {
-            // Fallback: manually switch tabs without breaking Bootstrap
-            document.querySelectorAll('#paymentRemindersModal .tab-pane').forEach(function(p) {
-                p.classList.remove('show', 'active');
-            });
-            document.querySelectorAll('#reminderTabs .nav-link').forEach(function(b) {
-                b.classList.remove('active');
-            });
-            var overduePane = document.getElementById('overdue');
-            if (overduePane) {
-                overduePane.classList.add('show', 'active');
-            }
-            if (overdueBtn) {
-                overdueBtn.classList.add('active');
-            }
+        var dueSoonPane = document.getElementById('dueSoon');
+        var dueSoonBtn = document.getElementById('dueSoon-tab');
+        
+        if (dueSoonPane) { dueSoonPane.classList.remove('show', 'active'); }
+        if (dueSoonBtn) { dueSoonBtn.classList.remove('active'); }
+        if (overduePane) {
+            overduePane.classList.add('show', 'active');
+            overduePane.style.display = 'block';
         }
+        if (overdueBtn) { overdueBtn.classList.add('active'); }
+        
+        // Fix tab switching - clear inline display style when other tabs clicked
+        document.querySelectorAll('#reminderTabs .nav-link').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#paymentRemindersModal .tab-pane').forEach(function(p) {
+                    p.style.display = '';
+                });
+            });
+        });
+        
         console.log('Overdue tab activated');
     } catch(e) {
         console.error('Tab activation error:', e);
