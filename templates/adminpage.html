@@ -32102,6 +32102,29 @@ let quillDetailsNotes = null;
                 .then(data => {
                     quotationRatesCache = data.success ? data.data : [];
                     renderConstructionItemsList();
+                    // After rendering, apply any pending pre-selections
+                    if (window._editingPreSelectItems && window._editingPreSelectItems.length > 0) {
+                        setTimeout(function() {
+                            var items = window._editingPreSelectItems;
+                            window._editingPreSelectItems = null;
+                            var itemMap = {};
+                            items.forEach(function(it) {
+                                var key = (it.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                                itemMap[key] = it;
+                            });
+                            document.querySelectorAll('.construction-item-row').forEach(function(row) {
+                                var rowName = row.getAttribute('data-item-name') || '';
+                                var key = rowName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                                if (itemMap[key]) {
+                                    var cb = row.querySelector('.construction-item-checkbox');
+                                    if (cb && !cb.checked) {
+                                        cb.checked = true;
+                                        try { $(cb).trigger('change'); } catch(e) {}
+                                    }
+                                }
+                            });
+                        }, 100);
+                    }
                 })
                 .catch(error => {
                     console.error('Error loading quotation rates:', error);
@@ -35854,36 +35877,6 @@ function editQuotationFromPortal(quotationId) {
 
                 hideLoader();
                 openModal('quotationgeneratorModal');
-                
-                // Re-apply pre-selected items after async data loads
-                setTimeout(function() {
-                    console.log('EditQuotation: checking pre-selection', window._editingPreSelectItems);
-                    if (window._editingPreSelectItems && window._editingPreSelectItems.length > 0) {
-                        var items = window._editingPreSelectItems;
-                        console.log('EditQuotation: pre-select items count:', items.length, items.map(function(it){return it.name;}));
-                        var itemMap = {};
-                        items.forEach(function(it) {
-                            var key = (it.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                            itemMap[key] = it;
-                        });
-                        var matched = 0;
-                        document.querySelectorAll('.construction-item-row').forEach(function(row) {
-                            var rowName = row.getAttribute('data-item-name') || '';
-                            var key = rowName.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            if (itemMap[key]) {
-                                matched++;
-                                var cb = row.querySelector('.construction-item-checkbox');
-                                if (cb && !cb.checked) {
-                                    cb.checked = true;
-                                    try { $(cb).trigger('change'); } catch(e) {}
-                                }
-                            }
-                        });
-                        console.log('EditQuotation: matched', matched, 'of', items.length, 'items');
-                    } else {
-                        console.log('EditQuotation: no pre-select items found');
-                    }
-                }, 800);
             }
         })
         .catch(error => { hideLoader(); alert('Error: ' + error.message); });
