@@ -35852,6 +35852,30 @@ function editQuotationFromPortal(quotationId) {
 
                 hideLoader();
                 openModal('quotationgeneratorModal');
+                
+                // Re-apply pre-selected items after async data loads
+                setTimeout(function() {
+                    if (window._editingPreSelectItems && window._editingPreSelectItems.length > 0) {
+                        const items = window._editingPreSelectItems;
+                        const itemMap = {};
+                        items.forEach(function(it) {
+                            var key = (it.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                            itemMap[key] = it;
+                        });
+                        // Check and select matching items
+                        document.querySelectorAll('.construction-item-row').forEach(function(row) {
+                            var rowName = row.getAttribute('data-item-name') || '';
+                            var key = rowName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            if (itemMap[key]) {
+                                var cb = row.querySelector('.construction-item-checkbox');
+                                if (cb) cb.checked = true;
+                            }
+                        });
+                        // Trigger update
+                        if (typeof updateSelectedItemsList === 'function') updateSelectedItemsList();
+                        if (typeof calculateConstructionTotal === 'function') calculateConstructionTotal();
+                    }
+                }, 500);
             }
         })
         .catch(error => { hideLoader(); alert('Error: ' + error.message); });
