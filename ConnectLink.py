@@ -19390,8 +19390,7 @@ def api_payment_reminders():
                     d.installment1duedate as due_date,
                     d.installment1date as paid_date
                 FROM connectlinkdatabase d
-                WHERE d.projectcompletionstatus = 'Ongoing'
-                AND d.installment1duedate IS NOT NULL
+                WHERE d.installment1duedate IS NOT NULL
                 AND d.installment1date IS NULL
                 AND d.installment1amount > 0
                 
@@ -19407,8 +19406,7 @@ def api_payment_reminders():
                     d.installment2duedate as due_date,
                     d.installment2date as paid_date
                 FROM connectlinkdatabase d
-                WHERE d.projectcompletionstatus = 'Ongoing'
-                AND d.installment2duedate IS NOT NULL
+                WHERE d.installment2duedate IS NOT NULL
                 AND d.installment2date IS NULL
                 AND d.installment2amount > 0
                 
@@ -19424,8 +19422,7 @@ def api_payment_reminders():
                     d.installment3duedate as due_date,
                     d.installment3date as paid_date
                 FROM connectlinkdatabase d
-                WHERE d.projectcompletionstatus = 'Ongoing'
-                AND d.installment3duedate IS NOT NULL
+                WHERE d.installment3duedate IS NOT NULL
                 AND d.installment3date IS NULL
                 AND d.installment3amount > 0
                 
@@ -19441,8 +19438,7 @@ def api_payment_reminders():
                     d.installment4duedate as due_date,
                     d.installment4date as paid_date
                 FROM connectlinkdatabase d
-                WHERE d.projectcompletionstatus = 'Ongoing'
-                AND d.installment4duedate IS NOT NULL
+                WHERE d.installment4duedate IS NOT NULL
                 AND d.installment4date IS NULL
                 AND d.installment4amount > 0
                 
@@ -19458,8 +19454,7 @@ def api_payment_reminders():
                     d.installment5duedate as due_date,
                     d.installment5date as paid_date
                 FROM connectlinkdatabase d
-                WHERE d.projectcompletionstatus = 'Ongoing'
-                AND d.installment5duedate IS NOT NULL
+                WHERE d.installment5duedate IS NOT NULL
                 AND d.installment5date IS NULL
                 AND d.installment5amount > 0
                 
@@ -19475,10 +19470,73 @@ def api_payment_reminders():
                     d.installment6duedate as due_date,
                     d.installment6date as paid_date
                 FROM connectlinkdatabase d
-                WHERE d.projectcompletionstatus = 'Ongoing'
-                AND d.installment6duedate IS NOT NULL
+                WHERE d.installment6duedate IS NOT NULL
                 AND d.installment6date IS NULL
                 AND d.installment6amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    7 as installment_num,
+                    d.installment7amount as amount,
+                    d.installment7duedate as due_date,
+                    d.installment7date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.installment7duedate IS NOT NULL
+                AND d.installment7date IS NULL
+                AND d.installment7amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    8 as installment_num,
+                    d.installment8amount as amount,
+                    d.installment8duedate as due_date,
+                    d.installment8date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.installment8duedate IS NOT NULL
+                AND d.installment8date IS NULL
+                AND d.installment8amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    9 as installment_num,
+                    d.installment9amount as amount,
+                    d.installment9duedate as due_date,
+                    d.installment9date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.installment9duedate IS NOT NULL
+                AND d.installment9date IS NULL
+                AND d.installment9amount > 0
+                
+                UNION ALL
+                
+                SELECT 
+                    d.id,
+                    d.clientname,
+                    d.clientwanumber,
+                    d.projectname,
+                    10 as installment_num,
+                    d.installment10amount as amount,
+                    d.installment10duedate as due_date,
+                    d.installment10date as paid_date
+                FROM connectlinkdatabase d
+                WHERE d.installment10duedate IS NOT NULL
+                AND d.installment10date IS NULL
+                AND d.installment10amount > 0
                 
                 ORDER BY due_date
             """)
@@ -19546,8 +19604,7 @@ def api_payment_reminders():
                     d.installment9amount, d.installment9date,
                     d.installment10amount, d.installment10date
                 FROM connectlinkdatabase d
-                WHERE d.projectcompletionstatus = 'Ongoing'
-                AND d.totalcontractamount > 0
+                WHERE d.totalcontractamount > 0
             """)
             
             underpaid_results = cursor.fetchall()
