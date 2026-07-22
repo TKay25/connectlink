@@ -32198,7 +32198,9 @@ let quillDetailsNotes = null;
             calculateConstructionTotal();
 
             // Apply pre-selections for edit mode
+            console.log('renderConstructionItemsList: preSelectItems?', window._editingPreSelectItems ? window._editingPreSelectItems.length : 0);
             if (window._editingPreSelectItems && window._editingPreSelectItems.length > 0) {
+                console.log('renderConstructionItemsList: applying pre-selection for', window._editingPreSelectItems.length, 'items');
                 const preSelectItems = window._editingPreSelectItems;
                 window._editingPreSelectItems = null; // clear before triggering events
                 
@@ -35855,27 +35857,33 @@ function editQuotationFromPortal(quotationId) {
                 
                 // Re-apply pre-selected items after async data loads
                 setTimeout(function() {
+                    console.log('EditQuotation: checking pre-selection', window._editingPreSelectItems);
                     if (window._editingPreSelectItems && window._editingPreSelectItems.length > 0) {
-                        const items = window._editingPreSelectItems;
-                        const itemMap = {};
+                        var items = window._editingPreSelectItems;
+                        console.log('EditQuotation: pre-select items count:', items.length, items.map(function(it){return it.name;}));
+                        var itemMap = {};
                         items.forEach(function(it) {
                             var key = (it.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                             itemMap[key] = it;
                         });
-                        // Check and select matching items
+                        var matched = 0;
                         document.querySelectorAll('.construction-item-row').forEach(function(row) {
                             var rowName = row.getAttribute('data-item-name') || '';
                             var key = rowName.toLowerCase().replace(/[^a-z0-9]/g, '');
                             if (itemMap[key]) {
+                                matched++;
                                 var cb = row.querySelector('.construction-item-checkbox');
-                                if (cb) cb.checked = true;
+                                if (cb && !cb.checked) {
+                                    cb.checked = true;
+                                    try { $(cb).trigger('change'); } catch(e) {}
+                                }
                             }
                         });
-                        // Trigger update
-                        if (typeof updateSelectedItemsList === 'function') updateSelectedItemsList();
-                        if (typeof calculateConstructionTotal === 'function') calculateConstructionTotal();
+                        console.log('EditQuotation: matched', matched, 'of', items.length, 'items');
+                    } else {
+                        console.log('EditQuotation: no pre-select items found');
                     }
-                }, 500);
+                }, 800);
             }
         })
         .catch(error => { hideLoader(); alert('Error: ' + error.message); });
