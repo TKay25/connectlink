@@ -15306,6 +15306,264 @@ def generate_payslip_pdf(employee_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/payroll-remittances/<period>')
+def payroll_remittances(period):
+    """Generate a company remittances summary (Excel or PDF) for a given period, with both month and YTD data."""
+    try:
+        fmt = request.args.get('format', 'excel').lower()
+        year = period.split('-')[0]
+
+        with get_db() as (cursor, connection):
+            # Helper to compute employer NSSA from gross pays
+            cursor.execute("""
+                SELECT rate, ceiling_amount FROM payroll_deduction_config
+                WHERE deduction_code = 'NSSA_EMPLOYEE' AND is_active = TRUE
+            """)
+            nssa_cfg = cursor.fetchone()
+            nssa_rate = float(nssa_cfg[0] or 4.5) if nssa_cfg else 4.5
+            nssa_ceiling = float(nssa_cfg[1] or 0) if nssa_cfg else 0
+
+            def calc_employer_nssa(gross_pay):
+                basis = gross_pay
+                if nssa_ceiling > 0 and basis > nssa_ceiling:
+                    basis = nssa_ceiling
+                return basis * (nssa_rate / 100)
+
+            # ---- MONTH DATA ----
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as emp_count,
+                    COALESCE(SUM(gross_pay), 0) as total_gross,
+                    COALESCE(SUM(paye_tax), 0) as total_paye,
+                    COALESCE(SUM(aids_levy), 0) as total_aids,
+                    COALESCE(SUM(nssa), 0) as total_nssa_emp,
+                    COALESCE(SUM(zimdef), 0) as total_zimdef,
+                    COALESCE(SUM(deductions), 0) as total_deductions,
+                    COALESCE(SUM(net_pay), 0) as total_net
+                FROM hr_payroll WHERE period = %s
+            """, (period,))
+            mr = cursor.fetchone()
+            if not mr or mr[0] == 0:
+                return jsonify({'success': False, 'error': f'No payroll data for {period}'}), 404
+
+            m_emp = int(mr[0] or 0)
+            m_gross = float(mr[1] or 0)
+            m_paye = float(mr[2] or 0)
+            m_aids = float(mr[3] or 0)
+            m_nssa_emp = float(mr[4] or 0)
+            m_zimdef = float(mr[5] or 0)
+            m_ded = float(mr[6] or 0)
+            m_net = float(mr[7] or 0)
+
+            cursor.execute("SELECT gross_pay FROM hr_payroll WHERE period = %s", (period,))
+            m_er_nssa = sum(calc_employer_nssa(float(r[0] or 0)) for r in cursor.fetchall())
+
+            # ---- YTD DATA (Jan to selected period) ----
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as emp_count,
+                    COALESCE(SUM(gross_pay), 0) as total_gross,
+                    COALESCE(SUM(paye_tax), 0) as total_paye,
+                    COALESCE(SUM(aids_levy), 0) as total_aids,
+                    COALESCE(SUM(nssa), 0) as total_nssa_emp,
+                    COALESCE(SUM(zimdef), 0) as total_zimdef,
+                    COALESCE(SUM(deductions), 0) as total_deductions,
+                    COALESCE(SUM(net_pay), 0) as total_net
+                FROM hr_payroll WHERE period LIKE %s AND period <= %s
+            """, (f"{year}%", period))
+            yr = cursor.fetchone()
+            y_emp = int(yr[0] or 0) if yr else 0
+            y_gross = float(yr[1] or 0) if yr else 0
+            y_paye = float(yr[2] or 0) if yr else 0
+            y_aids = float(yr[3] or 0) if yr else 0
+            y_nssa_emp = float(yr[4] or 0) if yr else 0
+            y_zimdef = float(yr[5] or 0) if yr else 0
+            y_ded = float(yr[6] or 0) if yr else 0
+            y_net = float(yr[7] or 0) if yr else 0
+
+            cursor.execute("SELECT gross_pay FROM hr_payroll WHERE period LIKE %s AND period <= %s", (f"{year}%", period))
+            y_er_nssa = sum(calc_employer_nssa(float(r[0] or 0)) for r in cursor.fetchall())
+
+            # Remittance line items (code, desc, month_emp, month_er, ytd_emp, ytd_er)
+            remittances = [
+                ('PAYE', 'Pay As You Earn (Income Tax)', m_paye, 0, y_paye, 0),
+                ('AIDS LEVY', 'AIDS Levy (3% of PAYE)', m_aids, 0, y_aids, 0),
+                ('NSSA', 'NSSA Employee Pension', m_nssa_emp, m_er_nssa, y_nssa_emp, y_er_nssa),
+                ('ZIMDEF', 'ZIMDEF Manpower Levy', m_zimdef, 0, y_zimdef, 0),
+                ('NEC', 'National Employment Council', 0, 0, 0, 0),
+                ('WCIF', 'Workers Compensation Insurance Fund', 0, 0, 0, 0),
+                ('PENSION Co.', 'Pension Company Contribution', 0, 0, 0, 0),
+                ('MED AID', 'Medical Aid Company Contribution', 0, 0, 0, 0),
+                ('STND LEVY', 'Standards Levy', 0, 0, 0, 0),
+            ]
+
+            # ========== EXCEL OUTPUT ==========
+            if fmt == 'excel':
+                from openpyxl import Workbook
+                from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+                wb = Workbook()
+                ws = wb.active
+                ws.title = f"Remittances {period}"
+
+                hdr_fill = PatternFill(start_color='0F1729', end_color='0F1729', fill_type='solid')
+                hdr_font = Font(bold=True, color='FFFFFF', size=10)
+                title_font = Font(bold=True, size=14, color='0F1729')
+                sub_font = Font(size=9, color='64748B')
+                thin_border = Border(
+                    left=Side(style='thin', color='CBD5E1'),
+                    right=Side(style='thin', color='CBD5E1'),
+                    top=Side(style='thin', color='CBD5E1'),
+                    bottom=Side(style='thin', color='CBD5E1')
+                )
+                money_fmt = '#,##0.00'
+
+                ws.merge_cells('A1:G1')
+                ws['A1'].value = f"ConnectLink — Company Remittances ({period})"
+                ws['A1'].font = title_font
+                ws.merge_cells('A2:G2')
+                ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Month Employees: {m_emp} | YTD Employees: {y_emp}"
+                ws['A2'].font = sub_font
+
+                # Month Section
+                ws.merge_cells('A4:G4')
+                ws['A4'].value = f"MONTH: {period}"
+                ws['A4'].font = Font(bold=True, size=12, color='C12B3E')
+
+                m_headers = ['Type', 'Description', 'Employee', 'Employer', 'Total', '', '']
+                for col, h in enumerate(m_headers[:5], 1):
+                    c = ws.cell(row=5, column=col, value=h)
+                    c.font = hdr_font; c.fill = hdr_fill; c.alignment = Alignment(horizontal='center'); c.border = thin_border
+
+                for idx, (code, desc, me, mer, ye, yer) in enumerate(remittances, 6):
+                    ws.cell(row=idx, column=1, value=code).border = thin_border
+                    ws.cell(row=idx, column=2, value=desc).border = thin_border
+                    for col, val in [(3, me), (4, mer), (5, me + mer)]:
+                        c = ws.cell(row=idx, column=col, value=round(val, 2))
+                        c.number_format = money_fmt; c.border = thin_border; c.alignment = Alignment(horizontal='right')
+
+                tr = 6 + len(remittances)
+                ws.cell(row=tr, column=1, value='MONTH TOTAL').font = Font(bold=True, size=10)
+                ws.cell(row=tr, column=1).border = thin_border
+                ws.cell(row=tr, column=2).border = thin_border
+                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef
+                sm_er = m_er_nssa
+                for col, val in [(3, sm_emp), (4, sm_er), (5, sm_emp + sm_er)]:
+                    c = ws.cell(row=tr, column=col, value=round(val, 2))
+                    c.number_format = money_fmt; c.font = Font(bold=True, color='C12B3E', size=10)
+                    c.border = thin_border; c.alignment = Alignment(horizontal='right')
+
+                # YTD Section
+                ytd_start = tr + 2
+                ws.merge_cells(f'A{ytd_start}:G{ytd_start}')
+                ws.cell(row=ytd_start, column=1, value=f"YEAR-TO-DATE (Jan - {period.split('-')[1]})").font = Font(bold=True, size=12, color='0F1729')
+
+                y_headers = ['Type', 'Description', 'Employee', 'Employer', 'Total', '', '']
+                for col, h in enumerate(y_headers[:5], 1):
+                    c = ws.cell(row=ytd_start + 1, column=col, value=h)
+                    c.font = hdr_font; c.fill = hdr_fill; c.alignment = Alignment(horizontal='center'); c.border = thin_border
+
+                for idx, (code, desc, me, mer, ye, yer) in enumerate(remittances, ytd_start + 2):
+                    ws.cell(row=idx, column=1, value=code).border = thin_border
+                    ws.cell(row=idx, column=2, value=desc).border = thin_border
+                    for col, val in [(3, ye), (4, yer), (5, ye + yer)]:
+                        c = ws.cell(row=idx, column=col, value=round(val, 2))
+                        c.number_format = money_fmt; c.border = thin_border; c.alignment = Alignment(horizontal='right')
+
+                ytr = ytd_start + 2 + len(remittances)
+                ws.cell(row=ytr, column=1, value='YTD TOTAL').font = Font(bold=True, size=10)
+                ws.cell(row=ytr, column=1).border = thin_border; ws.cell(row=ytr, column=2).border = thin_border
+                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef
+                ys_er = y_er_nssa
+                for col, val in [(3, ys_emp), (4, ys_er), (5, ys_emp + ys_er)]:
+                    c = ws.cell(row=ytr, column=col, value=round(val, 2))
+                    c.number_format = money_fmt; c.font = Font(bold=True, color='C12B3E', size=10)
+                    c.border = thin_border; c.alignment = Alignment(horizontal='right')
+
+                ws.column_dimensions['A'].width = 16; ws.column_dimensions['B'].width = 38
+                ws.column_dimensions['C'].width = 18; ws.column_dimensions['D'].width = 18; ws.column_dimensions['E'].width = 18
+
+                output = io.BytesIO()
+                wb.save(output); output.seek(0)
+                return send_file(output, as_attachment=True, download_name=f"ConnectLink_Remittances_{period}.xlsx",
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+            # ========== PDF OUTPUT ==========
+            else:
+                m_remit_rows = ''.join(
+                    f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${me:,.2f}</td><td style="text-align:right;">${mer:,.2f}</td><td style="text-align:right;">${me+mer:,.2f}</td></tr>'
+                    for c, d, me, mer, ye, yer in remittances
+                )
+                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef
+                sm_er = m_er_nssa
+                m_total_row = f'<tr class="gt"><td></td><td><strong>MONTH TOTAL</strong></td><td style="text-align:right;"><strong>${sm_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_er:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_emp+sm_er:,.2f}</strong></td></tr>'
+
+                y_remit_rows = ''.join(
+                    f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${ye:,.2f}</td><td style="text-align:right;">${yer:,.2f}</td><td style="text-align:right;">${ye+yer:,.2f}</td></tr>'
+                    for c, d, me, mer, ye, yer in remittances
+                )
+                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef
+                ys_er = y_er_nssa
+                y_total_row = f'<tr class="gt"><td></td><td><strong>YTD TOTAL</strong></td><td style="text-align:right;"><strong>${ys_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_er:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_emp+ys_er:,.2f}</strong></td></tr>'
+
+                html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+  @page {{ size: A4 landscape; margin: 6mm; }}
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; color:#0F1729; font-size:8pt; padding:5mm; }}
+  h1 {{ font-size:13pt; font-weight:900; color:#0F1729; margin-bottom:1mm; }}
+  .sub {{ font-size:6.5pt; color:#64748b; margin-bottom:3mm; }}
+  .section-title {{ background:#0F1729; color:#fff; padding:1.5mm 2mm; font-size:7pt; font-weight:800; text-transform:uppercase; text-align:center; margin:3mm 0 0 0; border-radius:2px 2px 0 0; }}
+  table {{ width:100%; border-collapse:collapse; font-size:7pt; margin-bottom:3mm; }}
+  th {{ background:#f8fafc; color:#475569; font-weight:700; font-size:6pt; text-transform:uppercase; padding:0.8mm 1.5mm; text-align:left; border-bottom:1.5px solid #e2e8f0; }}
+  th:last-child, th:nth-last-child(2), th:nth-last-child(3) {{ text-align:right; }}
+  td {{ padding:0.6mm 1.5mm; border-bottom:0.5px solid #f1f5f9; }}
+  td:nth-child(3), td:nth-child(4), td:nth-child(5) {{ text-align:right; }}
+  tr.gt td {{ font-weight:900; border-top:2px solid #C12B3E; border-bottom:2px solid #C12B3E; padding:0.8mm 1.5mm; background:#fef2f2; color:#C12B3E; font-size:8pt; }}
+  .footer {{ font-size:5.5pt; color:#94a3b8; text-align:center; padding-top:2mm; border-top:0.5px solid #e2e8f0; margin-top:2mm; }}
+  .summary-box {{ border:1.5px solid #0F1729; border-radius:3px; padding:2mm 3mm; margin-top:1mm; }}
+  .summary-grid {{ display:flex; gap:2mm; }}
+  .summary-grid .item {{ flex:1; text-align:center; padding:1mm; }}
+  .summary-grid .item .l {{ font-size:5.5pt; color:#64748b; text-transform:uppercase; letter-spacing:0.3px; }}
+  .summary-grid .item .v {{ font-size:9pt; font-weight:900; color:#0F1729; margin-top:0.3mm; }}
+  .summary-grid .item.hl {{ background:#0F1729; border-radius:2px; }}
+  .summary-grid .item.hl .l {{ color:#94a3b8; }}
+  .summary-grid .item.hl .v {{ color:#fff; }}
+</style></head>
+<body>
+  <h1>ConnectLink Properties — Company Remittances</h1>
+  <div class="sub">{period} &middot; Generated {now.strftime('%d %B %Y %H:%M')} &middot; Month: {m_emp} employees &middot; YTD: {y_emp} employees</div>
+
+  <div class="section-title">Month: {period}</div>
+  <table><thead><tr><th>Type</th><th>Description</th><th>Employee</th><th>Employer</th><th>Total</th></tr></thead><tbody>{m_remit_rows}{m_total_row}</tbody></table>
+
+  <div class="section-title">Year-to-Date (Jan - {period.split('-')[1]})</div>
+  <table><thead><tr><th>Type</th><th>Description</th><th>Employee</th><th>Employer</th><th>Total</th></tr></thead><tbody>{y_remit_rows}{y_total_row}</tbody></table>
+
+  <div class="summary-box">
+    <div class="summary-grid">
+      <div class="item"><div class="l">Month Total Remittance</div><div class="v">${sm_emp+sm_er:,.2f}</div></div>
+      <div class="item"><div class="l">YTD Total Remittance</div><div class="v">${ys_emp+ys_er:,.2f}</div></div>
+      <div class="item hl"><div class="l">Month Net Pay</div><div class="v">${m_net:,.2f}</div></div>
+      <div class="item hl"><div class="l">YTD Net Pay</div><div class="v">${y_net:,.2f}</div></div>
+    </div>
+  </div>
+
+  <div class="footer">ConnectLink Properties (Pvt) Ltd &middot; {period} &middot; Remittances Report &middot; Page 1 of 1</div>
+</body></html>"""
+
+                pdf_bytes = HTML(string=html).write_pdf()
+                response = make_response(pdf_bytes)
+                response.headers['Content-Type'] = 'application/pdf'
+                response.headers['Content-Disposition'] = f'attachment; filename="ConnectLink_Remittances_{period}.pdf"'
+                return response
+
+    except Exception as e:
+        logging.error(f'Remittances error: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ============================================================
 # END PAYROLL DEDUCTIONS CONFIG
 # ============================================================

@@ -1267,6 +1267,9 @@
                     <button class="btn btn-outline-primary btn-sm" onclick="downloadCurrentPayroll()">
                         <i class="bi bi-download"></i> Export
                     </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="downloadRemittances()">
+                        <i class="bi bi-building"></i> Remittances
+                    </button>
                 </div>
             </div>
 
@@ -4430,6 +4433,16 @@ function downloadCurrentPayroll(archiveId) {
     const period = parts[0] || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
     const runVer = parts[1] || null;
     window.open(`/api/hr/payroll/archives/${period}/download?_=${runVer || ''}`, '_blank');
+}
+
+function downloadRemittances() {
+    const select = document.getElementById('payrollPeriodSelect');
+    const val = select?.value || '';
+    const parts = val.split('|');
+    const period = parts[0] || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
+    // Show a simple choice: Excel or PDF
+    const fmt = confirm('Click OK for PDF, Cancel for Excel') ? 'pdf' : 'excel';
+    window.open(`/api/payroll-remittances/${period}?format=${fmt}`, '_blank');
 }
 
 // Close archives modal on overlay click
