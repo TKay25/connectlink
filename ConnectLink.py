@@ -15191,6 +15191,121 @@ def payroll_breakdown():
         return f'<h2>Error generating breakdown: {str(e)}</h2>', 500
 
 
+@app.route('/api/payslip/<int:employee_id>')
+def generate_payslip_pdf(employee_id):
+    """Generate a downloadable PDF payslip for an employee with full details."""
+    try:
+        period = request.args.get('period', datetime.now().strftime('%Y-%m'))
+        
+        with get_db() as (cursor, connection):
+            # Fetch employee + payroll data
+            cursor.execute("""
+                SELECT e.id, e.first_name, e.last_name, e.department, e.designation,
+                       e.basic_salary, e.allowances, e.nationality,
+                       e.bank_holder_name, e.bank_holder_surname, e.bank_name,
+                       e.bank_account_number, e.bank_branch, e.bank_branch_code,
+                       e.c8_number, e.c8_type, e.employment_type, e.date_joined,
+                       e.current_leave_balance, e.monthly_accumulation,
+                       e.usd_percent, e.zwg_percent, e.exchange_rate,
+                       COALESCE(p.basic_pay, e.basic_salary, 0) as basic_pay,
+                       COALESCE(p.allowances, e.allowances, 0) as pay_allowances,
+                       COALESCE(p.gross_pay, e.basic_salary + COALESCE(e.allowances, 0), 0) as gross_pay,
+                       COALESCE(p.paye_tax, 0) as paye_tax,
+                       COALESCE(p.aids_levy, 0) as aids_levy,
+                       COALESCE(p.nssa, 0) as nssa,
+                       COALESCE(p.zimdef, 0) as zimdef,
+                       COALESCE(p.deductions, 0) as deductions,
+                       COALESCE(p.net_pay, 0) as net_pay,
+                       p.period, p.status, p.processed_at
+                FROM hr_employees e
+                LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
+                WHERE e.id = %s
+            """, (period, employee_id))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Employee not found'}), 404
+
+            usd_pct = float(row[20] or 100)
+            zwg_pct = float(row[21] or 0)
+            exch_rate = float(row[22] or 1)
+
+            def to_zwg(usd_amount):
+                return usd_amount * exch_rate if usd_amount else 0
+
+            emp = {
+                'id': row[0], 'first_name': row[1], 'last_name': row[2],
+                'department': row[3] or '-', 'designation': row[4] or '-',
+                'basic_salary': float(row[5] or 0), 'allowances': float(row[6] or 0),
+                'nationality': row[7] or '',
+                'bank_holder': (row[8] or '') + ' ' + (row[9] or ''),
+                'bank_name': row[10] or '-', 'bank_account': row[11] or '-',
+                'bank_branch': row[12] or '-', 'bank_branch_code': row[13] or '-',
+                'c8_number': row[14] or '-', 'c8_type': row[15] or '-',
+                'employment_type': row[16] or 'Permanent',
+                'date_joined': row[17].strftime('%d %B %Y') if row[17] else '-',
+                'leave_balance': float(row[18] or 0),
+                'monthly_accrual': float(row[19] or 0),
+                'usd_pct': usd_pct, 'zwg_pct': zwg_pct, 'exchange_rate': exch_rate,
+                'basic_pay': float(row[23] or 0), 'pay_allowances': float(row[24] or 0),
+                'gross_pay': float(row[25] or 0),
+                'paye_tax': float(row[26] or 0), 'aids_levy': float(row[27] or 0),
+                'nssa': float(row[28] or 0), 'zimdef': float(row[29] or 0),
+                'total_deductions': float(row[30] or 0), 'net_pay': float(row[31] or 0),
+                'period': row[32] or period, 'status': row[33] or 'Not Processed',
+                'processed_at': row[34]
+            }
+
+            # Fetch employer NSSA config
+            cursor.execute("""
+                SELECT rate, ceiling_amount FROM payroll_deduction_config
+                WHERE deduction_code = 'NSSA_EMPLOYEE' AND is_active = TRUE
+            """)
+            nssa_row = cursor.fetchone()
+            nssa_rate = float(nssa_row[0] or 4.5) if nssa_row else 4.5
+            nssa_ceiling = float(nssa_row[1] or 0) if nssa_row else 0
+            nssa_basis = emp['gross_pay']
+            nssa_cap = ''
+            if nssa_ceiling > 0 and nssa_basis > nssa_ceiling:
+                nssa_basis = nssa_ceiling
+                nssa_cap = f' (capped at ${nssa_ceiling:,.2f})'
+            employer_nssa = nssa_basis * (nssa_rate / 100)
+
+        # Build logo
+        logo_b64 = ''
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+        if os.path.exists(logo_path):
+            with open(logo_path, 'rb') as f:
+                logo_b64 = base64.b64encode(f.read()).decode('utf-8')
+
+        # Compute taxable income
+        taxable_income = emp['gross_pay'] - emp['nssa']
+
+        # Render payslip HTML
+        html = render_template('payslip.html',
+            emp=emp, logo_b64=logo_b64,
+            employer_nssa=employer_nssa, nssa_basis=nssa_basis,
+            nssa_rate=nssa_rate, nssa_cap=nssa_cap,
+            taxable_income=taxable_income,
+            exch_rate=exch_rate,
+            now=datetime.now()
+        )
+
+        # Generate PDF
+        pdf_bytes = HTML(string=html).write_pdf()
+
+        safe_name = f"{emp['first_name']}_{emp['last_name']}".replace(' ', '_')
+        filename = f"Payslip_{safe_name}_{period}.pdf"
+
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    except Exception as e:
+        logging.error(f'Payslip generation error: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ============================================================
 # END PAYROLL DEDUCTIONS CONFIG
 # ============================================================

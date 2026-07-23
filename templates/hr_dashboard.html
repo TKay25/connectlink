@@ -1348,7 +1348,7 @@
                                     <th>Total Ded.</th>
                                     <th>Net Pay</th>
                                     <th>Status</th>
-                                    <th style="width:60px;">Breakdown</th>
+                                    <th style="width:80px;">Docs</th>
                                 </tr>
                             </thead>
                             <tbody id="payrollTableBody">
@@ -4157,9 +4157,12 @@ async function loadPayroll(period) {
                 <td>$${(rec.deductions || 0).toFixed(2)}</td>
                 <td><strong>$${(rec.net_pay || 0).toFixed(2)}</strong></td>
                 <td><span class="${statusBadge}">${rec.status}</span></td>
-                <td style="text-align:center;">
-                    <a href="/payroll-breakdown?employee_id=${rec.employee_id}&period=${period}" target="_blank" style="font-size:10px;color:#6366f1;text-decoration:none;font-weight:600;" title="View detailed breakdown">
+                <td style="text-align:center;white-space:nowrap;">
+                    <a href="/payroll-breakdown?employee_id=${rec.employee_id}&period=${period}" target="_blank" style="font-size:11px;color:#6366f1;text-decoration:none;font-weight:600;margin-right:6px;" title="View breakdown">
                         <i class="bi bi-calculator"></i>
+                    </a>
+                    <a href="/api/payslip/${rec.employee_id}?period=${period}" target="_blank" style="font-size:11px;color:#C12B3E;text-decoration:none;font-weight:600;" title="Download Payslip PDF">
+                        <i class="bi bi-file-earmark-pdf"></i>
                     </a>
                 </td>
             `;
