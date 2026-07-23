@@ -2962,32 +2962,33 @@ function renderLeaveBalances() {
 }
 
 async function saveEmployee() {
-    const empId = document.getElementById('editEmployeeId').value;
-    const firstName = document.getElementById('empFirstName').value.trim();
-    const lastName = document.getElementById('empLastName').value.trim();
-    const email = document.getElementById('empEmail').value.trim();
-    const whatsapp = document.getElementById('empPhone').value.trim();
+    try {
+        const empId = document.getElementById('editEmployeeId').value;
+        const firstName = (document.getElementById('empFirstName').value || '').trim();
+        const lastName = (document.getElementById('empLastName').value || '').trim();
+        const email = (document.getElementById('empEmail').value || '').trim();
+        const whatsapp = (document.getElementById('empPhone').value || '').trim();
 
-    if (!firstName || !lastName || !email) {
-        alert('Please fill in all required fields (First Name, Last Name, Email).');
-        return;
-    }
+        if (!firstName || !lastName || !email) {
+            alert('Please fill in First Name, Last Name, and Email.');
+            return;
+        }
 
-    // Collect per-leave-type balances
-    const leaveBalances = collectLeaveBalances();
+        // Collect per-leave-type balances
+        const leaveBalances = collectLeaveBalances();
 
-    const payload = {
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        whatsapp: whatsapp,
-        address: document.getElementById('empAddress').value.trim(),
-        department: document.getElementById('empDepartment').value,
-        subsidiary: document.getElementById('empSubsidiary').value,
-        designation: document.getElementById('empDesignation').value.trim(),
-        employment_type: document.getElementById('empType').value,
-        gender: document.getElementById('empGender').value,
-        dob: document.getElementById('empDob').value || null,
+        const payload = {
+            first_name: firstName,
+            last_name: lastName,
+            email: email,
+            whatsapp: whatsapp,
+            address: (document.getElementById('empAddress').value || '').trim(),
+            department: document.getElementById('empDepartment').value,
+            subsidiary: document.getElementById('empSubsidiary').value,
+            designation: (document.getElementById('empDesignation').value || '').trim(),
+            employment_type: document.getElementById('empType').value,
+            gender: document.getElementById('empGender').value,
+            dob: document.getElementById('empDob').value || null,
         marital_status: document.getElementById('empMaritalStatus').value,
         nationality: document.getElementById('empNationality').value,
         date_joined: document.getElementById('empStartDate').value || null,
@@ -3002,16 +3003,17 @@ async function saveEmployee() {
         usd_percent: parseFloat(document.getElementById('empUsdPercent').value) || 100,
         zwg_percent: parseFloat(document.getElementById('empZwgPercent').value) || 0,
         exchange_rate: parseFloat(document.getElementById('empExchangeRate').value) || 1,
-        bank_holder_name: document.getElementById('empBankHolder').value.trim(),
-        bank_holder_surname: document.getElementById('empBankSurname').value.trim(),
+        bank_holder_name: (document.getElementById('empBankHolder').value || '').trim(),
+        bank_holder_surname: (document.getElementById('empBankSurname').value || '').trim(),
         bank_name: document.getElementById('empBankName').value,
-        bank_account_number: document.getElementById('empBankAcc').value.trim(),
-        bank_branch: document.getElementById('empBankBranch').value.trim(),
-        bank_branch_code: document.getElementById('empBranchCode').value.trim(),
+        bank_account_number: (document.getElementById('empBankAcc').value || '').trim(),
+        bank_branch: (document.getElementById('empBankBranch').value || '').trim(),
+        bank_branch_code: (document.getElementById('empBranchCode').value || '').trim(),
         leave_approver_name: document.getElementById('empLeaveApproverInput')?.value?.trim() || '',
         leave_approver_id: parseInt(document.getElementById('empLeaveApprover')?.value) || null,
     };
 
+    console.log('Saving employee payload:', JSON.stringify(payload));
     document.getElementById('hrLoader').classList.add('active');
 
     try {
@@ -3024,6 +3026,7 @@ async function saveEmployee() {
             body: JSON.stringify(payload)
         });
         const data = await res.json();
+        console.log('Save response:', JSON.stringify(data));
 
         document.getElementById('hrLoader').classList.remove('active');
 
@@ -3053,12 +3056,17 @@ async function saveEmployee() {
         document.getElementById('hrLoader').classList.remove('active');
         alert('❌ Network error: ' + e.message);
     }
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('❌ Error: ' + e.message);
+    }
 }
 
 async function viewEmployee(empId) {
     try {
         const res = await fetch(`/api/hr/employees/${empId}`);
         const data = await res.json();
+        console.log('View employee response:', JSON.stringify(data));
         if (!data.success) { alert('Error loading employee'); return; }
 
         const emp = data.data;
