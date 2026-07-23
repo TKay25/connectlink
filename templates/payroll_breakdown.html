@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Breakdown — {{ emp.first_name }} {{ emp.last_name }} ({{ emp.period }})</title>
+    <style>
+        @page { margin: 8mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+            padding: 30px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+        .card-header {
+            background: #1E2A56;
+            color: white;
+            padding: 16px 24px;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .card-body { padding: 20px 24px; }
+
+        /* Header section */
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        .brand h1 {
+            font-size: 18px;
+            font-weight: 800;
+            color: #1E2A56;
+            letter-spacing: 0.3px;
+        }
+        .brand .badge {
+            font-size: 10px;
+            background: #1E2A56;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .divider {
+            height: 2px;
+            background: linear-gradient(90deg, #1E2A56, #e2e8f0);
+            margin: 8px 0 16px 0;
+            border-radius: 2px;
+        }
+        .subtitle {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .print-date {
+            font-size: 11px;
+            color: #94a3b8;
+            text-align: right;
+        }
+
+        /* Employee info grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 13px;
+        }
+        .info-grid .label { color: #64748b; font-weight: 500; }
+        .info-grid .value { color: #1e293b; font-weight: 600; }
+
+        /* Salary summary boxes */
+        .salary-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .salary-box {
+            flex: 1;
+            min-width: 120px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .salary-box .sb-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .salary-box .sb-amount {
+            font-size: 18px;
+            font-weight: 800;
+        }
+        .salary-box.gross { background: #f0f9ff; border-color: #bae6fd; }
+        .salary-box.gross .sb-amount { color: #0369a1; }
+        .salary-box.deductions { background: #fef2f2; border-color: #fecaca; }
+        .salary-box.deductions .sb-amount { color: #dc2626; }
+        .salary-box.net { background: #f0fdf4; border-color: #bbf7d0; }
+        .salary-box.net .sb-amount { color: #16a34a; }
+
+        /* Calculation steps */
+        .calc-step {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .calc-step:last-child { border-bottom: none; }
+        .calc-step .step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #1E2A56;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .calc-step .step-body { flex: 1; margin-left: 12px; }
+        .calc-step .step-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .calc-step .step-desc {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+        .calc-step .step-formula {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #f8fafc;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-top: 4px;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+        }
+        .calc-step .step-amount {
+            text-align: right;
+            flex-shrink: 0;
+            margin-left: 16px;
+            font-size: 15px;
+            font-weight: 800;
+            min-width: 90px;
+        }
+
+        /* PAYE brackets table */
+        .brackets-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .brackets-table th {
+            background: #f8fafc;
+            padding: 8px 10px;
+            text-align: right;
+            font-weight: 600;
+            color: #475569;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .brackets-table th:first-child { text-align: left; }
+        .brackets-table td {
+            padding: 7px 10px;
+            text-align: right;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .brackets-table td:first-child { text-align: left; }
+        .brackets-table tr.active-bracket {
+            background: #eef2ff;
+            font-weight: 700;
+        }
+        .brackets-table tr.active-bracket td {
+            border-bottom: 2px solid #6366f1;
+        }
+        .brackets-table .highlight {
+            display: inline-block;
+            background: #eef2ff;
+            color: #4338ca;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        /* Totals row */
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-top: 2px solid #1E2A56;
+            margin-top: 4px;
+            font-weight: 800;
+            font-size: 16px;
+        }
+
+        /* Status badge */
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status-badge.processed { background: #dbeafe; color: #1d4ed8; }
+        .status-badge.paid { background: #bbf7d0; color: #15803d; }
+        .status-badge.pending { background: #fef9c3; color: #a16207; }
+
+        /* Nett to Pay section */
+        .net-pay-section {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 2px solid #16a34a;
+            border-radius: 10px;
+            padding: 18px 24px;
+            text-align: center;
+            margin-top: 4px;
+        }
+        .net-pay-section .nps-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #15803d;
+            font-weight: 600;
+        }
+        .net-pay-section .nps-amount {
+            font-size: 28px;
+            font-weight: 900;
+            color: #16a34a;
+            margin-top: 2px;
+        }
+        .net-pay-section .nps-sub {
+            font-size: 11px;
+            color: #4ade80;
+            margin-top: 4px;
+        }
+
+        /* Footer */
+        .footer-note {
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            padding: 16px 0 4px;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 8px;
+        }
+        .footer-note span { margin: 0 12px; }
+
+        /* Responsive */
+        @media print {
+            body { background: white; padding: 0; }
+            .card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
+            .no-print { display: none !important; }
+        }
+        @media (max-width: 600px) {
+            .info-grid { grid-template-columns: 1fr; }
+            .salary-row { flex-direction: column; }
+            .calc-step { flex-wrap: wrap; }
+            .calc-step .step-amount { width: 100%; text-align: left; margin-left: 40px; margin-top: 4px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- Print / Download buttons -->
+        <div class="no-print" style="text-align:right;margin-bottom:12px;">
+            <button onclick="window.print()" style="background:#1E2A56;color:white;border:none;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+                🖨️ Print / Save PDF
+            </button>
+        </div>
+
+        <!-- HEADER CARD -->
+        <div class="card">
+            <div class="card-body" style="padding-bottom:14px;">
+                <div class="brand">
+                    <div>
+                        <h1>ConnectLink Properties</h1>
+                        <div class="subtitle">Payroll Calculation Breakdown</div>
+                    </div>
+                    <span class="badge">{{ emp.period }}</span>
+                </div>
+                <div class="divider"></div>
+                <div class="print-date">Generated: {{ now.strftime('%d %B %Y at %H:%M') }}</div>
+            </div>
+        </div>
+
+        <!-- EMPLOYEE INFO -->
+        <div class="card">
+            <div class="card-header">Employee Information</div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div><span class="label">Name:</span> <span class="value">{{ emp.first_name }} {{ emp.last_name }}</span></div>
+                    <div><span class="label">Department:</span> <span class="value">{{ emp.department }}</span></div>
+                    <div><span class="label">Designation:</span> <span class="value">{{ emp.designation }}</span></div>
+                    <div><span class="label">Status:</span> <span class="status-badge {{ 'paid' if emp.status == 'Paid' else 'processed' if emp.status == 'Processed' else 'pending' }}">{{ emp.status }}</span></div>
+                    {% if emp.processed_at %}
+                    <div><span class="label">Processed:</span> <span class="value">{{ emp.processed_at.strftime('%d %B %Y %H:%M') if emp.processed_at is string else emp.processed_at }}</span></div>
+                    {% endif %}
+                    <div><span class="label">Bank Account:</span> <span class="value">{{ emp.bank_name }} — {{ emp.bank_account }}</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SALARY OVERVIEW -->
+        <div class="card">
+            <div class="card-header">Salary Overview</div>
+            <div class="card-body">
+                <div class="info-grid" style="margin-bottom:14px;">
+                    <div><span class="label">Basic Salary:</span> <span class="value">${{ basic|round(2)|numberfmt }}</span></div>
+                    <div><span class="label">Allowances:</span> <span class="value">${{ allowances|round(2)|numberfmt }}</span></div>
+                </div>
+                <div class="salary-row">
+                    <div class="salary-box gross">
+                        <div class="sb-label">Gross Pay</div>
+                        <div class="sb-amount">${{ gross|round(2)|numberfmt }}</div>
+                        <div style="font-size:10px;color:#64748b;margin-top:2px;">Basic + Allowances</div>
+                    </div>
+                    <div class="salary-box deductions">
+                        <div class="sb-label">Total Deductions</div>
+                        <div class="sb-amount">${{ total_ded|round(2)|numberfmt }}</div>
+                        <div style="font-size:10px;color:#64748b;margin-top:2px;">PAYE + AIDS + NSSA + ZIMDEF</div>
+                    </div>
+                    <div class="salary-box net">
+                        <div class="sb-label">Net Pay</div>
+                        <div class="sb-amount">${{ net|round(2)|numberfmt }}</div>
+                        <div style="font-size:10px;color:#64748b;margin-top:2px;">Gross − Deductions</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP-BY-STEP CALCULATION -->
+        <div class="card">
+            <div class="card-header">Step-by-Step Calculation</div>
+            <div class="card-body">
+
+                <!-- STEP 1: Gross Pay -->
+                <div class="calc-step">
+                    <div class="step-num">1</div>
+                    <div class="step-body">
+                        <div class="step-title" style="color:#0369a1;">Gross Pay</div>
+                        <div class="step-desc">Add basic salary and allowances to arrive at gross pay.</div>
+                        <div class="step-formula">${{ basic|round(2)|numberfmt }} (Basic) + ${{ allowances|round(2)|numberfmt }} (Allowances) = <strong>${{ gross|round(2)|numberfmt }}</strong></div>
+                    </div>
+                    <div class="step-amount" style="color:#0369a1;">${{ gross|round(2)|numberfmt }}</div>
+                </div>
+
+                <!-- STEP 2: PAYE Tax -->
+                <div class="calc-step">
+                    <div class="step-num" style="background:#dc2626;">2</div>
+                    <div class="step-body">
+                        <div class="step-title" style="color:#dc2626;">PAYE Tax (Pay As You Earn)</div>
+                        <div class="step-desc">
+                            Progressive tax calculated using the active ZIMRA tax brackets.
+                            The formula for each bracket is: <strong>PAYE = (Salary × Rate%) − Cumulative Deduction</strong>
+                        </div>
+
+                        <!-- PAYE Brackets Table -->
+                        {% if paye_brackets %}
+                        <table class="brackets-table">
+                            <thead>
+                                <tr>
+                                    <th>Bracket (Monthly)</th>
+                                    <th>Rate</th>
+                                    <th>Deduction</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for b in paye_brackets %}
+                                <tr class="{{ 'active-bracket' if active_bracket and b['from'] == active_bracket['from'] }}">
+                                    <td>
+                                        ${{ b['from']|int|numberfmt }} —
+                                        {% if b['to'] and b['to'] > 0 %}
+                                            ${{ b['to']|int|numberfmt }}
+                                        {% else %}
+                                            Above
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ b['rate'] }}%</td>
+                                    <td>${{ b['deduction']|round(2)|numberfmt }}</td>
+                                    <td>
+                                        {% if active_bracket and b['from'] == active_bracket['from'] %}
+                                            <span class="highlight">ACTIVE</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% endif %}
+
+                        <div class="step-formula" style="margin-top:6px;">
+                            {% if active_bracket %}
+                                PAYE = (${{ basic|round(2)|numberfmt }} × {{ active_bracket['rate'] }}%) − ${{ active_bracket['deduction']|round(2)|numberfmt }}
+                                = ${{ (basic * active_bracket['rate'] / 100)|round(2)|numberfmt }} − ${{ active_bracket['deduction']|round(2)|numberfmt }}
+                                = <strong style="color:#dc2626;">${{ paye|round(2)|numberfmt }}</strong>
+                            {% else %}
+                                Salary: ${{ basic|round(2)|numberfmt }} — No active bracket found.
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="step-amount" style="color:#dc2626;">− ${{ paye|round(2)|numberfmt }}</div>
+                </div>
+
+                <!-- STEP 3-5: Other Deductions -->
+                {% for d in deduction_rows %}
+                {% if d.name != 'PAYE Tax (Pay As You Earn)' %}
+                <div class="calc-step">
+                    <div class="step-num" style="background:{{ d.color }};">{{ loop.index + 1 }}</div>
+                    <div class="step-body">
+                        <div class="step-title" style="color:{{ d.color }};">{{ d.name }}</div>
+                        <div class="step-desc">{{ d.description }}</div>
+                        <div class="step-formula">{{ d.calculation }} = <strong style="color:{{ d.color }};">${{ d.amount|round(2)|numberfmt }}</strong></div>
+                    </div>
+                    <div class="step-amount" style="color:{{ d.color }};">− ${{ d.amount|round(2)|numberfmt }}</div>
+                </div>
+                {% endif %}
+                {% endfor %}
+
+                <!-- TOTAL DEDUCTIONS -->
+                <div class="calc-step" style="border-bottom:2px solid #dc2626;">
+                    <div class="step-num" style="background:#dc2626;font-size:10px;">∑</div>
+                    <div class="step-body">
+                        <div class="step-title" style="color:#dc2626;">Total Deductions</div>
+                        <div class="step-desc">Sum of all statutory deductions.</div>
+                        <div class="step-formula">
+                            ${{ paye|round(2)|numberfmt }} (PAYE) + ${{ aids|round(2)|numberfmt }} (AIDS) + ${{ nssa|round(2)|numberfmt }} (NSSA) + ${{ zimdef|round(2)|numberfmt }} (ZIMDEF)
+                            = <strong style="color:#dc2626;">${{ total_ded|round(2)|numberfmt }}</strong>
+                        </div>
+                    </div>
+                    <div class="step-amount" style="color:#dc2626;">− ${{ total_ded|round(2)|numberfmt }}</div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- NET PAY RESULT -->
+        <div class="card">
+            <div class="card-body net-pay-section">
+                <div class="nps-label">Net Pay (Take-Home)</div>
+                <div class="nps-amount">${{ net|round(2)|numberfmt }}</div>
+                <div class="nps-sub">
+                    ${{ gross|round(2)|numberfmt }} (Gross) − ${{ total_ded|round(2)|numberfmt }} (Deductions) = ${{ net|round(2)|numberfmt }}
+                </div>
+            </div>
+        </div>
+
+        <!-- SUMMARY TABLE -->
+        <div class="card">
+            <div class="card-header">Summary</div>
+            <div class="card-body" style="padding:12px 24px;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <tr>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#64748b;">Basic Salary</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">${{ basic|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#64748b;">Allowances</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">${{ allowances|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr style="font-weight:800;color:#0369a1;">
+                        <td style="padding:8px 10px;border-bottom:2px solid #0369a1;">Gross Pay</td>
+                        <td style="padding:8px 10px;border-bottom:2px solid #0369a1;text-align:right;">${{ gross|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− PAYE Tax</td>
+                        <td style="padding:8px 10px;text-align:right;color:#dc2626;">(${{ paye|round(2)|numberfmt }})</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− AIDS Levy</td>
+                        <td style="padding:8px 10px;text-align:right;color:#b45309;">(${{ aids|round(2)|numberfmt }})</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− NSSA (Employee)</td>
+                        <td style="padding:8px 10px;text-align:right;color:#16a34a;">(${{ nssa|round(2)|numberfmt }})</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 10px;border-bottom:1px solid #dc2626;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− ZIMDEF Levy</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #dc2626;text-align:right;color:#7c3aed;">(${{ zimdef|round(2)|numberfmt }})</td>
+                    </tr>
+                    <tr style="font-weight:800;color:#dc2626;">
+                        <td style="padding:8px 10px;border-bottom:2px solid #dc2626;">Total Deductions</td>
+                        <td style="padding:8px 10px;border-bottom:2px solid #dc2626;text-align:right;">(${{ total_ded|round(2)|numberfmt }})</td>
+                    </tr>
+                    <tr style="font-weight:900;font-size:16px;color:#16a34a;">
+                        <td style="padding:10px 10px;border-top:2px solid #16a34a;">Net Pay (Take-Home)</td>
+                        <td style="padding:10px 10px;border-top:2px solid #16a34a;text-align:right;">${{ net|round(2)|numberfmt }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer-note">
+            <span>ConnectLink Properties (Pvt) Ltd</span>
+            <span>|</span>
+            <span>Payroll Calculation Breakdown</span>
+            <span>|</span>
+            <span>{{ emp.period }}</span>
+            <span>|</span>
+            <span>Page 1 of 1</span>
+        </div>
+
+    </div>
+</body>
+</html>

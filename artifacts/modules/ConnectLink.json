@@ -4,19 +4,19 @@
   "module": "ConnectLink",
   "file": "ConnectLink.py",
   "purpose": "Initialize database tables",
-  "entry_function": "add_no_cache_headers(response)",
+  "entry_function": "numberfmt_filter(value)",
   "entry_flows": [
-    "ConnectLink → environ.setdefault, genai.configure, cursor.execute"
+    "ConnectLink → environ.setdefault, app.template_filter, genai.configure, cursor.execute"
   ],
   "public_api": [
+    "numberfmt_filter(value)",
     "add_no_cache_headers(response)",
     "initialize_database_tables()",
     "get_table_columns(table_name)",
     "migrate_product_categories()",
     "webhook()",
     "send_whatsapp_button_image_message(recipient, text, image_url, buttons, footer_text = None)",
-    "send_whatsapp_message(to, text, buttons = None, footer_text = None)",
-    "send_whatsapp_button_message(recipient, text, buttons, footer_text = None)"
+    "send_whatsapp_message(to, text, buttons = None, footer_text = None)"
   ],
   "dependencies": [
     "ai_classifier",
@@ -41,18 +41,18 @@
     "seaborn"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 12402"
+    "INSTRUCTIONS @ line 12411"
   ],
   "token_controls": [
-    "max_length = 0 @ line 20998",
-    "max_length = len(str(cell.value)) @ line 21003",
-    "adjusted_width = min(max_length + 2, 50) @ line 21006",
-    "max_length = 0 @ line 21824",
-    "max_length = cell_length @ line 21831",
-    "adjusted_width = min(max_length + 2, 50) @ line 21834",
-    "max_length = 0 @ line 22819",
-    "max_length = cell_length @ line 22826",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 22829"
+    "max_length = 0 @ line 21166",
+    "max_length = len(str(cell.value)) @ line 21171",
+    "adjusted_width = min(max_length + 2, 50) @ line 21174",
+    "max_length = 0 @ line 21992",
+    "max_length = cell_length @ line 21999",
+    "adjusted_width = min(max_length + 2, 50) @ line 22002",
+    "max_length = 0 @ line 22987",
+    "max_length = cell_length @ line 22994",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 22997"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-07-23T07:56:35.861506Z",
+  "generated_at": "2026-07-23T11:36:39.739449Z",
   "stale": false
 }

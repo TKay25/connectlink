@@ -60,6 +60,15 @@ app.jinja_env.auto_reload = True
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 user_sessions = {}
 
+@app.template_filter('numberfmt')
+def numberfmt_filter(value):
+    """Format a number with comma thousands separators and 2 decimal places."""
+    try:
+        return f"{float(value):,.2f}"
+    except (ValueError, TypeError):
+        return "0.00"
+
+
 # Prevent browser caching on all responses
 @app.after_request
 def add_no_cache_headers(response):
@@ -14999,6 +15008,165 @@ def hr_payroll_calculate_full():
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/payroll-breakdown')
+def payroll_breakdown():
+    """Render a print-friendly HTML page showing the detailed net pay calculation for an employee."""
+    try:
+        employee_id = request.args.get('employee_id')
+        period = request.args.get('period', datetime.now().strftime('%Y-%m'))
+
+        if not employee_id:
+            return '<h2>Please provide an employee_id parameter.</h2>', 400
+
+        with get_db() as (cursor, connection):
+            # 1. Fetch employee details and payroll record
+            cursor.execute("""
+                SELECT e.id, e.first_name, e.last_name, e.department, e.designation,
+                       e.basic_salary, e.allowances, e.usd_percent, e.zwg_percent, e.exchange_rate,
+                       e.bank_holder_name, e.bank_holder_surname, e.bank_name, e.bank_account_number, e.bank_branch,
+                       p.basic_pay, p.allowances as pay_allowances, p.gross_pay,
+                       p.paye_tax, p.aids_levy, p.nssa, p.zimdef, p.deductions, p.net_pay,
+                       p.period, p.status, p.processed_at
+                FROM hr_employees e
+                LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
+                WHERE e.id = %s
+            """, (period, int(employee_id)))
+            row = cursor.fetchone()
+            if not row:
+                return f'<h2>Employee #{employee_id} not found.</h2>', 404
+
+            emp = {
+                'id': row[0], 'first_name': row[1], 'last_name': row[2],
+                'department': row[3] or '-', 'designation': row[4] or '-',
+                'basic_salary': float(row[5] or 0), 'allowances': float(row[6] or 0),
+                'usd_percent': float(row[7] or 0), 'zwg_percent': float(row[8] or 0),
+                'exchange_rate': float(row[9] or 0),
+                'bank_holder': (row[10] or '') + ' ' + (row[11] or ''),
+                'bank_name': row[12] or '-', 'bank_account': row[13] or '-', 'bank_branch': row[14] or '-',
+                'basic_pay': float(row[15] or 0), 'pay_allowances': float(row[16] or 0),
+                'gross_pay': float(row[17] or 0),
+                'paye_tax': float(row[18] or 0), 'aids_levy': float(row[19] or 0),
+                'nssa': float(row[20] or 0), 'zimdef': float(row[21] or 0),
+                'total_deductions': float(row[22] or 0), 'net_pay': float(row[23] or 0),
+                'period': row[24] or period, 'status': row[25] or 'Not Processed',
+                'processed_at': row[26]
+            }
+
+            # 2. Load active PAYE brackets for display
+            cursor.execute("""
+                SELECT b.income_from, b.income_to, b.tax_rate, b.cumulative_tax
+                FROM paye_tax_brackets b
+                JOIN paye_tax_tables t ON b.table_id = t.id
+                WHERE t.is_active = TRUE
+                ORDER BY b.bracket_order, b.income_from
+            """)
+            paye_brackets = []
+            for br in cursor.fetchall():
+                paye_brackets.append({
+                    'from': float(br[0] or 0), 'to': float(br[1] or 0) if br[1] else None,
+                    'rate': float(br[2] or 0), 'deduction': float(br[3] or 0)
+                })
+
+            # 3. Load deduction configs
+            cursor.execute("""
+                SELECT deduction_code, deduction_name, rate, rate_type, ceiling_amount, description
+                FROM payroll_deduction_config WHERE is_active = TRUE
+            """)
+            deduction_configs = {}
+            for dc in cursor.fetchall():
+                deduction_configs[dc[0]] = {
+                    'name': dc[1], 'rate': float(dc[2] or 0),
+                    'rate_type': dc[3], 'ceiling': float(dc[4] or 0),
+                    'description': dc[5] or ''
+                }
+
+        # 4. Calculate step-by-step breakdown
+        basic = emp['basic_pay'] or emp['basic_salary']
+        allowances = emp['pay_allowances'] or emp['allowances']
+        gross = emp['gross_pay'] or (basic + allowances)
+        paye = emp['paye_tax']
+        aids = emp['aids_levy']
+        nssa = emp['nssa']
+        zimdef = emp['zimdef']
+        total_ded = emp['total_deductions'] or (paye + aids + nssa + zimdef)
+        net = emp['net_pay'] or max(0, gross - total_ded)
+
+        # Determine which PAYE bracket applies
+        active_bracket = None
+        for b in paye_brackets:
+            inc_from = b['from']
+            inc_to = b['to'] if b['to'] else float('inf')
+            if inc_from <= basic <= inc_to:
+                active_bracket = b
+                break
+
+        # Build deduction detail rows
+        deduction_rows = []
+
+        # PAYE
+        deduction_rows.append({
+            'name': 'PAYE Tax (Pay As You Earn)',
+            'description': f'Progressive tax based on monthly salary brackets. Active bracket: ${active_bracket["from"]:,.2f} - ${active_bracket["to"]:,.2f}' if active_bracket else 'No active bracket found',
+            'rate': f'{active_bracket["rate"]:.2f}%' if active_bracket else 'N/A',
+            'calculation': f'(${basic:,.2f} × {active_bracket["rate"]:.2f}%) - ${active_bracket["deduction"]:,.2f}' if active_bracket else 'N/A',
+            'amount': paye,
+            'color': '#dc2626'
+        })
+
+        # AIDS Levy
+        aids_rate = deduction_configs.get('AIDS_LEVY', {}).get('rate', 3.0)
+        deduction_rows.append({
+            'name': 'AIDS Levy',
+            'description': f'3% of PAYE tax amount as statutory AIDS levy contribution',
+            'rate': f'{aids_rate:.1f}% of PAYE',
+            'calculation': f'${paye:,.2f} × {aids_rate:.1f}%',
+            'amount': aids,
+            'color': '#b45309'
+        })
+
+        # NSSA
+        nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+        nssa_rate = nssa_config.get('rate', 4.5)
+        nssa_ceiling = nssa_config.get('ceiling', 0)
+        nssa_basis = basic
+        nssa_cap_note = ''
+        if nssa_ceiling > 0 and nssa_basis > nssa_ceiling:
+            nssa_basis = nssa_ceiling
+            nssa_cap_note = f' (capped at ${nssa_ceiling:,.2f})'
+        deduction_rows.append({
+            'name': 'NSSA (Employee Pension)',
+            'description': f'National Social Security Authority — employee pension contribution{nssa_cap_note if nssa_cap_note else ""}',
+            'rate': f'{nssa_rate:.1f}% of gross{" (capped)" if nssa_ceiling > 0 else ""}',
+            'calculation': f'${nssa_basis:,.2f}{" (capped)" if nssa_cap_note else ""} × {nssa_rate:.1f}%',
+            'amount': nssa,
+            'color': '#16a34a'
+        })
+
+        # ZIMDEF
+        zimdef_config = deduction_configs.get('ZIMDEF', {})
+        zimdef_rate = zimdef_config.get('rate', 1.0)
+        deduction_rows.append({
+            'name': 'ZIMDEF Levy',
+            'description': 'Zimbabwe Manpower Development Levy — 1% of gross salary',
+            'rate': f'{zimdef_rate:.1f}% of gross',
+            'calculation': f'${basic:,.2f} × {zimdef_rate:.1f}%',
+            'amount': zimdef,
+            'color': '#7c3aed'
+        })
+
+        return render_template('payroll_breakdown.html',
+            emp=emp, basic=basic, allowances=allowances, gross=gross,
+            paye_brackets=paye_brackets, active_bracket=active_bracket,
+            deduction_rows=deduction_rows, paye=paye, aids=aids,
+            nssa=nssa, zimdef=zimdef, total_ded=total_ded, net=net,
+            now=datetime.now()
+        )
+
+    except Exception as e:
+        logging.error(f'Payroll breakdown error: {str(e)}')
+        return f'<h2>Error generating breakdown: {str(e)}</h2>', 500
 
 
 # ============================================================
