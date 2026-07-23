@@ -3015,6 +3015,7 @@ async function saveEmployee() {
     };
 
     console.log('Saving employee payload:', JSON.stringify(payload));
+    document.getElementById('saveEmployeeBtn').disabled = true;
     document.getElementById('hrLoader').classList.add('active');
 
     try {
@@ -3048,17 +3049,21 @@ async function saveEmployee() {
             document.getElementById('editEmployeeId').value = '';
             document.getElementById('saveEmpBtnText').textContent = 'Save Employee';
             document.getElementById('empModalTitle').textContent = 'Add New Employee';
+            document.getElementById('saveEmployeeBtn').disabled = false;
             await loadEmployees();
             await loadDashboardStats();
         } else {
+            document.getElementById('saveEmployeeBtn').disabled = false;
             alert('❌ Error: ' + (data.error || 'Failed to save'));
         }
     } catch(e) {
         document.getElementById('hrLoader').classList.remove('active');
+        document.getElementById('saveEmployeeBtn').disabled = false;
         alert('❌ Network error: ' + e.message);
     }
     } catch(e) {
         document.getElementById('hrLoader').classList.remove('active');
+        document.getElementById('saveEmployeeBtn').disabled = false;
         alert('❌ Error: ' + e.message);
     }
 }

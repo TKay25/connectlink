@@ -13434,6 +13434,13 @@ def hr_employees_api():
                 ))
                 emp_id = cursor.fetchone()[0]
 
+                # VERIFY: Check what was actually saved
+                cursor.execute("SELECT first_name, last_name, email FROM hr_employees WHERE id = %s", (emp_id,))
+                verify = cursor.fetchone()
+                print(f"✅ HR EMPLOYEE SAVED: id={emp_id}, first='{verify[0]}', last='{verify[1]}', email='{verify[2]}'")
+                if verify[0] != data.get('first_name'):
+                    print(f"⚠️ NAME MISMATCH! Sent '{data.get('first_name')}' but DB has '{verify[0]}'")
+
                 # Sync to admin_users if not already there, and link user_id
                 email = data.get('email', '') or ''
                 whatsapp = data.get('whatsapp', '') or ''
