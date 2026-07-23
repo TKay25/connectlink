@@ -11461,7 +11461,7 @@ def api_login():
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, username, password, full_name, role, source_system
+                SELECT id, username, password, full_name, role, source_system, source_id, must_reset_password
                 FROM admin_users WHERE username = %s AND is_active = TRUE
             """, (username,))
             user = cursor.fetchone()
@@ -11471,21 +11471,48 @@ def api_login():
             
             if user[2] != password:
                 return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
-            
+
+            # Check if password reset is required
+            if user[7]:  # must_reset_password
+                return jsonify({
+                    'success': False, 'must_reset': True,
+                    'message': 'You must reset your password before continuing.',
+                    'username': username
+                }), 403
+
+            # Check hardware portal permission
+            userid = int(user[0])
+            source_sys = user[5] or 'hardware'
+            source_id = user[6]
+            perms = get_user_permissions(source_sys, source_id if source_id else userid)
+            # Fallback: try 'hardware' user_type
+            if not perms.get('is_super_admin', False) and not perms.get('can_manage_hardware', False):
+                perms = get_user_permissions('hardware', source_id if source_id else userid)
+            # Also try 'projects' as fallback (some users have hardware via projects)
+            if not perms.get('is_super_admin', False) and not perms.get('can_manage_hardware', False):
+                perms = get_user_permissions('projects', userid)
+
+            has_hardware = perms.get('is_super_admin', False) or perms.get('can_manage_hardware', False)
+            if not has_hardware:
+                return jsonify({
+                    'success': False,
+                    'message': 'Access denied. Your account does not have hardware/POS permissions. Contact an administrator.'
+                }), 403
+
             session.permanent = True
-            session['user_id'] = int(user[0])
+            session['user_id'] = userid
             session['username'] = user[1]
             session['full_name'] = user[3]
             session['role'] = user[4]
-            session['userid'] = int(user[0])
+            session['userid'] = userid
             session['user_name'] = user[3]
             
-            log_activity('user_login', f'POS login via admin_users: {username}', 'user', user[0])
+            log_activity('user_login', f'POS login via admin_users: {username}', 'user', userid)
             
             return jsonify({
                 'success': True,
                 'user': {
-                    'id': user[0],
+                    'id': userid,
                     'username': user[1],
                     'full_name': user[3],
                     'role': user[4]
@@ -13251,6 +13278,7 @@ def hr_login():
 
             # Check HR permission level across all user types
             is_hr_admin = False
+            has_hr_access = False
             for utype in (source_sys if source_sys else 'projects', 'projects', 'hr'):
                 cursor.execute("""
                     SELECT can_manage_hr, is_super_admin
@@ -13259,7 +13287,34 @@ def hr_login():
                 perm_row = cursor.fetchone()
                 if perm_row and (perm_row[0] or perm_row[1]):
                     is_hr_admin = True
+                    has_hr_access = True
                     break
+                elif perm_row:
+                    # User has a permissions record but no HR access — still deny
+                    pass
+                else:
+                    # No permissions record at all for this user_type — try next
+                    pass
+
+            # Also check using get_user_permissions for consistent fallback logic
+            if not has_hr_access:
+                perms = get_user_permissions(source_sys if source_sys else 'projects', source_id if source_id else userid)
+                if perms.get('is_super_admin', False) or perms.get('can_manage_hr', False):
+                    has_hr_access = True
+                    is_hr_admin = True
+
+            if not has_hr_access:
+                # Final fallback: try 'hr' user_type directly
+                perms = get_user_permissions('hr', source_id if source_id else userid)
+                if perms.get('is_super_admin', False) or perms.get('can_manage_hr', False):
+                    has_hr_access = True
+                    is_hr_admin = True
+
+            if not has_hr_access:
+                return jsonify({
+                    'success': False,
+                    'message': 'Access denied. Your account does not have HR portal permissions. Contact an administrator.'
+                }), 403
 
             user_uuid = uuid.uuid4()
             session['user_uuid'] = str(user_uuid)
@@ -26729,6 +26784,17 @@ def user_management_login():
 
             # Load permissions
             perms = get_user_permissions(au_row[4] or 'projects', au_row[5] if au_row[5] else au_row[0])
+            # Try fallback for user management (can_manage_roles)
+            if not perms.get('is_super_admin', False) and not perms.get('can_manage_roles', False):
+                perms = get_user_permissions('projects', au_row[0])
+
+            has_um_access = perms.get('is_super_admin', False) or perms.get('can_manage_roles', False)
+            if not has_um_access:
+                return jsonify({
+                    'success': False,
+                    'message': 'Access denied. Your account does not have User Management permissions. Contact an administrator.'
+                }), 403
+
             session['um_permissions'] = perms
 
             log_activity('user_login', f'User Management: {au_row[3]} logged in', 'user', au_row[0])
