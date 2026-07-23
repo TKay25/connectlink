@@ -2871,6 +2871,7 @@ async function loadEmployees() {
         document.getElementById('empTypeFilter').value = '';
         const res = await fetch('/api/hr/employees');
         const data = await res.json();
+        console.log('Employee list data:', JSON.stringify(data.data?.slice(0,3)));
         const tbody = document.getElementById('employeesTableBody');
         if (!tbody) return;
 
