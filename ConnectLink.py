@@ -13365,7 +13365,7 @@ def hr_dashboard():
         return render_template('mainindex.html')
 
     # If hr_role isn't in session (e.g. logged in via main login, not hr-login),
-    # look up permissions from DB
+    # look up permissions from DB and set hr_employee_id fallback
     if hr_role is None and userid:
         try:
             with get_db() as (cursor, connection):
@@ -13383,10 +13383,17 @@ def hr_dashboard():
                 # Cache in session
                 session['hr_role'] = hr_role
                 session['can_manage_hr'] = can_manage_hr
+                session['hr_employee_id'] = userid
+                hr_employee_id = userid
         except Exception as e:
             print(f"HR role lookup error: {e}")
             hr_role = 'Ordinary User'
             can_manage_hr = False
+
+    # Fallback: if hr_employee_id still not set, use userid
+    if hr_employee_id is None and userid:
+        hr_employee_id = userid
+        session['hr_employee_id'] = userid
 
     return render_template('hr_dashboard.html', user_name=user_name, userid=userid,
                            hr_role=hr_role or 'Ordinary User', hr_employee_id=hr_employee_id,
