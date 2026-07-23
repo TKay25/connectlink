@@ -209,9 +209,6 @@
             <tr><td>AID</td><td>AIDS Levy (3% of PAYE)</td><td>${{ emp.aids_levy|round(2)|numberfmt }}</td></tr>
             <tr><td>ZIM</td><td>ZIMDEF Levy (1% of taxable income)</td><td>${{ emp.zimdef|round(2)|numberfmt }}</td></tr>
             <tr><td>NEC</td><td>NEC (National Employment Council)</td><td>$0.00</td></tr>
-            {% if employer_nssa %}
-            <tr class="er"><td>ENP</td><td>NSSA Co. Contribution</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
-            {% endif %}
             <tr class="tt"><td></td><td><strong>Total Deductions</strong></td><td><strong>${{ emp.total_deductions|round(2)|numberfmt }}</strong></td></tr>
             <tr class="gt"><td></td><td><strong>Net Pay</strong></td><td><strong>${{ emp.net_pay|round(2)|numberfmt }}</strong></td></tr>
           </tbody>
