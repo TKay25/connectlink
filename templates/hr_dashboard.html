@@ -889,6 +889,9 @@
         <span class="brand-text"><span class="brand-connect">Connect</span><span class="brand-link">Link <span class="brand-badge">Human Resources</span></span>
     </div>
     <div class="nav-actions" style="position:relative;">
+        <button class="theme-toggle-btn" onclick="location.reload()" title="Refresh page" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--gray-500);font-size:0.65rem;margin-right:4px;">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
         <!-- Role Switch - visible only for admins -->
         {% if hr_role == 'Administrator' %}
         <div class="role-switch" id="roleSwitch" onclick="toggleAdminView()" title="Switch between Admin and Employee view">
@@ -970,10 +973,6 @@
             <i class="bi bi-person-lines-fill"></i> <span>My Activity</span>
         </button>
 
-        <div class="sidebar-section" style="margin-top:auto;padding-top:8px;">Quick Actions</div>
-        <button class="nav-btn" onclick="location.reload()" title="Refresh HR Portal" style="border-top:1px solid var(--gray-200);">
-            <i class="bi bi-arrow-clockwise"></i> <span>Refresh Page</span>
-        </button>
     </aside>
 
     <!-- ===== MAIN CONTENT ===== -->
