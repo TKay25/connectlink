@@ -2864,6 +2864,11 @@ async function loadAssetAssignees() {
 // ===== EMPLOYEES =====
 async function loadEmployees() {
     try {
+        // Reset any stale filters so new employees are visible
+        document.getElementById('employeeSearch').value = '';
+        document.getElementById('empDeptFilter').value = '';
+        document.getElementById('empStatusFilter').value = '';
+        document.getElementById('empTypeFilter').value = '';
         const res = await fetch('/api/hr/employees');
         const data = await res.json();
         const tbody = document.getElementById('employeesTableBody');
