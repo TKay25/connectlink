@@ -228,19 +228,26 @@
         <div class="section-title">Statistical Data</div>
         <table class="st">
           <tbody>
-            <tr class="sh"><td colspan="2">Leave</td></tr>
-            <tr><td>Leave Balance (days)</td><td>{{ emp.leave_balance|round(1) }}</td></tr>
-            <tr><td>Monthly Accrual (days)</td><td>{{ emp.monthly_accrual }}</td></tr>
-
             <tr class="sh"><td colspan="2">Year-to-Date</td></tr>
-            <tr><td>YTD Taxable Income</td><td>${{ (taxable_income * 3)|round(2)|numberfmt }}</td></tr>
-            <tr><td>YTD Tax Deducted</td><td>${{ (emp.paye_tax * 3)|round(2)|numberfmt }}</td></tr>
-            <tr><td>YTD NSSA</td><td>${{ (emp.nssa * 3)|round(2)|numberfmt }}</td></tr>
-            <tr><td>YTD Gross Pay</td><td>${{ (emp.gross_pay * 3)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD TAXABLE INC</td><td>${{ (taxable_income * 3)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD TAX DEDUCTED</td><td>${{ (emp.paye_tax * 3)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD AIDS LEVY</td><td>${{ (emp.aids_levy * 3)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD BONUS TAX</td><td>$0.00</td></tr>
+            <tr><td>YTD PENSION (NSSA)</td><td>${{ (emp.nssa * 3)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD NEC</td><td>$0.00</td></tr>
 
-            <tr class="sh"><td colspan="2">Employee Cost Summary</td></tr>
-            <tr><td>NSSA Co. Contr</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
-            <tr><td>Total Cost to Company</td><td style="color:#C12B3E;font-weight:900;">${{ (emp.gross_pay + employer_nssa)|round(2)|numberfmt }}</td></tr>
+            <tr class="sh"><td colspan="2">Employer Contributions</td></tr>
+            <tr><td>NSSA Co. CONTRIB</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
+            <tr><td>MED Aid Co. CONTR</td><td>$0.00</td></tr>
+            <tr><td>PENSION Co. CONTR</td><td>$0.00</td></tr>
+            <tr><td>NEC Co. CONTRIB</td><td>$0.00</td></tr>
+            <tr><td>MANPOWER LEVY</td><td>${{ emp.zimdef|round(2)|numberfmt }}</td></tr>
+            <tr><td>STANDARDS LEVY</td><td>$0.00</td></tr>
+            <tr><td>WCIF</td><td>$0.00</td></tr>
+
+            <tr class="sh"><td colspan="2">Leave</td></tr>
+            <tr><td>Leave Balance</td><td>{{ emp.leave_balance|round(1) }} days</td></tr>
+            <tr><td>Monthly Accrual</td><td>{{ emp.monthly_accrual }} days</td></tr>
           </tbody>
         </table>
       </div>
