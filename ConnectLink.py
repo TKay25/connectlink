@@ -13128,8 +13128,15 @@ def login():
                     # Also check 'projects' user_type as fallback
                     perms = get_user_permissions('projects', userid)
 
+                # DENY login if user has NO portal permissions at all
                 has_projects = perms.get('is_super_admin', False) or perms.get('can_manage_projects', False)
                 has_hardware = perms.get('is_super_admin', False) or perms.get('can_manage_hardware', False)
+                has_hr = perms.get('can_manage_hr', False)
+                if not perms.get('is_super_admin', False) and not has_projects and not has_hardware and not has_hr:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Access denied. Your account has no portal permissions assigned. Contact an administrator.'
+                    }), 403
 
                 user_uuid = uuid.uuid4()
                 session['user_uuid'] = str(user_uuid)
@@ -13148,6 +13155,8 @@ def login():
                     redirect_to = '/dashboard'
                 elif has_hardware:
                     redirect_to = '/pos-system.html'
+                elif has_hr:
+                    redirect_to = '/hr-dashboard'
                 else:
                     redirect_to = '/dashboard'
 
