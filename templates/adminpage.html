@@ -4459,6 +4459,9 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         htmlContent += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">';
         htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">';
         htmlContent += '<strong style="color:#C12B3E;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.';
+        if(isKitchen){
+            htmlContent += '<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Important:</strong> Kitchen sink, stove, and other appliances are not included in this quotation.</div>';
+        }
         if(isCon){
             htmlContent += '<div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>';
             htmlContent += '<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>';

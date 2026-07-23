@@ -27419,6 +27419,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
     <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">
       <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
       <div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
+      {('' if not is_kitchen else '''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Important:</strong> Kitchen sink, stove, and other appliances are not included in this quotation.</div>''')}
       {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>
       <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
         <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong>
@@ -27760,6 +27761,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
             <div style='display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;'>
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 13px; line-height: 1.7;'>
                     <strong style='color: #d32f2f;'>Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
+                    {('' if not is_kitchen else '''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Important:</strong> Kitchen sink, stove, and other appliances are not included in this quotation.</div>''')}
                 </div>
                 <div style='flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 13px; line-height: 1.8;'>
                     <strong style='display: block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A; font-size: 14px;'>Banking Details</strong>
@@ -28004,6 +28006,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
     <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">
       <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
       <div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
+      {('' if not is_kitchen else '''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Important:</strong> Kitchen sink, stove, and other appliances are not included in this quotation.</div>''')}
       {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>
       <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
         <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">Our Turnaround Times for Residential Projects</strong>
