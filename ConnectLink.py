@@ -13690,7 +13690,10 @@ def hr_employee_detail(emp_id):
                         'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
                         'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
                         'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
-                        'c8_number': '', 'c8_type': '', 'source': 'admin_users'
+                        'c8_number': '', 'c8_type': '',
+                        'leave_approver_name': '', 'leave_approver_id': None,
+                        'leave_approver_whatsapp': '', 'leave_approver_email': '',
+                        'source': 'admin_users'
                     }
                     return jsonify({'success': True, 'data': emp})
 
@@ -13712,7 +13715,10 @@ def hr_employee_detail(emp_id):
                         'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
                         'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
                         'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
-                        'c8_number': '', 'c8_type': '', 'source': 'connectlinkusers'
+                        'c8_number': '', 'c8_type': '',
+                        'leave_approver_name': '', 'leave_approver_id': None,
+                        'leave_approver_whatsapp': '', 'leave_approver_email': '',
+                        'source': 'connectlinkusers'
                     }
                     return jsonify({'success': True, 'data': emp})
                 
