@@ -13434,17 +13434,11 @@ def hr_employees_api():
                 ))
                 emp_id = cursor.fetchone()[0]
 
-                # VERIFY: Check what was actually saved
-                cursor.execute("SELECT first_name, last_name, email FROM hr_employees WHERE id = %s", (emp_id,))
-                verify = cursor.fetchone()
-                if verify:
-                    print(f"✅ HR EMPLOYEE SAVED: id={emp_id}, first='{verify[0]}', last='{verify[1]}', email='{verify[2]}'")
-                    if verify[0] != data.get('first_name'):
-                        print(f"⚠️ NAME MISMATCH! Sent '{data.get('first_name')}' but DB has '{verify[0]}'")
-                else:
-                    print(f"❌ VERIFY FAILED: No record found for id={emp_id} right after INSERT!")
+                # COMMIT the employee data FIRST so it's safe
+                connection.commit()
+                print(f"✅ EMPLOYEE COMMITTED: id={emp_id}")
 
-                # Sync to admin_users if not already there, and link user_id
+                # Sync to admin_users (best-effort, won't affect employee data)
                 email = data.get('email', '') or ''
                 whatsapp = data.get('whatsapp', '') or ''
                 first = (data.get('first_name', '') or '').strip()
@@ -13453,7 +13447,6 @@ def hr_employees_api():
                 username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
                 if full_name:
                     try:
-                        # Check if admin_user already exists by email or username
                         cursor.execute("SELECT id FROM admin_users WHERE email = %s OR username = %s", (email, username))
                         existing = cursor.fetchone()
                         if existing:
@@ -13465,28 +13458,14 @@ def hr_employees_api():
                                 RETURNING id
                             """, (username, data.get('password', 'conlink123'), full_name, email))
                             au_id = cursor.fetchone()[0]
-                        # Link user_id in hr_employees
                         cursor.execute("UPDATE hr_employees SET user_id = %s WHERE id = %s", (au_id, emp_id))
-                    except Exception:
-                        pass
-
-                connection.commit()
-
-                # Verify what's actually in the DB after commit
-                cursor.execute("SELECT first_name, last_name, email FROM hr_employees WHERE id = %s", (emp_id,))
-                final_check = cursor.fetchone()
-                if final_check:
-                    print(f"🔍 FINAL DB CHECK: id={emp_id}, first='{final_check[0]}', last='{final_check[1]}', email='{final_check[2]}'")
-                else:
-                    print(f"❌ FINAL CHECK FAILED: No record found for id={emp_id} after commit!")
+                        connection.commit()
+                    except Exception as sync_err:
+                        print(f"⚠️ Admin sync error (non-fatal): {sync_err}")
+                        connection.rollback()  # Rollback only the sync part
 
                 return jsonify({
-                    'success': True, 'id': emp_id, 'message': 'Employee added successfully',
-                    'db_check': {
-                        'first_name': final_check[0] if final_check else None,
-                        'last_name': final_check[1] if final_check else None,
-                        'email': final_check[2] if final_check else None
-                    }
+                    'success': True, 'id': emp_id, 'message': 'Employee added successfully'
                 })
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
