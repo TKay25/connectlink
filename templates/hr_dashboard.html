@@ -3038,6 +3038,22 @@ async function saveEmployee() {
         bank_branch_code: (document.getElementById('empBranchCode').value || '').trim(),
         leave_approver_name: document.getElementById('empLeaveApproverInput')?.value?.trim() || '',
         leave_approver_id: parseInt(document.getElementById('empLeaveApprover')?.value) || null,
+        leave_approver_whatsapp: (() => {
+            const aid = parseInt(document.getElementById('empLeaveApprover')?.value);
+            if (aid && window._approvers) {
+                const match = window._approvers.find(a => a.id == aid);
+                return match ? (match.whatsapp || '') : '';
+            }
+            return '';
+        })(),
+        leave_approver_email: (() => {
+            const aid = parseInt(document.getElementById('empLeaveApprover')?.value);
+            if (aid && window._approvers) {
+                const match = window._approvers.find(a => a.id == aid);
+                return match ? (match.email || '') : '';
+            }
+            return '';
+        })()
     };
 
     console.log('Saving employee payload:', JSON.stringify(payload));

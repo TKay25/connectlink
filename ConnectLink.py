@@ -13602,8 +13602,9 @@ def hr_employees_api():
                     INSERT INTO hr_employees
                         (first_name, last_name, whatsapp, email, address, role, department,
                          designation, gender, dob, marital_status, nationality, date_joined,
-                         current_leave_balance, monthly_accumulation, basic_salary, employment_type, status)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                         current_leave_balance, monthly_accumulation, basic_salary, employment_type, status,
+                         leave_approver_name, leave_approver_id, leave_approver_whatsapp, leave_approver_email)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     RETURNING id
                 """, (
                     data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
@@ -13612,7 +13613,9 @@ def hr_employees_api():
                     data.get('dob'), data.get('marital_status'), data.get('nationality'),
                     data.get('date_joined'), data.get('leave_balance', 21),
                     data.get('monthly_accrual', 1.75), data.get('salary', 0),
-                    data.get('employment_type', 'Permanent'), data.get('status', 'Active')
+                    data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
+                    data.get('leave_approver_name'), data.get('leave_approver_id'),
+                    data.get('leave_approver_whatsapp'), data.get('leave_approver_email')
                 ))
                 emp_id = cursor.fetchone()[0]
 
@@ -13774,7 +13777,9 @@ def hr_employee_detail(emp_id):
                         bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
                         bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
                         usd_percent=%s, zwg_percent=%s, exchange_rate=%s,
-                        leave_approver_name=%s, leave_approver_id=%s, updated_at=CURRENT_TIMESTAMP
+                        leave_approver_name=%s, leave_approver_id=%s,
+                        leave_approver_whatsapp=%s, leave_approver_email=%s,
+                        updated_at=CURRENT_TIMESTAMP
                     WHERE id=%s
                 """, (
                     data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
@@ -13792,7 +13797,9 @@ def hr_employee_detail(emp_id):
                     data.get('bank_branch'), data.get('bank_branch_code'),
                     data.get('usd_percent', 100), data.get('zwg_percent', 0),
                     data.get('exchange_rate', 1), data.get('leave_approver_name'),
-                    data.get('leave_approver_id'), emp_id
+                    data.get('leave_approver_id'),
+                    data.get('leave_approver_whatsapp'), data.get('leave_approver_email'),
+                    emp_id
                 ))
                 # Sync changes to admin_users
                 try:
