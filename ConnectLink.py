@@ -13709,28 +13709,11 @@ def hr_leave_balances(emp_id):
             balances = data.get('balances', [])
             with get_db() as (cursor, connection):
                 # Ensure employee exists in hr_employees first (FK constraint)
-                cursor.execute("UPDATE hr_employees SET id=id WHERE id=%s", (emp_id,))
-                if cursor.rowcount == 0:
-                    # Auto-create from admin_users if available
-                    cursor.execute("SELECT id, username, full_name, email FROM admin_users WHERE id=%s", (emp_id,))
-                    au = cursor.fetchone()
-                    if au:
-                        full_name = au[2] or ''
-                        parts = full_name.split(' ', 1)
-                        first = parts[0] if parts else full_name
-                        last = parts[1] if len(parts) > 1 else ''
-                        cursor.execute("""
-                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
-                            VALUES (%s, %s, %s, %s, 'Ordinary User', 'Active', NOW())
-                            ON CONFLICT (id) DO NOTHING
-                        """, (emp_id, first, last, au[3] or ''))
-                    else:
-                        # Create a minimal placeholder
-                        cursor.execute("""
-                            INSERT INTO hr_employees (id, first_name, last_name, email, role, status, date_joined)
-                            VALUES (%s, 'Employee', '', '', 'Ordinary User', 'Active', NOW())
-                            ON CONFLICT (id) DO NOTHING
-                        """, (emp_id,))
+                cursor.execute("SELECT id FROM hr_employees WHERE id=%s", (emp_id,))
+                if cursor.fetchone() is None:
+                    # Employee not found — leave balances cannot be saved
+                    print(f"⚠️ Leave balances: Employee {emp_id} not found in hr_employees, skipping auto-create")
+                    return jsonify({'success': False, 'error': 'Employee not found'}), 404
                 for b in balances:
                     cursor.execute("""
                         INSERT INTO hr_employee_leave_balances

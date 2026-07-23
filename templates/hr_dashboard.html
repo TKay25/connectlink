@@ -3038,12 +3038,18 @@ async function saveEmployee() {
             const newEmpId = empId || (data.id || data.data?.id);
             if (newEmpId && leaveBalances.length) {
                 try {
-                    await fetch(`/api/hr/leave-balances/${newEmpId}`, {
+                    const lbRes = await fetch(`/api/hr/leave-balances/${newEmpId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ balances: leaveBalances })
                     });
-                } catch(e) { /* leave balances save is best-effort */ }
+                    const lbData = await lbRes.json();
+                    if (!lbData.success) {
+                        console.warn('Leave balances save warning:', lbData.error);
+                    }
+                } catch(e) {
+                    console.warn('Leave balances save error:', e.message);
+                }
             }
             closeModal('addEmployeeModal');
             document.getElementById('addEmployeeForm').reset();
