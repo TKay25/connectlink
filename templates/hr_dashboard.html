@@ -3029,6 +3029,7 @@ async function saveEmployee() {
         });
         const data = await res.json();
         console.log('Save response:', JSON.stringify(data));
+        if (data.db_check) console.log('DB verify after save:', JSON.stringify(data.db_check));
 
         document.getElementById('hrLoader').classList.remove('active');
 

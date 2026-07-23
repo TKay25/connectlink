@@ -13468,7 +13468,20 @@ def hr_employees_api():
                         pass
 
                 connection.commit()
-                return jsonify({'success': True, 'id': emp_id, 'message': 'Employee added successfully'})
+
+                # Verify what's actually in the DB after commit
+                cursor.execute("SELECT first_name, last_name, email FROM hr_employees WHERE id = %s", (emp_id,))
+                final_check = cursor.fetchone()
+                print(f"🔍 FINAL DB CHECK: id={emp_id}, first='{final_check[0]}', last='{final_check[1]}', email='{final_check[2]}'")
+
+                return jsonify({
+                    'success': True, 'id': emp_id, 'message': 'Employee added successfully',
+                    'db_check': {
+                        'first_name': final_check[0] if final_check else None,
+                        'last_name': final_check[1] if final_check else None,
+                        'email': final_check[2] if final_check else None
+                    }
+                })
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
 
