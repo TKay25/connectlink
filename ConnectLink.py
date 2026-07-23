@@ -883,7 +883,7 @@ def initialize_database_tables():
             try:
                 cursor.execute("""
                     ALTER TABLE appenqtemp 
-                    ALTER COLUMN wanumber TYPE BIGINT;
+                    ALTER COLUMN wanumber TYPE BIGINT USING wanumber::bigint;
                 """)
                 connection.commit()
             except Exception as e:
