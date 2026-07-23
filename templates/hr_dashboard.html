@@ -1412,6 +1412,32 @@
             </div>
         </div>
 
+        <!-- Remittance Format Picker Modal -->
+        <div id="remittanceModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeRemittanceModal()">
+            <div class="modal-container" style="min-width:380px;max-width:420px;">
+                <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e5e7eb;">
+                    <h5 style="margin:0;font-size:0.85rem;font-weight:700;color:#0F1729;"><i class="bi bi-building"></i> Download Remittances</h5>
+                    <button class="modal-close" onclick="closeRemittanceModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8;padding:0;line-height:1;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:20px 18px;">
+                    <p style="font-size:0.7rem;color:#64748b;margin-bottom:16px;">Choose a format to download the company remittances report for the selected period.</p>
+                    <div style="display:flex;gap:12px;">
+                        <button id="remitPdfBtn" class="btn btn-danger btn-sm" onclick="doRemittanceDownload('pdf')" style="flex:1;padding:10px;font-size:0.75rem;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;">
+                            <i class="bi bi-filetype-pdf"></i> PDF
+                            <span id="remitPdfSpinner" class="spinner-border spinner-border-sm" style="display:none;width:12px;height:12px;" role="status"></span>
+                        </button>
+                        <button id="remitExcelBtn" class="btn btn-success btn-sm" onclick="doRemittanceDownload('excel')" style="flex:1;padding:10px;font-size:0.75rem;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Excel
+                            <span id="remitExcelSpinner" class="spinner-border spinner-border-sm" style="display:none;width:12px;height:12px;" role="status"></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer" style="display:flex;justify-content:flex-end;padding:10px 18px;border-top:1px solid #e5e7eb;">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="closeRemittanceModal()" style="font-size:0.7rem;">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== MODULE: PAYE TAX TABLES ===== -->
         <div id="module-paye" class="hr-module">
 
@@ -4440,13 +4466,43 @@ function downloadCurrentPayroll(archiveId) {
 }
 
 function downloadRemittances() {
+    const modal = document.getElementById('remittanceModal');
+    if (modal) modal.classList.add('active');
+}
+
+function doRemittanceDownload(fmt) {
     const select = document.getElementById('payrollPeriodSelect');
     const val = select?.value || '';
     const parts = val.split('|');
     const period = parts[0] || (new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0'));
-    // Show a simple choice: Excel or PDF
-    const fmt = confirm('Click OK for PDF, Cancel for Excel') ? 'pdf' : 'excel';
-    window.open(`/api/payroll-remittances/${period}?format=${fmt}`, '_blank');
+    const spinnerId = fmt === 'pdf' ? 'remitPdfSpinner' : 'remitExcelSpinner';
+    const btnId = fmt === 'pdf' ? 'remitPdfBtn' : 'remitExcelBtn';
+    document.getElementById(spinnerId).style.display = 'inline-block';
+    document.getElementById(btnId).disabled = true;
+    const win = window.open(`/api/payroll-remittances/${period}?format=${fmt}`, '_blank');
+    // Check if window was blocked
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+        document.getElementById(spinnerId).style.display = 'none';
+        document.getElementById(btnId).disabled = false;
+        alert('Popup blocked. Please allow popups for this site.');
+        return;
+    }
+    // Poll for window close to reset spinner
+    const timer = setInterval(function() {
+        if (win.closed) {
+            clearInterval(timer);
+            document.getElementById(spinnerId).style.display = 'none';
+            document.getElementById(btnId).disabled = false;
+        }
+    }, 500);
+}
+
+function closeRemittanceModal() {
+    document.getElementById('remittanceModal').classList.remove('active');
+    document.getElementById('remitPdfSpinner').style.display = 'none';
+    document.getElementById('remitExcelSpinner').style.display = 'none';
+    document.getElementById('remitPdfBtn').disabled = false;
+    document.getElementById('remitExcelBtn').disabled = false;
 }
 
 // Close archives modal on overlay click
