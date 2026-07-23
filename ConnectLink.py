@@ -13437,9 +13437,12 @@ def hr_employees_api():
                 # VERIFY: Check what was actually saved
                 cursor.execute("SELECT first_name, last_name, email FROM hr_employees WHERE id = %s", (emp_id,))
                 verify = cursor.fetchone()
-                print(f"✅ HR EMPLOYEE SAVED: id={emp_id}, first='{verify[0]}', last='{verify[1]}', email='{verify[2]}'")
-                if verify[0] != data.get('first_name'):
-                    print(f"⚠️ NAME MISMATCH! Sent '{data.get('first_name')}' but DB has '{verify[0]}'")
+                if verify:
+                    print(f"✅ HR EMPLOYEE SAVED: id={emp_id}, first='{verify[0]}', last='{verify[1]}', email='{verify[2]}'")
+                    if verify[0] != data.get('first_name'):
+                        print(f"⚠️ NAME MISMATCH! Sent '{data.get('first_name')}' but DB has '{verify[0]}'")
+                else:
+                    print(f"❌ VERIFY FAILED: No record found for id={emp_id} right after INSERT!")
 
                 # Sync to admin_users if not already there, and link user_id
                 email = data.get('email', '') or ''
@@ -13472,7 +13475,10 @@ def hr_employees_api():
                 # Verify what's actually in the DB after commit
                 cursor.execute("SELECT first_name, last_name, email FROM hr_employees WHERE id = %s", (emp_id,))
                 final_check = cursor.fetchone()
-                print(f"🔍 FINAL DB CHECK: id={emp_id}, first='{final_check[0]}', last='{final_check[1]}', email='{final_check[2]}'")
+                if final_check:
+                    print(f"🔍 FINAL DB CHECK: id={emp_id}, first='{final_check[0]}', last='{final_check[1]}', email='{final_check[2]}'")
+                else:
+                    print(f"❌ FINAL CHECK FAILED: No record found for id={emp_id} after commit!")
 
                 return jsonify({
                     'success': True, 'id': emp_id, 'message': 'Employee added successfully',
