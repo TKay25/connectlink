@@ -1266,6 +1266,39 @@
                 align-items: center;
             }
         }
+        /* Toast Notification */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 999999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast-msg {
+            background: #1E2A56;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+            max-width: 380px;
+        }
+        .toast-msg.success { background: #16a34a; }
+        .toast-msg.error { background: #dc2626; }
+        .toast-msg i { font-size: 1.1rem; }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translateX(50px); }
+        }
 </style>
 </head>
 <body>
@@ -1734,6 +1767,9 @@
     </div>
 </div>
 
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container"></div>
+
 <!-- User Management Modal -->
 <div class="modal-overlay" id="usersLoginModal">
     <div class="login-modal">
@@ -2063,6 +2099,18 @@
             render();
         }
 
+        function showToast(message, type) {
+            type = type || 'success';
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = 'toast-msg ' + type;
+            const icon = type === 'success' ? 'check-circle' : 'exclamation-circle';
+            toast.innerHTML = '<i class="fas fa-' + icon + '"></i> ' + message;
+            container.appendChild(toast);
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+        }
+
         function setError(type, msg) {
             if (type === 'projects') state.errors.projects = msg;
             else if (type === 'hardware') state.errors.hardware = msg;
@@ -2192,15 +2240,13 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    errEl.style.color = '#2e7d32';
-                    errEl.textContent = '✅ Password set! Please log in with your new password.';
-                    setTimeout(() => {
-                        document.getElementById(system + 'SetPasswordForm').style.display = 'none';
-                        document.getElementById(system + 'LoginWrap').style.display = 'block';
-                        document.getElementById(system + 'Password').value = '';
-                        errEl.style.color = '#d32f2f';
-                        errEl.textContent = '';
-                    }, 2000);
+                    // Show toast notification
+                    showToast('✅ Password set! Please log in with your new password.', 'success');
+                    // Close the modal
+                    if (system === 'hr') closeHrModal();
+                    else if (system === 'users') closeUsersModal();
+                    else if (system === 'projects') closeProjectsModal();
+                    else if (system === 'hardware') closeHardwareModal();
                 } else {
                     errEl.textContent = data.message || 'Failed to reset password.';
                 }
@@ -2492,12 +2538,13 @@
                     window.location.href = data.redirect || '/hr-dashboard';
                 } else if (data.must_reset) {
                     setLoading(false);
-                    closeHrModal();
-                    // Show first-login set password form (not WhatsApp reset)
+                    // Show first-login set password form inside the modal (keep modal open)
                     document.getElementById('hrLoginWrap').style.display = 'none';
                     document.getElementById('hrSetPasswordForm').style.display = 'block';
                     document.getElementById('hrResetForm').style.display = 'none';
                     document.getElementById('hrEmail').value = data.username;
+                    // Pre-fill current password from what they typed
+                    document.getElementById('hrCurrentPw').value = dom.hrPassword.value;
                     setError('hr', data.message || 'First-time login — please set a new password.');
                 } else {
                     setLoading(false);
@@ -2542,12 +2589,13 @@
                     window.location.href = data.redirect || '/user-management';
                 } else if (data.must_reset) {
                     setLoading(false);
-                    closeUsersModal();
-                    // Show first-login set password form (not WhatsApp reset)
+                    // Show first-login set password form inside the modal (keep modal open)
                     document.getElementById('usersLoginWrap').style.display = 'none';
                     document.getElementById('usersSetPasswordForm').style.display = 'block';
                     document.getElementById('usersResetForm').style.display = 'none';
                     document.getElementById('usersEmail').value = data.username;
+                    // Pre-fill current password from what they typed
+                    document.getElementById('usersCurrentPw').value = dom.usersPassword.value;
                     setError('users', data.message || 'First-time login — please set a new password.');
                 } else {
                     setLoading(false);
