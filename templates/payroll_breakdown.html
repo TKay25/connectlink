@@ -345,7 +345,7 @@
                     <div class="salary-box deductions">
                         <div class="sb-label">Total Deductions</div>
                         <div class="sb-amount">${{ total_ded|round(2)|numberfmt }}</div>
-                        <div style="font-size:10px;color:#64748b;margin-top:2px;">PAYE + AIDS + NSSA + ZIMDEF</div>
+                        <div style="font-size:10px;color:#64748b;margin-top:2px;">NSSA + PAYE + AIDS + ZIMDEF</div>
                     </div>
                     <div class="salary-box net">
                         <div class="sb-label">Net Pay</div>
@@ -372,14 +372,42 @@
                     <div class="step-amount" style="color:#0369a1;">${{ gross|round(2)|numberfmt }}</div>
                 </div>
 
-                <!-- STEP 2: PAYE Tax -->
+                <!-- STEP 2: NSSA (deducted first) -->
                 <div class="calc-step">
-                    <div class="step-num" style="background:#dc2626;">2</div>
+                    <div class="step-num" style="background:#16a34a;">2</div>
+                    <div class="step-body">
+                        <div class="step-title" style="color:#16a34a;">NSSA (Employee Pension) — deducted first</div>
+                        <div class="step-desc">National Social Security Authority — employee portion. Calculated on gross, deducted before PAYE{{ nssa_cap_note }}</div>
+                        <div class="step-formula">${{ nssa_basis|round(2)|numberfmt }}{{ nssa_cap_note }} × 4.5% = <strong style="color:#16a34a;">${{ nssa|round(2)|numberfmt }}</strong></div>
+                        <div style="margin-top:6px;padding:6px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;font-size:11px;color:#15803d;">
+                            <strong>Employer NSSA (not deducted from pay):</strong> Employer also contributes
+                            <strong>{{ nssa_rate|default(4.5) }}%</strong> × ${{ nssa_basis|round(2)|numberfmt }}{{ nssa_cap_note }}
+                            = <strong>${{ employer_nssa|round(2)|numberfmt }}</strong>
+                            — this is paid by the employer and does <em>not</em> reduce your net pay.
+                        </div>
+                    </div>
+                    <div class="step-amount" style="color:#16a34a;">− ${{ nssa|round(2)|numberfmt }}</div>
+                </div>
+
+                <!-- TAXABLE INCOME (intermediate step) -->
+                <div class="calc-step" style="background:#f8fafc;border-left:3px solid #6366f1;border-radius:4px;padding:12px 16px;margin:4px 0;">
+                    <div class="step-body" style="margin-left:0;">
+                        <div class="step-title" style="color:#4338ca;font-size:13px;">Taxable Income (for PAYE &amp; ZIMDEF)</div>
+                        <div class="step-desc">NSSA is deducted first. PAYE and ZIMDEF are calculated on the remaining amount.</div>
+                        <div class="step-formula" style="background:#eef2ff;border-color:#c7d2fe;">
+                            ${{ gross|round(2)|numberfmt }} (Gross) − ${{ nssa|round(2)|numberfmt }} (NSSA) = <strong style="color:#4338ca;">${{ (gross - nssa)|round(2)|numberfmt }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STEP 3: PAYE Tax (on taxable income) -->
+                <div class="calc-step">
+                    <div class="step-num" style="background:#dc2626;">3</div>
                     <div class="step-body">
                         <div class="step-title" style="color:#dc2626;">PAYE Tax (Pay As You Earn)</div>
                         <div class="step-desc">
-                            Progressive tax calculated using the active ZIMRA tax brackets.
-                            The formula for each bracket is: <strong>PAYE = (Salary × Rate%) − Cumulative Deduction</strong>
+                            Progressive tax calculated on <strong>taxable income</strong> (gross − NSSA) using the active ZIMRA tax brackets.
+                            The formula for each bracket is: <strong>PAYE = (Taxable Income × Rate%) − Cumulative Deduction</strong>
                         </div>
 
                         <!-- PAYE Brackets Table -->
@@ -419,31 +447,38 @@
 
                         <div class="step-formula" style="margin-top:6px;">
                             {% if active_bracket %}
-                                PAYE = (${{ basic|round(2)|numberfmt }} × {{ active_bracket['rate'] }}%) − ${{ active_bracket['deduction']|round(2)|numberfmt }}
-                                = ${{ (basic * active_bracket['rate'] / 100)|round(2)|numberfmt }} − ${{ active_bracket['deduction']|round(2)|numberfmt }}
+                                PAYE = (${{ (gross - nssa)|round(2)|numberfmt }} × {{ active_bracket['rate'] }}%) − ${{ active_bracket['deduction']|round(2)|numberfmt }}
+                                = ${{ ((gross - nssa) * active_bracket['rate'] / 100)|round(2)|numberfmt }} − ${{ active_bracket['deduction']|round(2)|numberfmt }}
                                 = <strong style="color:#dc2626;">${{ paye|round(2)|numberfmt }}</strong>
                             {% else %}
-                                Salary: ${{ basic|round(2)|numberfmt }} — No active bracket found.
+                                Taxable Income: ${{ (gross - nssa)|round(2)|numberfmt }} — No active bracket found.
                             {% endif %}
                         </div>
                     </div>
                     <div class="step-amount" style="color:#dc2626;">− ${{ paye|round(2)|numberfmt }}</div>
                 </div>
 
-                <!-- STEP 3-5: Other Deductions -->
-                {% for d in deduction_rows %}
-                {% if d.name != 'PAYE Tax (Pay As You Earn)' %}
+                <!-- STEP 4: AIDS Levy -->
                 <div class="calc-step">
-                    <div class="step-num" style="background:{{ d.color }};">{{ loop.index + 1 }}</div>
+                    <div class="step-num" style="background:#b45309;">4</div>
                     <div class="step-body">
-                        <div class="step-title" style="color:{{ d.color }};">{{ d.name }}</div>
-                        <div class="step-desc">{{ d.description }}</div>
-                        <div class="step-formula">{{ d.calculation }} = <strong style="color:{{ d.color }};">${{ d.amount|round(2)|numberfmt }}</strong></div>
+                        <div class="step-title" style="color:#b45309;">AIDS Levy</div>
+                        <div class="step-desc">3% of PAYE tax amount as statutory AIDS levy contribution.</div>
+                        <div class="step-formula">${{ paye|round(2)|numberfmt }} (PAYE) × 3% = <strong style="color:#b45309;">${{ aids|round(2)|numberfmt }}</strong></div>
                     </div>
-                    <div class="step-amount" style="color:{{ d.color }};">− ${{ d.amount|round(2)|numberfmt }}</div>
+                    <div class="step-amount" style="color:#b45309;">− ${{ aids|round(2)|numberfmt }}</div>
                 </div>
-                {% endif %}
-                {% endfor %}
+
+                <!-- STEP 5: ZIMDEF Levy -->
+                <div class="calc-step">
+                    <div class="step-num" style="background:#7c3aed;">5</div>
+                    <div class="step-body">
+                        <div class="step-title" style="color:#7c3aed;">ZIMDEF Levy</div>
+                        <div class="step-desc">Zimbabwe Manpower Development Levy — 1% of taxable income.</div>
+                        <div class="step-formula">${{ (gross - nssa)|round(2)|numberfmt }} (Taxable Income) × 1% = <strong style="color:#7c3aed;">${{ zimdef|round(2)|numberfmt }}</strong></div>
+                    </div>
+                    <div class="step-amount" style="color:#7c3aed;">− ${{ zimdef|round(2)|numberfmt }}</div>
+                </div>
 
                 <!-- TOTAL DEDUCTIONS -->
                 <div class="calc-step" style="border-bottom:2px solid #dc2626;">
@@ -452,7 +487,7 @@
                         <div class="step-title" style="color:#dc2626;">Total Deductions</div>
                         <div class="step-desc">Sum of all statutory deductions.</div>
                         <div class="step-formula">
-                            ${{ paye|round(2)|numberfmt }} (PAYE) + ${{ aids|round(2)|numberfmt }} (AIDS) + ${{ nssa|round(2)|numberfmt }} (NSSA) + ${{ zimdef|round(2)|numberfmt }} (ZIMDEF)
+                            ${{ nssa|round(2)|numberfmt }} (NSSA) + ${{ paye|round(2)|numberfmt }} (PAYE) + ${{ aids|round(2)|numberfmt }} (AIDS) + ${{ zimdef|round(2)|numberfmt }} (ZIMDEF)
                             = <strong style="color:#dc2626;">${{ total_ded|round(2)|numberfmt }}</strong>
                         </div>
                     </div>
@@ -491,7 +526,15 @@
                         <td style="padding:8px 10px;border-bottom:2px solid #0369a1;text-align:right;">${{ gross|round(2)|numberfmt }}</td>
                     </tr>
                     <tr>
-                        <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− PAYE Tax</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− <strong>NSSA (Employee)</strong> <span style="font-size:11px;color:#94a3b8;">(deducted first)</span></td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;color:#16a34a;">(${{ nssa|round(2)|numberfmt }})</td>
+                    </tr>
+                    <tr style="font-style:italic;color:#4338ca;font-size:12px;">
+                        <td style="padding:6px 10px;border-bottom:1px dashed #c7d2fe;padding-left:30px;">= Taxable Income (Gross − NSSA)</td>
+                        <td style="padding:6px 10px;border-bottom:1px dashed #c7d2fe;text-align:right;font-weight:700;">${{ (gross - nssa)|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− PAYE Tax <span style="font-size:11px;color:#94a3b8;">(on taxable income)</span></td>
                         <td style="padding:8px 10px;text-align:right;color:#dc2626;">(${{ paye|round(2)|numberfmt }})</td>
                     </tr>
                     <tr>
@@ -499,11 +542,7 @@
                         <td style="padding:8px 10px;text-align:right;color:#b45309;">(${{ aids|round(2)|numberfmt }})</td>
                     </tr>
                     <tr>
-                        <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− NSSA (Employee)</td>
-                        <td style="padding:8px 10px;text-align:right;color:#16a34a;">(${{ nssa|round(2)|numberfmt }})</td>
-                    </tr>
-                    <tr>
-                        <td style="padding:8px 10px;border-bottom:1px solid #dc2626;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− ZIMDEF Levy</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #dc2626;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− ZIMDEF Levy <span style="font-size:11px;color:#94a3b8;">(on taxable income)</span></td>
                         <td style="padding:8px 10px;border-bottom:1px solid #dc2626;text-align:right;color:#7c3aed;">(${{ zimdef|round(2)|numberfmt }})</td>
                     </tr>
                     <tr style="font-weight:800;color:#dc2626;">

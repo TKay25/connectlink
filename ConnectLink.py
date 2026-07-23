@@ -14092,30 +14092,34 @@ def hr_payroll_api():
                         'ceiling': float(dc[3] or 0)
                     }
 
-                def calc_statutory_deductions(monthly_salary, monthly_paye):
-                    """Calculate all Zimbabwe statutory deductions."""
+                def calc_nssa(gross_pay):
+                    """Calculate NSSA employee deduction on gross (capped at ceiling)."""
+                    nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+                    nssa_rate = nssa_config.get('rate', 4.5)
+                    nssa_ceiling = nssa_config.get('ceiling', 0)
+                    nssa_gross = gross_pay
+                    if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
+                        nssa_gross = nssa_ceiling
+                    return nssa_gross * (nssa_rate / 100)
+
+                def calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount):
+                    """Calculate all Zimbabwe statutory deductions.
+                    NSSA is deducted before PAYE, so taxable_income = gross - nssa."""
                     aids_config = deduction_configs.get('AIDS_LEVY', {})
                     aids_rate = aids_config.get('rate', 3.0)
                     aids_levy = monthly_paye * (aids_rate / 100) if aids_config.get('rate_type') == 'percentage_of_paye' else 0
 
-                    nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
-                    nssa_rate = nssa_config.get('rate', 4.5)
-                    nssa_ceiling = nssa_config.get('ceiling', 0)
-                    nssa_gross = monthly_salary
-                    if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
-                        nssa_gross = nssa_ceiling
-                    nssa = nssa_gross * (nssa_rate / 100)
-
                     zimdef_config = deduction_configs.get('ZIMDEF', {})
                     zimdef_rate = zimdef_config.get('rate', 1.0)
-                    zimdef = monthly_salary * (zimdef_rate / 100)
+                    zimdef = taxable_income * (zimdef_rate / 100)
 
+                    total = nssa_amount + monthly_paye + aids_levy + zimdef
                     return {
                         'paye': monthly_paye,
                         'aids_levy': aids_levy,
-                        'nssa': nssa,
+                        'nssa': nssa_amount,
                         'zimdef': zimdef,
-                        'total': monthly_paye + aids_levy + nssa + zimdef
+                        'total': total
                     }
 
                 # Process payroll for all active employees
@@ -14135,11 +14139,17 @@ def hr_payroll_api():
                     allowances = float(emp[4] or 0)
                     gross = basic + allowances
 
-                    # Calculate PAYE tax using monthly brackets directly
-                    monthly_paye = calc_paye_tax(basic, paye_brackets)
+                    # Step 1: Calculate NSSA on gross (deducted first)
+                    nssa_amount = calc_nssa(gross)
 
-                    # Calculate all statutory deductions
-                    stats = calc_statutory_deductions(basic, monthly_paye)
+                    # Step 2: Taxable income = Gross - NSSA
+                    taxable_income = gross - nssa_amount
+
+                    # Step 3: Calculate PAYE on taxable income (not on gross)
+                    monthly_paye = calc_paye_tax(taxable_income, paye_brackets)
+
+                    # Step 4: Calculate remaining deductions (AIDS Levy, ZIMDEF)
+                    stats = calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount)
                     total_deductions = stats['total']
                     net = max(0, gross - total_deductions)
 
@@ -14941,11 +14951,30 @@ def hr_payroll_calculate_full():
                         return max(0, round(tax, 2))
             return 0
 
-        annual_paye = calc_paye(annual_salary, paye_brackets)
-        monthly_paye = calc_paye(salary, paye_brackets)
+        # 3b. Calculate NSSA first (deducted before PAYE)
+        nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+        nssa_rate = nssa_config.get('rate', 4.5)
+        nssa_ceiling = nssa_config.get('ceiling', 0)
+        nssa_gross = salary
+        if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
+            nssa_gross = nssa_ceiling
+        nssa_amount = nssa_gross * (nssa_rate / 100)
 
-        # 4. Calculate other deductions
+        # 4. Taxable income = Gross - NSSA, then PAYE on that
+        taxable_income = salary - nssa_amount
+        annual_taxable = annual_salary - (nssa_amount * 12)
+        annual_paye = calc_paye(annual_taxable, paye_brackets)
+        monthly_paye = calc_paye(taxable_income, paye_brackets)
+
+        # 5. Calculate other deductions
         deductions = {}
+
+        deductions['NSSA_EMPLOYEE'] = {
+            'name': 'NSSA (Employee)',
+            'amount': round(nssa_amount, 2),
+            'rate': nssa_rate,
+            'basis': f"{'Ceiling: $' + str(nssa_ceiling) if nssa_ceiling > 0 else 'Gross'} — deducted first"
+        }
 
         # AIDS Levy = 3% of PAYE
         aids_config = deduction_configs.get('AIDS_LEVY', {})
@@ -14960,33 +14989,18 @@ def hr_payroll_calculate_full():
         else:
             deductions['AIDS_LEVY'] = {'name': 'AIDS Levy', 'amount': 0, 'rate': 0, 'basis': 'PAYE tax'}
 
-        # NSSA Employee = % of gross up to ceiling
-        nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
-        nssa_rate = nssa_config.get('rate', 4.5)
-        nssa_ceiling = nssa_config.get('ceiling', 0)
-        nssa_gross = salary
-        if nssa_ceiling > 0 and nssa_gross > nssa_ceiling:
-            nssa_gross = nssa_ceiling
-        nssa_amount = nssa_gross * (nssa_rate / 100)
-        deductions['NSSA_EMPLOYEE'] = {
-            'name': 'NSSA (Employee)',
-            'amount': round(nssa_amount, 2),
-            'rate': nssa_rate,
-            'basis': f"{'Ceiling: $' + str(nssa_ceiling) if nssa_ceiling > 0 else 'Gross'}"
-        }
-
-        # ZIMDEF = % of gross
+        # ZIMDEF = % of taxable income
         zimdef_config = deduction_configs.get('ZIMDEF', {})
         zimdef_rate = zimdef_config.get('rate', 1.0)
-        zimdef_amount = salary * (zimdef_rate / 100)
+        zimdef_amount = taxable_income * (zimdef_rate / 100)
         deductions['ZIMDEF'] = {
             'name': 'ZIMDEF Levy',
             'amount': round(zimdef_amount, 2),
             'rate': zimdef_rate,
-            'basis': 'Gross salary'
+            'basis': 'Taxable income (gross - NSSA)'
         }
 
-        total_deductions = monthly_paye + sum(d['amount'] for d in deductions.values())
+        total_deductions = nssa_amount + monthly_paye + aids_levy + zimdef_amount
         net_pay = max(0, salary - total_deductions)
 
         return jsonify({
@@ -15086,31 +15100,55 @@ def payroll_breakdown():
         basic = emp['basic_pay'] or emp['basic_salary']
         allowances = emp['pay_allowances'] or emp['allowances']
         gross = emp['gross_pay'] or (basic + allowances)
+        nssa = emp['nssa']
         paye = emp['paye_tax']
         aids = emp['aids_levy']
-        nssa = emp['nssa']
         zimdef = emp['zimdef']
-        total_ded = emp['total_deductions'] or (paye + aids + nssa + zimdef)
+        total_ded = emp['total_deductions'] or (nssa + paye + aids + zimdef)
         net = emp['net_pay'] or max(0, gross - total_ded)
 
-        # Determine which PAYE bracket applies
+        # Taxable income = Gross - NSSA (since NSSA is deducted first)
+        taxable_income = gross - nssa
+
+        # Determine which PAYE bracket applies (on taxable income)
         active_bracket = None
         for b in paye_brackets:
             inc_from = b['from']
             inc_to = b['to'] if b['to'] else float('inf')
-            if inc_from <= basic <= inc_to:
+            if inc_from <= taxable_income <= inc_to:
                 active_bracket = b
                 break
 
-        # Build deduction detail rows
+        # Build deduction detail rows (in correct order: NSSA first, then PAYE on remainder)
         deduction_rows = []
 
-        # PAYE
+        # NSSA (deducted first)
+        nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
+        nssa_rate = nssa_config.get('rate', 4.5)
+        nssa_ceiling = nssa_config.get('ceiling', 0)
+        nssa_basis = gross
+        nssa_cap_note = ''
+        if nssa_ceiling > 0 and nssa_basis > nssa_ceiling:
+            nssa_basis = nssa_ceiling
+            nssa_cap_note = f' (capped at ${nssa_ceiling:,.2f})'
+        deduction_rows.append({
+            'name': 'NSSA (Employee Pension) — deducted first',
+            'description': f'National Social Security Authority — employee portion. Calculated on gross, deducted before PAYE{nssa_cap_note}',
+            'rate': f'{nssa_rate:.1f}% of gross{" (capped)" if nssa_ceiling > 0 else ""}',
+            'calculation': f'${nssa_basis:,.2f}{" (capped)" if nssa_cap_note else ""} × {nssa_rate:.1f}%',
+            'amount': nssa,
+            'color': '#16a34a'
+        })
+
+        # Employer NSSA contribution (same rate, NOT deducted from employee pay)
+        employer_nssa = nssa_basis * (nssa_rate / 100)
+
+        # PAYE (on taxable income = gross - nssa)
         deduction_rows.append({
             'name': 'PAYE Tax (Pay As You Earn)',
-            'description': f'Progressive tax based on monthly salary brackets. Active bracket: ${active_bracket["from"]:,.2f} - ${active_bracket["to"]:,.2f}' if active_bracket else 'No active bracket found',
+            'description': f'Progressive tax on taxable income (gross − NSSA). Active bracket: ${active_bracket["from"]:,.2f} - ${active_bracket["to"]:,.2f}' if active_bracket else 'No active bracket found',
             'rate': f'{active_bracket["rate"]:.2f}%' if active_bracket else 'N/A',
-            'calculation': f'(${basic:,.2f} × {active_bracket["rate"]:.2f}%) - ${active_bracket["deduction"]:,.2f}' if active_bracket else 'N/A',
+            'calculation': f'Taxable: ${taxable_income:,.2f} (${{gross:,.2f}} − ${{nssa:,.2f}}) × {active_bracket["rate"]:.2f}% − ${active_bracket["deduction"]:,.2f}' if active_bracket else 'N/A',
             'amount': paye,
             'color': '#dc2626'
         })
@@ -15126,32 +15164,14 @@ def payroll_breakdown():
             'color': '#b45309'
         })
 
-        # NSSA
-        nssa_config = deduction_configs.get('NSSA_EMPLOYEE', {})
-        nssa_rate = nssa_config.get('rate', 4.5)
-        nssa_ceiling = nssa_config.get('ceiling', 0)
-        nssa_basis = basic
-        nssa_cap_note = ''
-        if nssa_ceiling > 0 and nssa_basis > nssa_ceiling:
-            nssa_basis = nssa_ceiling
-            nssa_cap_note = f' (capped at ${nssa_ceiling:,.2f})'
-        deduction_rows.append({
-            'name': 'NSSA (Employee Pension)',
-            'description': f'National Social Security Authority — employee pension contribution{nssa_cap_note if nssa_cap_note else ""}',
-            'rate': f'{nssa_rate:.1f}% of gross{" (capped)" if nssa_ceiling > 0 else ""}',
-            'calculation': f'${nssa_basis:,.2f}{" (capped)" if nssa_cap_note else ""} × {nssa_rate:.1f}%',
-            'amount': nssa,
-            'color': '#16a34a'
-        })
-
         # ZIMDEF
         zimdef_config = deduction_configs.get('ZIMDEF', {})
         zimdef_rate = zimdef_config.get('rate', 1.0)
         deduction_rows.append({
             'name': 'ZIMDEF Levy',
-            'description': 'Zimbabwe Manpower Development Levy — 1% of gross salary',
-            'rate': f'{zimdef_rate:.1f}% of gross',
-            'calculation': f'${basic:,.2f} × {zimdef_rate:.1f}%',
+            'description': 'Zimbabwe Manpower Development Levy — 1% of taxable income',
+            'rate': f'{zimdef_rate:.1f}% of taxable income',
+            'calculation': f'${taxable_income:,.2f} × {zimdef_rate:.1f}%',
             'amount': zimdef,
             'color': '#7c3aed'
         })
@@ -15160,7 +15180,9 @@ def payroll_breakdown():
             emp=emp, basic=basic, allowances=allowances, gross=gross,
             paye_brackets=paye_brackets, active_bracket=active_bracket,
             deduction_rows=deduction_rows, paye=paye, aids=aids,
-            nssa=nssa, zimdef=zimdef, total_ded=total_ded, net=net,
+            nssa=nssa, employer_nssa=employer_nssa, nssa_basis=nssa_basis,
+            nssa_rate=nssa_rate, nssa_cap_note=nssa_cap_note,
+            zimdef=zimdef, total_ded=total_ded, net=net,
             now=datetime.now()
         )
 
