@@ -75,10 +75,9 @@
   .txn tbody td { padding: 0.5mm 1.2mm; border-bottom: 0.5px solid #f1f5f9; }
   .txn tbody td:last-child { text-align: right; font-weight: 600; }
   .txn tbody td:first-child {
-    font-family: 'Courier New', monospace; font-size: 5.5pt; color: #64748b; width: 10%;
+    font-family: 'Courier New', monospace; font-size: 5.5pt; color: #64748b; width: 12%;
   }
-  .txn tbody td:nth-child(2) { width: 50%; }
-  .txn tbody td:nth-child(3) { width: 12%; text-align: center; }
+  .txn tbody td:nth-child(2) { width: 63%; }
   .txn tbody tr.tt td { font-weight: 800; border-top: 1.5px solid #0F1729; padding-top: 0.8mm; font-size: 6.5pt; background: #f8fafc; }
 
   /* Deductions table */
@@ -188,15 +187,12 @@
         <div class="section-title">Earnings</div>
         <table class="txn">
           <thead>
-            <tr><th>Code</th><th>Description</th><th>Units</th><th>USD</th></tr>
+            <tr><th>Code</th><th>Description</th><th>USD</th></tr>
           </thead>
           <tbody>
-            <tr><td>BAS</td><td>Basic Salary</td><td>1.00</td><td>${{ emp.basic_pay|round(2)|numberfmt }}</td></tr>
-            <tr><td>LAL</td><td>Lunch Allowance</td><td>1.00</td><td>${{ emp.pay_allowances|round(2)|numberfmt }}</td></tr>
-            {% if employer_nssa %}
-            <tr><td>ENP</td><td>Employer NSSA (not deducted)</td><td>—</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
-            {% endif %}
-            <tr class="tt"><td></td><td><strong>Gross Pay</strong></td><td></td><td><strong>${{ emp.gross_pay|round(2)|numberfmt }}</strong></td></tr>
+            <tr><td>BAS</td><td>Basic Salary</td><td>${{ emp.basic_pay|round(2)|numberfmt }}</td></tr>
+            <tr><td>LAL</td><td>Lunch Allowance</td><td>${{ emp.pay_allowances|round(2)|numberfmt }}</td></tr>
+            <tr class="tt"><td></td><td><strong>Gross Pay</strong></td><td><strong>${{ emp.gross_pay|round(2)|numberfmt }}</strong></td></tr>
           </tbody>
         </table>
       </div>
@@ -215,8 +211,9 @@
             <tr><td>PYE</td><td>PAYE Tax (on taxable income)</td><td>${{ emp.paye_tax|round(2)|numberfmt }}</td></tr>
             <tr><td>AID</td><td>AIDS Levy (3% of PAYE)</td><td>${{ emp.aids_levy|round(2)|numberfmt }}</td></tr>
             <tr><td>ZIM</td><td>ZIMDEF Levy (1% of taxable income)</td><td>${{ emp.zimdef|round(2)|numberfmt }}</td></tr>
+            <tr><td>NEC</td><td>NEC (National Employment Council)</td><td>$0.00</td></tr>
             {% if employer_nssa %}
-            <tr class="er"><td>ENP</td><td>Employer NSSA (cost to company)</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
+            <tr class="er"><td>ENP</td><td>NSSA Co. Contribution</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
             {% endif %}
             <tr class="tt"><td></td><td><strong>Total Deductions</strong></td><td><strong>${{ emp.total_deductions|round(2)|numberfmt }}</strong></td></tr>
             <tr class="gt"><td></td><td><strong>Net Pay</strong></td><td><strong>${{ emp.net_pay|round(2)|numberfmt }}</strong></td></tr>
@@ -242,7 +239,7 @@
             <tr><td>YTD Gross Pay</td><td>${{ (emp.gross_pay * 3)|round(2)|numberfmt }}</td></tr>
 
             <tr class="sh"><td colspan="2">Employee Cost Summary</td></tr>
-            <tr><td>Employer NSSA</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
+            <tr><td>NSSA Co. Contr</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
             <tr><td>Total Cost to Company</td><td style="color:#C12B3E;font-weight:900;">${{ (emp.gross_pay + employer_nssa)|round(2)|numberfmt }}</td></tr>
           </tbody>
         </table>
@@ -264,7 +261,6 @@
     <span>{{ emp.period }} &middot; Payslip &middot; Page 1 of 1</span>
   </div>
 
-  <div class="watermark">PAID</div>
 
 </div>
 </body>
