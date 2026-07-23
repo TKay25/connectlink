@@ -13807,9 +13807,11 @@ def hr_leave_api():
             status_filter = request.args.get('status', '')
             with get_db() as (cursor, connection):
                 query = """
-                    SELECT id, employee_id, employee_name, leave_type, from_date, to_date,
-                           days, reason, status, approved_by, approved_at, created_at
-                    FROM hr_leave_applications
+                    SELECT a.id, a.employee_id, a.employee_name, a.leave_type, a.from_date, a.to_date,
+                           a.days, a.reason, a.status, a.approved_by, a.approved_at, a.created_at,
+                           COALESCE(e.whatsapp, '') as whatsapp, COALESCE(e.email, '') as email
+                    FROM hr_leave_applications a
+                    LEFT JOIN hr_employees e ON a.employee_id = e.id
                 """
                 params = []
                 if status_filter:
@@ -13826,7 +13828,8 @@ def hr_leave_api():
                         'to_date': str(r[5]) if r[5] else None, 'days': r[6],
                         'reason': r[7], 'status': r[8], 'approved_by': r[9],
                         'approved_at': str(r[10]) if r[10] else None,
-                        'created_at': str(r[11]) if r[11] else None
+                        'created_at': str(r[11]) if r[11] else None,
+                        'whatsapp': r[12] or '', 'email': r[13] or ''
                     })
                 return jsonify({'success': True, 'data': leaves})
         except Exception as e:
@@ -13870,12 +13873,6 @@ def hr_leave_approve(leave_id):
             if not result:
                 return jsonify({'success': False, 'error': 'Leave not found or already processed'}), 400
 
-            # Insert into approved table
-            cursor.execute("""
-                INSERT INTO hr_leave_approved
-                    (application_id, employee_id, employee_name, leave_type, from_date, to_date, days, approved_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, result)
             connection.commit()
             return jsonify({'success': True, 'message': 'Leave approved successfully'})
     except Exception as e:
@@ -13900,11 +13897,6 @@ def hr_leave_decline(leave_id):
             if not result:
                 return jsonify({'success': False, 'error': 'Leave not found or already processed'}), 400
 
-            cursor.execute("""
-                INSERT INTO hr_leave_declined
-                    (application_id, employee_id, employee_name, leave_type, from_date, to_date, days, reason, declined_by)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (*result, reason, decliner))
             connection.commit()
             return jsonify({'success': True, 'message': 'Leave declined'})
     except Exception as e:

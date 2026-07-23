@@ -1162,7 +1162,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-calendar-check"></i> Leave Management</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm" onclick="openModal('leaveRequestModal')">
+                    <button class="btn btn-primary btn-sm" onclick="openLeaveRequestModal()">
                         <i class="bi bi-send-plus"></i> New Leave Request
                     </button>
                 </div>
@@ -1232,6 +1232,8 @@
                             <thead>
                                 <tr>
                                     <th>Employee</th>
+                                    <th>WhatsApp</th>
+                                    <th>Email</th>
                                     <th>Leave Type</th>
                                     <th>From</th>
                                     <th>To</th>
@@ -1241,7 +1243,7 @@
                                 </tr>
                             </thead>
                             <tbody id="leaveTableBody">
-                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                <tr><td colspan="9" class="text-center text-muted py-4">
                                     <i class="bi bi-calendar-check" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
                                     No leave records yet.
                                 </td></tr>
@@ -2204,9 +2206,33 @@
                     </div>
                     <small style="color:var(--text-muted);font-size:0.55rem;"><i class="bi bi-info-circle"></i> You are submitting leave as yourself</small>
                 </div>
+
+                <!-- Leave Balance Display -->
+                <div class="mb-3" id="leaveBalanceSection" style="display:none;">
+                    <label class="form-label" style="font-size:0.6rem;text-transform:uppercase;color:var(--text-muted);">Leave Balance</label>
+                    <div id="leaveBalanceDisplay" style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;padding:8px 12px;font-size:0.75rem;font-weight:600;color:#2e7d32;">
+                        <i class="bi bi-pie-chart"></i> <span id="leaveBalanceValue">--</span> days remaining
+                    </div>
+                    <div id="leaveExceedWarning" style="display:none;margin-top:4px;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:4px 8px;font-size:0.6rem;color:#dc2626;">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Requested days exceed your available balance
+                    </div>
+                </div>
+
+                <!-- Approver Details -->
+                <div class="mb-3" id="approverSection" style="display:none;">
+                    <label class="form-label" style="font-size:0.6rem;text-transform:uppercase;color:var(--text-muted);">Leave Approver</label>
+                    <div style="background:#f0f4ff;border:1px solid #b1c5e8;border-radius:6px;padding:8px 12px;font-size:0.65rem;">
+                        <div style="font-weight:600;color:#1e3a5f;margin-bottom:4px;"><i class="bi bi-person-check"></i> <span id="approverName">--</span></div>
+                        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                            <span style="color:#475569;"><i class="bi bi-whatsapp"></i> <span id="approverWhatsapp">--</span></span>
+                            <span style="color:#475569;"><i class="bi bi-envelope"></i> <span id="approverEmail">--</span></span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Leave Type</label>
-                    <select class="form-select" id="leaveType">
+                    <select class="form-select" id="leaveType" onchange="updateLeaveBalanceDisplay()">
                         <option>Annual Leave</option>
                         <option>Sick Leave</option>
                         <option>Study Leave</option>
@@ -3251,7 +3277,7 @@ function renderLeaveTable() {
     }
 
     if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">' +
             '<i class="bi bi-calendar-check" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
             'No leave records in this view.</td></tr>';
         return;
@@ -3273,6 +3299,8 @@ function renderLeaveTable() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td><strong>${leave.employee_name}</strong></td>
+            <td style="font-size:0.6rem;">${leave.whatsapp || '-'}</td>
+            <td style="font-size:0.6rem;">${leave.email || '-'}</td>
             <td>${leave.leave_type}</td>
             <td>${leave.from_date || 'N/A'}</td>
             <td>${leave.to_date || 'N/A'}</td>
@@ -3323,6 +3351,100 @@ function calculateLeaveDays() {
     const to = new Date(toVal + 'T00:00:00');
     if (to < from) { daysInput.value = 0; return; }
     daysInput.value = Math.floor((to - from) / (1000 * 60 * 60 * 24)) + 1;
+    checkLeaveBalanceAndToggleSubmit();
+}
+
+// ===== LEAVE BALANCE VALIDATION =====
+function checkLeaveBalanceAndToggleSubmit() {
+    const submitBtn = document.getElementById('submitLeaveBtn');
+    const warnEl = document.getElementById('leaveExceedWarning');
+    const daysVal = parseInt(document.getElementById('leaveDays').value) || 0;
+    const selectedType = document.getElementById('leaveType').value;
+    const balance = _leaveBalances.find(b => b.leave_type === selectedType);
+
+    if (balance && daysVal > 0 && daysVal > parseFloat(balance.current_balance)) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.cursor = 'not-allowed';
+        warnEl.style.display = 'block';
+    } else {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '';
+        submitBtn.style.cursor = '';
+        warnEl.style.display = 'none';
+    }
+}
+
+// ===== LEAVE BALANCES & APPROVER INFO =====
+let _leaveBalances = [];
+
+async function openLeaveRequestModal() {
+    // Reset form and fetch fresh data
+    document.getElementById('leaveFrom').value = '';
+    document.getElementById('leaveTo').value = '';
+    document.getElementById('leaveDays').value = 1;
+    document.getElementById('leaveReason').value = '';
+    document.getElementById('leaveType').value = 'Annual Leave';
+    const editInput = document.getElementById('editLeaveId');
+    if (editInput) editInput.value = '';
+    const submitBtn = document.querySelector('#leaveRequestForm button[type="button"]');
+    if (submitBtn) submitBtn.innerHTML = '<i class="bi bi-send"></i> Submit Request';
+
+    // Fetch employee details + leave balances
+    if (HR_EMPLOYEE_ID) {
+        try {
+            const [empRes, balRes] = await Promise.all([
+                fetch(`/api/hr/employees/${HR_EMPLOYEE_ID}`),
+                fetch(`/api/hr/leave-balances/${HR_EMPLOYEE_ID}`)
+            ]);
+            const empData = await empRes.json();
+            const balData = await balRes.json();
+
+            if (empData.success && empData.data) {
+                const emp = empData.data;
+                const nameEl = document.getElementById('approverName');
+                const waEl = document.getElementById('approverWhatsapp');
+                const emailEl = document.getElementById('approverEmail');
+                const secEl = document.getElementById('approverSection');
+
+                if (emp.leave_approver_name) {
+                    nameEl.textContent = emp.leave_approver_name;
+                    waEl.textContent = emp.leave_approver_whatsapp || '-';
+                    emailEl.textContent = emp.leave_approver_email || '-';
+                    secEl.style.display = 'block';
+                } else {
+                    secEl.style.display = 'none';
+                }
+            }
+
+            if (balData.success && balData.data) {
+                _leaveBalances = balData.data;
+                document.getElementById('leaveBalanceSection').style.display = 'block';
+                updateLeaveBalanceDisplay();
+            }
+        } catch(e) {
+            console.error('Failed to load leave data:', e);
+            document.getElementById('leaveBalanceSection').style.display = 'none';
+            document.getElementById('approverSection').style.display = 'none';
+        }
+    }
+    openModal('leaveRequestModal');
+}
+
+function updateLeaveBalanceDisplay() {
+    const selectedType = document.getElementById('leaveType').value;
+    const displayEl = document.getElementById('leaveBalanceValue');
+    const balance = _leaveBalances.find(b => b.leave_type === selectedType);
+    if (balance) {
+        displayEl.textContent = balance.current_balance;
+        const balVal = parseFloat(balance.current_balance);
+        const color = balVal <= 0 ? '#dc2626' : balVal <= 3 ? '#b45309' : '#2e7d32';
+        displayEl.style.color = color;
+    } else {
+        displayEl.textContent = '--';
+        displayEl.style.color = '#2e7d32';
+    }
+    checkLeaveBalanceAndToggleSubmit();
 }
 
 async function submitLeaveRequest() {
@@ -3335,6 +3457,14 @@ async function submitLeaveRequest() {
 
     if (!fromDate || !toDate) { alert('Please select From and To dates.'); return; }
     if (parseInt(days) < 1) { alert('Leave must be at least 1 day.'); return; }
+
+    // Safety check: prevent submission if days exceed balance
+    const balance = _leaveBalances.find(b => b.leave_type === leaveType);
+    if (balance && parseInt(days) > parseFloat(balance.current_balance)) {
+        alert('❌ Requested days exceed your available ' + leaveType + ' balance (' + balance.current_balance + ' days).');
+        document.getElementById('hrLoader').classList.remove('active');
+        return;
+    }
 
     document.getElementById('hrLoader').classList.add('active');
 
@@ -3434,7 +3564,36 @@ async function editLeave(leaveId) {
     document.getElementById('editLeaveId').value = leaveId;
     // Change submit button
     const submitBtn = document.querySelector('#leaveRequestForm button[type="button"]');
-    if (submitBtn) submitBtn.textContent = 'Update Leave';
+    if (submitBtn) submitBtn.innerHTML = '<i class="bi bi-pencil"></i> Update Leave';
+
+    // Also load balances and approver info
+    if (HR_EMPLOYEE_ID) {
+        try {
+            const [empRes, balRes] = await Promise.all([
+                fetch(`/api/hr/employees/${HR_EMPLOYEE_ID}`),
+                fetch(`/api/hr/leave-balances/${HR_EMPLOYEE_ID}`)
+            ]);
+            const empData = await empRes.json();
+            const balData = await balRes.json();
+            if (empData.success && empData.data) {
+                const emp = empData.data;
+                const secEl = document.getElementById('approverSection');
+                if (emp.leave_approver_name) {
+                    document.getElementById('approverName').textContent = emp.leave_approver_name;
+                    document.getElementById('approverWhatsapp').textContent = emp.leave_approver_whatsapp || '-';
+                    document.getElementById('approverEmail').textContent = emp.leave_approver_email || '-';
+                    secEl.style.display = 'block';
+                } else { secEl.style.display = 'none'; }
+            }
+            if (balData.success && balData.data) {
+                _leaveBalances = balData.data;
+                document.getElementById('leaveBalanceSection').style.display = 'block';
+                updateLeaveBalanceDisplay();
+            }
+        } catch(e) {
+            console.error('Failed to load leave data for edit:', e);
+        }
+    }
     openModal('leaveRequestModal');
 }
 
