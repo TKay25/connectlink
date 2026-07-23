@@ -1629,7 +1629,7 @@
             <p>Sign in to access employee management portal</p>
         </div>
         <div class="modal-body">
-            <div class="login-form-wrap">
+            <div class="login-form-wrap" id="hrLoginWrap">
                 <div class="error-message" id="hrErrorMsg"></div>
                 <form id="hrLoginForm">
                     <div class="form-group">
@@ -1653,6 +1653,36 @@
                     <a href="#" onclick="event.preventDefault(); toggleResetForm('hr')">Forgot Password?</a>
                     <a href="#">Need help?</a>
                 </div>
+            </div>
+            <!-- First Login: Set New Password -->
+            <div id="hrSetPasswordForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Set New Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">First-time login — choose your new password</div>
+                <div class="error-message" id="hrSetPwError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="hrCurrentPw" placeholder="Temporary password" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="hrSetNewPw" placeholder="Min 4 characters" required>
+                        <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('hrSetNewPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="hrSetConfirmPw" placeholder="Re-enter new password" required>
+                        <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('hrSetConfirmPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="button" class="modal-login-btn" onclick="firstLoginReset('hr')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Set Password</button>
             </div>
             <div id="hrResetForm" style="display:none;">
                 <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔐 Reset Password</span></div>
@@ -1714,7 +1744,7 @@
             <p>Sign in to manage system users &amp; accounts</p>
         </div>
         <div class="modal-body">
-            <div class="login-form-wrap">
+            <div class="login-form-wrap" id="usersLoginWrap">
                 <div class="error-message" id="usersErrorMsg"></div>
                 <form id="usersLoginForm">
                     <div class="form-group">
@@ -1738,6 +1768,36 @@
                     <a href="#" onclick="event.preventDefault(); toggleResetForm('users')">Forgot Password?</a>
                     <a href="#">Support</a>
                 </div>
+            </div>
+            <!-- First Login: Set New Password -->
+            <div id="usersSetPasswordForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Set New Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">First-time login — choose your new password</div>
+                <div class="error-message" id="usersSetPwError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="usersCurrentPw" placeholder="Temporary password" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="usersSetNewPw" placeholder="Min 4 characters" required>
+                        <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('usersSetNewPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="usersSetConfirmPw" placeholder="Re-enter new password" required>
+                        <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('usersSetConfirmPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="button" class="modal-login-btn" onclick="firstLoginReset('users')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Set Password</button>
             </div>
             <!-- Reset Password Form (WhatsApp code flow) -->
             <div id="usersResetForm" style="display:none;">
@@ -2433,8 +2493,11 @@
                 } else if (data.must_reset) {
                     setLoading(false);
                     closeHrModal();
-                    document.getElementById('hrResetEmail').value = data.username;
-                    toggleResetForm('hr', true);
+                    // Show first-login set password form (not WhatsApp reset)
+                    document.getElementById('hrLoginWrap').style.display = 'none';
+                    document.getElementById('hrSetPasswordForm').style.display = 'block';
+                    document.getElementById('hrResetForm').style.display = 'none';
+                    document.getElementById('hrEmail').value = data.username;
                     setError('hr', data.message || 'First-time login — please set a new password.');
                 } else {
                     setLoading(false);
@@ -2480,8 +2543,11 @@
                 } else if (data.must_reset) {
                     setLoading(false);
                     closeUsersModal();
-                    document.getElementById('usersResetEmail').value = data.username;
-                    toggleResetForm('users', true);
+                    // Show first-login set password form (not WhatsApp reset)
+                    document.getElementById('usersLoginWrap').style.display = 'none';
+                    document.getElementById('usersSetPasswordForm').style.display = 'block';
+                    document.getElementById('usersResetForm').style.display = 'none';
+                    document.getElementById('usersEmail').value = data.username;
                     setError('users', data.message || 'First-time login — please set a new password.');
                 } else {
                     setLoading(false);
