@@ -1568,6 +1568,20 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"Note: Could not add subsidiary column to hr_employees: {e}")
 
+            # Add leave_approver columns to hr_employees if not exists
+            try:
+                cursor.execute("""
+                    ALTER TABLE hr_employees
+                    ADD COLUMN IF NOT EXISTS leave_approver_name VARCHAR(200) DEFAULT ''
+                """)
+                cursor.execute("""
+                    ALTER TABLE hr_employees
+                    ADD COLUMN IF NOT EXISTS leave_approver_id INT DEFAULT NULL
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add leave_approver columns: {e}")
+
             # Add allowances column to hr_employees if not exists
             try:
                 cursor.execute("""
