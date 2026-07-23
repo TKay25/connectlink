@@ -2751,6 +2751,103 @@ def webhook():
                                                             print(f"🔘 Button clicked: {button_id}")
                                                             selected_option = ""
 
+                                                            # === HANDLE LEAVE APPROVAL BUTTONS ===
+                                                            bid_lower = (button_id or '').lower()
+                                                            if bid_lower.startswith('approve_leave_') or bid_lower.startswith('decline_leave_'):
+                                                                try:
+                                                                    parts = button_id.split('_')
+                                                                    action = parts[0]  # 'approve' or 'decline'
+                                                                    leave_id = int(parts[-1])
+                                                                    sender = message.get("from", "")
+                                                                    sender_name = push_name or sender
+
+                                                                    with get_db() as (leave_cursor, leave_conn):
+                                                                        # Verify the leave exists and is pending
+                                                                        leave_cursor.execute("""
+                                                                            SELECT employee_name, leave_type, status FROM hr_leave_applications WHERE id = %s
+                                                                        """, (leave_id,))
+                                                                        lr = leave_cursor.fetchone()
+                                                                        if lr and lr[2] == 'Pending':
+                                                                            emp_name = lr[0]
+                                                                            ltype = lr[1]
+
+                                                                            if action == 'approve':
+                                                                                leave_cursor.execute("""
+                                                                                    UPDATE hr_leave_applications
+                                                                                    SET status = 'Approved', approved_by = %s, approved_at = CURRENT_TIMESTAMP
+                                                                                    WHERE id = %s AND status = 'Pending'
+                                                                                """, (sender_name, leave_id))
+                                                                                leave_conn.commit()
+                                                                                confirm = f"✅ Leave #{leave_id} ({emp_name} - {ltype}) has been APPROVED."
+                                                                                print(f"✅ Leave #{leave_id} approved via WhatsApp by {sender_name}")
+
+                                                                            elif action == 'decline':
+                                                                                leave_cursor.execute("""
+                                                                                    UPDATE hr_leave_applications
+                                                                                    SET status = 'Declined'
+                                                                                    WHERE id = %s AND status = 'Pending'
+                                                                                """, (leave_id,))
+                                                                                leave_conn.commit()
+                                                                                confirm = f"❌ Leave #{leave_id} ({emp_name} - {ltype}) has been DECLINED."
+                                                                                print(f"❌ Leave #{leave_id} declined via WhatsApp by {sender_name}")
+
+                                                                            # Send confirmation back to the approver
+                                                                            try:
+                                                                                conf_headers = {
+                                                                                    'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                                    'Content-Type': 'application/json'
+                                                                                }
+                                                                                conf_payload = {
+                                                                                    "messaging_product": "whatsapp",
+                                                                                    "to": sender,
+                                                                                    "type": "text",
+                                                                                    "text": {"body": confirm}
+                                                                                }
+                                                                                requests.post(WHATSAPP_API_URL, json=conf_payload, headers=conf_headers, timeout=15)
+                                                                            except Exception:
+                                                                                pass
+
+                                                                            # Notify the applicant
+                                                                            try:
+                                                                                leave_cursor.execute("""
+                                                                                    SELECT e.whatsapp FROM hr_employees e
+                                                                                    JOIN hr_leave_applications la ON la.employee_id = e.id
+                                                                                    WHERE la.id = %s
+                                                                                """, (leave_id,))
+                                                                                app_row = leave_cursor.fetchone()
+                                                                                if app_row and app_row[0]:
+                                                                                    app_phone = app_row[0]
+                                                                                    app_clean = re.sub(r'[^0-9]', '', str(app_phone))
+                                                                                    if app_clean.startswith('0'):
+                                                                                        app_clean = '263' + app_clean[1:]
+                                                                                    elif not app_clean.startswith('263'):
+                                                                                        app_clean = '263' + app_clean
+                                                                                    app_e164 = f"+{app_clean}"
+                                                                                    status_word = "approved" if action == 'approve' else "declined"
+                                                                                    notif = f"Hi {emp_name}, your {ltype} leave request (#{leave_id}) has been {status_word} by your approver."
+                                                                                    notif_payload = {
+                                                                                        "messaging_product": "whatsapp",
+                                                                                        "to": app_e164,
+                                                                                        "type": "text",
+                                                                                        "text": {"body": notif}
+                                                                                    }
+                                                                                    requests.post(WHATSAPP_API_URL, json=notif_payload, headers=conf_headers, timeout=15)
+                                                                            except Exception:
+                                                                                pass
+
+                                                                            log_activity(
+                                                                                f'leave_{action}',
+                                                                                f'Leave #{leave_id} {action}d via WhatsApp by {sender_name}',
+                                                                                'hr_leave', leave_id,
+                                                                                {'action': action, 'via': 'whatsapp'}
+                                                                            )
+                                                                        else:
+                                                                            print(f"⚠️ Leave #{leave_id} not found or already processed")
+                                                                except Exception as e:
+                                                                    print(f"❌ Error processing leave button: {e}")
+                                                                # Skip further processing for leave buttons
+                                                                continue
+
 
                                                         elif interactive.get("type") == "nfm_reply":
 
@@ -13857,8 +13954,131 @@ def hr_leave_api():
                     data.get('to_date'), data.get('days'), data.get('reason', '')
                 ))
                 lid = cursor.fetchone()[0]
+
+                # Look up applicant's approver info for WhatsApp notification
+                emp_id = data.get('employee_id')
+                approver_phone = None
+                approver_name = None
+                applicant_name = data.get('employee_name', 'Employee')
+                leave_type = data.get('leave_type', 'Leave')
+                days = data.get('days', 0)
+                from_raw = data.get('from_date', '')
+                to_raw = data.get('to_date', '')
+                department = 'General'
+
+                if emp_id:
+                    cursor.execute("""
+                        SELECT e.leave_approver_name, e.leave_approver_whatsapp, e.leave_approver_email,
+                               e.department
+                        FROM hr_employees e WHERE e.id = %s
+                    """, (emp_id,))
+                    emp_row = cursor.fetchone()
+                    if emp_row:
+                        approver_name = emp_row[0]
+                        approver_phone = emp_row[1]
+                        department = emp_row[3] or 'General'
+
+                # Format dates nicely
+                try:
+                    from_dt = datetime.strptime(str(from_raw)[:10], '%Y-%m-%d')
+                    from_formatted = from_dt.strftime('%-d %B %Y')
+                except:
+                    from_formatted = str(from_raw)
+                try:
+                    to_dt = datetime.strptime(str(to_raw)[:10], '%Y-%m-%d')
+                    to_formatted = to_dt.strftime('%-d %B %Y')
+                except:
+                    to_formatted = str(to_raw)
+
                 connection.commit()
-                return jsonify({'success': True, 'id': lid, 'message': 'Leave request submitted'})
+
+            # Send WhatsApp notification to approver (outside DB context)
+            if approver_phone and approver_name and lid:
+                try:
+                    # Normalise approver phone
+                    phone_clean = re.sub(r'[^0-9]', '', str(approver_phone))
+                    if phone_clean.startswith('0'):
+                        phone_clean = '263' + phone_clean[1:]
+                    elif not phone_clean.startswith('263'):
+                        phone_clean = '263' + phone_clean
+                    phone_e164 = f"+{phone_clean}"
+
+                    headers_wa = {
+                        'Authorization': f'Bearer {ACCESS_TOKEN}',
+                        'Content-Type': 'application/json'
+                    }
+
+                    # Step 1: Send the template message (opens 24h conversation window)
+                    template_payload = {
+                        "messaging_product": "whatsapp",
+                        "recipient_type": "individual",
+                        "to": phone_e164,
+                        "type": "template",
+                        "template": {
+                            "name": "leaveappforapproval",
+                            "language": {"code": "en"},
+                            "components": [{
+                                "type": "body",
+                                "parameters": [
+                                    {"type": "text", "text": str(approver_name)},
+                                    {"type": "text", "text": str(applicant_name)},
+                                    {"type": "text", "text": str(department)},
+                                    {"type": "text", "text": str(days)},
+                                    {"type": "text", "text": str(leave_type)},
+                                    {"type": "text", "text": str(from_formatted)},
+                                    {"type": "text", "text": str(to_formatted)}
+                                ]
+                            }]
+                        }
+                    }
+                    resp_template = requests.post(WHATSAPP_API_URL, json=template_payload, headers=headers_wa, timeout=15)
+                    print(f"📤 Leave template sent to {phone_clean}: {resp_template.status_code}")
+
+                    # Step 2: Send interactive button message with dynamic leave_id payloads
+                    button_payload = {
+                        "messaging_product": "whatsapp",
+                        "recipient_type": "individual",
+                        "to": phone_e164,
+                        "type": "interactive",
+                        "interactive": {
+                            "type": "button",
+                            "body": {
+                                "text": f"Leave application #{lid} from {applicant_name} ({leave_type}, {days} days). Please decide:"
+                            },
+                            "action": {
+                                "buttons": [
+                                    {
+                                        "type": "reply",
+                                        "reply": {
+                                            "id": f"approve_leave_{lid}",
+                                            "title": "✅ Approve"
+                                        }
+                                    },
+                                    {
+                                        "type": "reply",
+                                        "reply": {
+                                            "id": f"decline_leave_{lid}",
+                                            "title": "❌ Decline"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                    resp_buttons = requests.post(WHATSAPP_API_URL, json=button_payload, headers=headers_wa, timeout=15)
+                    print(f"📤 Leave buttons sent to {phone_clean}: {resp_buttons.status_code}")
+
+                    # Log activity
+                    log_activity(
+                        'leave_notification',
+                        f'Leave #{lid} approval request sent via WhatsApp to {approver_name} ({phone_clean})',
+                        'hr_leave', lid,
+                        {'approver': approver_name, 'phone': phone_clean}
+                    )
+                except Exception as wa_err:
+                    print(f"⚠️ Failed to send WhatsApp leave notification: {wa_err}")
+
+            return jsonify({'success': True, 'id': lid, 'message': 'Leave request submitted'})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
 
