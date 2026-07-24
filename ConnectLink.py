@@ -13441,7 +13441,7 @@ def login():
                 # DENY login if user has NO portal permissions at all
                 has_projects = perms.get('is_super_admin', False) or perms.get('can_manage_projects', False)
                 has_hardware = perms.get('is_super_admin', False) or perms.get('can_manage_hardware', False)
-                has_hr = perms.get('can_manage_hr', False)
+                has_hr = perms.get('can_manage_hr', False) or perms.get('hr_access', False)
                 if not perms.get('is_super_admin', False) and not has_projects and not has_hardware and not has_hr:
                     return jsonify({
                         'success': False,
@@ -13610,6 +13610,7 @@ def hr_login():
             session['user_name'] = user_name
             session['hr_role'] = 'Administrator' if is_hr_admin else 'Ordinary User'
             session['can_manage_hr'] = is_hr_admin
+            session['hr_access'] = has_hr_access
 
             # Auto-create hr_employee record if not exists
             cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
@@ -13664,16 +13665,19 @@ def hr_dashboard():
                 has_hr_admin = bool(perm and (perm[0] or perm[1]))
                 has_hr_basic = bool(perm and (perm[0] or perm[2])) if perm and len(perm) > 2 else has_hr_admin
                 can_manage_hr = has_hr_admin
+                hr_access = has_hr_basic
                 hr_role = 'Administrator' if has_hr_admin else ('Ordinary User' if has_hr_basic else 'Ordinary User')
                 # Cache in session
                 session['hr_role'] = hr_role
                 session['can_manage_hr'] = can_manage_hr
+                session['hr_access'] = hr_access
                 session['hr_employee_id'] = userid
                 hr_employee_id = userid
         except Exception as e:
             print(f"HR role lookup error: {e}")
             hr_role = 'Ordinary User'
             can_manage_hr = False
+            hr_access = False
 
     # Fallback: if hr_employee_id still not set, use userid
     if hr_employee_id is None and userid:
@@ -13682,7 +13686,7 @@ def hr_dashboard():
 
     return render_template('hr_dashboard.html', user_name=user_name, userid=userid,
                            hr_role=hr_role or 'Ordinary User', hr_employee_id=hr_employee_id,
-                           can_manage_hr=can_manage_hr or False)
+                           can_manage_hr=can_manage_hr or False, hr_access=hr_access or False)
 
 
 # ==================== HR API ENDPOINTS ====================
@@ -14009,17 +14013,21 @@ def hr_employee_detail(emp_id):
                 except Exception:
                     pass
 
-                # Sync role ↔ user_permissions.can_manage_hr
+                # Sync role ↔ user_permissions.can_manage_hr AND hr_access
                 try:
                     new_role = data.get('role', 'Ordinary User')
                     is_admin = (new_role == 'Administrator')
+                    # Ordinary Users keep hr_access=True for basic HR portal access
+                    has_basic_access = True  # Both Admin and Ordinary User get at least basic HR access
                     # Try both user_type='projects' and user_type='hr' for the emp_id
                     for utype in ('projects', 'hr'):
                         cursor.execute("""
-                            INSERT INTO user_permissions (user_type, user_id, can_manage_hr, is_super_admin)
-                            VALUES (%s, %s, %s, %s)
-                            ON CONFLICT (user_type, user_id) DO UPDATE SET can_manage_hr = EXCLUDED.can_manage_hr
-                        """, (utype, emp_id, is_admin, False))
+                            INSERT INTO user_permissions (user_type, user_id, can_manage_hr, hr_access, is_super_admin)
+                            VALUES (%s, %s, %s, %s, %s)
+                            ON CONFLICT (user_type, user_id) DO UPDATE SET
+                                can_manage_hr = EXCLUDED.can_manage_hr,
+                                hr_access = EXCLUDED.hr_access
+                        """, (utype, emp_id, is_admin, has_basic_access, False))
                 except Exception:
                     pass
 
@@ -27103,7 +27111,7 @@ def um_permissions_api():
                            up.can_manage_hr, up.can_add_users, up.can_edit_users,
                            up.can_delete_users, up.can_export_data, up.can_view_audit,
                            up.can_manage_roles, up.can_view_payments, up.can_edit_projects,
-                           up.can_download_master_file
+                           up.can_download_master_file, up.hr_access
                     FROM user_permissions up
                     LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
                     LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
@@ -27120,7 +27128,8 @@ def um_permissions_api():
                         'can_delete_users': r[10], 'can_export_data': r[11],
                         'can_view_audit': r[12], 'can_manage_roles': r[13],
                         'can_view_payments': r[14], 'can_edit_projects': r[15],
-                        'can_download_master_file': r[16] if len(r) > 16 else True
+                        'can_download_master_file': r[16] if len(r) > 16 else True,
+                        'hr_access': r[17] if len(r) > 17 else False
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
