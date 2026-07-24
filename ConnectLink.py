@@ -13564,20 +13564,18 @@ def hr_login():
             has_hr_access = False
             for utype in (source_sys if source_sys else 'projects', 'projects', 'hr'):
                 cursor.execute("""
-                    SELECT can_manage_hr, is_super_admin
+                    SELECT can_manage_hr, is_super_admin, hr_access
                     FROM user_permissions WHERE user_type=%s AND user_id=%s
                 """, (utype, source_id if source_id else userid))
                 perm_row = cursor.fetchone()
-                if perm_row and (perm_row[0] or perm_row[1]):
-                    is_hr_admin = True
-                    has_hr_access = True
-                    break
-                elif perm_row:
-                    # User has a permissions record but no HR access — still deny
-                    pass
-                else:
-                    # No permissions record at all for this user_type — try next
-                    pass
+                if perm_row:
+                    if perm_row[0] or perm_row[1]:  # can_manage_hr or is_super_admin
+                        is_hr_admin = True
+                        has_hr_access = True
+                        break
+                    if len(perm_row) > 2 and perm_row[2]:  # hr_access (basic)
+                        has_hr_access = True
+                        break
 
             # Also check using get_user_permissions for consistent fallback logic
             if not has_hr_access:
@@ -13585,6 +13583,8 @@ def hr_login():
                 if perms.get('is_super_admin', False) or perms.get('can_manage_hr', False):
                     has_hr_access = True
                     is_hr_admin = True
+                elif perms.get('hr_access', False):
+                    has_hr_access = True
 
             if not has_hr_access:
                 # Final fallback: try 'hr' user_type directly
@@ -13592,6 +13592,8 @@ def hr_login():
                 if perms.get('is_super_admin', False) or perms.get('can_manage_hr', False):
                     has_hr_access = True
                     is_hr_admin = True
+                elif perms.get('hr_access', False):
+                    has_hr_access = True
 
             if not has_hr_access:
                 return jsonify({
@@ -13647,9 +13649,8 @@ def hr_dashboard():
     if not user_uuid:
         return render_template('mainindex.html')
 
-    # If hr_role isn't in session (e.g. logged in via main login, not hr-login),
-    # look up permissions from DB and set hr_employee_id fallback
-    if hr_role is None and userid:
+    # Look up HR permissions from DB on every visit (to pick up permission changes)
+    if userid:
         try:
             with get_db() as (cursor, connection):
                 cursor.execute("""
