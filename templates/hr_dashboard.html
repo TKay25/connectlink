@@ -2507,7 +2507,7 @@ function toggleAdminView() {
     isAdminView = !isAdminView;
     const adminBtn = document.getElementById('roleAdminBtn');
     const userBtn = document.getElementById('roleUserBtn');
-    const adminModules = ['employees', 'paye', 'reports'];
+    const adminModules = ['employees', 'payroll', 'paye', 'reports'];
     const profileModules = ['my-activity'];
     const profileSection = document.getElementById('sidebarProfileSection');
 
@@ -2570,7 +2570,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (HR_ROLE !== 'Administrator') {
         // Ordinary users: hide admin-only sidebar items
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        ['employees', 'paye', 'reports'].forEach(m => {
+        ['employees', 'payroll', 'paye', 'reports'].forEach(m => {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = 'none';
         });
