@@ -1324,9 +1324,6 @@
                         <span style="font-size:0.6rem;background:#f0fdf4;padding:2px 8px;border-radius:4px;color:#16a34a;">
                             <i class="bi bi-shield"></i> NSSA: <strong id="sumNssa">$0</strong>
                         </span>
-                        <span style="font-size:0.6rem;background:#f3e8ff;padding:2px 8px;border-radius:4px;color:#7c3aed;">
-                            <i class="bi bi-mortarboard"></i> ZIMDEF: <strong id="sumZimdef">$0</strong>
-                        </span>
                     </div>
                 </div>
             </div>
@@ -1346,7 +1343,6 @@
                                     <th>PAYE</th>
                                     <th>AIDS Levy</th>
                                     <th>NSSA</th>
-                                    <th>ZIMDEF</th>
                                     <th>Total Ded.</th>
                                     <th>Net Pay</th>
                                     <th>Status</th>
@@ -4410,7 +4406,7 @@ async function loadPayroll(period) {
                 '<i class="bi bi-wallet2" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
                 'No payroll data. Click <strong>"Process Payroll"</strong> to generate.</td></tr>';
             // Reset deduction breakdown
-            ['sumPaye','sumAids','sumNssa','sumZimdef'].forEach(id => {
+            ['sumPaye','sumAids','sumNssa'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = '$0';
             });
@@ -4423,7 +4419,7 @@ async function loadPayroll(period) {
             : data.data;
 
         let gross = 0, deductions = 0, net = 0;
-        let sumPaye = 0, sumAids = 0, sumNssa = 0, sumZimdef = 0;
+        let sumPaye = 0, sumAids = 0, sumNssa = 0;
         tbody.innerHTML = '';
 
         payrollData.forEach(rec => {
@@ -4433,7 +4429,7 @@ async function loadPayroll(period) {
             sumPaye += rec.paye_tax || 0;
             sumAids += rec.aids_levy || 0;
             sumNssa += rec.nssa || 0;
-            sumZimdef += rec.zimdef || 0;
+
 
             const statusBadge = rec.status === 'Paid' ? 'badge-hr active' :
                                rec.status === 'Processed' ? 'badge-hr pending' : 'badge-hr inactive';
@@ -4445,7 +4441,6 @@ async function loadPayroll(period) {
                 <td style="color:#dc2626;">$${(rec.paye_tax || 0).toFixed(2)}</td>
                 <td style="color:#b45309;">$${(rec.aids_levy || 0).toFixed(2)}</td>
                 <td style="color:#16a34a;">$${(rec.nssa || 0).toFixed(2)}</td>
-                <td style="color:#7c3aed;">$${(rec.zimdef || 0).toFixed(2)}</td>
                 <td>$${(rec.deductions || 0).toFixed(2)}</td>
                 <td><strong>$${(rec.net_pay || 0).toFixed(2)}</strong></td>
                 <td><span class="${statusBadge}">${rec.status}</span></td>
@@ -4470,7 +4465,7 @@ async function loadPayroll(period) {
         document.getElementById('sumPaye').textContent = '$' + sumPaye.toFixed(2);
         document.getElementById('sumAids').textContent = '$' + sumAids.toFixed(2);
         document.getElementById('sumNssa').textContent = '$' + sumNssa.toFixed(2);
-        document.getElementById('sumZimdef').textContent = '$' + sumZimdef.toFixed(2);
+
     } catch(e) { console.error('Payroll error:', e); }
 }
 

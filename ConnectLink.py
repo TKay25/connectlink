@@ -1811,7 +1811,7 @@ def initialize_database_tables():
                     ('AIDS_LEVY', 'AIDS Levy', '3% of PAYE tax amount', 3.0, 'percentage_of_paye', 0, True, True),
                     ('NSSA_EMPLOYEE', 'NSSA (Employee)', 'NSSA employee pension contribution', 4.5, 'percentage_of_gross', 0, True, True),
                     ('NSSA_EMPLOYER', 'NSSA (Employer)', 'NSSA employer pension contribution', 4.5, 'percentage_of_gross', 0, True, False),
-                    ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, True),
+                    ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, False),
                 ]
                 for dc in seed_deductions:
                     cursor.execute("""
@@ -14853,7 +14853,7 @@ def hr_payroll_api():
                     zimdef_rate = zimdef_config.get('rate', 1.0)
                     zimdef = taxable_income * (zimdef_rate / 100)
 
-                    total = nssa_amount + monthly_paye + aids_levy + zimdef
+                    total = nssa_amount + monthly_paye + aids_levy  # ZIMDEF is employer-only, not deducted from employee
                     return {
                         'paye': monthly_paye,
                         'aids_levy': aids_levy,
@@ -15740,7 +15740,7 @@ def hr_payroll_calculate_full():
             'basis': 'Taxable income (gross - NSSA)'
         }
 
-        total_deductions = nssa_amount + monthly_paye + aids_levy + zimdef_amount
+        total_deductions = nssa_amount + monthly_paye + aids_levy  # ZIMDEF is employer-only
         net_pay = max(0, salary - total_deductions)
 
         return jsonify({
