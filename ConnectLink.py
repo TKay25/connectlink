@@ -13654,31 +13654,24 @@ def hr_dashboard():
     if userid:
         try:
             with get_db() as (cursor, connection):
-                # The user_permissions table can have rows with different user_id values:
-                # - 'projects' row uses source_id (connectlinkusers.id)
-                # - 'hr' row uses hr_employees.id
-                # We need to query for ALL possible user_id values
-                source_sys = session.get('source_system', 'projects')
+                # User_id can differ across tables (admin_users.id, source_id, hr_employees.id).
+                # Query ALL possible user_ids to catch every permission row.
                 source_id = session.get('source_id')
-
-                # Build list of user_ids to check
-                user_ids_to_check = [userid]
+                all_ids = [userid]
                 if source_id and source_id != userid:
-                    user_ids_to_check.append(source_id)
-
-                # Also look up hr_employees linked to this admin user
+                    all_ids.append(source_id)
                 cursor.execute("SELECT id FROM hr_employees WHERE user_id = %s", (userid,))
-                hr_emp = cursor.fetchone()
-                if hr_emp and hr_emp[0] not in user_ids_to_check:
-                    user_ids_to_check.append(hr_emp[0])
+                hr_row = cursor.fetchone()
+                if hr_row and hr_row[0] not in all_ids:
+                    all_ids.append(hr_row[0])
+                placeholders = ','.join(['%s'] * len(all_ids))
 
-                placeholders = ','.join(['%s'] * len(user_ids_to_check))
                 cursor.execute(f"""
                     SELECT is_super_admin, can_manage_hr, hr_access
                     FROM user_permissions
                     WHERE (user_type = 'projects' OR user_type = 'hr')
                     AND user_id IN ({placeholders})
-                """, user_ids_to_check)
+                """, all_ids)
                 rows = cursor.fetchall()
                 # Check ALL rows. Use OR logic: if ANY row has the permission, grant it.
                 has_hr_admin = False
@@ -27188,49 +27181,32 @@ def um_permissions_api():
                     {set_clauses}
                 """, [user_type, user_id] + values + values)
 
-                # Sync HR fields across user_types
-                # The 'hr' user_permissions row uses hr_employees.id as user_id,
-                # which may differ from the admin_users.source_id used for 'projects'.
+                # Brute-force sync HR fields to ALL permission rows for this user.
+                # User_id can differ across tables (admin_users.id, source_id, hr_employees.id),
+                # so we find ALL possible user_ids and update every matching row.
                 hr_admin_val = data.get('can_manage_hr', False)
                 hr_access_val = data.get('hr_access', False)
-
-                # If saving a non-hr type, find the linked hr_employee record
-                if user_type != 'hr':
-                    cursor.execute("""
-                        SELECT he.id FROM hr_employees he
-                        JOIN admin_users au ON au.id = he.user_id
-                        WHERE au.source_system = %s AND au.source_id = %s
-                    """, (user_type, user_id))
-                    hr_emp = cursor.fetchone()
-                    if hr_emp:
-                        cursor.execute("""
-                            UPDATE user_permissions SET can_manage_hr = %s, hr_access = %s
-                            WHERE user_type = 'hr' AND user_id = %s
-                        """, (hr_admin_val, hr_access_val, hr_emp[0]))
-
-                # If saving the hr type, the user_id is admin_users.id but the actual
-                # 'hr' row uses hr_employees.id — look up the correct emp id
-                if user_type == 'hr':
-                    cursor.execute("""
-                        SELECT id FROM hr_employees WHERE user_id = %s
-                    """, (user_id,))
-                    hr_emp = cursor.fetchone()
-                    if hr_emp:
-                        # Update existing 'hr' row with correct hr_employees.id
-                        cursor.execute("""
-                            UPDATE user_permissions SET can_manage_hr = %s, hr_access = %s
-                            WHERE user_type = 'hr' AND user_id = %s
-                        """, (hr_admin_val, hr_access_val, hr_emp[0]))
-                        # Also sync to the 'projects' row if it exists
-                        cursor.execute("""
-                            SELECT au.source_id FROM admin_users au WHERE au.id = %s
-                        """, (user_id,))
-                        au_row = cursor.fetchone()
-                        if au_row and au_row[0]:
-                            cursor.execute("""
-                                UPDATE user_permissions SET can_manage_hr = %s, hr_access = %s
-                                WHERE user_type = 'projects' AND user_id = %s
-                            """, (hr_admin_val, hr_access_val, au_row[0]))
+                
+                # Collect all possible user_ids for this admin user
+                cursor.execute("""
+                    SELECT DISTINCT uid FROM (
+                        SELECT %s AS uid
+                        UNION SELECT au.id FROM admin_users au WHERE au.source_id = %s
+                        UNION SELECT au.source_id FROM admin_users au WHERE au.id = %s AND au.source_id IS NOT NULL
+                        UNION SELECT he.id FROM hr_employees he 
+                            JOIN admin_users au ON au.id = he.user_id 
+                            WHERE (au.id = %s OR au.source_id = %s)
+                    ) ids WHERE uid IS NOT NULL
+                """, (user_id, user_id, user_id, user_id, user_id))
+                all_ids = [r[0] for r in cursor.fetchall()]
+                
+                if all_ids:
+                    placeholders = ','.join(['%s'] * len(all_ids))
+                    cursor.execute(f"""
+                        UPDATE user_permissions SET can_manage_hr = %s, hr_access = %s
+                        WHERE (user_type = 'projects' OR user_type = 'hr')
+                        AND user_id IN ({placeholders})
+                    """, [hr_admin_val, hr_access_val] + all_ids)
 
                 connection.commit()
                 return jsonify({'success': True, 'message': 'Permissions updated'})
