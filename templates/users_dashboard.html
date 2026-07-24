@@ -894,11 +894,15 @@
                 <i class="bi bi-people"></i> HR Admin Access
             </div>
             <div class="perm-row">
-                <span class="perm-label"><i class="bi bi-people"></i> Manage HR</span>
+                <span class="perm-label"><i class="bi bi-people"></i> Manage HR <span style="font-size:0.5rem;color:var(--text-muted);">(Admin toggle, payroll, full access)</span></span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_hr"><span class="toggle-slider"></span></label>
             </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-person-check"></i> HR Access <span style="font-size:0.5rem;color:var(--text-muted);">(Basic HR, WhatsApp HR button)</span></span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-hr_access"><span class="toggle-slider"></span></label>
+            </div>
             <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
-                <i class="bi bi-person-badge"></i> HR Basic Access
+                <i class="bi bi-person-badge"></i> User Management
             </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-person-plus"></i> Add Users</span>
@@ -1002,10 +1006,10 @@ function buildSwitchPortals() {
     const portals = [
         { perm: 'can_manage_projects', label: 'Switch to Projects', url: '/dashboard', icon: 'bi-building' },
         { perm: 'can_manage_hardware', label: 'Switch to Hardware POS', url: '/pos-system.html', icon: 'bi-cart' },
-        { perm: 'can_manage_hr', label: 'Switch to HR', url: '/hr-dashboard', icon: 'bi-people' },
+        { perm: 'can_manage_hr', label: 'Switch to HR', url: '/hr-dashboard', icon: 'bi-people', alt: 'hr_access' },
     ];
     container.innerHTML = portals
-        .filter(p => PERMS && (PERMS.is_super_admin || PERMS[p.perm]))
+        .filter(p => PERMS && (PERMS.is_super_admin || PERMS[p.perm] || (p.alt && PERMS[p.alt])))
         .map(p => `<button class="dropdown-item" onclick="switchPortal('${p.url}','${p.label}')"><i class="${p.icon}"></i> ${p.label}</button>`)
         .join('');
 }
@@ -1140,7 +1144,7 @@ function renderOverview() {
     // ---- Stats ----
     const superAdminCount = admin.filter(u => getPerm(u).is_super_admin).length;
     const hwCount = admin.filter(u => has(u, 'can_manage_hardware')).length;
-    const hrCount = admin.filter(u => has(u, 'can_manage_hr')).length;
+    const hrCount = admin.filter(u => has(u, 'can_manage_hr') || has(u, 'hr_access')).length;
     document.getElementById('statTotal').textContent = total;
     document.getElementById('statSuperAdmins').textContent = superAdminCount;
     document.getElementById('statHardware').textContent = hwCount;
@@ -1200,7 +1204,8 @@ function renderOverview() {
     const permDefs = [
         { key: 'can_manage_projects', label: 'Projects', color: '#3b82f6' },
         { key: 'can_manage_hardware', label: 'Hardware', color: '#f59e0b' },
-        { key: 'can_manage_hr', label: 'HR', color: '#8b5cf6' },
+        { key: 'can_manage_hr', label: 'HR Admin', color: '#8b5cf6' },
+        { key: 'hr_access', label: 'HR Access', color: '#a78bfa' },
         { key: 'can_view_payments', label: 'Payments', color: '#ef4444' },
         { key: 'can_manage_roles', label: 'Roles', color: '#06b6d4' },
         { key: 'can_download_master_file', label: 'Master File', color: '#0d6efd' },
@@ -1227,7 +1232,7 @@ function renderOverview() {
     const thisWeek = admin.filter(u => u.created_at && new Date(u.created_at) >= startOfWeek).length;
     const thisMonth = admin.filter(u => u.created_at && new Date(u.created_at) >= startOfMonth).length;
     const adminRoleCount = admin.filter(u => u.role === 'admin').length;
-    const withPerms = admin.filter(u => { const p = getPerm(u); return p.is_super_admin || p.can_manage_projects || p.can_manage_hardware || p.can_manage_hr || p.can_view_payments || p.can_download_master_file; }).length;
+    const withPerms = admin.filter(u => { const p = getPerm(u); return p.is_super_admin || p.can_manage_projects || p.can_manage_hardware || p.can_manage_hr || p.hr_access || p.can_view_payments || p.can_download_master_file; }).length;
     const lastMonth = admin.filter(u => u.created_at && new Date(u.created_at) >= new Date(now.getFullYear(), now.getMonth()-1, 1) && new Date(u.created_at) < startOfMonth).length;
     const growth = lastMonth > 0 ? Math.round((thisMonth - lastMonth) / lastMonth * 100) : (thisMonth > 0 ? 100 : 0);
     const utilPct = total > 0 ? Math.round(withPerms / total * 100) : 0;
@@ -1254,7 +1259,8 @@ function getPortalAccessBadges(p) {
     let badges = [];
     if (p.can_manage_projects) badges.push('<span class="badge-um active" style="font-size:0.5rem;">Projects</span>');
     if (p.can_manage_hardware) badges.push('<span class="badge-um admin" style="font-size:0.5rem;">Hardware</span>');
-    if (p.can_manage_hr) badges.push('<span class="badge-um ordinary" style="font-size:0.5rem;">HR</span>');
+    if (p.can_manage_hr) badges.push('<span class="badge-um active" style="font-size:0.5rem;">HR Admin</span>');
+    if (p.hr_access && !p.can_manage_hr) badges.push('<span class="badge-um ordinary" style="font-size:0.5rem;">HR</span>');
     if (p.can_view_payments) badges.push('<span class="badge-um amber" style="font-size:0.5rem;background:#fff3e0;color:#ef6c00;">Payments</span>');
     if (p.can_download_master_file) badges.push('<span class="badge-um" style="font-size:0.5rem;background:#e3f2fd;color:#1565c0;">Master File</span>');
     return badges.length ? badges.join(' ') : '<span class="badge-um inactive" style="font-size:0.5rem;">None</span>';
@@ -1418,7 +1424,8 @@ function renderHrUsers() {
         const sys = u.source_system || 'hr';
         const p = permIndex[sys + ':' + (u.source_id || u.id)];
         if (p && p.is_super_admin) return '<span class="badge-um admin" style="font-size:0.5rem;background:#f59e0b;color:white;"><i class="bi bi-star-fill"></i> Admin</span>';
-        if (p && p.can_manage_hr) return '<span class="badge-um active" style="font-size:0.5rem;">Manager</span>';
+        if (p && p.can_manage_hr) return '<span class="badge-um active" style="font-size:0.5rem;">HR Manager</span>';
+        if (p && p.hr_access) return '<span class="badge-um ordinary" style="font-size:0.5rem;">HR User</span>';
         return '<span class="badge-um ordinary" style="font-size:0.5rem;">Basic</span>';
     };
     const permType = (u) => u.source_system || 'hr';
@@ -1636,6 +1643,7 @@ async function loadAuditLog() {
 // ===== SUPER ADMIN AUTO-TOGGLE =====
 const PERM_TOGGLE_IDS = [
     'can_manage_projects', 'can_manage_hardware', 'can_manage_hr',
+    'hr_access',
     'can_add_users', 'can_edit_users', 'can_delete_users',
     'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments',
     'can_edit_projects', 'can_download_master_file'
@@ -1669,6 +1677,7 @@ function openPermModal(userType, userId, userName) {
 
 async function loadPermModalData(userType, userId) {
     const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
+                     'hr_access',
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file'];
@@ -1701,6 +1710,7 @@ async function loadPermModalData(userType, userId) {
 
 async function savePermModal() {
     const toggles = ['is_super_admin','can_manage_projects','can_manage_hardware','can_manage_hr',
+                     'hr_access',
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file'];  

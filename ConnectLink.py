@@ -1489,6 +1489,18 @@ def initialize_database_tables():
                 """)
                 connection.commit()
             except Exception as e:
+                print(f"Note: {e}")
+            # Add hr_access column if it doesn't exist
+            try:
+                cursor.execute("""
+                    ALTER TABLE user_permissions
+                    ADD COLUMN IF NOT EXISTS hr_access BOOLEAN DEFAULT FALSE
+                """)
+                connection.commit()
+                print("✓ Added hr_access column to user_permissions")
+            except Exception as e:
+                print(f"Note: Could not add hr_access column: {e}")
+            except Exception as e:
                 print(f"Note: Could not add can_view_payments column: {e}")
 
             # Add can_edit_projects column if it doesn't exist
@@ -2684,14 +2696,11 @@ def webhook():
 
                                                 # Check if admin also has HR access
                                                 has_hr_access = False
-                                                # Admin users automatically get HR access (no separate hr_employees check needed)
-                                                if is_from_admin_users:
-                                                    has_hr_access = True
-                                                else:
-                                                    # Fallback: check hr_employees for legacy connectlinkusers
-                                                    cursor.execute("SELECT id FROM hr_employees WHERE whatsapp::TEXT LIKE %s LIMIT 1", (f"%{sender_number}%",))
-                                                    if cursor.fetchone():
-                                                        has_hr_access = True
+                                                try:
+                                                    perms = get_user_permissions('projects', id_user)
+                                                    has_hr_access = perms.get('is_super_admin', False) or perms.get('can_manage_hr', False) or perms.get('hr_access', False)
+                                                except:
+                                                    pass
 
                                                 try:
                                                 
@@ -5279,6 +5288,17 @@ def webhook():
 
                                                         elif button_id == "enquiries":
 
+                                                            # Check project permissions
+                                                            has_projects_access = False
+                                                            try:
+                                                                proj_perms = get_user_permissions('projects', id_user)
+                                                                has_projects_access = proj_perms.get('is_super_admin', False) or proj_perms.get('can_manage_projects', False)
+                                                            except:
+                                                                pass
+                                                            if not has_projects_access:
+                                                                send_text_message(sender_id, "❌ You do not have permission to access the Projects system.")
+                                                                continue
+
                                                             """Generate and send enquiries PDF via WhatsApp"""
                                                             try:
                                                                 with get_db() as (cursor, connection):
@@ -5692,22 +5712,32 @@ def webhook():
                                                                     response = requests.post(text_url, headers=text_headers, json=doc_payload)
                                                                     response.raise_for_status()
 
-                                                                    buttons = [
-                                                                        {
-                                                                            "type": "reply",
-                                                                            "reply": {
-                                                                                "id": "projects",
-                                                                                "title": "Projects"
+                                                                    # Check project permissions
+                                                                    has_projects_access = False
+                                                                    try:
+                                                                        proj_perms = get_user_permissions('projects', id_user)
+                                                                        has_projects_access = proj_perms.get('is_super_admin', False) or proj_perms.get('can_manage_projects', False)
+                                                                    except:
+                                                                        pass
+
+                                                                    buttons = []
+                                                                    if has_projects_access:
+                                                                        buttons.extend([
+                                                                            {
+                                                                                "type": "reply",
+                                                                                "reply": {
+                                                                                    "id": "projects",
+                                                                                    "title": "Projects"
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "type": "reply",
+                                                                                "reply": {
+                                                                                    "id": "enquiries",
+                                                                                    "title": "Enquiries"
+                                                                                }
                                                                             }
-                                                                        },
-                                                                        {
-                                                                            "type": "reply",
-                                                                            "reply": {
-                                                                                "id": "enquiries",
-                                                                                "title": "Enquiries"
-                                                                            }
-                                                                        }
-                                                                    ]
+                                                                        ])
 
                                                                     if has_hr_access:
                                                                         buttons.append({
@@ -5754,22 +5784,32 @@ def webhook():
 
                                                         elif button_id == "main_menu" or selected_option == "main_menu":
 
-                                                            buttons = [
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "projects",
-                                                                        "title": "Projects"
+                                                            # Check project permissions
+                                                            has_projects_access = False
+                                                            try:
+                                                                proj_perms = get_user_permissions('projects', id_user)
+                                                                has_projects_access = proj_perms.get('is_super_admin', False) or proj_perms.get('can_manage_projects', False)
+                                                            except:
+                                                                pass
+
+                                                            buttons = []
+                                                            if has_projects_access:
+                                                                buttons.extend([
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "projects",
+                                                                            "title": "Projects"
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "type": "reply",
+                                                                        "reply": {
+                                                                            "id": "enquiries",
+                                                                            "title": "Enquiries"
+                                                                        }
                                                                     }
-                                                                },
-                                                                {
-                                                                    "type": "reply",
-                                                                    "reply": {
-                                                                        "id": "enquiries",
-                                                                        "title": "Enquiries"
-                                                                    }
-                                                                }
-                                                            ]
+                                                                ])
 
                                                             if has_hr_access:
                                                                 buttons.append({
@@ -6839,22 +6879,32 @@ def webhook():
                                                         print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
 
                                                         
-                                                        buttons = [
-                                                            {
-                                                                "type": "reply",
-                                                                "reply": {
-                                                                    "id": "projects",
-                                                                    "title": "Projects"
+                                                        # Check project permissions
+                                                        has_projects_access = False
+                                                        try:
+                                                            proj_perms = get_user_permissions('projects', id_user)
+                                                            has_projects_access = proj_perms.get('is_super_admin', False) or proj_perms.get('can_manage_projects', False)
+                                                        except:
+                                                            pass
+
+                                                        buttons = []
+                                                        if has_projects_access:
+                                                            buttons.extend([
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "projects",
+                                                                        "title": "Projects"
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "reply",
+                                                                    "reply": {
+                                                                        "id": "enquiries",
+                                                                        "title": "Enquiries"
+                                                                    }
                                                                 }
-                                                            },
-                                                            {
-                                                                "type": "reply",
-                                                                "reply": {
-                                                                    "id": "enquiries",
-                                                                    "title": "Enquiries"
-                                                                }
-                                                            }
-                                                        ]
+                                                            ])
 
                                                         if has_hr_access:
                                                             buttons.append({
@@ -13054,15 +13104,17 @@ def Dashboard():
 
                 # Check other portal permissions for navbar switching
                 can_manage_hr = perms.get('can_manage_hr', False) or perms.get('is_super_admin', False)
+                hr_access = perms.get('hr_access', False) or perms.get('is_super_admin', False)
                 can_manage_hardware = perms.get('can_manage_hardware', False) or perms.get('is_super_admin', False)
                 can_manage_roles = perms.get('can_manage_roles', False) or perms.get('is_super_admin', False)
-                if not any([can_manage_hr, can_manage_hardware, can_manage_roles]):
+                if not any([can_manage_hr, hr_access, can_manage_hardware, can_manage_roles]):
                     for utype in ('hr', 'hardware', 'projects'):
                         p = get_user_permissions(utype, source_id)
                         if p.get('is_super_admin', False):
-                            can_manage_hr = can_manage_hardware = can_manage_roles = True
+                            can_manage_hr = hr_access = can_manage_hardware = can_manage_roles = True
                             break
                         if p.get('can_manage_hr', False): can_manage_hr = True
+                        if p.get('hr_access', False): hr_access = True
                         if p.get('can_manage_hardware', False): can_manage_hardware = True
                         if p.get('can_manage_roles', False): can_manage_roles = True
 
@@ -13070,7 +13122,8 @@ def Dashboard():
 
                 return render_template('adminpage.html', **results, userid=userid, user_name=user_name,
                                        can_view_payments=can_view_payments, can_edit_projects=can_edit_projects,
-                                       can_manage_hr=can_manage_hr, can_manage_hardware=can_manage_hardware,
+                                       can_manage_hr=can_manage_hr, hr_access=hr_access,
+                                       can_manage_hardware=can_manage_hardware,
                                        can_manage_roles=can_manage_roles,
                                        can_download_master_file=can_download_master_file)
                     
@@ -13600,16 +13653,17 @@ def hr_dashboard():
         try:
             with get_db() as (cursor, connection):
                 cursor.execute("""
-                    SELECT is_super_admin, can_manage_hr
+                    SELECT is_super_admin, can_manage_hr, hr_access
                     FROM user_permissions
                     WHERE (user_type = 'projects' OR user_type = 'hr') AND user_id = %s
                     ORDER BY is_super_admin DESC
                     LIMIT 1
                 """, (userid,))
                 perm = cursor.fetchone()
-                is_admin = bool(perm and (perm[0] or perm[1]))
-                hr_role = 'Administrator' if is_admin else 'Ordinary User'
-                can_manage_hr = is_admin
+                has_hr_admin = bool(perm and (perm[0] or perm[1]))
+                has_hr_basic = bool(perm and (perm[0] or perm[2])) if perm and len(perm) > 2 else has_hr_admin
+                can_manage_hr = has_hr_admin
+                hr_role = 'Administrator' if has_hr_admin else ('Ordinary User' if has_hr_basic else 'Ordinary User')
                 # Cache in session
                 session['hr_role'] = hr_role
                 session['can_manage_hr'] = can_manage_hr
@@ -26991,7 +27045,7 @@ def get_user_permissions(user_type, user_id):
                        can_add_users, can_edit_users, can_delete_users,
                        can_export_data, can_view_audit, can_manage_roles,
                        is_super_admin, can_view_payments, can_edit_projects,
-                       can_download_master_file
+                       can_download_master_file, hr_access
                 FROM user_permissions WHERE user_type=%s AND user_id=%s
             """, (user_type, user_id))
             row = cursor.fetchone()
@@ -27003,9 +27057,10 @@ def get_user_permissions(user_type, user_id):
                     'can_export_data': row[6], 'can_view_audit': row[7],
                     'can_manage_roles': row[8], 'is_super_admin': row[9],
                     'can_view_payments': row[10], 'can_edit_projects': row[11] if len(row) > 11 else True,
-                    'can_download_master_file': row[12] if len(row) > 12 else True
+                    'can_download_master_file': row[12] if len(row) > 12 else True,
+                    'hr_access': row[13] if len(row) > 13 else False
                 }
-                print(f"📊 get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}")
+                print(f"📊 get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}, hr_access={result['hr_access']}")
                 return result
             # If no permissions set, check if this is the first user - make them super admin
             cursor.execute("SELECT COUNT(*) FROM user_permissions")
@@ -27016,17 +27071,17 @@ def get_user_permissions(user_type, user_id):
                         can_manage_projects, can_manage_hardware, can_manage_hr,
                         can_add_users, can_edit_users, can_delete_users,
                         can_export_data, can_view_audit, can_manage_roles, can_view_payments,
-                        can_edit_projects, can_download_master_file)
-                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                        can_edit_projects, can_download_master_file, hr_access)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
                 """, (user_type, user_id))
                 connection.commit()
                 return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file']}
+                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access']}
             # Default: no permissions
             return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                 'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file']}
+                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access']}
     except Exception as e:
         print(f"Permissions error: {e}")
         return {}
@@ -27082,7 +27137,8 @@ def um_permissions_api():
             fields = ['is_super_admin', 'can_manage_projects', 'can_manage_hardware',
                       'can_manage_hr', 'can_add_users', 'can_edit_users', 'can_delete_users',
                       'can_export_data', 'can_view_audit', 'can_manage_roles',
-                      'can_view_payments', 'can_edit_projects', 'can_download_master_file']
+                      'can_view_payments', 'can_edit_projects', 'can_download_master_file',
+                      'hr_access']
 
             with get_db() as (cursor, connection):
                 # Upsert

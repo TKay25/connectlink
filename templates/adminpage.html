@@ -4770,7 +4770,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
             </div>
             <div class="dropdown-divider"></div>
             <div style="padding:4px 16px 2px;font-size:0.55rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Switch Portal</div>
-            {% if can_manage_hr %}
+            {% if can_manage_hr or hr_access %}
             <div class="dropdown-item" onclick="switchPortal('hr')">
                 <i class="bi bi-people"></i> HR Portal
             </div>
