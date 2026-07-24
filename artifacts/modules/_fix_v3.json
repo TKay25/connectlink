@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "FixV3",
+  "file": "_fix_v3.py",
+  "purpose": "<!-- main function",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_fix_v3 → f.read, app_clean.startswith, requests.post, content.split"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "3f80260d4d85a753",
+  "file_mtime": 1784887872093.7239,
+  "file_size": 6888,
+  "file_birthtime": 1784887871894.0496,
+  "generated_at": "2026-07-24T10:11:29.972327Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

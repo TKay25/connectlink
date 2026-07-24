@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CleanLeave",
+  "file": "_clean_leave.py",
+  "purpose": "<!-- main function",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_clean_leave → f.read, payload.lower, c.find, c.replace, f.write"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "f84d8ddb4fec00a1",
+  "file_mtime": 1784888023101.4666,
+  "file_size": 2208,
+  "file_birthtime": 1784888022952.184,
+  "generated_at": "2026-07-24T10:13:47.023485Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
