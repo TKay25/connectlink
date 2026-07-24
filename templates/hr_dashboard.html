@@ -1408,7 +1408,7 @@
         </div>
 
         <!-- Remittance Format Picker Modal -->
-        <div id="remittanceModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeRemittanceModal()">
+        <div id="remittanceModal" class="modal-overlay" onclick="if(event.target===this)closeRemittanceModal()">
             <div class="modal-container" style="min-width:380px;max-width:420px;">
                 <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #e5e7eb;">
                     <h5 style="margin:0;font-size:0.85rem;font-weight:700;color:#0F1729;"><i class="bi bi-building"></i> Download Remittances</h5>
@@ -4661,11 +4661,19 @@ function openPayslipWhatsAppModal() {
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                data.data.forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.period;
-                    opt.textContent = p.period;
-                    sel.appendChild(opt);
+                const versions = data.data;
+                const keys = Object.keys(versions);
+                const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                keys.forEach(p => {
+                    const [y, m] = p.split('-');
+                    const label = monthNames[parseInt(m)-1] + ' ' + y;
+                    const vers = versions[p] || [1];
+                    vers.forEach(v => {
+                        const opt = document.createElement('option');
+                        opt.value = p + '|' + v;
+                        opt.textContent = label + ' (Run ' + v + ')';
+                        sel.appendChild(opt);
+                    });
                 });
             }
         })
@@ -4675,20 +4683,26 @@ function openPayslipWhatsAppModal() {
 // Load employees when period changes
 document.addEventListener('change', function(e) {
     if (e.target.id === 'waPayrollPeriodSelect') {
-        const period = e.target.value;
+        const val = e.target.value;
         const list = document.getElementById('waEmployeeList');
         const status = document.getElementById('waSendStatus');
         status.textContent = '';
 
-        if (!period) {
+        if (!val) {
             list.innerHTML = '<div class="text-center py-4 text-muted" style="font-size:0.65rem;">Select a period first</div>';
             return;
         }
 
+        const parts = val.split('|');
+        const period = parts[0];
+        const runVersion = parts[1] || null;
+
         list.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.65rem;"><i class="bi bi-arrow-clockwise"></i> Loading...</div>';
 
         // Fetch employees for this period
-        fetch(`/api/hr/payroll?period=${period}`)
+        let url = `/api/hr/payroll?period=${period}`;
+        if (runVersion) url += `&run_version=${runVersion}`;
+        fetch(url)
             .then(r => r.json())
             .then(data => {
                 if (!data.success || !data.data.length) {
@@ -4839,7 +4853,10 @@ function downloadCurrentPayroll(archiveId) {
 
 function downloadRemittances() {
     const modal = document.getElementById('remittanceModal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+        modal.style.display = '';
+        modal.classList.add('active');
+    }
 }
 
 function doRemittanceDownload(fmt) {
