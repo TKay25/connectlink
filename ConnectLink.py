@@ -14033,21 +14033,39 @@ def hr_employee_detail(emp_id):
                 except Exception:
                     pass
 
-                # Sync role ↔ user_permissions.can_manage_hr AND hr_access
+                # Sync role → user_permissions (single row, no duplicates)
                 try:
                     new_role = data.get('role', 'Ordinary User')
                     is_admin = (new_role == 'Administrator')
-                    # Ordinary Users keep hr_access=True for basic HR portal access
-                    has_basic_access = True  # Both Admin and Ordinary User get at least basic HR access
-                    # Try both user_type='projects' and user_type='hr' for the emp_id
-                    for utype in ('projects', 'hr'):
+                    has_basic_access = True  # Ordinary Users keep basic HR access
+                    hr_vals = (is_admin, has_basic_access)
+
+                    # Find the admin_users record linked to this hr_employee
+                    cursor.execute("SELECT user_id FROM hr_employees WHERE id = %s", (emp_id,))
+                    he_row = cursor.fetchone()
+                    if he_row and he_row[0]:
+                        # Look up the existing permission row by admin_users source_system/source_id
                         cursor.execute("""
-                            INSERT INTO user_permissions (user_type, user_id, can_manage_hr, hr_access, is_super_admin)
-                            VALUES (%s, %s, %s, %s, %s)
-                            ON CONFLICT (user_type, user_id) DO UPDATE SET
-                                can_manage_hr = EXCLUDED.can_manage_hr,
-                                hr_access = EXCLUDED.hr_access
-                        """, (utype, emp_id, is_admin, has_basic_access, False))
+                            SELECT source_system, source_id FROM admin_users WHERE id = %s
+                        """, (he_row[0],))
+                        au = cursor.fetchone()
+                        if au and au[0] and au[1]:
+                            # Update existing row — do NOT create a new one
+                            cursor.execute("""
+                                UPDATE user_permissions SET can_manage_hr = %s, hr_access = %s
+                                WHERE user_type = %s AND user_id = %s
+                            """, (*hr_vals, au[0], au[1]))
+                        else:
+                            # No existing row — insert ONE row only
+                            utype = (au[0] if au and au[0] else 'projects')
+                            uid = au[1] if au and au[1] else he_row[0]
+                            cursor.execute("""
+                                INSERT INTO user_permissions (user_type, user_id, can_manage_hr, hr_access, is_super_admin)
+                                VALUES (%s, %s, %s, %s, %s)
+                                ON CONFLICT (user_type, user_id) DO UPDATE SET
+                                    can_manage_hr = EXCLUDED.can_manage_hr,
+                                    hr_access = EXCLUDED.hr_access
+                            """, (utype, uid, is_admin, has_basic_access, False))
                 except Exception:
                     pass
 
