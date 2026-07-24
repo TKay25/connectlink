@@ -1191,7 +1191,7 @@
             </div>
 
             <!-- Leave View Tabs -->
-            <div class="hr-card" style="margin-bottom:6px;">
+            <div class="hr-card admin-only" style="margin-bottom:6px;">
                 <div class="card-body-custom" style="padding:4px 8px;">
                     <div style="display:flex;gap:4px;flex-wrap:wrap;">
                         <button class="btn btn-sm leave-view-tab active" data-view="all" onclick="setLeaveView('all')" style="font-size:0.55rem;padding:3px 10px;border-radius:6px;background:var(--primary);color:#fff;border:none;">All Leave</button>
@@ -2507,7 +2507,7 @@ function toggleAdminView() {
     isAdminView = !isAdminView;
     const adminBtn = document.getElementById('roleAdminBtn');
     const userBtn = document.getElementById('roleUserBtn');
-    const adminModules = ['employees', 'payroll', 'paye', 'reports'];
+    const adminModules = ['employees', 'paye', 'reports'];
     const profileModules = ['my-activity'];
     const profileSection = document.getElementById('sidebarProfileSection');
 
@@ -2535,6 +2535,8 @@ function toggleAdminView() {
         // Show admin-only UI
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
         showModule('dashboard');
+        // Show all leave data
+        setLeaveView('all');
     } else {
         userBtn.classList.add('active');
         adminBtn.classList.remove('active');
@@ -2556,7 +2558,8 @@ function toggleAdminView() {
         if (profileSection) profileSection.style.display = 'none';
         // Hide admin-only UI
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        // Switch to personal view
+        // Switch to personal view — show only user's own data
+        setLeaveView('mine');
         showModule('my-activity');
     }
 }
@@ -2567,7 +2570,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (HR_ROLE !== 'Administrator') {
         // Ordinary users: hide admin-only sidebar items
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        ['employees', 'payroll', 'paye', 'reports'].forEach(m => {
+        ['employees', 'paye', 'reports'].forEach(m => {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = 'none';
         });
@@ -2590,8 +2593,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAssetAssignees();
     loadPayeTables();
     loadDocumentCounts();
-    // Init leave view
-    setLeaveView('all');
+    // Init leave view — basic users see only their own leaves
+    setLeaveView(HR_ROLE === 'Administrator' ? 'all' : 'mine');
 
     // Currency toggle
     const currSelect = document.getElementById('empCurrency');
@@ -4409,11 +4412,16 @@ async function loadPayroll(period) {
             return;
         }
 
+        // In profile view, show only current user's payroll record
+        const payrollData = !isAdminView && HR_EMPLOYEE_ID
+            ? data.data.filter(rec => rec.employee_id === HR_EMPLOYEE_ID)
+            : data.data;
+
         let gross = 0, deductions = 0, net = 0;
         let sumPaye = 0, sumAids = 0, sumNssa = 0, sumZimdef = 0;
         tbody.innerHTML = '';
 
-        data.data.forEach(rec => {
+        payrollData.forEach(rec => {
             gross += rec.basic_pay || 0;
             deductions += rec.deductions || 0;
             net += rec.net_pay || 0;
