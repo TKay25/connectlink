@@ -1621,7 +1621,7 @@
         </div>
 
         <!-- Send Payslip via WhatsApp Modal -->
-        <div id="payslipWhatsAppModal" class="modal-overlay" style="display:none;">
+        <div id="payslipWhatsAppModal" class="modal-overlay">
             <div class="modal-content" style="max-width:600px;">
                 <div class="modal-header">
                     <h5><i class="bi bi-whatsapp" style="color:#25D366;"></i> Send Payslips via WhatsApp</h5>
@@ -2667,6 +2667,7 @@ document.addEventListener('click', function(e) {
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
+        modal.style.display = '';
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
     }
