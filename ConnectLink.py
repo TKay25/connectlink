@@ -5720,7 +5720,7 @@ def webhook():
 
                                                                     send_whatsapp_button_message(
                                                                         sender_id,
-                                                                        f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
+                                                                        f"👋 *Hey there {admin_name}.*\n\nPlease select an option below to continue:",
                                                                         buttons,
                                                                         footer_text="ConnectLink Properties • Admin Panel"
 
@@ -5782,7 +5782,7 @@ def webhook():
 
                                                             send_whatsapp_button_image_message(
                                                                 sender_id,
-                                                                f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
+                                                                f"👋 *Hey there {admin_name}.*\n\nPlease select an option below to continue:",
                                                                 "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                 buttons,
                                                                 footer_text="ConnectLink Properties • Admin Panel"
@@ -6867,7 +6867,7 @@ def webhook():
 
                                                         send_whatsapp_button_image_message(
                                                             sender_id,
-                                                            f"👋 *Hey there {admin_name}, Projects System Operator.*\n\nPlease select an option below to continue:",
+                                                            f"👋 *Hey there {admin_name}*\n\nPlease select an option below to continue:",
                                                             "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                             buttons,
                                                             footer_text="ConnectLink Properties • Admin Panel"
