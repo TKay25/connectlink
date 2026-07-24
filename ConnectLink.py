@@ -6866,6 +6866,9 @@ def webhook():
                                                                         send_text_message(sender_id, f"⚠️ Leave #{app_id} not found or already processed.")
 
                                                             return jsonify({"status": "received"}), 200
+                                                        elif payload.lower().startswith('download_payslip_'):
+                                                            handle_download_payslip_whatsapp(sender_id, payload)
+                                                            return jsonify({"status": "received"}), 200
                                                         else:
                                                             print(f"❌ Unknown payload: {payload}")
 
@@ -14494,6 +14497,221 @@ def hr_payroll_delete_run(period, run_version):
             })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/my-payslips', methods=['GET'])
+def hr_my_payslips():
+    """Return payslip periods for the logged-in employee."""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'success': False, 'error': 'Not logged in'}), 401
+        # Find employee id from hr_employees via admin_users link
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT DISTINCT hp.period, hp.gross_pay, hp.deductions, hp.net_pay,
+                       hp.status, hp.processed_at, hp.run_version, hp.employee_id
+                FROM hr_payroll hp
+                JOIN hr_employees he ON he.id = hp.employee_id
+                WHERE he.user_id = %s
+                ORDER BY hp.period DESC, hp.run_version DESC
+            """, (userid,))
+            rows = cursor.fetchall()
+            data = []
+            for r in rows:
+                data.append({
+                    'period': r[0],
+                    'gross_pay': float(r[1] or 0),
+                    'deductions': float(r[2] or 0),
+                    'net_pay': float(r[3] or 0),
+                    'status': r[4],
+                    'processed_at': r[5].strftime('%d %B %Y') if r[5] else '',
+                    'run_version': r[6],
+                    'employee_id': r[7]
+                })
+            return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== SEND PAYSLIP VIA WHATSAPP ====================
+
+TEMPLATE_PAYSLIP_NAME = "payslip"
+
+@app.route('/api/hr/payroll/send-whatsapp', methods=['POST'])
+def hr_payroll_send_whatsapp():
+    """Send payslip WhatsApp template to selected employees for a given period."""
+    try:
+        if not session.get('can_manage_hr', False):
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
+
+        data = request.get_json()
+        period = data.get('period')
+        employee_ids = data.get('employee_ids', [])
+
+        if not period or not employee_ids:
+            return jsonify({'success': False, 'error': 'period and employee_ids required'}), 400
+
+        # Parse period into month name
+        try:
+            parts = period.split('-')
+            year = parts[0]
+            month_num = int(parts[1])
+            month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December']
+            month_name = month_names[month_num] if 1 <= month_num <= 12 else period
+            month_year = f"{month_name} {year}"
+        except:
+            month_year = period
+
+        with get_db() as (cursor, connection):
+            placeholders = ','.join(['%s'] * len(employee_ids))
+            cursor.execute(f"""
+                SELECT e.id, e.first_name, e.last_name, e.whatsapp
+                FROM hr_employees e
+                WHERE e.id IN ({placeholders}) AND e.whatsapp IS NOT NULL AND e.whatsapp != ''
+            """, employee_ids)
+            employees = cursor.fetchall()
+
+        results = []
+        for emp in employees:
+            emp_id, first, last, whatsapp = emp
+            emp_name = f"{first} {last}".strip()
+            # Format phone to E.164
+            clean = re.sub(r'[^0-9]', '', str(whatsapp))
+            if clean.startswith('0'):
+                clean = '263' + clean[1:]
+            elif not clean.startswith('263'):
+                clean = '263' + clean
+            phone_e164 = f"+{clean}"
+
+            payload = {
+                "messaging_product": "whatsapp",
+                "to": phone_e164,
+                "type": "template",
+                "template": {
+                    "name": TEMPLATE_PAYSLIP_NAME,
+                    "language": {"code": "en"},
+                    "components": [
+                        {
+                            "type": "body",
+                            "parameters": [
+                                {"type": "text", "text": emp_name},
+                                {"type": "text", "text": month_year}
+                            ]
+                        },
+                        {
+                            "type": "button",
+                            "sub_type": "quick_reply",
+                            "index": 0,
+                            "parameters": [
+                                {"type": "payload", "payload": f"download_payslip_{emp_id}_{period}"}
+                            ]
+                        }
+                    ]
+                }
+            }
+
+            wa_headers = {'Authorization': f'Bearer {ACCESS_TOKEN}', 'Content-Type': 'application/json'}
+            try:
+                resp = requests.post(WHATSAPP_API_URL, json=payload, headers=wa_headers, timeout=15)
+                resp_data = resp.json()
+                success = resp.status_code == 200 and resp_data.get('error') is None
+                results.append({
+                    'employee_id': emp_id,
+                    'name': emp_name,
+                    'success': success,
+                    'response': resp_data.get('error', {}).get('message', 'sent') if not success else 'sent'
+                })
+            except Exception as e:
+                results.append({'employee_id': emp_id, 'name': emp_name, 'success': False, 'response': str(e)})
+
+        return jsonify({'success': True, 'results': results})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== DOWNLOAD PAYSLIP VIA WHATSAPP BUTTON ====================
+
+def handle_download_payslip_whatsapp(sender_id, payload):
+    """Handle 'download_payslip_{emp_id}_{period}' button click: generate & send PDF."""
+    try:
+        parts = payload.split('_', 3)  # ['download', 'payslip', 'emp_id', 'period']
+        if len(parts) < 4:
+            print(f"⚠️ Invalid payslip download payload: {payload}")
+            return
+        emp_id = int(parts[2])
+        period = parts[3]
+
+        with get_db() as (cursor, connection):
+            # Fetch employee details for PDF generation (same query as /api/payslip)
+            cursor.execute("""
+                SELECT e.id, e.first_name, e.last_name, e.department, e.designation,
+                       e.basic_salary, e.allowances, e.nationality,
+                       e.bank_holder_name, e.bank_holder_surname, e.bank_name,
+                       e.bank_account_number, e.bank_branch, e.bank_branch_code,
+                       e.c8_number, e.c8_type, e.employment_type, e.date_joined,
+                       e.current_leave_balance, e.monthly_accumulation,
+                       e.usd_percent, e.zwg_percent, e.exchange_rate,
+                       COALESCE(p.basic_pay, e.basic_salary, 0) as basic_pay,
+                       COALESCE(p.allowances, e.allowances, 0) as allowances_pay,
+                       COALESCE(p.gross_pay, 0) as gross_pay,
+                       COALESCE(p.nssa, 0) as nssa,
+                       COALESCE(p.paye_tax, 0) as paye_tax,
+                       COALESCE(p.aids_levy, 0) as aids_levy,
+                       COALESCE(p.zimdef, 0) as zimdef,
+                       COALESCE(p.deductions, 0) as deductions,
+                       COALESCE(p.net_pay, 0) as net_pay,
+                       p.status as pay_status, p.processed_at, e.whatsapp
+                FROM hr_employees e
+                LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
+                WHERE e.id = %s
+            """, (period, emp_id))
+            row = cursor.fetchone()
+            if not row:
+                print(f"⚠️ Employee {emp_id} not found for payslip download")
+                return
+
+            # Build emp dict (same format as payslip endpoint)
+            emp = {
+                'id': row[0], 'first_name': row[1], 'last_name': row[2],
+                'department': row[3] or '', 'designation': row[4] or '',
+                'basic_salary': float(row[5] or 0), 'allowances': float(row[6] or 0),
+                'nationality': row[7] or '', 'bank_holder_name': row[8] or '',
+                'bank_holder_surname': row[9] or '', 'bank_name': row[10] or '',
+                'bank_account_number': row[11] or '', 'bank_branch': row[12] or '',
+                'bank_branch_code': row[13] or '', 'c8_number': row[14] or '',
+                'c8_type': row[15] or '', 'employment_type': row[16] or '',
+                'date_joined': row[17], 'current_leave_balance': float(row[18] or 0),
+                'monthly_accumulation': float(row[19] or 0),
+                'usd_percent': float(row[20] or 0), 'zwg_percent': float(row[21] or 0),
+                'exchange_rate': float(row[22] or 1),
+                'basic_pay': float(row[23] or 0), 'allowances_pay': float(row[24] or 0),
+                'gross_pay': float(row[25] or 0), 'nssa': float(row[26] or 0),
+                'paye_tax': float(row[27] or 0), 'aids_levy': float(row[28] or 0),
+                'zimdef': float(row[29] or 0), 'deductions': float(row[30] or 0),
+                'net_pay': float(row[31] or 0), 'pay_status': row[32] or '',
+                'processed_at': row[33], 'whatsapp': row[34] or '',
+                'period': period
+            }
+
+            # Generate PDF using the template
+            from flask import render_template
+            import pdfkit
+            html = render_template('payslip.html', emp=emp)
+            pdf_bytes = pdfkit.from_string(html, False)
+
+            # Send PDF via WhatsApp
+            full_name = f"{emp['first_name']} {emp['last_name']}".strip()
+            filename = f"Payslip_{full_name}_{period}.pdf"
+            caption = f"📄 Payslip for {full_name} - {period}"
+            send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
+            print(f"✅ Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period})")
+
+    except Exception as e:
+        print(f"❌ Error handling payslip download via WhatsApp: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 @app.route('/api/hr/payroll/periods', methods=['GET'])
