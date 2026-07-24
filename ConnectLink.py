@@ -16805,11 +16805,8 @@ def hr_stats_api():
             """, (period,))
             payroll_total = float(cursor.fetchone()[0])
 
-            cursor.execute("SELECT COUNT(*) FROM hr_employees")
-            hr_total = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE")
-            admin_total = cursor.fetchone()[0]
-            total_employees = hr_total + admin_total
+            cursor.execute("SELECT COUNT(*) FROM hr_employees WHERE status = 'Active'")
+            total_employees = cursor.fetchone()[0]
 
             return jsonify({
                 'success': True,

@@ -935,16 +935,32 @@
 
     <!-- ===== SIDEBAR ===== -->
     <aside class="hr-sidebar" id="hrSidebar">
-        <button class="nav-btn active" data-module="employees" onclick="showModule('employees')" id="sidebar-employees">
+        <button class="nav-btn active" data-module="dashboard" onclick="showModule('dashboard')">
+            <i class="bi bi-layout-three-columns"></i> <span>Dashboard</span>
+        </button>
+        <button class="nav-btn" data-module="employees" onclick="showModule('employees')" id="sidebar-employees">
             <i class="bi bi-people-fill"></i> <span>Employees</span>
         </button>
-        <button class="nav-btn" data-module="my-payslips" onclick="showModule('my-payslips')">
-            <i class="bi bi-wallet2"></i> <span>My Payslips</span>
+        <button class="nav-btn" data-module="leave" onclick="showModule('leave')">
+            <i class="bi bi-calendar-check"></i> <span>Leave Management</span>
         </button>
-
-        <div class="sidebar-section" id="sidebarSectionAssets">Assets &amp; Records</div>
+        <button class="nav-btn" data-module="payroll" onclick="showModule('payroll')" id="sidebar-payroll">
+            <i class="bi bi-wallet2"></i> <span>Payroll</span>
+        </button>
+        <button class="nav-btn" data-module="paye" onclick="showModule('paye')" id="sidebar-paye">
+            <i class="bi bi-calculator"></i> <span>PAYE Tax Tables</span>
+        </button>
+        <button class="nav-btn" data-module="my-payslips" onclick="showModule('my-payslips')">
+            <i class="bi bi-download"></i> <span>My Payslips</span>
+        </button>
         <button class="nav-btn" data-module="assets" onclick="showModule('assets')">
             <i class="bi bi-boxes"></i> <span>Asset Register</span>
+        </button>
+        <button class="nav-btn" data-module="documents" onclick="showModule('documents')">
+            <i class="bi bi-file-earmark-text"></i> <span>Documents</span>
+        </button>
+        <button class="nav-btn" data-module="reports" onclick="showModule('reports')" id="sidebar-reports">
+            <i class="bi bi-graph-up-arrow"></i> <span>Reports</span>
         </button>
 
     </aside>
@@ -2491,12 +2507,12 @@ function toggleAdminView() {
     isAdminView = !isAdminView;
     const adminBtn = document.getElementById('roleAdminBtn');
     const userBtn = document.getElementById('roleUserBtn');
-    const adminModules = ['employees'];
+    const adminModules = ['employees', 'payroll', 'paye', 'reports'];
     const profileModules = ['my-activity'];
     const profileSection = document.getElementById('sidebarProfileSection');
 
     // Section labels to show/hide
-    const sectionLabels = ['sidebarSectionAssets'];
+    const sectionLabels = [];
 
     if (isAdminView) {
         adminBtn.classList.add('active');
@@ -2518,7 +2534,7 @@ function toggleAdminView() {
         if (profileSection) profileSection.style.display = 'none';
         // Show admin-only UI
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
-        showModule('employees');
+        showModule('dashboard');
     } else {
         userBtn.classList.add('active');
         adminBtn.classList.remove('active');
@@ -2527,7 +2543,7 @@ function toggleAdminView() {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = 'none';
         });
-        // Hide section labels in profile mode (few items, no need for sections)
+        // Hide section labels in profile mode
         sectionLabels.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
@@ -2537,10 +2553,10 @@ function toggleAdminView() {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = '';
         });
-        if (profileSection) profileSection.style.display = 'none'; // Keep hidden, no section label needed
+        if (profileSection) profileSection.style.display = 'none';
         // Hide admin-only UI
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        // Switch to profile view (personal)
+        // Switch to personal view
         showModule('my-activity');
     }
 }
@@ -2551,7 +2567,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (HR_ROLE !== 'Administrator') {
         // Ordinary users: hide admin-only sidebar items
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        ['employees'].forEach(m => {
+        ['employees', 'payroll', 'paye', 'reports'].forEach(m => {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = 'none';
         });
@@ -2564,7 +2580,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', options);
 
     // Load data
+    loadDashboardStats();
     loadEmployees();
+    loadLeaveData();
+    loadPayroll();
     loadMyPayslips();
     loadAssets();
     loadApprovers();
