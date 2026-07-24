@@ -7677,9 +7677,9 @@ def webhook():
                                                                     try:
                                                                         # Extract last 9 digits from sender_id (same as contracts)
                                                                         if sender_id and len(sender_id) >= 9:
-                                                                            client_whatsapp = int(sender_id[-9:])
+                                                                            client_whatsapp = sender_id[-9:]
                                                                         else:
-                                                                            client_whatsapp = int(sender_id) if sender_id and sender_id.isdigit() else None
+                                                                            client_whatsapp = sender_id if sender_id else None
                                                                         
                                                                         if not client_whatsapp:
                                                                             return jsonify({'status': 'error', 'message': 'Invalid WhatsApp number'}), 400
@@ -7688,9 +7688,9 @@ def webhook():
                                                                             # Get ALL user's projects
                                                                             cursor.execute("""
                                                                                 SELECT * FROM connectlinkdatabase 
-                                                                                WHERE clientwanumber = %s
+                                                                                WHERE clientwanumber::TEXT LIKE %s
                                                                                 ORDER BY projectstartdate DESC
-                                                                            """, (client_whatsapp,))
+                                                                            """, (f"%{client_whatsapp}%",))
                                                                             
                                                                             rows = cursor.fetchall()
                                                                             
@@ -9001,9 +9001,9 @@ def webhook():
                                                                 try:
                                                                     # Extract last 9 digits from sender_id
                                                                     if sender_id and len(sender_id) >= 9:
-                                                                        client_whatsapp = int(sender_id[-9:])
+                                                                        client_whatsapp = sender_id[-9:]
                                                                     else:
-                                                                        client_whatsapp = int(sender_id) if sender_id and sender_id.isdigit() else None
+                                                                        client_whatsapp = sender_id if sender_id else None
                                                                     
                                                                     if not client_whatsapp:
                                                                         return jsonify({'status': 'error', 'message': 'Invalid WhatsApp number'}), 400
@@ -9012,9 +9012,9 @@ def webhook():
                                                                         # Get ALL user's contracts
                                                                         cursor.execute("""
                                                                             SELECT * FROM connectlinkdatabase 
-                                                                            WHERE clientwanumber = %s
+                                                                            WHERE clientwanumber::TEXT LIKE %s
                                                                             ORDER BY projectstartdate DESC
-                                                                        """, (client_whatsapp,))
+                                                                        """, (f"%{client_whatsapp}%",))
                                                                         
                                                                         rows = cursor.fetchall()
                                                                         
