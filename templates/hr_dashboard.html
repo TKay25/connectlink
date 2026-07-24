@@ -2752,12 +2752,16 @@ async function loadDashboardStats() {
             }
         }
 
-        // Asset summary
+        // Asset summary (filter for basic users or profile mode)
         const assetEl = document.getElementById('assetSummary');
         if (assetEl && assets.success && assets.data) {
-            const totalAssets = assets.data.length || 0;
-            const inService = assets.data.filter(a => a.status === 'In Service').length;
-            const totalVal = assets.data.reduce((s, a) => s + (a.value || 0), 0);
+            let assetData = assets.data;
+            if ((HR_ROLE !== 'Administrator' || !isAdminView) && HR_USER_NAME) {
+                assetData = assetData.filter(a => a.assigned_to === HR_USER_NAME);
+            }
+            const totalAssets = assetData.length || 0;
+            const inService = assetData.filter(a => a.status === 'In Service').length;
+            const totalVal = assetData.reduce((s, a) => s + (a.value || 0), 0);
             assetEl.innerHTML = `
                 <span style="display:flex;gap:6px;flex-wrap:wrap;">
                     <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:3px;">Total: ${totalAssets}</span>
@@ -4888,14 +4892,14 @@ async function loadAssets() {
         const tbody = document.getElementById('assetsTableBody');
         if (!tbody) return;
 
-        // In profile mode, only show assets assigned to me
+        // In profile mode (or for basic users), only show assets assigned to me
         let assets = data.data || [];
-        if (!isAdminView && HR_USER_NAME) {
+        if ((HR_ROLE !== 'Administrator' || !isAdminView) && HR_USER_NAME) {
             assets = assets.filter(a => a.assigned_to === HR_USER_NAME);
         }
 
         if (!assets.length) {
-            const msg = !isAdminView ? 'No assets assigned to you.' : 'No assets registered.';
+            const msg = (HR_ROLE !== 'Administrator' || !isAdminView) ? 'No assets assigned to you.' : 'No assets registered.';
             tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
                 '<i class="bi bi-box" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
                 msg + '</td></tr>';
