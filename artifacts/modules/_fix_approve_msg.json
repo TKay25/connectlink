@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "FixApproveMsg",
+  "file": "_fix_approve_msg.py",
+  "purpose": "<!-- main function",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_fix_approve_msg → f.read, leave_cursor.execute, leave_cursor.fetchone, app_clean.startswith"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "5872b7c81e17db41",
+  "file_mtime": 1784886497810.7053,
+  "file_size": 12937,
+  "file_birthtime": 1784886497602.837,
+  "generated_at": "2026-07-24T09:48:20.915059Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

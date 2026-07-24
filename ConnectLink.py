@@ -6693,6 +6693,97 @@ def webhook():
                                                             
                                                             # Send PDF receipt
                                                             send_receipt_via_whatsapp(sender_id, project_id, matched_type, config)
+                                                        elif payload and (payload.lower().startswith('approve_') or payload.lower().startswith('decline_')):
+                                                            try:
+                                                                parts = payload.split('_', 1)
+                                                                action = parts[0].lower()
+                                                                app_id = int(parts[1])
+                                                            except (IndexError, ValueError):
+                                                                app_id = None
+
+                                                            if app_id:
+                                                                with get_db() as (leave_cursor, leave_conn):
+                                                                    new_status = 'Approved' if action == 'approve' else 'Declined'
+                                                                    leave_cursor.execute("""
+                                                                        UPDATE hr_leave_applications
+                                                                        SET status = %s, approved_by = %s, approved_at = CURRENT_TIMESTAMP
+                                                                        WHERE id = %s AND status = 'Pending'
+                                                                    """, (new_status, sender_id, app_id))
+                                                                    if leave_cursor.rowcount > 0:
+                                                                        leave_conn.commit()
+                                                                        print(f"✅ Leave #{app_id} {action}d via WhatsApp template button by {sender_id}")
+
+                                                                        # Fetch applicant details for rich confirmation message
+                                                                        try:
+                                                                            leave_cursor.execute("""
+                                                                                SELECT e.whatsapp, la.employee_name, la.leave_type, la.days,
+                                                                                       la.from_date, la.to_date, e.first_name, e.last_name
+                                                                                FROM hr_leave_applications la
+                                                                                LEFT JOIN hr_employees e ON la.employee_id = e.id
+                                                                                WHERE la.id = %s
+                                                                            """, (app_id,))
+                                                                            app_row = leave_cursor.fetchone()
+                                                                        except Exception as fetch_err:
+                                                                            print(f"⚠️ Failed to fetch applicant details: {fetch_err}")
+                                                                            app_row = None
+
+                                                                        if app_row:
+                                                                            app_phone = app_row[0]
+                                                                            emp_name = app_row[1] or 'Employee'
+                                                                            ltype = app_row[2] or 'Leave'
+                                                                            days = app_row[3] or 0
+                                                                            from_date_raw = app_row[4]
+                                                                            to_date_raw = app_row[5]
+                                                                            first_name = app_row[6] or emp_name.split(' ')[0] if ' ' in emp_name else emp_name
+                                                                            last_name = app_row[7] or (emp_name.split(' ', 1)[1] if ' ' in emp_name else '')
+
+                                                                            # Format dates nicely
+                                                                            try:
+                                                                                from_formatted = from_date_raw.strftime('%-d %B %Y') if hasattr(from_date_raw, 'strftime') else str(from_date_raw)
+                                                                                to_formatted = to_date_raw.strftime('%-d %B %Y') if hasattr(to_date_raw, 'strftime') else str(to_date_raw)
+                                                                            except:
+                                                                                from_formatted = str(from_date_raw)
+                                                                                to_formatted = str(to_date_raw)
+
+                                                                            # Rich confirmation to approver
+                                                                            action_word = 'approved' if action == 'approve' else 'declined'
+                                                                            confirm_msg = (
+                                                                                f"✅ You have successfully {action_word} {first_name} {last_name}'s "
+                                                                                f"{days} day(s) {ltype} leave application starting on {from_formatted} "
+                                                                                f"and ending on {to_formatted}. "
+                                                                                f"{first_name} has been notified of your {action_word}."
+                                                                            )
+                                                                            send_text_message(sender_id, confirm_msg)
+
+                                                                            # Notify the applicant
+                                                                            try:
+                                                                                if app_phone:
+                                                                                    app_clean = re.sub(r'[^0-9]', '', str(app_phone))
+                                                                                    if app_clean.startswith('0'):
+                                                                                        app_clean = '263' + app_clean[1:]
+                                                                                    elif not app_clean.startswith('263'):
+                                                                                        app_clean = '263' + app_clean
+                                                                                    app_e164 = f"+{app_clean}"
+                                                                                    notif = f"Hi {emp_name}, your {ltype} leave request (#{app_id}) has been {action_word}."
+                                                                                    notif_payload = {
+                                                                                        "messaging_product": "whatsapp",
+                                                                                        "to": app_e164,
+                                                                                        "type": "text",
+                                                                                        "text": {"body": notif}
+                                                                                    }
+                                                                                    wa_headers = {
+                                                                                        'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                                        'Content-Type': 'application/json'
+                                                                                    }
+                                                                                    requests.post(WHATSAPP_API_URL, json=notif_payload, headers=wa_headers, timeout=15)
+                                                                            except Exception as notif_err:
+                                                                                print(f"⚠️ Failed to notify applicant: {notif_err}")
+                                                                        else:
+                                                                            send_text_message(sender_id, f"✅ You have successfully {action_word} leave request #{app_id}.")
+                                                                    else:
+                                                                        send_text_message(sender_id, f"⚠️ Leave #{app_id} not found or already processed.")
+
+                                                            return jsonify({"status": "received"}), 200
                                                         else:
                                                             print(f"❌ Unknown payload: {payload}")
 
@@ -9504,6 +9595,97 @@ def webhook():
                                                                 
                                                                 # Send PDF receipt
                                                                 send_receipt_via_whatsapp(sender_id, project_id, matched_type, config)
+                                                            elif payload and (payload.lower().startswith('approve_') or payload.lower().startswith('decline_')):
+                                                                try:
+                                                                    parts = payload.split('_', 1)
+                                                                    action = parts[0].lower()
+                                                                    app_id = int(parts[1])
+                                                                except (IndexError, ValueError):
+                                                                    app_id = None
+
+                                                                if app_id:
+                                                                    with get_db() as (leave_cursor, leave_conn):
+                                                                        new_status = 'Approved' if action == 'approve' else 'Declined'
+                                                                        leave_cursor.execute("""
+                                                                            UPDATE hr_leave_applications
+                                                                            SET status = %s, approved_by = %s, approved_at = CURRENT_TIMESTAMP
+                                                                            WHERE id = %s AND status = 'Pending'
+                                                                        """, (new_status, sender_id, app_id))
+                                                                        if leave_cursor.rowcount > 0:
+                                                                            leave_conn.commit()
+                                                                            print(f"✅ Leave #{app_id} {action}d via WhatsApp template button by {sender_id}")
+
+                                                                            # Fetch applicant details for rich confirmation message
+                                                                            try:
+                                                                                leave_cursor.execute("""
+                                                                                    SELECT e.whatsapp, la.employee_name, la.leave_type, la.days,
+                                                                                           la.from_date, la.to_date, e.first_name, e.last_name
+                                                                                    FROM hr_leave_applications la
+                                                                                    LEFT JOIN hr_employees e ON la.employee_id = e.id
+                                                                                    WHERE la.id = %s
+                                                                                """, (app_id,))
+                                                                                app_row = leave_cursor.fetchone()
+                                                                            except Exception as fetch_err:
+                                                                                print(f"⚠️ Failed to fetch applicant details: {fetch_err}")
+                                                                                app_row = None
+
+                                                                            if app_row:
+                                                                                app_phone = app_row[0]
+                                                                                emp_name = app_row[1] or 'Employee'
+                                                                                ltype = app_row[2] or 'Leave'
+                                                                                days = app_row[3] or 0
+                                                                                from_date_raw = app_row[4]
+                                                                                to_date_raw = app_row[5]
+                                                                                first_name = app_row[6] or (emp_name.split(' ')[0] if ' ' in emp_name else emp_name)
+                                                                                last_name = app_row[7] or (emp_name.split(' ', 1)[1] if ' ' in emp_name else '')
+
+                                                                                # Format dates nicely
+                                                                                try:
+                                                                                    from_formatted = from_date_raw.strftime('%-d %B %Y') if hasattr(from_date_raw, 'strftime') else str(from_date_raw)
+                                                                                    to_formatted = to_date_raw.strftime('%-d %B %Y') if hasattr(to_date_raw, 'strftime') else str(to_date_raw)
+                                                                                except:
+                                                                                    from_formatted = str(from_date_raw)
+                                                                                    to_formatted = str(to_date_raw)
+
+                                                                                # Rich confirmation to approver
+                                                                                action_word = 'approved' if action == 'approve' else 'declined'
+                                                                                confirm_msg = (
+                                                                                    f"✅ You have successfully {action_word} {first_name} {last_name}'s "
+                                                                                    f"{days} day(s) {ltype} leave application starting on {from_formatted} "
+                                                                                    f"and ending on {to_formatted}. "
+                                                                                    f"{first_name} has been notified of your {action_word}."
+                                                                                )
+                                                                                send_text_message(sender_id, confirm_msg)
+
+                                                                                # Notify the applicant
+                                                                                try:
+                                                                                    if app_phone:
+                                                                                        app_clean = re.sub(r'[^0-9]', '', str(app_phone))
+                                                                                        if app_clean.startswith('0'):
+                                                                                            app_clean = '263' + app_clean[1:]
+                                                                                        elif not app_clean.startswith('263'):
+                                                                                            app_clean = '263' + app_clean
+                                                                                        app_e164 = f"+{app_clean}"
+                                                                                        notif = f"Hi {emp_name}, your {ltype} leave request (#{app_id}) has been {action_word}."
+                                                                                        notif_payload = {
+                                                                                            "messaging_product": "whatsapp",
+                                                                                            "to": app_e164,
+                                                                                            "type": "text",
+                                                                                            "text": {"body": notif}
+                                                                                        }
+                                                                                        wa_headers = {
+                                                                                            'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                                            'Content-Type': 'application/json'
+                                                                                        }
+                                                                                        requests.post(WHATSAPP_API_URL, json=notif_payload, headers=wa_headers, timeout=15)
+                                                                                except Exception as notif_err:
+                                                                                    print(f"⚠️ Failed to notify applicant: {notif_err}")
+                                                                            else:
+                                                                                send_text_message(sender_id, f"✅ You have successfully {action_word} leave request #{app_id}.")
+                                                                        else:
+                                                                            send_text_message(sender_id, f"⚠️ Leave #{app_id} not found or already processed.")
+
+                                                                continue
                                                             else:
                                                                 print(f"❌ Unknown payload: {payload}")
 
@@ -10828,6 +11010,97 @@ def webhook():
                                                                 else:
                                                                     send_text_message(sender_id, "❌ Invalid quotation reference.")
                                                                     continue
+                                                            elif payload and (payload.lower().startswith('approve_') or payload.lower().startswith('decline_')):
+                                                                try:
+                                                                    parts = payload.split('_', 1)
+                                                                    action = parts[0].lower()
+                                                                    app_id = int(parts[1])
+                                                                except (IndexError, ValueError):
+                                                                    app_id = None
+
+                                                                if app_id:
+                                                                    with get_db() as (leave_cursor, leave_conn):
+                                                                        new_status = 'Approved' if action == 'approve' else 'Declined'
+                                                                        leave_cursor.execute("""
+                                                                            UPDATE hr_leave_applications
+                                                                            SET status = %s, approved_by = %s, approved_at = CURRENT_TIMESTAMP
+                                                                            WHERE id = %s AND status = 'Pending'
+                                                                        """, (new_status, sender_id, app_id))
+                                                                        if leave_cursor.rowcount > 0:
+                                                                            leave_conn.commit()
+                                                                            print(f"✅ Leave #{app_id} {action}d via WhatsApp template button by {sender_id}")
+
+                                                                            # Fetch applicant details for rich confirmation message
+                                                                            try:
+                                                                                leave_cursor.execute("""
+                                                                                    SELECT e.whatsapp, la.employee_name, la.leave_type, la.days,
+                                                                                           la.from_date, la.to_date, e.first_name, e.last_name
+                                                                                    FROM hr_leave_applications la
+                                                                                    LEFT JOIN hr_employees e ON la.employee_id = e.id
+                                                                                    WHERE la.id = %s
+                                                                                """, (app_id,))
+                                                                                app_row = leave_cursor.fetchone()
+                                                                            except Exception as fetch_err:
+                                                                                print(f"⚠️ Failed to fetch applicant details: {fetch_err}")
+                                                                                app_row = None
+
+                                                                            if app_row:
+                                                                                app_phone = app_row[0]
+                                                                                emp_name = app_row[1] or 'Employee'
+                                                                                ltype = app_row[2] or 'Leave'
+                                                                                days = app_row[3] or 0
+                                                                                from_date_raw = app_row[4]
+                                                                                to_date_raw = app_row[5]
+                                                                                first_name = app_row[6] or (emp_name.split(' ')[0] if ' ' in emp_name else emp_name)
+                                                                                last_name = app_row[7] or (emp_name.split(' ', 1)[1] if ' ' in emp_name else '')
+
+                                                                                # Format dates nicely
+                                                                                try:
+                                                                                    from_formatted = from_date_raw.strftime('%-d %B %Y') if hasattr(from_date_raw, 'strftime') else str(from_date_raw)
+                                                                                    to_formatted = to_date_raw.strftime('%-d %B %Y') if hasattr(to_date_raw, 'strftime') else str(to_date_raw)
+                                                                                except:
+                                                                                    from_formatted = str(from_date_raw)
+                                                                                    to_formatted = str(to_date_raw)
+
+                                                                                # Rich confirmation to approver
+                                                                                action_word = 'approved' if action == 'approve' else 'declined'
+                                                                                confirm_msg = (
+                                                                                    f"✅ You have successfully {action_word} {first_name} {last_name}'s "
+                                                                                    f"{days} day(s) {ltype} leave application starting on {from_formatted} "
+                                                                                    f"and ending on {to_formatted}. "
+                                                                                    f"{first_name} has been notified of your {action_word}."
+                                                                                )
+                                                                                send_text_message(sender_id, confirm_msg)
+
+                                                                                # Notify the applicant
+                                                                                try:
+                                                                                    if app_phone:
+                                                                                        app_clean = re.sub(r'[^0-9]', '', str(app_phone))
+                                                                                        if app_clean.startswith('0'):
+                                                                                            app_clean = '263' + app_clean[1:]
+                                                                                        elif not app_clean.startswith('263'):
+                                                                                            app_clean = '263' + app_clean
+                                                                                        app_e164 = f"+{app_clean}"
+                                                                                        notif = f"Hi {emp_name}, your {ltype} leave request (#{app_id}) has been {action_word}."
+                                                                                        notif_payload = {
+                                                                                            "messaging_product": "whatsapp",
+                                                                                            "to": app_e164,
+                                                                                            "type": "text",
+                                                                                            "text": {"body": notif}
+                                                                                        }
+                                                                                        wa_headers = {
+                                                                                            'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                                            'Content-Type': 'application/json'
+                                                                                        }
+                                                                                        requests.post(WHATSAPP_API_URL, json=notif_payload, headers=wa_headers, timeout=15)
+                                                                                except Exception as notif_err:
+                                                                                    print(f"⚠️ Failed to notify applicant: {notif_err}")
+                                                                            else:
+                                                                                send_text_message(sender_id, f"✅ You have successfully {action_word} leave request #{app_id}.")
+                                                                        else:
+                                                                            send_text_message(sender_id, f"⚠️ Leave #{app_id} not found or already processed.")
+
+                                                                continue
                                                             else:
                                                                 print(f"❌ Unknown payload: {payload}")
 
@@ -14021,7 +14294,7 @@ def hr_leave_api():
                         'Content-Type': 'application/json'
                     }
 
-                    # Step 1: Send the template message (opens 24h conversation window)
+                    # Step 1: Send the template message with quick reply buttons (opens 24h conversation window)
                     template_payload = {
                         "messaging_product": "whatsapp",
                         "recipient_type": "individual",
@@ -14030,56 +14303,46 @@ def hr_leave_api():
                         "template": {
                             "name": "leaveappforapproval",
                             "language": {"code": "en"},
-                            "components": [{
-                                "type": "body",
-                                "parameters": [
-                                    {"type": "text", "text": str(approver_name)},
-                                    {"type": "text", "text": str(applicant_name)},
-                                    {"type": "text", "text": str(department)},
-                                    {"type": "text", "text": str(days)},
-                                    {"type": "text", "text": str(leave_type)},
-                                    {"type": "text", "text": str(from_formatted)},
-                                    {"type": "text", "text": str(to_formatted)}
-                                ]
-                            }]
+                            "components": [
+                                {
+                                    "type": "body",
+                                    "parameters": [
+                                        {"type": "text", "text": str(approver_name)},
+                                        {"type": "text", "text": str(applicant_name)},
+                                        {"type": "text", "text": str(department)},
+                                        {"type": "text", "text": str(days)},
+                                        {"type": "text", "text": str(leave_type)},
+                                        {"type": "text", "text": str(from_formatted)},
+                                        {"type": "text", "text": str(to_formatted)}
+                                    ]
+                                },
+                                {
+                                    "type": "button",
+                                    "sub_type": "quick_reply",
+                                    "index": 0,
+                                    "parameters": [
+                                        {
+                                            "type": "payload",
+                                            "payload": f"approve_{lid}"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "button",
+                                    "sub_type": "quick_reply",
+                                    "index": 1,
+                                    "parameters": [
+                                        {
+                                            "type": "payload",
+                                            "payload": f"decline_{lid}"
+                                        }
+                                    ]
+                                }
+                            ]
                         }
                     }
                     resp_template = requests.post(WHATSAPP_API_URL, json=template_payload, headers=headers_wa, timeout=15)
                     print(f"📤 Leave template sent to {phone_clean}: {resp_template.status_code}")
-
-                    # Step 2: Send interactive button message with dynamic leave_id payloads
-                    button_payload = {
-                        "messaging_product": "whatsapp",
-                        "recipient_type": "individual",
-                        "to": phone_e164,
-                        "type": "interactive",
-                        "interactive": {
-                            "type": "button",
-                            "body": {
-                                "text": f"Leave application #{lid} from {applicant_name} ({leave_type}, {days} days). Please decide:"
-                            },
-                            "action": {
-                                "buttons": [
-                                    {
-                                        "type": "reply",
-                                        "reply": {
-                                            "id": f"approve_leave_{lid}",
-                                            "title": "✅ Approve"
-                                        }
-                                    },
-                                    {
-                                        "type": "reply",
-                                        "reply": {
-                                            "id": f"decline_leave_{lid}",
-                                            "title": "❌ Decline"
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                    resp_buttons = requests.post(WHATSAPP_API_URL, json=button_payload, headers=headers_wa, timeout=15)
-                    print(f"📤 Leave buttons sent to {phone_clean}: {resp_buttons.status_code}")
 
                     # Log activity
                     log_activity(

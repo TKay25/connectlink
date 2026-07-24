@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PayrollBreakdown",
+  "file": "templates/payroll_breakdown.html",
+  "purpose": "<!-- Describe what PayrollBreakdown does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "ba047b003efc2e3d",
+  "file_mtime": 1784809159470.4692,
+  "file_size": 27375,
+  "file_birthtime": 1784805433047.022,
+  "generated_at": "2026-07-23T19:05:39.239Z",
+  "stale": false
+}
