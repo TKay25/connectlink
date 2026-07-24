@@ -13658,12 +13658,20 @@ def hr_dashboard():
                     SELECT is_super_admin, can_manage_hr, hr_access
                     FROM user_permissions
                     WHERE (user_type = 'projects' OR user_type = 'hr') AND user_id = %s
-                    ORDER BY is_super_admin DESC
-                    LIMIT 1
                 """, (userid,))
-                perm = cursor.fetchone()
-                has_hr_admin = bool(perm and (perm[0] or perm[1]))
-                has_hr_basic = bool(perm and (perm[0] or perm[2])) if perm and len(perm) > 2 else has_hr_admin
+                rows = cursor.fetchall()
+                # Check ALL rows — user may have both 'projects' and 'hr' rows
+                # with different values. Use OR logic: if ANY row has the permission, grant it.
+                has_hr_admin = False
+                has_hr_basic = False
+                for row in rows:
+                    if row[0]:  # is_super_admin
+                        has_hr_admin = True
+                        has_hr_basic = True
+                    if row[1]:  # can_manage_hr
+                        has_hr_admin = True
+                    if len(row) > 2 and row[2]:  # hr_access
+                        has_hr_basic = True
                 can_manage_hr = has_hr_admin
                 hr_access = has_hr_basic
                 hr_role = 'Administrator' if has_hr_admin else ('Ordinary User' if has_hr_basic else 'Ordinary User')
@@ -27160,6 +27168,20 @@ def um_permissions_api():
                     ON CONFLICT (user_type, user_id) DO UPDATE SET
                     {set_clauses}
                 """, [user_type, user_id] + values + values)
+
+                # Sync HR fields (can_manage_hr, hr_access) to OTHER user_type rows
+                # for the same user so toggling OFF in one place actually takes effect everywhere
+                hr_sync_fields = ['can_manage_hr', 'hr_access']
+                hr_sync_values = [data.get(f, False) for f in hr_sync_fields]
+                for utype in ('projects', 'hr'):
+                    if utype != user_type:
+                        cursor.execute(f"""
+                            UPDATE user_permissions SET
+                                can_manage_hr = %s,
+                                hr_access = %s
+                            WHERE user_type = %s AND user_id = %s
+                        """, (*hr_sync_values, utype, user_id))
+
                 connection.commit()
                 return jsonify({'success': True, 'message': 'Permissions updated'})
         except Exception as e:
