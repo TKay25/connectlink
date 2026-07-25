@@ -13853,10 +13853,10 @@ def hr_employees_api():
                             au_id = existing[0]
                         else:
                             cursor.execute("""
-                                INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
-                                VALUES (%s, %s, %s, %s, 'hr', 'operator', TRUE, NOW())
+                                INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at, subsidiary)
+                                VALUES (%s, %s, %s, %s, 'hr', 'operator', TRUE, NOW(), %s)
                                 RETURNING id
-                            """, (username, data.get('password', 'conlink123'), full_name, email))
+                            """, (username, data.get('password', 'conlink123'), full_name, email, data.get('subsidiary', '')))
                             au_id = cursor.fetchone()[0]
                         cursor.execute("UPDATE hr_employees SET user_id = %s WHERE id = %s", (au_id, emp_id))
                         connection.commit()
@@ -14026,13 +14026,14 @@ def hr_employee_detail(emp_id):
                     username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
                     if full_name:
                         cursor.execute("""
-                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at)
-                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW())
+                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at, subsidiary)
+                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW(), %s)
                             ON CONFLICT (username) DO UPDATE SET
                                 full_name = EXCLUDED.full_name,
                                 email = EXCLUDED.email,
+                                subsidiary = EXCLUDED.subsidiary,
                                 updated_at = NOW()
-                        """, (username, full_name, email))
+                        """, (username, full_name, email, data.get('subsidiary', '')))
                 except Exception:
                     pass
 
