@@ -6035,6 +6035,44 @@ def webhook():
 
                                                         elif button_id == "apply_leave":
 
+                                                            # First check if employee has a pending leave
+                                                            cursor.execute("""
+                                                                SELECT e.id
+                                                                FROM hr_employees e
+                                                                WHERE e.whatsapp::TEXT LIKE %s LIMIT 1
+                                                            """, (f"%{sender_number}%",))
+                                                            emp_row = cursor.fetchone()
+
+                                                            if emp_row:
+                                                                emp_id = emp_row[0]
+                                                                cursor.execute("""
+                                                                    SELECT id, leave_type, days, from_date, to_date
+                                                                    FROM hr_leave_applications
+                                                                    WHERE employee_id = %s AND status = 'Pending'
+                                                                    ORDER BY created_at DESC LIMIT 1
+                                                                """, (emp_id,))
+                                                                pending_leave = cursor.fetchone()
+                                                                if pending_leave:
+                                                                    pl_id, pl_type, pl_days, pl_from, pl_to = pending_leave
+                                                                    pl_from_str = pl_from.strftime('%d %B %Y') if hasattr(pl_from, 'strftime') else str(pl_from)
+                                                                    pl_to_str = pl_to.strftime('%d %B %Y') if hasattr(pl_to, 'strftime') else str(pl_to)
+                                                                    send_whatsapp_button_message(sender_id,
+                                                                        f"⚠️ *You already have a pending leave application!*\n\n"
+                                                                        f"📋 *Reference:* #{pl_id}\n"
+                                                                        f"📅 *Type:* {pl_type}\n"
+                                                                        f"📊 *Days:* {pl_days}\n"
+                                                                        f"📆 *From:* {pl_from_str}\n"
+                                                                        f"📆 *To:* {pl_to_str}\n\n"
+                                                                        f"Please cancel it first before applying for new leave.",
+                                                                        [
+                                                                            {"type":"reply","reply":{"id":f"cancel_pending_leave_{pl_id}","title":"❌ Cancel Pending App"}},
+                                                                            {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
+                                                                        ],
+                                                                        footer_text="ConnectLink HR Portal"
+                                                                    )
+                                                                    continue
+
+                                                            # No pending leave — show the flow form
                                                             url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
                                                             headers = {
                                                                 "Authorization": f"Bearer {ACCESS_TOKEN}",
