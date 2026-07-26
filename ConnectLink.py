@@ -14816,6 +14816,311 @@ def hr_employee_detail(emp_id):
             return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==================== EXCEL EMPLOYEE IMPORT ====================
+
+@app.route('/api/hr/employees/template', methods=['GET'])
+def hr_employees_template():
+    """Download an Excel template for bulk employee import."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Employee Import Template"
+
+        # Header style
+        header_font = Font(bold=True, color='FFFFFF', size=10)
+        header_fill = PatternFill(start_color='1E3A5F', end_color='1E3A5F', fill_type='solid')
+        header_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+
+        columns = [
+            ('first_name', 'First Name *'),
+            ('last_name', 'Last Name *'),
+            ('email', 'Email *'),
+            ('whatsapp', 'WhatsApp Number'),
+            ('gender', 'Gender (Male/Female)'),
+            ('dob', 'Date of Birth (YYYY-MM-DD)'),
+            ('marital_status', 'Marital Status'),
+            ('nationality', 'Nationality'),
+            ('address', 'Address'),
+            ('department', 'Department'),
+            ('designation', 'Designation'),
+            ('employment_type', 'Employment Type'),
+            ('date_joined', 'Date Joined (YYYY-MM-DD)'),
+            ('subsidiary', 'Subsidiary'),
+            ('basic_salary', 'Basic Salary (USD)'),
+            ('allowances', 'Allowances (USD)'),
+            ('current_leave_balance', 'Leave Balance (days)'),
+            ('monthly_accumulation', 'Monthly Accrual (days)'),
+            ('bank_holder_name', 'Bank Holder Name'),
+            ('bank_holder_surname', 'Bank Holder Surname'),
+            ('bank_name', 'Bank Name'),
+            ('bank_account_number', 'Account Number'),
+            ('bank_branch', 'Branch'),
+            ('bank_branch_code', 'Branch Code'),
+            ('status', 'Status (Active/Inactive/Terminated)'),
+        ]
+
+        for col_idx, (field, label) in enumerate(columns, 1):
+            cell = ws.cell(row=1, column=col_idx, value=label)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+
+        # Set column widths
+        widths = [16, 16, 30, 18, 12, 16, 14, 16, 30, 16, 16, 16, 16, 14, 14, 14, 14, 14, 18, 18, 16, 18, 16, 14, 14]
+        col_letters = []
+        for i in range(1, len(columns) + 1):
+            if i <= 26:
+                col_letters.append(chr(64 + i))
+            else:
+                col_letters.append('A' + chr(64 + i - 26))
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[col_letters[i - 1]].width = w
+
+        # Data validation dropdowns for categorical fields
+        dv_config = {
+            5: ['Male', 'Female'],                          # Gender
+            7: ['Single', 'Married', 'Divorced', 'Widowed'], # Marital Status
+            10: ['Construction', 'Sales and Marketing', 'Administration', 'Finance', 'HR', 'Logistics', 'Management', 'Systems & IT'],  # Department
+            12: ['Permanent', 'Contract', 'Probation', 'Intern', 'Part-Time'],  # Employment Type
+            14: ['Construction', 'Hardware', 'Group'],       # Subsidiary
+            21: ['CABS', 'CBZ', 'Ecobank', 'FBC', 'First Capital', 'NBS', 'Nedbank', 'POSB', 'EcoCash', 'Standard Chartered', 'Stanbic', 'ZABG', 'ZB'],  # Bank Name
+            25: ['Active', 'Inactive', 'Terminated'],        # Status
+        }
+        for col_idx, options in dv_config.items():
+            col_letter = col_letters[col_idx - 1]
+            dv = DataValidation(
+                type="list",
+                formula1='"' + ','.join(options) + '"',
+                allow_blank=True
+            )
+            dv.error = "Please select a valid option from the dropdown"
+            dv.errorTitle = "Invalid Entry"
+            dv.prompt = "Select from dropdown"
+            dv.promptTitle = columns[col_idx - 1][1]
+            ws.add_data_validation(dv)
+            dv.add(f'{col_letter}2:{col_letter}1048576')
+
+        # Add a sample row
+        sample = [
+            'John', 'Doe', 'john.doe@email.com', '263771234567',
+            'Male', '1990-01-15', 'Married', 'Zimbabwean',
+            '123 Main St', 'Systems & IT', 'Developer', 'Permanent',
+            '2024-01-01', 'Group', 500, 0, 21, 1.75,
+            'John', 'Doe', 'CBZ', '123456789', 'Harare', '1234', 'Active'
+        ]
+        for col_idx, val in enumerate(sample, 1):
+            cell = ws.cell(row=2, column=col_idx, value=val)
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal='left')
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='employee_import_template.xlsx'
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/employees/import', methods=['POST'])
+def hr_employees_import():
+    """Upload and import employees from an Excel file."""
+    if not session.get('can_manage_hr', False):
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+
+    try:
+        from openpyxl import load_workbook
+
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+        wb = load_workbook(file)
+        ws = wb.active
+
+        # Read header row (row 1) to map columns
+        headers = []
+        for col in range(1, ws.max_column + 1):
+            val = ws.cell(row=1, column=col).value
+            if val:
+                headers.append(str(val).strip().lower().replace(' ', '_').replace('*', ''))
+            else:
+                headers.append(f'col_{col}')
+
+        # Field mapping from header labels to DB columns
+        field_map = {
+            'first_name': 'first_name', 'last_name': 'last_name', 'email': 'email',
+            'whatsapp': 'whatsapp', 'gender': 'gender',
+            'date_of_birth_(yyyy-mm-dd)': 'dob', 'dob': 'dob',
+            'marital_status': 'marital_status', 'nationality': 'nationality',
+            'address': 'address', 'department': 'department', 'designation': 'designation',
+            'employment_type': 'employment_type', 'date_joined': 'date_joined',
+            'date_joined_(yyyy-mm-dd)': 'date_joined', 'subsidiary': 'subsidiary',
+            'basic_salary_(usd)': 'basic_salary', 'basic_salary': 'basic_salary',
+            'allowances_(usd)': 'allowances', 'allowances': 'allowances',
+            'leave_balance_(days)': 'current_leave_balance', 'current_leave_balance': 'current_leave_balance',
+            'monthly_accrual_(days)': 'monthly_accumulation', 'monthly_accumulation': 'monthly_accumulation',
+            'bank_holder_name': 'bank_holder_name', 'bank_holder_surname': 'bank_holder_surname',
+            'bank_name': 'bank_name', 'account_number': 'bank_account_number',
+            'bank_account_number': 'bank_account_number', 'branch': 'bank_branch',
+            'bank_branch': 'bank_branch', 'branch_code': 'bank_branch_code',
+            'bank_branch_code': 'bank_branch_code',
+            'status': 'status', 'role': 'role'
+        }
+
+        # Map headers to DB columns
+        column_indices = {}
+        for i, h in enumerate(headers):
+            if h in field_map:
+                column_indices[field_map[h]] = i
+
+        required = ['first_name', 'last_name', 'email']
+        missing = [r for r in required if r not in column_indices]
+        if missing:
+            return jsonify({'success': False, 'error': f'Missing required columns: {", ".join(missing)}'}), 400
+
+        results = {'imported': 0, 'skipped': 0, 'errors': []}
+
+        with get_db() as (cursor, connection):
+            for row_num in range(2, ws.max_row + 1):
+                try:
+                    # Read values
+                    def gv(col):
+                        idx = column_indices.get(col)
+                        if idx is None:
+                            return None
+                        val = ws.cell(row=row_num, column=idx + 1).value
+                        if val is None:
+                            return None
+                        return str(val).strip()
+
+                    first = gv('first_name')
+                    last = gv('last_name')
+                    email = gv('email')
+
+                    if not first or not last or not email:
+                        results['skipped'] += 1
+                        continue
+
+                    whatsapp = gv('whatsapp') or ''
+                    # Check for duplicate WhatsApp
+                    if whatsapp:
+                        cursor.execute("SELECT id FROM hr_employees WHERE whatsapp = %s", (whatsapp,))
+                        if cursor.fetchone():
+                            results['skipped'] += 1
+                            results['errors'].append(f"Row {row_num}: Duplicate WhatsApp {whatsapp} for {email}")
+                            continue
+
+                    # Check for duplicate email
+                    cursor.execute("SELECT id FROM hr_employees WHERE email = %s", (email,))
+                    if cursor.fetchone():
+                        results['skipped'] += 1
+                        results['errors'].append(f"Row {row_num}: Duplicate email {email}")
+                        continue
+
+                    # Parse numeric fields
+                    basic_salary = 0
+                    try:
+                        bs = gv('basic_salary')
+                        if bs:
+                            basic_salary = float(bs)
+                    except: pass
+
+                    allowances_val = 0
+                    try:
+                        al = gv('allowances')
+                        if al:
+                            allowances_val = float(al)
+                    except: pass
+
+                    leave_balance = 21
+                    try:
+                        lb = gv('current_leave_balance')
+                        if lb:
+                            leave_balance = float(lb)
+                    except: pass
+
+                    monthly_accrual = 1.75
+                    try:
+                        ma = gv('monthly_accumulation')
+                        if ma:
+                            monthly_accrual = float(ma)
+                    except: pass
+
+                    # Parse dates
+                    dob = gv('dob')
+                    date_joined = gv('date_joined')
+
+                    # Gender
+                    gender = gv('gender')
+                    if gender:
+                        gender = gender.capitalize() if gender.lower() in ('male', 'female') else None
+
+                    status = gv('status') or 'Active'
+                    if status.lower() not in ('active', 'inactive', 'terminated'):
+                        status = 'Active'
+
+                    cursor.execute("""
+                        INSERT INTO hr_employees
+                            (first_name, last_name, email, whatsapp, gender, dob, marital_status,
+                             nationality, address, department, designation, employment_type,
+                             date_joined, subsidiary, basic_salary, allowances,
+                             current_leave_balance, monthly_accumulation,
+                             bank_holder_name, bank_holder_surname, bank_name,
+                             bank_account_number, bank_branch, bank_branch_code, status,
+                             role, date_joined)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Ordinary User', COALESCE(%s, NOW()))
+                        ON CONFLICT (email) DO UPDATE SET
+                            first_name = EXCLUDED.first_name,
+                            last_name = EXCLUDED.last_name,
+                            whatsapp = EXCLUDED.whatsapp,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (
+                        first, last, email, whatsapp, gender, dob,
+                        gv('marital_status'), gv('nationality'), gv('address'),
+                        gv('department'), gv('designation'), gv('employment_type'),
+                        date_joined, gv('subsidiary'),
+                        basic_salary, allowances_val,
+                        leave_balance, monthly_accrual,
+                        gv('bank_holder_name'), gv('bank_holder_surname'),
+                        gv('bank_name'), gv('bank_account_number'),
+                        gv('bank_branch'), gv('bank_branch_code'),
+                        status, date_joined
+                    ))
+                    connection.commit()
+                    results['imported'] += 1
+
+                except Exception as row_err:
+                    results['skipped'] += 1
+                    results['errors'].append(f"Row {row_num}: {str(row_err)}")
+                    connection.rollback()
+
+        return jsonify({
+            'success': True,
+            'message': f"✅ {results['imported']} imported, {results['skipped']} skipped",
+            'details': results
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/hr/leave-balances/<int:emp_id>', methods=['GET', 'POST'])
 def hr_leave_balances(emp_id):
     """Get or update per-leave-type balances for an employee"""

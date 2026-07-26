@@ -985,7 +985,7 @@
 
             <!-- ===== QUICK ACTION CARDS ===== -->
             <div class="quick-actions">
-                <div class="quick-action-card admin-only" onclick="showModule('employees')">
+                <div class="quick-action-card admin-only" onclick="openModal('employeeImportModal')">
                     <div class="qa-icon blue"><i class="bi bi-person-plus"></i></div>
                     <div class="qa-content">
                         <div class="qa-title">Add Employee</div>
@@ -1064,7 +1064,7 @@
             <div class="page-header">
                 <h4><i class="bi bi-people-fill"></i> Employee Management</h4>
                 <div>
-                    <button class="btn btn-primary btn-sm" onclick="resetAddForm();openModal('addEmployeeModal')">
+                    <button class="btn btn-primary btn-sm" onclick="openModal('employeeImportModal')">
                         <i class="bi bi-person-plus"></i> Add Employee
                     </button>
                     <button class="btn btn-outline-primary btn-sm" onclick="alert('Exporting employee list...')">
@@ -1987,6 +1987,37 @@
 </div>
 
 <!-- ===== MODALS ===== -->
+
+<!-- Employee Import Choice Modal -->
+<div id="employeeImportModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:420px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-person-plus-fill"></i> Add Employee</h3>
+            <button class="modal-close" onclick="closeModal('employeeImportModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom" style="padding:20px;">
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <button class="btn btn-outline-primary" style="padding:14px;font-size:0.75rem;border-radius:10px;text-align:left;" onclick="closeModal('employeeImportModal');resetAddForm();openModal('addEmployeeModal')">
+                    <i class="bi bi-person-plus" style="font-size:1rem;margin-right:10px;"></i>
+                    <strong>Add Manually</strong><br>
+                    <span style="font-size:0.6rem;color:#94a3b8;">Fill in the employee form manually</span>
+                </button>
+                <button class="btn btn-outline-primary" style="padding:14px;font-size:0.75rem;border-radius:10px;text-align:left;" onclick="downloadEmployeeTemplate()">
+                    <i class="bi bi-download" style="font-size:1rem;margin-right:10px;"></i>
+                    <strong>Get Template</strong><br>
+                    <span style="font-size:0.6rem;color:#94a3b8;">Download Excel template to fill employee details</span>
+                </button>
+                <button class="btn btn-outline-primary" style="padding:14px;font-size:0.75rem;border-radius:10px;text-align:left;" onclick="document.getElementById('excelUploadInput').click()">
+                    <i class="bi bi-upload" style="font-size:1rem;margin-right:10px;"></i>
+                    <strong>Upload Excel</strong><br>
+                    <span style="font-size:0.6rem;color:#94a3b8;">Upload a filled Excel file with employee data</span>
+                </button>
+                <input type="file" id="excelUploadInput" accept=".xlsx,.xls" style="display:none;" onchange="uploadEmployeeExcel(this)">
+                <div id="excelUploadStatus" style="font-size:0.6rem;text-align:center;margin-top:4px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Add Employee Modal -->
 <div id="addEmployeeModal" class="modal-overlay">
@@ -3059,6 +3090,37 @@ function resetAddForm() {
     document.querySelectorAll('.lb-input').forEach(inp => inp.value = '');
     // Render default leave balances
     renderLeaveBalances();
+}
+
+// ===== EMPLOYEE EXCEL IMPORT =====
+function downloadEmployeeTemplate() {
+    window.open('/api/hr/employees/template', '_blank');
+}
+
+async function uploadEmployeeExcel(input) {
+    const statusEl = document.getElementById('excelUploadStatus');
+    if (!input.files || !input.files.length) { statusEl.textContent = ''; return; }
+    const file = input.files[0];
+    statusEl.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Uploading...';
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+        const res = await fetch('/api/hr/employees/import', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            statusEl.innerHTML = `<span style="color:#16a34a;">${data.message}</span>`;
+            loadEmployees();
+            loadDashboardStats();
+            if (data.details.errors && data.details.errors.length) {
+                console.warn('Import errors:', data.details.errors);
+            }
+        } else {
+            statusEl.innerHTML = `<span style="color:#dc2626;">❌ ${data.error || 'Import failed'}</span>`;
+        }
+    } catch(e) {
+        statusEl.innerHTML = `<span style="color:#dc2626;">❌ ${e.message}</span>`;
+    }
+    input.value = '';
 }
 
 function renderLeaveBalances() {
