@@ -6029,24 +6029,75 @@ def webhook():
                                                                 if temp_row and 'leave_pending_' in (temp_row[0] or ''):
                                                                     pending_str = temp_row[0].replace('leave_pending_', '', 1)
                                                                     pending = json.loads(pending_str)
-                                                                    
+
                                                                     leave_type = pending.get('leave_type', 'Other')
                                                                     leave_start = pending.get('leave_start', '')
                                                                     leave_end = pending.get('leave_end', '')
                                                                     days = pending.get('days', 1)
 
-                                                                    # Look up employee
+                                                                    # Look up employee with balance & approver details
                                                                     cursor.execute("""
-                                                                        SELECT id, first_name, last_name
+                                                                        SELECT id, first_name, last_name, current_leave_balance,
+                                                                               leave_approver_name, leave_approver_whatsapp, department
                                                                         FROM hr_employees
                                                                         WHERE whatsapp::TEXT LIKE %s LIMIT 1
                                                                     """, (f"%{sender_number}%",))
                                                                     emp = cursor.fetchone()
-                                                                    
+
                                                                     if emp:
                                                                         emp_id = emp[0]
                                                                         emp_name = f"{emp[1]} {emp[2]}"
-                                                                        
+                                                                        leave_balance = float(emp[3] or 0)
+                                                                        approver_name = emp[4] or ''
+                                                                        approver_phone = emp[5] or ''
+                                                                        department = emp[6] or 'General'
+
+                                                                        # ----- CHECK 1: Existing pending leave -----
+                                                                        cursor.execute("""
+                                                                            SELECT id, leave_type, days, from_date, to_date
+                                                                            FROM hr_leave_applications
+                                                                            WHERE employee_id = %s AND status = 'Pending'
+                                                                            ORDER BY created_at DESC LIMIT 1
+                                                                        """, (emp_id,))
+                                                                        pending_leave = cursor.fetchone()
+                                                                        if pending_leave:
+                                                                            pl_id, pl_type, pl_days, pl_from, pl_to = pending_leave
+                                                                            pl_from_str = pl_from.strftime('%d %B %Y') if hasattr(pl_from, 'strftime') else str(pl_from)
+                                                                            pl_to_str = pl_to.strftime('%d %B %Y') if hasattr(pl_to, 'strftime') else str(pl_to)
+                                                                            send_text_message(sender_id,
+                                                                                f"⚠️ *You already have a pending leave application!*\n\n"
+                                                                                f"📋 *Reference:* #{pl_id}\n"
+                                                                                f"📅 *Type:* {pl_type}\n"
+                                                                                f"📊 *Days:* {pl_days}\n"
+                                                                                f"📆 *From:* {pl_from_str}\n"
+                                                                                f"📆 *To:* {pl_to_str}\n\n"
+                                                                                f"Please wait for it to be resolved before applying for new leave."
+                                                                            )
+                                                                            # Clean up temp
+                                                                            try:
+                                                                                cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                                connection.commit()
+                                                                            except:
+                                                                                pass
+                                                                            continue
+
+                                                                        # ----- CHECK 2: Sufficient leave balance -----
+                                                                        if days > leave_balance:
+                                                                            send_text_message(sender_id,
+                                                                                f"❌ *Insufficient Leave Balance!*\n\n"
+                                                                                f"You applied for *{days}* day(s) of *{leave_type}*,\n"
+                                                                                f"but your current leave balance is only *{leave_balance}* day(s).\n\n"
+                                                                                f"Please apply for fewer days or contact HR."
+                                                                            )
+                                                                            # Clean up temp
+                                                                            try:
+                                                                                cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                                connection.commit()
+                                                                            except:
+                                                                                pass
+                                                                            continue
+
+                                                                        # ----- ALL CHECKS PASSED — Insert leave -----
                                                                         cursor.execute("""
                                                                             INSERT INTO hr_leave_applications
                                                                                 (employee_id, employee_name, leave_type, from_date, to_date, days, reason, status)
@@ -6063,6 +6114,19 @@ def webhook():
                                                                         except:
                                                                             pass
 
+                                                                        # Format dates for notification
+                                                                        try:
+                                                                            from_dt_n = datetime.strptime(str(leave_start)[:10], '%Y-%m-%d')
+                                                                            from_formatted = from_dt_n.strftime('%-d %B %Y')
+                                                                        except:
+                                                                            from_formatted = str(leave_start)
+                                                                        try:
+                                                                            to_dt_n = datetime.strptime(str(leave_end)[:10], '%Y-%m-%d')
+                                                                            to_formatted = to_dt_n.strftime('%-d %B %Y')
+                                                                        except:
+                                                                            to_formatted = str(leave_end)
+
+                                                                        # Confirm to applicant
                                                                         send_text_message(sender_id,
                                                                             f"✅ *Leave Application Submitted!*\n\n"
                                                                             f"📋 *Reference:* #{lid}\n"
@@ -6073,6 +6137,80 @@ def webhook():
                                                                             f"⏳ *Status:* Pending Approval\n\n"
                                                                             f"You will be notified once your leave is approved."
                                                                         )
+
+                                                                        # ----- Notify approver via Meta template -----
+                                                                        if approver_phone and approver_name:
+                                                                            try:
+                                                                                phone_clean = re.sub(r'[^0-9]', '', str(approver_phone))
+                                                                                if phone_clean.startswith('0'):
+                                                                                    phone_clean = '263' + phone_clean[1:]
+                                                                                elif not phone_clean.startswith('263'):
+                                                                                    phone_clean = '263' + phone_clean
+                                                                                phone_e164 = f"+{phone_clean}"
+
+                                                                                wa_headers = {
+                                                                                    'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                                    'Content-Type': 'application/json'
+                                                                                }
+
+                                                                                template_payload = {
+                                                                                    "messaging_product": "whatsapp",
+                                                                                    "recipient_type": "individual",
+                                                                                    "to": phone_e164,
+                                                                                    "type": "template",
+                                                                                    "template": {
+                                                                                        "name": "leaveappforapproval",
+                                                                                        "language": {"code": "en"},
+                                                                                        "components": [
+                                                                                            {
+                                                                                                "type": "body",
+                                                                                                "parameters": [
+                                                                                                    {"type": "text", "text": str(approver_name)},
+                                                                                                    {"type": "text", "text": str(emp_name)},
+                                                                                                    {"type": "text", "text": str(department)},
+                                                                                                    {"type": "text", "text": str(days)},
+                                                                                                    {"type": "text", "text": str(leave_type)},
+                                                                                                    {"type": "text", "text": str(from_formatted)},
+                                                                                                    {"type": "text", "text": str(to_formatted)}
+                                                                                                ]
+                                                                                            },
+                                                                                            {
+                                                                                                "type": "button",
+                                                                                                "sub_type": "quick_reply",
+                                                                                                "index": 0,
+                                                                                                "parameters": [
+                                                                                                    {
+                                                                                                        "type": "payload",
+                                                                                                        "payload": f"approve_{lid}"
+                                                                                                    }
+                                                                                                ]
+                                                                                            },
+                                                                                            {
+                                                                                                "type": "button",
+                                                                                                "sub_type": "quick_reply",
+                                                                                                "index": 1,
+                                                                                                "parameters": [
+                                                                                                    {
+                                                                                                        "type": "payload",
+                                                                                                        "payload": f"decline_{lid}"
+                                                                                                    }
+                                                                                                ]
+                                                                                            }
+                                                                                        ]
+                                                                                    }
+                                                                                }
+                                                                                resp_template = requests.post(WHATSAPP_API_URL, json=template_payload, headers=wa_headers, timeout=15)
+                                                                                print(f"📤 Leave template sent to {phone_clean}: {resp_template.status_code}")
+
+                                                                                log_activity(
+                                                                                    'leave_notification',
+                                                                                    f'Leave #{lid} approval request sent via WhatsApp to {approver_name} ({phone_clean})',
+                                                                                    'hr_leave', lid,
+                                                                                    {'approver': approver_name, 'phone': phone_clean, 'source': 'whatsapp_bot'}
+                                                                                )
+                                                                            except Exception as wa_err:
+                                                                                print(f"⚠️ Failed to send WhatsApp leave notification to approver: {wa_err}")
+
                                                                     else:
                                                                         send_text_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
                                                                 else:
