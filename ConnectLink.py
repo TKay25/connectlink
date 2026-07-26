@@ -16615,7 +16615,7 @@ def payroll_breakdown():
         aids = emp['aids_levy']
         nec = emp['nec']
         zimdef = emp['zimdef']
-        total_ded = emp['total_deductions'] or (nssa + paye + aids + nec + zimdef)
+        total_ded = emp['total_deductions'] or (nssa + paye + aids + nec)
         net = emp['net_pay'] or max(0, gross - total_ded)
 
         # Taxable income = Gross - NSSA (since NSSA is deducted first)
