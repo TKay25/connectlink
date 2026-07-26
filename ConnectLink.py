@@ -14984,7 +14984,7 @@ def hr_payroll_api():
                     headers = [
                         '#', 'First Name', 'Last Name', 'Department', 'Designation',
                         'Basic Pay', 'Allowances', 'Gross Pay',
-                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'NEC', 'ZIMDEF', 'Total Deductions',
+                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'NEC', 'Total Deductions',
                         'Net Pay', 'Status',
                         'Bank Holder', 'Bank Name', 'Account Number', 'Branch', 'Branch Code',
                         'Currency'
@@ -15004,7 +15004,7 @@ def hr_payroll_api():
                             r[0] or '', r[1] or '', r[2] or '', r[3] or '',
                             float(r[18] or 0), float(r[19] or 0), float(r[20] or 0),
                             float(r[21] or 0), float(r[22] or 0), float(r[23] or 0),
-                            float(r[24] or 0), float(r[25] or 0),
+                            float(r[24] or 0),
                             float(r[28] or 0), float(r[29] or 0), r[30] or '',
                             r[5] or '', r[7] or '', r[8] or '', r[9] or '', r[10] or '',
                             r[14] or 'USD'
