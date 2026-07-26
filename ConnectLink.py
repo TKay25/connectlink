@@ -14441,7 +14441,8 @@ def hr_employees_api():
                     SELECT id, user_id, first_name, last_name, whatsapp, email, address,
                            role, department, subsidiary, designation, gender, dob, marital_status,
                            nationality, date_joined, current_leave_balance, monthly_accumulation,
-                           basic_salary, employment_type, status
+                           basic_salary, employment_type, status,
+                           leave_approver_id, leave_approver_name
                     FROM hr_employees ORDER BY last_name, first_name
                 """)
                 rows = cursor.fetchall()
@@ -14461,6 +14462,7 @@ def hr_employees_api():
                         'date_joined': str(r[15]) if r[15] else None,
                         'leave_balance': float(r[16] or 0), 'monthly_accrual': float(r[17] or 0),
                         'salary': float(r[18] or 0), 'employment_type': r[19], 'status': r[20],
+                        'leave_approver_id': r[21], 'leave_approver_name': r[22] or '',
                         'source': 'hr_employees'
                     })
 
