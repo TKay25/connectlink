@@ -48,8 +48,7 @@ from ai_classifier import classify_product, get_category_suggestions
 
 
 
-#import threading
-#from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 app = Flask(__name__)
@@ -1706,6 +1705,21 @@ def initialize_database_tables():
             connection.commit()
             print("✅ Password reset codes table initialized")
 
+            # Leave accrual run log table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS leave_accrual_log (
+                    id SERIAL PRIMARY KEY,
+                    run_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    status VARCHAR(20) NOT NULL,
+                    employees_updated INT DEFAULT 0,
+                    types_updated INT DEFAULT 0,
+                    error_message TEXT,
+                    triggered_by VARCHAR(100) DEFAULT 'scheduler'
+                );
+            """)
+            connection.commit()
+            print("✅ Leave accrual log table initialized")
+
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_attendance (
                     id SERIAL PRIMARY KEY,
@@ -3220,6 +3234,75 @@ def webhook():
                                                                             send_whatsapp_message(sender, f"⚠️ Leave #{slip_leave_id} not found or still pending.")
                                                                 except Exception as e:
                                                                     print(f"❌ Error sending leave slip: {e}")
+                                                                    import traceback
+                                                                    traceback.print_exc()
+                                                                continue
+
+                                                            # === HANDLE MY LEAVE HISTORY ===
+                                                            if bid_lower.startswith('my_leave_history_'):
+                                                                try:
+                                                                    parts = button_id.split('_')
+                                                                    hist_emp_id = int(parts[-1])
+                                                                    sender = message.get("from", "")
+
+                                                                    with get_db() as (hist_cursor, hist_conn):
+                                                                        # Get employee details
+                                                                        hist_cursor.execute("""
+                                                                            SELECT id, first_name, last_name, department
+                                                                            FROM hr_employees WHERE id = %s
+                                                                        """, (hist_emp_id,))
+                                                                        hem = hist_cursor.fetchone()
+                                                                        if not hem:
+                                                                            send_whatsapp_message(sender, "❌ Employee not found.")
+                                                                            continue
+
+                                                                        emp_name = f"{hem[1]} {hem[2]}"
+                                                                        department = hem[3] or 'General'
+
+                                                                        # Get all leave applications for this employee
+                                                                        hist_cursor.execute("""
+                                                                            SELECT id, leave_type, from_date, to_date, days, reason, status,
+                                                                                   approved_by, created_at
+                                                                            FROM hr_leave_applications
+                                                                            WHERE employee_id = %s
+                                                                            ORDER BY created_at DESC
+                                                                        """, (hist_emp_id,))
+                                                                        leaves = hist_cursor.fetchall()
+
+                                                                    if not leaves:
+                                                                        send_whatsapp_message(sender, "📋 *Leave History*\n\nYou have no leave records on file.")
+                                                                        continue
+
+                                                                    # Build logo
+                                                                    logo_b64 = ''
+                                                                    logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+                                                                    if os.path.exists(logo_path):
+                                                                        with open(logo_path, 'rb') as f:
+                                                                            logo_b64 = base64.b64encode(f.read()).decode()
+
+                                                                    # Generate PDF
+                                                                    from flask import render_template
+                                                                    import pdfkit
+                                                                    html = render_template('leave_history.html',
+                                                                        emp_name=emp_name, department=department,
+                                                                        leaves=leaves, logo_b64=logo_b64,
+                                                                        now=datetime.now()
+                                                                    )
+                                                                    pdf_bytes = pdfkit.from_string(html, False, options={
+                                                                        'page-size': 'A4',
+                                                                        'margin-top': '0',
+                                                                        'margin-bottom': '0',
+                                                                        'margin-left': '0',
+                                                                        'margin-right': '0',
+                                                                        'no-outline': None
+                                                                    })
+
+                                                                    filename = f"Leave_History_{emp_name}.pdf"
+                                                                    caption = f"📋 Leave History Report - {emp_name}"
+                                                                    send_pdf_document_whatsapp(sender, pdf_bytes, filename, caption)
+                                                                    print(f"✅ Leave history PDF sent to {sender} for {emp_name}")
+                                                                except Exception as e:
+                                                                    print(f"❌ Error sending leave history: {e}")
                                                                     import traceback
                                                                     traceback.print_exc()
                                                                 continue
@@ -11720,6 +11803,46 @@ def log_activity(action_type, description, reference_type=None, reference_id=Non
             connection.commit()
     except Exception as e:
         print(f"❌ Failed to log activity: {e}")
+
+
+@app.route('/api/hr/leave-accrual/trigger', methods=['POST'])
+def trigger_leave_accrual():
+    """Manually trigger monthly leave accrual (admin only)."""
+    if not session.get('can_manage_hr', False):
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    try:
+        monthly_leave_accrual(triggered_by='manual')
+        return jsonify({'success': True, 'message': 'Leave accrual run completed successfully!'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/hr/leave-accrual/log', methods=['GET'])
+def get_leave_accrual_log():
+    """Get the history of leave accrual runs."""
+    if not session.get('can_manage_hr', False):
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, run_at, status, employees_updated, types_updated, error_message, triggered_by
+                FROM leave_accrual_log
+                ORDER BY run_at DESC LIMIT 50
+            """)
+            rows = cursor.fetchall()
+            return jsonify({'success': True, 'data': [
+                {
+                    'id': r[0],
+                    'run_at': r[1].strftime('%Y-%m-%d %H:%M:%S') if r[1] else '',
+                    'status': r[2],
+                    'employees_updated': r[3],
+                    'types_updated': r[4],
+                    'error_message': r[5],
+                    'triggered_by': r[6]
+                } for r in rows
+            ]})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/api/activity-log', methods=['GET', 'POST'])
@@ -33156,4 +33279,141 @@ def quick_view_chart():
         tb = traceback.format_exc()
         logging.error(f'Error in quick_view_chart: {str(e)}\n{tb}')
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== MONTHLY LEAVE BALANCE ACCRUAL SCHEDULER ====================
+
+def monthly_leave_accrual(triggered_by='scheduler'):
+    """Run on the 1st of every month: add monthly_accrual to each employee's leave balance."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE hr_employees
+                SET current_leave_balance = GREATEST(0, current_leave_balance + monthly_accumulation)
+                WHERE status = 'Active'
+            """)
+            updated = cursor.rowcount
+            connection.commit()
+
+            # Also update per-leave-type balances
+            cursor.execute("""
+                UPDATE hr_employee_leave_balances lb
+                SET current_balance = GREATEST(0, lb.current_balance + COALESCE(lb.monthly_accrual, 0)),
+                    updated_at = CURRENT_TIMESTAMP
+                FROM hr_employees e
+                WHERE lb.employee_id = e.id AND e.status = 'Active'
+            """)
+            updated_types = cursor.rowcount
+            connection.commit()
+
+            # Fetch all active employees with WhatsApp for notification
+            cursor.execute("""
+                SELECT id, first_name, last_name, whatsapp, current_leave_balance
+                FROM hr_employees
+                WHERE status = 'Active' AND whatsapp IS NOT NULL AND whatsapp != ''
+            """)
+            employees = cursor.fetchall()
+
+            # Send leavedaysbalanceupdate template to each employee
+            wa_headers = {
+                'Authorization': f'Bearer {ACCESS_TOKEN}',
+                'Content-Type': 'application/json'
+            }
+            sent_count = 0
+            for emp in employees:
+                emp_id = emp[0]
+                emp_name = f"{emp[1]} {emp[2]}".strip()
+                emp_wa = emp[3]
+                balance = float(emp[4] or 0)
+
+                try:
+                    phone_clean = re.sub(r'[^0-9]', '', str(emp_wa))
+                    if phone_clean.startswith('0'):
+                        phone_clean = '263' + phone_clean[1:]
+                    elif not phone_clean.startswith('263'):
+                        phone_clean = '263' + phone_clean
+                    phone_e164 = f"+{phone_clean}"
+
+                    payload = {
+                        "messaging_product": "whatsapp",
+                        "to": phone_e164,
+                        "type": "template",
+                        "template": {
+                            "name": "leavedaysbalanceupdate",
+                            "language": {"code": "en"},
+                            "components": [
+                                {
+                                    "type": "body",
+                                    "parameters": [
+                                        {"type": "text", "text": str(emp_name)},
+                                        {"type": "text", "text": str(int(balance))}
+                                    ]
+                                },
+                                {
+                                    "type": "button",
+                                    "sub_type": "quick_reply",
+                                    "index": 0,
+                                    "parameters": [
+                                        {"type": "payload", "payload": "apply_leave"}
+                                    ]
+                                },
+                                {
+                                    "type": "button",
+                                    "sub_type": "quick_reply",
+                                    "index": 1,
+                                    "parameters": [
+                                        {"type": "payload", "payload": f"my_leave_history_{emp_id}"}
+                                    ]
+                                },
+                                {
+                                    "type": "button",
+                                    "sub_type": "quick_reply",
+                                    "index": 2,
+                                    "parameters": [
+                                        {"type": "payload", "payload": "main_menu"}
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                    resp = requests.post(WHATSAPP_API_URL, json=payload, headers=wa_headers, timeout=15)
+                    if resp.status_code == 200:
+                        sent_count += 1
+                    else:
+                        print(f"⚠️ Failed to send balance update to {emp_name}: {resp.status_code}")
+                except Exception as wa_err:
+                    print(f"⚠️ Error sending to {emp_name}: {wa_err}")
+
+            # Log successful run
+            cursor.execute("""
+                INSERT INTO leave_accrual_log (status, employees_updated, types_updated, triggered_by)
+                VALUES ('success', %s, %s, %s)
+            """, (updated, updated_types, triggered_by))
+            connection.commit()
+            print(f"✅ Monthly leave accrual applied: {updated} employees, {updated_types} leave-type balances ({triggered_by})")
+            print(f"📤 Leave balance update notifications sent to {sent_count}/{len(employees)} employees")
+    except Exception as e:
+        print(f"❌ Monthly leave accrual error: {e}")
+        try:
+            with get_db() as (log_cursor, log_conn):
+                log_cursor.execute("""
+                    INSERT INTO leave_accrual_log (status, employees_updated, types_updated, error_message, triggered_by)
+                    VALUES ('failed', 0, 0, %s, %s)
+                """, (str(e), triggered_by))
+                log_conn.commit()
+        except:
+            pass
+
+
+# Start the scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=monthly_leave_accrual, trigger='cron', day='1', hour='0', minute='5', id='monthly_leave_accrual')
+try:
+    scheduler.start()
+    print("✅ Monthly leave accrual scheduler started (runs 1st of each month at 00:05)")
+except Exception as e:
+    print(f"Note: Scheduler may already be running: {e}")
+
+
+
 

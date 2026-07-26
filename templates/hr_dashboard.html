@@ -1017,6 +1017,14 @@
                     </div>
                     <div class="qa-arrow"><i class="bi bi-chevron-right"></i></div>
                 </div>
+                <div class="quick-action-card" onclick="showAccrualLog()">
+                    <div class="qa-icon teal"><i class="bi bi-graph-up-arrow"></i></div>
+                    <div class="qa-content">
+                        <div class="qa-title">Accrual History</div>
+                        <div class="qa-desc">Monthly leave balance accrual runs</div>
+                    </div>
+                    <div class="qa-arrow"><i class="bi bi-chevron-right"></i></div>
+                </div>
             </div>
 
             <!-- ===== DASHBOARD GRID (Redesigned) ===== -->
@@ -1650,6 +1658,36 @@
                     <button class="btn btn-success btn-sm" onclick="sendPayslipsViaWhatsApp()">
                         <i class="bi bi-whatsapp"></i> Send via WhatsApp
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ACCRUAL HISTORY MODAL ===== -->
+        <div id="accrualLogModal" class="modal-overlay">
+            <div class="modal-container" style="max-width:650px;">
+                <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #e5e7eb;">
+                    <h5 style="margin:0;font-size:0.8rem;font-weight:700;"><i class="bi bi-graph-up-arrow"></i> Leave Accrual History</h5>
+                    <button class="modal-close" onclick="closeModal('accrualLogModal')">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:12px 16px;max-height:400px;overflow-y:auto;">
+                    <div style="margin-bottom:10px;display:flex;gap:8px;">
+                        <button class="btn btn-primary btn-sm" onclick="triggerAccrualRun()"><i class="bi bi-play-fill"></i> Run Accrual Now</button>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:0.6rem;">
+                        <thead>
+                            <tr style="background:#f8fafc;">
+                                <th style="padding:5px 8px;text-align:left;border-bottom:1px solid #e2e8f0;">Date</th>
+                                <th style="padding:5px 8px;text-align:center;border-bottom:1px solid #e2e8f0;">Status</th>
+                                <th style="padding:5px 8px;text-align:center;border-bottom:1px solid #e2e8f0;">Employees</th>
+                                <th style="padding:5px 8px;text-align:center;border-bottom:1px solid #e2e8f0;">Types</th>
+                                <th style="padding:5px 8px;text-align:center;border-bottom:1px solid #e2e8f0;">Trigger</th>
+                                <th style="padding:5px 8px;text-align:left;border-bottom:1px solid #e2e8f0;">Error</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accrualLogBody">
+                            <tr><td colspan="6" style="text-align:center;padding:15px;color:#94a3b8;">Loading...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -3335,11 +3373,10 @@ function renderLeaveTable() {
     if (_leaveView === 'mine') {
         filtered = _leaveData.filter(l => l.employee_name === HR_USER_NAME);
     } else if (_leaveView === 'pending-approval') {
-        // Leaves from employees where this user is the approver
+        // Leaves where this user is the designated approver
         const myEmpIds = (window._approvers || []).filter(e => (e.first_name + ' ' + e.last_name) === HR_USER_NAME).map(e => e.id);
-        const myApprovedIds = (window._approvers || []).filter(e => e.leave_approver_id && myEmpIds.includes(e.leave_approver_id)).map(e => e.id);
-        // Simple: just show all pending leaves not owned by user (if admin) or pending leaves where user could be approver
-        filtered = _leaveData.filter(l => l.status === 'Pending' && l.employee_name !== HR_USER_NAME);
+        window._pendingApprovalIds = (window._approvers || []).filter(e => e.leave_approver_id && myEmpIds.includes(e.leave_approver_id)).map(e => e.id);
+        filtered = _leaveData.filter(l => l.status === 'Pending' && window._pendingApprovalIds.includes(l.employee_id));
     } else if (_leaveView === 'approved-by-me') {
         filtered = _leaveData.filter(l => l.approved_by === HR_USER_NAME);
     }
@@ -3375,7 +3412,7 @@ function renderLeaveTable() {
             <td><strong>${leave.days}</strong></td>
             <td><span class="${statusBadge}">${leave.status}</span></td>
             <td>
-                ${leave.status === 'Pending' && HR_ROLE === 'Administrator' && !isOwnLeave ? `
+                ${leave.status === 'Pending' && (HR_ROLE === 'Administrator' || (window._pendingApprovalIds || []).includes(leave.employee_id)) && !isOwnLeave ? `
                     <button class="btn btn-sm btn-outline-success" onclick="approveLeave(${leave.id})" title="Approve"><i class="bi bi-check-lg"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="declineLeave(${leave.id})" title="Decline"><i class="bi bi-x-lg"></i></button>
                 ` : ''}
@@ -4646,6 +4683,50 @@ async function openPayrollArchives() {
 function closePayrollArchives() {
     document.getElementById('payrollArchivesModal').classList.remove('active');
     document.getElementById('payrollArchivesModal').style.display = 'none';
+}
+
+// ===== ACCRUAL LOG =====
+async function showAccrualLog() {
+    openModal('accrualLogModal');
+    const tbody = document.getElementById('accrualLogBody');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:15px;color:#94a3b8;"><i class="bi bi-arrow-clockwise"></i> Loading...</td></tr>';
+    try {
+        const res = await fetch('/api/hr/leave-accrual/log');
+        const data = await res.json();
+        if (data.success && data.data.length) {
+            tbody.innerHTML = data.data.map(r => `
+                <tr>
+                    <td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;">${r.run_at}</td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;text-align:center;">
+                        <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.55rem;font-weight:600;${r.status === 'success' ? 'background:#d1fae5;color:#065f46;' : 'background:#fee2e2;color:#991b1b;'}">${r.status}</span>
+                    </td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;text-align:center;">${r.employees_updated}</td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;text-align:center;">${r.types_updated}</td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;text-align:center;"><span style="font-size:0.55rem;color:#64748b;">${r.triggered_by}</span></td>
+                    <td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;color:#dc2626;font-size:0.55rem;">${r.error_message || '-'}</td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:15px;color:#94a3b8;">No accrual runs recorded yet.</td></tr>';
+        }
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:15px;color:#dc2626;">Error loading log.</td></tr>';
+    }
+}
+
+async function triggerAccrualRun() {
+    if (!confirm('Run leave balance accrual now? This will add monthly accrual to all active employees.')) return;
+    const btn = document.querySelector('#accrualLogModal .btn-primary');
+    btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Running...';
+    try {
+        const res = await fetch('/api/hr/leave-accrual/trigger', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || (data.success ? '✅ Accrual completed!' : '❌ ' + data.error));
+        showAccrualLog(); // Refresh
+    } catch(e) {
+        alert('❌ Error: ' + e.message);
+    }
+    btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill"></i> Run Accrual Now';
 }
 
 // ===== SEND PAYSLIP VIA WHATSAPP =====

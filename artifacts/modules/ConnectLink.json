@@ -20,6 +20,7 @@
   ],
   "dependencies": [
     "ai_classifier",
+    "apscheduler",
     "base64",
     "bleach",
     "calendar",
@@ -37,22 +38,21 @@
     "pdfkit",
     "playwright",
     "psycopg2",
-    "pytz",
-    "requests"
+    "pytz"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 13300"
+    "INSTRUCTIONS @ line 13423"
   ],
   "token_controls": [
-    "max_length = 0 @ line 23120",
-    "max_length = len(str(cell.value)) @ line 23125",
-    "adjusted_width = min(max_length + 2, 50) @ line 23128",
-    "max_length = 0 @ line 23946",
-    "max_length = cell_length @ line 23953",
-    "adjusted_width = min(max_length + 2, 50) @ line 23956",
-    "max_length = 0 @ line 24941",
-    "max_length = cell_length @ line 24948",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 24951"
+    "max_length = 0 @ line 23243",
+    "max_length = len(str(cell.value)) @ line 23248",
+    "adjusted_width = min(max_length + 2, 50) @ line 23251",
+    "max_length = 0 @ line 24069",
+    "max_length = cell_length @ line 24076",
+    "adjusted_width = min(max_length + 2, 50) @ line 24079",
+    "max_length = 0 @ line 25064",
+    "max_length = cell_length @ line 25071",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 25074"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-07-26T14:47:31.980274Z",
+  "generated_at": "2026-07-26T15:06:45.486314Z",
   "stale": false
 }
