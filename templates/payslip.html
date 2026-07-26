@@ -207,8 +207,7 @@
             <tr><td>PEN</td><td>NSSA (Employee Pension){{ nssa_cap }}</td><td>${{ emp.nssa|round(2)|numberfmt }}</td></tr>
             <tr><td>PYE</td><td>PAYE Tax (on taxable income)</td><td>${{ emp.paye_tax|round(2)|numberfmt }}</td></tr>
             <tr><td>AID</td><td>AIDS Levy (3% of PAYE)</td><td>${{ emp.aids_levy|round(2)|numberfmt }}</td></tr>
-            <tr><td>ZIM</td><td>ZIMDEF Levy (1% of taxable income)</td><td>${{ emp.zimdef|round(2)|numberfmt }}</td></tr>
-            <tr><td>NEC</td><td>NEC (National Employment Council)</td><td>$0.00</td></tr>
+            <tr><td>NEC</td><td>NEC (National Employment Council)</td><td>${{ emp.nec|default(0)|round(2)|numberfmt }}</td></tr>
             <tr class="tt"><td></td><td><strong>Total Deductions</strong></td><td><strong>${{ emp.total_deductions|round(2)|numberfmt }}</strong></td></tr>
             <tr class="gt"><td></td><td><strong>Net Pay</strong></td><td><strong>${{ emp.net_pay|round(2)|numberfmt }}</strong></td></tr>
           </tbody>
@@ -228,7 +227,7 @@
             <tr><td>YTD AIDS LEVY</td><td>${{ (emp.aids_levy * 3)|round(2)|numberfmt }}</td></tr>
             <tr><td>YTD BONUS TAX</td><td>$0.00</td></tr>
             <tr><td>YTD PENSION (NSSA)</td><td>${{ (emp.nssa * 3)|round(2)|numberfmt }}</td></tr>
-            <tr><td>YTD NEC</td><td>$0.00</td></tr>
+            <tr><td>YTD NEC</td><td>${{ (emp.nec * 3)|round(2)|numberfmt }}</td></tr>
 
             <tr class="sh"><td colspan="2">Employer Contributions</td></tr>
             <tr><td>NSSA Co. CONTRIB</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>

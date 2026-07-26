@@ -14560,17 +14560,20 @@ def hr_payroll_send_whatsapp():
         if not period or not employee_ids:
             return jsonify({'success': False, 'error': 'period and employee_ids required'}), 400
 
+        # Strip run version if present (e.g. "2026-07|1" → "2026-07")
+        period_clean = period.split('|')[0]
+
         # Parse period into month name
         try:
-            parts = period.split('-')
+            parts = period_clean.split('-')
             year = parts[0]
             month_num = int(parts[1])
             month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
                           'July', 'August', 'September', 'October', 'November', 'December']
-            month_name = month_names[month_num] if 1 <= month_num <= 12 else period
-            month_year = f"{month_name} {year}"
+            month_name = month_names[month_num] if 1 <= month_num <= 12 else period_clean
+            month_year = f"{month_name}-{year}"
         except:
-            month_year = period
+            month_year = period_clean
 
         with get_db() as (cursor, connection):
             placeholders = ','.join(['%s'] * len(employee_ids))
@@ -14613,7 +14616,7 @@ def hr_payroll_send_whatsapp():
                             "sub_type": "quick_reply",
                             "index": 0,
                             "parameters": [
-                                {"type": "payload", "payload": f"download_payslip_{emp_id}_{period}"}
+                                {"type": "payload", "payload": f"download_payslip_{emp_id}_{period_clean}"}
                             ]
                         }
                     ]
@@ -14649,7 +14652,8 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             print(f"⚠️ Invalid payslip download payload: {payload}")
             return
         emp_id = int(parts[2])
-        period = parts[3]
+        period_raw = parts[3]
+        period = period_raw.split('|')[0]  # Strip run version if present (e.g. "2026-07|1" → "2026-07")
 
         with get_db() as (cursor, connection):
             # Fetch employee details for PDF generation (same query as /api/payslip)
@@ -14663,14 +14667,15 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                        e.usd_percent, e.zwg_percent, e.exchange_rate,
                        COALESCE(p.basic_pay, e.basic_salary, 0) as basic_pay,
                        COALESCE(p.allowances, e.allowances, 0) as allowances_pay,
-                       COALESCE(p.gross_pay, 0) as gross_pay,
+                       COALESCE(p.gross_pay, e.basic_salary + COALESCE(e.allowances, 0), 0) as gross_pay,
                        COALESCE(p.nssa, 0) as nssa,
                        COALESCE(p.paye_tax, 0) as paye_tax,
                        COALESCE(p.aids_levy, 0) as aids_levy,
                        COALESCE(p.zimdef, 0) as zimdef,
+                       COALESCE(p.nec, 0) as nec,
                        COALESCE(p.deductions, 0) as deductions,
                        COALESCE(p.net_pay, 0) as net_pay,
-                       p.status as pay_status, p.processed_at, e.whatsapp
+                       e.whatsapp, p.period, p.status, p.processed_at
                 FROM hr_employees e
                 LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
                 WHERE e.id = %s
@@ -14683,38 +14688,74 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             # Build emp dict (same format as payslip endpoint)
             emp = {
                 'id': row[0], 'first_name': row[1], 'last_name': row[2],
-                'department': row[3] or '', 'designation': row[4] or '',
+                'department': row[3] or '-', 'designation': row[4] or '-',
                 'basic_salary': float(row[5] or 0), 'allowances': float(row[6] or 0),
-                'nationality': row[7] or '', 'bank_holder_name': row[8] or '',
-                'bank_holder_surname': row[9] or '', 'bank_name': row[10] or '',
-                'bank_account_number': row[11] or '', 'bank_branch': row[12] or '',
-                'bank_branch_code': row[13] or '', 'c8_number': row[14] or '',
-                'c8_type': row[15] or '', 'employment_type': row[16] or '',
-                'date_joined': row[17], 'current_leave_balance': float(row[18] or 0),
-                'monthly_accumulation': float(row[19] or 0),
-                'usd_percent': float(row[20] or 0), 'zwg_percent': float(row[21] or 0),
+                'nationality': row[7] or '',
+                'bank_holder': (row[8] or '') + ' ' + (row[9] or ''),
+                'bank_name': row[10] or '-', 'bank_account': row[11] or '-',
+                'bank_branch': row[12] or '-', 'bank_branch_code': row[13] or '-',
+                'c8_number': row[14] or '-', 'c8_type': row[15] or '-',
+                'employment_type': row[16] or 'Permanent',
+                'date_joined': row[17].strftime('%d %B %Y') if row[17] else '-',
+                'leave_balance': float(row[18] or 0),
+                'monthly_accrual': float(row[19] or 0),
+                'usd_pct': float(row[20] or 100), 'zwg_pct': float(row[21] or 0),
                 'exchange_rate': float(row[22] or 1),
                 'basic_pay': float(row[23] or 0), 'allowances_pay': float(row[24] or 0),
                 'gross_pay': float(row[25] or 0), 'nssa': float(row[26] or 0),
                 'paye_tax': float(row[27] or 0), 'aids_levy': float(row[28] or 0),
-                'zimdef': float(row[29] or 0), 'deductions': float(row[30] or 0),
-                'net_pay': float(row[31] or 0), 'pay_status': row[32] or '',
-                'processed_at': row[33], 'whatsapp': row[34] or '',
+                'zimdef': float(row[29] or 0), 'nec': float(row[30] or 0),
+                'deductions': float(row[31] or 0),
+                'net_pay': float(row[32] or 0), 'whatsapp': row[33] or '',
+                'pay_status': row[34] or '',
+                'processed_at': row[35],
                 'period': period
             }
 
-            # Generate PDF using the template
-            from flask import render_template
-            import pdfkit
-            html = render_template('payslip.html', emp=emp)
-            pdf_bytes = pdfkit.from_string(html, False)
+            # Fetch employer NSSA config
+            cursor.execute("""
+                SELECT rate, ceiling_amount FROM payroll_deduction_config
+                WHERE deduction_code = 'NSSA_EMPLOYEE' AND is_active = TRUE
+            """)
+            nssa_row = cursor.fetchone()
+            nssa_rate = float(nssa_row[0] or 4.5) if nssa_row else 4.5
+            nssa_ceiling = float(nssa_row[1] or 0) if nssa_row else 0
+            nssa_basis = emp['gross_pay']
+            nssa_cap = ''
+            if nssa_ceiling > 0 and nssa_basis > nssa_ceiling:
+                nssa_basis = nssa_ceiling
+                nssa_cap = f' (capped at ${nssa_ceiling:,.2f})'
+            employer_nssa = nssa_basis * (nssa_rate / 100)
 
-            # Send PDF via WhatsApp
-            full_name = f"{emp['first_name']} {emp['last_name']}".strip()
-            filename = f"Payslip_{full_name}_{period}.pdf"
-            caption = f"📄 Payslip for {full_name} - {period}"
-            send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
-            print(f"✅ Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period})")
+        # Compute taxable income
+        taxable_income = emp['gross_pay'] - emp['nssa']
+
+        # Build logo
+        logo_b64 = ''
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+        if os.path.exists(logo_path):
+            with open(logo_path, 'rb') as f:
+                logo_b64 = base64.b64encode(f.read()).decode()
+
+        # Generate PDF using the template
+        from flask import render_template
+        import pdfkit
+        html = render_template('payslip.html',
+            emp=emp, logo_b64=logo_b64,
+            employer_nssa=employer_nssa, nssa_basis=nssa_basis,
+            nssa_rate=nssa_rate, nssa_cap=nssa_cap,
+            taxable_income=taxable_income,
+            exch_rate=emp['exchange_rate'],
+            now=datetime.now()
+        )
+        pdf_bytes = pdfkit.from_string(html, False)
+
+        # Send PDF via WhatsApp
+        full_name = f"{emp['first_name']} {emp['last_name']}".strip()
+        filename = f"Payslip_{full_name}_{period}.pdf"
+        caption = f"📄 Payslip for {full_name} - {period}"
+        send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
+        print(f"✅ Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period})")
 
     except Exception as e:
         print(f"❌ Error handling payslip download via WhatsApp: {e}")
@@ -14835,6 +14876,7 @@ def hr_payroll_api():
                     SELECT deduction_code, rate, rate_type, ceiling_amount
                     FROM payroll_deduction_config WHERE is_active = TRUE
                 """)
+
                 deduction_configs = {}
                 for dc in cursor.fetchall():
                     deduction_configs[dc[0]] = {
