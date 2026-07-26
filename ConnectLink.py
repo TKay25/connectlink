@@ -2876,6 +2876,51 @@ def webhook():
                                                                 # Skip further processing for leave buttons
                                                                 continue
 
+                                                            # === HANDLE EMPLOYEE CANCEL PENDING LEAVE ===
+                                                            if bid_lower.startswith('cancel_pending_leave_'):
+                                                                try:
+                                                                    parts = button_id.split('_')
+                                                                    cancel_leave_id = int(parts[-1])
+                                                                    sender = message.get("from", "")
+
+                                                                    with get_db() as (leave_cursor, leave_conn):
+                                                                        leave_cursor.execute("""
+                                                                            SELECT employee_name, leave_type, status FROM hr_leave_applications WHERE id = %s
+                                                                        """, (cancel_leave_id,))
+                                                                        clr = leave_cursor.fetchone()
+                                                                        if clr and clr[2] == 'Pending':
+                                                                            emp_name = clr[0]
+                                                                            ltype = clr[1]
+
+                                                                            leave_cursor.execute("""
+                                                                                UPDATE hr_leave_applications
+                                                                                SET status = 'Cancelled'
+                                                                                WHERE id = %s AND status = 'Pending'
+                                                                            """, (cancel_leave_id,))
+                                                                            leave_conn.commit()
+
+                                                                            send_whatsapp_message(sender,
+                                                                                f"✅ *Leave Application Cancelled!*\n\n"
+                                                                                f"📋 *Reference:* #{cancel_leave_id}\n"
+                                                                                f"👤 *Employee:* {emp_name}\n"
+                                                                                f"📅 *Type:* {ltype}\n\n"
+                                                                                f"Your pending leave has been cancelled successfully."
+                                                                            )
+
+                                                                            log_activity(
+                                                                                'leave_cancelled',
+                                                                                f'Leave #{cancel_leave_id} cancelled by employee via WhatsApp',
+                                                                                'hr_leave', cancel_leave_id,
+                                                                                {'action': 'cancelled', 'via': 'whatsapp', 'by': 'employee'}
+                                                                            )
+
+                                                                            print(f"✅ Leave #{cancel_leave_id} cancelled by employee via WhatsApp")
+                                                                        else:
+                                                                            send_whatsapp_message(sender, f"⚠️ Leave #{cancel_leave_id} not found or already processed.")
+                                                                except Exception as e:
+                                                                    print(f"❌ Error cancelling pending leave: {e}")
+                                                                continue
+
 
                                                         elif interactive.get("type") == "nfm_reply":
 
@@ -6085,6 +6130,7 @@ def webhook():
                                                                                 f"📆 *To:* {pl_to_str}\n\n"
                                                                                 f"Please wait for it to be resolved before applying for new leave.",
                                                                                 [
+                                                                                    {"type":"reply","reply":{"id":f"cancel_pending_leave_{pl_id}","title":"❌ Cancel Pending App"}},
                                                                                     {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
                                                                                     {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
                                                                                 ],
