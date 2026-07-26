@@ -2947,12 +2947,18 @@ def webhook():
                                                                             """, (cancel_leave_id,))
                                                                             leave_conn.commit()
 
-                                                                            send_whatsapp_message(sender,
+                                                                            send_whatsapp_button_message(sender,
                                                                                 f"✅ *Leave Application Cancelled!*\n\n"
                                                                                 f"📋 *Reference:* #{cancel_leave_id}\n"
                                                                                 f"👤 *Employee:* {emp_name}\n"
                                                                                 f"📅 *Type:* {ltype}\n\n"
-                                                                                f"Your pending leave has been cancelled successfully."
+                                                                                f"Your pending leave has been cancelled successfully.",
+                                                                                [
+                                                                                    {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
+                                                                                    {"type":"reply","reply":{"id":"my_info","title":"📊 Check Days Balance"}},
+                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
+                                                                                ],
+                                                                                footer_text="ConnectLink HR Portal"
                                                                             )
 
                                                                             log_activity(
@@ -3082,12 +3088,17 @@ def webhook():
                                                                             print(f"📤 Leave reminder template sent: {resp_remind.status_code}")
 
                                                                             if resp_remind.status_code == 200:
-                                                                                send_whatsapp_message(sender,
+                                                                                send_whatsapp_button_message(sender,
                                                                                     f"✅ *Reminder sent to {approver_name}!*\n\n"
                                                                                     f"📋 *Reference:* #{remind_leave_id}\n"
                                                                                     f"📅 *Type:* {ltype}\n"
                                                                                     f"📊 *Days:* {days}\n\n"
-                                                                                    f"They have been notified to review your leave application."
+                                                                                    f"They have been notified to review your leave application.",
+                                                                                    [
+                                                                                        {"type":"reply","reply":{"id":"my_info","title":"📊 Check Days Balance"}},
+                                                                                        {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
+                                                                                    ],
+                                                                                    footer_text="ConnectLink HR Portal"
                                                                                 )
 
                                                                                 log_activity(
@@ -17544,11 +17555,11 @@ def hr_stats_api():
             today = datetime.now().strftime('%Y-%m-%d')
             period = datetime.now().strftime('%Y-%m')
 
+            cursor.execute("SELECT COUNT(*) FROM hr_employees")
+            total_employees = cursor.fetchone()[0]
+
             cursor.execute("SELECT COUNT(*) FROM hr_employees WHERE status = 'Active'")
-            hr_active = cursor.fetchone()[0]
-            cursor.execute("SELECT COUNT(*) FROM admin_users WHERE is_active = TRUE")
-            admin_active = cursor.fetchone()[0]
-            total_active = hr_active + admin_active
+            active_employees = cursor.fetchone()[0]
 
             present_today = 0
 
@@ -17566,14 +17577,11 @@ def hr_stats_api():
             """, (period,))
             payroll_total = float(cursor.fetchone()[0])
 
-            cursor.execute("SELECT COUNT(*) FROM hr_employees WHERE status = 'Active'")
-            total_employees = cursor.fetchone()[0]
-
             return jsonify({
                 'success': True,
                 'data': {
                     'total_employees': total_employees,
-                    'active_employees': total_active,
+                    'active_employees': active_employees,
                     'present_today': present_today,
                     'on_leave_today': on_leave_today,
                     'pending_leave': pending_leave,
