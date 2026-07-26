@@ -2809,6 +2809,17 @@ def webhook():
                                                                                     WHERE id = %s AND status = 'Pending'
                                                                                 """, (sender_name, leave_id))
                                                                                 leave_conn.commit()
+
+                                                                                # Deduct leave balance if Annual Leave
+                                                                                if ltype == 'Annual Leave':
+                                                                                    leave_cursor.execute("""
+                                                                                        UPDATE hr_employees
+                                                                                        SET current_leave_balance = GREATEST(0, current_leave_balance - %s)
+                                                                                        WHERE id = (SELECT employee_id FROM hr_leave_applications WHERE id = %s)
+                                                                                    """, (leave_days, leave_id))
+                                                                                    leave_conn.commit()
+                                                                                    print(f"✅ Deducted {leave_days} day(s) from employee leave balance for #{leave_id}")
+
                                                                                 confirm = f"✅ Leave #{leave_id} ({emp_name} - {ltype}) has been APPROVED."
                                                                                 print(f"✅ Leave #{leave_id} approved via WhatsApp by {sender_name}")
 
@@ -6480,8 +6491,8 @@ def webhook():
                                                                                 pass
                                                                             continue
 
-                                                                        # ----- CHECK 2: Sufficient leave balance -----
-                                                                        if days > leave_balance:
+                                                                        # ----- CHECK 2: Sufficient leave balance (Annual Leave only) -----
+                                                                        if leave_type == 'Annual Leave' and days > leave_balance:
                                                                             send_whatsapp_button_message(sender_id,
                                                                                 f"❌ *Insufficient Leave Balance!*\n\n"
                                                                                 f"You applied for *{days}* day(s) of *{leave_type}*,\n"

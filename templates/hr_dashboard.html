@@ -3029,7 +3029,6 @@ function renderLeaveBalances() {
     if (!tbody || !template) return;
     const defaults = [
         { type: 'Annual Leave', balance: 21, monthly: 1.75, annual: 21, carry: 0 },
-        { type: 'Sick Leave', balance: 0, monthly: 0, annual: 0, carry: 0 },
     ];
     tbody.innerHTML = defaults.map(d => 
         template.innerHTML
