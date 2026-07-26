@@ -3033,20 +3033,27 @@ def webhook():
                                                                             resp_remind = requests.post(WHATSAPP_API_URL, json=reminder_payload, headers=wa_headers, timeout=15)
                                                                             print(f"📤 Leave reminder template sent: {resp_remind.status_code}")
 
-                                                                            send_whatsapp_message(sender,
-                                                                                f"✅ *Reminder sent to {approver_name}!*\n\n"
-                                                                                f"📋 *Reference:* #{remind_leave_id}\n"
-                                                                                f"📅 *Type:* {ltype}\n"
-                                                                                f"📊 *Days:* {days}\n\n"
-                                                                                f"They have been notified to review your leave application."
-                                                                            )
+                                                                            if resp_remind.status_code == 200:
+                                                                                send_whatsapp_message(sender,
+                                                                                    f"✅ *Reminder sent to {approver_name}!*\n\n"
+                                                                                    f"📋 *Reference:* #{remind_leave_id}\n"
+                                                                                    f"📅 *Type:* {ltype}\n"
+                                                                                    f"📊 *Days:* {days}\n\n"
+                                                                                    f"They have been notified to review your leave application."
+                                                                                )
 
-                                                                            log_activity(
-                                                                                'leave_reminder',
-                                                                                f'Leave #{remind_leave_id} reminder sent to {approver_name}',
-                                                                                'hr_leave', remind_leave_id,
-                                                                                {'action': 'reminder', 'via': 'whatsapp'}
-                                                                            )
+                                                                                log_activity(
+                                                                                    'leave_reminder',
+                                                                                    f'Leave #{remind_leave_id} reminder sent to {approver_name}',
+                                                                                    'hr_leave', remind_leave_id,
+                                                                                    {'action': 'reminder', 'via': 'whatsapp'}
+                                                                                )
+                                                                            else:
+                                                                                send_whatsapp_message(sender,
+                                                                                    f"⚠️ *Could not send reminder to {approver_name}.*\n\n"
+                                                                                    f"The reminder template may not be set up yet in Meta.\n"
+                                                                                    f"Please contact the system administrator to create the *leaveappreminder* template."
+                                                                                )
                                                                         else:
                                                                             send_whatsapp_message(sender, f"⚠️ Leave #{remind_leave_id} not found or already processed.")
                                                                 except Exception as e:
