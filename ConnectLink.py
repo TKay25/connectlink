@@ -13745,7 +13745,19 @@ def request_reset_code():
                     user_email = user_row[2] or ''
                     user_whatsapp = str(user_row[3] or '')
                 else:
-                    return jsonify({'success': False, 'message': 'User not found. Please check your email/username.'}), 404
+                    # Fallback to hr_employees (HR portal users)
+                    cursor.execute("""
+                        SELECT id, CONCAT(first_name, ' ', last_name), email, whatsapp
+                        FROM hr_employees WHERE email = %s
+                    """, (username_or_email,))
+                    hr_row = cursor.fetchone()
+                    if hr_row:
+                        user_id = hr_row[0]
+                        user_name = hr_row[1]
+                        user_email = hr_row[2] or ''
+                        user_whatsapp = str(hr_row[3] or '')
+                    else:
+                        return jsonify({'success': False, 'message': 'User not found. Please check your email/username.'}), 404
             else:
                 user_id = user[0]
                 user_name = user[2] or user[1]
