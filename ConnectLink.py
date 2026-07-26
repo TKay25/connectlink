@@ -1815,7 +1815,7 @@ def initialize_database_tables():
                     ('NEC_EMPLOYER', 'NEC (Employer)', 'NEC employer contribution', 2.0, 'percentage_of_gross', 0, True, False),
                     ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, False),
                     ('WCIF', 'WCIF', "Workers' Compensation Insurance Fund", 2.16, 'percentage_of_gross', 0, True, False),
-                    ('STADAERD', 'STADAERD Development Fund', 'STADAERD Development Fund contribution', 0.5, 'percentage_of_gross', 0, True, False),
+                    ('SDF', 'SDF (Standard Development Fund)', 'Standard Development Fund contribution', 0.5, 'percentage_of_gross', 0, True, False),
                 ]
                 for dc in seed_deductions:
                     cursor.execute("""
@@ -1835,7 +1835,7 @@ def initialize_database_tables():
                 "nec DECIMAL(12,2) DEFAULT 0",
                 "zimdef DECIMAL(12,2) DEFAULT 0",
                 "wcif DECIMAL(12,2) DEFAULT 0",
-                "stadaerd DECIMAL(12,2) DEFAULT 0",
+                "sdf DECIMAL(12,2) DEFAULT 0",
                 "gross_pay DECIMAL(12,2) DEFAULT 0"
             ]:
                 try:
@@ -14756,7 +14756,7 @@ def hr_payroll_api():
                         SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
                                p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
                                p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
-                               p.nssa, p.nec, p.zimdef, p.wcif, p.stadaerd, p.run_version
+                               p.nssa, p.nec, p.zimdef, p.wcif, p.sdf, p.run_version
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
                         WHERE p.period = %s AND p.run_version = %s
@@ -14767,7 +14767,7 @@ def hr_payroll_api():
                         SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
                                p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
                                p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
-                               p.nssa, p.nec, p.zimdef, p.wcif, p.stadaerd, p.run_version
+                               p.nssa, p.nec, p.zimdef, p.wcif, p.sdf, p.run_version
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
                         WHERE p.period = %s
@@ -14786,7 +14786,7 @@ def hr_payroll_api():
                         'paye_tax': float(r[13] or 0), 'aids_levy': float(r[14] or 0),
                         'nssa': float(r[15] or 0), 'nec': float(r[16] or 0),
                         'zimdef': float(r[17] or 0),
-                        'wcif': float(r[18] or 0), 'stadaerd': float(r[19] or 0),
+                        'wcif': float(r[18] or 0), 'sdf': float(r[19] or 0),
                         'run_version': r[20] or 1
                     })
                 return jsonify({'success': True, 'data': records, 'period': period})
@@ -14871,11 +14871,11 @@ def hr_payroll_api():
                     wcif_rate = wcif_config.get('rate', 2.16)
                     wcif = taxable_income * (wcif_rate / 100)
 
-                    stadaerd_config = deduction_configs.get('STADAERD', {})
-                    stadaerd_rate = stadaerd_config.get('rate', 0.5)
-                    stadaerd = taxable_income * (stadaerd_rate / 100)
+                    sdf_config = deduction_configs.get('SDF', {})
+                    sdf_rate = sdf_config.get('rate', 0.5)
+                    sdf = taxable_income * (sdf_rate / 100)
 
-                    total = nssa_amount + monthly_paye + aids_levy + nec  # ZIMDEF + WCIF + STADAERD are employer-only
+                    total = nssa_amount + monthly_paye + aids_levy + nec  # ZIMDEF + WCIF + SDF are employer-only
                     return {
                         'paye': monthly_paye,
                         'aids_levy': aids_levy,
@@ -14883,7 +14883,7 @@ def hr_payroll_api():
                         'nec': nec,
                         'zimdef': zimdef,
                         'wcif': wcif,
-                        'stadaerd': stadaerd,
+                        'sdf': sdf,
                         'total': total
                     }
 
@@ -14920,12 +14920,12 @@ def hr_payroll_api():
 
                     cursor.execute("""
                         INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, gross_pay,
-                            deductions, paye_tax, aids_levy, nssa, nec, zimdef, wcif, stadaerd, net_pay, status, processed_at, run_version)
+                            deductions, paye_tax, aids_levy, nssa, nec, zimdef, wcif, sdf, net_pay, status, processed_at, run_version)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
                     """, (emp_id, period, basic, allowances, gross,
                           round(total_deductions, 2), round(monthly_paye, 2),
                           round(stats['aids_levy'], 2), round(stats['nssa'], 2),
-                          round(stats['nec'], 2), round(stats['zimdef'], 2), round(stats['wcif'], 2), round(stats['stadaerd'], 2), round(net, 2), run_version))
+                          round(stats['nec'], 2), round(stats['zimdef'], 2), round(stats['wcif'], 2), round(stats['sdf'], 2), round(net, 2), run_version))
                     processed += 1
 
                 # Generate payroll archive Excel
@@ -14938,7 +14938,7 @@ def hr_payroll_api():
                                e.usd_percent, e.zwg_percent, e.exchange_rate, e.currency,
                                e.c8_number, e.c8_type, e.nationality,
                                p.basic_pay, p.allowances, p.gross_pay,
-                               p.paye_tax, p.aids_levy, p.nssa, p.nec, p.zimdef, p.wcif, p.stadaerd,
+                               p.paye_tax, p.aids_levy, p.nssa, p.nec, p.zimdef, p.wcif, p.sdf,
                                p.deductions, p.net_pay, p.status
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
@@ -15043,7 +15043,7 @@ def hr_payroll_api():
                         'PAYE Tax', 'AIDS Levy',
                         'NSSA (Emp)', 'NSSA (Er)',
                         'NEC (Emp)', 'NEC (Er)',
-                        'ZIMDEF', 'WCIF', 'STADAERD',
+                        'ZIMDEF', 'WCIF', 'SDF',
                         'Total Employee', 'Total Employer', 'Grand Total'
                     ]
                     rem_widths = [30, 18, 12, 10, 12, 12, 10, 10, 10, 10, 12, 14, 14, 14]
@@ -15069,7 +15069,7 @@ def hr_payroll_api():
 
                     # Totals
                     t_paye = t_aids = t_nssa_e = t_er_nssa = t_nec_e = t_nec_er = 0
-                    t_zimdef = t_wcif = t_stadaerd = 0
+                    t_zimdef = t_wcif = t_sdf = 0
 
                     for row_idx, r in enumerate(payroll_rows, 5):
                         emp_name = f"{r[0] or ''} {r[1] or ''}".strip()
@@ -15083,7 +15083,7 @@ def hr_payroll_api():
                         nec_er = grs * 0.02
                         zimdef = float(r[25] or 0)
                         wcif = float(r[26] or 0)
-                        stadaerd = float(r[27] or 0)
+                        sdf = float(r[27] or 0)
                         er_nssa = calc_emp_nssa(grs)
 
                         t_paye += paye
@@ -15094,13 +15094,13 @@ def hr_payroll_api():
                         t_nec_er += nec_er
                         t_zimdef += zimdef
                         t_wcif += wcif
-                        t_stadaerd += stadaerd
+                        t_sdf += sdf
 
                         emp_total = paye + aids + nssa_e + nec_e
-                        er_total = er_nssa + nec_er + zimdef + wcif + stadaerd
+                        er_total = er_nssa + nec_er + zimdef + wcif + sdf
 
                         vals = [emp_name, dept, paye, aids, nssa_e, round(er_nssa, 2),
-                                nec_e, round(nec_er, 2), zimdef, wcif, stadaerd,
+                                nec_e, round(nec_er, 2), zimdef, wcif, sdf,
                                 round(emp_total, 2), round(er_total, 2),
                                 round(emp_total + er_total, 2)]
                         for col_idx, val in enumerate(vals, 1):
@@ -15114,9 +15114,9 @@ def hr_payroll_api():
                     # Totals row
                     total_row = 5 + len(payroll_rows)
                     grand_emp = t_paye + t_aids + t_nssa_e + t_nec_e
-                    grand_er = t_er_nssa + t_nec_er + t_zimdef + t_wcif + t_stadaerd
+                    grand_er = t_er_nssa + t_nec_er + t_zimdef + t_wcif + t_sdf
                     tot_vals = ['TOTAL', '', t_paye, t_aids, t_nssa_e, round(t_er_nssa, 2),
-                                t_nec_e, round(t_nec_er, 2), t_zimdef, t_wcif, t_stadaerd,
+                                t_nec_e, round(t_nec_er, 2), t_zimdef, t_wcif, t_sdf,
                                 round(grand_emp, 2), round(grand_er, 2),
                                 round(grand_emp + grand_er, 2)]
                     for col_idx, val in enumerate(tot_vals, 1):
@@ -15892,18 +15892,18 @@ def hr_payroll_calculate_full():
             'basis': 'Taxable income (gross - NSSA)'
         }
 
-        # STADAERD = % of taxable income (employer-paid)
-        stadaerd_config = deduction_configs.get('STADAERD', {})
-        stadaerd_rate = stadaerd_config.get('rate', 0.5)
-        stadaerd_amount = taxable_income * (stadaerd_rate / 100)
-        deductions['STADAERD'] = {
-            'name': 'STADAERD Development Fund',
-            'amount': round(stadaerd_amount, 2),
-            'rate': stadaerd_rate,
+        # SDF = % of taxable income (employer-paid)
+        sdf_config = deduction_configs.get('SDF', {})
+        sdf_rate = sdf_config.get('rate', 0.5)
+        sdf_amount = taxable_income * (sdf_rate / 100)
+        deductions['SDF'] = {
+            'name': 'SDF (Standard Development Fund)',
+            'amount': round(sdf_amount, 2),
+            'rate': sdf_rate,
             'basis': 'Taxable income (gross - NSSA)'
         }
 
-        total_deductions = nssa_amount + monthly_paye + aids_levy + nec_amount  # ZIMDEF + WCIF + STADAERD are employer-only
+        total_deductions = nssa_amount + monthly_paye + aids_levy + nec_amount  # ZIMDEF + WCIF + SDF are employer-only
         net_pay = max(0, salary - total_deductions)
 
         return jsonify({
@@ -16085,7 +16085,7 @@ def payroll_breakdown():
             emp=emp, basic=basic, allowances=allowances, gross=gross,
             paye_brackets=paye_brackets, active_bracket=active_bracket,
             deduction_rows=deduction_rows, paye=paye, aids=aids,
-            nssa=nssa, employer_nssa=employer_nssa, nssa_basis=nssa_basis,
+            nssa=nssa, nec=nec, employer_nssa=employer_nssa, nssa_basis=nssa_basis,
             nssa_rate=nssa_rate, nssa_cap_note=nssa_cap_note,
             zimdef=zimdef, total_ded=total_ded, net=net,
             now=datetime.now()
@@ -16297,7 +16297,7 @@ def payroll_remittances(period):
                 ('ZIMDEF', 'ZIMDEF Manpower Levy', m_zimdef, 0, y_zimdef, 0),
                 ('NEC', 'National Employment Council', 0, 0, 0, 0),
                 ('WCIF', 'Workers Compensation Insurance Fund', 0, 0, 0, 0),
-                ('STADAERD', 'STADAERD Development Fund', 0, 0, 0, 0),
+                ('SDF', 'SDF (Standard Development Fund)', 0, 0, 0, 0),
                 ('PENSION Co.', 'Pension Company Contribution', 0, 0, 0, 0),
                 ('MED AID', 'Medical Aid Company Contribution', 0, 0, 0, 0),
                 ('STND LEVY', 'Standards Levy', 0, 0, 0, 0),
