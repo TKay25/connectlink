@@ -2921,6 +2921,134 @@ def webhook():
                                                                     print(f"❌ Error cancelling pending leave: {e}")
                                                                 continue
 
+                                                            # === HANDLE REMIND APPROVER ===
+                                                            if bid_lower.startswith('remind_approver_'):
+                                                                try:
+                                                                    parts = button_id.split('_')
+                                                                    remind_leave_id = int(parts[-1])
+                                                                    sender = message.get("from", "")
+
+                                                                    with get_db() as (remind_cursor, remind_conn):
+                                                                        remind_cursor.execute("""
+                                                                            SELECT la.employee_name, la.leave_type, la.days,
+                                                                                   la.from_date, la.to_date, la.status,
+                                                                                   e.first_name, e.last_name,
+                                                                                   e.leave_approver_name, e.leave_approver_whatsapp
+                                                                            FROM hr_leave_applications la
+                                                                            JOIN hr_employees e ON la.employee_id = e.id
+                                                                            WHERE la.id = %s
+                                                                        """, (remind_leave_id,))
+                                                                        remind_row = remind_cursor.fetchone()
+                                                                        if remind_row and remind_row[5] == 'Pending':
+                                                                            emp_name = remind_row[0]
+                                                                            ltype = remind_row[1]
+                                                                            days = remind_row[2]
+                                                                            from_raw = remind_row[3]
+                                                                            to_raw = remind_row[4]
+                                                                            emp_first = remind_row[6] or ''
+                                                                            emp_last = remind_row[7] or ''
+                                                                            approver_name = remind_row[8] or 'Approver'
+                                                                            approver_phone = remind_row[9] or ''
+
+                                                                            if not approver_phone:
+                                                                                send_whatsapp_message(sender, "⚠️ No approver contact found for this leave application.")
+                                                                                continue
+
+                                                                            # Gender pronoun
+                                                                            pronoun = 'his'
+                                                                            try:
+                                                                                remind_cursor.execute("SELECT gender FROM hr_employees WHERE id = (SELECT employee_id FROM hr_leave_applications WHERE id = %s)", (remind_leave_id,))
+                                                                                gender_row = remind_cursor.fetchone()
+                                                                                if gender_row and gender_row[0] and gender_row[0].lower() == 'female':
+                                                                                    pronoun = 'her'
+                                                                            except:
+                                                                                pass
+
+                                                                            # Format dates
+                                                                            try:
+                                                                                from_fmt = from_raw.strftime('%-d %B %Y') if hasattr(from_raw, 'strftime') else str(from_raw)
+                                                                            except:
+                                                                                from_fmt = str(from_raw)
+                                                                            try:
+                                                                                to_fmt = to_raw.strftime('%-d %B %Y') if hasattr(to_raw, 'strftime') else str(to_raw)
+                                                                            except:
+                                                                                to_fmt = str(to_raw)
+
+                                                                            # Normalise approver phone
+                                                                            phone_clean = re.sub(r'[^0-9]', '', str(approver_phone))
+                                                                            if phone_clean.startswith('0'):
+                                                                                phone_clean = '263' + phone_clean[1:]
+                                                                            elif not phone_clean.startswith('263'):
+                                                                                phone_clean = '263' + phone_clean
+                                                                            phone_e164 = f"+{phone_clean}"
+
+                                                                            # Send leaveappreminder template
+                                                                            wa_headers = {
+                                                                                'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                                'Content-Type': 'application/json'
+                                                                            }
+                                                                            reminder_payload = {
+                                                                                "messaging_product": "whatsapp",
+                                                                                "to": phone_e164,
+                                                                                "type": "template",
+                                                                                "template": {
+                                                                                    "name": "leaveappreminder",
+                                                                                    "language": {"code": "en"},
+                                                                                    "components": [
+                                                                                        {
+                                                                                            "type": "body",
+                                                                                            "parameters": [
+                                                                                                {"type": "text", "text": str(approver_name)},
+                                                                                                {"type": "text", "text": str(emp_name)},
+                                                                                                {"type": "text", "text": str(pronoun)},
+                                                                                                {"type": "text", "text": str(days)},
+                                                                                                {"type": "text", "text": str(ltype)},
+                                                                                                {"type": "text", "text": str(from_fmt)},
+                                                                                                {"type": "text", "text": str(to_fmt)}
+                                                                                            ]
+                                                                                        },
+                                                                                        {
+                                                                                            "type": "button",
+                                                                                            "sub_type": "quick_reply",
+                                                                                            "index": 0,
+                                                                                            "parameters": [
+                                                                                                {"type": "payload", "payload": f"approve_{remind_leave_id}"}
+                                                                                            ]
+                                                                                        },
+                                                                                        {
+                                                                                            "type": "button",
+                                                                                            "sub_type": "quick_reply",
+                                                                                            "index": 1,
+                                                                                            "parameters": [
+                                                                                                {"type": "payload", "payload": f"decline_{remind_leave_id}"}
+                                                                                            ]
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            }
+                                                                            resp_remind = requests.post(WHATSAPP_API_URL, json=reminder_payload, headers=wa_headers, timeout=15)
+                                                                            print(f"📤 Leave reminder template sent: {resp_remind.status_code}")
+
+                                                                            send_whatsapp_message(sender,
+                                                                                f"✅ *Reminder sent to {approver_name}!*\n\n"
+                                                                                f"📋 *Reference:* #{remind_leave_id}\n"
+                                                                                f"📅 *Type:* {ltype}\n"
+                                                                                f"📊 *Days:* {days}\n\n"
+                                                                                f"They have been notified to review your leave application."
+                                                                            )
+
+                                                                            log_activity(
+                                                                                'leave_reminder',
+                                                                                f'Leave #{remind_leave_id} reminder sent to {approver_name}',
+                                                                                'hr_leave', remind_leave_id,
+                                                                                {'action': 'reminder', 'via': 'whatsapp'}
+                                                                            )
+                                                                        else:
+                                                                            send_whatsapp_message(sender, f"⚠️ Leave #{remind_leave_id} not found or already processed.")
+                                                                except Exception as e:
+                                                                    print(f"❌ Error sending leave reminder: {e}")
+                                                                continue
+
 
                                                         elif interactive.get("type") == "nfm_reply":
 
@@ -6037,7 +6165,7 @@ def webhook():
 
                                                             # First check if employee has a pending leave
                                                             cursor.execute("""
-                                                                SELECT e.id, e.leave_approver_name
+                                                                SELECT e.id, e.first_name, e.last_name, e.leave_approver_name, e.leave_approver_whatsapp
                                                                 FROM hr_employees e
                                                                 WHERE e.whatsapp::TEXT LIKE %s LIMIT 1
                                                             """, (f"%{sender_number}%",))
@@ -6045,7 +6173,11 @@ def webhook():
 
                                                             if emp_row:
                                                                 emp_id = emp_row[0]
-                                                                approver_name_pending = emp_row[1] or 'the approver'
+                                                                emp_first = emp_row[1] or ''
+                                                                emp_last = emp_row[2] or ''
+                                                                approver_name_pending = emp_row[3] or ''
+                                                                approver_wa_pending = emp_row[4] or ''
+                                                                emp_full_name = f"{emp_first} {emp_last}".strip()
                                                                 cursor.execute("""
                                                                     SELECT id, leave_type, days, from_date, to_date
                                                                     FROM hr_leave_applications
@@ -6067,6 +6199,7 @@ def webhook():
                                                                         f"Please cancel it first before applying for new leave.",
                                                                         [
                                                                             {"type":"reply","reply":{"id":f"cancel_pending_leave_{pl_id}","title":"❌ Cancel Pending App"}},
+                                                                            {"type":"reply","reply":{"id":f"remind_approver_{pl_id}","title":"⏰ Remind Approver"}},
                                                                             {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
                                                                         ],
                                                                         footer_text="ConnectLink HR Portal"
