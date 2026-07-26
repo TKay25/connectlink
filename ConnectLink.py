@@ -2954,13 +2954,17 @@ def webhook():
                                                                                 send_whatsapp_message(sender, "⚠️ No approver contact found for this leave application.")
                                                                                 continue
 
-                                                                            # Gender pronoun
-                                                                            pronoun = 'his'
+                                                                            # Gender pronoun — default to 'their' if blank/unknown
+                                                                            pronoun = 'their'
                                                                             try:
                                                                                 remind_cursor.execute("SELECT gender FROM hr_employees WHERE id = (SELECT employee_id FROM hr_leave_applications WHERE id = %s)", (remind_leave_id,))
                                                                                 gender_row = remind_cursor.fetchone()
-                                                                                if gender_row and gender_row[0] and gender_row[0].lower() == 'female':
-                                                                                    pronoun = 'her'
+                                                                                if gender_row and gender_row[0]:
+                                                                                    g = gender_row[0].strip().lower()
+                                                                                    if g == 'male':
+                                                                                        pronoun = 'his'
+                                                                                    elif g == 'female':
+                                                                                        pronoun = 'her'
                                                                             except:
                                                                                 pass
 
