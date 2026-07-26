@@ -13799,6 +13799,8 @@ def request_reset_code():
                 resp = requests.post(WHATSAPP_API_URL, json=template_payload, headers=wa_headers, timeout=15)
                 wa_status = 'sent' if resp.status_code == 200 else f'failed_{resp.status_code}'
                 print(f"📤 Password reset template sent: {resp.status_code}")
+                if resp.status_code != 200:
+                    print(f"❌ Response: {resp.text}")
 
                 # Log to whatsapp_messages
                 try:
