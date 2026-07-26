@@ -15024,6 +15024,110 @@ def hr_payroll_api():
                         col_letter = get_column_letter(i)
                         ws.column_dimensions[col_letter].width = w
 
+                    # ========== REMITTANCES WORKSHEET ==========
+                    ws2 = wb.create_sheet(title="Remittances")
+
+                    # Title
+                    ws2.merge_cells('A1:H1')
+                    ws2['A1'].value = f"ConnectLink — Remittances Summary ({period})"
+                    ws2['A1'].font = title_font
+                    ws2['A1'].alignment = XlAlign(horizontal='left')
+
+                    ws2.merge_cells('A2:H2')
+                    ws2['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {emp_count}"
+                    ws2['A2'].font = subtitle_font
+
+                    # Remittance headers (row 4)
+                    rem_headers = [
+                        'Employee', 'Department',
+                        'PAYE Tax', 'AIDS Levy',
+                        'NSSA (Emp)', 'NSSA (Er)',
+                        'NEC (Emp)', 'NEC (Er)',
+                        'ZIMDEF', 'WCIF', 'STADAERD',
+                        'Total Employee', 'Total Employer', 'Grand Total'
+                    ]
+                    rem_widths = [30, 18, 12, 10, 12, 12, 10, 10, 10, 10, 12, 14, 14, 14]
+                    for col_idx, h in enumerate(rem_headers, 1):
+                        cell = ws2.cell(row=4, column=col_idx, value=h)
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = XlAlign(horizontal='center', vertical='center', wrap_text=True)
+                        cell.border = thin_border
+                    for i, w in enumerate(rem_widths, 1):
+                        col_letter = get_column_letter(i)
+                        ws2.column_dimensions[col_letter].width = w
+
+                    # Compute employer NSSA (same ceiling logic)
+                    nssa_cfg_for_er = deduction_configs.get('NSSA_EMPLOYEE', {})
+                    nssa_rate_er = nssa_cfg_for_er.get('rate', 4.5)
+                    nssa_ceiling_er = nssa_cfg_for_er.get('ceiling', 0)
+                    def calc_emp_nssa(gross):
+                        nssa_g = gross
+                        if nssa_ceiling_er > 0 and nssa_g > nssa_ceiling_er:
+                            nssa_g = nssa_ceiling_er
+                        return nssa_g * (nssa_rate_er / 100)
+
+                    # Totals
+                    t_paye = t_aids = t_nssa_e = t_er_nssa = t_nec_e = t_nec_er = 0
+                    t_zimdef = t_wcif = t_stadaerd = 0
+
+                    for row_idx, r in enumerate(payroll_rows, 5):
+                        emp_name = f"{r[0] or ''} {r[1] or ''}".strip()
+                        dept = r[2] or ''
+                        grs = float(r[20] or 0)
+                        nssa_e = float(r[23] or 0)  # p.nssa
+                        taxable = grs - nssa_e
+                        paye = float(r[21] or 0)
+                        aids = float(r[22] or 0)
+                        nec_e = float(r[24] or 0)
+                        nec_er = grs * 0.02
+                        zimdef = float(r[25] or 0)
+                        wcif = float(r[26] or 0)
+                        stadaerd = float(r[27] or 0)
+                        er_nssa = calc_emp_nssa(grs)
+
+                        t_paye += paye
+                        t_aids += aids
+                        t_nssa_e += nssa_e
+                        t_er_nssa += er_nssa
+                        t_nec_e += nec_e
+                        t_nec_er += nec_er
+                        t_zimdef += zimdef
+                        t_wcif += wcif
+                        t_stadaerd += stadaerd
+
+                        emp_total = paye + aids + nssa_e + nec_e
+                        er_total = er_nssa + nec_er + zimdef + wcif + stadaerd
+
+                        vals = [emp_name, dept, paye, aids, nssa_e, round(er_nssa, 2),
+                                nec_e, round(nec_er, 2), zimdef, wcif, stadaerd,
+                                round(emp_total, 2), round(er_total, 2),
+                                round(emp_total + er_total, 2)]
+                        for col_idx, val in enumerate(vals, 1):
+                            cell = ws2.cell(row=row_idx, column=col_idx, value=val)
+                            cell.font = XlFont(size=9)
+                            cell.border = thin_border
+                            if isinstance(val, float):
+                                cell.number_format = '#,##0.00'
+                                cell.alignment = XlAlign(horizontal='right')
+
+                    # Totals row
+                    total_row = 5 + len(payroll_rows)
+                    grand_emp = t_paye + t_aids + t_nssa_e + t_nec_e
+                    grand_er = t_er_nssa + t_nec_er + t_zimdef + t_wcif + t_stadaerd
+                    tot_vals = ['TOTAL', '', t_paye, t_aids, t_nssa_e, round(t_er_nssa, 2),
+                                t_nec_e, round(t_nec_er, 2), t_zimdef, t_wcif, t_stadaerd,
+                                round(grand_emp, 2), round(grand_er, 2),
+                                round(grand_emp + grand_er, 2)]
+                    for col_idx, val in enumerate(tot_vals, 1):
+                        cell = ws2.cell(row=total_row, column=col_idx, value=val)
+                        cell.font = XlFont(bold=True, size=10)
+                        cell.fill = XlFill(start_color='E8F0FE', end_color='E8F0FE', fill_type='solid')
+                        cell.border = thin_border
+                        if isinstance(val, float):
+                            cell.number_format = '#,##0.00'
+                            cell.alignment = XlAlign(horizontal='right')
+
                     # Save to bytes
                     output = io.BytesIO()
                     wb.save(output)
