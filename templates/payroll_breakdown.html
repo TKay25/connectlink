@@ -345,7 +345,7 @@
                     <div class="salary-box deductions">
                         <div class="sb-label">Total Deductions</div>
                         <div class="sb-amount">${{ total_ded|round(2)|numberfmt }}</div>
-                        <div style="font-size:10px;color:#64748b;margin-top:2px;">NSSA + PAYE + AIDS + ZIMDEF</div>
+                        <div style="font-size:10px;color:#64748b;margin-top:2px;">NSSA + PAYE + AIDS + NEC</div>
                     </div>
                     <div class="salary-box net">
                         <div class="sb-label">Net Pay</div>
@@ -469,15 +469,36 @@
                     <div class="step-amount" style="color:#b45309;">− ${{ aids|round(2)|numberfmt }}</div>
                 </div>
 
-                <!-- STEP 5: ZIMDEF Levy -->
+                <!-- STEP 5: NEC (Employee) -->
                 <div class="calc-step">
-                    <div class="step-num" style="background:#7c3aed;">5</div>
+                    <div class="step-num" style="background:#0891b2;">5</div>
                     <div class="step-body">
-                        <div class="step-title" style="color:#7c3aed;">ZIMDEF Levy</div>
-                        <div class="step-desc">Zimbabwe Manpower Development Levy — 1% of taxable income.</div>
-                        <div class="step-formula">${{ (gross - nssa)|round(2)|numberfmt }} (Taxable Income) × 1% = <strong style="color:#7c3aed;">${{ zimdef|round(2)|numberfmt }}</strong></div>
+                        <div class="step-title" style="color:#0891b2;">NEC (National Employment Council)</div>
+                        <div class="step-desc">2% of gross salary — employee portion for NEC levy.</div>
+                        <div class="step-formula">${{ gross|round(2)|numberfmt }} (Gross) × 2% = <strong style="color:#0891b2;">${{ nec|round(2)|numberfmt }}</strong></div>
+                        <div style="margin-top:6px;padding:6px 8px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:4px;font-size:11px;color:#0e7490;">
+                            <strong>Employer NEC (not deducted from pay):</strong> Employer also contributes
+                            <strong>2%</strong> × ${{ gross|round(2)|numberfmt }}
+                            = <strong>${{ (gross * 0.02)|round(2)|numberfmt }}</strong>
+                            — this is paid by the employer and does <em>not</em> reduce your net pay.
+                        </div>
                     </div>
-                    <div class="step-amount" style="color:#7c3aed;">− ${{ zimdef|round(2)|numberfmt }}</div>
+                    <div class="step-amount" style="color:#0891b2;">− ${{ nec|round(2)|numberfmt }}</div>
+                </div>
+
+                <!-- STEP 6: ZIMDEF Levy (Employer-paid, not deducted) -->
+                <div class="calc-step">
+                    <div class="step-num" style="background:#7c3aed;">6</div>
+                    <div class="step-body">
+                        <div class="step-title" style="color:#7c3aed;">ZIMDEF Levy <span style="font-size:11px;font-weight:400;color:#94a3b8;">(Employer-paid)</span></div>
+                        <div class="step-desc">Zimbabwe Manpower Development Levy — 1% of taxable income. Paid by the employer, not deducted from employee pay.</div>
+                        <div class="step-formula">${{ (gross - nssa)|round(2)|numberfmt }} (Taxable Income) × 1% = <strong style="color:#7c3aed;">${{ zimdef|round(2)|numberfmt }}</strong></div>
+                        <div style="margin-top:6px;padding:6px 8px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:4px;font-size:11px;color:#6d28d9;">
+                            <strong>Employer-paid:</strong> ZIMDEF is entirely paid by the employer.
+                            It is calculated and shown for reference but does <em>not</em> reduce your net pay.
+                        </div>
+                    </div>
+                    <div class="step-amount" style="color:#7c3aed;">(Employer pays)</div>
                 </div>
 
                 <!-- TOTAL DEDUCTIONS -->
@@ -485,9 +506,9 @@
                     <div class="step-num" style="background:#dc2626;font-size:10px;">∑</div>
                     <div class="step-body">
                         <div class="step-title" style="color:#dc2626;">Total Deductions</div>
-                        <div class="step-desc">Sum of all statutory deductions.</div>
+                        <div class="step-desc">Sum of all statutory deductions from employee pay.</div>
                         <div class="step-formula">
-                            ${{ nssa|round(2)|numberfmt }} (NSSA) + ${{ paye|round(2)|numberfmt }} (PAYE) + ${{ aids|round(2)|numberfmt }} (AIDS) + ${{ zimdef|round(2)|numberfmt }} (ZIMDEF)
+                            ${{ nssa|round(2)|numberfmt }} (NSSA) + ${{ paye|round(2)|numberfmt }} (PAYE) + ${{ aids|round(2)|numberfmt }} (AIDS) + ${{ nec|round(2)|numberfmt }} (NEC)
                             = <strong style="color:#dc2626;">${{ total_ded|round(2)|numberfmt }}</strong>
                         </div>
                     </div>
@@ -542,7 +563,11 @@
                         <td style="padding:8px 10px;text-align:right;color:#b45309;">(${{ aids|round(2)|numberfmt }})</td>
                     </tr>
                     <tr>
-                        <td style="padding:8px 10px;border-bottom:1px solid #dc2626;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− ZIMDEF Levy <span style="font-size:11px;color:#94a3b8;">(on taxable income)</span></td>
+                        <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− NEC (Employee)</td>
+                        <td style="padding:8px 10px;text-align:right;color:#0891b2;">(${{ nec|round(2)|numberfmt }})</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 10px;border-bottom:1px solid #dc2626;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− ZIMDEF Levy <span style="font-size:11px;color:#94a3b8;">(Employer-paid)</span></td>
                         <td style="padding:8px 10px;border-bottom:1px solid #dc2626;text-align:right;color:#7c3aed;">(${{ zimdef|round(2)|numberfmt }})</td>
                     </tr>
                     <tr style="font-weight:800;color:#dc2626;">

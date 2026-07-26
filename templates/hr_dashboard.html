@@ -1324,6 +1324,9 @@
                         <span style="font-size:0.6rem;background:#f0fdf4;padding:2px 8px;border-radius:4px;color:#16a34a;">
                             <i class="bi bi-shield"></i> NSSA: <strong id="sumNssa">$0</strong>
                         </span>
+                        <span style="font-size:0.6rem;background:#ecfeff;padding:2px 8px;border-radius:4px;color:#0891b2;">
+                            <i class="bi bi-buildings"></i> NEC: <strong id="sumNec">$0</strong>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -1343,6 +1346,7 @@
                                     <th>PAYE</th>
                                     <th>AIDS Levy</th>
                                     <th>NSSA</th>
+                                    <th>NEC</th>
                                     <th>Total Ded.</th>
                                     <th>Net Pay</th>
                                     <th>Status</th>
@@ -4406,7 +4410,7 @@ async function loadPayroll(period) {
                 '<i class="bi bi-wallet2" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
                 'No payroll data. Click <strong>"Process Payroll"</strong> to generate.</td></tr>';
             // Reset deduction breakdown
-            ['sumPaye','sumAids','sumNssa'].forEach(id => {
+            ['sumPaye','sumAids','sumNssa','sumNec'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = '$0';
             });
@@ -4419,7 +4423,7 @@ async function loadPayroll(period) {
             : data.data;
 
         let gross = 0, deductions = 0, net = 0;
-        let sumPaye = 0, sumAids = 0, sumNssa = 0;
+        let sumPaye = 0, sumAids = 0, sumNssa = 0, sumNec = 0;
         tbody.innerHTML = '';
 
         payrollData.forEach(rec => {
@@ -4429,6 +4433,7 @@ async function loadPayroll(period) {
             sumPaye += rec.paye_tax || 0;
             sumAids += rec.aids_levy || 0;
             sumNssa += rec.nssa || 0;
+            sumNec += rec.nec || 0;
 
 
             const statusBadge = rec.status === 'Paid' ? 'badge-hr active' :
@@ -4441,6 +4446,7 @@ async function loadPayroll(period) {
                 <td style="color:#dc2626;">$${(rec.paye_tax || 0).toFixed(2)}</td>
                 <td style="color:#b45309;">$${(rec.aids_levy || 0).toFixed(2)}</td>
                 <td style="color:#16a34a;">$${(rec.nssa || 0).toFixed(2)}</td>
+                <td style="color:#0891b2;">$${(rec.nec || 0).toFixed(2)}</td>
                 <td>$${(rec.deductions || 0).toFixed(2)}</td>
                 <td><strong>$${(rec.net_pay || 0).toFixed(2)}</strong></td>
                 <td><span class="${statusBadge}">${rec.status}</span></td>
@@ -4465,6 +4471,7 @@ async function loadPayroll(period) {
         document.getElementById('sumPaye').textContent = '$' + sumPaye.toFixed(2);
         document.getElementById('sumAids').textContent = '$' + sumAids.toFixed(2);
         document.getElementById('sumNssa').textContent = '$' + sumNssa.toFixed(2);
+        document.getElementById('sumNec').textContent = '$' + sumNec.toFixed(2);
 
     } catch(e) { console.error('Payroll error:', e); }
 }

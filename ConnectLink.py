@@ -1811,6 +1811,8 @@ def initialize_database_tables():
                     ('AIDS_LEVY', 'AIDS Levy', '3% of PAYE tax amount', 3.0, 'percentage_of_paye', 0, True, True),
                     ('NSSA_EMPLOYEE', 'NSSA (Employee)', 'NSSA employee pension contribution', 4.5, 'percentage_of_gross', 0, True, True),
                     ('NSSA_EMPLOYER', 'NSSA (Employer)', 'NSSA employer pension contribution', 4.5, 'percentage_of_gross', 0, True, False),
+                    ('NEC_EMPLOYEE', 'NEC (Employee)', 'NEC employee contribution', 2.0, 'percentage_of_gross', 0, True, True),
+                    ('NEC_EMPLOYER', 'NEC (Employer)', 'NEC employer contribution', 2.0, 'percentage_of_gross', 0, True, False),
                     ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, False),
                 ]
                 for dc in seed_deductions:
@@ -1828,6 +1830,7 @@ def initialize_database_tables():
                 "paye_tax DECIMAL(12,2) DEFAULT 0",
                 "aids_levy DECIMAL(12,2) DEFAULT 0",
                 "nssa DECIMAL(12,2) DEFAULT 0",
+                "nec DECIMAL(12,2) DEFAULT 0",
                 "zimdef DECIMAL(12,2) DEFAULT 0",
                 "gross_pay DECIMAL(12,2) DEFAULT 0"
             ]:
@@ -14749,7 +14752,7 @@ def hr_payroll_api():
                         SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
                                p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
                                p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
-                               p.nssa, p.zimdef, p.run_version
+                               p.nssa, p.nec, p.zimdef, p.run_version
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
                         WHERE p.period = %s AND p.run_version = %s
@@ -14760,7 +14763,7 @@ def hr_payroll_api():
                         SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
                                p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
                                p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
-                               p.nssa, p.zimdef, p.run_version
+                               p.nssa, p.nec, p.zimdef, p.run_version
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
                         WHERE p.period = %s
@@ -14777,8 +14780,8 @@ def hr_payroll_api():
                         'processed_at': str(r[11]) if r[11] else None,
                         'gross_pay': float(r[12] or 0),
                         'paye_tax': float(r[13] or 0), 'aids_levy': float(r[14] or 0),
-                        'nssa': float(r[15] or 0), 'zimdef': float(r[16] or 0),
-                        'run_version': r[17] or 1
+                        'nssa': float(r[15] or 0), 'nec': float(r[16] or 0),
+                        'zimdef': float(r[17] or 0), 'run_version': r[18] or 1
                     })
                 return jsonify({'success': True, 'data': records, 'period': period})
         except Exception as e:
@@ -14843,23 +14846,30 @@ def hr_payroll_api():
                         nssa_gross = nssa_ceiling
                     return nssa_gross * (nssa_rate / 100)
 
-                def calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount):
+                def calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross_pay):
                     """Calculate all Zimbabwe statutory deductions.
                     NSSA is deducted before PAYE, so taxable_income = gross - nssa."""
                     aids_config = deduction_configs.get('AIDS_LEVY', {})
                     aids_rate = aids_config.get('rate', 3.0)
                     aids_levy = monthly_paye * (aids_rate / 100) if aids_config.get('rate_type') == 'percentage_of_paye' else 0
 
+                    nec_config = deduction_configs.get('NEC_EMPLOYEE', {})
+                    nec_rate = nec_config.get('rate', 2.0)
+                    nec = gross_pay * (nec_rate / 100)
+
                     zimdef_config = deduction_configs.get('ZIMDEF', {})
                     zimdef_rate = zimdef_config.get('rate', 1.0)
                     zimdef = taxable_income * (zimdef_rate / 100)
 
-                    total = nssa_amount + monthly_paye + aids_levy  # ZIMDEF is employer-only, not deducted from employee
+                    total = nssa_amount + monthly_paye + aids_levy + nec  # ZIMDEF is employer-only
                     return {
                         'paye': monthly_paye,
                         'aids_levy': aids_levy,
                         'nssa': nssa_amount,
+                        'nec': nec,
                         'zimdef': zimdef,
+                        'total': total
+                    }
                         'total': total
                     }
 
@@ -14889,19 +14899,19 @@ def hr_payroll_api():
                     # Step 3: Calculate PAYE on taxable income (not on gross)
                     monthly_paye = calc_paye_tax(taxable_income, paye_brackets)
 
-                    # Step 4: Calculate remaining deductions (AIDS Levy, ZIMDEF)
-                    stats = calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount)
+                    # Step 4: Calculate remaining deductions (AIDS Levy, NEC, ZIMDEF)
+                    stats = calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross)
                     total_deductions = stats['total']
                     net = max(0, gross - total_deductions)
 
                     cursor.execute("""
                         INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, gross_pay,
-                            deductions, paye_tax, aids_levy, nssa, zimdef, net_pay, status, processed_at, run_version)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
+                            deductions, paye_tax, aids_levy, nssa, nec, zimdef, net_pay, status, processed_at, run_version)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
                     """, (emp_id, period, basic, allowances, gross,
                           round(total_deductions, 2), round(monthly_paye, 2),
                           round(stats['aids_levy'], 2), round(stats['nssa'], 2),
-                          round(stats['zimdef'], 2), round(net, 2), run_version))
+                          round(stats['nec'], 2), round(stats['zimdef'], 2), round(net, 2), run_version))
                     processed += 1
 
                 # Generate payroll archive Excel
@@ -14914,7 +14924,7 @@ def hr_payroll_api():
                                e.usd_percent, e.zwg_percent, e.exchange_rate, e.currency,
                                e.c8_number, e.c8_type, e.nationality,
                                p.basic_pay, p.allowances, p.gross_pay,
-                               p.paye_tax, p.aids_levy, p.nssa, p.zimdef,
+                               p.paye_tax, p.aids_levy, p.nssa, p.nec, p.zimdef,
                                p.deductions, p.net_pay, p.status
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
@@ -14925,7 +14935,7 @@ def hr_payroll_api():
 
                     emp_count = len(payroll_rows)
                     total_gross = sum(float(r[20] or 0) for r in payroll_rows)
-                    total_net = sum(float(r[26] or 0) for r in payroll_rows)
+                    total_net = sum(float(r[27] or 0) for r in payroll_rows)
                     user_name = session.get('user_name', 'System')
 
                     from openpyxl import Workbook
@@ -14960,7 +14970,7 @@ def hr_payroll_api():
                     headers = [
                         '#', 'First Name', 'Last Name', 'Department', 'Designation',
                         'Basic Pay', 'Allowances', 'Gross Pay',
-                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'ZIMDEF', 'Total Deductions',
+                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'NEC', 'ZIMDEF', 'Total Deductions',
                         'Net Pay', 'Status',
                         'Bank Holder', 'Bank Name', 'Account Number', 'Branch', 'Branch Code',
                         'Currency'
@@ -14979,8 +14989,9 @@ def hr_payroll_api():
                             row_idx - 4,
                             r[0] or '', r[1] or '', r[2] or '', r[3] or '',
                             float(r[18] or 0), float(r[19] or 0), float(r[20] or 0),
-                            float(r[21] or 0), float(r[22] or 0), float(r[23] or 0), float(r[24] or 0),
-                            float(r[25] or 0), float(r[26] or 0), r[27] or '',
+                            float(r[21] or 0), float(r[22] or 0), float(r[23] or 0),
+                            float(r[24] or 0), float(r[25] or 0),
+                            float(r[26] or 0), float(r[27] or 0), r[28] or '',
                             r[5] or '', r[7] or '', r[8] or '', r[9] or '', r[10] or '',
                             r[14] or 'USD'
                         ]
@@ -15730,6 +15741,17 @@ def hr_payroll_calculate_full():
         else:
             deductions['AIDS_LEVY'] = {'name': 'AIDS Levy', 'amount': 0, 'rate': 0, 'basis': 'PAYE tax'}
 
+        # NEC = 2% of gross (employee portion)
+        nec_config = deduction_configs.get('NEC_EMPLOYEE', {})
+        nec_rate = nec_config.get('rate', 2.0)
+        nec_amount = salary * (nec_rate / 100)
+        deductions['NEC_EMPLOYEE'] = {
+            'name': 'NEC (Employee)',
+            'amount': round(nec_amount, 2),
+            'rate': nec_rate,
+            'basis': 'Gross salary'
+        }
+
         # ZIMDEF = % of taxable income
         zimdef_config = deduction_configs.get('ZIMDEF', {})
         zimdef_rate = zimdef_config.get('rate', 1.0)
@@ -15741,7 +15763,7 @@ def hr_payroll_calculate_full():
             'basis': 'Taxable income (gross - NSSA)'
         }
 
-        total_deductions = nssa_amount + monthly_paye + aids_levy  # ZIMDEF is employer-only
+        total_deductions = nssa_amount + monthly_paye + aids_levy + nec_amount  # ZIMDEF is employer-only
         net_pay = max(0, salary - total_deductions)
 
         return jsonify({
@@ -15782,7 +15804,7 @@ def payroll_breakdown():
                        e.basic_salary, e.allowances, e.usd_percent, e.zwg_percent, e.exchange_rate,
                        e.bank_holder_name, e.bank_holder_surname, e.bank_name, e.bank_account_number, e.bank_branch,
                        p.basic_pay, p.allowances as pay_allowances, p.gross_pay,
-                       p.paye_tax, p.aids_levy, p.nssa, p.zimdef, p.deductions, p.net_pay,
+                       p.paye_tax, p.aids_levy, p.nssa, p.nec, p.zimdef, p.deductions, p.net_pay,
                        p.period, p.status, p.processed_at
                 FROM hr_employees e
                 LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
@@ -15803,10 +15825,11 @@ def payroll_breakdown():
                 'basic_pay': float(row[15] or 0), 'pay_allowances': float(row[16] or 0),
                 'gross_pay': float(row[17] or 0),
                 'paye_tax': float(row[18] or 0), 'aids_levy': float(row[19] or 0),
-                'nssa': float(row[20] or 0), 'zimdef': float(row[21] or 0),
-                'total_deductions': float(row[22] or 0), 'net_pay': float(row[23] or 0),
-                'period': row[24] or period, 'status': row[25] or 'Not Processed',
-                'processed_at': row[26]
+                'nssa': float(row[20] or 0), 'nec': float(row[21] or 0),
+                'zimdef': float(row[22] or 0),
+                'total_deductions': float(row[23] or 0), 'net_pay': float(row[24] or 0),
+                'period': row[25] or period, 'status': row[26] or 'Not Processed',
+                'processed_at': row[27]
             }
 
             # 2. Load active PAYE brackets for display
@@ -15844,8 +15867,9 @@ def payroll_breakdown():
         nssa = emp['nssa']
         paye = emp['paye_tax']
         aids = emp['aids_levy']
+        nec = emp['nec']
         zimdef = emp['zimdef']
-        total_ded = emp['total_deductions'] or (nssa + paye + aids + zimdef)
+        total_ded = emp['total_deductions'] or (nssa + paye + aids + nec + zimdef)
         net = emp['net_pay'] or max(0, gross - total_ded)
 
         # Taxable income = Gross - NSSA (since NSSA is deducted first)
