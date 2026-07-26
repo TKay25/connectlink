@@ -6037,7 +6037,7 @@ def webhook():
 
                                                             # First check if employee has a pending leave
                                                             cursor.execute("""
-                                                                SELECT e.id
+                                                                SELECT e.id, e.leave_approver_name
                                                                 FROM hr_employees e
                                                                 WHERE e.whatsapp::TEXT LIKE %s LIMIT 1
                                                             """, (f"%{sender_number}%",))
@@ -6045,6 +6045,7 @@ def webhook():
 
                                                             if emp_row:
                                                                 emp_id = emp_row[0]
+                                                                approver_name_pending = emp_row[1] or 'the approver'
                                                                 cursor.execute("""
                                                                     SELECT id, leave_type, days, from_date, to_date
                                                                     FROM hr_leave_applications
@@ -6057,7 +6058,7 @@ def webhook():
                                                                     pl_from_str = pl_from.strftime('%d %B %Y') if hasattr(pl_from, 'strftime') else str(pl_from)
                                                                     pl_to_str = pl_to.strftime('%d %B %Y') if hasattr(pl_to, 'strftime') else str(pl_to)
                                                                     send_whatsapp_button_message(sender_id,
-                                                                        f"⚠️ *You already have a pending leave application!*\n\n"
+                                                                        f"⚠️ *You already have a leave application that is pending {approver_name_pending}'s approval!*\n\n"
                                                                         f"📋 *Reference:* #{pl_id}\n"
                                                                         f"📅 *Type:* {pl_type}\n"
                                                                         f"📊 *Days:* {pl_days}\n"
