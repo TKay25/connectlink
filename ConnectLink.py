@@ -1814,6 +1814,7 @@ def initialize_database_tables():
                     ('NEC_EMPLOYEE', 'NEC (Employee)', 'NEC employee contribution', 2.0, 'percentage_of_gross', 0, True, True),
                     ('NEC_EMPLOYER', 'NEC (Employer)', 'NEC employer contribution', 2.0, 'percentage_of_gross', 0, True, False),
                     ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, False),
+                    ('WCIF', 'WCIF', "Workers' Compensation Insurance Fund", 2.16, 'percentage_of_gross', 0, True, False),
                 ]
                 for dc in seed_deductions:
                     cursor.execute("""
@@ -1832,6 +1833,7 @@ def initialize_database_tables():
                 "nssa DECIMAL(12,2) DEFAULT 0",
                 "nec DECIMAL(12,2) DEFAULT 0",
                 "zimdef DECIMAL(12,2) DEFAULT 0",
+                "wcif DECIMAL(12,2) DEFAULT 0",
                 "gross_pay DECIMAL(12,2) DEFAULT 0"
             ]:
                 try:
@@ -14861,15 +14863,18 @@ def hr_payroll_api():
                     zimdef_rate = zimdef_config.get('rate', 1.0)
                     zimdef = taxable_income * (zimdef_rate / 100)
 
-                    total = nssa_amount + monthly_paye + aids_levy + nec  # ZIMDEF is employer-only
+                    wcif_config = deduction_configs.get('WCIF', {})
+                    wcif_rate = wcif_config.get('rate', 2.16)
+                    wcif = taxable_income * (wcif_rate / 100)
+
+                    total = nssa_amount + monthly_paye + aids_levy + nec  # ZIMDEF + WCIF are employer-only
                     return {
                         'paye': monthly_paye,
                         'aids_levy': aids_levy,
                         'nssa': nssa_amount,
                         'nec': nec,
                         'zimdef': zimdef,
-                        'total': total
-                    }
+                        'wcif': wcif,
                         'total': total
                     }
 
@@ -14906,12 +14911,12 @@ def hr_payroll_api():
 
                     cursor.execute("""
                         INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, gross_pay,
-                            deductions, paye_tax, aids_levy, nssa, nec, zimdef, net_pay, status, processed_at, run_version)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
+                            deductions, paye_tax, aids_levy, nssa, nec, zimdef, wcif, net_pay, status, processed_at, run_version)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
                     """, (emp_id, period, basic, allowances, gross,
                           round(total_deductions, 2), round(monthly_paye, 2),
                           round(stats['aids_levy'], 2), round(stats['nssa'], 2),
-                          round(stats['nec'], 2), round(stats['zimdef'], 2), round(net, 2), run_version))
+                          round(stats['nec'], 2), round(stats['zimdef'], 2), round(stats['wcif'], 2), round(net, 2), run_version))
                     processed += 1
 
                 # Generate payroll archive Excel
