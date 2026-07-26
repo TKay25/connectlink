@@ -14748,14 +14748,31 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             exch_rate=emp['exchange_rate'],
             now=datetime.now()
         )
-        pdf_bytes = pdfkit.from_string(html, False)
+        pdf_bytes = pdfkit.from_string(html, False, options={
+            'orientation': 'Landscape',
+            'page-size': 'A4',
+            'margin-top': '5mm',
+            'margin-bottom': '5mm',
+            'margin-left': '6mm',
+            'margin-right': '6mm'
+        })
 
         # Send PDF via WhatsApp
         full_name = f"{emp['first_name']} {emp['last_name']}".strip()
-        filename = f"Payslip_{full_name}_{period}.pdf"
-        caption = f"📄 Payslip for {full_name} - {period}"
+        try:
+            p_parts = period.split('-')
+            p_year = p_parts[0]
+            p_month_num = int(p_parts[1])
+            month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December']
+            p_month_name = month_names[p_month_num] if 1 <= p_month_num <= 12 else period
+            period_label = f"{p_month_name}-{p_year}"
+        except:
+            period_label = period
+        filename = f"Payslip_{full_name}_{period_label}.pdf"
+        caption = f"📄 Payslip for {full_name} - {period_label}"
         send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
-        print(f"✅ Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period})")
+        print(f"✅ Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
 
     except Exception as e:
         print(f"❌ Error handling payslip download via WhatsApp: {e}")
