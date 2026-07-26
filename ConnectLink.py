@@ -13766,54 +13766,51 @@ def request_reset_code():
             """, (username_or_email, code, user_whatsapp, expires_at))
             connection.commit()
 
-            # Send code via WhatsApp
+            # Send code via WhatsApp using passwordreset template
             recipient_clean = re.sub(r'[^0-9]', '', user_whatsapp)
             if recipient_clean.startswith('0'):
                 recipient_clean = '263' + recipient_clean[1:]
             elif not recipient_clean.startswith('263'):
                 recipient_clean = '263' + recipient_clean
-
-            message_text = (
-                f"🔐 *ConnectLink Password Reset*\n\n"
-                f"Hi {user_name},\n\n"
-                f"Your verification code is:\n\n"
-                f"*{code}*\n\n"
-                f"This code expires in 10 minutes.\n\n"
-                f"If you did not request this, please ignore this message."
-            )
+            recipient_e164 = f"+{recipient_clean}"
 
             try:
-                from urllib.parse import urlencode
-                import urllib.request
-                whatsapp_text = message_text.replace('*', '')
-                payload = {
+                wa_headers = {
+                    'Authorization': f'Bearer {ACCESS_TOKEN}',
+                    'Content-Type': 'application/json'
+                }
+                template_payload = {
                     "messaging_product": "whatsapp",
-                    "to": recipient_clean,
-                    "type": "text",
-                    "text": {"body": whatsapp_text}
+                    "to": recipient_e164,
+                    "type": "template",
+                    "template": {
+                        "name": "passwordreset2",
+                        "language": {"code": "en"},
+                        "components": [
+                            {
+                                "type": "body",
+                                "parameters": [
+                                    {"type": "text", "text": str(code)}
+                                ]
+                            }
+                        ]
+                    }
                 }
-                payload_json = json.dumps(payload)
-                headers = {
-                    "Authorization": f"Bearer {ACCESS_TOKEN}",
-                    "Content-Type": "application/json"
-                }
-                req = urllib.request.Request(WHATSAPP_API_URL, data=payload_json.encode(), headers=headers, method='POST')
-                resp = urllib.request.urlopen(req)
-                resp_data = json.loads(resp.read().decode())
-                wa_status = 'sent' if resp_data.get('messages') else 'failed'
+                resp = requests.post(WHATSAPP_API_URL, json=template_payload, headers=wa_headers, timeout=15)
+                wa_status = 'sent' if resp.status_code == 200 else f'failed_{resp.status_code}'
+                print(f"📤 Password reset template sent: {resp.status_code}")
 
                 # Log to whatsapp_messages
                 try:
                     cursor.execute("""
                         INSERT INTO whatsapp_messages (sender_phone, sender_name, message_text, message_type, direction, status)
-                        VALUES (%s, %s, %s, 'text', 'outgoing', %s)
+                        VALUES (%s, %s, %s, 'template', 'outgoing', %s)
                     """, (recipient_clean, 'System', f"Password reset code sent to {username_or_email}", wa_status))
                     connection.commit()
                 except Exception:
                     pass
             except Exception as wa_err:
-                print(f"WhatsApp send error: {wa_err}")
-                # Still return success to the user (code is in DB)
+                print(f"WhatsApp template send error: {wa_err}")
                 pass
 
             return jsonify({
