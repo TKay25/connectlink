@@ -14666,7 +14666,7 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                        e.current_leave_balance, e.monthly_accumulation,
                        e.usd_percent, e.zwg_percent, e.exchange_rate,
                        COALESCE(p.basic_pay, e.basic_salary, 0) as basic_pay,
-                       COALESCE(p.allowances, e.allowances, 0) as allowances_pay,
+                       COALESCE(p.allowances, e.allowances, 0) as pay_allowances,
                        COALESCE(p.gross_pay, e.basic_salary + COALESCE(e.allowances, 0), 0) as gross_pay,
                        COALESCE(p.nssa, 0) as nssa,
                        COALESCE(p.paye_tax, 0) as paye_tax,
@@ -14701,14 +14701,14 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                 'monthly_accrual': float(row[19] or 0),
                 'usd_pct': float(row[20] or 100), 'zwg_pct': float(row[21] or 0),
                 'exchange_rate': float(row[22] or 1),
-                'basic_pay': float(row[23] or 0), 'allowances_pay': float(row[24] or 0),
+                'basic_pay': float(row[23] or 0), 'pay_allowances': float(row[24] or 0),
                 'gross_pay': float(row[25] or 0), 'nssa': float(row[26] or 0),
                 'paye_tax': float(row[27] or 0), 'aids_levy': float(row[28] or 0),
                 'zimdef': float(row[29] or 0), 'nec': float(row[30] or 0),
-                'deductions': float(row[31] or 0),
+                'total_deductions': float(row[31] or 0),
                 'net_pay': float(row[32] or 0), 'whatsapp': row[33] or '',
-                'pay_status': row[34] or '',
-                'processed_at': row[35],
+                'pay_status': row[35] or '',
+                'processed_at': row[36],
                 'period': period
             }
 
