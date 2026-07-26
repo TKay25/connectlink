@@ -6076,14 +6076,19 @@ def webhook():
                                                                             pl_id, pl_type, pl_days, pl_from, pl_to = pending_leave
                                                                             pl_from_str = pl_from.strftime('%d %B %Y') if hasattr(pl_from, 'strftime') else str(pl_from)
                                                                             pl_to_str = pl_to.strftime('%d %B %Y') if hasattr(pl_to, 'strftime') else str(pl_to)
-                                                                            send_whatsapp_message(sender_id,
+                                                                            send_whatsapp_button_message(sender_id,
                                                                                 f"⚠️ *You already have a pending leave application!*\n\n"
                                                                                 f"📋 *Reference:* #{pl_id}\n"
                                                                                 f"📅 *Type:* {pl_type}\n"
                                                                                 f"📊 *Days:* {pl_days}\n"
                                                                                 f"📆 *From:* {pl_from_str}\n"
                                                                                 f"📆 *To:* {pl_to_str}\n\n"
-                                                                                f"Please wait for it to be resolved before applying for new leave."
+                                                                                f"Please wait for it to be resolved before applying for new leave.",
+                                                                                [
+                                                                                    {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
+                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
+                                                                                ],
+                                                                                footer_text="ConnectLink HR Portal"
                                                                             )
                                                                             # Clean up temp
                                                                             try:
@@ -6095,11 +6100,16 @@ def webhook():
 
                                                                         # ----- CHECK 2: Sufficient leave balance -----
                                                                         if days > leave_balance:
-                                                                            send_whatsapp_message(sender_id,
+                                                                            send_whatsapp_button_message(sender_id,
                                                                                 f"❌ *Insufficient Leave Balance!*\n\n"
                                                                                 f"You applied for *{days}* day(s) of *{leave_type}*,\n"
                                                                                 f"but your current leave balance is only *{leave_balance}* day(s).\n\n"
-                                                                                f"Please apply for fewer days or contact HR."
+                                                                                f"Please apply for fewer days or contact HR.",
+                                                                                [
+                                                                                    {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
+                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
+                                                                                ],
+                                                                                footer_text="ConnectLink HR Portal"
                                                                             )
                                                                             # Clean up temp
                                                                             try:
@@ -6139,7 +6149,7 @@ def webhook():
                                                                             to_formatted = str(leave_end)
 
                                                                         # Confirm to applicant
-                                                                        send_whatsapp_message(sender_id,
+                                                                        send_whatsapp_button_message(sender_id,
                                                                             f"✅ *Leave Application Submitted!*\n\n"
                                                                             f"📋 *Reference:* #{lid}\n"
                                                                             f"👤 *Employee:* {emp_name}\n"
@@ -6147,7 +6157,12 @@ def webhook():
                                                                             f"📆 *From:* {leave_start} → *To:* {leave_end}\n"
                                                                             f"📊 *Days:* {days}\n"
                                                                             f"⏳ *Status:* Pending Approval\n\n"
-                                                                            f"You will be notified once your leave is approved."
+                                                                            f"You will be notified once your leave is approved.",
+                                                                            [
+                                                                                {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
+                                                                                {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
+                                                                            ],
+                                                                            footer_text="ConnectLink HR Portal"
                                                                         )
 
                                                                         # ----- Notify approver via Meta template -----
