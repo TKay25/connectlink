@@ -582,6 +582,71 @@
             </div>
         </div>
 
+        <!-- COMPANY REMITTANCES SUMMARY -->
+        <div class="section" style="margin-top:24px;">
+            <div style="background:#1e293b;color:#fff;padding:8px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-radius:6px 6px 0 0;">Company Remittances Summary — {{ emp.period }}</div>
+            <table style="width:100%;border-collapse:collapse;font-size:10px;">
+                <thead>
+                    <tr style="background:#f1f5f9;">
+                        <th style="padding:6px 10px;text-align:left;border-bottom:1px solid #e2e8f0;text-transform:uppercase;font-size:8px;letter-spacing:0.3px;color:#475569;">Deduction</th>
+                        <th style="padding:6px 10px;text-align:center;border-bottom:1px solid #e2e8f0;text-transform:uppercase;font-size:8px;letter-spacing:0.3px;color:#475569;">Employee</th>
+                        <th style="padding:6px 10px;text-align:center;border-bottom:1px solid #e2e8f0;text-transform:uppercase;font-size:8px;letter-spacing:0.3px;color:#475569;">Employer</th>
+                        <th style="padding:6px 10px;text-align:right;border-bottom:1px solid #e2e8f0;text-transform:uppercase;font-size:8px;letter-spacing:0.3px;color:#475569;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;">NSSA (Pension)</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ nssa|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ employer_nssa|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700;">${{ (nssa + employer_nssa)|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;">PAYE Tax</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ paye|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;color:#94a3b8;">—</td>
+                        <td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700;">${{ paye|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;">AIDS Levy</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ aids|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;color:#94a3b8;">—</td>
+                        <td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700;">${{ aids|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;">NEC</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ nec|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ employer_nec|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700;">${{ (nec + employer_nec)|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;">ZIMDEF Levy</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;color:#94a3b8;">—</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ zimdef|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700;">${{ zimdef|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;">WCIF</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;color:#94a3b8;">—</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ employer_wcif|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700;">${{ employer_wcif|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:5px 10px;border-bottom:2px solid #1e293b;font-weight:600;">SDF</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:2px solid #1e293b;color:#94a3b8;">—</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:2px solid #1e293b;">${{ employer_sdf|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:right;border-bottom:2px solid #1e293b;font-weight:700;">${{ employer_sdf|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr style="font-weight:800;background:#f8fafc;">
+                        <td style="padding:7px 10px;font-size:11px;">TOTAL REMITTANCE</td>
+                        <td style="padding:7px 10px;text-align:center;font-size:11px;">${{ total_ded|round(2)|numberfmt }}</td>
+                        <td style="padding:7px 10px;text-align:center;font-size:11px;">${{ total_employer|round(2)|numberfmt }}</td>
+                        <td style="padding:7px 10px;text-align:right;font-size:11px;">${{ total_remittance|round(2)|numberfmt }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
         <!-- FOOTER -->
         <div class="footer-note">
             <span>ConnectLink Properties (Pvt) Ltd</span>

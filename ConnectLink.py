@@ -16678,14 +16678,26 @@ def payroll_breakdown():
         # ZIMDEF
         zimdef_config = deduction_configs.get('ZIMDEF', {})
         zimdef_rate = zimdef_config.get('rate', 1.0)
+        zimdef_amount = zimdef
         deduction_rows.append({
             'name': 'ZIMDEF Levy',
             'description': 'Zimbabwe Manpower Development Levy — 1% of taxable income',
             'rate': f'{zimdef_rate:.1f}% of taxable income',
             'calculation': f'${taxable_income:,.2f} × {zimdef_rate:.1f}%',
-            'amount': zimdef,
+            'amount': zimdef_amount,
             'color': '#7c3aed'
         })
+
+        # Employer-only contributions for remittances summary
+        employer_nssa = nssa_basis * (nssa_rate / 100)
+        nec_employer_rate = deduction_configs.get('NEC_EMPLOYER', {}).get('rate', 2.0)
+        employer_nec = gross * (nec_employer_rate / 100)
+        wcif_rate = deduction_configs.get('WCIF', {}).get('rate', 2.16)
+        employer_wcif = taxable_income * (wcif_rate / 100)
+        sdf_rate = deduction_configs.get('SDF', {}).get('rate', 0.5)
+        employer_sdf = taxable_income * (sdf_rate / 100)
+        total_employer = employer_nssa + employer_nec + zimdef_amount + employer_wcif + employer_sdf
+        total_remittance = total_ded + total_employer
 
         return render_template('payroll_breakdown.html',
             emp=emp, basic=basic, allowances=allowances, gross=gross,
@@ -16693,7 +16705,9 @@ def payroll_breakdown():
             deduction_rows=deduction_rows, paye=paye, aids=aids,
             nssa=nssa, nec=nec, employer_nssa=employer_nssa, nssa_basis=nssa_basis,
             nssa_rate=nssa_rate, nssa_cap_note=nssa_cap_note,
-            zimdef=zimdef, total_ded=total_ded, net=net,
+            zimdef=zimdef_amount, total_ded=total_ded, net=net,
+            employer_nec=employer_nec, employer_wcif=employer_wcif, employer_sdf=employer_sdf,
+            total_employer=total_employer, total_remittance=total_remittance,
             now=datetime.now()
         )
 
