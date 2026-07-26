@@ -1679,6 +1679,18 @@ def initialize_database_tables():
                 );
             """)
 
+            # WhatsApp HR temp table for pending leave data (not using appenqtemp)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS whatsapp_hr_temp (
+                    id SERIAL PRIMARY KEY,
+                    wanumber VARCHAR(50) UNIQUE,
+                    category TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            connection.commit()
+            print("✅ WhatsApp HR temp table initialized")
+
             # ===== PASSWORD RESET CODES TABLE =====
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS password_reset_codes (
@@ -2920,7 +2932,7 @@ def webhook():
                                                                         'status': 'pending_confirmation'
                                                                     })
                                                                     cursor.execute("""
-                                                                        INSERT INTO appenqtemp (category, wanumber)
+                                                                        INSERT INTO whatsapp_hr_temp (category, wanumber)
                                                                         VALUES (%s, %s)
                                                                         ON CONFLICT (wanumber) DO UPDATE SET category = EXCLUDED.category
                                                                     """, (f'leave_pending_{pending_data}', sender_id))
@@ -3001,7 +3013,7 @@ def webhook():
 
                                                                 # Get leave type from temp table
                                                                 try:
-                                                                    cursor.execute("SELECT category FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                    cursor.execute("SELECT category FROM whatsapp_hr_temp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
                                                                     temp_row = cursor.fetchone()
                                                                     stored_cat = temp_row[0] if temp_row else ''
                                                                     leave_type = 'Other'
@@ -3048,12 +3060,12 @@ def webhook():
 
                                                                         # Clean up temp
                                                                         try:
-                                                                            cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                            cursor.execute("DELETE FROM whatsapp_hr_temp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
                                                                             connection.commit()
                                                                         except:
                                                                             pass
 
-                                                                        send_text_message(sender_id,
+                                                                        send_whatsapp_message(sender_id,
                                                                             f"✅ *Leave Application Submitted!*\n\n"
                                                                             f"📋 *Reference:* #{lid}\n"
                                                                             f"👤 *Employee:* {emp_name}\n"
@@ -3065,10 +3077,10 @@ def webhook():
                                                                             f"You will be notified once your leave is approved."
                                                                         )
                                                                     else:
-                                                                        send_text_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
+                                                                        send_whatsapp_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
                                                                 except Exception as e:
                                                                     print(f"❌ Leave submission error: {e}")
-                                                                    send_text_message(sender_id, "❌ Failed to submit leave. Please try again or contact HR.")
+                                                                    send_whatsapp_message(sender_id, "❌ Failed to submit leave. Please try again or contact HR.")
                                                                 continue
 
                                                         if button_id == "portfolio":
@@ -5303,7 +5315,7 @@ def webhook():
                                                             except:
                                                                 pass
                                                             if not has_projects_access:
-                                                                send_text_message(sender_id, "❌ You do not have permission to access the Projects system.")
+                                                                send_whatsapp_message(sender_id, "❌ You do not have permission to access the Projects system.")
                                                                 continue
 
                                                             """Generate and send enquiries PDF via WhatsApp"""
@@ -5970,10 +5982,10 @@ def webhook():
                                                                         footer_text="ConnectLink HR Portal"
                                                                     )
                                                                 else:
-                                                                    send_text_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
+                                                                    send_whatsapp_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
                                                             except Exception as e:
                                                                 print(f"❌ My Info error: {e}")
-                                                                send_text_message(sender_id, "❌ Failed to load your information. Please try again.")
+                                                                send_whatsapp_message(sender_id, "❌ Failed to load your information. Please try again.")
                                                             continue
 
                                                         elif button_id == "apply_leave":
@@ -6017,14 +6029,14 @@ def webhook():
                                                                 print(f"📨 Leave app template response [{resp.status_code}]: {resp.text}")
                                                             except Exception as e:
                                                                 print(f"❌ Error sending leave app template: {e}")
-                                                                send_text_message(sender_id, "❌ Could not open leave application form. Please contact HR.")
+                                                                send_whatsapp_message(sender_id, "❌ Could not open leave application form. Please contact HR.")
 
                                                             continue
 
                                                         elif button_id == "leave_submit":
 
                                                             try:
-                                                                cursor.execute("SELECT category FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                cursor.execute("SELECT category FROM whatsapp_hr_temp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
                                                                 temp_row = cursor.fetchone()
                                                                 if temp_row and 'leave_pending_' in (temp_row[0] or ''):
                                                                     pending_str = temp_row[0].replace('leave_pending_', '', 1)
@@ -6064,7 +6076,7 @@ def webhook():
                                                                             pl_id, pl_type, pl_days, pl_from, pl_to = pending_leave
                                                                             pl_from_str = pl_from.strftime('%d %B %Y') if hasattr(pl_from, 'strftime') else str(pl_from)
                                                                             pl_to_str = pl_to.strftime('%d %B %Y') if hasattr(pl_to, 'strftime') else str(pl_to)
-                                                                            send_text_message(sender_id,
+                                                                            send_whatsapp_message(sender_id,
                                                                                 f"⚠️ *You already have a pending leave application!*\n\n"
                                                                                 f"📋 *Reference:* #{pl_id}\n"
                                                                                 f"📅 *Type:* {pl_type}\n"
@@ -6075,7 +6087,7 @@ def webhook():
                                                                             )
                                                                             # Clean up temp
                                                                             try:
-                                                                                cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                                cursor.execute("DELETE FROM whatsapp_hr_temp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
                                                                                 connection.commit()
                                                                             except:
                                                                                 pass
@@ -6083,7 +6095,7 @@ def webhook():
 
                                                                         # ----- CHECK 2: Sufficient leave balance -----
                                                                         if days > leave_balance:
-                                                                            send_text_message(sender_id,
+                                                                            send_whatsapp_message(sender_id,
                                                                                 f"❌ *Insufficient Leave Balance!*\n\n"
                                                                                 f"You applied for *{days}* day(s) of *{leave_type}*,\n"
                                                                                 f"but your current leave balance is only *{leave_balance}* day(s).\n\n"
@@ -6091,7 +6103,7 @@ def webhook():
                                                                             )
                                                                             # Clean up temp
                                                                             try:
-                                                                                cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                                cursor.execute("DELETE FROM whatsapp_hr_temp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
                                                                                 connection.commit()
                                                                             except:
                                                                                 pass
@@ -6109,7 +6121,7 @@ def webhook():
 
                                                                         # Clean up temp
                                                                         try:
-                                                                            cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                            cursor.execute("DELETE FROM whatsapp_hr_temp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
                                                                             connection.commit()
                                                                         except:
                                                                             pass
@@ -6127,7 +6139,7 @@ def webhook():
                                                                             to_formatted = str(leave_end)
 
                                                                         # Confirm to applicant
-                                                                        send_text_message(sender_id,
+                                                                        send_whatsapp_message(sender_id,
                                                                             f"✅ *Leave Application Submitted!*\n\n"
                                                                             f"📋 *Reference:* #{lid}\n"
                                                                             f"👤 *Employee:* {emp_name}\n"
@@ -6212,21 +6224,21 @@ def webhook():
                                                                                 print(f"⚠️ Failed to send WhatsApp leave notification to approver: {wa_err}")
 
                                                                     else:
-                                                                        send_text_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
+                                                                        send_whatsapp_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
                                                                 else:
-                                                                    send_text_message(sender_id, "❌ No pending leave application found. Please start again.")
+                                                                    send_whatsapp_message(sender_id, "❌ No pending leave application found. Please start again.")
                                                             except Exception as e:
                                                                 print(f"❌ Leave submit error: {e}")
-                                                                send_text_message(sender_id, "❌ Failed to submit leave. Please try again.")
+                                                                send_whatsapp_message(sender_id, "❌ Failed to submit leave. Please try again.")
                                                             continue
 
                                                         elif button_id == "leave_cancel":
                                                             try:
-                                                                cursor.execute("DELETE FROM appenqtemp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
+                                                                cursor.execute("DELETE FROM whatsapp_hr_temp WHERE wanumber::TEXT LIKE %s", (f"%{sender_id}%",))
                                                                 connection.commit()
                                                             except:
                                                                 pass
-                                                            send_text_message(sender_id, "❌ Leave application cancelled. You can start again anytime by selecting *Apply for Leave*.")
+                                                            send_whatsapp_message(sender_id, "❌ Leave application cancelled. You can start again anytime by selecting *Apply for Leave*.")
                                                             continue
 
 
@@ -6243,7 +6255,7 @@ def webhook():
                                                             # Store leave type selection in temp table
                                                             try:
                                                                 cursor.execute("""
-                                                                    INSERT INTO appenqtemp (category, wanumber)
+                                                                    INSERT INTO whatsapp_hr_temp (category, wanumber)
                                                                     VALUES (%s, %s)
                                                                     ON CONFLICT (wanumber) DO UPDATE SET category = EXCLUDED.category
                                                                 """, (f'leave_type_{selected_option}', sender_id))
@@ -6251,7 +6263,7 @@ def webhook():
                                                             except:
                                                                 pass
 
-                                                            send_text_message(sender_id,
+                                                            send_whatsapp_message(sender_id,
                                                                 f"✅ *{selected_leave_type}* selected.\n\n"
                                                                 f"Please reply with your leave details in this format:\n"
                                                                 f"`From: YYYY-MM-DD, To: YYYY-MM-DD, Reason: Your reason here`\n\n"
