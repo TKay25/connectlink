@@ -2792,12 +2792,15 @@ def webhook():
                                                                     with get_db() as (leave_cursor, leave_conn):
                                                                         # Verify the leave exists and is pending
                                                                         leave_cursor.execute("""
-                                                                            SELECT employee_name, leave_type, status FROM hr_leave_applications WHERE id = %s
+                                                                            SELECT employee_name, leave_type, days, from_date, to_date, status FROM hr_leave_applications WHERE id = %s
                                                                         """, (leave_id,))
                                                                         lr = leave_cursor.fetchone()
-                                                                        if lr and lr[2] == 'Pending':
+                                                                        if lr and lr[5] == 'Pending':
                                                                             emp_name = lr[0]
                                                                             ltype = lr[1]
+                                                                            leave_days = lr[2]
+                                                                            leave_from = lr[3]
+                                                                            leave_to = lr[4]
 
                                                                             if action == 'approve':
                                                                                 leave_cursor.execute("""
@@ -2835,31 +2838,76 @@ def webhook():
                                                                             except Exception:
                                                                                 pass
 
-                                                                            # Notify the applicant
+                                                                            # Notify the applicant using leaveapproved template
                                                                             try:
                                                                                 leave_cursor.execute("""
-                                                                                    SELECT e.whatsapp FROM hr_employees e
+                                                                                    SELECT e.whatsapp, e.first_name, e.last_name
+                                                                                    FROM hr_employees e
                                                                                     JOIN hr_leave_applications la ON la.employee_id = e.id
                                                                                     WHERE la.id = %s
                                                                                 """, (leave_id,))
                                                                                 app_row = leave_cursor.fetchone()
                                                                                 if app_row and app_row[0]:
                                                                                     app_phone = app_row[0]
+                                                                                    app_first = app_row[1] or ''
+                                                                                    app_last = app_row[2] or ''
+                                                                                    app_full = f"{app_first} {app_last}".strip() or emp_name
                                                                                     app_clean = re.sub(r'[^0-9]', '', str(app_phone))
                                                                                     if app_clean.startswith('0'):
                                                                                         app_clean = '263' + app_clean[1:]
                                                                                     elif not app_clean.startswith('263'):
                                                                                         app_clean = '263' + app_clean
                                                                                     app_e164 = f"+{app_clean}"
+
+                                                                                    # Format dates
+                                                                                    try:
+                                                                                        from_str = leave_from.strftime('%-d %B %Y') if hasattr(leave_from, 'strftime') else str(leave_from)
+                                                                                    except:
+                                                                                        from_str = str(leave_from)
+                                                                                    try:
+                                                                                        to_str = leave_to.strftime('%-d %B %Y') if hasattr(leave_to, 'strftime') else str(leave_to)
+                                                                                    except:
+                                                                                        to_str = str(leave_to)
+
                                                                                     status_word = "approved" if action == 'approve' else "declined"
-                                                                                    notif = f"Hi {emp_name}, your {ltype} leave request (#{leave_id}) has been {status_word} by your approver."
-                                                                                    notif_payload = {
+                                                                                    status_cap = "Approved" if action == 'approve' else "Declined"
+
+                                                                                    wa_headers = {
+                                                                                        'Authorization': f'Bearer {ACCESS_TOKEN}',
+                                                                                        'Content-Type': 'application/json'
+                                                                                    }
+                                                                                    template_payload = {
                                                                                         "messaging_product": "whatsapp",
                                                                                         "to": app_e164,
-                                                                                        "type": "text",
-                                                                                        "text": {"body": notif}
+                                                                                        "type": "template",
+                                                                                        "template": {
+                                                                                            "name": "leaveapproved",
+                                                                                            "language": {"code": "en"},
+                                                                                            "components": [
+                                                                                                {
+                                                                                                    "type": "body",
+                                                                                                    "parameters": [
+                                                                                                        {"type": "text", "text": str(app_full)},
+                                                                                                        {"type": "text", "text": str(leave_days)},
+                                                                                                        {"type": "text", "text": str(ltype)},
+                                                                                                        {"type": "text", "text": str(from_str)},
+                                                                                                        {"type": "text", "text": str(to_str)},
+                                                                                                        {"type": "text", "text": str(status_word)},
+                                                                                                        {"type": "text", "text": str(sender_name)}
+                                                                                                    ]
+                                                                                                },
+                                                                                                {
+                                                                                                    "type": "button",
+                                                                                                    "sub_type": "quick_reply",
+                                                                                                    "index": 0,
+                                                                                                    "parameters": [
+                                                                                                        {"type": "payload", "payload": f"download_leave_slip_{leave_id}"}
+                                                                                                    ]
+                                                                                                }
+                                                                                            ]
+                                                                                        }
                                                                                     }
-                                                                                    requests.post(WHATSAPP_API_URL, json=notif_payload, headers=conf_headers, timeout=15)
+                                                                                    requests.post(WHATSAPP_API_URL, json=template_payload, headers=wa_headers, timeout=15)
                                                                             except Exception:
                                                                                 pass
 
@@ -3016,7 +3064,7 @@ def webhook():
                                                                                             "sub_type": "quick_reply",
                                                                                             "index": 0,
                                                                                             "parameters": [
-                                                                                                {"type": "payload", "payload": f"approve_{remind_leave_id}"}
+                                                                                                {"type": "payload", "payload": f"approve_leave_{remind_leave_id}"}
                                                                                             ]
                                                                                         },
                                                                                         {
@@ -3024,7 +3072,7 @@ def webhook():
                                                                                             "sub_type": "quick_reply",
                                                                                             "index": 1,
                                                                                             "parameters": [
-                                                                                                {"type": "payload", "payload": f"decline_{remind_leave_id}"}
+                                                                                                {"type": "payload", "payload": f"decline_leave_{remind_leave_id}"}
                                                                                             ]
                                                                                         }
                                                                                     ]
@@ -3058,6 +3106,100 @@ def webhook():
                                                                             send_whatsapp_message(sender, f"⚠️ Leave #{remind_leave_id} not found or already processed.")
                                                                 except Exception as e:
                                                                     print(f"❌ Error sending leave reminder: {e}")
+                                                                continue
+
+                                                            # === HANDLE DOWNLOAD LEAVE SLIP ===
+                                                            if bid_lower.startswith('download_leave_slip_'):
+                                                                try:
+                                                                    parts = button_id.split('_')
+                                                                    slip_leave_id = int(parts[-1])
+                                                                    sender = message.get("from", "")
+
+                                                                    with get_db() as (slip_cursor, slip_conn):
+                                                                        slip_cursor.execute("""
+                                                                            SELECT la.employee_name, la.leave_type, la.days,
+                                                                                   la.from_date, la.to_date, la.status,
+                                                                                   la.approved_by, la.approved_at, la.reason,
+                                                                                   la.created_at,
+                                                                                   e.first_name, e.last_name, e.department
+                                                                            FROM hr_leave_applications la
+                                                                            JOIN hr_employees e ON la.employee_id = e.id
+                                                                            WHERE la.id = %s
+                                                                        """, (slip_leave_id,))
+                                                                        slip_row = slip_cursor.fetchone()
+                                                                        if slip_row and slip_row[5] in ('Approved', 'Declined'):
+                                                                            emp_name = slip_row[0]
+                                                                            ltype = slip_row[1]
+                                                                            days = slip_row[2]
+                                                                            from_raw = slip_row[3]
+                                                                            to_raw = slip_row[4]
+                                                                            status = slip_row[5]
+                                                                            approved_by = slip_row[6] or 'System'
+                                                                            approved_at = slip_row[7]
+                                                                            reason = slip_row[8] or ''
+                                                                            created_raw = slip_row[9]
+                                                                            emp_first = slip_row[10] or ''
+                                                                            emp_last = slip_row[11] or ''
+                                                                            department = slip_row[12] or 'General'
+
+                                                                            # Format dates
+                                                                            try:
+                                                                                from_fmt = from_raw.strftime('%-d %B %Y') if hasattr(from_raw, 'strftime') else str(from_raw)
+                                                                            except:
+                                                                                from_fmt = str(from_raw)
+                                                                            try:
+                                                                                to_fmt = to_raw.strftime('%-d %B %Y') if hasattr(to_raw, 'strftime') else str(to_raw)
+                                                                            except:
+                                                                                to_fmt = str(to_raw)
+                                                                            try:
+                                                                                decided_at = approved_at.strftime('%-d %B %Y %H:%M') if hasattr(approved_at, 'strftime') else str(approved_at)
+                                                                            except:
+                                                                                decided_at = 'N/A'
+                                                                            try:
+                                                                                applied_date = created_raw.strftime('%-d %B %Y') if hasattr(created_raw, 'strftime') else str(created_raw)
+                                                                            except:
+                                                                                applied_date = 'N/A'
+
+                                                                            # Build logo
+                                                                            logo_b64 = ''
+                                                                            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+                                                                            if os.path.exists(logo_path):
+                                                                                with open(logo_path, 'rb') as f:
+                                                                                    logo_b64 = base64.b64encode(f.read()).decode()
+
+                                                                            # Generate PDF
+                                                                            from flask import render_template
+                                                                            import pdfkit
+                                                                            html = render_template('leave_slip.html',
+                                                                                emp_name=emp_name, leave_type=ltype, days=days,
+                                                                                from_date=from_fmt, to_date=to_fmt,
+                                                                                status=status, approved_by=approved_by,
+                                                                                decided_at=decided_at, reason=reason,
+                                                                                applied_date=applied_date,
+                                                                                department=department,
+                                                                                leave_id=slip_leave_id, logo_b64=logo_b64
+                                                                            )
+                                                                            pdf_bytes = pdfkit.from_string(html, False, options={
+                                                                                'page-size': 'A5',
+                                                                                'margin-top': '0',
+                                                                                'margin-bottom': '0',
+                                                                                'margin-left': '0',
+                                                                                'margin-right': '0',
+                                                                                'no-outline': None
+                                                                            })
+
+                                                                            # Send PDF
+                                                                            full_name = emp_name
+                                                                            filename = f"Leave_Slip_{full_name}_{slip_leave_id}.pdf"
+                                                                            caption = f"📋 Leave Application Slip - {full_name} ({status})"
+                                                                            send_pdf_document_whatsapp(sender, pdf_bytes, filename, caption)
+                                                                            print(f"✅ Leave slip PDF sent to {sender} for {full_name} (#{slip_leave_id})")
+                                                                        else:
+                                                                            send_whatsapp_message(sender, f"⚠️ Leave #{slip_leave_id} not found or still pending.")
+                                                                except Exception as e:
+                                                                    print(f"❌ Error sending leave slip: {e}")
+                                                                    import traceback
+                                                                    traceback.print_exc()
                                                                 continue
 
 

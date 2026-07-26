@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { size: A5; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    background: #fff;
+    color: #1a1a2e;
+    font-size: 10pt;
+    line-height: 1.5;
+    position: relative;
+    min-height: 297mm;
+  }
+
+  /* Watermark */
+  .watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: 52pt;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 0;
+    {% if status == 'Approved' %}
+      color: #2d7d46;
+    {% else %}
+      color: #dc143c;
+    {% endif %}
+  }
+
+  .container {
+    width: 100%;
+    padding: 15mm 18mm;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 4mm;
+    border-bottom: 3px solid #1a1a2e;
+    margin-bottom: 6mm;
+  }
+  .header .left { display: flex; align-items: center; gap: 4mm; }
+  .header .left img { height: 14mm; }
+  .header .left .company h1 {
+    font-size: 14pt; font-weight: 900; color: #1a1a2e;
+    letter-spacing: 0.5px; line-height: 1.2;
+  }
+  .header .left .company .tagline {
+    font-size: 7pt; color: #dc143c; font-weight: 700;
+    letter-spacing: 0.8px; text-transform: uppercase;
+  }
+  .header .right { text-align: right; }
+  .header .right .title {
+    font-size: 16pt; font-weight: 900; color: #1a1a2e;
+    text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .header .right .ref {
+    font-size: 8pt; color: #64748b; margin-top: 1mm;
+  }
+
+  /* Status Badge */
+  .status-badge {
+    display: inline-block;
+    padding: 2mm 6mm;
+    border-radius: 4px;
+    font-size: 11pt;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 1mm;
+    {% if status == 'Approved' %}
+      background: #e8f5e9;
+      color: #2d7d46;
+      border: 2px solid #2d7d46;
+    {% else %}
+      background: #fff0f0;
+      color: #dc143c;
+      border: 2px solid #dc143c;
+    {% endif %}
+  }
+
+  /* Info Bar */
+  .info-bar {
+    display: flex; flex-wrap: wrap;
+    border: 1.5px solid #e2e8f0; border-radius: 4px;
+    margin-bottom: 5mm; overflow: hidden;
+  }
+  .info-bar .ib {
+    flex: 1; min-width: 25%;
+    padding: 1.5mm 2.5mm;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .info-bar .ib:nth-child(4n) { border-right: none; }
+  .info-bar .ib .l {
+    font-size: 6.5pt; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  }
+  .info-bar .ib .v {
+    font-size: 9pt; font-weight: 700; color: #1a1a2e; margin-top: 0.5mm;
+  }
+
+  /* DETAILS TABLE */
+  .details-table {
+    width: 100%; border-collapse: collapse;
+    border: 1.5px solid #e2e8f0; border-radius: 4px;
+    overflow: hidden; margin-bottom: 5mm;
+  }
+  .details-table td {
+    padding: 2mm 3mm;
+    border-bottom: 0.5px solid #f1f5f9;
+    font-size: 9pt;
+  }
+  .details-table td:first-child {
+    width: 35%;
+    font-weight: 700; color: #475569;
+    background: #f8fafc;
+    text-transform: uppercase;
+    font-size: 7.5pt;
+    letter-spacing: 0.3px;
+  }
+  .details-table td:last-child {
+    width: 65%;
+    font-weight: 600; color: #1a1a2e;
+  }
+  .details-table tr:last-child td { border-bottom: none; }
+
+  /* APPROVAL SECTION */
+  .approval-section {
+    display: flex; justify-content: space-between;
+    margin-top: 8mm; padding-top: 4mm;
+    border-top: 1.5px solid #e2e8f0;
+  }
+  .approval-box {
+    width: 45%;
+  }
+  .approval-box .l {
+    font-size: 7pt; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+    margin-bottom: 1mm;
+  }
+  .approval-box .v {
+    font-size: 9pt; font-weight: 700; color: #1a1a2e;
+  }
+  .approval-box .line {
+    margin-top: 8mm; padding-top: 1mm;
+    border-top: 1px solid #1a1a2e;
+    width: 80%;
+    font-size: 7.5pt; color: #64748b;
+    text-align: center;
+  }
+
+  /* FOOTER */
+  .footer {
+    margin-top: 10mm;
+    padding-top: 2mm;
+    border-top: 0.5px solid #e2e8f0;
+    text-align: center;
+    font-size: 6.5pt; color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+
+<div class="watermark">{{ status }}</div>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="left">
+      {% if logo_b64 %}
+      <img src="data:image/png;base64,{{ logo_b64 }}" alt="Logo">
+      {% endif %}
+      <div class="company">
+        <h1>ConnectLink Properties</h1>
+        <div class="tagline">Building Dreams, Delivering Quality</div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="title">Leave Application Slip</div>
+      <div class="ref">Ref: #{{ leave_id }}</div>
+      <div class="status-badge">{{ status }}</div>
+    </div>
+  </div>
+
+  <!-- INFO BAR -->
+  <div class="info-bar">
+    <div class="ib"><div class="l">Employee</div><div class="v">{{ emp_name }}</div></div>
+    <div class="ib"><div class="l">Leave Type</div><div class="v">{{ leave_type }}</div></div>
+    <div class="ib"><div class="l">Total Days</div><div class="v">{{ days }}</div></div>
+    <div class="ib"><div class="l">Department</div><div class="v">{{ department }}</div></div>
+  </div>
+
+  <!-- DETAILS TABLE -->
+  <table class="details-table">
+    <tr><td>Leave Type</td><td>{{ leave_type }}</td></tr>
+    <tr><td>From Date</td><td>{{ from_date }}</td></tr>
+    <tr><td>To Date</td><td>{{ to_date }}</td></tr>
+    <tr><td>Number of Days</td><td>{{ days }} day(s)</td></tr>
+    {% if reason %}
+    <tr><td>Reason</td><td>{{ reason }}</td></tr>
+    {% endif %}
+    <tr><td>Status</td><td>{{ status }}</td></tr>
+    <tr><td>Date Applied</td><td>{{ applied_date }}</td></tr>
+  </table>
+
+  <!-- APPROVAL SECTION -->
+  <div class="approval-section">
+    <div class="approval-box">
+      <div class="l">Decided By</div>
+      <div class="v">{{ approved_by }}</div>
+      <div class="line">Authorised Signature</div>
+    </div>
+    <div class="approval-box">
+      <div class="l">Decision Date</div>
+      <div class="v">{{ decided_at }}</div>
+      <div class="line">Date Stamp</div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <p>ConnectLink Properties • 38A Coronation Avenue Greendale Harare</p>
+    <p>This is a computer-generated document. No signature is required.</p>
+  </div>
+
+</div>
+</body>
+</html>
