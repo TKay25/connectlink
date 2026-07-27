@@ -15532,18 +15532,33 @@ def hr_my_payslips():
     """Return payslip periods for the logged-in employee."""
     try:
         userid = session.get('userid')
+        user_name = session.get('user_name', '')
         if not userid:
             return jsonify({'success': False, 'error': 'Not logged in'}), 401
-        # Find employee id from hr_employees via admin_users link
         with get_db() as (cursor, connection):
+            # Find employee id(s) linked to this user
+            # Check by: user_id, source_id from admin_users, or matching name
+            source_id = session.get('source_id')
             cursor.execute("""
+                SELECT id FROM hr_employees
+                WHERE user_id = %s
+                   OR id = %s
+                   OR id = (SELECT source_id FROM admin_users WHERE id = %s AND source_id IS NOT NULL)
+                   OR CONCAT(first_name, ' ', last_name) = %s
+            """, (userid, userid, userid, user_name))
+            emp_ids = [r[0] for r in cursor.fetchall()]
+
+            if not emp_ids:
+                return jsonify({'success': True, 'data': []})
+
+            placeholders = ','.join(['%s'] * len(emp_ids))
+            cursor.execute(f"""
                 SELECT DISTINCT hp.period, hp.gross_pay, hp.deductions, hp.net_pay,
                        hp.status, hp.processed_at, hp.run_version, hp.employee_id
                 FROM hr_payroll hp
-                JOIN hr_employees he ON he.id = hp.employee_id
-                WHERE he.user_id = %s
+                WHERE hp.employee_id IN ({placeholders})
                 ORDER BY hp.period DESC, hp.run_version DESC
-            """, (userid,))
+            """, emp_ids)
             rows = cursor.fetchall()
             data = []
             for r in rows:
