@@ -8461,7 +8461,7 @@ def webhook():
                                                                         cursor.execute("SELECT * FROM connectlinkdetails;")
                                                                         details = cursor.fetchall()
                                                                         details = pd.DataFrame(details, columns=[
-                                                                            'address','contact1','contact2','email','companyname','tinnumber'
+                                                                            'address','contact1','contact2','email','companyname','tinnumber','contact3'
                                                                         ])
                                                                         
                                                                         companyname = details.iat[0,4] if not details.empty else "ConnectLink Properties"
@@ -8469,6 +8469,7 @@ def webhook():
                                                                         contact1 = details.iat[0,1] if not details.empty else ""
                                                                         contact2 = details.iat[0,2] if not details.empty else ""
                                                                         compemail = details.iat[0,3] if not details.empty else ""
+                                                                        tinnumber = details.iat[0,5] if not details.empty and len(details.columns) > 5 else ""
                                                                         
                                                                         # Get logo as base64
                                                                         logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
@@ -8738,6 +8739,7 @@ def webhook():
                                                                         contact2 = detailscompdata.iat[0, col_names.index('contact2')] if not detailscompdata.empty and 'contact2' in col_names else ""
                                                                         contact3 = detailscompdata.iat[0, col_names.index('contact3')] if not detailscompdata.empty and 'contact3' in col_names else ""
                                                                         compemail = detailscompdata.iat[0, col_names.index('email')] if not detailscompdata.empty and 'email' in col_names else ""
+                                                                        tinnumber = str(detailscompdata.iat[0, col_names.index('tinnumber')] or '') if not detailscompdata.empty and 'tinnumber' in col_names else ""
 
                                                                         # Calculate days difference
                                                                         def days_between(date1, date2):
