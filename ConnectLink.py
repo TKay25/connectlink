@@ -15095,8 +15095,8 @@ def hr_employees_import():
                              current_leave_balance, monthly_accumulation,
                              bank_holder_name, bank_holder_surname, bank_name,
                              bank_account_number, bank_branch, bank_branch_code, status,
-                             role, date_joined)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Ordinary User', COALESCE(%s, NOW()))
+                             role)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Ordinary User')
                         ON CONFLICT (email) DO UPDATE SET
                             first_name = EXCLUDED.first_name,
                             last_name = EXCLUDED.last_name,
@@ -15112,7 +15112,7 @@ def hr_employees_import():
                         gv('bank_holder_name'), gv('bank_holder_surname'),
                         gv('bank_name'), gv('bank_account_number'),
                         gv('bank_branch'), gv('bank_branch_code'),
-                        status, date_joined
+                        status
                     ))
                     connection.commit()
                     results['imported'] += 1
