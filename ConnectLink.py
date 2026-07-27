@@ -8505,12 +8505,13 @@ def webhook():
                                                                         # Build payments table rows
                                                                         payment_rows = ""
                                                                         for p in payments:
+                                                                            paid_style = "color:#c00;font-weight:600;" if p['paid'] == "Not Paid" else "color:#0a0;font-weight:600;"
                                                                             payment_rows += f"""
                                                                                 <tr>
-                                                                                    <td style="border:1px solid #ccc;padding:8px;">{p['name']}</td>
-                                                                                    <td style="border:1px solid #ccc;padding:8px;">{p['amount']}</td>
-                                                                                    <td style="border:1px solid #ccc;padding:8px;">{p['due']}</td>
-                                                                                    <td style="border:1px solid #ccc;padding:8px;">{p['paid']}</td>
+                                                                                    <td style="padding:10px;border-bottom:1px solid #e0e3ef;font-weight:600;">{p['name']}</td>
+                                                                                    <td style="padding:10px;border-bottom:1px solid #e0e3ef;text-align:right;font-weight:700;">${p['amount']}</td>
+                                                                                    <td style="padding:10px;border-bottom:1px solid #e0e3ef;">{p['due']}</td>
+                                                                                    <td style="padding:10px;border-bottom:1px solid #e0e3ef;{paid_style}">{p['paid']}</td>
                                                                                 </tr>
                                                                             """
                                                                         
@@ -8519,156 +8520,248 @@ def webhook():
                                                                         agreement_date = row[16].strftime("%d %B %Y") if row[16] else ""
                                                                         deposit_payment_date = row[24].strftime("%d %B %Y") if len(row) > 24 and row[24] else "—"
                                                                         
-                                                                        # Generate HTML using your template
+                                                                        # Generate HTML using contract-style template
                                                                         html = f"""
                                                                         <!DOCTYPE html>
                                                                         <html lang="en">
                                                                         <head>
                                                                             <meta charset="UTF-8">
-                                                                            
+                                                                            <title>Payment History</title>
+                                                                            <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
                                                                             <style>
-                                                                                body {{
-                                                                                    font-family: 'Arial', sans-serif;
-                                                                                    margin: 40px;
+                                                                                @page {{
+                                                                                    size: A4;
+                                                                                    margin: 30px 40px 60px 30px;
+                                                                                }}
+                                                                                
+                                                                                body {{ 
+                                                                                    font-family: 'Roboto', sans-serif; 
+                                                                                    background: #fff; 
                                                                                     color: #1E2A56;
-                                                                                    background-color: #ffffff;
-                                                                                    line-height: 1.5;
+                                                                                    margin: 0;
+                                                                                    padding: 0;
                                                                                 }}
-
-                                                                                .header {{
-                                                                                    text-align: center;
-                                                                                    margin-bottom: 25px;
+                                                                                
+                                                                                .container {{
+                                                                                    width: 100%;
+                                                                                    max-width: 800px;
+                                                                                    margin: 0 auto;
+                                                                                    padding: 30px;
+                                                                                    box-sizing: border-box;
+                                                                                    position: relative;
                                                                                 }}
-
+                                                                                
+                                                                                .watermark {{
+                                                                                    position: fixed;
+                                                                                    top: 40%;
+                                                                                    left: 15%;
+                                                                                    opacity: 0.05;
+                                                                                    font-size: 100px;
+                                                                                    color: #1E2A56;
+                                                                                    transform: rotate(-45deg);
+                                                                                    z-index: -1000;
+                                                                                    font-weight: 900;
+                                                                                }}
+                                                                                
                                                                                 .logo {{
-                                                                                    width: 170px;
-                                                                                    margin-bottom: 12px;
+                                                                                    display: block;
+                                                                                    margin: 0 auto 15px auto;
+                                                                                    width: 200px;
+                                                                                    height: auto;
                                                                                 }}
-
-                                                                                h1 {{
-                                                                                    font-size: 24px;
-                                                                                    margin: 5px 0 0 0;
-                                                                                    font-weight: 800;
-                                                                                }}
-
-                                                                                .tagline {{
-                                                                                    font-size: 13px;
-                                                                                    color: #445;
-                                                                                    margin-top: 3px;
-                                                                                }}
-
-                                                                                .section-title {{
-                                                                                    font-size: 17px;
-                                                                                    margin-top: 35px;
-                                                                                    margin-bottom: 12px;
-                                                                                    padding-bottom: 6px;
-                                                                                    border-bottom: 2px solid #1E2A56;
-                                                                                    font-weight: 800;
-                                                                                }}
-
-                                                                                .info-box {{
-                                                                                    padding: 12px 16px;
-                                                                                    border: 1px solid #d3d6e4;
-                                                                                    border-radius: 8px;
-                                                                                    background: #f9faff;
+                                                                                
+                                                                                h3.title {{
+                                                                                    text-align: center;
+                                                                                    font-weight: 900;
                                                                                     margin-bottom: 10px;
+                                                                                    text-transform: uppercase;
+                                                                                    letter-spacing: 1.6px;
+                                                                                    font-size: 20px;
+                                                                                    color: #1E2A56;
                                                                                 }}
-
-                                                                                .info-box p {{
-                                                                                    margin: 3px 0;
-                                                                                    font-size: 14px;
+                                                                                
+                                                                                .subtitle-line {{
+                                                                                    width: 150px;
+                                                                                    height: 4px;
+                                                                                    background: linear-gradient(90deg, #1E2A56, #3A4B8C);
+                                                                                    margin: 10px auto 30px auto;
+                                                                                    border-radius: 10px;
                                                                                 }}
-
-                                                                                table {{
+                                                                                
+                                                                                h4.section-title {{
+                                                                                    text-align: center;
+                                                                                    background: linear-gradient(90deg, #1E2A56, #2A3A78);
+                                                                                    color: white;
+                                                                                    padding: 8px 10px;
+                                                                                    border-radius: 8px;
+                                                                                    font-size: 13px;
+                                                                                    margin-top: 25px;
+                                                                                    margin-bottom: 15px;
+                                                                                    font-weight: 700;
+                                                                                    letter-spacing: 0.8px;
+                                                                                    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+                                                                                }}
+                                                                                
+                                                                                .section-header {{
+                                                                                    background: #f0f5ff;
+                                                                                    padding: 8px 10px;
+                                                                                    border-left: 4px solid #1E2A56;
+                                                                                    margin: 20px 0 15px 0;
+                                                                                    font-weight: 700;
+                                                                                    color: #1E2A56;
+                                                                                    font-size: 12px;
+                                                                                    border-radius: 0 8px 8px 0;
+                                                                                }}
+                                                                                
+                                                                                .field-row {{
+                                                                                    display: flex;
+                                                                                    align-items: flex-start;
+                                                                                    margin-bottom: 8px;
+                                                                                    page-break-inside: avoid;
+                                                                                }}
+                                                                                
+                                                                                .field-label {{
+                                                                                    font-weight: 700;
+                                                                                    width: 180px;
+                                                                                    font-size: 12px;
+                                                                                    flex-shrink: 0;
+                                                                                    color: #2A3A78;
+                                                                                }}
+                                                                                
+                                                                                .field-value {{
+                                                                                    flex: 1;
+                                                                                    border-bottom: 1px solid #d1d9f0;
+                                                                                    padding-bottom: 5px;
+                                                                                    font-size: 11px;
+                                                                                    min-height: 17px;
+                                                                                    color: #1E2A56;
+                                                                                }}
+                                                                                
+                                                                                .highlight-box {{
+                                                                                    background: linear-gradient(135deg, #f8faff 0%, #f0f5ff 100%);
+                                                                                    font-size: 11px;
+                                                                                    border: 1.5px solid #1E2A56;
+                                                                                    border-radius: 12px;
+                                                                                    padding: 20px;
+                                                                                    margin: 10px 0;
+                                                                                    box-shadow: 0 4px 12px rgba(26, 42, 86, 0.08);
+                                                                                }}
+                                                                                
+                                                                                .payment-table {{
                                                                                     width: 100%;
                                                                                     border-collapse: collapse;
-                                                                                    margin-top: 10px;
-                                                                                    font-size: 14px;
+                                                                                    margin: 10px 0;
+                                                                                    border: 1.5px solid #1E2A56;
+                                                                                    box-shadow: 0 3px 8px rgba(0,0,0,0.05);
                                                                                 }}
-
-                                                                                th {{
-                                                                                    background: #1E2A56;
-                                                                                    color: #fff;
-                                                                                    padding: 10px;
+                                                                                
+                                                                                .payment-table th {{
+                                                                                    background: linear-gradient(90deg, #1E2A56, #2A3A78);
+                                                                                    color: white;
                                                                                     text-align: left;
-                                                                                    font-size: 14px;
-                                                                                }}
-
-                                                                                td {{
                                                                                     padding: 10px;
-                                                                                    border-bottom: 1px solid #e0e3ef;
+                                                                                    font-weight: 700;
+                                                                                    font-size: 11px;
                                                                                 }}
-
-                                                                                tr:nth-child(even) {{
-                                                                                    background: #f4f6fb;
-                                                                                }}
-
-                                                                                .footer {{
-                                                                                    margin-top: 35px;
+                                                                                
+                                                                                .payment-table th:last-child,
+                                                                                .payment-table td:last-child {{
                                                                                     text-align: right;
-                                                                                    font-size: 12px;
-                                                                                    color: #666;
+                                                                                }}
+                                                                                
+                                                                                .payment-table th:nth-child(2),
+                                                                                .payment-table td:nth-child(2) {{
+                                                                                    text-align: right;
+                                                                                }}
+                                                                                
+                                                                                .payment-table td {{
+                                                                                    border: 1px solid #d1d9f0;
+                                                                                    padding: 10px;
+                                                                                    font-size: 11px;
+                                                                                }}
+                                                                                
+                                                                                .payment-table tr:nth-child(even) {{
+                                                                                    background-color: #f9faff;
+                                                                                }}
+                                                                                
+                                                                                .footer-note {{
+                                                                                    text-align: center;
+                                                                                    font-size: 10px;
+                                                                                    color: #888;
+                                                                                    margin-top: 25px;
+                                                                                    font-style: italic;
+                                                                                }}
+
+                                                                                .company-footer {{
+                                                                                    margin-top: 35px;
+                                                                                    padding-top: 15px;
+                                                                                    border-top: 2px solid #1E2A56;
+                                                                                    font-size: 10px;
+                                                                                    color: #555;
+                                                                                    text-align: center;
+                                                                                    line-height: 1.6;
+                                                                                }}
+                                                                                
+                                                                                .company-footer strong {{
+                                                                                    color: #1E2A56;
                                                                                 }}
                                                                             </style>
                                                                         </head>
-
                                                                         <body>
-
-                                                                            <div class="header">
-                                                                                <img src="data:image/png;base64,{logo_base64}" class="logo">
-                                                                                <h3>Payments History</h3>
-                                                                                <div class="tagline">Official Client Payment Record</div>
-                                                                            </div>
-
-                                                                            <div class="section-title">Client Information</div>
-                                                                            <div class="info-box">
-                                                                                <p><strong>Name:</strong> {row[1]}</p>
-                                                                                <p><strong>Address:</strong> {row[3]}</p>
-                                                                                <p><strong>Contact:</strong> 0{row[4]}</p>
-                                                                                <p><strong>Email:</strong> {row[5]}</p>
-                                                                            </div>
-
-                                                                            <div class="section-title">Project Information</div>
-                                                                            <div class="info-box">
-                                                                                <p><strong>Project Name:</strong> {row[10]}</p>
-                                                                                <p><strong>Location:</strong> {row[11]}</p>
-                                                                                <p><strong>Administrator:</strong> {row[13]}</p>
-                                                                                <p><strong>Start Date:</strong> {project_start_date}</p>
-                                                                                <p><strong>Agreement Date:</strong> {agreement_date}</p>
-                                                                            </div>
-
+                                                                            <div class="watermark">CONNECTLINK</div>
                                                                             
-                                                                            <!-- DEPOSIT / BULLET PAYMENT -->
-                                                                            <div class="section-title">Payments Breakdown</div>
+                                                                            <div class="container">
+                                                                                <img class="logo" src="data:image/png;base64,{logo_base64}" alt="ConnectLink Logo">
+                                                                                
+                                                                                <h3 class="title">Payment History</h3>
+                                                                                <div class="subtitle-line"></div>
+                                                                                
+                                                                                <h4 class="section-title">CLIENT INFORMATION</h4>
+                                                                                
+                                                                                <div class="field-row"><div class="field-label">Client Name:</div><div class="field-value">{row[1]}</div></div>
+                                                                                <div class="field-row"><div class="field-label">Address:</div><div class="field-value">{row[3]}</div></div>
+                                                                                <div class="field-row"><div class="field-label">Contact:</div><div class="field-value">0{row[4]}</div></div>
+                                                                                <div class="field-row"><div class="field-label">Email:</div><div class="field-value">{row[5]}</div></div>
+                                                                                
+                                                                                <h4 class="section-title">PROJECT INFORMATION</h4>
+                                                                                
+                                                                                <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{row[10]}</div></div>
+                                                                                <div class="field-row"><div class="field-label">Location:</div><div class="field-value">{row[11]}</div></div>
+                                                                                <div class="field-row"><div class="field-label">Administrator:</div><div class="field-value">{row[13]}</div></div>
+                                                                                <div class="field-row"><div class="field-label">Start Date:</div><div class="field-value">{project_start_date}</div></div>
+                                                                                <div class="field-row"><div class="field-label">Agreement Date:</div><div class="field-value">{agreement_date}</div></div>
+                                                                                
+                                                                                <h4 class="section-title">PAYMENTS BREAKDOWN</h4>
+                                                                                
+                                                                                <div class="highlight-box">
+                                                                                    <div class="field-row"><div class="field-label">Deposit / Bullet Payment:</div><div class="field-value" style="font-weight:700;">USD {row[23] if len(row) > 23 and row[23] else '—'}</div></div>
+                                                                                    <div class="field-row"><div class="field-label">Date Paid:</div><div class="field-value">{deposit_payment_date}</div></div>
+                                                                                    <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight:700;">USD {row[17] if len(row) > 17 else '—'}</div></div>
+                                                                                    <div class="field-row" style="margin-bottom:0;"><div class="field-label">Late Payment Interest:</div><div class="field-value">{row[45] if len(row) > 45 else 0}% per annum</div></div>
+                                                                                </div>
 
-                                                                            <div class="info-box">
-                                                                                <p><strong>Deposit / Bullet Payment:</strong> USD {row[23] if len(row) > 23 and row[23] else '—'}</p>
-                                                                                <p><strong>Date Paid:</strong> {deposit_payment_date}</p>
-                                                                                <p><strong>Total Contract Price:</strong> USD {row[17] if len(row) > 17 else '—'}</p>
-                                                                                <p><strong>Late Payment Interest:</strong> {row[45] if len(row) > 45 else 0}% per annum</p>
+                                                                                <div class="section-header">INSTALLMENT SCHEDULE</div>
+                                                                                
+                                                                                <table class="payment-table">
+                                                                                    <thead>
+                                                                                        <tr>
+                                                                                            <th style="width:25%;">Installment</th>
+                                                                                            <th style="width:20%;">Amount (USD)</th>
+                                                                                            <th style="width:28%;">Due Date</th>
+                                                                                            <th style="width:27%;">Date Paid</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        {payment_rows}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                                
+                                                                                <div class="company-footer">
+                                                                                    <strong>{companyname}</strong><br>
+                                                                                    Tel: 0{contact1} / 0{contact2} | Email: {compemail}<br>
+                                                                                    <span style="font-style:italic;">Document generated on {datetime.now().strftime('%d %B %Y')}</span>
+                                                                                </div>
                                                                             </div>
-
-                                                                            <table>
-                                                                                <thead>
-                                                                                    <tr>
-                                                                                        <th>Installment</th>
-                                                                                        <th>Amount (USD)</th>
-                                                                                        <th>Due Date</th>
-                                                                                        <th>Date Paid</th>
-                                                                                    </tr>
-                                                                                </thead>
-                                                                                <tbody>
-                                                                                    {payment_rows}
-                                                                                </tbody>
-                                                                            </table>
-
-                                                                            <div class="footer">
-                                                                                <p><strong>Generated on:</strong> {datetime.now().strftime("%d %B %Y")}</p>
-                                                                                <p><strong>Company:</strong> {companyname}</p>
-                                                                                <p><strong>Contact:</strong> 0{contact1} / 0{contact2}</p>
-                                                                                <p><strong>Email:</strong> {compemail}</p>
-                                                                            </div>
-
                                                                         </body>
                                                                         </html>
                                                                         """
