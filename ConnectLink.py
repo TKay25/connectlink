@@ -14744,14 +14744,15 @@ def hr_employee_detail(emp_id):
                     username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
                     if full_name:
                         cursor.execute("""
-                            INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at, subsidiary)
-                            VALUES (%s, 'conlink123', %s, %s, 'hr', 'operator', TRUE, NOW(), %s)
+                            INSERT INTO admin_users (username, password, full_name, email, whatsapp, source_system, role, must_reset_password, created_at, subsidiary)
+                            VALUES (%s, 'conlink123', %s, %s, %s, 'hr', 'operator', TRUE, NOW(), %s)
                             ON CONFLICT (username) DO UPDATE SET
                                 full_name = EXCLUDED.full_name,
                                 email = EXCLUDED.email,
+                                whatsapp = EXCLUDED.whatsapp,
                                 subsidiary = EXCLUDED.subsidiary,
                                 updated_at = NOW()
-                        """, (username, full_name, email, data.get('subsidiary', '')))
+                        """, (username, full_name, email, whatsapp, data.get('subsidiary', '')))
                 except Exception:
                     pass
 
