@@ -8478,45 +8478,29 @@ def webhook():
                                                                             with open(logo_path, 'rb') as img:
                                                                                 logo_base64 = base64.b64encode(img.read()).decode('utf-8')
                                                                         
-                                                                        # Prepare payment data
-                                                                        payments = [
-                                                                            {
-                                                                                "name": "Installment 1",
-                                                                                "amount": row[26] if len(row) > 26 else 0,
-                                                                                "due": row[27].strftime("%d %B %Y") if len(row) > 27 and row[27] else "-",
-                                                                                "paid": row[28].strftime("%d %B %Y") if len(row) > 28 and row[28] else "Not Paid",
-                                                                            },
-                                                                            {
-                                                                                "name": "Installment 2",
-                                                                                "amount": row[29] if len(row) > 29 else 0,
-                                                                                "due": row[30].strftime("%d %B %Y") if len(row) > 30 and row[30] else "-",
-                                                                                "paid": row[31].strftime("%d %B %Y") if len(row) > 31 and row[31] else "Not Paid",
-                                                                            },
-                                                                            {
-                                                                                "name": "Installment 3",
-                                                                                "amount": row[32] if len(row) > 32 else 0,
-                                                                                "due": row[33].strftime("%d %B %Y") if len(row) > 33 and row[33] else "-",
-                                                                                "paid": row[34].strftime("%d %B %Y") if len(row) > 34 and row[34] else "Not Paid",
-                                                                            },
-                                                                            {
-                                                                                "name": "Installment 4",
-                                                                                "amount": row[35] if len(row) > 35 else 0,
-                                                                                "due": row[36].strftime("%d %B %Y") if len(row) > 36 and row[36] else "-",
-                                                                                "paid": row[37].strftime("%d %B %Y") if len(row) > 37 and row[37] else "Not Paid",
-                                                                            },
-                                                                            {
-                                                                                "name": "Installment 5",
-                                                                                "amount": row[38] if len(row) > 38 else 0,
-                                                                                "due": row[39].strftime("%d %B %Y") if len(row) > 39 and row[39] else "-",
-                                                                                "paid": row[40].strftime("%d %B %Y") if len(row) > 40 and row[40] else "Not Paid",
-                                                                            },
-                                                                            {
-                                                                                "name": "Installment 6",
-                                                                                "amount": row[41] if len(row) > 41 else 0,
-                                                                                "due": row[42].strftime("%d %B %Y") if len(row) > 42 and row[42] else "-",
-                                                                                "paid": row[43].strftime("%d %B %Y") if len(row) > 43 and row[43] else "Not Paid",
-                                                                            }
-                                                                        ]
+                                                                        # Build payments list dynamically from all installments (up to 10)
+                                                                        payments = []
+                                                                        for i in range(1, 11):
+                                                                            amt_idx = 26 + (i - 1) * 3
+                                                                            due_idx = 27 + (i - 1) * 3
+                                                                            paid_idx = 28 + (i - 1) * 3
+                                                                            
+                                                                            amount = row[amt_idx] if len(row) > amt_idx else 0
+                                                                            # Convert to float for comparison
+                                                                            try:
+                                                                                amt_val = float(amount) if amount is not None else 0
+                                                                            except (ValueError, TypeError):
+                                                                                amt_val = 0
+                                                                            
+                                                                            if amt_val == 0:
+                                                                                continue  # Skip zero-amount installments
+                                                                            
+                                                                            payments.append({
+                                                                                "name": f"Installment {i}",
+                                                                                "amount": f"{amt_val:.2f}",
+                                                                                "due": row[due_idx].strftime("%d %B %Y") if len(row) > due_idx and row[due_idx] else "-",
+                                                                                "paid": row[paid_idx].strftime("%d %B %Y") if len(row) > paid_idx and row[paid_idx] else "Not Paid",
+                                                                            })
                                                                         
                                                                         # Build payments table rows
                                                                         payment_rows = ""
