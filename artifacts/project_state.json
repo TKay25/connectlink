@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-07-23T19:05:39.321Z",
-  "module_count": 51,
+  "last_sync": "2026-07-27T12:34:12.689Z",
+  "module_count": 53,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 8,
+  "orphaned_count": 16,
   "orphaned": [
     {
       "artifact": "artifacts/modules/LOCs.json",
@@ -36,6 +36,38 @@
     {
       "artifact": "artifacts/modules/test_pagination_api.json",
       "source": "test_pagination_api.py"
+    },
+    {
+      "artifact": "artifacts/modules/_clean_leave.json",
+      "source": "_clean_leave.py"
+    },
+    {
+      "artifact": "artifacts/modules/_clean_leave2.json",
+      "source": "_clean_leave2.py"
+    },
+    {
+      "artifact": "artifacts/modules/_clean_leave3.json",
+      "source": "_clean_leave3.py"
+    },
+    {
+      "artifact": "artifacts/modules/_fix_approve_msg.json",
+      "source": "_fix_approve_msg.py"
+    },
+    {
+      "artifact": "artifacts/modules/_fix_leave_template.json",
+      "source": "_fix_leave_template.py"
+    },
+    {
+      "artifact": "artifacts/modules/_fix_remaining.json",
+      "source": "_fix_remaining.py"
+    },
+    {
+      "artifact": "artifacts/modules/_fix_v2.json",
+      "source": "_fix_v2.py"
+    },
+    {
+      "artifact": "artifacts/modules/_fix_v3.json",
+      "source": "_fix_v3.py"
     }
   ],
   "recent_deletions": []

@@ -14961,29 +14961,38 @@ def hr_employees_import():
         for col in range(1, ws.max_column + 1):
             val = ws.cell(row=1, column=col).value
             if val:
-                headers.append(str(val).strip().lower().replace(' ', '_').replace('*', ''))
+                headers.append(str(val).strip().lower().replace('*', '').replace(' ', '_').strip('_'))
             else:
                 headers.append(f'col_{col}')
 
         # Field mapping from header labels to DB columns
         field_map = {
             'first_name': 'first_name', 'last_name': 'last_name', 'email': 'email',
-            'whatsapp': 'whatsapp', 'gender': 'gender',
-            'date_of_birth_(yyyy-mm-dd)': 'dob', 'dob': 'dob',
+            'whatsapp': 'whatsapp', 'whatsapp_number': 'whatsapp',
+            'gender': 'gender', 'sex': 'gender',
+            'date_of_birth_(yyyy-mm-dd)': 'dob', 'dob': 'dob', 'date_of_birth': 'dob', 'birth_date': 'dob',
             'marital_status': 'marital_status', 'nationality': 'nationality',
             'address': 'address', 'department': 'department', 'designation': 'designation',
             'employment_type': 'employment_type', 'date_joined': 'date_joined',
-            'date_joined_(yyyy-mm-dd)': 'date_joined', 'subsidiary': 'subsidiary',
+            'date_joined_(yyyy-mm-dd)': 'date_joined', 'joined_date': 'date_joined',
+            'subsidiary': 'subsidiary',
             'basic_salary_(usd)': 'basic_salary', 'basic_salary': 'basic_salary',
-            'allowances_(usd)': 'allowances', 'allowances': 'allowances',
-            'leave_balance_(days)': 'current_leave_balance', 'current_leave_balance': 'current_leave_balance',
-            'monthly_accrual_(days)': 'monthly_accumulation', 'monthly_accumulation': 'monthly_accumulation',
+            'allowances_(usd)': 'allowances', 'allowance_(usd)': 'allowances',
+            'allowances': 'allowances', 'allowance': 'allowances',
+            'leave_balance_(days)': 'current_leave_balance',
+            'leave_balance': 'current_leave_balance',
+            'current_leave_balance': 'current_leave_balance',
+            'monthly_accrual_(days)': 'monthly_accumulation',
+            'monthly_accumulation': 'monthly_accumulation',
+            'monthly_accrual': 'monthly_accumulation',
+            'monthly_annual': 'monthly_accumulation',
             'bank_holder_name': 'bank_holder_name', 'bank_holder_surname': 'bank_holder_surname',
             'bank_name': 'bank_name', 'account_number': 'bank_account_number',
             'bank_account_number': 'bank_account_number', 'branch': 'bank_branch',
             'bank_branch': 'bank_branch', 'branch_code': 'bank_branch_code',
             'bank_branch_code': 'bank_branch_code',
-            'status': 'status', 'role': 'role'
+            'status': 'status', 'bank_status': 'status',
+            'role': 'role'
         }
 
         # Map headers to DB columns

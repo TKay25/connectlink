@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "LeaveHistory",
+  "file": "templates/leave_history.html",
+  "purpose": "<!-- Describe what LeaveHistory does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "11e0bd7aa4bb8cae",
+  "file_mtime": 1785078400214.7715,
+  "file_size": 3805,
+  "file_birthtime": 1785078384700.2397,
+  "generated_at": "2026-07-27T12:34:12.581Z",
+  "stale": false
+}
