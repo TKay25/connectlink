@@ -15097,11 +15097,6 @@ def hr_employees_import():
                              bank_account_number, bank_branch, bank_branch_code, status,
                              role)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Ordinary User')
-                        ON CONFLICT (email) DO UPDATE SET
-                            first_name = EXCLUDED.first_name,
-                            last_name = EXCLUDED.last_name,
-                            whatsapp = EXCLUDED.whatsapp,
-                            updated_at = CURRENT_TIMESTAMP
                     """, (
                         first, last, email, whatsapp, gender, dob,
                         gv('marital_status'), gv('nationality'), gv('address'),
