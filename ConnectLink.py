@@ -17227,6 +17227,7 @@ def generate_payslip_pdf(employee_id):
                        COALESCE(p.aids_levy, 0) as aids_levy,
                        COALESCE(p.nssa, 0) as nssa,
                        COALESCE(p.zimdef, 0) as zimdef,
+                       COALESCE(p.nec, 0) as nec,
                        COALESCE(p.deductions, 0) as deductions,
                        COALESCE(p.net_pay, 0) as net_pay,
                        p.period, p.status, p.processed_at
@@ -17263,9 +17264,10 @@ def generate_payslip_pdf(employee_id):
                 'gross_pay': float(row[25] or 0),
                 'paye_tax': float(row[26] or 0), 'aids_levy': float(row[27] or 0),
                 'nssa': float(row[28] or 0), 'zimdef': float(row[29] or 0),
-                'total_deductions': float(row[30] or 0), 'net_pay': float(row[31] or 0),
-                'period': row[32] or period, 'status': row[33] or 'Not Processed',
-                'processed_at': row[34]
+                'nec': float(row[30] or 0),
+                'total_deductions': float(row[31] or 0), 'net_pay': float(row[32] or 0),
+                'period': row[33] or period, 'status': row[34] or 'Not Processed',
+                'processed_at': row[35]
             }
 
             # Fetch employer NSSA config
