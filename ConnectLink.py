@@ -2781,6 +2781,8 @@ def webhook():
                                                         )
                                                     ):
                                                         interactive = message.get("interactive", {})
+                                                        button_id = ""
+                                                        selected_option = ""
 
 
                                                         if interactive.get("type") == "list_reply":
@@ -7650,6 +7652,8 @@ def webhook():
                                                             )
                                                         ):
                                                             interactive = message.get("interactive", {})
+                                                            button_id = ""
+                                                            selected_option = ""
 
 
                                                             if interactive.get("type") == "list_reply":
@@ -10499,6 +10503,8 @@ def webhook():
                                                             )
                                                         ):
                                                             interactive = message.get("interactive", {})
+                                                            button_id = ""
+                                                            selected_option = ""
 
 
                                                             if interactive.get("type") == "list_reply":
