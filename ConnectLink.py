@@ -8684,6 +8684,17 @@ def webhook():
                                                                                     background-color: #f9faff;
                                                                                 }}
                                                                                 
+                                                                                .scope-box {{
+                                                                                    border: 1.5px solid #1E2A56;
+                                                                                    border-radius: 10px;
+                                                                                    padding: 10px;
+                                                                                    font-size: 11px;
+                                                                                    min-height: 60px;
+                                                                                    background: #fafbff;
+                                                                                    margin-bottom: 15px;
+                                                                                    line-height: 1.4;
+                                                                                }}
+                                                                                
                                                                                 .footer-note {{
                                                                                     text-align: center;
                                                                                     font-size: 10px;
@@ -8725,11 +8736,14 @@ def webhook():
                                                                                 
                                                                                 <h4 class="section-title">PROJECT INFORMATION</h4>
                                                                                 
-                                                                                <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value">{row[10]}</div></div>
+                                                                                <div class="field-row"><div class="field-label">Project Name:</div><div class="field-value" style="font-weight:700;">{row[10]}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Location:</div><div class="field-value">{row[11]}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Administrator:</div><div class="field-value">{row[13]}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Start Date:</div><div class="field-value">{project_start_date}</div></div>
                                                                                 <div class="field-row"><div class="field-label">Agreement Date:</div><div class="field-value">{agreement_date}</div></div>
+
+                                                                                <div class="section-header">PROJECT SCOPE</div>
+                                                                                <div class="scope-box">{row[12] if len(row) > 12 and row[12] else '—'}</div>
                                                                                 
                                                                                 <h4 class="section-title">PAYMENTS BREAKDOWN</h4>
                                                                                 
