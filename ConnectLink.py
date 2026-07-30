@@ -1888,6 +1888,23 @@ def initialize_database_tables():
                 connection.commit()
             except Exception:
                 connection.rollback()
+            # Seed missing NEC/WCIF/SDF records for existing installations (migration)
+            try:
+                cursor.execute("""
+                    INSERT INTO payroll_deduction_config
+                        (deduction_code, deduction_name, description, rate, rate_type, ceiling_amount, is_active, is_employee_deduction)
+                    VALUES
+                        ('NEC_EMPLOYEE', 'NEC (Employee)', 'NEC employee contribution', 2.0, 'percentage_of_gross', 0, TRUE, TRUE),
+                        ('NEC_EMPLOYER', 'NEC (Employer)', 'NEC employer contribution', 2.0, 'percentage_of_gross', 0, TRUE, FALSE),
+                        ('WCIF', 'WCIF', 'Workers'' Compensation Insurance Fund', 2.16, 'percentage_of_gross', 0, TRUE, FALSE),
+                        ('SDF', 'SDF (Standard Development Fund)', 'Standard Development Fund contribution', 0.5, 'percentage_of_gross', 0, TRUE, FALSE)
+                    ON CONFLICT (deduction_code) DO NOTHING
+                """)
+                if cursor.rowcount > 0:
+                    print(f"✅ Missing deduction records seeded ({cursor.rowcount})")
+                connection.commit()
+            except Exception:
+                connection.rollback()
             print("✅ Payroll deduction columns added!")
 
             # ========== PAYROLL ARCHIVES TABLE ==========
