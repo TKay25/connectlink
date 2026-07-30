@@ -1862,7 +1862,8 @@ def initialize_database_tables():
                 "zimdef DECIMAL(12,2) DEFAULT 0",
                 "wcif DECIMAL(12,2) DEFAULT 0",
                 "sdf DECIMAL(12,2) DEFAULT 0",
-                "gross_pay DECIMAL(12,2) DEFAULT 0"
+                "gross_pay DECIMAL(12,2) DEFAULT 0",
+                "designers_cut DECIMAL(12,2) DEFAULT 0"
             ]:
                 try:
                     cursor.execute(f"ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS {col}")
@@ -14956,7 +14957,7 @@ def hr_employees_template():
             ('date_joined', 'Date Joined (YYYY-MM-DD)'),
             ('subsidiary', 'Subsidiary'),
             ('basic_salary', 'Basic Salary (USD)'),
-            ('allowances', 'Allowances (USD)'),
+            ('allowances', 'Commission (USD)'),
             ('current_leave_balance', 'Leave Balance (days)'),
             ('monthly_accumulation', 'Monthly Accrual (days)'),
             ('bank_holder_name', 'Bank Holder Name'),
@@ -15802,6 +15803,7 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                        e.usd_percent, e.zwg_percent, e.exchange_rate,
                        COALESCE(p.basic_pay, e.basic_salary, 0) as basic_pay,
                        COALESCE(p.allowances, e.allowances, 0) as pay_allowances,
+                       COALESCE(p.designers_cut, 0) as designers_cut,
                        COALESCE(p.gross_pay, e.basic_salary + COALESCE(e.allowances, 0), 0) as gross_pay,
                        COALESCE(p.nssa, 0) as nssa,
                        COALESCE(p.paye_tax, 0) as paye_tax,
@@ -15837,13 +15839,14 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                 'usd_pct': float(row[20] or 100), 'zwg_pct': float(row[21] or 0),
                 'exchange_rate': float(row[22] or 1),
                 'basic_pay': float(row[23] or 0), 'pay_allowances': float(row[24] or 0),
-                'gross_pay': float(row[25] or 0), 'nssa': float(row[26] or 0),
-                'paye_tax': float(row[27] or 0), 'aids_levy': float(row[28] or 0),
-                'zimdef': float(row[29] or 0), 'nec': float(row[30] or 0),
-                'total_deductions': float(row[31] or 0),
-                'net_pay': float(row[32] or 0), 'whatsapp': row[33] or '',
-                'pay_status': row[35] or '',
-                'processed_at': row[36],
+                'designers_cut': float(row[25] or 0),
+                'gross_pay': float(row[26] or 0), 'nssa': float(row[27] or 0),
+                'paye_tax': float(row[28] or 0), 'aids_levy': float(row[29] or 0),
+                'zimdef': float(row[30] or 0), 'nec': float(row[31] or 0),
+                'total_deductions': float(row[32] or 0),
+                'net_pay': float(row[33] or 0), 'whatsapp': row[34] or '',
+                'pay_status': row[36] or '',
+                'processed_at': row[37],
                 'period': period
             }
 
@@ -15947,7 +15950,7 @@ def hr_payroll_api():
                 if run_version:
                     cursor.execute("""
                         SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
-                               p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
+                               p.period, p.basic_pay, p.allowances, p.designers_cut, p.deductions, p.net_pay,
                                p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
                                p.nssa, p.nec, p.zimdef, p.wcif, p.sdf, p.run_version
                         FROM hr_payroll p
@@ -15958,7 +15961,7 @@ def hr_payroll_api():
                 else:
                     cursor.execute("""
                         SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
-                               p.period, p.basic_pay, p.allowances, p.deductions, p.net_pay,
+                               p.period, p.basic_pay, p.allowances, p.designers_cut, p.deductions, p.net_pay,
                                p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
                                p.nssa, p.nec, p.zimdef, p.wcif, p.sdf, p.run_version
                         FROM hr_payroll p
@@ -15972,15 +15975,15 @@ def hr_payroll_api():
                     records.append({
                         'id': r[0], 'employee_id': r[1], 'first_name': r[2], 'last_name': r[3],
                         'department': r[4], 'period': r[5], 'basic_pay': float(r[6] or 0),
-                        'allowances': float(r[7] or 0), 'deductions': float(r[8] or 0),
-                        'net_pay': float(r[9] or 0), 'status': r[10],
-                        'processed_at': str(r[11]) if r[11] else None,
-                        'gross_pay': float(r[12] or 0),
-                        'paye_tax': float(r[13] or 0), 'aids_levy': float(r[14] or 0),
-                        'nssa': float(r[15] or 0), 'nec': float(r[16] or 0),
-                        'zimdef': float(r[17] or 0),
-                        'wcif': float(r[18] or 0), 'sdf': float(r[19] or 0),
-                        'run_version': r[20] or 1
+                        'allowances': float(r[7] or 0), 'designers_cut': float(r[8] or 0), 'deductions': float(r[9] or 0),
+                        'net_pay': float(r[10] or 0), 'status': r[11],
+                        'processed_at': str(r[12]) if r[12] else None,
+                        'gross_pay': float(r[13] or 0),
+                        'paye_tax': float(r[14] or 0), 'aids_levy': float(r[15] or 0),
+                        'nssa': float(r[16] or 0), 'nec': float(r[17] or 0),
+                        'zimdef': float(r[18] or 0),
+                        'wcif': float(r[19] or 0), 'sdf': float(r[20] or 0),
+                        'run_version': r[21] or 1
                     })
                 return jsonify({'success': True, 'data': records, 'period': period})
         except Exception as e:
@@ -16095,8 +16098,9 @@ def hr_payroll_api():
                 for emp in employees:
                     emp_id = emp[0]
                     basic = float(emp[3] or 0)
-                    allowances = float(emp[4] or 0)
-                    gross = basic + allowances
+                    commission = float(emp[4] or 0)
+                    designers_cut = round(commission * 0.10, 2) if commission > 0 else 0
+                    gross = basic + commission - designers_cut
 
                     # Step 1: Calculate NSSA on gross (deducted first)
                     nssa_amount = calc_nssa(gross)
@@ -16113,10 +16117,10 @@ def hr_payroll_api():
                     net = max(0, gross - total_deductions)
 
                     cursor.execute("""
-                        INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, gross_pay,
+                        INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, designers_cut, gross_pay,
                             deductions, paye_tax, aids_levy, nssa, nec, zimdef, wcif, sdf, net_pay, status, processed_at, run_version)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
-                    """, (emp_id, period, basic, allowances, gross,
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
+                    """, (emp_id, period, basic, commission, designers_cut, gross,
                           round(total_deductions, 2), round(monthly_paye, 2),
                           round(stats['aids_levy'], 2), round(stats['nssa'], 2),
                           round(stats['nec'], 2), round(stats['zimdef'], 2), round(stats['wcif'], 2), round(stats['sdf'], 2), round(net, 2), run_version))
@@ -16131,7 +16135,7 @@ def hr_payroll_api():
                                e.bank_name, e.bank_account_number, e.bank_branch, e.bank_branch_code,
                                e.usd_percent, e.zwg_percent, e.exchange_rate, e.currency,
                                e.c8_number, e.c8_type, e.nationality,
-                               p.basic_pay, p.allowances, p.gross_pay,
+                               p.basic_pay, p.allowances, p.designers_cut, p.gross_pay,
                                p.paye_tax, p.aids_levy, p.nssa, p.nec, p.zimdef, p.wcif, p.sdf,
                                p.deductions, p.net_pay, p.status
                         FROM hr_payroll p
@@ -16142,8 +16146,8 @@ def hr_payroll_api():
                     payroll_rows = cursor.fetchall()
 
                     emp_count = len(payroll_rows)
-                    total_gross = sum(float(r[20] or 0) for r in payroll_rows)
-                    total_net = sum(float(r[29] or 0) for r in payroll_rows)
+                    total_gross = sum(float(r[21] or 0) for r in payroll_rows)
+                    total_net = sum(float(r[30] or 0) for r in payroll_rows)
                     user_name = session.get('user_name', 'System')
 
                     from openpyxl import Workbook
@@ -16177,7 +16181,7 @@ def hr_payroll_api():
                     # Headers (row 4)
                     headers = [
                         '#', 'First Name', 'Last Name', 'Department', 'Designation',
-                        'Basic Pay', 'Allowances', 'Gross Pay',
+                        'Basic Pay', 'Commission', "Designer's Cut", 'Gross Pay',
                         'PAYE Tax', 'AIDS Levy', 'NSSA', 'NEC', 'Total Deductions',
                         'Net Pay', 'Status',
                         'Bank Holder', 'Bank Name', 'Account Number', 'Branch', 'Branch Code',
@@ -16196,10 +16200,10 @@ def hr_payroll_api():
                         values = [
                             row_idx - 4,
                             r[0] or '', r[1] or '', r[2] or '', r[3] or '',
-                            float(r[18] or 0), float(r[19] or 0), float(r[20] or 0),
-                            float(r[21] or 0), float(r[22] or 0), float(r[23] or 0),
-                            float(r[24] or 0),
-                            float(r[28] or 0), float(r[29] or 0), r[30] or '',
+                            float(r[18] or 0), float(r[19] or 0), float(r[20] or 0), float(r[21] or 0),
+                            float(r[22] or 0), float(r[23] or 0), float(r[24] or 0),
+                            float(r[25] or 0),
+                            float(r[29] or 0), float(r[30] or 0), r[31] or '',
                             r[5] or '', r[7] or '', r[8] or '', r[9] or '', r[10] or '',
                             r[14] or 'USD'
                         ]
@@ -16212,7 +16216,7 @@ def hr_payroll_api():
                                 cell.alignment = XlAlign(horizontal='right')
 
                     # Column widths
-                    widths = [5, 16, 16, 18, 18, 12, 10, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
+                    widths = [5, 16, 16, 18, 18, 12, 10, 12, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
                     for i, w in enumerate(widths, 1):
                         from openpyxl.utils import get_column_letter
                         col_letter = get_column_letter(i)
@@ -17137,7 +17141,7 @@ def payroll_breakdown():
                 SELECT e.id, e.first_name, e.last_name, e.department, e.designation,
                        e.basic_salary, e.allowances, e.usd_percent, e.zwg_percent, e.exchange_rate,
                        e.bank_holder_name, e.bank_holder_surname, e.bank_name, e.bank_account_number, e.bank_branch,
-                       p.basic_pay, p.allowances as pay_allowances, p.gross_pay,
+                       p.basic_pay, p.allowances as pay_allowances, p.designers_cut, p.gross_pay,
                        p.paye_tax, p.aids_levy, p.nssa, p.nec, p.zimdef, p.deductions, p.net_pay,
                        p.period, p.status, p.processed_at
                 FROM hr_employees e
@@ -17157,13 +17161,14 @@ def payroll_breakdown():
                 'bank_holder': (row[10] or '') + ' ' + (row[11] or ''),
                 'bank_name': row[12] or '-', 'bank_account': row[13] or '-', 'bank_branch': row[14] or '-',
                 'basic_pay': float(row[15] or 0), 'pay_allowances': float(row[16] or 0),
-                'gross_pay': float(row[17] or 0),
-                'paye_tax': float(row[18] or 0), 'aids_levy': float(row[19] or 0),
-                'nssa': float(row[20] or 0), 'nec': float(row[21] or 0),
-                'zimdef': float(row[22] or 0),
-                'total_deductions': float(row[23] or 0), 'net_pay': float(row[24] or 0),
-                'period': row[25] or period, 'status': row[26] or 'Not Processed',
-                'processed_at': row[27]
+                'designers_cut': float(row[17] or 0),
+                'gross_pay': float(row[18] or 0),
+                'paye_tax': float(row[19] or 0), 'aids_levy': float(row[20] or 0),
+                'nssa': float(row[21] or 0), 'nec': float(row[22] or 0),
+                'zimdef': float(row[23] or 0),
+                'total_deductions': float(row[24] or 0), 'net_pay': float(row[25] or 0),
+                'period': row[26] or period, 'status': row[27] or 'Not Processed',
+                'processed_at': row[28]
             }
 
             # 2. Load active PAYE brackets for display
@@ -17288,7 +17293,7 @@ def payroll_breakdown():
         total_remittance = total_ded + total_employer
 
         return render_template('payroll_breakdown.html',
-            emp=emp, basic=basic, allowances=allowances, gross=gross,
+            emp=emp, basic=basic, allowances=allowances, designers_cut=emp['designers_cut'], gross=gross,
             paye_brackets=paye_brackets, active_bracket=active_bracket,
             deduction_rows=deduction_rows, paye=paye, aids=aids,
             nssa=nssa, nec=nec, employer_nssa=employer_nssa, nssa_basis=nssa_basis,
@@ -17322,6 +17327,7 @@ def generate_payslip_pdf(employee_id):
                        e.usd_percent, e.zwg_percent, e.exchange_rate,
                        COALESCE(p.basic_pay, e.basic_salary, 0) as basic_pay,
                        COALESCE(p.allowances, e.allowances, 0) as pay_allowances,
+                       COALESCE(p.designers_cut, 0) as designers_cut,
                        COALESCE(p.gross_pay, e.basic_salary + COALESCE(e.allowances, 0), 0) as gross_pay,
                        COALESCE(p.paye_tax, 0) as paye_tax,
                        COALESCE(p.aids_levy, 0) as aids_levy,
@@ -17361,13 +17367,14 @@ def generate_payslip_pdf(employee_id):
                 'monthly_accrual': float(row[19] or 0),
                 'usd_pct': usd_pct, 'zwg_pct': zwg_pct, 'exchange_rate': exch_rate,
                 'basic_pay': float(row[23] or 0), 'pay_allowances': float(row[24] or 0),
-                'gross_pay': float(row[25] or 0),
-                'paye_tax': float(row[26] or 0), 'aids_levy': float(row[27] or 0),
-                'nssa': float(row[28] or 0), 'zimdef': float(row[29] or 0),
-                'nec': float(row[30] or 0),
-                'total_deductions': float(row[31] or 0), 'net_pay': float(row[32] or 0),
-                'period': row[33] or period, 'status': row[34] or 'Not Processed',
-                'processed_at': row[35]
+                'designers_cut': float(row[25] or 0),
+                'gross_pay': float(row[26] or 0),
+                'paye_tax': float(row[27] or 0), 'aids_levy': float(row[28] or 0),
+                'nssa': float(row[29] or 0), 'zimdef': float(row[30] or 0),
+                'nec': float(row[31] or 0),
+                'total_deductions': float(row[32] or 0), 'net_pay': float(row[33] or 0),
+                'period': row[34] or period, 'status': row[35] or 'Not Processed',
+                'processed_at': row[36]
             }
 
             # Fetch employer NSSA config

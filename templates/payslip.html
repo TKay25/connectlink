@@ -188,7 +188,8 @@
           </thead>
           <tbody>
             <tr><td>BAS</td><td>Basic Salary</td><td>${{ emp.basic_pay|round(2)|numberfmt }}</td></tr>
-            <tr><td>LAL</td><td>Allowances</td><td>${{ emp.pay_allowances|round(2)|numberfmt }}</td></tr>
+            <tr><td>LAL</td><td>Commission</td><td>${{ emp.pay_allowances|round(2)|numberfmt }}</td></tr>
+            <tr><td style="color:#b45309;">DC</td><td style="color:#b45309;">Designer's Cut (10%)</td><td style="color:#b45309;">− ${{ emp.designers_cut|round(2)|numberfmt }}</td></tr>
             <tr class="tt"><td></td><td><strong>Gross Pay</strong></td><td><strong>${{ emp.gross_pay|round(2)|numberfmt }}</strong></td></tr>
           </tbody>
         </table>

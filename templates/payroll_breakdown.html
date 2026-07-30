@@ -334,13 +334,14 @@
             <div class="card-body">
                 <div class="info-grid" style="margin-bottom:14px;">
                     <div><span class="label">Basic Salary:</span> <span class="value">${{ basic|round(2)|numberfmt }}</span></div>
-                    <div><span class="label">Allowances:</span> <span class="value">${{ allowances|round(2)|numberfmt }}</span></div>
+                    <div><span class="label">Commission:</span> <span class="value">${{ allowances|round(2)|numberfmt }}</span></div>
+                    <div><span class="label">Designer's Cut (10%):</span> <span class="value" style="color:#b45309;">− ${{ designers_cut|round(2)|numberfmt }}</span></div>
                 </div>
                 <div class="salary-row">
                     <div class="salary-box gross">
                         <div class="sb-label">Gross Pay</div>
                         <div class="sb-amount">${{ gross|round(2)|numberfmt }}</div>
-                        <div style="font-size:10px;color:#64748b;margin-top:2px;">Basic + Allowances</div>
+                        <div style="font-size:10px;color:#64748b;margin-top:2px;">Basic + Commission − Designer's Cut</div>
                     </div>
                     <div class="salary-box deductions">
                         <div class="sb-label">Total Deductions</div>
@@ -366,8 +367,8 @@
                     <div class="step-num">1</div>
                     <div class="step-body">
                         <div class="step-title" style="color:#0369a1;">Gross Pay</div>
-                        <div class="step-desc">Add basic salary and allowances to arrive at gross pay.</div>
-                        <div class="step-formula">${{ basic|round(2)|numberfmt }} (Basic) + ${{ allowances|round(2)|numberfmt }} (Allowances) = <strong>${{ gross|round(2)|numberfmt }}</strong></div>
+                        <div class="step-desc">Add basic salary and commission, then subtract the 10% designer's cut to arrive at gross pay.</div>
+                        <div class="step-formula">${{ basic|round(2)|numberfmt }} (Basic) + ${{ allowances|round(2)|numberfmt }} (Commission) − ${{ designers_cut|round(2)|numberfmt }} (10% Designer's Cut) = <strong>${{ gross|round(2)|numberfmt }}</strong></div>
                     </div>
                     <div class="step-amount" style="color:#0369a1;">${{ gross|round(2)|numberfmt }}</div>
                 </div>
@@ -539,8 +540,12 @@
                         <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">${{ basic|round(2)|numberfmt }}</td>
                     </tr>
                     <tr>
-                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#64748b;">Allowances</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#64748b;">Commission</td>
                         <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;">${{ allowances|round(2)|numberfmt }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#b45309;">− Designer's Cut (10%)</td>
+                        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600;color:#b45309;">(${{ designers_cut|round(2)|numberfmt }})</td>
                     </tr>
                     <tr style="font-weight:800;color:#0369a1;">
                         <td style="padding:8px 10px;border-bottom:2px solid #0369a1;">Gross Pay</td>
