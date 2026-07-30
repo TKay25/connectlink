@@ -1835,7 +1835,7 @@ def initialize_database_tables():
             if cursor.fetchone()[0] == 0:
                 seed_deductions = [
                     ('AIDS_LEVY', 'AIDS Levy', '3% of PAYE tax amount', 3.0, 'percentage_of_paye', 0, True, True),
-                    ('NSSA_EMPLOYEE', 'NSSA (Employee)', 'NSSA employee pension contribution', 4.5, 'percentage_of_gross', 0, True, True),
+                    ('NSSA_EMPLOYEE', 'NSSA (Employee)', 'NSSA employee pension contribution', 4.5, 'percentage_of_gross', 700, True, True),
                     ('NSSA_EMPLOYER', 'NSSA (Employer)', 'NSSA employer pension contribution', 4.5, 'percentage_of_gross', 0, True, False),
                     ('NEC_EMPLOYEE', 'NEC (Employee)', 'NEC employee contribution', 2.0, 'percentage_of_gross', 0, True, True),
                     ('NEC_EMPLOYER', 'NEC (Employer)', 'NEC employer contribution', 2.0, 'percentage_of_gross', 0, True, False),
@@ -1874,6 +1874,17 @@ def initialize_database_tables():
                 cursor.execute("""
                     ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS run_version INT DEFAULT 1
                 """)
+                connection.commit()
+            except Exception:
+                connection.rollback()
+            # Update NSSA ceiling to 700 for existing records (migration)
+            try:
+                cursor.execute("""
+                    UPDATE payroll_deduction_config SET ceiling_amount = 700
+                    WHERE deduction_code = 'NSSA_EMPLOYEE' AND ceiling_amount = 0
+                """)
+                if cursor.rowcount > 0:
+                    print(f"✅ NSSA ceiling updated to $700 for {cursor.rowcount} record(s)")
                 connection.commit()
             except Exception:
                 connection.rollback()
