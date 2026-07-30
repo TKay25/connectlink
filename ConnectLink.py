@@ -16090,16 +16090,18 @@ def hr_payroll_api():
                 run_version = (cursor.fetchone()[0] or 0) + 1
 
                 cursor.execute("""
-                    SELECT id, first_name, last_name, basic_salary, allowances, usd_percent, zwg_percent, exchange_rate
+                    SELECT id, first_name, last_name, department, basic_salary, allowances, usd_percent, zwg_percent, exchange_rate
                     FROM hr_employees WHERE status = 'Active' AND (omit_from_payroll IS NULL OR omit_from_payroll = FALSE)
                 """)
                 employees = cursor.fetchall()
                 processed = 0
                 for emp in employees:
                     emp_id = emp[0]
-                    basic = float(emp[3] or 0)
-                    commission = float(emp[4] or 0)
-                    designers_cut = round(commission * 0.10, 2) if commission > 0 else 0
+                    department = (emp[3] or '').strip().lower()
+                    basic = float(emp[4] or 0)
+                    commission = float(emp[5] or 0)
+                    # Designer's cut (10%) only applies to Sales and Marketing department
+                    designers_cut = round(commission * 0.10, 2) if (commission > 0 and department == 'sales and marketing') else 0
                     gross = basic + commission - designers_cut
 
                     # Step 1: Calculate NSSA on gross (deducted first)
