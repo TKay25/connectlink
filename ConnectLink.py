@@ -16098,16 +16098,17 @@ def hr_payroll_api():
                         nssa_gross = nssa_ceiling
                     return nssa_gross * (nssa_rate / 100)
 
-                def calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross_pay):
+                def calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross_pay, apply_nec=True):
                     """Calculate all Zimbabwe statutory deductions.
-                    NSSA is deducted before PAYE, so taxable_income = gross - nssa."""
+                    NSSA is deducted before PAYE, so taxable_income = gross - nssa.
+                    NEC is only deducted for Top Management classified employees (apply_nec)."""
                     aids_config = deduction_configs.get('AIDS_LEVY', {})
                     aids_rate = aids_config.get('rate', 3.0)
                     aids_levy = monthly_paye * (aids_rate / 100) if aids_config.get('rate_type') == 'percentage_of_paye' else 0
 
                     nec_config = deduction_configs.get('NEC_EMPLOYEE', {})
                     nec_rate = nec_config.get('rate', 2.0)
-                    nec = gross_pay * (nec_rate / 100)
+                    nec = gross_pay * (nec_rate / 100) if apply_nec else 0
 
                     zimdef_config = deduction_configs.get('ZIMDEF', {})
                     zimdef_rate = zimdef_config.get('rate', 1.0)
@@ -16139,7 +16140,7 @@ def hr_payroll_api():
                 run_version = (cursor.fetchone()[0] or 0) + 1
 
                 cursor.execute("""
-                    SELECT id, first_name, last_name, department, basic_salary, allowances, usd_percent, zwg_percent, exchange_rate
+                    SELECT id, first_name, last_name, department, classification, basic_salary, allowances, usd_percent, zwg_percent, exchange_rate
                     FROM hr_employees WHERE status = 'Active' AND (omit_from_payroll IS NULL OR omit_from_payroll = FALSE)
                 """)
                 employees = cursor.fetchall()
@@ -16147,11 +16148,15 @@ def hr_payroll_api():
                 for emp in employees:
                     emp_id = emp[0]
                     department = (emp[3] or '').strip().lower()
-                    basic = float(emp[4] or 0)
-                    commission = float(emp[5] or 0)
+                    classification = (emp[4] or '').strip().lower()
+                    basic = float(emp[5] or 0)
+                    commission = float(emp[6] or 0)
                     # Designer's cut (10%) only applies to Sales and Marketing department
                     designers_cut = round(commission * 0.10, 2) if (commission > 0 and department == 'sales and marketing') else 0
                     gross = basic + commission - designers_cut
+
+                    # NEC deduction only applies to Top Management classified employees
+                    apply_nec = (classification == 'top management')
 
                     # Step 1: Calculate NSSA on gross (deducted first)
                     nssa_amount = calc_nssa(gross)
@@ -16163,7 +16168,7 @@ def hr_payroll_api():
                     monthly_paye = calc_paye_tax(taxable_income, paye_brackets)
 
                     # Step 4: Calculate remaining deductions (AIDS Levy, NEC, ZIMDEF)
-                    stats = calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross)
+                    stats = calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross, apply_nec)
                     total_deductions = stats['total']
                     net = max(0, gross - total_deductions)
 
