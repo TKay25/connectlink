@@ -2143,6 +2143,14 @@
                         <label class="form-label">Date Joined</label>
                         <input type="date" class="form-control" id="empStartDate">
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Classification</label>
+                        <select class="form-select" id="empClassification">
+                            <option value="">-- Select --</option>
+                            <option>Top Management</option>
+                            <option>Ordinary</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="row g-2 mb-2">
                     <div class="col-md-4">
@@ -3174,6 +3182,7 @@ async function saveEmployee() {
         nationality: document.getElementById('empNationality').value,
         date_joined: document.getElementById('empStartDate').value || null,
         role: document.getElementById('empRole').value,
+        classification: document.getElementById('empClassification').value || 'Ordinary',
         status: document.getElementById('empStatus').value,
         leave_balance: 0,
         monthly_accrual: 0,
@@ -3298,6 +3307,7 @@ async function viewEmployee(empId) {
         document.getElementById('empNationality').value = emp.nationality || 'Zimbabwean';
         document.getElementById('empStartDate').value = emp.date_joined ? emp.date_joined.substring(0, 10) : '';
         document.getElementById('empRole').value = emp.role || 'Ordinary User';
+        document.getElementById('empClassification').value = emp.classification || 'Ordinary';
         document.getElementById('empStatus').value = emp.status || 'Active';
         document.getElementById('empSalary').value = emp.basic_salary || 0;
         document.getElementById('empAllowances').value = emp.allowances || 0;
