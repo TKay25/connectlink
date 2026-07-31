@@ -470,22 +470,31 @@
                     <div class="step-amount" style="color:#b45309;">− ${{ aids|round(2)|numberfmt }}</div>
                 </div>
 
-                <!-- STEP 5: NEC (Employee) -->
+                <!-- STEP 5: NEC (Employee) - Top Management only -->
+                {% if nec and nec > 0 %}
                 <div class="calc-step">
                     <div class="step-num" style="background:#0891b2;">5</div>
                     <div class="step-body">
                         <div class="step-title" style="color:#0891b2;">NEC (National Employment Council)</div>
-                        <div class="step-desc">2% of gross salary — employee portion for NEC levy.</div>
+                        <div class="step-desc">2% of gross salary — employee portion for NEC levy. Only applies to Top Management classified employees.</div>
                         <div class="step-formula">${{ gross|round(2)|numberfmt }} (Gross) × 2% = <strong style="color:#0891b2;">${{ nec|round(2)|numberfmt }}</strong></div>
                         <div style="margin-top:6px;padding:6px 8px;background:#ecfeff;border:1px solid #a5f3fc;border-radius:4px;font-size:11px;color:#0e7490;">
                             <strong>Employer NEC (not deducted from pay):</strong> Employer also contributes
-                            <strong>2%</strong> × ${{ gross|round(2)|numberfmt }}
-                            = <strong>${{ (gross * 0.02)|round(2)|numberfmt }}</strong>
+                            <strong>${{ employer_nec|round(2)|numberfmt }}</strong>
                             — this is paid by the employer and does <em>not</em> reduce your net pay.
                         </div>
                     </div>
                     <div class="step-amount" style="color:#0891b2;">− ${{ nec|round(2)|numberfmt }}</div>
                 </div>
+                {% else %}
+                <div class="calc-step" style="background:#f8fafc;border-left:3px solid #94a3b8;border-radius:4px;padding:10px 14px;margin:4px 0;">
+                    <div class="step-body" style="margin-left:0;">
+                        <div class="step-title" style="color:#64748b;font-size:12px;">NEC (National Employment Council)</div>
+                        <div class="step-desc" style="color:#94a3b8;">Not applicable — the NEC employee deduction only applies to Top Management classified employees. The employer pays the full NEC contribution.</div>
+                    </div>
+                    <div class="step-amount" style="color:#94a3b8;">$0.00</div>
+                </div>
+                {% endif %}
 
                 <!-- STEP 5b: Medical Aid (Employee) -->
                 {% if medical_aid and medical_aid > 0 %}
@@ -502,6 +511,14 @@
                         </div>
                     </div>
                     <div class="step-amount" style="color:#0d9488;">− ${{ medical_aid|round(2)|numberfmt }}</div>
+                </div>
+                {% else %}
+                <div class="calc-step" style="background:#f8fafc;border-left:3px solid #94a3b8;border-radius:4px;padding:10px 14px;margin:4px 0;">
+                    <div class="step-body" style="margin-left:0;">
+                        <div class="step-title" style="color:#64748b;font-size:12px;">Medical Aid (Employee)</div>
+                        <div class="step-desc" style="color:#94a3b8;">Not applicable — no Medical Aid package (Lite/Platinum) has been assigned to this employee.</div>
+                    </div>
+                    <div class="step-amount" style="color:#94a3b8;">$0.00</div>
                 </div>
                 {% endif %}
 
