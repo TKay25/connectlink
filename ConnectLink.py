@@ -1558,6 +1558,7 @@ def initialize_database_tables():
                     bank_branch VARCHAR(100),
                     bank_branch_code VARCHAR(20),
                     basic_salary DECIMAL(12,2) DEFAULT 0,
+                    medical_aid_package VARCHAR(50) DEFAULT '',
                     usd_percent DECIMAL(5,2) DEFAULT 100,
                     zwg_percent DECIMAL(5,2) DEFAULT 0,
                     exchange_rate DECIMAL(12,4) DEFAULT 1,
@@ -1624,6 +1625,16 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add national_id column to hr_employees: {e}")
+
+            # Add medical_aid_package column to hr_employees if not exists
+            try:
+                cursor.execute("""
+                    ALTER TABLE hr_employees
+                    ADD COLUMN IF NOT EXISTS medical_aid_package VARCHAR(50) DEFAULT ''
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add medical_aid_package column to hr_employees: {e}")
 
             # Add omit_from_payroll column to hr_employees if not exists
             try:
@@ -1864,8 +1875,8 @@ def initialize_database_tables():
                     ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, False),
                     ('WCIF', 'WCIF', "Workers' Compensation Insurance Fund", 2.16, 'percentage_of_gross', 0, True, False),
                     ('SDF', 'SDF (Standard Development Fund)', 'Standard Development Fund contribution', 0.5, 'percentage_of_gross', 0, True, False),
-                    ('MEDICAL_AID_EMPLOYEE', 'Medical Aid (Employee)', 'Medical Aid employee contribution (fixed amount)', 6.0, 'fixed_amount', 0, True, True),
-                    ('MEDICAL_AID_EMPLOYER', 'Medical Aid (Employer)', 'Medical Aid employer contribution (fixed amount)', 6.0, 'fixed_amount', 0, True, False),
+                    ('MEDICAL_AID_LITE', 'Medical Aid Package - Lite', 'Medical Aid Lite package - employee pays half, employer pays half', 12.0, 'fixed_amount', 0, True, True),
+                    ('MEDICAL_AID_PLATINUM', 'Medical Aid Package - Platinum', 'Medical Aid Platinum package - employee pays half, employer pays half', 24.0, 'fixed_amount', 0, True, True),
                 ]
                 for dc in seed_deductions:
                     cursor.execute("""
@@ -1923,12 +1934,17 @@ def initialize_database_tables():
                         ('NEC_EMPLOYER', 'NEC (Employer)', 'NEC employer contribution', 2.0, 'percentage_of_gross', 0, TRUE, FALSE),
                         ('WCIF', 'WCIF', 'Workers'' Compensation Insurance Fund', 2.16, 'percentage_of_gross', 0, TRUE, FALSE),
                         ('SDF', 'SDF (Standard Development Fund)', 'Standard Development Fund contribution', 0.5, 'percentage_of_gross', 0, TRUE, FALSE),
-                        ('MEDICAL_AID_EMPLOYEE', 'Medical Aid (Employee)', 'Medical Aid employee contribution (fixed amount)', 6.0, 'fixed_amount', 0, TRUE, TRUE),
-                        ('MEDICAL_AID_EMPLOYER', 'Medical Aid (Employer)', 'Medical Aid employer contribution (fixed amount)', 6.0, 'fixed_amount', 0, TRUE, FALSE)
+                        ('MEDICAL_AID_LITE', 'Medical Aid Package - Lite', 'Medical Aid Lite package - employee pays half, employer pays half', 12.0, 'fixed_amount', 0, TRUE, TRUE),
+                        ('MEDICAL_AID_PLATINUM', 'Medical Aid Package - Platinum', 'Medical Aid Platinum package - employee pays half, employer pays half', 24.0, 'fixed_amount', 0, TRUE, TRUE)
                     ON CONFLICT (deduction_code) DO NOTHING
                 """)
+                # Remove old single-rate Medical Aid configs (replaced by per-package rates)
+                cursor.execute("""
+                    DELETE FROM payroll_deduction_config
+                    WHERE deduction_code IN ('MEDICAL_AID_EMPLOYEE', 'MEDICAL_AID_EMPLOYER')
+                """)
                 if cursor.rowcount > 0:
-                    print(f"✅ Missing deduction records seeded ({cursor.rowcount})")
+                    print(f"✅ Removed old medical aid configs ({cursor.rowcount})")
                 connection.commit()
             except Exception:
                 connection.rollback()
@@ -14676,9 +14692,9 @@ def hr_employees_api():
                     INSERT INTO hr_employees
                         (first_name, last_name, whatsapp, email, address, role, classification, department,
                          designation, gender, dob, marital_status, nationality, national_id, date_joined,
-                         current_leave_balance, monthly_accumulation, basic_salary, employment_type, status,
+                         current_leave_balance, monthly_accumulation, basic_salary, medical_aid_package, employment_type, status,
                          leave_approver_name, leave_approver_id, leave_approver_whatsapp, leave_approver_email)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     RETURNING id
                 """, (
                     data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
@@ -14689,6 +14705,7 @@ def hr_employees_api():
                     data.get('national_id'),
                     data.get('date_joined'), data.get('leave_balance', 21),
                     data.get('monthly_accrual', 1.75), data.get('salary', 0),
+                    data.get('medical_aid_package', ''),
                     data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
                     data.get('leave_approver_name'), data.get('leave_approver_id'),
                     data.get('leave_approver_whatsapp'), data.get('leave_approver_email')
@@ -14848,7 +14865,7 @@ def hr_employee_detail(emp_id):
                         role=%s, classification=%s, department=%s, subsidiary=%s, designation=%s, gender=%s, dob=%s,
                         marital_status=%s, nationality=%s, national_id=%s, date_joined=%s,
                         current_leave_balance=%s, monthly_accumulation=%s,
-                        basic_salary=%s, allowances=%s, omit_from_payroll=%s,
+                        basic_salary=%s, allowances=%s, medical_aid_package=%s, omit_from_payroll=%s,
                         employment_type=%s, status=%s,
                         bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
                         bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
@@ -14868,6 +14885,7 @@ def hr_employee_detail(emp_id):
                     data.get('monthly_accumulation', 1.75),
                     data.get('salary', data.get('basic_salary', 0)),
                     data.get('allowances', 0),
+                    data.get('medical_aid_package', ''),
                     data.get('omit_from_payroll', False),
                     data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
                     data.get('bank_holder_name'), data.get('bank_holder_surname'),
@@ -15038,7 +15056,7 @@ def hr_employees_template():
         dv_config = {
             5: ['Male', 'Female'],                          # Gender
             7: ['Single', 'Married', 'Divorced', 'Widowed'], # Marital Status
-            11: ['Sales and Marketing', 'Administration', 'Finance', 'HR', 'Logistics', 'Management', 'Systems & IT'],  # Department
+            11: ['Sales and Marketing', 'Administration', 'Finance', 'HR', 'Logistics', 'Management', 'Systems & IT', 'Production'],  # Department
             12: ['Top Management', 'Ordinary'],              # Classification
             14: ['Permanent', 'Contract', 'Probation', 'Intern', 'Part-Time'],  # Employment Type
             16: ['Construction', 'Hardware', 'Group', 'Kitchen & Cabinets'],       # Subsidiary
@@ -16106,10 +16124,11 @@ def hr_payroll_api():
                         nssa_gross = nssa_ceiling
                     return nssa_gross * (nssa_rate / 100)
 
-                def calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross_pay, apply_nec=True):
+                def calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross_pay, apply_nec=True, medical_aid_employee=0):
                     """Calculate all Zimbabwe statutory deductions.
                     NSSA is deducted before PAYE, so taxable_income = gross - nssa.
-                    NEC is only deducted for Top Management classified employees (apply_nec)."""
+                    NEC is only deducted for Top Management classified employees (apply_nec).
+                    Medical Aid is the employee's half of their chosen package (medical_aid_employee)."""
                     aids_config = deduction_configs.get('AIDS_LEVY', {})
                     aids_rate = aids_config.get('rate', 3.0)
                     aids_levy = monthly_paye * (aids_rate / 100) if aids_config.get('rate_type') == 'percentage_of_paye' else 0
@@ -16130,12 +16149,8 @@ def hr_payroll_api():
                     sdf_rate = sdf_config.get('rate', 0.5)
                     sdf = taxable_income * (sdf_rate / 100)
 
-                    # Medical Aid - fixed amount employee deduction (e.g. $6)
-                    medical_aid_config = deduction_configs.get('MEDICAL_AID_EMPLOYEE', {})
-                    if medical_aid_config.get('rate_type') == 'fixed_amount':
-                        medical_aid = float(medical_aid_config.get('rate', 0) or 0)
-                    else:
-                        medical_aid = 0
+                    # Medical Aid - employee pays half of their package amount
+                    medical_aid = round(float(medical_aid_employee or 0), 2)
 
                     total = nssa_amount + monthly_paye + aids_levy + nec + medical_aid  # ZIMDEF + WCIF + SDF are employer-only
                     return {
@@ -16156,7 +16171,7 @@ def hr_payroll_api():
                 run_version = (cursor.fetchone()[0] or 0) + 1
 
                 cursor.execute("""
-                    SELECT id, first_name, last_name, department, classification, basic_salary, allowances, usd_percent, zwg_percent, exchange_rate
+                    SELECT id, first_name, last_name, department, classification, basic_salary, allowances, medical_aid_package, usd_percent, zwg_percent, exchange_rate
                     FROM hr_employees WHERE status = 'Active' AND (omit_from_payroll IS NULL OR omit_from_payroll = FALSE)
                 """)
                 employees = cursor.fetchall()
@@ -16167,12 +16182,20 @@ def hr_payroll_api():
                     classification = (emp[4] or '').strip().lower()
                     basic = float(emp[5] or 0)
                     commission = float(emp[6] or 0)
+                    medical_aid_package = (emp[7] or '').strip()
                     # Designer's cut (10%) only applies to Sales and Marketing department
                     designers_cut = round(commission * 0.10, 2) if (commission > 0 and department == 'sales and marketing') else 0
                     gross = basic + commission - designers_cut
 
                     # NEC deduction only applies to Top Management classified employees
                     apply_nec = (classification == 'top management')
+
+                    # Medical Aid package - employee pays half, employer remits the other half
+                    medical_aid_employee = 0
+                    if medical_aid_package:
+                        pkg_cfg = deduction_configs.get('MEDICAL_AID_' + medical_aid_package.upper(), {})
+                        if pkg_cfg.get('rate_type') == 'fixed_amount':
+                            medical_aid_employee = round(float(pkg_cfg.get('rate', 0) or 0) / 2, 2)
 
                     # Step 1: Calculate NSSA on gross (deducted first)
                     nssa_amount = calc_nssa(gross)
@@ -16183,8 +16206,8 @@ def hr_payroll_api():
                     # Step 3: Calculate PAYE on taxable income (not on gross)
                     monthly_paye = calc_paye_tax(taxable_income, paye_brackets)
 
-                    # Step 4: Calculate remaining deductions (AIDS Levy, NEC, ZIMDEF)
-                    stats = calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross, apply_nec)
+                    # Step 4: Calculate remaining deductions (AIDS Levy, NEC, ZIMDEF, Medical Aid)
+                    stats = calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross, apply_nec, medical_aid_employee)
                     total_deductions = stats['total']
                     net = max(0, gross - total_deductions)
 
@@ -17374,15 +17397,13 @@ def payroll_breakdown():
                 'color': '#0891b2'
             })
 
-        # Medical Aid (Employee) - fixed amount
-        medical_aid_config = deduction_configs.get('MEDICAL_AID_EMPLOYEE', {})
-        medical_aid_rate = float(medical_aid_config.get('rate', 0) or 0)
+        # Medical Aid (Employee) - half of the employee's package
         if medical_aid and medical_aid > 0:
             deduction_rows.append({
                 'name': 'Medical Aid (Employee)',
-                'description': 'Medical Aid employee contribution — fixed amount per month',
-                'rate': f'${medical_aid_rate:,.2f} fixed',
-                'calculation': f'${medical_aid_rate:,.2f} fixed',
+                'description': 'Medical Aid employee contribution — half of the employee\'s package (Lite/Platinum)',
+                'rate': f'${medical_aid:,.2f} (half of package)',
+                'calculation': f'${medical_aid:,.2f} (employee\'s half)',
                 'amount': medical_aid,
                 'color': '#0d9488'
             })
@@ -17395,12 +17416,8 @@ def payroll_breakdown():
         employer_wcif = taxable_income * (wcif_rate / 100)
         sdf_rate = deduction_configs.get('SDF', {}).get('rate', 0.5)
         employer_sdf = taxable_income * (sdf_rate / 100)
-        # Employer Medical Aid contribution (fixed amount, matches employee amount)
-        employer_medical_aid_config = deduction_configs.get('MEDICAL_AID_EMPLOYER', {})
-        if employer_medical_aid_config.get('rate_type') == 'fixed_amount':
-            employer_medical_aid = float(employer_medical_aid_config.get('rate', 0) or 0)
-        else:
-            employer_medical_aid = 0
+        # Employer Medical Aid = the other half of the employee's package (equals employee's half)
+        employer_medical_aid = medical_aid
         total_employer = employer_nssa + employer_nec + zimdef_amount + employer_wcif + employer_sdf + employer_medical_aid
         total_remittance = total_ded + total_employer
 

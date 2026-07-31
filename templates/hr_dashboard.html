@@ -1092,6 +1092,7 @@
                                 <option>Logistics</option>
                                 <option>Management</option>
                                 <option>Systems &amp; IT</option>
+                                <option>Production</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -2120,6 +2121,7 @@
                             <option>Logistics</option>
                             <option>Management</option>
                             <option>Systems &amp; IT</option>
+                            <option>Production</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -2233,6 +2235,19 @@
                             <input type="checkbox" id="empOmitPayroll" style="width:14px;height:14px;cursor:pointer;">
                             Omit from Payroll
                         </label>
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Medical Aid Package</label>
+                        <select class="form-select" id="empMedAidPackage">
+                            <option value="">-- None --</option>
+                            <option>Lite</option>
+                            <option>Platinum</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8 d-flex align-items-end">
+                        <small style="color:var(--text-muted);font-size:0.55rem;">Employee pays half of the package amount; employer remits the other half.</small>
                     </div>
                 </div>
                 <div class="row g-2 mb-2" id="mixedCurrencyRow" style="display:none;">
@@ -3200,6 +3215,7 @@ async function saveEmployee() {
         monthly_accumulation: monthlyAccrualToSave,
         salary: parseFloat(document.getElementById('empSalary').value) || 0,
         allowances: parseFloat(document.getElementById('empAllowances').value) || 0,
+        medical_aid_package: document.getElementById('empMedAidPackage').value || '',
         omit_from_payroll: document.getElementById('empOmitPayroll').checked,
         currency: document.getElementById('empCurrency').value,
         usd_percent: parseFloat(document.getElementById('empUsdPercent').value) || 100,
@@ -3328,6 +3344,7 @@ async function viewEmployee(empId) {
         document.getElementById('empStatus').value = emp.status || 'Active';
         document.getElementById('empSalary').value = emp.basic_salary || 0;
         document.getElementById('empAllowances').value = emp.allowances || 0;
+        document.getElementById('empMedAidPackage').value = emp.medical_aid_package || '';
         document.getElementById('empOmitPayroll').checked = emp.omit_from_payroll ? true : false;
         document.getElementById('empCurrency').value = emp.currency || 'USD';
         document.getElementById('empUsdPercent').value = emp.usd_percent || 100;
