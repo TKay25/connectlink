@@ -487,6 +487,24 @@
                     <div class="step-amount" style="color:#0891b2;">− ${{ nec|round(2)|numberfmt }}</div>
                 </div>
 
+                <!-- STEP 5b: Medical Aid (Employee) -->
+                {% if medical_aid and medical_aid > 0 %}
+                <div class="calc-step">
+                    <div class="step-num" style="background:#0d9488;">5b</div>
+                    <div class="step-body">
+                        <div class="step-title" style="color:#0d9488;">Medical Aid (Employee)</div>
+                        <div class="step-desc">Medical Aid employee contribution — fixed amount per month. The employer contributes the same amount.</div>
+                        <div class="step-formula">${{ medical_aid|round(2)|numberfmt }} (fixed) = <strong style="color:#0d9488;">${{ medical_aid|round(2)|numberfmt }}</strong></div>
+                        <div style="margin-top:6px;padding:6px 8px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:4px;font-size:11px;color:#0f766e;">
+                            <strong>Employer Medical Aid (not deducted from pay):</strong> The employer also remits
+                            <strong>${{ medical_aid|round(2)|numberfmt }}</strong>
+                            — this is paid by the employer and does <em>not</em> reduce your net pay.
+                        </div>
+                    </div>
+                    <div class="step-amount" style="color:#0d9488;">− ${{ medical_aid|round(2)|numberfmt }}</div>
+                </div>
+                {% endif %}
+
                 <!-- STEP 6: ZIMDEF Levy (Employer-paid, not deducted) -->
                 <div class="calc-step">
                     <div class="step-num" style="background:#7c3aed;">6</div>
@@ -571,6 +589,12 @@
                         <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− NEC (Employee)</td>
                         <td style="padding:8px 10px;text-align:right;color:#0891b2;">(${{ nec|round(2)|numberfmt }})</td>
                     </tr>
+                    {% if medical_aid and medical_aid > 0 %}
+                    <tr>
+                        <td style="padding:8px 10px;color:#64748b;padding-left:20px;">&nbsp;&nbsp;&nbsp;− Medical Aid (Employee)</td>
+                        <td style="padding:8px 10px;text-align:right;color:#0d9488;">(${{ medical_aid|round(2)|numberfmt }})</td>
+                    </tr>
+                    {% endif %}
 
                     <tr style="font-weight:800;color:#dc2626;">
                         <td style="padding:8px 10px;border-bottom:2px solid #dc2626;">Total Deductions</td>
@@ -621,6 +645,14 @@
                         <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ employer_nec|round(2)|numberfmt }}</td>
                         <td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700;">${{ (nec + employer_nec)|round(2)|numberfmt }}</td>
                     </tr>
+                    {% if medical_aid and medical_aid > 0 %}
+                    <tr>
+                        <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;">Medical Aid</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ medical_aid|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;">${{ employer_medical_aid|round(2)|numberfmt }}</td>
+                        <td style="padding:5px 10px;text-align:right;border-bottom:1px solid #f1f5f9;font-weight:700;">${{ (medical_aid + employer_medical_aid)|round(2)|numberfmt }}</td>
+                    </tr>
+                    {% endif %}
                     <tr>
                         <td style="padding:5px 10px;border-bottom:1px solid #f1f5f9;font-weight:600;">ZIMDEF Levy</td>
                         <td style="padding:5px 10px;text-align:center;border-bottom:1px solid #f1f5f9;color:#94a3b8;">—</td>

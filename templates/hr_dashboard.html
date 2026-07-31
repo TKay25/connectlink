@@ -4691,13 +4691,19 @@ async function loadDeductionsConfig() {
             return;
         }
 
+        // Keep the full configs so saving preserves rate_type / name / description
+        window._dcConfigs = {};
+        (data.data || []).forEach(dc => { window._dcConfigs[dc.deduction_code] = dc; });
+
         let html = '<div style="display:grid;gap:10px;">';
         data.data.forEach(dc => {
             const rateTypeLabel = dc.rate_type === 'percentage_of_paye' ? '% of PAYE' :
-                                 dc.rate_type === 'percentage_of_gross' ? '% of Gross' : dc.rate_type;
+                                 dc.rate_type === 'percentage_of_gross' ? '% of Gross' :
+                                 dc.rate_type === 'fixed_amount' ? 'Fixed ($)' : dc.rate_type;
             const icon = dc.deduction_code === 'AIDS_LEVY' ? 'bi-heart-pulse' :
                         dc.deduction_code === 'NSSA_EMPLOYEE' ? 'bi-shield' :
-                        dc.deduction_code === 'ZIMDEF' ? 'bi-mortarboard' : 'bi-receipt';
+                        dc.deduction_code === 'ZIMDEF' ? 'bi-mortarboard' :
+                        (dc.deduction_code || '').indexOf('MEDICAL_AID') === 0 ? 'bi-heart' : 'bi-receipt';
             html += `
                 <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -4740,11 +4746,16 @@ async function saveDeductionsConfig() {
         const code = el.dataset.code;
         const activeEl = document.querySelector(`.dc-active[data-code="${code}"]`);
         const ceilingEl = document.querySelector(`.dc-ceiling[data-code="${code}"]`);
+        const cfg = (window._dcConfigs && window._dcConfigs[code]) || {};
         items.push({
             deduction_code: code,
             rate: parseFloat(el.value) || 0,
             ceiling_amount: parseFloat(ceilingEl?.value || 0) || 0,
-            is_active: activeEl ? activeEl.checked : true
+            is_active: activeEl ? activeEl.checked : true,
+            rate_type: cfg.rate_type || 'percentage_of_paye',
+            deduction_name: cfg.deduction_name || code,
+            description: cfg.description || '',
+            is_employee_deduction: !!cfg.is_employee_deduction
         });
     });
 

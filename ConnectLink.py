@@ -1864,6 +1864,8 @@ def initialize_database_tables():
                     ('ZIMDEF', 'ZIMDEF Levy', 'Zimbabwe Manpower Development Levy', 1.0, 'percentage_of_gross', 0, True, False),
                     ('WCIF', 'WCIF', "Workers' Compensation Insurance Fund", 2.16, 'percentage_of_gross', 0, True, False),
                     ('SDF', 'SDF (Standard Development Fund)', 'Standard Development Fund contribution', 0.5, 'percentage_of_gross', 0, True, False),
+                    ('MEDICAL_AID_EMPLOYEE', 'Medical Aid (Employee)', 'Medical Aid employee contribution (fixed amount)', 6.0, 'fixed_amount', 0, True, True),
+                    ('MEDICAL_AID_EMPLOYER', 'Medical Aid (Employer)', 'Medical Aid employer contribution (fixed amount)', 6.0, 'fixed_amount', 0, True, False),
                 ]
                 for dc in seed_deductions:
                     cursor.execute("""
@@ -1885,7 +1887,8 @@ def initialize_database_tables():
                 "wcif DECIMAL(12,2) DEFAULT 0",
                 "sdf DECIMAL(12,2) DEFAULT 0",
                 "gross_pay DECIMAL(12,2) DEFAULT 0",
-                "designers_cut DECIMAL(12,2) DEFAULT 0"
+                "designers_cut DECIMAL(12,2) DEFAULT 0",
+                "medical_aid DECIMAL(12,2) DEFAULT 0"
             ]:
                 try:
                     cursor.execute(f"ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS {col}")
@@ -1910,7 +1913,7 @@ def initialize_database_tables():
                 connection.commit()
             except Exception:
                 connection.rollback()
-            # Seed missing NEC/WCIF/SDF records for existing installations (migration)
+            # Seed missing NEC/WCIF/SDF/MEDICAL AID records for existing installations (migration)
             try:
                 cursor.execute("""
                     INSERT INTO payroll_deduction_config
@@ -1919,7 +1922,9 @@ def initialize_database_tables():
                         ('NEC_EMPLOYEE', 'NEC (Employee)', 'NEC employee contribution', 2.0, 'percentage_of_gross', 0, TRUE, TRUE),
                         ('NEC_EMPLOYER', 'NEC (Employer)', 'NEC employer contribution', 2.0, 'percentage_of_gross', 0, TRUE, FALSE),
                         ('WCIF', 'WCIF', 'Workers'' Compensation Insurance Fund', 2.16, 'percentage_of_gross', 0, TRUE, FALSE),
-                        ('SDF', 'SDF (Standard Development Fund)', 'Standard Development Fund contribution', 0.5, 'percentage_of_gross', 0, TRUE, FALSE)
+                        ('SDF', 'SDF (Standard Development Fund)', 'Standard Development Fund contribution', 0.5, 'percentage_of_gross', 0, TRUE, FALSE),
+                        ('MEDICAL_AID_EMPLOYEE', 'Medical Aid (Employee)', 'Medical Aid employee contribution (fixed amount)', 6.0, 'fixed_amount', 0, TRUE, TRUE),
+                        ('MEDICAL_AID_EMPLOYER', 'Medical Aid (Employer)', 'Medical Aid employer contribution (fixed amount)', 6.0, 'fixed_amount', 0, TRUE, FALSE)
                     ON CONFLICT (deduction_code) DO NOTHING
                 """)
                 if cursor.rowcount > 0:
@@ -15859,6 +15864,7 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                        COALESCE(p.aids_levy, 0) as aids_levy,
                        COALESCE(p.zimdef, 0) as zimdef,
                        COALESCE(p.nec, 0) as nec,
+                       COALESCE(p.medical_aid, 0) as medical_aid,
                        COALESCE(p.deductions, 0) as deductions,
                        COALESCE(p.net_pay, 0) as net_pay,
                        e.whatsapp, p.period, p.status, p.processed_at
@@ -15892,10 +15898,11 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                 'gross_pay': float(row[26] or 0), 'nssa': float(row[27] or 0),
                 'paye_tax': float(row[28] or 0), 'aids_levy': float(row[29] or 0),
                 'zimdef': float(row[30] or 0), 'nec': float(row[31] or 0),
-                'total_deductions': float(row[32] or 0),
-                'net_pay': float(row[33] or 0), 'whatsapp': row[34] or '',
-                'pay_status': row[36] or '',
-                'processed_at': row[37],
+                'medical_aid': float(row[32] or 0),
+                'total_deductions': float(row[33] or 0),
+                'net_pay': float(row[34] or 0), 'whatsapp': row[35] or '',
+                'pay_status': row[37] or '',
+                'processed_at': row[38],
                 'period': period
             }
 
@@ -16001,7 +16008,7 @@ def hr_payroll_api():
                         SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
                                p.period, p.basic_pay, p.allowances, p.designers_cut, p.deductions, p.net_pay,
                                p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
-                               p.nssa, p.nec, p.zimdef, p.wcif, p.sdf, p.run_version
+                               p.nssa, p.nec, p.medical_aid, p.zimdef, p.wcif, p.sdf, p.run_version
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
                         WHERE p.period = %s AND p.run_version = %s
@@ -16012,7 +16019,7 @@ def hr_payroll_api():
                         SELECT p.id, p.employee_id, e.first_name, e.last_name, e.department,
                                p.period, p.basic_pay, p.allowances, p.designers_cut, p.deductions, p.net_pay,
                                p.status, p.processed_at, p.gross_pay, p.paye_tax, p.aids_levy,
-                               p.nssa, p.nec, p.zimdef, p.wcif, p.sdf, p.run_version
+                               p.nssa, p.nec, p.medical_aid, p.zimdef, p.wcif, p.sdf, p.run_version
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
                         WHERE p.period = %s
@@ -16030,9 +16037,10 @@ def hr_payroll_api():
                         'gross_pay': float(r[13] or 0),
                         'paye_tax': float(r[14] or 0), 'aids_levy': float(r[15] or 0),
                         'nssa': float(r[16] or 0), 'nec': float(r[17] or 0),
-                        'zimdef': float(r[18] or 0),
-                        'wcif': float(r[19] or 0), 'sdf': float(r[20] or 0),
-                        'run_version': r[21] or 1
+                        'medical_aid': float(r[18] or 0),
+                        'zimdef': float(r[19] or 0),
+                        'wcif': float(r[20] or 0), 'sdf': float(r[21] or 0),
+                        'run_version': r[22] or 1
                     })
                 return jsonify({'success': True, 'data': records, 'period': period})
         except Exception as e:
@@ -16122,12 +16130,20 @@ def hr_payroll_api():
                     sdf_rate = sdf_config.get('rate', 0.5)
                     sdf = taxable_income * (sdf_rate / 100)
 
-                    total = nssa_amount + monthly_paye + aids_levy + nec  # ZIMDEF + WCIF + SDF are employer-only
+                    # Medical Aid - fixed amount employee deduction (e.g. $6)
+                    medical_aid_config = deduction_configs.get('MEDICAL_AID_EMPLOYEE', {})
+                    if medical_aid_config.get('rate_type') == 'fixed_amount':
+                        medical_aid = float(medical_aid_config.get('rate', 0) or 0)
+                    else:
+                        medical_aid = 0
+
+                    total = nssa_amount + monthly_paye + aids_levy + nec + medical_aid  # ZIMDEF + WCIF + SDF are employer-only
                     return {
                         'paye': monthly_paye,
                         'aids_levy': aids_levy,
                         'nssa': nssa_amount,
                         'nec': nec,
+                        'medical_aid': medical_aid,
                         'zimdef': zimdef,
                         'wcif': wcif,
                         'sdf': sdf,
@@ -16174,12 +16190,12 @@ def hr_payroll_api():
 
                     cursor.execute("""
                         INSERT INTO hr_payroll (employee_id, period, basic_pay, allowances, designers_cut, gross_pay,
-                            deductions, paye_tax, aids_levy, nssa, nec, zimdef, wcif, sdf, net_pay, status, processed_at, run_version)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
+                            deductions, paye_tax, aids_levy, nssa, nec, medical_aid, zimdef, wcif, sdf, net_pay, status, processed_at, run_version)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Processed', CURRENT_TIMESTAMP, %s)
                     """, (emp_id, period, basic, commission, designers_cut, gross,
                           round(total_deductions, 2), round(monthly_paye, 2),
                           round(stats['aids_levy'], 2), round(stats['nssa'], 2),
-                          round(stats['nec'], 2), round(stats['zimdef'], 2), round(stats['wcif'], 2), round(stats['sdf'], 2), round(net, 2), run_version))
+                          round(stats['nec'], 2), round(stats['medical_aid'], 2), round(stats['zimdef'], 2), round(stats['wcif'], 2), round(stats['sdf'], 2), round(net, 2), run_version))
                     processed += 1
 
                 # Generate payroll archive Excel
@@ -16192,7 +16208,7 @@ def hr_payroll_api():
                                e.usd_percent, e.zwg_percent, e.exchange_rate, e.currency,
                                e.c8_number, e.c8_type, e.nationality,
                                p.basic_pay, p.allowances, p.designers_cut, p.gross_pay,
-                               p.paye_tax, p.aids_levy, p.nssa, p.nec, p.zimdef, p.wcif, p.sdf,
+                               p.paye_tax, p.aids_levy, p.nssa, p.nec, p.medical_aid, p.zimdef, p.wcif, p.sdf,
                                p.deductions, p.net_pay, p.status
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
@@ -16203,7 +16219,7 @@ def hr_payroll_api():
 
                     emp_count = len(payroll_rows)
                     total_gross = sum(float(r[22] or 0) for r in payroll_rows)
-                    total_net = sum(float(r[31] or 0) for r in payroll_rows)
+                    total_net = sum(float(r[32] or 0) for r in payroll_rows)
                     user_name = session.get('user_name', 'System')
 
                     from openpyxl import Workbook
@@ -16225,12 +16241,12 @@ def hr_payroll_api():
                     )
 
                     # Title section
-                    ws.merge_cells('A1:U1')
+                    ws.merge_cells('A1:X1')
                     ws['A1'].value = f"ConnectLink — Payroll Register ({period})"
                     ws['A1'].font = title_font
                     ws['A1'].alignment = XlAlign(horizontal='left')
 
-                    ws.merge_cells('A2:U2')
+                    ws.merge_cells('A2:X2')
                     ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {emp_count} | Total Gross: ${total_gross:,.2f} | Total Net: ${total_net:,.2f}"
                     ws['A2'].font = subtitle_font
 
@@ -16238,7 +16254,7 @@ def hr_payroll_api():
                     headers = [
                         '#', 'First Name', 'Last Name', 'Department', 'Classification', 'Designation',
                         'Basic Pay', 'Commission', "Designer's Cut", 'Gross Pay',
-                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'NEC', 'Total Deductions',
+                        'PAYE Tax', 'AIDS Levy', 'NSSA', 'NEC', 'Medical Aid', 'Total Deductions',
                         'Net Pay', 'Status',
                         'Bank Holder', 'Bank Name', 'Account Number', 'Branch', 'Branch Code',
                         'Currency'
@@ -16258,8 +16274,8 @@ def hr_payroll_api():
                             r[0] or '', r[1] or '', r[2] or '', r[3] or '', r[4] or '',
                             float(r[19] or 0), float(r[20] or 0), float(r[21] or 0), float(r[22] or 0),
                             float(r[23] or 0), float(r[24] or 0), float(r[25] or 0),
-                            float(r[26] or 0),
-                            float(r[30] or 0), float(r[31] or 0), r[32] or '',
+                            float(r[26] or 0), float(r[27] or 0),
+                            float(r[31] or 0), float(r[32] or 0), r[33] or '',
                             r[6] or '', r[8] or '', r[9] or '', r[10] or '', r[11] or '',
                             r[15] or 'USD'
                         ]
@@ -16272,7 +16288,7 @@ def hr_payroll_api():
                                 cell.alignment = XlAlign(horizontal='right')
 
                     # Column widths
-                    widths = [5, 16, 16, 18, 16, 18, 12, 10, 12, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
+                    widths = [5, 16, 16, 18, 16, 18, 12, 10, 12, 12, 12, 10, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
                     for i, w in enumerate(widths, 1):
                         from openpyxl.utils import get_column_letter
                         col_letter = get_column_letter(i)
@@ -16282,12 +16298,12 @@ def hr_payroll_api():
                     ws2 = wb.create_sheet(title="Remittances")
 
                     # Title
-                    ws2.merge_cells('A1:H1')
+                    ws2.merge_cells('A1:P1')
                     ws2['A1'].value = f"ConnectLink — Remittances Summary ({period})"
                     ws2['A1'].font = title_font
                     ws2['A1'].alignment = XlAlign(horizontal='left')
 
-                    ws2.merge_cells('A2:H2')
+                    ws2.merge_cells('A2:P2')
                     ws2['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {emp_count}"
                     ws2['A2'].font = subtitle_font
 
@@ -16297,10 +16313,11 @@ def hr_payroll_api():
                         'PAYE Tax', 'AIDS Levy',
                         'NSSA (Emp)', 'NSSA (Er)',
                         'NEC (Emp)', 'NEC (Er)',
+                        'Medical Aid (Emp)', 'Medical Aid (Er)',
                         'ZIMDEF', 'WCIF', 'SDF',
                         'Total Employee', 'Total Employer', 'Grand Total'
                     ]
-                    rem_widths = [30, 18, 12, 10, 12, 12, 10, 10, 10, 10, 12, 14, 14, 14]
+                    rem_widths = [30, 18, 12, 10, 12, 12, 10, 10, 12, 12, 10, 10, 12, 14, 14, 14]
                     for col_idx, h in enumerate(rem_headers, 1):
                         cell = ws2.cell(row=4, column=col_idx, value=h)
                         cell.fill = header_fill
@@ -16323,21 +16340,24 @@ def hr_payroll_api():
 
                     # Totals
                     t_paye = t_aids = t_nssa_e = t_er_nssa = t_nec_e = t_nec_er = 0
+                    t_med_e = t_med_er = 0
                     t_zimdef = t_wcif = t_sdf = 0
 
                     for row_idx, r in enumerate(payroll_rows, 5):
                         emp_name = f"{r[0] or ''} {r[1] or ''}".strip()
                         dept = r[2] or ''
-                        grs = float(r[20] or 0)
-                        nssa_e = float(r[23] or 0)  # p.nssa
+                        grs = float(r[22] or 0)          # p.gross_pay
+                        nssa_e = float(r[25] or 0)       # p.nssa
                         taxable = grs - nssa_e
-                        paye = float(r[21] or 0)
-                        aids = float(r[22] or 0)
-                        nec_e = float(r[24] or 0)
+                        paye = float(r[23] or 0)         # p.paye_tax
+                        aids = float(r[24] or 0)         # p.aids_levy
+                        nec_e = float(r[26] or 0)        # p.nec
                         nec_er = grs * 0.02
-                        zimdef = float(r[25] or 0)
-                        wcif = float(r[26] or 0)
-                        sdf = float(r[27] or 0)
+                        medical_aid_e = float(r[27] or 0) # p.medical_aid
+                        medical_aid_er = medical_aid_e    # employer matches employee ($6)
+                        zimdef = float(r[28] or 0)       # p.zimdef
+                        wcif = float(r[29] or 0)         # p.wcif
+                        sdf = float(r[30] or 0)          # p.sdf
                         er_nssa = calc_emp_nssa(grs)
 
                         t_paye += paye
@@ -16346,15 +16366,18 @@ def hr_payroll_api():
                         t_er_nssa += er_nssa
                         t_nec_e += nec_e
                         t_nec_er += nec_er
+                        t_med_e += medical_aid_e
+                        t_med_er += medical_aid_er
                         t_zimdef += zimdef
                         t_wcif += wcif
                         t_sdf += sdf
 
-                        emp_total = paye + aids + nssa_e + nec_e
-                        er_total = er_nssa + nec_er + zimdef + wcif + sdf
+                        emp_total = paye + aids + nssa_e + nec_e + medical_aid_e
+                        er_total = er_nssa + nec_er + medical_aid_er + zimdef + wcif + sdf
 
                         vals = [emp_name, dept, paye, aids, nssa_e, round(er_nssa, 2),
-                                nec_e, round(nec_er, 2), zimdef, wcif, sdf,
+                                nec_e, round(nec_er, 2), medical_aid_e, medical_aid_er,
+                                zimdef, wcif, sdf,
                                 round(emp_total, 2), round(er_total, 2),
                                 round(emp_total + er_total, 2)]
                         for col_idx, val in enumerate(vals, 1):
@@ -16367,10 +16390,11 @@ def hr_payroll_api():
 
                     # Totals row
                     total_row = 5 + len(payroll_rows)
-                    grand_emp = t_paye + t_aids + t_nssa_e + t_nec_e
-                    grand_er = t_er_nssa + t_nec_er + t_zimdef + t_wcif + t_sdf
+                    grand_emp = t_paye + t_aids + t_nssa_e + t_nec_e + t_med_e
+                    grand_er = t_er_nssa + t_nec_er + t_med_er + t_zimdef + t_wcif + t_sdf
                     tot_vals = ['TOTAL', '', t_paye, t_aids, t_nssa_e, round(t_er_nssa, 2),
-                                t_nec_e, round(t_nec_er, 2), t_zimdef, t_wcif, t_sdf,
+                                t_nec_e, round(t_nec_er, 2), t_med_e, t_med_er,
+                                t_zimdef, t_wcif, t_sdf,
                                 round(grand_emp, 2), round(grand_er, 2),
                                 round(grand_emp + grand_er, 2)]
                     for col_idx, val in enumerate(tot_vals, 1):
@@ -17198,7 +17222,7 @@ def payroll_breakdown():
                        e.basic_salary, e.allowances, e.usd_percent, e.zwg_percent, e.exchange_rate,
                        e.bank_holder_name, e.bank_holder_surname, e.bank_name, e.bank_account_number, e.bank_branch,
                        p.basic_pay, p.allowances as pay_allowances, p.designers_cut, p.gross_pay,
-                       p.paye_tax, p.aids_levy, p.nssa, p.nec, p.zimdef, p.deductions, p.net_pay,
+                       p.paye_tax, p.aids_levy, p.nssa, p.nec, p.medical_aid, p.zimdef, p.deductions, p.net_pay,
                        p.period, p.status, p.processed_at
                 FROM hr_employees e
                 LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
@@ -17221,10 +17245,11 @@ def payroll_breakdown():
                 'gross_pay': float(row[18] or 0),
                 'paye_tax': float(row[19] or 0), 'aids_levy': float(row[20] or 0),
                 'nssa': float(row[21] or 0), 'nec': float(row[22] or 0),
-                'zimdef': float(row[23] or 0),
-                'total_deductions': float(row[24] or 0), 'net_pay': float(row[25] or 0),
-                'period': row[26] or period, 'status': row[27] or 'Not Processed',
-                'processed_at': row[28]
+                'medical_aid': float(row[23] or 0),
+                'zimdef': float(row[24] or 0),
+                'total_deductions': float(row[25] or 0), 'net_pay': float(row[26] or 0),
+                'period': row[27] or period, 'status': row[28] or 'Not Processed',
+                'processed_at': row[29]
             }
 
             # 2. Load active PAYE brackets for display
@@ -17263,8 +17288,9 @@ def payroll_breakdown():
         paye = emp['paye_tax']
         aids = emp['aids_levy']
         nec = emp['nec']
+        medical_aid = emp['medical_aid']
         zimdef = emp['zimdef']
-        total_ded = emp['total_deductions'] or (nssa + paye + aids + nec)
+        total_ded = emp['total_deductions'] or (nssa + paye + aids + nec + medical_aid)
         net = emp['net_pay'] or max(0, gross - total_ded)
 
         # Taxable income = Gross - NSSA (since NSSA is deducted first)
@@ -17337,6 +17363,30 @@ def payroll_breakdown():
             'color': '#7c3aed'
         })
 
+        # NEC (Employee) - only for Top Management
+        if nec and nec > 0:
+            deduction_rows.append({
+                'name': 'NEC (National Employment Council)',
+                'description': 'NEC employee contribution — applied to Top Management classified employees only',
+                'rate': f'{deduction_configs.get("NEC_EMPLOYEE", {}).get("rate", 2.0):.1f}% of gross',
+                'calculation': f'${gross:,.2f} × {deduction_configs.get("NEC_EMPLOYEE", {}).get("rate", 2.0):.1f}%',
+                'amount': nec,
+                'color': '#0891b2'
+            })
+
+        # Medical Aid (Employee) - fixed amount
+        medical_aid_config = deduction_configs.get('MEDICAL_AID_EMPLOYEE', {})
+        medical_aid_rate = float(medical_aid_config.get('rate', 0) or 0)
+        if medical_aid and medical_aid > 0:
+            deduction_rows.append({
+                'name': 'Medical Aid (Employee)',
+                'description': 'Medical Aid employee contribution — fixed amount per month',
+                'rate': f'${medical_aid_rate:,.2f} fixed',
+                'calculation': f'${medical_aid_rate:,.2f} fixed',
+                'amount': medical_aid,
+                'color': '#0d9488'
+            })
+
         # Employer-only contributions for remittances summary
         employer_nssa = nssa_basis * (nssa_rate / 100)
         nec_employer_rate = deduction_configs.get('NEC_EMPLOYER', {}).get('rate', 2.0)
@@ -17345,17 +17395,24 @@ def payroll_breakdown():
         employer_wcif = taxable_income * (wcif_rate / 100)
         sdf_rate = deduction_configs.get('SDF', {}).get('rate', 0.5)
         employer_sdf = taxable_income * (sdf_rate / 100)
-        total_employer = employer_nssa + employer_nec + zimdef_amount + employer_wcif + employer_sdf
+        # Employer Medical Aid contribution (fixed amount, matches employee amount)
+        employer_medical_aid_config = deduction_configs.get('MEDICAL_AID_EMPLOYER', {})
+        if employer_medical_aid_config.get('rate_type') == 'fixed_amount':
+            employer_medical_aid = float(employer_medical_aid_config.get('rate', 0) or 0)
+        else:
+            employer_medical_aid = 0
+        total_employer = employer_nssa + employer_nec + zimdef_amount + employer_wcif + employer_sdf + employer_medical_aid
         total_remittance = total_ded + total_employer
 
         return render_template('payroll_breakdown.html',
             emp=emp, basic=basic, allowances=allowances, designers_cut=emp['designers_cut'], gross=gross,
             paye_brackets=paye_brackets, active_bracket=active_bracket,
             deduction_rows=deduction_rows, paye=paye, aids=aids,
-            nssa=nssa, nec=nec, employer_nssa=employer_nssa, nssa_basis=nssa_basis,
+            nssa=nssa, nec=nec, medical_aid=medical_aid, employer_nssa=employer_nssa, nssa_basis=nssa_basis,
             nssa_rate=nssa_rate, nssa_cap_note=nssa_cap_note,
             zimdef=zimdef_amount, total_ded=total_ded, net=net,
             employer_nec=employer_nec, employer_wcif=employer_wcif, employer_sdf=employer_sdf,
+            employer_medical_aid=employer_medical_aid,
             total_employer=total_employer, total_remittance=total_remittance,
             now=datetime.now()
         )
@@ -17390,6 +17447,7 @@ def generate_payslip_pdf(employee_id):
                        COALESCE(p.nssa, 0) as nssa,
                        COALESCE(p.zimdef, 0) as zimdef,
                        COALESCE(p.nec, 0) as nec,
+                       COALESCE(p.medical_aid, 0) as medical_aid,
                        COALESCE(p.deductions, 0) as deductions,
                        COALESCE(p.net_pay, 0) as net_pay,
                        p.period, p.status, p.processed_at
@@ -17428,9 +17486,10 @@ def generate_payslip_pdf(employee_id):
                 'paye_tax': float(row[27] or 0), 'aids_levy': float(row[28] or 0),
                 'nssa': float(row[29] or 0), 'zimdef': float(row[30] or 0),
                 'nec': float(row[31] or 0),
-                'total_deductions': float(row[32] or 0), 'net_pay': float(row[33] or 0),
-                'period': row[34] or period, 'status': row[35] or 'Not Processed',
-                'processed_at': row[36]
+                'medical_aid': float(row[32] or 0),
+                'total_deductions': float(row[33] or 0), 'net_pay': float(row[34] or 0),
+                'period': row[35] or period, 'status': row[36] or 'Not Processed',
+                'processed_at': row[37]
             }
 
             # Fetch employer NSSA config
@@ -17516,6 +17575,7 @@ def payroll_remittances(period):
                     COALESCE(SUM(aids_levy), 0) as total_aids,
                     COALESCE(SUM(nssa), 0) as total_nssa_emp,
                     COALESCE(SUM(zimdef), 0) as total_zimdef,
+                    COALESCE(SUM(medical_aid), 0) as total_medical_aid,
                     COALESCE(SUM(deductions), 0) as total_deductions,
                     COALESCE(SUM(net_pay), 0) as total_net
                 FROM hr_payroll WHERE period = %s
@@ -17530,8 +17590,9 @@ def payroll_remittances(period):
             m_aids = float(mr[3] or 0)
             m_nssa_emp = float(mr[4] or 0)
             m_zimdef = float(mr[5] or 0)
-            m_ded = float(mr[6] or 0)
-            m_net = float(mr[7] or 0)
+            m_med_emp = float(mr[6] or 0)
+            m_ded = float(mr[7] or 0)
+            m_net = float(mr[8] or 0)
 
             cursor.execute("SELECT gross_pay FROM hr_payroll WHERE period = %s", (period,))
             m_er_nssa = sum(calc_employer_nssa(float(r[0] or 0)) for r in cursor.fetchall())
@@ -17545,6 +17606,7 @@ def payroll_remittances(period):
                     COALESCE(SUM(aids_levy), 0) as total_aids,
                     COALESCE(SUM(nssa), 0) as total_nssa_emp,
                     COALESCE(SUM(zimdef), 0) as total_zimdef,
+                    COALESCE(SUM(medical_aid), 0) as total_medical_aid,
                     COALESCE(SUM(deductions), 0) as total_deductions,
                     COALESCE(SUM(net_pay), 0) as total_net
                 FROM hr_payroll WHERE period LIKE %s AND period <= %s
@@ -17556,8 +17618,9 @@ def payroll_remittances(period):
             y_aids = float(yr[3] or 0) if yr else 0
             y_nssa_emp = float(yr[4] or 0) if yr else 0
             y_zimdef = float(yr[5] or 0) if yr else 0
-            y_ded = float(yr[6] or 0) if yr else 0
-            y_net = float(yr[7] or 0) if yr else 0
+            y_med_emp = float(yr[6] or 0) if yr else 0
+            y_ded = float(yr[7] or 0) if yr else 0
+            y_net = float(yr[8] or 0) if yr else 0
 
             cursor.execute("SELECT gross_pay FROM hr_payroll WHERE period LIKE %s AND period <= %s", (f"{year}%", period))
             y_er_nssa = sum(calc_employer_nssa(float(r[0] or 0)) for r in cursor.fetchall())
@@ -17571,8 +17634,8 @@ def payroll_remittances(period):
                 ('NEC', 'National Employment Council', 0, 0, 0, 0),
                 ('WCIF', 'Workers Compensation Insurance Fund', 0, 0, 0, 0),
                 ('SDF', 'SDF (Standard Development Fund)', 0, 0, 0, 0),
+                ('MED AID', 'Medical Aid Contribution', m_med_emp, m_med_emp, y_med_emp, y_med_emp),
                 ('PENSION Co.', 'Pension Company Contribution', 0, 0, 0, 0),
-                ('MED AID', 'Medical Aid Company Contribution', 0, 0, 0, 0),
                 ('STND LEVY', 'Standards Levy', 0, 0, 0, 0),
             ]
 
@@ -17625,8 +17688,8 @@ def payroll_remittances(period):
                 ws.cell(row=tr, column=1, value='MONTH TOTAL').font = Font(bold=True, size=10)
                 ws.cell(row=tr, column=1).border = thin_border
                 ws.cell(row=tr, column=2).border = thin_border
-                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef
-                sm_er = m_er_nssa
+                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef + m_med_emp
+                sm_er = m_er_nssa + m_med_emp
                 for col, val in [(3, sm_emp), (4, sm_er), (5, sm_emp + sm_er)]:
                     c = ws.cell(row=tr, column=col, value=round(val, 2))
                     c.number_format = money_fmt; c.font = Font(bold=True, color='C12B3E', size=10)
@@ -17652,8 +17715,8 @@ def payroll_remittances(period):
                 ytr = ytd_start + 2 + len(remittances)
                 ws.cell(row=ytr, column=1, value='YTD TOTAL').font = Font(bold=True, size=10)
                 ws.cell(row=ytr, column=1).border = thin_border; ws.cell(row=ytr, column=2).border = thin_border
-                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef
-                ys_er = y_er_nssa
+                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_med_emp
+                ys_er = y_er_nssa + y_med_emp
                 for col, val in [(3, ys_emp), (4, ys_er), (5, ys_emp + ys_er)]:
                     c = ws.cell(row=ytr, column=col, value=round(val, 2))
                     c.number_format = money_fmt; c.font = Font(bold=True, color='C12B3E', size=10)
@@ -17673,16 +17736,16 @@ def payroll_remittances(period):
                     f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${me:,.2f}</td><td style="text-align:right;">${mer:,.2f}</td><td style="text-align:right;">${me+mer:,.2f}</td></tr>'
                     for c, d, me, mer, ye, yer in remittances
                 )
-                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef
-                sm_er = m_er_nssa
+                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef + m_med_emp
+                sm_er = m_er_nssa + m_med_emp
                 m_total_row = f'<tr class="gt"><td></td><td><strong>MONTH TOTAL</strong></td><td style="text-align:right;"><strong>${sm_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_er:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_emp+sm_er:,.2f}</strong></td></tr>'
 
                 y_remit_rows = ''.join(
                     f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${ye:,.2f}</td><td style="text-align:right;">${yer:,.2f}</td><td style="text-align:right;">${ye+yer:,.2f}</td></tr>'
                     for c, d, me, mer, ye, yer in remittances
                 )
-                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef
-                ys_er = y_er_nssa
+                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_med_emp
+                ys_er = y_er_nssa + y_med_emp
                 y_total_row = f'<tr class="gt"><td></td><td><strong>YTD TOTAL</strong></td><td style="text-align:right;"><strong>${ys_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_er:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_emp+ys_er:,.2f}</strong></td></tr>'
 
                 html = f"""<!DOCTYPE html>

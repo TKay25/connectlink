@@ -209,6 +209,7 @@
             <tr><td>PYE</td><td>PAYE Tax (on taxable income)</td><td>${{ emp.paye_tax|round(2)|numberfmt }}</td></tr>
             <tr><td>AID</td><td>AIDS Levy (3% of PAYE)</td><td>${{ emp.aids_levy|round(2)|numberfmt }}</td></tr>
             <tr><td>NEC</td><td>NEC (National Employment Council)</td><td>${{ emp.nec|default(0)|round(2)|numberfmt }}</td></tr>
+            <tr><td>MED</td><td>Medical Aid</td><td>${{ emp.medical_aid|default(0)|round(2)|numberfmt }}</td></tr>
             <tr class="tt"><td></td><td><strong>Total Deductions</strong></td><td><strong>${{ emp.total_deductions|round(2)|numberfmt }}</strong></td></tr>
             <tr class="gt"><td></td><td><strong>Net Pay</strong></td><td><strong>${{ emp.net_pay|round(2)|numberfmt }}</strong></td></tr>
           </tbody>
