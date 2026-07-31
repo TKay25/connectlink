@@ -15019,7 +15019,7 @@ def hr_employees_template():
         dv_config = {
             5: ['Male', 'Female'],                          # Gender
             7: ['Single', 'Married', 'Divorced', 'Widowed'], # Marital Status
-            10: ['Construction', 'Sales and Marketing', 'Administration', 'Finance', 'HR', 'Logistics', 'Management', 'Systems & IT'],  # Department
+            10: ['Construction', 'Sales and Marketing', 'Administration', 'Finance', 'HR', 'Logistics', 'Management', 'Systems & IT', 'Kitchen & Cabinets'],  # Department
             12: ['Permanent', 'Contract', 'Probation', 'Intern', 'Part-Time'],  # Employment Type
             14: ['Construction', 'Hardware', 'Group'],       # Subsidiary
             21: ['CABS', 'CBZ', 'Ecobank', 'FBC', 'First Capital', 'NBS', 'Nedbank', 'POSB', 'EcoCash', 'Standard Chartered', 'Stanbic', 'ZABG', 'ZB'],  # Bank Name
