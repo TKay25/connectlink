@@ -4540,11 +4540,17 @@ async function loadPayroll(period) {
             tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">' +
                 '<i class="bi bi-wallet2" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
                 'No payroll data. Click <strong>"Process Payroll"</strong> to generate.</td></tr>';
-            // Reset deduction breakdown
+            // Reset deduction breakdown AND summary stats (avoid stale values)
             ['sumPaye','sumAids','sumNssa','sumNec'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = '$0';
             });
+            const pg = document.getElementById('payrollGross');
+            const pd = document.getElementById('payrollDeductions');
+            const pn = document.getElementById('payrollNet');
+            if (pg) pg.textContent = '$0';
+            if (pd) pd.textContent = '$0';
+            if (pn) pn.textContent = '$0';
             return;
         }
 
@@ -4558,7 +4564,7 @@ async function loadPayroll(period) {
         tbody.innerHTML = '';
 
         payrollData.forEach(rec => {
-            gross += rec.basic_pay || 0;
+            gross += rec.gross_pay || 0;
             deductions += rec.deductions || 0;
             net += rec.net_pay || 0;
             sumPaye += rec.paye_tax || 0;
