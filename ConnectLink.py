@@ -15947,6 +15947,27 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             """)
             employer_cfg = {r[0]: float(r[1] or 0) for r in cursor.fetchall()}
 
+            # Actual Year-to-Date totals from all payroll periods in the year
+            ytd_year = period.split('-')[0]
+            cursor.execute("""
+                SELECT
+                    COALESCE(SUM(gross_pay - nssa), 0) as ytd_taxable,
+                    COALESCE(SUM(paye_tax), 0) as ytd_paye,
+                    COALESCE(SUM(aids_levy), 0) as ytd_aids,
+                    COALESCE(SUM(nssa), 0) as ytd_nssa,
+                    COALESCE(SUM(nec), 0) as ytd_nec,
+                    COALESCE(SUM(medical_aid), 0) as ytd_medical_aid
+                FROM hr_payroll
+                WHERE employee_id = %s AND period LIKE %s AND period <= %s
+            """, (emp_id, f"{ytd_year}%", period))
+            yr = cursor.fetchone()
+            ytd_taxable_income = float(yr[0] or 0)
+            ytd_paye = float(yr[1] or 0)
+            ytd_aids = float(yr[2] or 0)
+            ytd_nssa = float(yr[3] or 0)
+            ytd_nec = float(yr[4] or 0)
+            ytd_medical_aid = float(yr[5] or 0)
+
         # Compute taxable income and employer contributions
         taxable_income = emp['gross_pay'] - emp['nssa']
         employer_medical_aid = emp['medical_aid']  # employer pays the other half of the package
@@ -15974,6 +15995,8 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             nssa_basis=nssa_basis,
             nssa_rate=nssa_rate, nssa_cap=nssa_cap,
             taxable_income=taxable_income,
+            ytd_taxable_income=ytd_taxable_income, ytd_paye=ytd_paye, ytd_aids=ytd_aids,
+            ytd_nssa=ytd_nssa, ytd_nec=ytd_nec, ytd_medical_aid=ytd_medical_aid,
             exch_rate=emp['exchange_rate'],
             now=datetime.now()
         )
@@ -17551,6 +17574,27 @@ def generate_payslip_pdf(employee_id):
             """)
             employer_cfg = {r[0]: float(r[1] or 0) for r in cursor.fetchall()}
 
+            # Actual Year-to-Date totals from all payroll periods in the year
+            ytd_year = period.split('-')[0]
+            cursor.execute("""
+                SELECT
+                    COALESCE(SUM(gross_pay - nssa), 0) as ytd_taxable,
+                    COALESCE(SUM(paye_tax), 0) as ytd_paye,
+                    COALESCE(SUM(aids_levy), 0) as ytd_aids,
+                    COALESCE(SUM(nssa), 0) as ytd_nssa,
+                    COALESCE(SUM(nec), 0) as ytd_nec,
+                    COALESCE(SUM(medical_aid), 0) as ytd_medical_aid
+                FROM hr_payroll
+                WHERE employee_id = %s AND period LIKE %s AND period <= %s
+            """, (employee_id, f"{ytd_year}%", period))
+            yr = cursor.fetchone()
+            ytd_taxable_income = float(yr[0] or 0)
+            ytd_paye = float(yr[1] or 0)
+            ytd_aids = float(yr[2] or 0)
+            ytd_nssa = float(yr[3] or 0)
+            ytd_nec = float(yr[4] or 0)
+            ytd_medical_aid = float(yr[5] or 0)
+
         # Build logo
         logo_b64 = ''
         logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
@@ -17576,6 +17620,8 @@ def generate_payslip_pdf(employee_id):
             nssa_basis=nssa_basis,
             nssa_rate=nssa_rate, nssa_cap=nssa_cap,
             taxable_income=taxable_income,
+            ytd_taxable_income=ytd_taxable_income, ytd_paye=ytd_paye, ytd_aids=ytd_aids,
+            ytd_nssa=ytd_nssa, ytd_nec=ytd_nec, ytd_medical_aid=ytd_medical_aid,
             exch_rate=exch_rate,
             now=datetime.now()
         )

@@ -224,12 +224,13 @@
         <table class="st">
           <tbody>
             <tr class="sh"><td colspan="2">Year-to-Date</td></tr>
-            <tr><td>YTD TAXABLE INC</td><td>${{ (taxable_income * 3)|round(2)|numberfmt }}</td></tr>
-            <tr><td>YTD TAX DEDUCTED</td><td>${{ (emp.paye_tax * 3)|round(2)|numberfmt }}</td></tr>
-            <tr><td>YTD AIDS LEVY</td><td>${{ (emp.aids_levy * 3)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD TAXABLE INC</td><td>${{ ytd_taxable_income|default(0)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD TAX DEDUCTED</td><td>${{ ytd_paye|default(0)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD AIDS LEVY</td><td>${{ ytd_aids|default(0)|round(2)|numberfmt }}</td></tr>
             <tr><td>YTD BONUS TAX</td><td>$0.00</td></tr>
-            <tr><td>YTD PENSION (NSSA)</td><td>${{ (emp.nssa * 3)|round(2)|numberfmt }}</td></tr>
-            <tr><td>YTD NEC</td><td>${{ (emp.nec * 3)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD PENSION (NSSA)</td><td>${{ ytd_nssa|default(0)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD NEC</td><td>${{ ytd_nec|default(0)|round(2)|numberfmt }}</td></tr>
+            <tr><td>YTD MEDICAL AID</td><td>${{ ytd_medical_aid|default(0)|round(2)|numberfmt }}</td></tr>
 
             <tr class="sh"><td colspan="2">Employer Contributions</td></tr>
             <tr><td>NSSA Co. CONTRIB</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
