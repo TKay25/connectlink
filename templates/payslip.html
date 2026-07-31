@@ -233,11 +233,11 @@
 
             <tr class="sh"><td colspan="2">Employer Contributions</td></tr>
             <tr><td>NSSA Co. CONTRIB</td><td>${{ employer_nssa|round(2)|numberfmt }}</td></tr>
-            <tr><td>MED Aid Co. CONTR</td><td>$0.00</td></tr>
-            <tr><td>NEC Co. CONTRIB</td><td>$0.00</td></tr>
+            <tr><td>MED Aid Co. CONTR</td><td>${{ employer_medical_aid|default(0)|round(2)|numberfmt }}</td></tr>
+            <tr><td>NEC Co. CONTRIB</td><td>${{ employer_nec|default(0)|round(2)|numberfmt }}</td></tr>
             <tr><td>MANPOWER LEVY</td><td>${{ emp.zimdef|round(2)|numberfmt }}</td></tr>
-            <tr><td>STANDARDS LEVY</td><td>$0.00</td></tr>
-            <tr><td>WCIF</td><td>$0.00</td></tr>
+            <tr><td>STANDARDS LEVY</td><td>${{ employer_sdf|default(0)|round(2)|numberfmt }}</td></tr>
+            <tr><td>WCIF</td><td>${{ employer_wcif|default(0)|round(2)|numberfmt }}</td></tr>
 
             <tr class="sh"><td colspan="2">Leave</td></tr>
             <tr><td>Leave Balance</td><td>{{ emp.leave_balance|round(1) }} days</td></tr>

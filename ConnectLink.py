@@ -15940,8 +15940,22 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                 nssa_cap = f' (capped at ${nssa_ceiling:,.2f})'
             employer_nssa = nssa_basis * (nssa_rate / 100)
 
-        # Compute taxable income
+            # Fetch employer contribution configs (NEC, WCIF, SDF)
+            cursor.execute("""
+                SELECT deduction_code, rate FROM payroll_deduction_config
+                WHERE deduction_code IN ('NEC_EMPLOYEE', 'NEC_EMPLOYER', 'WCIF', 'SDF') AND is_active = TRUE
+            """)
+            employer_cfg = {r[0]: float(r[1] or 0) for r in cursor.fetchall()}
+
+        # Compute taxable income and employer contributions
         taxable_income = emp['gross_pay'] - emp['nssa']
+        employer_medical_aid = emp['medical_aid']  # employer pays the other half of the package
+        # If the employee pays no NEC, the employer pays the full combined rate (4%)
+        nec_employee_rate = float(employer_cfg.get('NEC_EMPLOYEE', 2.0))
+        nec_employer_rate = float(employer_cfg.get('NEC_EMPLOYER', 2.0))
+        employer_nec = emp['gross_pay'] * ((nec_employee_rate + nec_employer_rate) / 100) - emp['nec']
+        employer_wcif = taxable_income * (employer_cfg.get('WCIF', 2.16) / 100)
+        employer_sdf = taxable_income * (employer_cfg.get('SDF', 0.5) / 100)
 
         # Build logo
         logo_b64 = ''
@@ -15955,7 +15969,9 @@ def handle_download_payslip_whatsapp(sender_id, payload):
         import pdfkit
         html = render_template('payslip.html',
             emp=emp, logo_b64=logo_b64,
-            employer_nssa=employer_nssa, nssa_basis=nssa_basis,
+            employer_nssa=employer_nssa, employer_medical_aid=employer_medical_aid,
+            employer_nec=employer_nec, employer_wcif=employer_wcif, employer_sdf=employer_sdf,
+            nssa_basis=nssa_basis,
             nssa_rate=nssa_rate, nssa_cap=nssa_cap,
             taxable_income=taxable_income,
             exch_rate=emp['exchange_rate'],
@@ -16376,7 +16392,8 @@ def hr_payroll_api():
                         paye = float(r[23] or 0)         # p.paye_tax
                         aids = float(r[24] or 0)         # p.aids_levy
                         nec_e = float(r[26] or 0)        # p.nec
-                        nec_er = grs * 0.02
+                        # If the employee pays no NEC, the employer pays the full 4%
+                        nec_er = max(0.0, grs * 0.04 - nec_e)
                         medical_aid_e = float(r[27] or 0) # p.medical_aid
                         medical_aid_er = medical_aid_e    # employer matches employee ($6)
                         zimdef = float(r[28] or 0)       # p.zimdef
@@ -17411,8 +17428,10 @@ def payroll_breakdown():
 
         # Employer-only contributions for remittances summary
         employer_nssa = nssa_basis * (nssa_rate / 100)
+        nec_employee_rate = deduction_configs.get('NEC_EMPLOYEE', {}).get('rate', 2.0)
         nec_employer_rate = deduction_configs.get('NEC_EMPLOYER', {}).get('rate', 2.0)
-        employer_nec = gross * (nec_employer_rate / 100)
+        # If the employee pays no NEC, the employer pays the full combined rate (4%)
+        employer_nec = gross * ((nec_employee_rate + nec_employer_rate) / 100) - nec
         wcif_rate = deduction_configs.get('WCIF', {}).get('rate', 2.16)
         employer_wcif = taxable_income * (wcif_rate / 100)
         sdf_rate = deduction_configs.get('SDF', {}).get('rate', 0.5)
@@ -17525,6 +17544,13 @@ def generate_payslip_pdf(employee_id):
                 nssa_cap = f' (capped at ${nssa_ceiling:,.2f})'
             employer_nssa = nssa_basis * (nssa_rate / 100)
 
+            # Fetch employer contribution configs (NEC, WCIF, SDF)
+            cursor.execute("""
+                SELECT deduction_code, rate FROM payroll_deduction_config
+                WHERE deduction_code IN ('NEC_EMPLOYEE', 'NEC_EMPLOYER', 'WCIF', 'SDF') AND is_active = TRUE
+            """)
+            employer_cfg = {r[0]: float(r[1] or 0) for r in cursor.fetchall()}
+
         # Build logo
         logo_b64 = ''
         logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
@@ -17532,13 +17558,22 @@ def generate_payslip_pdf(employee_id):
             with open(logo_path, 'rb') as f:
                 logo_b64 = base64.b64encode(f.read()).decode('utf-8')
 
-        # Compute taxable income
+        # Compute taxable income and employer contributions
         taxable_income = emp['gross_pay'] - emp['nssa']
+        employer_medical_aid = emp['medical_aid']  # employer pays the other half of the package
+        # If the employee pays no NEC, the employer pays the full combined rate (4%)
+        nec_employee_rate = float(employer_cfg.get('NEC_EMPLOYEE', 2.0))
+        nec_employer_rate = float(employer_cfg.get('NEC_EMPLOYER', 2.0))
+        employer_nec = emp['gross_pay'] * ((nec_employee_rate + nec_employer_rate) / 100) - emp['nec']
+        employer_wcif = taxable_income * (employer_cfg.get('WCIF', 2.16) / 100)
+        employer_sdf = taxable_income * (employer_cfg.get('SDF', 0.5) / 100)
 
         # Render payslip HTML
         html = render_template('payslip.html',
             emp=emp, logo_b64=logo_b64,
-            employer_nssa=employer_nssa, nssa_basis=nssa_basis,
+            employer_nssa=employer_nssa, employer_medical_aid=employer_medical_aid,
+            employer_nec=employer_nec, employer_wcif=employer_wcif, employer_sdf=employer_sdf,
+            nssa_basis=nssa_basis,
             nssa_rate=nssa_rate, nssa_cap=nssa_cap,
             taxable_income=taxable_income,
             exch_rate=exch_rate,
@@ -17593,6 +17628,7 @@ def payroll_remittances(period):
                     COALESCE(SUM(aids_levy), 0) as total_aids,
                     COALESCE(SUM(nssa), 0) as total_nssa_emp,
                     COALESCE(SUM(zimdef), 0) as total_zimdef,
+                    COALESCE(SUM(nec), 0) as total_nec,
                     COALESCE(SUM(medical_aid), 0) as total_medical_aid,
                     COALESCE(SUM(deductions), 0) as total_deductions,
                     COALESCE(SUM(net_pay), 0) as total_net
@@ -17608,9 +17644,13 @@ def payroll_remittances(period):
             m_aids = float(mr[3] or 0)
             m_nssa_emp = float(mr[4] or 0)
             m_zimdef = float(mr[5] or 0)
-            m_med_emp = float(mr[6] or 0)
-            m_ded = float(mr[7] or 0)
-            m_net = float(mr[8] or 0)
+            m_nec_emp = float(mr[6] or 0)
+            m_med_emp = float(mr[7] or 0)
+            m_ded = float(mr[8] or 0)
+            m_net = float(mr[9] or 0)
+
+            # Employer NEC: full 4% minus whatever the employee paid (0% or 2%)
+            m_nec_er = max(0.0, m_gross * 0.04 - m_nec_emp)
 
             cursor.execute("SELECT gross_pay FROM hr_payroll WHERE period = %s", (period,))
             m_er_nssa = sum(calc_employer_nssa(float(r[0] or 0)) for r in cursor.fetchall())
@@ -17624,6 +17664,7 @@ def payroll_remittances(period):
                     COALESCE(SUM(aids_levy), 0) as total_aids,
                     COALESCE(SUM(nssa), 0) as total_nssa_emp,
                     COALESCE(SUM(zimdef), 0) as total_zimdef,
+                    COALESCE(SUM(nec), 0) as total_nec,
                     COALESCE(SUM(medical_aid), 0) as total_medical_aid,
                     COALESCE(SUM(deductions), 0) as total_deductions,
                     COALESCE(SUM(net_pay), 0) as total_net
@@ -17636,9 +17677,13 @@ def payroll_remittances(period):
             y_aids = float(yr[3] or 0) if yr else 0
             y_nssa_emp = float(yr[4] or 0) if yr else 0
             y_zimdef = float(yr[5] or 0) if yr else 0
-            y_med_emp = float(yr[6] or 0) if yr else 0
-            y_ded = float(yr[7] or 0) if yr else 0
-            y_net = float(yr[8] or 0) if yr else 0
+            y_nec_emp = float(yr[6] or 0) if yr else 0
+            y_med_emp = float(yr[7] or 0) if yr else 0
+            y_ded = float(yr[8] or 0) if yr else 0
+            y_net = float(yr[9] or 0) if yr else 0
+
+            # Employer NEC: full 4% minus whatever the employee paid (0% or 2%)
+            y_nec_er = max(0.0, y_gross * 0.04 - y_nec_emp)
 
             cursor.execute("SELECT gross_pay FROM hr_payroll WHERE period LIKE %s AND period <= %s", (f"{year}%", period))
             y_er_nssa = sum(calc_employer_nssa(float(r[0] or 0)) for r in cursor.fetchall())
@@ -17649,7 +17694,7 @@ def payroll_remittances(period):
                 ('AIDS LEVY', 'AIDS Levy (3% of PAYE)', m_aids, 0, y_aids, 0),
                 ('NSSA', 'NSSA Employee Pension', m_nssa_emp, m_er_nssa, y_nssa_emp, y_er_nssa),
                 ('ZIMDEF', 'ZIMDEF Manpower Levy', m_zimdef, 0, y_zimdef, 0),
-                ('NEC', 'National Employment Council', 0, 0, 0, 0),
+                ('NEC', 'National Employment Council', m_nec_emp, m_nec_er, y_nec_emp, y_nec_er),
                 ('WCIF', 'Workers Compensation Insurance Fund', 0, 0, 0, 0),
                 ('SDF', 'SDF (Standard Development Fund)', 0, 0, 0, 0),
                 ('MED AID', 'Medical Aid Contribution', m_med_emp, m_med_emp, y_med_emp, y_med_emp),
@@ -17706,8 +17751,8 @@ def payroll_remittances(period):
                 ws.cell(row=tr, column=1, value='MONTH TOTAL').font = Font(bold=True, size=10)
                 ws.cell(row=tr, column=1).border = thin_border
                 ws.cell(row=tr, column=2).border = thin_border
-                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef + m_med_emp
-                sm_er = m_er_nssa + m_med_emp
+                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef + m_nec_emp + m_med_emp
+                sm_er = m_er_nssa + m_nec_er + m_med_emp
                 for col, val in [(3, sm_emp), (4, sm_er), (5, sm_emp + sm_er)]:
                     c = ws.cell(row=tr, column=col, value=round(val, 2))
                     c.number_format = money_fmt; c.font = Font(bold=True, color='C12B3E', size=10)
@@ -17733,8 +17778,8 @@ def payroll_remittances(period):
                 ytr = ytd_start + 2 + len(remittances)
                 ws.cell(row=ytr, column=1, value='YTD TOTAL').font = Font(bold=True, size=10)
                 ws.cell(row=ytr, column=1).border = thin_border; ws.cell(row=ytr, column=2).border = thin_border
-                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_med_emp
-                ys_er = y_er_nssa + y_med_emp
+                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_nec_emp + y_med_emp
+                ys_er = y_er_nssa + y_nec_er + y_med_emp
                 for col, val in [(3, ys_emp), (4, ys_er), (5, ys_emp + ys_er)]:
                     c = ws.cell(row=ytr, column=col, value=round(val, 2))
                     c.number_format = money_fmt; c.font = Font(bold=True, color='C12B3E', size=10)
@@ -17754,16 +17799,16 @@ def payroll_remittances(period):
                     f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${me:,.2f}</td><td style="text-align:right;">${mer:,.2f}</td><td style="text-align:right;">${me+mer:,.2f}</td></tr>'
                     for c, d, me, mer, ye, yer in remittances
                 )
-                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef + m_med_emp
-                sm_er = m_er_nssa + m_med_emp
+                sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef + m_nec_emp + m_med_emp
+                sm_er = m_er_nssa + m_nec_er + m_med_emp
                 m_total_row = f'<tr class="gt"><td></td><td><strong>MONTH TOTAL</strong></td><td style="text-align:right;"><strong>${sm_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_er:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_emp+sm_er:,.2f}</strong></td></tr>'
 
                 y_remit_rows = ''.join(
                     f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${ye:,.2f}</td><td style="text-align:right;">${yer:,.2f}</td><td style="text-align:right;">${ye+yer:,.2f}</td></tr>'
                     for c, d, me, mer, ye, yer in remittances
                 )
-                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_med_emp
-                ys_er = y_er_nssa + y_med_emp
+                ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_nec_emp + y_med_emp
+                ys_er = y_er_nssa + y_nec_er + y_med_emp
                 y_total_row = f'<tr class="gt"><td></td><td><strong>YTD TOTAL</strong></td><td style="text-align:right;"><strong>${ys_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_er:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_emp+ys_er:,.2f}</strong></td></tr>'
 
                 html = f"""<!DOCTYPE html>
