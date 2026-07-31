@@ -19288,6 +19288,9 @@ body { font-family: Arial; margin: 20px; }
             </div>
         </div>
         <div class="modal-footer-custom">
+            <button type="button" class="btn btn-success" id="exportQuotationRatesBtn">
+                <i class="bi bi-file-earmark-excel"></i> Export Excel
+            </button>
             <button type="button" class="btn btn-primary" id="addQuotationItemBtn">
                 <i class="bi bi-plus-circle"></i> Add Quotation Item
             </button>
@@ -34214,6 +34217,28 @@ $('#sendQuotationBtn').click(async function() {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
             });
+        });
+
+        // Export quotation rates to Excel
+        document.getElementById('exportQuotationRatesBtn')?.addEventListener('click', function() {
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Exporting...';
+
+            // Use a hidden anchor to trigger the file download
+            const a = document.createElement('a');
+            a.href = '/api/export-quotation-rates';
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Re-enable after a short delay
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }, 1500);
         });
 
         // Load quotation rates when quotation generator modal opens

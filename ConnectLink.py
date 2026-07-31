@@ -29323,6 +29323,132 @@ def get_quotation_rates():
             'error': str(e)
         }), 500
 
+@app.route('/api/export-quotation-rates', methods=['GET'])
+def export_quotation_rates():
+    """Export quotation rates to an Excel (.xlsx) file."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font as XlFont, PatternFill as XlFill, Alignment as XlAlign, Border as XlBorder, Side as XlSide
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT quotation_item, days_per_sq_meter, inhouse_unit_rate
+                FROM quotation_rates
+                ORDER BY
+                    CASE quotation_item
+                        WHEN 'Land Clearing' THEN 1
+                        WHEN 'Setting out' THEN 2
+                        WHEN 'Excavation' THEN 3
+                        WHEN 'Footing' THEN 4
+                        WHEN 'Box' THEN 5
+                        WHEN 'Removal' THEN 6
+                        WHEN 'Backfilling and Compaction' THEN 7
+                        WHEN 'Slab' THEN 8
+                        WHEN 'Window sill level' THEN 9
+                        WHEN 'Window head' THEN 10
+                        WHEN 'Ring Beam' THEN 11
+                        WHEN 'Wall plate' THEN 12
+                        WHEN 'Roofing' THEN 13
+                        WHEN 'Aluminium' THEN 14
+                        WHEN 'Shattering' THEN 15
+                        WHEN 'Steel Fixing' THEN 16
+                        WHEN 'Deck Pouring' THEN 17
+                        WHEN '1st Fix Electricals' THEN 18
+                        WHEN '1st Fix Plumbing' THEN 19
+                        WHEN 'External Plastering' THEN 20
+                        WHEN 'Internal Plastering' THEN 21
+                        WHEN 'Ceiling' THEN 22
+                        WHEN 'Skimming' THEN 23
+                        WHEN 'Flooring' THEN 24
+                        WHEN 'Tiling' THEN 25
+                        WHEN 'Wall Tiling' THEN 26
+                        WHEN 'Painting' THEN 27
+                        WHEN 'Screeding' THEN 28
+                        WHEN 'Review' THEN 29
+                        WHEN 'Beam filling' THEN 30
+                        WHEN 'TnCs' THEN 31
+                        WHEN 'Final fix Plumbing' THEN 32
+                        WHEN 'Final fix Electricals' THEN 33
+                        WHEN 'Doors and door frames' THEN 34
+                        WHEN 'Cleaning' THEN 35
+                        ELSE 99
+                    END ASC
+            """)
+            rates = cursor.fetchall()
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Quotation Rates"
+
+        header_fill = XlFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+        header_font = XlFont(bold=True, color='FFFFFF', size=11)
+        title_font = XlFont(bold=True, size=14, color='1E2A56')
+        subtitle_font = XlFont(size=9, color='64748B')
+        thin_border = XlBorder(
+            left=XlSide(style='thin', color='CBD5E1'),
+            right=XlSide(style='thin', color='CBD5E1'),
+            top=XlSide(style='thin', color='CBD5E1'),
+            bottom=XlSide(style='thin', color='CBD5E1')
+        )
+
+        # Title
+        ws.merge_cells('A1:C1')
+        ws['A1'].value = "ConnectLink — Quotation Rates"
+        ws['A1'].font = title_font
+
+        ws.merge_cells('A2:C2')
+        ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Items: {len(rates)}"
+        ws['A2'].font = subtitle_font
+
+        # Headers (row 4)
+        headers = ['Quotation Item', 'Days per Sq Meter', 'Client Unit Rate (USD per Sq Meter)']
+        for col_idx, h in enumerate(headers, 1):
+            cell = ws.cell(row=4, column=col_idx, value=h)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = XlAlign(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = thin_border
+
+        # Data rows
+        data_font = XlFont(size=10)
+        for row_idx, r in enumerate(rates, 5):
+            values = [
+                r[0] or '',
+                float(r[1] or 0),
+                float(r[2] or 0)
+            ]
+            for col_idx, val in enumerate(values, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                cell.font = data_font
+                cell.border = thin_border
+                if isinstance(val, float):
+                    cell.number_format = '#,##0.00000000'
+                    cell.alignment = XlAlign(horizontal='right')
+
+        # Column widths
+        ws.column_dimensions['A'].width = 32
+        ws.column_dimensions['B'].width = 20
+        ws.column_dimensions['C'].width = 34
+
+        # Freeze header row
+        ws.freeze_panes = 'A5'
+
+        from io import BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f"Quotation_Rates_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        logging.error(f'Error exporting quotation rates: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/save-quotation-rates', methods=['POST'])
 def save_quotation_rates():
     """Save or update quotation rates to the database"""
