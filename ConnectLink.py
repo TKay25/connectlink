@@ -14597,7 +14597,7 @@ def hr_employees_api():
                 cursor.execute("""
                     SELECT id, user_id, first_name, last_name, whatsapp, email, address,
                            role, classification, department, subsidiary, designation, gender, dob, marital_status,
-                           nationality, date_joined, current_leave_balance, monthly_accumulation,
+                           nationality, national_id, date_joined, current_leave_balance, monthly_accumulation,
                            basic_salary, employment_type, status,
                            leave_approver_id, leave_approver_name
                     FROM hr_employees ORDER BY last_name, first_name
@@ -14616,10 +14616,11 @@ def hr_employees_api():
                         'role': r[7], 'classification': r[8] or 'Ordinary', 'department': r[9], 'subsidiary': r[10] or '',
                         'designation': r[11], 'gender': r[12], 'dob': str(r[13]) if r[13] else None,
                         'marital_status': r[14], 'nationality': r[15],
-                        'date_joined': str(r[16]) if r[16] else None,
-                        'leave_balance': float(r[17] or 0), 'monthly_accrual': float(r[18] or 0),
-                        'salary': float(r[19] or 0), 'employment_type': r[20], 'status': r[21],
-                        'leave_approver_id': r[22], 'leave_approver_name': r[23] or '',
+                        'national_id': r[16] or '',
+                        'date_joined': str(r[17]) if r[17] else None,
+                        'leave_balance': float(r[18] or 0), 'monthly_accrual': float(r[19] or 0),
+                        'salary': float(r[20] or 0), 'employment_type': r[21], 'status': r[22],
+                        'leave_approver_id': r[23], 'leave_approver_name': r[24] or '',
                         'source': 'hr_employees'
                     })
 
