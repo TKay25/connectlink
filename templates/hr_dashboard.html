@@ -3093,6 +3093,8 @@ function resetAddForm() {
     document.getElementById('empLeaveApproverInput').value = '';
     document.getElementById('mixedCurrencyRow').style.display = 'none';
     window._editApproverId = null;
+    window._storedLeaveBalance = undefined;
+    window._storedMonthlyAccrual = undefined;
     // Clear leave balance inputs
     document.querySelectorAll('.lb-input').forEach(inp => inp.value = '');
     // Render default leave balances
@@ -3160,8 +3162,18 @@ async function saveEmployee() {
             return;
         }
 
-        // Collect per-leave-type balances
+        // Collect per-leave-type balances and compute aggregate totals
         const leaveBalances = collectLeaveBalances();
+        const totalLeaveBalance = leaveBalances.reduce((s, b) => s + (b.current_balance || 0), 0);
+        const totalMonthlyAccrual = leaveBalances.reduce((s, b) => s + (b.monthly_accrual || 0), 0);
+        // On edit, preserve the employee's stored aggregate balance (never reset on save).
+        // On create, use the per-type totals from the form (default 21 days / 1.75 accrual).
+        const leaveBalanceToSave = (empId && window._storedLeaveBalance !== undefined)
+            ? window._storedLeaveBalance
+            : totalLeaveBalance;
+        const monthlyAccrualToSave = (empId && window._storedMonthlyAccrual !== undefined)
+            ? window._storedMonthlyAccrual
+            : totalMonthlyAccrual;
 
         const payload = {
             first_name: firstName,
@@ -3177,12 +3189,15 @@ async function saveEmployee() {
             dob: document.getElementById('empDob').value || null,
         marital_status: document.getElementById('empMaritalStatus').value,
         nationality: document.getElementById('empNationality').value,
+        national_id: (document.getElementById('empNationalId').value || '').trim(),
         date_joined: document.getElementById('empStartDate').value || null,
         role: document.getElementById('empRole').value,
         classification: document.getElementById('empClassification').value || 'Ordinary',
         status: document.getElementById('empStatus').value,
-        leave_balance: 0,
-        monthly_accrual: 0,
+        leave_balance: leaveBalanceToSave,
+        monthly_accrual: monthlyAccrualToSave,
+        current_leave_balance: leaveBalanceToSave,
+        monthly_accumulation: monthlyAccrualToSave,
         salary: parseFloat(document.getElementById('empSalary').value) || 0,
         allowances: parseFloat(document.getElementById('empAllowances').value) || 0,
         omit_from_payroll: document.getElementById('empOmitPayroll').checked,
@@ -3215,6 +3230,11 @@ async function saveEmployee() {
             return '';
         })()
     };
+
+    // Only send initial password on creation - never reset on edit
+    if (!empId) {
+        payload.password = document.getElementById('empPassword').value || 'conlink123';
+    }
 
     console.log('Saving employee payload:', JSON.stringify(payload));
     document.getElementById('saveEmployeeBtn').disabled = true;
@@ -3321,6 +3341,10 @@ async function viewEmployee(empId) {
         document.getElementById('empBranchCode').value = emp.bank_branch_code || '';
 
         document.getElementById('empNationalId').value = emp.national_id || '';
+
+        // Remember the employee's stored aggregate leave balance so editing never resets it
+        window._storedLeaveBalance = emp.current_leave_balance ?? 0;
+        window._storedMonthlyAccrual = emp.monthly_accumulation ?? 0;
 
         // Set leave approver via hidden field (dropdown will pick it up on next load)
         if (emp.leave_approver_id) {

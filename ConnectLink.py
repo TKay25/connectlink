@@ -1543,6 +1543,7 @@ def initialize_database_tables():
                     dob DATE,
                     marital_status VARCHAR(50),
                     nationality VARCHAR(100),
+                    national_id VARCHAR(50),
                     date_joined DATE,
                     leave_approver_name VARCHAR(200),
                     leave_approver_id INT,
@@ -1613,6 +1614,16 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add classification column to hr_employees: {e}")
+
+            # Add national_id column to hr_employees if not exists
+            try:
+                cursor.execute("""
+                    ALTER TABLE hr_employees
+                    ADD COLUMN IF NOT EXISTS national_id VARCHAR(50) DEFAULT ''
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add national_id column to hr_employees: {e}")
 
             # Add omit_from_payroll column to hr_employees if not exists
             try:
@@ -14659,10 +14670,10 @@ def hr_employees_api():
                 cursor.execute("""
                     INSERT INTO hr_employees
                         (first_name, last_name, whatsapp, email, address, role, classification, department,
-                         designation, gender, dob, marital_status, nationality, date_joined,
+                         designation, gender, dob, marital_status, nationality, national_id, date_joined,
                          current_leave_balance, monthly_accumulation, basic_salary, employment_type, status,
                          leave_approver_name, leave_approver_id, leave_approver_whatsapp, leave_approver_email)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     RETURNING id
                 """, (
                     data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
@@ -14670,6 +14681,7 @@ def hr_employees_api():
                     data.get('classification', 'Ordinary'),
                     data.get('department'), data.get('designation'), data.get('gender'),
                     data.get('dob'), data.get('marital_status'), data.get('nationality'),
+                    data.get('national_id'),
                     data.get('date_joined'), data.get('leave_balance', 21),
                     data.get('monthly_accrual', 1.75), data.get('salary', 0),
                     data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
@@ -14829,7 +14841,7 @@ def hr_employee_detail(emp_id):
                     UPDATE hr_employees SET
                         first_name=%s, last_name=%s, whatsapp=%s, email=%s, address=%s,
                         role=%s, classification=%s, department=%s, subsidiary=%s, designation=%s, gender=%s, dob=%s,
-                        marital_status=%s, nationality=%s, date_joined=%s,
+                        marital_status=%s, nationality=%s, national_id=%s, date_joined=%s,
                         current_leave_balance=%s, monthly_accumulation=%s,
                         basic_salary=%s, allowances=%s, omit_from_payroll=%s,
                         employment_type=%s, status=%s,
@@ -14846,6 +14858,7 @@ def hr_employee_detail(emp_id):
                     data.get('classification', 'Ordinary'),
                     data.get('department'), data.get('subsidiary', ''), data.get('designation'), data.get('gender'),
                     data.get('dob'), data.get('marital_status'), data.get('nationality'),
+                    data.get('national_id'),
                     data.get('date_joined'), data.get('current_leave_balance', 21),
                     data.get('monthly_accumulation', 1.75),
                     data.get('salary', data.get('basic_salary', 0)),
@@ -14977,6 +14990,7 @@ def hr_employees_template():
             ('dob', 'Date of Birth (YYYY-MM-DD)'),
             ('marital_status', 'Marital Status'),
             ('nationality', 'Nationality'),
+            ('national_id', 'National ID'),
             ('address', 'Address'),
             ('department', 'Department'),
             ('classification', 'Classification (Top Management/Ordinary)'),
@@ -15005,7 +15019,7 @@ def hr_employees_template():
             cell.border = thin_border
 
         # Set column widths
-        widths = [16, 16, 30, 18, 12, 16, 14, 16, 30, 16, 18, 16, 16, 16, 14, 14, 14, 14, 14, 18, 18, 16, 18, 16, 14, 14]
+        widths = [16, 16, 30, 18, 12, 16, 14, 16, 16, 30, 16, 18, 16, 16, 16, 14, 14, 14, 14, 14, 18, 18, 16, 18, 16, 14, 14]
         col_letters = []
         for i in range(1, len(columns) + 1):
             if i <= 26:
@@ -15019,12 +15033,12 @@ def hr_employees_template():
         dv_config = {
             5: ['Male', 'Female'],                          # Gender
             7: ['Single', 'Married', 'Divorced', 'Widowed'], # Marital Status
-            10: ['Sales and Marketing', 'Administration', 'Finance', 'HR', 'Logistics', 'Management', 'Systems & IT'],  # Department
-            11: ['Top Management', 'Ordinary'],              # Classification
-            13: ['Permanent', 'Contract', 'Probation', 'Intern', 'Part-Time'],  # Employment Type
-            15: ['Construction', 'Hardware', 'Group', 'Kitchen & Cabinets'],       # Subsidiary
-            22: ['CABS', 'CBZ', 'Ecobank', 'FBC', 'First Capital', 'NBS', 'Nedbank', 'POSB', 'EcoCash', 'Standard Chartered', 'Stanbic', 'ZABG', 'ZB'],  # Bank Name
-            26: ['Active', 'Inactive', 'Terminated'],        # Status
+            11: ['Sales and Marketing', 'Administration', 'Finance', 'HR', 'Logistics', 'Management', 'Systems & IT'],  # Department
+            12: ['Top Management', 'Ordinary'],              # Classification
+            14: ['Permanent', 'Contract', 'Probation', 'Intern', 'Part-Time'],  # Employment Type
+            16: ['Construction', 'Hardware', 'Group', 'Kitchen & Cabinets'],       # Subsidiary
+            23: ['CABS', 'CBZ', 'Ecobank', 'FBC', 'First Capital', 'NBS', 'Nedbank', 'POSB', 'EcoCash', 'Standard Chartered', 'Stanbic', 'ZABG', 'ZB'],  # Bank Name
+            27: ['Active', 'Inactive', 'Terminated'],        # Status
         }
         for col_idx, options in dv_config.items():
             col_letter = col_letters[col_idx - 1]
@@ -15221,19 +15235,21 @@ def hr_employees_import():
                     if classification.lower() not in ('top management', 'ordinary'):
                         classification = 'Ordinary'
 
+                    national_id = gv('national_id') or ''
+
                     cursor.execute("""
                         INSERT INTO hr_employees
                             (first_name, last_name, email, whatsapp, gender, dob, marital_status,
-                             nationality, address, department, classification, designation, employment_type,
+                             nationality, national_id, address, department, classification, designation, employment_type,
                              date_joined, subsidiary, basic_salary, allowances,
                              current_leave_balance, monthly_accumulation,
                              bank_holder_name, bank_holder_surname, bank_name,
                              bank_account_number, bank_branch, bank_branch_code, status,
                              role)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Ordinary User')
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Ordinary User')
                     """, (
                         first, last, email, whatsapp, gender, dob,
-                        gv('marital_status'), gv('nationality'), gv('address'),
+                        gv('marital_status'), gv('nationality'), national_id, gv('address'),
                         gv('department'), classification, gv('designation'), gv('employment_type'),
                         date_joined, gv('subsidiary'),
                         basic_salary, allowances_val,
