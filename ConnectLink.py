@@ -16186,7 +16186,7 @@ def hr_payroll_api():
                 try:
                     # Re-fetch the processed payroll with employee details for the Excel
                     cursor.execute("""
-                        SELECT e.first_name, e.last_name, e.department, e.designation,
+                        SELECT e.first_name, e.last_name, e.department, e.classification, e.designation,
                                e.basic_salary, e.bank_holder_name, e.bank_holder_surname,
                                e.bank_name, e.bank_account_number, e.bank_branch, e.bank_branch_code,
                                e.usd_percent, e.zwg_percent, e.exchange_rate, e.currency,
@@ -16202,8 +16202,8 @@ def hr_payroll_api():
                     payroll_rows = cursor.fetchall()
 
                     emp_count = len(payroll_rows)
-                    total_gross = sum(float(r[21] or 0) for r in payroll_rows)
-                    total_net = sum(float(r[30] or 0) for r in payroll_rows)
+                    total_gross = sum(float(r[22] or 0) for r in payroll_rows)
+                    total_net = sum(float(r[31] or 0) for r in payroll_rows)
                     user_name = session.get('user_name', 'System')
 
                     from openpyxl import Workbook
@@ -16236,7 +16236,7 @@ def hr_payroll_api():
 
                     # Headers (row 4)
                     headers = [
-                        '#', 'First Name', 'Last Name', 'Department', 'Designation',
+                        '#', 'First Name', 'Last Name', 'Department', 'Classification', 'Designation',
                         'Basic Pay', 'Commission', "Designer's Cut", 'Gross Pay',
                         'PAYE Tax', 'AIDS Levy', 'NSSA', 'NEC', 'Total Deductions',
                         'Net Pay', 'Status',
@@ -16255,13 +16255,13 @@ def hr_payroll_api():
                     for row_idx, r in enumerate(payroll_rows, 5):
                         values = [
                             row_idx - 4,
-                            r[0] or '', r[1] or '', r[2] or '', r[3] or '',
-                            float(r[18] or 0), float(r[19] or 0), float(r[20] or 0), float(r[21] or 0),
-                            float(r[22] or 0), float(r[23] or 0), float(r[24] or 0),
-                            float(r[25] or 0),
-                            float(r[29] or 0), float(r[30] or 0), r[31] or '',
-                            r[5] or '', r[7] or '', r[8] or '', r[9] or '', r[10] or '',
-                            r[14] or 'USD'
+                            r[0] or '', r[1] or '', r[2] or '', r[3] or '', r[4] or '',
+                            float(r[19] or 0), float(r[20] or 0), float(r[21] or 0), float(r[22] or 0),
+                            float(r[23] or 0), float(r[24] or 0), float(r[25] or 0),
+                            float(r[26] or 0),
+                            float(r[30] or 0), float(r[31] or 0), r[32] or '',
+                            r[6] or '', r[8] or '', r[9] or '', r[10] or '', r[11] or '',
+                            r[15] or 'USD'
                         ]
                         for col_idx, val in enumerate(values, 1):
                             cell = ws.cell(row=row_idx, column=col_idx, value=val)
@@ -16272,7 +16272,7 @@ def hr_payroll_api():
                                 cell.alignment = XlAlign(horizontal='right')
 
                     # Column widths
-                    widths = [5, 16, 16, 18, 18, 12, 10, 12, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
+                    widths = [5, 16, 16, 18, 16, 18, 12, 10, 12, 12, 12, 10, 10, 10, 12, 12, 12, 20, 18, 20, 18, 14, 10]
                     for i, w in enumerate(widths, 1):
                         from openpyxl.utils import get_column_letter
                         col_letter = get_column_letter(i)
