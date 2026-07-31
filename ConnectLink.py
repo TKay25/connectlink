@@ -14300,6 +14300,13 @@ def login():
                 has_projects = perms.get('is_super_admin', False) or perms.get('can_manage_projects', False)
                 has_hardware = perms.get('is_super_admin', False) or perms.get('can_manage_hardware', False)
                 has_hr = perms.get('can_manage_hr', False) or perms.get('hr_access', False)
+
+                # Robust fallback: check HR across ALL user_types / candidate ids
+                if not has_hr:
+                    hr_admin, hr_basic = get_user_hr_permissions(userid)
+                    if hr_admin or hr_basic:
+                        has_hr = True
+
                 if not perms.get('is_super_admin', False) and not has_projects and not has_hardware and not has_hr:
                     return jsonify({
                         'success': False,
@@ -14417,41 +14424,8 @@ def hr_login():
             source_sys = au[4]
             source_id = au[5]
 
-            # Check HR permission level across all user types
-            is_hr_admin = False
-            has_hr_access = False
-            for utype in (source_sys if source_sys else 'projects', 'projects', 'hr'):
-                cursor.execute("""
-                    SELECT can_manage_hr, is_super_admin, hr_access
-                    FROM user_permissions WHERE user_type=%s AND user_id=%s
-                """, (utype, source_id if source_id else userid))
-                perm_row = cursor.fetchone()
-                if perm_row:
-                    if perm_row[0] or perm_row[1]:  # can_manage_hr or is_super_admin
-                        is_hr_admin = True
-                        has_hr_access = True
-                        break
-                    if len(perm_row) > 2 and perm_row[2]:  # hr_access (basic)
-                        has_hr_access = True
-                        break
-
-            # Also check using get_user_permissions for consistent fallback logic
-            if not has_hr_access:
-                perms = get_user_permissions(source_sys if source_sys else 'projects', source_id if source_id else userid)
-                if perms.get('is_super_admin', False) or perms.get('can_manage_hr', False):
-                    has_hr_access = True
-                    is_hr_admin = True
-                elif perms.get('hr_access', False):
-                    has_hr_access = True
-
-            if not has_hr_access:
-                # Final fallback: try 'hr' user_type directly
-                perms = get_user_permissions('hr', source_id if source_id else userid)
-                if perms.get('is_super_admin', False) or perms.get('can_manage_hr', False):
-                    has_hr_access = True
-                    is_hr_admin = True
-                elif perms.get('hr_access', False):
-                    has_hr_access = True
+            # Check HR permission level across ALL user types and candidate user_ids
+            is_hr_admin, has_hr_access = get_user_hr_permissions(userid)
 
             if not has_hr_access:
                 return jsonify({
@@ -14495,6 +14469,52 @@ def hr_login():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+def get_user_hr_permissions(userid):
+    """Resolve HR admin/basic permission flags for an admin_users id.
+
+    Looks across ALL user_types (projects, hr, hardware, ...) and ALL candidate
+    user_ids (admin_users.id, admin_users.source_id, linked hr_employees.id) so
+    a mismatched user_type/user_id can never hide admin permissions.
+    Returns (is_hr_admin, has_hr_access).
+    """
+    try:
+        with get_db() as (cursor, connection):
+            # Collect every candidate user_id for this admin user
+            cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
+            au = cursor.fetchone()
+            ids = [userid]
+            if au and au[1] is not None and au[1] not in ids:
+                ids.append(au[1])
+            cursor.execute("SELECT id FROM hr_employees WHERE user_id = %s", (userid,))
+            hr_row = cursor.fetchone()
+            if hr_row and hr_row[0] not in ids:
+                ids.append(hr_row[0])
+
+            placeholders = ','.join(['%s'] * len(ids))
+            cursor.execute(f"""
+                SELECT is_super_admin, can_manage_hr, hr_access
+                FROM user_permissions
+                WHERE user_id IN ({placeholders})
+            """, ids)
+            rows = cursor.fetchall()
+
+            is_hr_admin = False
+            has_hr_access = False
+            for row in rows:
+                if row[0]:  # is_super_admin
+                    is_hr_admin = True
+                    has_hr_access = True
+                if row[1]:  # can_manage_hr
+                    is_hr_admin = True
+                    has_hr_access = True
+                if len(row) > 2 and row[2]:  # hr_access (basic)
+                    has_hr_access = True
+            return is_hr_admin, has_hr_access
+    except Exception as e:
+        print(f"HR permissions multi lookup error: {e}")
+        return False, False
+
+
 @app.route('/hr-dashboard')
 def hr_dashboard():
     """HR Portal - Employee management dashboard"""
@@ -14510,52 +14530,18 @@ def hr_dashboard():
 
     # Look up HR permissions from DB on every visit (to pick up permission changes)
     if userid:
-        try:
-            with get_db() as (cursor, connection):
-                # User_id can differ across tables (admin_users.id, source_id, hr_employees.id).
-                # Query ALL possible user_ids to catch every permission row.
-                source_id = session.get('source_id')
-                all_ids = [userid]
-                if source_id and source_id != userid:
-                    all_ids.append(source_id)
-                cursor.execute("SELECT id FROM hr_employees WHERE user_id = %s", (userid,))
-                hr_row = cursor.fetchone()
-                if hr_row and hr_row[0] not in all_ids:
-                    all_ids.append(hr_row[0])
-                placeholders = ','.join(['%s'] * len(all_ids))
-
-                cursor.execute(f"""
-                    SELECT is_super_admin, can_manage_hr, hr_access
-                    FROM user_permissions
-                    WHERE (user_type = 'projects' OR user_type = 'hr')
-                    AND user_id IN ({placeholders})
-                """, all_ids)
-                rows = cursor.fetchall()
-                # Check ALL rows. Use OR logic: if ANY row has the permission, grant it.
-                has_hr_admin = False
-                has_hr_basic = False
-                for row in rows:
-                    if row[0]:  # is_super_admin
-                        has_hr_admin = True
-                        has_hr_basic = True
-                    if row[1]:  # can_manage_hr
-                        has_hr_admin = True
-                    if len(row) > 2 and row[2]:  # hr_access
-                        has_hr_basic = True
-                can_manage_hr = has_hr_admin
-                hr_access = has_hr_basic
-                hr_role = 'Administrator' if has_hr_admin else ('Ordinary User' if has_hr_basic else 'Ordinary User')
-                # Cache in session
-                session['hr_role'] = hr_role
-                session['can_manage_hr'] = can_manage_hr
-                session['hr_access'] = hr_access
-                session['hr_employee_id'] = userid
-                hr_employee_id = userid
-        except Exception as e:
-            print(f"HR role lookup error: {e}")
-            hr_role = 'Ordinary User'
-            can_manage_hr = False
-            hr_access = False
+        # User_id/user_type can differ across tables (admin_users.id, source_id,
+        # hr_employees.id, and any user_type). Check them ALL with OR logic.
+        is_hr_admin, has_hr_access = get_user_hr_permissions(userid)
+        can_manage_hr = is_hr_admin
+        hr_access = has_hr_access
+        hr_role = 'Administrator' if is_hr_admin else ('Ordinary User' if has_hr_access else 'Ordinary User')
+        # Cache in session
+        session['hr_role'] = hr_role
+        session['can_manage_hr'] = can_manage_hr
+        session['hr_access'] = hr_access
+        session['hr_employee_id'] = userid
+        hr_employee_id = userid
 
     # Fallback: if hr_employee_id still not set, use userid
     if hr_employee_id is None and userid:
