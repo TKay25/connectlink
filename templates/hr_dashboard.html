@@ -4618,10 +4618,12 @@ async function loadPayroll(period) {
             tbody.appendChild(row);
         });
 
-        const stats = document.querySelectorAll('#module-payroll .stats-grid .hr-stat-card .stat-value');
-        if (stats[1]) stats[1].textContent = '$' + gross.toFixed(2);
-        if (stats[2]) stats[2].textContent = '$' + deductions.toFixed(2);
-        if (stats[3]) stats[3].textContent = '$' + net.toFixed(2);
+        const pgEl = document.getElementById('payrollGross');
+        const pdEl = document.getElementById('payrollDeductions');
+        const pnEl = document.getElementById('payrollNet');
+        if (pgEl) pgEl.textContent = '$' + gross.toFixed(2);
+        if (pdEl) pdEl.textContent = '$' + deductions.toFixed(2);
+        if (pnEl) pnEl.textContent = '$' + net.toFixed(2);
 
         // Update deduction breakdown summary
         document.getElementById('sumPaye').textContent = '$' + sumPaye.toFixed(2);
