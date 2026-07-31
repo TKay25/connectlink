@@ -4719,6 +4719,7 @@ async function loadDeductionsConfig() {
             const rateTypeLabel = dc.rate_type === 'percentage_of_paye' ? '% of PAYE' :
                                  dc.rate_type === 'percentage_of_gross' ? '% of Gross' :
                                  dc.rate_type === 'fixed_amount' ? 'Fixed ($)' : dc.rate_type;
+            const rateInputLabel = dc.rate_type === 'fixed_amount' ? 'Amount ($)' : 'Rate (%)';
             const icon = dc.deduction_code === 'AIDS_LEVY' ? 'bi-heart-pulse' :
                         dc.deduction_code === 'NSSA_EMPLOYEE' ? 'bi-shield' :
                         dc.deduction_code === 'ZIMDEF' ? 'bi-mortarboard' :
@@ -4737,7 +4738,7 @@ async function loadDeductionsConfig() {
                     </div>
                     <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
                         <div>
-                            <label style="font-size:0.55rem;color:var(--text-muted);display:block;">Rate (%)</label>
+                            <label style="font-size:0.55rem;color:var(--text-muted);display:block;">${rateInputLabel}</label>
                             <input type="number" step="0.1" class="dc-rate" data-code="${dc.deduction_code}"
                                    value="${dc.rate}" style="width:80px;padding:3px 6px;font-size:0.65rem;border:1px solid #d1d5db;border-radius:4px;">
                         </div>

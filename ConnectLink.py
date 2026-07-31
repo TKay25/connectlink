@@ -16300,7 +16300,7 @@ def hr_payroll_api():
                             float(r[23] or 0), float(r[24] or 0), float(r[25] or 0),
                             float(r[26] or 0), float(r[27] or 0),
                             float(r[31] or 0), float(r[32] or 0), r[33] or '',
-                            r[6] or '', r[8] or '', r[9] or '', r[10] or '', r[11] or '',
+                            f"{r[6] or ''} {r[7] or ''}".strip(), r[8] or '', r[9] or '', r[10] or '', r[11] or '',
                             r[15] or 'USD'
                         ]
                         for col_idx, val in enumerate(values, 1):
