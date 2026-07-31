@@ -19288,7 +19288,7 @@ body { font-family: Arial; margin: 20px; }
             </div>
         </div>
         <div class="modal-footer-custom">
-            <button type="button" class="btn btn-success" id="exportQuotationRatesBtn">
+            <button type="button" class="btn btn-success" id="exportQuotationRatesBtn" onclick="window.open('/api/export-quotation-rates','_blank')">
                 <i class="bi bi-file-earmark-excel"></i> Export Excel
             </button>
             <button type="button" class="btn btn-primary" id="addQuotationItemBtn">
@@ -34217,47 +34217,6 @@ $('#sendQuotationBtn').click(async function() {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
             });
-        });
-
-        // Export quotation rates to Excel (event delegation - resilient to script/timing order)
-        document.addEventListener('click', function(e) {
-            const btn = e.target.closest('#exportQuotationRatesBtn');
-            if (!btn) return;
-            e.preventDefault();
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Exporting...';
-
-            fetch('/api/export-quotation-rates')
-                .then(async res => {
-                    if (!res.ok) {
-                        let msg = 'Export failed (HTTP ' + res.status + ')';
-                        try {
-                            const j = await res.json();
-                            if (j && j.error) msg = j.error;
-                        } catch (_) { /* not JSON */ }
-                        throw new Error(msg);
-                    }
-                    const blob = await res.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    const cd = res.headers.get('Content-Disposition') || '';
-                    const m = cd.match(/filename="?([^";]+)"?/);
-                    a.download = m ? m[1] : 'Quotation_Rates.xlsx';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-                })
-                .catch(err => {
-                    console.error('Export error:', err);
-                    alert('Export failed: ' + err.message);
-                })
-                .finally(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = originalText;
-                });
         });
 
         // Load quotation rates when quotation generator modal opens
