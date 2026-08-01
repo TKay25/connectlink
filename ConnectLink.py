@@ -19083,11 +19083,27 @@ def whatsapp_media_download(media_id):
             pass
         
         # Step 1: Get media download URL from WhatsApp
+        # NOTE: Must use the SAME API version as the webhook (WHATSAPP_API_VERSION).
+        # Media IDs received via a newer API version (e.g. v22.0) cannot be
+        # resolved by the older v19.0 endpoint -> "Failed to get media info".
         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        media_info_url = f"https://graph.facebook.com/v19.0/{media_id}"
-        media_resp = requests.get(media_info_url, headers=headers)
+        media_info_url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{media_id}"
+        media_resp = requests.get(media_info_url, headers=headers, timeout=15)
         if media_resp.status_code != 200:
-            return jsonify({'success': False, 'message': 'Failed to get media info'}), 400
+            # Log the actual Meta error so failures are debuggable
+            try:
+                err_json = media_resp.json()
+                error_detail = err_json.get('error', {})
+                err_msg = error_detail.get('message', str(err_json))
+                err_code = error_detail.get('code')
+            except Exception:
+                err_msg = media_resp.text[:500]
+                err_code = None
+            print(f"❌ WhatsApp media info failed [{media_resp.status_code}] for {media_id}: {err_msg}")
+            # Meta error code 100 with a media/expired message = media no longer available
+            if err_code == 100:
+                return jsonify({'success': False, 'message': 'Media expired or no longer available (WhatsApp only keeps media for 5 days). Ask the client to resend the attachment.'}), 410
+            return jsonify({'success': False, 'message': f'Failed to get media info from WhatsApp ({media_resp.status_code}). Verify the access token is valid and has media permissions.'}), 400
         media_info = media_resp.json()
         download_url = media_info.get('url')
         mime_type = media_info.get('mime_type', 'application/octet-stream')
@@ -19124,9 +19140,10 @@ def whatsapp_media_download(media_id):
             filename = f"whatsapp_media_{media_id[:8]}.{ext}"
         
         # Step 3: Download the actual file
-        file_resp = requests.get(download_url, headers=headers)
+        file_resp = requests.get(download_url, headers=headers, timeout=60)
         if file_resp.status_code != 200:
-            return jsonify({'success': False, 'message': 'Failed to download file'}), 400
+            print(f"❌ WhatsApp file download failed [{file_resp.status_code}] for {media_id}")
+            return jsonify({'success': False, 'message': f'Failed to download file from WhatsApp ({file_resp.status_code}).'}), 400
         
         # Step 4: Stream the file back to the browser
         response = make_response(file_resp.content)
