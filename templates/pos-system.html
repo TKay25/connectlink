@@ -9344,6 +9344,21 @@ function setupAddProductFundingSelection() {
         const unitType = document.getElementById('unitType').value;
         const unitDetails = document.getElementById('unitDetails').value;
         const barcode = (document.getElementById('productBarcode').value || '').trim();
+
+        // If this barcode already belongs to an existing product, don't create a
+        // duplicate — toast and jump to the Add Stock modal for that product.
+        if (barcode) {
+            const existingByBarcode = await lookupProductByBarcode(barcode);
+            if (existingByBarcode) {
+                pendingScanBarcode = null;
+                const addModal = bootstrap.Modal.getInstance(document.getElementById('addInventoryModal'));
+                if (addModal) addModal.hide();
+                showToast('Barcode product already exists — adding stock instead', 'info');
+                showEditStockModal(existingByBarcode.id);
+                return;
+            }
+        }
+
         const buyPrice = parseFloat(document.getElementById('buyPrice').value);
         const sellPrice = parseFloat(document.getElementById('sellPrice').value);
         const stock = parseInt(document.getElementById('productStock').value);
