@@ -9618,26 +9618,69 @@ function setupAddProductFundingSelection() {
             });
         }
 
-        // Global capture: a physical scanner types into the page when no field is
-        // focused, so accumulate keystrokes and treat Enter as a scan.
+        // Global capture: works even when the search box (or nothing) has focus, so
+        // a physical scanner never "types" into the search field and filters items.
+        // It uses a fast-burst + Enter signature; human-speed typing is left alone.
         let scanBuffer = '';
         let scanTimer = null;
+        let lastKeyTime = 0;
+        let burstOk = false;
+
+        function resetScanBuffer() {
+            scanBuffer = '';
+            burstOk = false;
+            if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
+        }
+
         document.addEventListener('keydown', function(e) {
-            const tag = (document.activeElement && document.activeElement.tagName) || '';
-            const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-            if (e.key === 'Enter') {
-                if (scanBuffer) {
-                    e.preventDefault();
-                    scanBarcodeAddToCart(scanBuffer);
-                    scanBuffer = '';
-                    if (scanTimer) clearTimeout(scanTimer);
-                }
-            } else if (!inField && e.key && e.key.length === 1) {
-                scanBuffer += e.key;
-                if (scanTimer) clearTimeout(scanTimer);
-                scanTimer = setTimeout(function() { scanBuffer = ''; }, 300);
+            // Only intercept on the main sale page — never while a modal is open
+            if (document.querySelector('.modal.show')) return;
+
+            const activeEl = document.activeElement;
+            // The dedicated scan box and cash-amount field handle their own input
+            if (activeEl && (activeEl.id === 'barcodeScanInput' || activeEl.id === 'cashAmount')) {
+                resetScanBuffer();
+                return;
             }
+
+            if (e.key === 'Enter') {
+                if (burstOk && scanBuffer) {
+                    e.preventDefault();
+                    const code = scanBuffer;
+                    resetScanBuffer();
+                    scanBarcodeAddToCart(code);
+                    // Undo any filtering the scanned digits may have caused in the search box
+                    const searchInput = document.getElementById('searchProduct');
+                    if (searchInput && searchInput.value) {
+                        searchInput.value = '';
+                        searchTerm = '';
+                        renderProducts();
+                    }
+                    const scanInput = document.getElementById('barcodeScanInput');
+                    if (scanInput) scanInput.focus();
+                }
+                return;
+            }
+
+            if (!e.key || e.key.length !== 1) return;
+
+            const now = Date.now();
+            const gap = scanBuffer ? (now - lastKeyTime) : 0;
+            if (scanBuffer && gap > 50) resetScanBuffer(); // human pace → discard burst
+            lastKeyTime = now;
+            scanBuffer += e.key;
+            if (scanBuffer.length >= 2 && gap <= 50) burstOk = true;
+            if (scanTimer) clearTimeout(scanTimer);
+            scanTimer = setTimeout(resetScanBuffer, 200);
         });
+
+        // Give the scan box default focus on the sale page so scanners land there
+        setTimeout(function() {
+            if (!document.querySelector('.modal.show')) {
+                const si = document.getElementById('barcodeScanInput');
+                if (si) si.focus();
+            }
+        }, 400);
     }
     
     // ==================== PAYMENT FUNCTIONS ====================
