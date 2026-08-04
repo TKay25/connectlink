@@ -1198,6 +1198,13 @@ def initialize_database_tables():
                 )
             """, commit=True)
 
+            # Remove the obsolete FK to the legacy 'users' table (it holds 1 row;
+            # operators live in admin_users). Keeps POS stock-add logging from failing.
+            execute_query("""
+                ALTER TABLE stock_additions
+                    DROP CONSTRAINT IF EXISTS stock_additions_user_id_fkey
+            """, commit=True)
+
             # Stock reductions table
             execute_query("""
                 CREATE TABLE IF NOT EXISTS stock_reductions (
@@ -12331,7 +12338,7 @@ def get_stock_additions():
                sa.buy_price as cost_per_unit
         FROM stock_additions sa
         LEFT JOIN products p ON sa.product_id = p.id
-        LEFT JOIN users u ON sa.user_id = u.id
+        LEFT JOIN admin_users u ON sa.user_id = u.id
         ORDER BY sa.added_at DESC
         LIMIT 100
     """
@@ -12415,7 +12422,7 @@ def get_stock_movements():
                sa.funding_source, u.full_name as user_name, sa.added_at as movement_date
         FROM stock_additions sa
         LEFT JOIN products p ON sa.product_id = p.id
-        LEFT JOIN users u ON sa.user_id = u.id
+        LEFT JOIN admin_users u ON sa.user_id = u.id
         WHERE sa.added_at >= %s::timestamp AND sa.added_at <= (%s::timestamp + INTERVAL '1 day')
         ORDER BY sa.added_at DESC
     """
@@ -12428,7 +12435,7 @@ def get_stock_movements():
                sr.reason as funding_source, u.full_name as user_name, sr.reduced_at as movement_date
         FROM stock_reductions sr
         LEFT JOIN products p ON sr.product_id = p.id
-        LEFT JOIN users u ON sr.user_id = u.id
+        LEFT JOIN admin_users u ON sr.user_id = u.id
         WHERE sr.reduced_at >= %s::timestamp AND sr.reduced_at <= (%s::timestamp + INTERVAL '1 day')
         ORDER BY sr.reduced_at DESC
     """
@@ -12443,7 +12450,7 @@ def get_stock_movements():
         FROM transaction_items ti
         JOIN transactions t ON ti.transaction_id = t.id
         LEFT JOIN products p ON ti.product_id = p.id
-        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN admin_users u ON t.user_id = u.id
         WHERE t.created_at >= %s::timestamp AND t.created_at <= (%s::timestamp + INTERVAL '1 day')
         ORDER BY t.created_at DESC
     """
@@ -12929,26 +12936,29 @@ def update_product(product_id):
     
     # If this is a stock addition, track funding source in a separate table
     if 'funding_source' in data and 'total_cost' in data:
-        # Log this stock addition with funding source
-        stock_log_query = """
-            INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at)
-            VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-        """
-        # Get current stock to calculate quantity added
-        current_stock = execute_query("SELECT stock FROM products WHERE id = %s", (product_id,), fetch_one=True)
-        if current_stock:
-            quantity_added = data.get('stock') - current_stock[0]
-        else:
-            quantity_added = data.get('stock', 0)
-            
-        execute_query(stock_log_query, (
-            product_id,
-            quantity_added,
-            data.get('buy_price', 0),
-            data.get('total_cost', 0),
-            data.get('funding_source'),
-            session['user_id']
-        ), commit=True)
+        # Log this stock addition with funding source (best-effort — never block the update)
+        try:
+            stock_log_query = """
+                INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at)
+                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            """
+            # Get current stock to calculate quantity added
+            current_stock = execute_query("SELECT stock FROM products WHERE id = %s", (product_id,), fetch_one=True)
+            if current_stock:
+                quantity_added = data.get('stock') - current_stock[0]
+            else:
+                quantity_added = data.get('stock', 0)
+
+            execute_query(stock_log_query, (
+                product_id,
+                quantity_added,
+                data.get('buy_price', 0),
+                data.get('total_cost', 0),
+                data.get('funding_source'),
+                session.get('user_id')
+            ), commit=True)
+        except Exception as stock_log_err:
+            print(f"Warning: Could not log stock addition: {stock_log_err}")
     
     if not update_fields:
         return jsonify({'error': 'No fields to update'}), 400
@@ -13388,7 +13398,7 @@ def get_transactions():
                    WHERE ti.transaction_id = t.id
                ), '[]'::json) as items
         FROM transactions t
-        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN admin_users u ON t.user_id = u.id
         ORDER BY t.created_at DESC
         LIMIT %s
     """
