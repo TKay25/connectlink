@@ -141,9 +141,9 @@ def main():
 
         if args.apply:
             conn.commit()
-            print(f"\n✅ Committed: {len(rows)} linked, {created_cl} connectlinkusers created, {created_au} admin_users created.")
+            print(f"\nCOMMITTED: {len(rows)} linked, {created_cl} connectlinkusers created, {created_au} admin_users created.")
         else:
-            print("\nℹ️  DRY-RUN — no changes written. Re-run with --apply to commit.")
+            print("\nDRY-RUN - no changes written. Re-run with --apply to commit.")
 
 
 if __name__ == '__main__':

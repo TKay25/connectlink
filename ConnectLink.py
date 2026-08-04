@@ -1211,11 +1211,23 @@ def initialize_database_tables():
                 )
             """, commit=True)
 
-            # Remove old columns if they exist
+            # Remove legacy icon column
             execute_query("""
                 ALTER TABLE products 
-                    DROP COLUMN IF EXISTS barcode,
                     DROP COLUMN IF EXISTS icon
+            """, commit=True)
+
+            # Barcode column (re-introduced) for Hardware POS barcode scanning
+            execute_query("""
+                ALTER TABLE products 
+                    ADD COLUMN IF NOT EXISTS barcode VARCHAR(100) DEFAULT ''
+            """, commit=True)
+
+            # Unique index on non-empty barcodes so a scan resolves unambiguously
+            execute_query("""
+                CREATE UNIQUE INDEX IF NOT EXISTS products_barcode_unique
+                ON products (barcode)
+                WHERE barcode IS NOT NULL AND barcode <> ''
             """, commit=True)
 
             execute_query("""
@@ -12141,8 +12153,8 @@ def get_activity_log_users():
 def run1hardware():
     """Fetch all active products from the Products table"""
     query = """
-        SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock, 
-               min_stock_level, description, created_at, updated_at
+        SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock,
+               min_stock_level, description, barcode, created_at, updated_at
         FROM products
         WHERE is_active = TRUE
         ORDER BY name
@@ -12163,8 +12175,9 @@ def run1hardware():
                 'stock': row[7] if row[7] else 0,
                 'min_stock_level': row[8] if row[8] else 10,
                 'description': row[9] if row[9] else '',
-                'created_at': row[10].isoformat() if row[10] else None,
-                'updated_at': row[11].isoformat() if row[11] else None,
+                'barcode': row[10] if row[10] else '',
+                'created_at': row[11].isoformat() if row[11] else None,
+                'updated_at': row[12].isoformat() if row[12] else None,
                 'low_stock': row[7] < row[8] if row[7] and row[8] else False
             })
     
@@ -12763,7 +12776,7 @@ def get_products_api():
 @app.route('/api/products/<int:product_id>', methods=['GET'])
 @login_required
 def get_product(product_id):
-    query = "SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock, min_stock_level, description FROM products WHERE id = %s"
+    query = "SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock, min_stock_level, description, barcode FROM products WHERE id = %s"
     product = execute_query(query, (product_id,), fetch_one=True)
     
     if not product:
@@ -12781,9 +12794,45 @@ def get_product(product_id):
             'sell_price': float(product[6]),
             'stock': product[7],
             'min_stock_level': product[8],
-            'description': product[9]
+            'description': product[9],
+            'barcode': product[10] if product[10] else ''
         }
     })
+
+
+@app.route('/api/products/by-barcode/<barcode>', methods=['GET'])
+@login_required
+def get_product_by_barcode(barcode):
+    """Look up an active product by its barcode (used by POS barcode scanning)."""
+    try:
+        code = (barcode or '').strip()
+        query = """
+            SELECT id, name, category, unit_type, unit_details, buy_price, sell_price,
+                   stock, min_stock_level, description, barcode
+            FROM products
+            WHERE barcode = %s AND is_active = TRUE
+        """
+        result = execute_query(query, (code,), fetch_one=True)
+        if not result:
+            return jsonify({'success': False, 'error': 'No product found for this barcode'}), 404
+        return jsonify({
+            'success': True,
+            'product': {
+                'id': result[0],
+                'name': result[1],
+                'category': result[2],
+                'unit_type': result[3],
+                'unit_details': result[4],
+                'buy_price': float(result[5]) if result[5] else 0.00,
+                'sell_price': float(result[6]) if result[6] else 0.00,
+                'stock': result[7] if result[7] else 0,
+                'min_stock_level': result[8] if result[8] else 10,
+                'description': result[9] if result[9] else '',
+                'barcode': result[10] if result[10] else ''
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/products', methods=['POST'])
 @login_required
@@ -12796,8 +12845,8 @@ def create_product():
         return jsonify({'error': 'sell_price is required'}), 400
     
     query = """
-        INSERT INTO products (name, category, unit_type, unit_details, buy_price, sell_price, stock, min_stock_level, description)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO products (name, category, unit_type, unit_details, buy_price, sell_price, stock, min_stock_level, description, barcode)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
     
@@ -12810,7 +12859,8 @@ def create_product():
         data['sell_price'],
         data.get('stock', 0),
         data.get('min_stock_level', 10),
-        data.get('description', '')
+        data.get('description', ''),
+        data.get('barcode', '')
     )
     
     result = execute_query(query, params, fetch_one=True, commit=True)
@@ -12870,7 +12920,7 @@ def update_product(product_id):
     update_fields = []
     params = []
     
-    updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'price', 'stock', 'min_stock_level', 'description']
+    updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'price', 'stock', 'min_stock_level', 'description', 'barcode']
     
     for field in updatable_fields:
         if field in data:

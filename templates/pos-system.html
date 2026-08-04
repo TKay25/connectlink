@@ -2981,6 +2981,10 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <div class="input-group mb-2">
+                                <span class="input-group-text"><i class="fas fa-barcode"></i></span>
+                                <input type="text" class="form-control" id="editStockBarcodeScan" placeholder="Scan barcode to select product" autocomplete="off">
+                            </div>
                             <div class="alert alert-info mb-3" style="font-size: 0.75rem;">
                                 <i class="fas fa-info-circle me-1"></i> 
                                 <strong>Product:</strong> <span id="editStockProductName">Loading...</span><br>
@@ -3132,6 +3136,12 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                             <label for="searchProduct" class="visually-hidden">Search Products</label>
                             <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
                             <input type="text" class="form-control ps-5" id="searchProduct" placeholder="Search name or details..." style="border-radius: 30px; font-size: 0.9rem; padding: 8px 14px;" autocomplete="off">
+                        </div>
+                        <!-- Barcode Scan Input -->
+                        <div class="position-relative" style="width: 220px;">
+                            <label for="barcodeScanInput" class="visually-hidden">Scan Barcode</label>
+                            <i class="fas fa-barcode position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.8rem;"></i>
+                            <input type="text" class="form-control ps-5" id="barcodeScanInput" placeholder="Scan barcode..." style="border-radius: 30px; font-size: 0.9rem; padding: 8px 14px;" autocomplete="off">
                         </div>
                     </div>
                 </div>
@@ -3918,6 +3928,11 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                     <input type="text" class="form-control" id="editProductName" required>
                 </div>
                 
+                <div class="mb-3">
+                    <label class="form-label">Barcode</label>
+                    <input type="text" class="form-control" id="editProductBarcode" placeholder="Scan or type barcode" autocomplete="off">
+                </div>
+                
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Main Category *</label>
@@ -3980,6 +3995,10 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                             <label class="form-label" for="productName">Product Name *</label>
                             <input type="text" class="form-control" id="productName" autocomplete="off" required>
                             <div id="productNameSuggestions" class="autocomplete-items"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="productBarcode">Barcode (optional)</label>
+                            <input type="text" class="form-control" id="productBarcode" placeholder="Scan or type barcode" autocomplete="off">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="productMainCategory">Main Category *</label>
@@ -6778,6 +6797,8 @@ function openEditProductModal(productId) {
     // Populate form
     document.getElementById('editProductId').value = product.id;
     document.getElementById('editProductName').value = product.name;
+    const editBarcodeInput = document.getElementById('editProductBarcode');
+    if (editBarcodeInput) editBarcodeInput.value = product.barcode || '';
     
     // Find and set the main category and sub-category
     let mainCategory = null;
@@ -6806,6 +6827,7 @@ async function updateProduct() {
     const productId = parseInt(document.getElementById('editProductId').value);
     const name = document.getElementById('editProductName').value;
     const category = document.getElementById('editProductSubCategory').value;
+    const barcode = (document.getElementById('editProductBarcode').value || '').trim();
     
     if (!name || !category) {
         showToast('Please fill all fields', 'error');
@@ -6821,7 +6843,8 @@ async function updateProduct() {
             credentials: 'include',
             body: JSON.stringify({
                 name: name,
-                category: category
+                category: category,
+                barcode: barcode
             })
         });
         
@@ -9229,6 +9252,7 @@ function setupFundingSelection() {
     
     function showAddInventoryModal() {
         document.getElementById('productName').value = '';
+        document.getElementById('productBarcode').value = '';
         document.getElementById('productMainCategory').value = '';
         document.getElementById('productSubCategory').value = '';
         document.getElementById('productSubCategory').innerHTML = '<option value="">-- Select Sub-Category --</option>';
@@ -9316,6 +9340,7 @@ function setupAddProductFundingSelection() {
         const category = document.getElementById('productSubCategory').value;
         const unitType = document.getElementById('unitType').value;
         const unitDetails = document.getElementById('unitDetails').value;
+        const barcode = (document.getElementById('productBarcode').value || '').trim();
         const buyPrice = parseFloat(document.getElementById('buyPrice').value);
         const sellPrice = parseFloat(document.getElementById('sellPrice').value);
         const stock = parseInt(document.getElementById('productStock').value);
@@ -9355,6 +9380,7 @@ function setupAddProductFundingSelection() {
                 body: JSON.stringify({
                     name: name,
                     category: category,
+                    barcode: barcode,
                     unit_type: unitType,
                     unit_details: unitDetails,
                     buy_price: buyPrice,
@@ -9368,7 +9394,15 @@ function setupAddProductFundingSelection() {
             if (addData.success) {
                 await fetchProductsFromAPI();
                 bootstrap.Modal.getInstance(document.getElementById('addInventoryModal')).hide();
-                showToast(`${name} added successfully!`, 'success');
+                // If this product was created from an unknown barcode scan, add it to the cart
+                if (pendingScanBarcode && addData.product_id) {
+                    const scannedCode = pendingScanBarcode;
+                    pendingScanBarcode = null;
+                    addToCart(addData.product_id);
+                    showToast(`${name} added & in cart (barcode ${scannedCode})`, 'success');
+                } else {
+                    showToast(`${name} added successfully!`, 'success');
+                }
             } else {
                 showToast(addData.error || 'Failed to add product', 'error');
             }
@@ -9510,6 +9544,100 @@ function setupAddProductFundingSelection() {
         const total = cart.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
         // Only show total, remove subtotal line
         document.getElementById('total').innerText = `$${total.toFixed(2)}`;
+    }
+    
+    // ==================== BARCODE SCANNING ====================
+    async function lookupProductByBarcode(code) {
+        code = (code || '').trim();
+        if (!code) return null;
+        try {
+            const res = await fetch(`${API_BASE}/api/products/by-barcode/${encodeURIComponent(code)}`, { credentials: 'include' });
+            const data = await res.json();
+            return (data.success && data.product) ? data.product : null;
+        } catch (e) {
+            console.error('Barcode lookup error:', e);
+            return null;
+        }
+    }
+
+    // Set when a scan hits an unknown barcode: after the user names the product
+    // in the Add Product modal, the created product is added straight to the cart.
+    let pendingScanBarcode = null;
+
+    async function scanBarcodeAddToCart(code) {
+        const product = await lookupProductByBarcode(code);
+        if (product) {
+            addToCart(product.id);
+        } else {
+            // Quick-create flow: open Add Product pre-filled with this barcode
+            pendingScanBarcode = (code || '').trim();
+            showAddInventoryModal();
+            document.getElementById('productBarcode').value = pendingScanBarcode;
+            showToast('Barcode not found — name this product to assign it', 'info');
+        }
+    }
+
+    function setupBarcodeScanning() {
+        // Sale page: dedicated scan box
+        const scanInput = document.getElementById('barcodeScanInput');
+        if (scanInput) {
+            scanInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const code = this.value;
+                    this.value = '';
+                    scanBarcodeAddToCart(code);
+                    this.focus();
+                }
+            });
+        }
+
+        // Add Stock modal: scan to select the product
+        const stockScan = document.getElementById('editStockBarcodeScan');
+        if (stockScan) {
+            stockScan.addEventListener('keydown', async function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const code = this.value;
+                    this.value = '';
+                    const product = await lookupProductByBarcode(code);
+                    if (product) {
+                        showEditStockModal(product.id);
+                    } else {
+                        showToast(`Barcode not found: ${code || '(empty)'}`, 'error');
+                    }
+                }
+            });
+        }
+
+        // Clear the pending-scan flag if the Add Product modal is closed without saving
+        const addInventoryModalEl = document.getElementById('addInventoryModal');
+        if (addInventoryModalEl) {
+            addInventoryModalEl.addEventListener('hidden.bs.modal', function() {
+                pendingScanBarcode = null;
+            });
+        }
+
+        // Global capture: a physical scanner types into the page when no field is
+        // focused, so accumulate keystrokes and treat Enter as a scan.
+        let scanBuffer = '';
+        let scanTimer = null;
+        document.addEventListener('keydown', function(e) {
+            const tag = (document.activeElement && document.activeElement.tagName) || '';
+            const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+            if (e.key === 'Enter') {
+                if (scanBuffer) {
+                    e.preventDefault();
+                    scanBarcodeAddToCart(scanBuffer);
+                    scanBuffer = '';
+                    if (scanTimer) clearTimeout(scanTimer);
+                }
+            } else if (!inField && e.key && e.key.length === 1) {
+                scanBuffer += e.key;
+                if (scanTimer) clearTimeout(scanTimer);
+                scanTimer = setTimeout(function() { scanBuffer = ''; }, 300);
+            }
+        });
     }
     
     // ==================== PAYMENT FUNCTIONS ====================
@@ -12306,6 +12434,7 @@ function setupEventListeners() {
         setupEventListeners();
         setupLogout();
         setupAutocomplete();
+        setupBarcodeScanning();
         
         // Start Zimbabwe time updater
         startDateTimeUpdater();
