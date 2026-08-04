@@ -3761,6 +3761,9 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
                         <h5 class="fw-bold mb-0"><i class="fas fa-history me-1"></i>Transaction History</h5>
                         <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-info" onclick="openDayEndReport()" title="Daily sales summary by cashier">
+                                <i class="fas fa-sun me-1"></i>Day End Report
+                            </button>
                             <button class="btn btn-sm btn-success" onclick="downloadTransactionsExcel()">
                                 <i class="fas fa-file-excel me-1"></i>Export Excel
                             </button>
@@ -8257,6 +8260,123 @@ function renderFilteredTransactions() {
         showToast('Excel export complete!', 'success');
     }
 
+    // ==================== DAY END REPORT ====================
+    let dayEndReportData = null;
+
+    function openDayEndReport() {
+        const d = new Date();
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        document.getElementById('dayEndDate').value = iso;
+        dayEndReportData = null;
+        document.getElementById('dayEndSummary').innerHTML = '';
+        document.getElementById('dayEndTabs').innerHTML = '';
+        document.getElementById('dayEndTabContent').innerHTML = '';
+        new bootstrap.Modal(document.getElementById('dayEndReportModal')).show();
+        loadDayEndReport();
+    }
+
+    async function loadDayEndReport() {
+        const date = document.getElementById('dayEndDate').value;
+        if (!date) { showToast('Please select a date', 'error'); return; }
+        showLoader('Loading day-end report...');
+        try {
+            const res = await fetch(`${API_BASE}/api/transactions/day-end?date=${encodeURIComponent(date)}`, { credentials: 'include' });
+            const data = await res.json();
+            if (data.success) {
+                dayEndReportData = data;
+                renderDayEndReport(data);
+            } else {
+                showToast(data.error || 'Failed to load report', 'error');
+            }
+        } catch (e) {
+            console.error('Day-end report error:', e);
+            showToast('Error loading report', 'error');
+        } finally {
+            hideLoader();
+        }
+    }
+
+    function pmLabel(m) {
+        return m === 'cash' ? 'Cash' : m === 'card' ? 'Card' : m === 'transfer' ? 'Bank/Mobile' : (m || '—');
+    }
+
+    function renderDayEndReport(data) {
+        const cashiers = data.cashiers || [];
+        const pm = data.payment_methods || {};
+
+        document.getElementById('dayEndSummary').innerHTML = `
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Total Sales</div><div class="fw-bold">$${data.grand_total.toFixed(2)}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transactions</div><div class="fw-bold">${data.transaction_count || 0}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cashiers</div><div class="fw-bold">${cashiers.length}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cash</div><div class="fw-bold">$${(pm.cash || 0).toFixed(2)}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Card</div><div class="fw-bold">$${(pm.card || 0).toFixed(2)}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transfer</div><div class="fw-bold">$${(pm.transfer || 0).toFixed(2)}</div></div></div>
+        `;
+
+        const tabs = document.getElementById('dayEndTabs');
+        const content = document.getElementById('dayEndTabContent');
+        tabs.innerHTML = '';
+        content.innerHTML = '';
+
+        if (!cashiers.length) {
+            content.innerHTML = '<div class="text-center text-muted py-4">No transactions on this day</div>';
+            return;
+        }
+
+        cashiers.forEach((c, idx) => {
+            const tabId = 'dayEndTab-' + idx;
+            const cpm = c.payment_methods || {};
+            tabs.innerHTML += `
+                <li class="nav-item">
+                    <button class="nav-link ${idx === 0 ? 'active' : ''}" data-bs-toggle="tab" data-bs-target="#${tabId}" type="button" role="tab">
+                        ${escapeHtml(c.cashier)} <span class="badge bg-secondary">$${c.total.toFixed(2)}</span>
+                    </button>
+                </li>`;
+            const txRows = (c.transactions || []).map(t => `
+                <tr>
+                    <td>${t.created_at ? new Date(t.created_at).toLocaleString('en-GB') : ''}</td>
+                    <td>${escapeHtml(t.transaction_number || '')}</td>
+                    <td>${t.items ? t.items.map(i => `${escapeHtml(i.product_name || '')} x${i.quantity}`).join(', ') : ''}</td>
+                    <td>$${(t.total || 0).toFixed(2)}</td>
+                    <td>${pmLabel(t.payment_method)}</td>
+                </tr>`).join('');
+            content.innerHTML += `
+                <div class="tab-pane fade ${idx === 0 ? 'show active' : ''}" id="${tabId}" role="tabpanel">
+                    <div class="row g-2 mb-3">
+                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Cash</div><strong>$${(cpm.cash || 0).toFixed(2)}</strong></div></div>
+                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Card</div><strong>$${(cpm.card || 0).toFixed(2)}</strong></div></div>
+                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Transfer</div><strong>$${(cpm.transfer || 0).toFixed(2)}</strong></div></div>
+                    </div>
+                    <table class="table table-sm table-striped mb-0">
+                        <thead><tr><th>Date</th><th>Receipt #</th><th>Items</th><th>Total</th><th>Payment</th></tr></thead>
+                        <tbody>${txRows || '<tr><td colspan="5" class="text-center text-muted">No transactions</td></tr>'}</tbody>
+                    </table>
+                </div>`;
+        });
+    }
+
+    function exportDayEndExcel() {
+        if (!dayEndReportData) { showToast('Generate the report first', 'error'); return; }
+        const data = dayEndReportData;
+        const rows = [];
+        (data.cashiers || []).forEach(c => {
+            rows.push({ 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2) });
+        });
+        rows.push({ 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2) });
+        rows.push({});
+        rows.push({ 'Cashier': 'Cashier', 'Total Sales': 'Receipt #', 'Cash': 'Items', 'Card': 'Total', 'Transfer': 'Payment' });
+        (data.cashiers || []).forEach(c => {
+            (c.transactions || []).forEach(t => {
+                rows.push({ 'Cashier': c.cashier, 'Total Sales': t.transaction_number || '', 'Cash': t.items ? t.items.map(i => `${i.product_name || ''} x${i.quantity}`).join(', ') : '', 'Card': (t.total || 0).toFixed(2), 'Transfer': pmLabel(t.payment_method) });
+            });
+        });
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Day End Report');
+        XLSX.writeFile(wb, `day_end_report_${data.date}.xlsx`);
+        showToast('Day End Report exported!', 'success');
+    }
+
     async function downloadTransactionsPDF() {
         const transactionsToExport = filteredTransactions.length > 0 ? filteredTransactions : transactionsData.transactions;
         
@@ -12614,5 +12734,31 @@ function setupEventListeners() {
 <footer class="app-footer no-print">
     <p>&copy; 2026 ConnectLink Properties &amp; Hardware — From Concept to Creation, Let's Build Together &nbsp;|&nbsp; <a href="/privacy-policy" style="color:var(--gray-500);text-decoration:underline;">Privacy Policy</a></p>
 </footer>
+
+<!-- Day End Report Modal -->
+<div class="modal fade" id="dayEndReportModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
+                <h5 class="modal-title"><i class="fas fa-sun me-1"></i>Day End Report</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex gap-2 align-items-end mb-3 flex-wrap">
+                    <div>
+                        <label class="small fw-bold" for="dayEndDate">Select Day</label>
+                        <input type="date" class="form-control form-control-sm" id="dayEndDate">
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="loadDayEndReport()"><i class="fas fa-sync me-1"></i>Generate Report</button>
+                    <button class="btn btn-success btn-sm" onclick="exportDayEndExcel()"><i class="fas fa-file-excel me-1"></i>Export Excel</button>
+                </div>
+                <div id="dayEndSummary" class="row g-2 mb-3"></div>
+                <ul class="nav nav-tabs" id="dayEndTabs" role="tablist"></ul>
+                <div class="tab-content border border-top-0 p-3" id="dayEndTabContent" style="max-height: 60vh; overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

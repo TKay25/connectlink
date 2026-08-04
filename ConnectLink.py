@@ -13466,6 +13466,89 @@ def get_transactions():
         'transactions': transaction_list
     })
 
+
+@app.route('/api/transactions/day-end', methods=['GET'])
+@login_required
+def day_end_report():
+    """Day-end report: all sales for a single day (YYYY-MM-DD), grouped by cashier,
+    with payment-method totals and the full transaction list per cashier."""
+    try:
+        day = request.args.get('date', '').strip()
+        if not day:
+            return jsonify({'success': False, 'error': 'Date is required'}), 400
+
+        query = """
+            SELECT t.id, t.transaction_number, t.user_id, u.full_name as cashier,
+                   t.total, t.payment_method, t.created_at,
+                   COALESCE((
+                       SELECT json_agg(json_build_object(
+                           'product_name', p.name,
+                           'quantity', ti.quantity,
+                           'price', ti.price_at_time
+                       ))
+                       FROM transaction_items ti
+                       LEFT JOIN products p ON ti.product_id = p.id
+                       WHERE ti.transaction_id = t.id
+                   ), '[]'::json) as items
+            FROM transactions t
+            LEFT JOIN admin_users u ON t.user_id = u.id
+            WHERE t.created_at::date = %s::date
+            ORDER BY t.created_at ASC
+        """
+        rows = execute_query(query, (day,), fetch_all=True)
+
+        from collections import OrderedDict
+        cashier_map = OrderedDict()
+        overall_pm = {}
+
+        def add_pm(totals, method, amount):
+            key = (method or 'other').lower()
+            totals[key] = totals.get(key, 0.0) + amount
+
+        for r in rows:
+            cashier = r[3] or 'Unknown'
+            total = float(r[4] or 0)
+            method = (r[5] or 'other').lower()
+            created = r[6].isoformat() if r[6] else None
+            items = r[7] if r[7] else []
+
+            if cashier not in cashier_map:
+                cashier_map[cashier] = {
+                    'cashier': cashier,
+                    'total': 0.0,
+                    'transaction_count': 0,
+                    'payment_methods': {},
+                    'transactions': []
+                }
+            c = cashier_map[cashier]
+            c['total'] += total
+            c['transaction_count'] += 1
+            add_pm(c['payment_methods'], method, total)
+            add_pm(overall_pm, method, total)
+            c['transactions'].append({
+                'id': r[0],
+                'transaction_number': r[1],
+                'created_at': created,
+                'total': total,
+                'payment_method': method,
+                'items': items
+            })
+
+        cashiers = list(cashier_map.values())
+
+        return jsonify({
+            'success': True,
+            'date': day,
+            'cashiers': cashiers,
+            'grand_total': sum(c['total'] for c in cashiers),
+            'transaction_count': sum(c['transaction_count'] for c in cashiers),
+            'payment_methods': overall_pm
+        })
+    except Exception as e:
+        print(f"Day-end report error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/transactions/daily-summary', methods=['GET'])
 @login_required
 def get_daily_summary():
