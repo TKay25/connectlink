@@ -6683,35 +6683,24 @@ function populateCategoryDropdown() {
         '🏭 Machinery': ['Machinery', 'Equipment & Machinery', 'Power Tools', 'Drills', 'Grinders', 'Saws (Power)', 'Generators', 'Pumps', 'Water Pumps', 'Welding', 'Welding Machine', 'Compressors', 'Chainsaw']
     };
     
-    for (const [groupName, categories] of Object.entries(categoryGroups)) {
-        const matchingCategories = categories.filter(cat => uniqueCategories.includes(cat));
-        if (matchingCategories.length > 0) {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = groupName;
-            matchingCategories.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat;
-                option.textContent = cat;
-                optgroup.appendChild(option);
-            });
-            categorySelect.appendChild(optgroup);
-        }
-    }
-    
-    const allGrouped = Object.values(categoryGroups).flat();
-    const uncategorized = uniqueCategories.filter(cat => !allGrouped.includes(cat));
-    if (uncategorized.length > 0) {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = '📦 Other';
-        uncategorized.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat;
-            option.textContent = cat;
-            optgroup.appendChild(option);
-        });
-        categorySelect.appendChild(optgroup);
-    }
-    
+    // Show ONLY the four required categories (DIY, Electricals, Plumbing, Machinery)
+    // plus "All". Selecting one filters to products whose category belongs to that group.
+    const categoryGroupMembers = {
+        'DIY': ['DIY', 'Tools', 'Hand Tools', 'Hammers', 'Claw Hammer', 'Screwdrivers', 'Pliers', 'Saws', 'Hack Saws', 'Fasteners', 'Screws', 'Nails', 'Wire Nails', 'Bolts', 'Washers', 'Paint', 'Spray Paint', 'Safety', 'Gloves', 'Goggles', 'Hard Hats', 'Cleaning', 'Brooms', 'Mops', 'Cookware', 'Furniture', 'Hardware', 'Door Locks', 'Lock Sets', 'Hinges', 'Handles', 'Measuring Tools', 'Tape Measures', 'Spirit Level'],
+        'Electricals': ['Electricals', 'Electrical', 'Cables', 'Switches', 'Sockets', 'Breakers', 'Insulation Tape', 'LED Lights', 'Lights', 'Conduit', 'Couplings', 'Appliances', 'Stove', 'Oven'],
+        'Plumbing': ['Plumbing', 'Pipes', 'Pipe Fittings', 'Bends', 'Tees', 'Traps', 'Flexi Pipes', 'Valves', 'Taps', 'Hose', 'Hose Pipe', 'Silicone', 'Bathroom', 'Shower Mixers', 'Basin', 'S-Trap', 'P-Trap', 'Pan Connectors'],
+        'Machinery': ['Machinery', 'Equipment & Machinery', 'Power Tools', 'Drills', 'Grinders', 'Saws (Power)', 'Generators', 'Pumps', 'Water Pumps', 'Welding', 'Welding Machine', 'Compressors', 'Chainsaw']
+    };
+    window.__categoryGroupMembers = categoryGroupMembers;
+
+    categorySelect.innerHTML = '<option value="all">📦 All Categories</option>';
+    Object.keys(categoryGroupMembers).forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        categorySelect.appendChild(option);
+    });
+
     categorySelect.addEventListener('change', function() {
         selectedCategory = this.value;
         renderProducts();
@@ -8628,7 +8617,14 @@ async function fetchTransactionsData() {
     
     function filterProducts() {
         let filtered = products;
-        if (selectedCategory !== 'all') filtered = filtered.filter(p => p.category === selectedCategory);
+        if (selectedCategory !== 'all') {
+            const groupMembers = (window.__categoryGroupMembers || {})[selectedCategory];
+            if (groupMembers) {
+                filtered = filtered.filter(p => groupMembers.includes(p.category));
+            } else {
+                filtered = filtered.filter(p => p.category === selectedCategory);
+            }
+        }
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             filtered = filtered.filter(p => p.name.toLowerCase().includes(term) || (p.unit_details && p.unit_details.toLowerCase().includes(term)));
