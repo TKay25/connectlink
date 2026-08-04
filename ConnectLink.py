@@ -12923,7 +12923,15 @@ def update_product_price(product_id):
 @login_required
 def update_product(product_id):
     data = request.json
-    
+
+    # Refuse to assign a barcode that belongs to another product
+    if 'barcode' in data and data.get('barcode'):
+        dup = execute_query(
+            "SELECT id FROM products WHERE barcode = %s AND id != %s",
+            (str(data['barcode']).strip(), product_id), fetch_one=True)
+        if dup:
+            return jsonify({'error': f'Barcode {data["barcode"]} is already assigned to another product'}), 400
+
     update_fields = []
     params = []
     
@@ -13014,18 +13022,33 @@ def subtract_stock(product_id):
         
         # Subtract stock
         new_stock = current_stock - quantity
-        execute_query("""
-            UPDATE products 
-            SET stock = %s, updated_at = CURRENT_TIMESTAMP 
-            WHERE id = %s
-        """, (new_stock, product_id), commit=True)
+
+        # Optional: update the product's barcode if a new one was provided
+        barcode = data.get('barcode')
+        if barcode is not None:
+            barcode = str(barcode).strip()
+            # Refuse to assign a barcode that belongs to another product
+            dup = execute_query("SELECT id FROM products WHERE barcode = %s AND id != %s", (barcode, product_id), fetch_one=True)
+            if dup:
+                return jsonify({'error': f'Barcode {barcode} is already assigned to another product'}), 400
+            execute_query("""
+                UPDATE products
+                SET stock = %s, barcode = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (new_stock, barcode, product_id), commit=True)
+        else:
+            execute_query("""
+                UPDATE products
+                SET stock = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (new_stock, product_id), commit=True)
         
         # Try to log the stock reduction (table may not exist yet)
         try:
             execute_query("""
                 INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at)
                 VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            """, (product_id, quantity, reason, notes, session['user_id']), commit=True)
+            """, (product_id, quantity, reason, notes, session.get('user_id', 0)), commit=True)
         except Exception as log_error:
             # If the table doesn't exist, just log to console and continue
             print(f"Warning: Could not log stock reduction: {str(log_error)}")

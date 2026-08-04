@@ -2983,7 +2983,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                         <div class="modal-body">
                             <div class="input-group mb-2">
                                 <span class="input-group-text"><i class="fas fa-barcode"></i></span>
-                                <input type="text" class="form-control" id="editStockBarcodeScan" placeholder="Scan barcode to select product" autocomplete="off">
+                                <input type="text" class="form-control" id="editStockBarcodeScan" placeholder="Product barcode (scan to change)" autocomplete="off">
                             </div>
                             <div class="alert alert-info mb-3" style="font-size: 0.75rem;">
                                 <i class="fas fa-info-circle me-1"></i> 
@@ -3043,6 +3043,10 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
+                            <div class="input-group mb-2">
+                                <span class="input-group-text"><i class="fas fa-barcode"></i></span>
+                                <input type="text" class="form-control" id="subtractStockBarcode" placeholder="Product barcode (scan to change)" autocomplete="off">
+                            </div>
                             <div class="alert alert-info mb-3" style="font-size: 0.75rem;">
                                 <i class="fas fa-info-circle me-1"></i> 
                                 <strong>Product:</strong> <span id="subtractStockProductName">Loading...</span><br>
@@ -8979,6 +8983,8 @@ function selectCategory(category) {
         document.getElementById('currentAvailableProfit').innerText = `$${currentTotalProfit.toFixed(2)}`;
         document.getElementById('newStockQuantity').value = 1;
         document.getElementById('stockBuyPrice').value = product.buy_price || 0;
+        const addBarcodeField = document.getElementById('editStockBarcodeScan');
+        if (addBarcodeField) addBarcodeField.value = product.barcode || '';
 
         // Reset funding selection
         selectedFundingSource = "profit";
@@ -9107,7 +9113,17 @@ function setupFundingSelection() {
         }
         
         const newStock = productToEdit.stock + quantityToAdd;
-        
+        const barcode = (document.getElementById('editStockBarcodeScan').value || '').trim();
+
+        // Don't assign a barcode that already belongs to another product
+        if (barcode && barcode !== (productToEdit.barcode || '')) {
+            const barcodeOwner = await lookupProductByBarcode(barcode);
+            if (barcodeOwner && barcodeOwner.id !== productToEdit.id) {
+                showToast(`Barcode ${barcode} belongs to "${barcodeOwner.name}" — use that product or clear the barcode`, 'error');
+                return;
+            }
+        }
+
         showLoader(`Adding ${quantityToAdd} units to "${productToEdit.name}" using ${selectedFundingSource === "profit" ? 'profits' : 'new capital'}...`);
         
         try {
@@ -9118,6 +9134,7 @@ function setupFundingSelection() {
                 body: JSON.stringify({ 
                     ...productToEdit, 
                     stock: newStock,
+                    barcode: barcode,
                     buy_price: buyPrice,
                     funding_source: selectedFundingSource,
                     total_cost: totalCost
@@ -9150,16 +9167,18 @@ function setupFundingSelection() {
     
     // ==================== SUBTRACT STOCK FUNCTIONS ====================
     
-    function showSubtractStockModal(productId, currentStock) {
-        productToEdit = products.find(p => p.id === productId);
-        if (!productToEdit) return;
-        
-        document.getElementById('subtractStockProductName').innerText = productToEdit.name;
+    function populateSubtractStockModal(product, currentStock) {
+        if (!product) return;
+        productToEdit = product;
+
+        document.getElementById('subtractStockProductName').innerText = product.name;
         document.getElementById('subtractCurrentStockValue').innerText = currentStock;
         document.getElementById('subtractQuantity').value = 1;
         document.getElementById('subtractReason').value = 'damaged';
         document.getElementById('subtractNotes').value = '';
-        
+        const subtractBarcodeField = document.getElementById('subtractStockBarcode');
+        if (subtractBarcodeField) subtractBarcodeField.value = product.barcode || '';
+
         // Add input listener for quantity validation
         const quantityInput = document.getElementById('subtractQuantity');
         const validateQuantity = () => {
@@ -9168,11 +9187,18 @@ function setupFundingSelection() {
                 showToast(`Cannot remove ${quantity} units. Only ${currentStock} in stock!`, 'error');
             }
         };
-        
+
         quantityInput.removeEventListener('input', validateQuantity);
         quantityInput.addEventListener('input', validateQuantity);
-        
+    }
+
+    function showSubtractStockModal(productId, currentStock) {
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
+        populateSubtractStockModal(product, currentStock);
         new bootstrap.Modal(document.getElementById('subtractStockModal')).show();
+        const subtractBarcodeField = document.getElementById('subtractStockBarcode');
+        if (subtractBarcodeField) subtractBarcodeField.focus();
     }
     
     async function confirmSubtractStock() {
@@ -9193,6 +9219,17 @@ function setupFundingSelection() {
             return;
         }
         
+        const barcode = (document.getElementById('subtractStockBarcode').value || '').trim();
+
+        // Don't assign a barcode that already belongs to another product
+        if (barcode && barcode !== (productToEdit.barcode || '')) {
+            const barcodeOwner = await lookupProductByBarcode(barcode);
+            if (barcodeOwner && barcodeOwner.id !== productToEdit.id) {
+                showToast(`Barcode ${barcode} belongs to "${barcodeOwner.name}" — use that product or clear the barcode`, 'error');
+                return;
+            }
+        }
+
         showLoader(`Removing ${quantityToRemove} units from stock...`);
         
         try {
@@ -9203,7 +9240,8 @@ function setupFundingSelection() {
                 body: JSON.stringify({
                     quantity: quantityToRemove,
                     reason: reason,
-                    notes: notes
+                    notes: notes,
+                    barcode: barcode
                 })
             });
             
@@ -9674,23 +9712,27 @@ function setupAddProductFundingSelection() {
             });
         }
 
-        // Add Stock modal: scan to select the product (updates the open modal in place)
+        // Add Stock modal: scan input handles the product's barcode
         const stockScan = document.getElementById('editStockBarcodeScan');
         if (stockScan) {
-            stockScan.addEventListener('keydown', async function(e) {
+            stockScan.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     const code = this.value;
                     this.value = '';
-                    const product = await lookupProductByBarcode(code);
-                    if (product) {
-                        populateEditStockModal(product);
-                        showToast(`${product.name} selected`, 'success');
-                        const qtyInput = document.getElementById('newStockQuantity');
-                        if (qtyInput) qtyInput.focus();
-                    } else {
-                        showToast(`Barcode not found: ${code || '(empty)'}`, 'error');
-                    }
+                    handleModalBarcodeScan(code);
+                }
+            });
+        }
+        // Subtract Stock modal: scan input handles the product's barcode
+        const subtractScan = document.getElementById('subtractStockBarcode');
+        if (subtractScan) {
+            subtractScan.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const code = this.value;
+                    this.value = '';
+                    handleModalBarcodeScan(code);
                 }
             });
         }
@@ -9741,34 +9783,48 @@ function setupAddProductFundingSelection() {
             scanTimer = setTimeout(resetScanBuffer, 200);
         }
 
-        // Add Stock modal: a scanned barcode selects the product in the open modal
-        async function handleAddStockScan(code) {
+        // Add/Subtract Stock modals: a scan sets the current product's barcode,
+        // or switches to another product if the scanned code already belongs to it.
+        async function handleModalBarcodeScan(code) {
             const product = await lookupProductByBarcode(code);
-            if (product) {
-                populateEditStockModal(product);
-                showToast(`${product.name} selected`, 'success');
-                const qtyInput = document.getElementById('newStockQuantity');
-                if (qtyInput) qtyInput.focus();
-            } else {
-                showToast(`Barcode not found: ${code || '(empty)'}`, 'error');
+            const addStockOpen = document.getElementById('editStockModal') &&
+                                 document.getElementById('editStockModal').classList.contains('show');
+            if (product && productToEdit && product.id !== productToEdit.id) {
+                // The scanned barcode already belongs to another product → load it
+                if (addStockOpen) {
+                    populateEditStockModal(product);
+                } else {
+                    populateSubtractStockModal(product, product.stock);
+                }
+                showToast(`Switched to ${product.name}`, 'info');
+                return;
             }
+            // Otherwise it's the barcode for the current product
+            const field = document.getElementById(addStockOpen ? 'editStockBarcodeScan' : 'subtractStockBarcode');
+            if (field) field.value = code;
+            showToast(`Barcode set: ${code}`, 'success');
+            const qtyId = addStockOpen ? 'newStockQuantity' : 'subtractQuantity';
+            const qtyEl = document.getElementById(qtyId);
+            if (qtyEl) { qtyEl.value = 1; qtyEl.focus(); }
         }
 
         document.addEventListener('keydown', function(e) {
             const activeEl = document.activeElement;
             const editStockModalEl = document.getElementById('editStockModal');
+            const subtractStockModalEl = document.getElementById('subtractStockModal');
             const addStockOpen = editStockModalEl && editStockModalEl.classList.contains('show');
+            const subtractStockOpen = subtractStockModalEl && subtractStockModalEl.classList.contains('show');
 
             // Dedicated scan inputs / cash-amount field handle their own input
             if (activeEl && (activeEl.id === 'barcodeScanInput' || activeEl.id === 'cashAmount' ||
-                             activeEl.id === 'editStockBarcodeScan')) {
+                             activeEl.id === 'editStockBarcodeScan' || activeEl.id === 'subtractStockBarcode')) {
                 resetScanBuffer();
                 return;
             }
 
-            // Add Stock modal: scanning works from anywhere inside it
-            if (addStockOpen) {
-                handleScanKeys(e, handleAddStockScan);
+            // Add/Subtract Stock modals: scanning works from anywhere inside them
+            if (addStockOpen || subtractStockOpen) {
+                handleScanKeys(e, handleModalBarcodeScan);
                 return;
             }
 
