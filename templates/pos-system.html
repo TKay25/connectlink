@@ -8969,35 +8969,35 @@ function selectCategory(category) {
     
     // ==================== EDIT STOCK FUNCTIONS ====================
     
-    // Update showEditStockModal to show current profit
-    function showEditStockModal(productId) {
-        productToEdit = products.find(p => p.id === productId);
-        if (!productToEdit) return;
-        
-        document.getElementById('editStockProductName').innerText = productToEdit.name;
-        document.getElementById('currentStockValue').innerText = productToEdit.stock;
+    // Populate the Add Stock modal for a product (does NOT open/re-show the modal)
+    function populateEditStockModal(product) {
+        if (!product) return;
+        productToEdit = product;
+
+        document.getElementById('editStockProductName').innerText = product.name;
+        document.getElementById('currentStockValue').innerText = product.stock;
         document.getElementById('currentAvailableProfit').innerText = `$${currentTotalProfit.toFixed(2)}`;
         document.getElementById('newStockQuantity').value = 1;
-        document.getElementById('stockBuyPrice').value = productToEdit.buy_price || 0;
-        
+        document.getElementById('stockBuyPrice').value = product.buy_price || 0;
+
         // Reset funding selection
         selectedFundingSource = "profit";
         document.getElementById('fundingProfit').classList.add('active');
         document.getElementById('fundingCapital').classList.remove('active');
-        
+
         // Add event listeners for funding selection
         setupFundingSelection();
-        
+
         // Add input listeners for cost calculation
         const quantityInput = document.getElementById('newStockQuantity');
         const priceInput = document.getElementById('stockBuyPrice');
-        
+
         const updateCostPreview = () => {
             const quantity = parseInt(quantityInput.value) || 0;
             const price = parseFloat(priceInput.value) || 0;
             const totalCost = quantity * price;
             document.getElementById('totalCostPreview').innerText = `$${totalCost.toFixed(2)}`;
-            
+
             // Check if profit is sufficient if using profit funding
             if (selectedFundingSource === "profit" && totalCost > currentTotalProfit) {
                 const warningDiv = document.getElementById('profitWarning');
@@ -9009,14 +9009,23 @@ function selectCategory(category) {
                 document.getElementById('profitWarning').style.display = 'none';
             }
         };
-        
+
         quantityInput.removeEventListener('input', updateCostPreview);
         priceInput.removeEventListener('input', updateCostPreview);
         quantityInput.addEventListener('input', updateCostPreview);
         priceInput.addEventListener('input', updateCostPreview);
         updateCostPreview();
-        
+    }
+
+    // Open the Add Stock modal for a product and focus the barcode scan box
+    function showEditStockModal(productId) {
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
+
+        populateEditStockModal(product);
         new bootstrap.Modal(document.getElementById('editStockModal')).show();
+        const stockScanInput = document.getElementById('editStockBarcodeScan');
+        if (stockScanInput) stockScanInput.focus();
     }
 
 function setupFundingSelection() {
@@ -9663,7 +9672,7 @@ function setupAddProductFundingSelection() {
             });
         }
 
-        // Add Stock modal: scan to select the product
+        // Add Stock modal: scan to select the product (updates the open modal in place)
         const stockScan = document.getElementById('editStockBarcodeScan');
         if (stockScan) {
             stockScan.addEventListener('keydown', async function(e) {
@@ -9673,7 +9682,10 @@ function setupAddProductFundingSelection() {
                     this.value = '';
                     const product = await lookupProductByBarcode(code);
                     if (product) {
-                        showEditStockModal(product.id);
+                        populateEditStockModal(product);
+                        showToast(`${product.name} selected`, 'success');
+                        const qtyInput = document.getElementById('newStockQuantity');
+                        if (qtyInput) qtyInput.focus();
                     } else {
                         showToast(`Barcode not found: ${code || '(empty)'}`, 'error');
                     }
@@ -9703,36 +9715,18 @@ function setupAddProductFundingSelection() {
             if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
         }
 
-        document.addEventListener('keydown', function(e) {
-            // Only intercept on the main sale page — never while a modal is open
-            if (document.querySelector('.modal.show')) return;
-
-            const activeEl = document.activeElement;
-            // The dedicated scan box and cash-amount field handle their own input
-            if (activeEl && (activeEl.id === 'barcodeScanInput' || activeEl.id === 'cashAmount')) {
-                resetScanBuffer();
-                return;
-            }
-
+        // Shared fast-burst scanner detection. Calls onScan(code) when a real scan
+        // (keys <50ms apart, >=3 chars, ending with Enter) is detected; human typing is ignored.
+        function handleScanKeys(e, onScan) {
             if (e.key === 'Enter') {
-                if (burstOk && scanBuffer) {
+                if (burstOk && scanBuffer && scanBuffer.length >= 3) {
                     e.preventDefault();
                     const code = scanBuffer;
                     resetScanBuffer();
-                    scanBarcodeAddToCart(code);
-                    // Undo any filtering the scanned digits may have caused in the search box
-                    const searchInput = document.getElementById('searchProduct');
-                    if (searchInput && searchInput.value) {
-                        searchInput.value = '';
-                        searchTerm = '';
-                        renderProducts();
-                    }
-                    const scanInput = document.getElementById('barcodeScanInput');
-                    if (scanInput) scanInput.focus();
+                    onScan(code);
                 }
                 return;
             }
-
             if (!e.key || e.key.length !== 1) return;
 
             const now = Date.now();
@@ -9743,6 +9737,55 @@ function setupAddProductFundingSelection() {
             if (scanBuffer.length >= 2 && gap <= 50) burstOk = true;
             if (scanTimer) clearTimeout(scanTimer);
             scanTimer = setTimeout(resetScanBuffer, 200);
+        }
+
+        // Add Stock modal: a scanned barcode selects the product in the open modal
+        async function handleAddStockScan(code) {
+            const product = await lookupProductByBarcode(code);
+            if (product) {
+                populateEditStockModal(product);
+                showToast(`${product.name} selected`, 'success');
+                const qtyInput = document.getElementById('newStockQuantity');
+                if (qtyInput) qtyInput.focus();
+            } else {
+                showToast(`Barcode not found: ${code || '(empty)'}`, 'error');
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            const activeEl = document.activeElement;
+            const editStockModalEl = document.getElementById('editStockModal');
+            const addStockOpen = editStockModalEl && editStockModalEl.classList.contains('show');
+
+            // Dedicated scan inputs / cash-amount field handle their own input
+            if (activeEl && (activeEl.id === 'barcodeScanInput' || activeEl.id === 'cashAmount' ||
+                             activeEl.id === 'editStockBarcodeScan')) {
+                resetScanBuffer();
+                return;
+            }
+
+            // Add Stock modal: scanning works from anywhere inside it
+            if (addStockOpen) {
+                handleScanKeys(e, handleAddStockScan);
+                return;
+            }
+
+            // Any other modal open — leave its fields alone
+            if (document.querySelector('.modal.show')) return;
+
+            // Main sale page: scanned items go straight to the cart
+            handleScanKeys(e, function(code) {
+                scanBarcodeAddToCart(code);
+                // Undo any filtering the scanned digits may have caused in the search box
+                const searchInput = document.getElementById('searchProduct');
+                if (searchInput && searchInput.value) {
+                    searchInput.value = '';
+                    searchTerm = '';
+                    renderProducts();
+                }
+                const scanInput = document.getElementById('barcodeScanInput');
+                if (scanInput) scanInput.focus();
+            });
         });
 
         // Give the scan box default focus on the sale page so scanners land there
