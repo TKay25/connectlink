@@ -3077,18 +3077,18 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                 </div>
             </div>
 
-<!-- Remove All Stock Modal -->
+<!-- Remove All Items & History Modal -->
 <div class="modal fade" id="removeAllStockModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content">
             <div class="modal-header" style="background:var(--crimson-bright);color:white;border-bottom:2px solid var(--primary-dark);">
-                <h5 class="modal-title"><i class="fas fa-eraser me-1"></i>Remove All Stock</h5>
+                <h5 class="modal-title"><i class="fas fa-eraser me-1"></i>Remove All Items &amp; History</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-danger small">
                     <i class="fas fa-exclamation-triangle me-1"></i>
-                    <strong>Warning:</strong> This will set <strong>ALL products' stock to 0</strong>. This cannot be undone and is logged to the audit trail.
+                    <strong>Warning:</strong> This will <strong>permanently DELETE all products</strong> and <strong>all history</strong> — stock additions, stock reductions, and sales/transactions. This cannot be undone.
                 </div>
                 <label class="form-label" for="removeAllStockPassword">Enter Password</label>
                 <input type="password" class="form-control" id="removeAllStockPassword" placeholder="Password required">
@@ -3096,7 +3096,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button class="btn btn-danger btn-sm" onclick="confirmRemoveAllStock()">Remove All Stock</button>
+                <button class="btn btn-danger btn-sm" onclick="confirmRemoveAllStock()">Delete Everything</button>
             </div>
         </div>
     </div>
@@ -3245,7 +3245,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                                     <i class="fas fa-clipboard-list me-1"></i>Audit Report
                                 </button>
                                 <button class="btn btn-outline-danger" onclick="openRemoveAllStockModal()">
-                                    <i class="fas fa-eraser me-1"></i>Remove All Stock
+                                    <i class="fas fa-eraser me-1"></i>Remove All Items &amp; History
                                 </button>
                             </div>
                     </div>
@@ -9479,6 +9479,8 @@ function setupAddProductFundingSelection() {
                 bootstrap.Modal.getInstance(document.getElementById('removeAllStockModal')).hide();
                 showToast(data.message, 'success');
                 await fetchProductsFromAPI();
+                if (typeof fetchTransactions === 'function') fetchTransactions();
+                if (typeof fetchDashboardStats === 'function') fetchDashboardStats();
                 if (typeof renderInventory === 'function') renderInventory();
                 if (typeof renderProducts === 'function') renderProducts();
             } else {

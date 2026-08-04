@@ -13044,26 +13044,25 @@ def subtract_stock(product_id):
 @app.route('/api/inventory/remove-all-stock', methods=['POST'])
 @login_required
 def remove_all_stock():
-    """Set ALL active products' stock to 0. Requires the admin password."""
+    """Wipe the entire inventory: delete ALL products and ALL history
+    (stock additions, stock reductions, and sales/transactions).
+    Requires the admin password."""
     try:
         data = request.get_json() or {}
         password = data.get('password', '')
         if password != REMOVE_ALL_STOCK_PASSWORD:
             return jsonify({'success': False, 'error': 'Incorrect password'}), 403
 
-        cleared = 0
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT id, stock FROM products WHERE is_active = TRUE AND stock > 0")
-            for pid, stock in cursor.fetchall():
-                cursor.execute("""
-                    INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at)
-                    VALUES (%s, %s, 'stock_reset', %s, %s, CURRENT_TIMESTAMP)
-                """, (pid, stock, 'Remove all stock (reset to 0)', session.get('user_id', 0)))
-                cursor.execute("UPDATE products SET stock = 0, updated_at = CURRENT_TIMESTAMP WHERE id = %s", (pid,))
-                cleared += 1
+            # Clear history first (FK dependencies), then all products
+            cursor.execute("DELETE FROM transaction_items")
+            cursor.execute("DELETE FROM transactions")
+            cursor.execute("DELETE FROM stock_additions")
+            cursor.execute("DELETE FROM stock_reductions")
+            cursor.execute("DELETE FROM products")
             connection.commit()
 
-        return jsonify({'success': True, 'message': f'Removed all stock from {cleared} product(s)'})
+        return jsonify({'success': True, 'message': 'All items and history removed'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
