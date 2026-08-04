@@ -3077,6 +3077,31 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                 </div>
             </div>
 
+<!-- Remove All Stock Modal -->
+<div class="modal fade" id="removeAllStockModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--crimson-bright);color:white;border-bottom:2px solid var(--primary-dark);">
+                <h5 class="modal-title"><i class="fas fa-eraser me-1"></i>Remove All Stock</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>Warning:</strong> This will set <strong>ALL products' stock to 0</strong>. This cannot be undone and is logged to the audit trail.
+                </div>
+                <label class="form-label" for="removeAllStockPassword">Enter Password</label>
+                <input type="password" class="form-control" id="removeAllStockPassword" placeholder="Password required">
+                <div id="removeAllStockError" class="text-danger small mt-1" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-danger btn-sm" onclick="confirmRemoveAllStock()">Remove All Stock</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- POS Page -->
 
 <!-- POS Page -->
@@ -3218,6 +3243,9 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                                 </button>
                                 <button class="btn btn-primary-dark" id="toggleAuditReportBtn" onclick="toggleAuditReport()">
                                     <i class="fas fa-clipboard-list me-1"></i>Audit Report
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="openRemoveAllStockModal()">
+                                    <i class="fas fa-eraser me-1"></i>Remove All Stock
                                 </button>
                             </div>
                     </div>
@@ -9411,6 +9439,49 @@ function setupAddProductFundingSelection() {
             showToast('Connection error', 'error');
         } finally {
             hideLoader(); // ALWAYS hide loader
+        }
+    }
+
+    // ==================== REMOVE ALL STOCK ====================
+    function openRemoveAllStockModal() {
+        document.getElementById('removeAllStockPassword').value = '';
+        document.getElementById('removeAllStockError').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('removeAllStockModal')).show();
+    }
+
+    async function confirmRemoveAllStock() {
+        const password = document.getElementById('removeAllStockPassword').value;
+        const errEl = document.getElementById('removeAllStockError');
+        if (!password) {
+            errEl.textContent = 'Please enter the password.';
+            errEl.style.display = 'block';
+            return;
+        }
+        showLoader('Removing all stock...');
+        try {
+            const res = await fetch(`${API_BASE}/api/inventory/remove-all-stock`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ password: password })
+            });
+            const data = await res.json();
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('removeAllStockModal')).hide();
+                showToast(data.message, 'success');
+                await fetchProductsFromAPI();
+                if (typeof renderInventory === 'function') renderInventory();
+                if (typeof renderProducts === 'function') renderProducts();
+            } else {
+                errEl.textContent = data.error || 'Failed to remove stock';
+                errEl.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Remove all stock error:', error);
+            errEl.textContent = 'Connection error';
+            errEl.style.display = 'block';
+        } finally {
+            hideLoader();
         }
     }
     // ==================== AUTOCOMPLETE ====================
