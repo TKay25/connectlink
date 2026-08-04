@@ -1,12 +1,12 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "FixDupEmployees",
-  "file": "fix_dup_employees.py",
-  "purpose": "Link duplicate employees between hr_employees and connectlinkusers by email.",
+  "module": "DiagUserLink",
+  "file": "_diag_user_link.py",
+  "purpose": "Read-only diagnostic: understand hr_employees.user_id linkage (no writes).",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [
-    "fix_dup_employees → cursor.execute, cursor.fetchall, connection.commit"
+    "_diag_user_link → cur.execute, cur.fetchall"
   ],
   "public_api": [
     "<!-- list public functions/methods here -->"
@@ -27,11 +27,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "3c9993df1aafecaf",
-  "file_mtime": 1784039929567.0024,
-  "file_size": 2356,
-  "file_birthtime": 1784039929017.0955,
-  "generated_at": "2026-08-04T08:13:57.978526Z",
-  "stale": false,
+  "file_hash": "030352eb09e88a14",
+  "file_mtime": 1785831038179.5193,
+  "file_size": 1733,
+  "file_birthtime": 1785831037950.209,
+  "generated_at": "2026-08-04T08:10:42.314613Z",
+  "stale": true,
   "stale_reason": "source file deleted"
 }

@@ -14726,18 +14726,48 @@ def hr_employees_api():
                 username = email if email else (whatsapp if whatsapp else f"emp{emp_id}")
                 if full_name:
                     try:
+                        # hr_employees.user_id REFERENCES connectlinkusers(id) (FK), so the
+                        # link MUST point at a connectlinkusers row. admin_users.id is a
+                        # separate sequence and would violate that FK (the reported bug).
+                        # ===== 1. Find or create the canonical app user (connectlinkusers) =====
+                        cursor.execute("SELECT id FROM connectlinkusers WHERE email = %s", (email,))
+                        clu_row = cursor.fetchone()
+                        if clu_row:
+                            clu_id = clu_row[0]
+                        else:
+                            cursor.execute("""
+                                INSERT INTO connectlinkusers (datecreated, name, email, password, whatsapp)
+                                VALUES (%s, %s, %s, %s, %s)
+                                RETURNING id
+                            """, (date.today(), full_name, email, data.get('password', 'conlink123'), whatsapp))
+                            clu_id = cursor.fetchone()[0]
+                        cursor.execute("UPDATE hr_employees SET user_id = %s WHERE id = %s", (clu_id, emp_id))
+
+                        # ===== 2. Find or create the HR login account (admin_users),
+                        #          linked back to the connectlinkusers row via source_id =====
                         cursor.execute("SELECT id FROM admin_users WHERE email = %s OR username = %s", (email, username))
                         existing = cursor.fetchone()
                         if existing:
                             au_id = existing[0]
                         else:
                             cursor.execute("""
-                                INSERT INTO admin_users (username, password, full_name, email, source_system, role, must_reset_password, created_at, subsidiary)
-                                VALUES (%s, %s, %s, %s, 'hr', 'operator', TRUE, NOW(), %s)
+                                INSERT INTO admin_users (username, password, full_name, email, source_system, source_id, role, must_reset_password, created_at, subsidiary)
+                                VALUES (%s, %s, %s, %s, 'projects', %s, 'operator', TRUE, NOW(), %s)
                                 RETURNING id
-                            """, (username, data.get('password', 'conlink123'), full_name, email, data.get('subsidiary', '')))
+                            """, (username, data.get('password', 'conlink123'), full_name, email, clu_id, data.get('subsidiary', '')))
                             au_id = cursor.fetchone()[0]
-                        cursor.execute("UPDATE hr_employees SET user_id = %s WHERE id = %s", (au_id, emp_id))
+
+                        # ===== 3. Sync role -> user_permissions so the new employee can
+                        #          actually sign into the HR portal =====
+                        new_role = data.get('role', 'Ordinary User')
+                        is_admin = (new_role == 'Administrator')
+                        cursor.execute("""
+                            INSERT INTO user_permissions (user_type, user_id, can_manage_hr, hr_access, is_super_admin)
+                            VALUES ('projects', %s, %s, TRUE, FALSE)
+                            ON CONFLICT (user_type, user_id) DO UPDATE SET
+                                can_manage_hr = EXCLUDED.can_manage_hr,
+                                hr_access = EXCLUDED.hr_access
+                        """, (clu_id, is_admin))
                         connection.commit()
                     except Exception as sync_err:
                         print(f"⚠️ Admin sync error (non-fatal): {sync_err}")
@@ -14927,13 +14957,16 @@ def hr_employee_detail(emp_id):
                     has_basic_access = True  # Ordinary Users keep basic HR access
                     hr_vals = (is_admin, has_basic_access)
 
-                    # Find the admin_users record linked to this hr_employee
+                    # Find the admin_users record linked to this hr_employee.
+                    # hr_employees.user_id is a connectlinkusers.id (FK), so resolve
+                    # the admin_users row via source_id (linked at employee creation).
                     cursor.execute("SELECT user_id FROM hr_employees WHERE id = %s", (emp_id,))
                     he_row = cursor.fetchone()
                     if he_row and he_row[0]:
                         # Look up the existing permission row by admin_users source_system/source_id
                         cursor.execute("""
-                            SELECT source_system, source_id FROM admin_users WHERE id = %s
+                            SELECT source_system, source_id FROM admin_users
+                            WHERE source_id = %s ORDER BY id LIMIT 1
                         """, (he_row[0],))
                         au = cursor.fetchone()
                         if au and au[0] and au[1]:

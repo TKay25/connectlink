@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PatchLinkEmployees",
+  "file": "patch_link_employees.py",
+  "purpose": "One-off patch: link existing hr_employees to connectlinkusers (FK fix).",
+  "entry_function": "normalize_email(v)",
+  "entry_flows": [
+    "patch_link_employees → argparse.ArgumentParser, p.add_argument, p.parse_args, cur.execute"
+  ],
+  "public_api": [
+    "normalize_email(v)",
+    "main()"
+  ],
+  "dependencies": [
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: DEFAULT_PASSWORD = 'conlink123'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "92c2cfcf80e264d6",
+  "file_mtime": 1785831278860.3179,
+  "file_size": 7083,
+  "file_birthtime": 1785831278691.0334,
+  "generated_at": "2026-08-04T08:15:20.867352Z",
+  "stale": false
+}
