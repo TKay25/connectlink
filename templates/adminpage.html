@@ -34249,17 +34249,17 @@ $('#sendQuotationBtn').click(async function() {
             })
             .then(data => {
                 if (data.success) {
-                    alert(`✓ Restored ${data.count} default quotation rates!`);
+                    showToast(`✓ Restored ${data.count} default quotation rates!`, 'success', 'Rates Restored');
                     // Reload the table from the freshly-restored database rows
                     loadQuotationRates();
                     loadConstructionItemsFromDatabase();
                 } else {
-                    alert('Error: ' + (data.message || data.error || 'Unknown error'));
+                    showToast('Error: ' + (data.message || data.error || 'Unknown error'), 'error', 'Restore Failed');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to restore default rates: ' + error.message);
+                showToast('Failed to restore default rates: ' + error.message, 'error', 'Restore Failed');
             })
             .finally(() => {
                 btn.disabled = false;
