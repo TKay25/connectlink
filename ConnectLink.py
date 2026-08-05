@@ -83,6 +83,47 @@ database = 'connectlinkdata'
 GEMINI_API_KEY = "AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g"  # Replace with your actual key
 genai.configure(api_key=GEMINI_API_KEY)
 
+# Canonical default quotation rates used to seed the quotation_rates table on first run
+# and to restore defaults via /api/restore-default-quotation-rates.
+# Tuple format: (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+DEFAULT_QUOTATION_RATES = [
+    ('Land Clearing', 0.05, 3),
+    ('Setting out', 0.05, 1.2),
+    ('Excavation', 0.05, 3.2),
+    ('Footing', 0.0375, 6.48),
+    ('Box', 0.075, 16),
+    ('Removal', 0, 1.2),
+    ('Backfilling and Compaction', 0.025, 2.4),
+    ('Slab', 0.025, 15.6),
+    ('Window sill level', 0.058333333, 19),
+    ('Window head', 0.025974026, 18),
+    ('Ring Beam', 0.032467532, 14.04),
+    ('Wall plate', 0.038961039, 18),
+    ('Roofing', 0.083333333, 32),
+    ('Aluminium', 0.041666667, 15.8),
+    ('Shattering', 0.038961039, 10),
+    ('Steel Fixing', 0.097402597, 23),
+    ('Deck Pouring', 0.032467532, 20),
+    ('1st Fix Electricals', 0.02597403, 3.6),
+    ('1st Fix Plumbing', 0.025974026, 7.2),
+    ('External Plastering', 0.045454545, 9.6),
+    ('Internal Plastering', 0.051948052, 6),
+    ('Ceiling', 0.064935065, 19.2),
+    ('Skimming', 0.045454545, 4.8),
+    ('Flooring', 0.032467532, 10.14),
+    ('Tiling', 0.051948052, 35),
+    ('Wall Tiling', 0.023529412, 9.6),
+    ('Painting', 0.051948052, 21.6),
+    ('Screeding', 0, 10.14),
+    ('Review', 0, 6.78),
+    ('Beam filling', 0, 3.6),
+    ('TnCs', 0, 8.4),
+    ('Final fix Plumbing', 0.025974026, 18),
+    ('Final fix Electricals', 0.025974026, 15.6),
+    ('Doors and door frames', 0, 10.8),
+    ('Cleaning', 0, 0)
+]
+
 def initialize_database_tables():
     """Initialize all required database tables on startup"""
     try:
@@ -566,52 +607,14 @@ def initialize_database_tables():
             count = cursor.fetchone()[0]
             
             if count == 0:
-                # Insert initial quotation rates data
-                quotation_data = [
-                    ('Land Clearing', 0, 1),
-                    ('Setting out', 0, 1),
-                    ('Excavation', 0.05, 2.9),
-                    ('Footing', 0.0375, 12),
-                    ('Box', 0.075, 20),
-                    ('Removal', 0, 1),
-                    ('Backfilling and Compaction', 0.025, 7),
-                    ('Slab', 0.025, 15),
-                    ('Window sill level', 0.058333333, 20),
-                    ('Window head', 0.025974026, 20),
-                    ('Ring Beam', 0.032467532, 23),
-                    ('Wall plate', 0.038961039, 10),
-                    ('Roofing', 0.083333333, 35),
-                    ('Aluminium', 0.041666667, 16),
-                    ('Shattering', 0.038961039, 10),
-                    ('Steel Fixing', 0.097402597, 35),
-                    ('Deck Pouring', 0.032467532, 20),
-                    ('1st Fix Electricals', 0.02597403, 23),
-                    ('1st Fix Plumbing', 0.025974026, 9.25),
-                    ('External Plastering', 0.045454545, 5.5),
-                    ('Internal Plastering', 0.051948052, 5.5),
-                    ('Ceiling', 0.064935065, 13),
-                    ('Skimming', 0.045454545, 3.5),
-                    ('Flooring', 0.032467532, 3.5),
-                    ('Tiling', 0.051948052, 12),
-                    ('Wall Tiling', 0.023529412, 0),
-                    ('Painting', 0.051948052, 15),
-                    ('Screeding', 0, 1),
-                    ('Review', 0, 1),
-                    ('Beam filling', 0, 1),
-                    ('TnCs', 0, 1),
-                    ('Final fix Plumbing', 0.025974026, 9.25),
-                    ('Final fix Electricals', 0.025974026, 5),
-                    ('Doors and door frames', 0, 1),
-                    ('Cleaning', 0, 0)
-                ]
-                
+                # Insert initial quotation rates data from the canonical defaults
                 cursor.executemany("""
                     INSERT INTO quotation_rates (quotation_item, days_per_sq_meter, inhouse_unit_rate)
                     VALUES (%s, %s, %s)
-                """, quotation_data)
+                """, DEFAULT_QUOTATION_RATES)
                 
                 connection.commit()
-                print(f"✓ Initialized quotation_rates table with {len(quotation_data)} items")
+                print(f"✓ Initialized quotation_rates table with {len(DEFAULT_QUOTATION_RATES)} items")
 
             # Check if Land Clearing is missing and add it (for databases seeded before this item existed)
             cursor.execute("SELECT COUNT(*) FROM quotation_rates WHERE quotation_item = 'Land Clearing'")
@@ -29955,6 +29958,67 @@ def save_quotation_rates():
             })
     except Exception as e:
         logging.error(f'Error saving quotation rates: {str(e)}')
+        if 'connection' in locals():
+            connection.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/restore-default-quotation-rates', methods=['POST'])
+def restore_default_quotation_rates():
+    """Reset the quotation_rates table back to the default rates.
+
+    The client sends the canonical defaults from getDefaultQuotationRates()
+    in the request body (single source of truth, editable in adminpage.html).
+    If no rates are supplied, falls back to DEFAULT_QUOTATION_RATES.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        supplied_rates = data.get('rates')
+
+        if supplied_rates:
+            # Normalize client-supplied defaults: (item, days_per_sq_meter, inhouse_unit_rate)
+            default_rates = [
+                (
+                    str(r.get('item', '')),
+                    Decimal(str(r.get('daysPerSqMeter', 0))),
+                    Decimal(str(r.get('inhouseRate', 0)))
+                )
+                for r in supplied_rates
+                if r.get('item')
+            ]
+        else:
+            # Fallback: server-side canonical defaults (also used for fresh seeding)
+            default_rates = DEFAULT_QUOTATION_RATES
+
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM quotation_rates")
+            cursor.executemany("""
+                INSERT INTO quotation_rates (quotation_item, days_per_sq_meter, inhouse_unit_rate)
+                VALUES (%s, %s, %s)
+            """, default_rates)
+            connection.commit()
+
+            # Log the restore action
+            try:
+                log_activity(
+                    'quotation_rates_updated',
+                    f'Quotation rates restored to defaults: {len(default_rates)} items',
+                    'settings',
+                    None,
+                    {'action': 'restore_defaults', 'rate_count': len(default_rates), 'updated_by': session.get('user_name', 'Unknown')}
+                )
+            except Exception as log_err:
+                print(f"⚠️ Failed to log rate restore: {log_err}")
+
+            return jsonify({
+                'success': True,
+                'message': f'Restored {len(default_rates)} default quotation rates',
+                'count': len(default_rates)
+            })
+    except Exception as e:
+        logging.error(f'Error restoring default quotation rates: {str(e)}')
         if 'connection' in locals():
             connection.rollback()
         return jsonify({

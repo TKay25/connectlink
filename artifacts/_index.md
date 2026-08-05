@@ -9,7 +9,7 @@ direction: ""
 critical_modules: []
 
 workspace_status:
-  last_sync: "2026-08-04T09:16:57.647Z"
+  last_sync: "2026-08-05T11:05:26.488Z"
   module_count: 57
   empty_project: false
   planning_ready: true
