@@ -6785,6 +6785,18 @@ async function updateProduct() {
         return;
     }
     
+    // Client-side duplicate barcode check before saving
+    if (barcode) {
+        const dup = (products || []).find(p =>
+            p.id !== productId &&
+            p.barcode && String(p.barcode).trim().toLowerCase() === barcode.toLowerCase()
+        );
+        if (dup) {
+            showToast(`Barcode ${barcode} already belongs to "${dup.name}" — use a different barcode or clear it`, 'error');
+            return;
+        }
+    }
+    
     showLoader('Updating product...');
     
     try {

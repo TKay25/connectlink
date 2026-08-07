@@ -15,7 +15,7 @@
     "output": "",
     "side_effects": ""
   },
-  "notes": "Last sync: 2026-08-05T11:05:26.488Z. Modules: 57. Orphaned: 17.",
+  "notes": "Last sync: 2026-08-07T08:25:05.539Z. Modules: 57. Orphaned: 17.",
   "why": {},
   "dont_touch": [],
   "known_risks": [
@@ -31,6 +31,6 @@
   ],
   "generated_from_commit": "",
   "file_hash": "",
-  "generated_at": "2026-08-05T11:05:26.488Z",
+  "generated_at": "2026-08-07T08:25:05.539Z",
   "stale": false
 }
