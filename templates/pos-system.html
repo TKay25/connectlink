@@ -4838,127 +4838,127 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 }
 
 /* ================================================================
-   POS SYSTEM — SHRINK 2 LAYER  (another ~40% smaller fonts/icons)
-   Added 2026-08-11 at user request. Multiplies SHRINK LAYER sizes
-   by ~0.6. Placed last in <head> so it wins everything.
+   POS SYSTEM — GROW LAYER  (fonts/icons +80% from the tiny sizes)
+   Added 2026-08-11 at user request. Multiplies the previous tiny
+   SHRINK 2 sizes by ~1.8. Placed last in <head> so it wins.
    ================================================================ */
 
 /* ---- Top bar ---- */
-.top-bar { min-height: 30px !important; padding: 3px 10px !important; margin-bottom: 6px !important; }
-.top-bar .topbar-logo-chip { width: 24px; height: 24px; border-radius: 7px; }
-.top-bar .topbar-logo-chip img { height: 14px !important; }
-.top-bar .fw-bold { font-size: 0.4rem !important; }
-.top-bar .pos-mode-badge { font-size: 0.3rem !important; padding: 1px 6px !important; gap: 3px; }
-.top-bar .badge-dot { width: 4px; height: 4px; }
-.top-bar .small { font-size: 0.32rem !important; }
-.top-bar #currentDate { font-size: 0.43rem !important; }
-.top-bar #currentTime { font-size: 0.54rem !important; }
-.top-bar .vr { height: 18px !important; }
-.top-bar .user-chip { font-size: 0.34rem !important; padding: 2px 7px 2px 2px !important; gap: 4px; }
-.top-bar .user-chip i { width: 16px; height: 16px; font-size: 0.32rem !important; }
-.top-bar #posThemeToggle { font-size: 0.3rem !important; padding: 1px 4px !important; }
-.top-bar .logout-top-btn { font-size: 0.34rem !important; padding: 2px 7px !important; }
-.top-bar .logout-top-btn i { font-size: 0.32rem !important; }
+.top-bar { min-height: 40px !important; padding: 5px 14px !important; margin-bottom: 8px !important; }
+.top-bar .topbar-logo-chip { width: 34px; height: 34px; border-radius: 10px; }
+.top-bar .topbar-logo-chip img { height: 20px !important; }
+.top-bar .fw-bold { font-size: 0.72rem !important; }
+.top-bar .pos-mode-badge { font-size: 0.54rem !important; padding: 2px 8px !important; gap: 4px; }
+.top-bar .badge-dot { width: 5px; height: 5px; }
+.top-bar .small { font-size: 0.58rem !important; }
+.top-bar #currentDate { font-size: 0.78rem !important; }
+.top-bar #currentTime { font-size: 0.97rem !important; }
+.top-bar .vr { height: 24px !important; }
+.top-bar .user-chip { font-size: 0.61rem !important; padding: 3px 10px 3px 3px !important; gap: 6px; }
+.top-bar .user-chip i { width: 22px; height: 22px; font-size: 0.58rem !important; }
+.top-bar #posThemeToggle { font-size: 0.54rem !important; padding: 2px 6px !important; }
+.top-bar .logout-top-btn { font-size: 0.61rem !important; padding: 3px 10px !important; }
+.top-bar .logout-top-btn i { font-size: 0.58rem !important; }
 
 /* ---- POS header ---- */
-#posPage .pos-page-header { padding: 8px 12px !important; gap: 8px; margin-bottom: 8px; }
-#posPage .pos-stat-pill { padding: 4px 8px !important; min-width: 96px; border-radius: 8px; gap: 6px; }
-#posPage .pos-stat-pill i { width: 20px; height: 20px; border-radius: 6px; font-size: 0.4rem !important; }
-#posPage .pos-stat-pill small { font-size: 0.26rem !important; }
-#posPage .pos-stat-pill strong { font-size: 0.38rem !important; }
+#posPage .pos-page-header { padding: 12px 16px !important; gap: 12px; margin-bottom: 10px; }
+#posPage .pos-stat-pill { padding: 7px 12px !important; min-width: 122px; border-radius: 10px; gap: 8px; }
+#posPage .pos-stat-pill i { width: 28px; height: 28px; border-radius: 8px; font-size: 0.72rem !important; }
+#posPage .pos-stat-pill small { font-size: 0.47rem !important; }
+#posPage .pos-stat-pill strong { font-size: 0.68rem !important; }
 
 /* ---- Cashier cards ---- */
-#posPage .pos-header-cashiers { gap: 6px; }
-#posPage .cashier-card { min-width: 130px; padding: 4px 7px 5px !important; gap: 7px; border-radius: 8px; }
-#posPage .cashier-avatar { width: 22px; height: 22px; border-radius: 6px; font-size: 0.36rem !important; }
-#posPage .cashier-name { font-size: 0.34rem !important; }
-#posPage .cashier-amount { font-size: 0.44rem !important; }
-#posPage .pos-refresh-btn { width: 28px; height: 28px; border-radius: 8px; }
-#posPage .pos-refresh-btn i { font-size: 0.5rem !important; }
+#posPage .pos-header-cashiers { gap: 8px; }
+#posPage .cashier-card { min-width: 160px; padding: 7px 10px 8px !important; gap: 9px; border-radius: 10px; }
+#posPage .cashier-avatar { width: 32px; height: 32px; border-radius: 9px; font-size: 0.65rem !important; }
+#posPage .cashier-name { font-size: 0.61rem !important; }
+#posPage .cashier-amount { font-size: 0.79rem !important; }
+#posPage .pos-refresh-btn { width: 36px; height: 36px; border-radius: 10px; }
+#posPage .pos-refresh-btn i { font-size: 0.9rem !important; }
 
 /* ---- KPI ---- */
-#posPage .stat-card.pos-metric { padding: 4px 7px !important; }
-#posPage .stat-card.pos-metric .stat-card-icon { width: 20px; height: 20px; border-radius: 6px; }
-#posPage .stat-card.pos-metric .stat-card-icon i { font-size: 0.5rem !important; }
-#posPage .stat-card.pos-metric .stat-card-value { font-size: 0.44rem !important; }
-#posPage .stat-card.pos-metric .stat-card-label { font-size: 0.26rem !important; }
-#posPage .stat-card.pos-metric .stat-card-arrow i { font-size: 0.38rem !important; }
+#posPage .stat-card.pos-metric { padding: 6px 10px !important; }
+#posPage .stat-card.pos-metric .stat-card-icon { width: 30px; height: 30px; border-radius: 9px; }
+#posPage .stat-card.pos-metric .stat-card-icon i { font-size: 0.9rem !important; }
+#posPage .stat-card.pos-metric .stat-card-value { font-size: 0.79rem !important; }
+#posPage .stat-card.pos-metric .stat-card-label { font-size: 0.47rem !important; }
+#posPage .stat-card.pos-metric .stat-card-arrow i { font-size: 0.68rem !important; }
 
 /* ---- Section cards & headers ---- */
-#posPage .section-card { padding: 7px !important; }
-#posPage .section-card h5, #posPage .section-card h6 { font-size: 0.38rem !important; }
-#posPage .section-card h5 > i, #posPage .section-card h6 > i { width: 16px; height: 16px; font-size: 0.38rem !important; border-radius: 5px; }
-#posPage .products-count-chip, #posPage .cart-count-chip { font-size: 0.32rem !important; }
+#posPage .section-card { padding: 10px !important; }
+#posPage .section-card h5, #posPage .section-card h6 { font-size: 0.68rem !important; }
+#posPage .section-card h5 > i, #posPage .section-card h6 > i { width: 24px; height: 24px; font-size: 0.68rem !important; border-radius: 7px; }
+#posPage .products-count-chip, #posPage .cart-count-chip { font-size: 0.58rem !important; }
 
 /* ---- Product tiles ---- */
-#posPage .product-card-compact { min-height: 84px !important; padding: 4px 5px 5px !important; }
-#posPage .product-card-compact .product-icon-compact { width: 24px; height: 24px; border-radius: 7px; }
-#posPage .product-card-compact .product-icon-compact i { font-size: 0.44rem !important; }
-#posPage .product-card-compact .product-name-compact { font-size: 0.32rem !important; }
+#posPage .product-card-compact { min-height: 118px !important; padding: 6px 7px 7px !important; }
+#posPage .product-card-compact .product-icon-compact { width: 34px; height: 34px; border-radius: 10px; }
+#posPage .product-card-compact .product-icon-compact i { font-size: 0.79rem !important; }
+#posPage .product-card-compact .product-name-compact { font-size: 0.58rem !important; }
 #posPage .product-card-compact .product-details-compact,
 #posPage .product-card-compact .product-unit-compact,
-#posPage .product-card-compact .product-stock-compact { font-size: 0.27rem !important; }
-#posPage .product-card-compact .price-above { font-size: 0.34rem !important; padding: 1px 4px; }
-#posPage .product-card-compact .add-btn-compact { font-size: 0.28rem !important; padding: 2px 5px !important; border-radius: 6px; }
-#posPage .product-stock-pill { font-size: 0.3rem !important; }
+#posPage .product-card-compact .product-stock-compact { font-size: 0.49rem !important; }
+#posPage .product-card-compact .price-above { font-size: 0.61rem !important; padding: 2px 6px; }
+#posPage .product-card-compact .add-btn-compact { font-size: 0.5rem !important; padding: 3px 8px !important; border-radius: 8px; }
+#posPage .product-stock-pill { font-size: 0.54rem !important; }
 
 /* ---- Category chips ---- */
-#posPage .category-chips { gap: 4px; }
-#posPage .cat-chip { font-size: 0.36rem !important; padding: 2px 7px !important; gap: 4px; }
-#posPage .cat-chip i { font-size: 0.36rem !important; }
+#posPage .category-chips { gap: 6px; }
+#posPage .cat-chip { font-size: 0.65rem !important; padding: 3px 10px !important; gap: 6px; }
+#posPage .cat-chip i { font-size: 0.65rem !important; }
 
 /* ---- Inputs ---- */
 #posPage #searchProduct, #posPage #barcodeScanInput, #posPage #categorySelect {
-    font-size: 0.36rem !important;
-    padding: 3px 8px !important;
+    font-size: 0.65rem !important;
+    padding: 5px 12px !important;
 }
-#posPage #categorySelect { width: 100px !important; }
-#posPage #searchProduct { width: 125px !important; }
-#posPage #barcodeScanInput { width: 140px !important; }
+#posPage #categorySelect { width: 120px !important; }
+#posPage #searchProduct { width: 150px !important; }
+#posPage #barcodeScanInput { width: 170px !important; }
 
 /* ---- Cart ---- */
-#posPage .col-lg-3 .section-card.sticky-top { padding: 7px !important; }
-#posPage .cart-item { padding: 4px 6px !important; gap: 5px; margin-bottom: 4px; }
-#posPage .cart-item h6 { font-size: 0.36rem !important; }
-#posPage .cart-item .small, #posPage .cart-item small { font-size: 0.3rem !important; }
-#posPage .cart-item-icon { width: 20px; height: 20px; border-radius: 6px; font-size: 0.36rem !important; }
-#posPage .cart-item-remove { width: 16px; height: 16px; border-radius: 5px; font-size: 0.34rem !important; }
-#posPage .cart-item-total { font-size: 0.38rem !important; }
-#posPage .cart-total-row { padding: 5px 7px !important; margin-bottom: 5px !important; }
-#posPage .cart-total-row span { font-size: 0.36rem !important; }
-#posPage .cart-total-amount { font-size: 0.48rem !important; }
-#posPage #total { font-size: 0.48rem !important; }
+#posPage .col-lg-3 .section-card.sticky-top { padding: 10px !important; }
+#posPage .cart-item { padding: 6px 9px !important; gap: 8px; margin-bottom: 6px; }
+#posPage .cart-item h6 { font-size: 0.65rem !important; }
+#posPage .cart-item .small, #posPage .cart-item small { font-size: 0.54rem !important; }
+#posPage .cart-item-icon { width: 30px; height: 30px; border-radius: 9px; font-size: 0.65rem !important; }
+#posPage .cart-item-remove { width: 24px; height: 24px; border-radius: 7px; font-size: 0.61rem !important; }
+#posPage .cart-item-total { font-size: 0.68rem !important; }
+#posPage .cart-total-row { padding: 7px 11px !important; margin-bottom: 6px !important; }
+#posPage .cart-total-row span { font-size: 0.65rem !important; }
+#posPage .cart-total-amount { font-size: 0.86rem !important; }
+#posPage #total { font-size: 0.86rem !important; }
 
 /* ---- Payment & confirm ---- */
-#posPage .payment-title { font-size: 0.34rem !important; margin-bottom: 2px !important; }
-#posPage .payment-method { padding: 3px 2px !important; border-radius: 7px; }
-#posPage .payment-method i { width: 18px; height: 18px; font-size: 0.38rem !important; margin-bottom: 1px; }
-#posPage .payment-method .small { font-size: 0.3rem !important; }
-#posPage .btn-primary-dark.w-100 { padding: 5px !important; font-size: 0.36rem !important; }
+#posPage .payment-title { font-size: 0.61rem !important; margin-bottom: 3px !important; }
+#posPage .payment-method { padding: 4px 4px !important; border-radius: 10px; }
+#posPage .payment-method i { width: 28px; height: 28px; font-size: 0.68rem !important; margin-bottom: 2px; }
+#posPage .payment-method .small { font-size: 0.54rem !important; }
+#posPage .btn-primary-dark.w-100 { padding: 7px !important; font-size: 0.65rem !important; }
 
 /* ---- Generic buttons ---- */
-#posPage .btn, #posPage .btn-sm { font-size: 0.36rem !important; }
-#posPage .btn-sm { padding: 2px 6px !important; }
-#posPage .btn { padding: 4px 10px !important; }
+#posPage .btn, #posPage .btn-sm { font-size: 0.65rem !important; }
+#posPage .btn-sm { padding: 3px 9px !important; }
+#posPage .btn { padding: 6px 14px !important; }
 
 /* ---- Empty states ---- */
-#posPage .cart-empty-state { padding: 10px 8px !important; }
-#posPage .cart-empty-icon { width: 28px; height: 28px; font-size: 0.5rem !important; margin-bottom: 5px; }
-#posPage .empty-state-icon { width: 32px; height: 32px; font-size: 0.6rem !important; }
+#posPage .cart-empty-state { padding: 14px 12px !important; }
+#posPage .cart-empty-icon { width: 40px; height: 40px; font-size: 0.9rem !important; margin-bottom: 6px; }
+#posPage .empty-state-icon { width: 48px; height: 48px; font-size: 1.08rem !important; }
 
 /* ---- POS modals ---- */
 #addInventoryModal .btn, #editProductModal .btn, #editStockModal .btn, #subtractStockModal .btn, #confirmationModal .btn, #editStockAdditionModal .btn,
 #addInventoryModal .btn-sm, #editProductModal .btn-sm, #editStockModal .btn-sm, #subtractStockModal .btn-sm, #confirmationModal .btn-sm, #editStockAdditionModal .btn-sm {
-    font-size: 0.4rem !important;
-    padding: 3px 8px !important;
+    font-size: 0.72rem !important;
+    padding: 5px 12px !important;
 }
 #addInventoryModal .form-control, #editProductModal .form-control, #editStockModal .form-control, #subtractStockModal .form-control, #confirmationModal .form-control, #editStockAdditionModal .form-control,
 #addInventoryModal .form-select, #editProductModal .form-select, #editStockModal .form-select, #subtractStockModal .form-select, #confirmationModal .form-select, #editStockAdditionModal .form-select {
-    font-size: 0.4rem !important;
-    padding: 3px 7px !important;
+    font-size: 0.72rem !important;
+    padding: 5px 10px !important;
 }
 #addInventoryModal .modal-title, #editProductModal .modal-title, #editStockModal .modal-title, #subtractStockModal .modal-title, #confirmationModal .modal-title, #editStockAdditionModal .modal-title {
-    font-size: 0.54rem !important;
+    font-size: 0.97rem !important;
 }
 </style>
 </head>
