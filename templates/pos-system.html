@@ -8407,7 +8407,7 @@ function updateInventoryMetrics() {
         marginEl.className = margin >= 0 ? 'mb-1 fw-bold text-success' : 'mb-1 fw-bold text-danger';
     }
     if (marginPercentEl) marginPercentEl.textContent = marginPercent + '%';
-    if (stockItemsEl) stockItemsEl.textContent = totalStockItems;
+    if (stockItemsEl) stockItemsEl.textContent = fmtCount(totalStockItems);
 }
 
 // ==================== STOCK AUDIT REPORT FUNCTIONS ====================
@@ -10651,6 +10651,22 @@ async function fetchTransactionsData() {
     let searchTerm = "";
     let selectedPaymentMethod = "";
     let transactionsData = { todaySales: 0, itemsSold: 0, transactions: [] };
+
+    // ==================== NUMBER FORMATTING (ALL POS numbers ###,###,###.##) ====================
+    // Every money/count produced via .toFixed() gets thousand separators automatically.
+    (function () {
+        const _toFixed = Number.prototype.toFixed;
+        Number.prototype.toFixed = function (digits) {
+            const fixed = _toFixed.call(this, digits);
+            const parts = String(fixed).split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return parts.join('.');
+        };
+    })();
+    // Integer counts (e.g. stock units) with thousand separators.
+    function fmtCount(n) {
+        return Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
     let currentPage = "pos";
     let salesChart = null;
     let categoryChart = null;
@@ -14710,7 +14726,7 @@ function calculateInventoryMetrics() {
     document.getElementById('marginProfit').textContent = '$' + margin.toFixed(2);
     document.getElementById('marginProfit').className = margin >= 0 ? 'mb-1 fw-bold text-success' : 'mb-1 fw-bold text-danger';
     document.getElementById('marginPercent').textContent = marginPercent + '%';
-    document.getElementById('totalStockItems').textContent = totalStockItems;
+    document.getElementById('totalStockItems').textContent = fmtCount(totalStockItems);
 }
     
     // ==================== PAGE NAVIGATION ====================
