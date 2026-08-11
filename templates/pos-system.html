@@ -4497,6 +4497,30 @@ body.dark-theme .cat-chip.active { background: linear-gradient(135deg, #C12B3E, 
     line-height: 1.2;
 }
 .pos-page-stats { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+#posPage .pos-refresh-btn {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.09);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+#posPage .pos-refresh-btn:hover {
+    background: rgba(255,255,255,0.18);
+    border-color: rgba(255,255,255,0.32);
+    transform: translateY(-1px);
+}
+#posPage .pos-refresh-btn:disabled { opacity: 0.65; cursor: wait; }
+#posPage .pos-refresh-btn i { font-size: 1rem !important; }
 .pos-stat-pill {
     display: flex;
     align-items: center;
@@ -4682,6 +4706,121 @@ body.dark-theme .cat-chip.active { background: linear-gradient(135deg, #C12B3E, 
 }
 .product-card-compact:not(.is-out):hover::after { opacity: 1; transform: translateY(0); }
 body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,28,43,0.92); color: #CBD5E1; border-color: rgba(255,255,255,0.1); }
+</style>
+<style>
+/* ================================================================
+   POS SYSTEM — SHRINK LAYER  (~30% smaller fonts/icons/buttons)
+   Added 2026-08-11 at user request. Last style in <head> so it wins
+   the cascade. Scoped under #posPage (+ !important) to beat the
+   global `#posPage, #posPage * { font-size: 0.65rem !important }`.
+   ================================================================ */
+
+/* ---- Header strip ---- */
+#posPage .pos-page-header { padding: 10px 14px !important; gap: 10px; margin-bottom: 10px; }
+#posPage .pos-page-stats { gap: 8px; }
+#posPage .pos-stat-pill { padding: 6px 10px !important; min-width: 108px; border-radius: 10px; gap: 8px; }
+#posPage .pos-stat-pill i { width: 26px; height: 26px; border-radius: 8px; font-size: 0.66rem !important; }
+#posPage .pos-stat-pill small { font-size: 0.4rem !important; }
+#posPage .pos-stat-pill strong { font-size: 0.6rem !important; }
+
+/* ---- Cashier cards ---- */
+#posPage .pos-header-cashiers { gap: 7px; }
+#posPage .cashier-card { min-width: 150px; padding: 6px 9px 7px !important; gap: 8px; border-radius: 10px; }
+#posPage .cashier-avatar { width: 28px; height: 28px; border-radius: 8px; font-size: 0.56rem !important; }
+#posPage .cashier-name { font-size: 0.55rem !important; }
+#posPage .cashier-amount { font-size: 0.72rem !important; }
+#posPage .cashier-bar { height: 2px; }
+#posPage .pos-refresh-btn { width: 34px; height: 34px; border-radius: 9px; }
+#posPage .pos-refresh-btn i { font-size: 0.78rem !important; }
+
+/* ---- KPI metric cards ---- */
+#posPage .stat-card.pos-metric { padding: 6px 9px !important; }
+#posPage .stat-card.pos-metric .stat-card-icon { width: 26px; height: 26px; border-radius: 8px; }
+#posPage .stat-card.pos-metric .stat-card-icon i { font-size: 0.8rem !important; }
+#posPage .stat-card.pos-metric .stat-card-value { font-size: 0.85rem !important; }
+#posPage .stat-card.pos-metric .stat-card-label { font-size: 0.44rem !important; }
+#posPage .stat-card.pos-metric .stat-card-arrow i { font-size: 0.6rem !important; }
+
+/* ---- Section cards & headers ---- */
+#posPage .section-card { padding: 9px !important; }
+#posPage .section-card h5, #posPage .section-card h6 { font-size: 0.62rem !important; }
+#posPage .section-card h5 > i, #posPage .section-card h6 > i { width: 20px; height: 20px; font-size: 0.62rem !important; border-radius: 6px; }
+#posPage .products-count-chip, #posPage .cart-count-chip { font-size: 0.5rem !important; }
+
+/* ---- Product tiles ---- */
+#posPage .product-card-compact { min-height: 96px !important; padding: 5px 6px 6px !important; }
+#posPage .product-card-compact .product-icon-compact { width: 30px; height: 30px; border-radius: 9px; }
+#posPage .product-card-compact .product-icon-compact i { font-size: 0.7rem !important; }
+#posPage .product-card-compact .product-name-compact { font-size: 0.5rem !important; }
+#posPage .product-card-compact .product-details-compact,
+#posPage .product-card-compact .product-unit-compact,
+#posPage .product-card-compact .product-stock-compact { font-size: 0.42rem !important; }
+#posPage .product-card-compact .price-above { font-size: 0.52rem !important; padding: 1px 5px; }
+#posPage .product-card-compact .add-btn-compact { font-size: 0.44rem !important; padding: 2px 6px !important; border-radius: 7px; }
+#posPage .product-stock-pill { font-size: 0.46rem !important; }
+
+/* ---- Category chips ---- */
+#posPage .category-chips { gap: 5px; }
+#posPage .cat-chip { font-size: 0.56rem !important; padding: 3px 9px !important; border-radius: 20px; gap: 5px; }
+#posPage .cat-chip i { font-size: 0.56rem !important; }
+
+/* ---- Search / select / barcode inputs ---- */
+#posPage #searchProduct, #posPage #barcodeScanInput, #posPage #categorySelect {
+    font-size: 0.56rem !important;
+    padding: 4px 9px !important;
+    border-radius: 18px !important;
+}
+#posPage #categorySelect { width: 118px !important; }
+#posPage #searchProduct { width: 150px !important; }
+#posPage #barcodeScanInput { width: 165px !important; }
+
+/* ---- Cart panel ---- */
+#posPage .col-lg-3 .section-card.sticky-top { padding: 9px !important; }
+#posPage .cart-item { padding: 5px 7px !important; gap: 6px; margin-bottom: 5px; }
+#posPage .cart-item h6 { font-size: 0.56rem !important; }
+#posPage .cart-item .small, #posPage .cart-item small { font-size: 0.46rem !important; }
+#posPage .cart-item-icon { width: 24px; height: 24px; border-radius: 7px; font-size: 0.56rem !important; }
+#posPage .cart-item-remove { width: 19px; height: 19px; border-radius: 6px; font-size: 0.52rem !important; }
+#posPage .cart-item-total { font-size: 0.6rem !important; }
+#posPage .cart-total-row { padding: 6px 9px !important; margin-bottom: 6px !important; }
+#posPage .cart-total-row span { font-size: 0.56rem !important; }
+#posPage .cart-total-amount { font-size: 0.76rem !important; }
+#posPage #total { font-size: 0.76rem !important; }
+
+/* ---- Payment tiles & confirm button ---- */
+#posPage .payment-title { font-size: 0.52rem !important; margin-bottom: 3px !important; }
+#posPage .payment-method { padding: 4px 3px !important; border-radius: 8px; }
+#posPage .payment-method i { width: 22px; height: 22px; font-size: 0.6rem !important; margin-bottom: 2px; }
+#posPage .payment-method .small { font-size: 0.46rem !important; }
+#posPage .btn-primary-dark.w-100 { padding: 7px !important; font-size: 0.58rem !important; }
+
+/* ---- Generic POS buttons ---- */
+#posPage .btn, #posPage .btn-sm { font-size: 0.56rem !important; }
+#posPage .btn-sm { padding: 3px 8px !important; }
+#posPage .btn { padding: 5px 12px !important; }
+
+/* ---- Empty states ---- */
+#posPage .cart-empty-state { padding: 12px 9px !important; }
+#posPage .cart-empty-icon { width: 34px; height: 34px; font-size: 0.8rem !important; margin-bottom: 6px; }
+#posPage .empty-state-icon { width: 40px; height: 40px; font-size: 1rem !important; }
+
+/* ---- POS modals (outside #posPage) — lighter shrink ---- */
+#addInventoryModal, #editProductModal, #editStockModal, #subtractStockModal, #confirmationModal, #editStockAdditionModal, #allProductsModal, #lowStockModal, #outOfStockModal {
+    --shrink: 1;
+}
+#addInventoryModal .btn, #editProductModal .btn, #editStockModal .btn, #subtractStockModal .btn, #confirmationModal .btn, #editStockAdditionModal .btn,
+#addInventoryModal .btn-sm, #editProductModal .btn-sm, #editStockModal .btn-sm, #subtractStockModal .btn-sm, #confirmationModal .btn-sm, #editStockAdditionModal .btn-sm {
+    font-size: 0.62rem !important;
+    padding: 4px 10px !important;
+}
+#addInventoryModal .form-control, #editProductModal .form-control, #editStockModal .form-control, #subtractStockModal .form-control, #confirmationModal .form-control, #editStockAdditionModal .form-control,
+#addInventoryModal .form-select, #editProductModal .form-select, #editStockModal .form-select, #subtractStockModal .form-select, #confirmationModal .form-select, #editStockAdditionModal .form-select {
+    font-size: 0.62rem !important;
+    padding: 4px 9px !important;
+}
+#addInventoryModal .modal-title, #editProductModal .modal-title, #editStockModal .modal-title, #subtractStockModal .modal-title, #confirmationModal .modal-title, #editStockAdditionModal .modal-title {
+    font-size: 0.85rem !important;
+}
 </style>
 </head>
 
@@ -5034,6 +5173,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                 <div><small>Items Sold</small><strong id="itemsSoldChip">0</strong></div>
             </div>
         </div>
+        <button class="pos-refresh-btn" id="refreshPOSBtn" onclick="refreshPOS()" title="Refresh POS data" aria-label="Refresh POS data">
+            <i class="fas fa-rotate"></i>
+        </button>
     </div>
     <!-- Metrics Cards Row - Modern KPI layout -->
     <div class="row g-2 mb-2">
@@ -8661,6 +8803,29 @@ async function fetchProductsFromAPI() {
     } catch (error) { 
         console.error('Error fetching products:', error); 
         showToast('Connection error', 'error'); 
+    }
+}
+
+// Refresh all POS data in place (products, categories, stats, cashier breakdown, transactions)
+async function refreshPOS() {
+    const btn = document.getElementById('refreshPOSBtn');
+    const icon = btn ? btn.querySelector('i') : null;
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add('fa-spin');
+    try {
+        await Promise.all([
+            fetchCategories(),
+            fetchProductsFromAPI(),
+            fetchDashboardStats(),
+            fetchTransactionsData()
+        ]);
+        showToast('POS data refreshed', 'success');
+    } catch (e) {
+        console.error('POS refresh error:', e);
+        showToast('Refresh failed', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('fa-spin');
     }
 }
 
