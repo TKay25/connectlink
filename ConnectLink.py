@@ -30898,6 +30898,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
       <div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
       {('' if not is_kitchen else '''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Important:</strong> Kitchen sink, stove, and other appliances are not included in this quotation.</div>''')}
       {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>
+      <div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>BOQ:</strong> If you require a detailed Bill of Quantities (BOQ), it costs <strong>USD 200</strong>.</div>
       <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
         <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
@@ -31485,6 +31486,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
       <div style="margin-top:8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
       {('' if not is_kitchen else '''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Important:</strong> Kitchen sink, stove, and other appliances are not included in this quotation.</div>''')}
       {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes) and Gutters.</div>
+      <div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>BOQ:</strong> If you require a detailed Bill of Quantities (BOQ), it costs <strong>USD 200</strong>.</div>
       <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
         <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">Our Turnaround Times for Residential Projects</strong>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
