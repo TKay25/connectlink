@@ -13686,6 +13686,80 @@ def get_dashboard_stats():
         }
     })
 
+
+@app.route('/api/dashboard/today-by-cashier', methods=['GET'])
+@login_required
+def today_by_cashier():
+    """Today's sales grouped by cashier (lightweight aggregate for the POS header).
+    Mirrors get_dashboard_stats() semantics (DATE(created_at) = CURRENT_DATE, status='completed')."""
+    try:
+        from collections import OrderedDict
+        totals_query = """
+            SELECT COALESCE(u.full_name, 'Unknown') AS cashier,
+                   COALESCE(SUM(t.total), 0) AS total,
+                   COUNT(*) AS transaction_count,
+                   COALESCE(SUM((
+                       SELECT COALESCE(SUM(quantity), 0)
+                       FROM transaction_items
+                       WHERE transaction_id = t.id
+                   )), 0) AS items_sold
+            FROM transactions t
+            LEFT JOIN admin_users u ON t.user_id = u.id
+            WHERE DATE(t.created_at) = CURRENT_DATE
+              AND t.status = 'completed'
+            GROUP BY u.full_name
+            ORDER BY total DESC
+        """
+        rows = execute_query(totals_query, fetch_all=True)
+
+        pm_query = """
+            SELECT COALESCE(u.full_name, 'Unknown') AS cashier,
+                   COALESCE(LOWER(t.payment_method), 'other') AS method,
+                   COALESCE(SUM(t.total), 0) AS total
+            FROM transactions t
+            LEFT JOIN admin_users u ON t.user_id = u.id
+            WHERE DATE(t.created_at) = CURRENT_DATE
+              AND t.status = 'completed'
+            GROUP BY u.full_name, t.payment_method
+        """
+        pm_rows = execute_query(pm_query, fetch_all=True)
+
+        cashier_map = OrderedDict()
+        for r in rows:
+            cashier_map[r[0]] = {
+                'cashier': r[0],
+                'total': float(r[1] or 0),
+                'transaction_count': r[2],
+                'items_sold': r[3] or 0,
+                'payment_methods': {}
+            }
+        for pr in pm_rows:
+            if pr[0] not in cashier_map:
+                cashier_map[pr[0]] = {
+                    'cashier': pr[0],
+                    'total': 0.0,
+                    'transaction_count': 0,
+                    'items_sold': 0,
+                    'payment_methods': {}
+                }
+            cashier_map[pr[0]]['payment_methods'][pr[1] or 'other'] = float(pr[2] or 0)
+
+        cashiers = list(cashier_map.values())
+        cashiers.sort(key=lambda c: c['total'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'cashiers': cashiers,
+            'grand_total': sum(c['total'] for c in cashiers),
+            'transaction_count': sum(c['transaction_count'] for c in cashiers),
+            'items_sold': sum(c['items_sold'] for c in cashiers),
+            'cashier_count': len(cashiers)
+        })
+    except Exception as e:
+        print(f"Today-by-cashier error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ==================== INITIALIZE DATABASE ====================
 
 with app.app_context():

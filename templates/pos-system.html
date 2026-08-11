@@ -4396,6 +4396,292 @@ body.dark-theme .confirm-pay-badge { background: rgba(37,99,235,0.14); border-co
     padding: 28px 12px !important;
     font-style: italic;
 }
+
+/* ================================================================
+   POS SYSTEM — CATEGORY CHIPS LAYER
+   ================================================================ */
+
+.category-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: 10px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.category-chips::-webkit-scrollbar { display: none; }
+
+.cat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 13px;
+    border-radius: 30px;
+    border: 1px solid rgba(15,27,45,0.1);
+    background: #fff;
+    color: #475569;
+    font-size: 0.66rem !important;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+.cat-chip i { font-size: 0.68rem !important; }
+.cat-chip:hover {
+    border-color: rgba(193,43,62,0.45);
+    color: var(--crimson-bright);
+    background: #FFF7F7;
+    transform: translateY(-1px);
+}
+.cat-chip.active {
+    background: linear-gradient(135deg, #C12B3E, #9E1F2E);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 3px 10px rgba(193,43,62,0.3);
+}
+body.dark-theme .cat-chip { background: #151C2B; border-color: rgba(255,255,255,0.12); color: #CBD5E1; }
+body.dark-theme .cat-chip:hover { background: rgba(193,43,62,0.14); border-color: rgba(193,43,62,0.45); color: #FFB4BE; }
+body.dark-theme .cat-chip.active { background: linear-gradient(135deg, #C12B3E, #9E1F2E); color: #fff; box-shadow: 0 3px 10px rgba(193,43,62,0.35); }
+
+/* ================================================================
+   POS SYSTEM — HEADER LAYER  (page header + tile category tag)
+   ================================================================ */
+
+/* ---------- POS page header (hero strip) ---------- */
+.pos-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, #0F1B2D, #13233C);
+    border-radius: 16px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(15,27,45,0.16);
+    position: relative;
+    overflow: hidden;
+    animation: cardIn 0.4s ease both;
+}
+.pos-page-header::after {
+    content: '';
+    position: absolute;
+    top: -70%;
+    right: -6%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(193,43,62,0.3), transparent 62%);
+    pointer-events: none;
+}
+.pos-page-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.62rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #FFB4BE;
+}
+.pos-page-h1 {
+    font-family: 'Sora', 'Inter', sans-serif;
+    font-size: 1.25rem !important;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    margin: 2px 0 0;
+    line-height: 1.2;
+}
+.pos-page-stats { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.pos-stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 8px 14px;
+    min-width: 128px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.pos-stat-pill i {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem !important;
+    flex-shrink: 0;
+}
+.pos-stat-pill small {
+    display: block;
+    font-size: 0.56rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.6);
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.pos-stat-pill strong {
+    font-size: 1.05rem !important;
+    font-weight: 800;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.pos-stat-pill.pill-sales i { background: rgba(193,43,62,0.35); }
+.pos-stat-pill.pill-sales strong { color: #FFD2DA; }
+.pos-stat-pill.pill-items i { background: rgba(59,130,246,0.35); }
+
+/* ---------- Header: Today's Sales by Cashier cards (name + sales today only) ---------- */
+.pos-header-cashiers {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    max-width: 100%;
+    scrollbar-width: thin;
+    padding: 2px;
+}
+.pos-header-cashiers::-webkit-scrollbar { height: 6px; }
+.pos-header-cashiers::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.35); border-radius: 6px; }
+/* NOTE: scoped under #posPage so font-size/line-height beat the global `#posPage, #posPage *` compact override */
+#posPage .cashier-card {
+    --hue: 210;
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 172px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03) 55%, rgba(255,255,255,0.06));
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 12px;
+    padding: 8px 12px 10px;
+    overflow: hidden;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+#posPage .cashier-card:hover {
+    transform: translateY(-2px);
+    border-color: hsla(var(--hue), 70%, 60%, 0.55);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.28);
+}
+#posPage .cashier-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, hsla(var(--hue),70%,55%,1), hsla(var(--hue),80%,70%,0.1));
+}
+#posPage .cashier-card::after {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 110px; height: 110px;
+    background: radial-gradient(circle, hsla(var(--hue),70%,55%,0.22), transparent 70%);
+    pointer-events: none;
+}
+#posPage .cashier-avatar {
+    position: relative;
+    z-index: 1;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    background: linear-gradient(135deg, hsla(var(--hue),70%,50%,1), hsla(calc(var(--hue) + 40),72%,40%,1));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem !important;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    box-shadow: 0 3px 8px hsla(var(--hue),70%,45%,0.4), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+#posPage .cashier-body { position: relative; z-index: 1; flex: 1; min-width: 0; }
+#posPage .cashier-name {
+    font-size: 0.72rem !important;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+#posPage .cashier-amount {
+    font-size: 0.95rem !important;
+    font-weight: 800;
+    background: linear-gradient(120deg, #7CFFB2, #4ADE80);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+}
+#posPage .cashier-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 100%;
+    background: rgba(255,255,255,0.07);
+}
+#posPage .cashier-bar span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, hsla(var(--hue),70%,55%,1), #F59E0B);
+    border-radius: 0 2px 2px 0;
+    box-shadow: 0 0 6px hsla(var(--hue),70%,55%,0.6);
+    transition: width 0.6s ease;
+}
+#posPage .cashier-top {
+    position: absolute;
+    top: -5px;
+    right: 8px;
+    color: #FBBF24;
+    font-size: 0.62rem !important;
+    filter: drop-shadow(0 1px 3px rgba(251,191,36,0.6));
+    z-index: 2;
+}
+
+/* ---------- Product tile: hover-reveal category tag ---------- */
+.product-card-compact:not(.is-out)::after {
+    content: attr(data-category);
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 0.46rem !important;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #94A3B8;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(15,27,45,0.06);
+    padding: 2px 7px;
+    border-radius: 6px;
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(-2px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+.product-card-compact:not(.is-out):hover::after { opacity: 1; transform: translateY(0); }
+body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,28,43,0.92); color: #CBD5E1; border-color: rgba(255,255,255,0.1); }
 </style>
 </head>
 
@@ -4732,6 +5018,23 @@ body.dark-theme .confirm-pay-badge { background: rgba(37,99,235,0.14); border-co
 
 <!-- POS Page -->
 <div id="posPage">
+    <!-- POS Page Header -->
+    <div class="pos-page-header">
+        <div class="pos-page-stats">
+            <!-- Cashier breakdown cards (left of Today's Sales) -->
+            <div class="pos-header-cashiers" id="cashierBreakdown">
+                <div class="text-center text-muted small px-2" style="align-self:center;"><div class="spinner-border spinner-border-sm me-1" style="color:#fff;" role="status"></div>Loading cashier sales...</div>
+            </div>
+            <div class="pos-stat-pill pill-sales">
+                <i class="fas fa-dollar-sign"></i>
+                <div><small>Today's Sales</small><strong id="todaySalesChip">$0.00</strong></div>
+            </div>
+            <div class="pos-stat-pill pill-items">
+                <i class="fas fa-box-open"></i>
+                <div><small>Items Sold</small><strong id="itemsSoldChip">0</strong></div>
+            </div>
+        </div>
+    </div>
     <!-- Metrics Cards Row - Modern KPI layout -->
     <div class="row g-2 mb-2">
         <div class="col-md-4 col-sm-4">
@@ -4768,7 +5071,7 @@ body.dark-theme .confirm-pay-badge { background: rgba(37,99,235,0.14); border-co
             </div>
         </div>
     </div>
-    
+
     <div class="row g-2">
         <div class="col-lg-9">
             <div class="section-card mb-2">
@@ -4799,6 +5102,7 @@ body.dark-theme .confirm-pay-badge { background: rgba(37,99,235,0.14); border-co
                         </div>
                     </div>
                 </div>
+                <div class="category-chips" id="categoryChips"></div>
                 <div class="row g-1 products-scroll" id="productsContainer">
                     <div class="col-12 text-center py-4">
                         <div class="spinner-border" style="color: var(--crimson-bright);" role="status">
@@ -8333,7 +8637,9 @@ function populateCategoryDropdown() {
     categorySelect.addEventListener('change', function() {
         selectedCategory = this.value;
         renderProducts();
+        renderCategoryChips();
     });
+    renderCategoryChips();
 }
 
 // Update fetchProductsFromAPI to include metrics update
@@ -10323,7 +10629,49 @@ async function fetchTransactionsData() {
                 // Track total profit from all time
                 currentTotalProfit = statsData.stats.total_profit || 0;
             }
+            await loadTodayByCashier();
         } catch (error) { console.error('Error fetching stats:', error); }
+    }
+
+    // Today's sales grouped by cashier (lightweight aggregate for the POS header)
+    async function loadTodayByCashier() {
+        const container = document.getElementById('cashierBreakdown');
+        if (!container) return;
+        try {
+            const res = await fetch(`${API_BASE}/api/dashboard/today-by-cashier`, { credentials: 'include' });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load cashier breakdown');
+            const cashiers = data.cashiers || [];
+            const grandTotal = data.grand_total || 0;
+            if (!cashiers.length) {
+                container.innerHTML = '<div class="text-center text-muted small px-2"><i class="fas fa-receipt me-1"></i>No sales yet today</div>';
+                return;
+            }
+            container.innerHTML = cashiers.map((c, idx) => {
+                const share = grandTotal > 0 ? Math.round((c.total / grandTotal) * 100) : 0;
+                const isTop = idx === 0 && cashiers.length > 1;
+                const initials = (c.cashier || '?').split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+                const hue = cashierHue(c.cashier || '');
+                return `<div class="cashier-card${isTop ? ' is-top' : ''}" style="--hue:${hue}">
+                    ${isTop ? '<span class="cashier-top"><i class="fas fa-crown"></i></span>' : ''}
+                    <div class="cashier-avatar">${initials}</div>
+                    <div class="cashier-body">
+                        <div class="cashier-name">${escapeHtml(c.cashier)}</div>
+                        <div class="cashier-amount">$${Number(c.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    </div>
+                    <div class="cashier-bar"><span style="width:${share}%;"></span></div>
+                </div>`;
+            }).join('');
+        } catch (e) {
+            console.error('Today-by-cashier error:', e);
+            container.innerHTML = '<div class="text-center text-muted small px-2">Could not load cashier breakdown</div>';
+        }
+    }
+
+    function cashierHue(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
+        return h;
     }
     
     
@@ -10631,11 +10979,41 @@ function getCategoryIcon(category) {
         return div.innerHTML;
     }
     
-// Render categories UI - update active category in dropdown
+// Render categories UI - update active category in dropdown + chips
 function renderCategories() {
     const categorySelect = document.getElementById('categorySelect');
     if (categorySelect && selectedCategory) {
         categorySelect.value = selectedCategory;
+    }
+    if (typeof renderCategoryChips === 'function') renderCategoryChips();
+}
+
+// Render the category chip row (visual filter mirror of the select)
+function renderCategoryChips() {
+    const container = document.getElementById('categoryChips');
+    if (!container) return;
+    const chipDefs = [
+        { cat: 'all',         label: 'All',         icon: 'fa-border-all' },
+        { cat: 'DIY',         label: 'DIY',         icon: 'fa-toolbox' },
+        { cat: 'Electricals', label: 'Electricals', icon: 'fa-bolt' },
+        { cat: 'Plumbing',    label: 'Plumbing',    icon: 'fa-faucet' },
+        { cat: 'Machinery',   label: 'Machinery',   icon: 'fa-gears' }
+    ];
+    container.innerHTML = chipDefs.map(c => `
+        <button type="button" class="cat-chip${selectedCategory === c.cat ? ' active' : ''}" data-cat="${c.cat}" onclick="selectCategoryChip('${c.cat}')">
+            <i class="fas ${c.icon}"></i>${c.label}
+        </button>
+    `).join('');
+}
+
+// Chip click -> reuse the existing category selection logic
+function selectCategoryChip(cat) {
+    if (typeof selectCategory === 'function') {
+        selectCategory(cat);
+    } else {
+        selectedCategory = cat;
+        renderProducts();
+        renderCategoryChips();
     }
 }
     
@@ -14543,6 +14921,22 @@ function setupEventListeners() {
             requestAnimationFrame(step);
         }).observe(el, { childList: true, subtree: true, characterData: true });
     });
+
+    // POS page header live stats (reads existing transactionsData global)
+    var headerTick = setInterval(function () {
+        var s = document.getElementById('todaySalesChip');
+        var it = document.getElementById('itemsSoldChip');
+        var ok = true;
+        try {
+            if (s && typeof transactionsData !== 'undefined' && transactionsData.todaySales !== undefined) {
+                s.textContent = '$' + Number(transactionsData.todaySales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else { ok = false; }
+            if (it && typeof transactionsData !== 'undefined' && transactionsData.itemsSold !== undefined) {
+                it.textContent = Number(transactionsData.itemsSold || 0).toLocaleString();
+            } else { ok = false; }
+        } catch (e) { ok = false; }
+        if (ok) clearInterval(headerTick);
+    }, 300);
 })();
 </script>
 
