@@ -4960,6 +4960,87 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 #addInventoryModal .modal-title, #editProductModal .modal-title, #editStockModal .modal-title, #subtractStockModal .modal-title, #confirmationModal .modal-title, #editStockAdditionModal .modal-title {
     font-size: 0.97rem !important;
 }
+
+/* ================================================================
+   POS SYSTEM — TILE LAYOUT (space-saving horizontal product cards)
+   Added 2026-08-11 at user request: arrange card contents to save
+   space — icon left, name + one meta line, price + Add on the right.
+   ================================================================ */
+#posPage .product-card-compact {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 54px !important;
+    padding: 6px 8px !important;
+}
+#posPage .product-icon-compact {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+}
+#posPage .product-icon-compact i { font-size: 0.78rem !important; }
+#posPage .product-info-compact {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+}
+#posPage .product-name-compact {
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    display: block !important;
+    line-height: 1.15 !important;
+    overflow-wrap: anywhere !important;
+    margin-bottom: 0 !important;
+}
+#posPage .product-meta-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+#posPage .product-unit-compact {
+    font-size: 0.48rem !important;
+    padding: 0 5px !important;
+    line-height: 1.4 !important;
+    white-space: nowrap !important;
+}
+#posPage .product-stock-compact {
+    font-size: 0.48rem !important;
+    white-space: nowrap !important;
+    line-height: 1.4 !important;
+}
+#posPage .product-stock-pill {
+    font-size: 0.44rem !important;
+    padding: 0 5px !important;
+    line-height: 1.4 !important;
+    white-space: nowrap !important;
+}
+#posPage .product-details-compact { margin-bottom: 0 !important; }
+#posPage .price-add-wrapper {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+#posPage .price-above { font-size: 0.58rem !important; padding: 0 !important; white-space: nowrap !important; }
+#posPage .add-btn-compact {
+    font-size: 0.48rem !important;
+    padding: 3px 8px !important;
+    border-radius: 14px !important;
+    flex-shrink: 0 !important;
+}
 </style>
 </head>
 
@@ -11373,12 +11454,10 @@ function renderProductsWithFilter(filteredProducts = null) {
                 </div>
                 <div class="product-info-compact">
                     <div class="product-name-compact" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</div>
-                    <div class="product-details-compact">
+                    <div class="product-meta-row">
                         <span class="product-unit-compact">${product.unit_type}: ${product.unit_details || 'N/A'}</span>
+                        <span class="product-stock-compact ${product.stock < 10 ? 'low-stock' : ''}">${product.stock === 0 ? 'Out of stock' : 'Stock: ' + product.stock}</span>
                         ${product.stock === 0 ? '<span class="product-stock-pill pill-out"><i class="fas fa-times-circle"></i> Out</span>' : (product.stock < 10 ? '<span class="product-stock-pill pill-low"><i class="fas fa-exclamation"></i> Low</span>' : '')}
-                    </div>
-                    <div class="product-stock-compact ${product.stock < 10 ? 'low-stock' : ''}">
-                        ${product.stock === 0 ? '<i class="fas fa-circle-xmark me-1"></i>Out of stock' : '<i class="fas fa-boxes-stacked me-1"></i>Stock: ' + product.stock}
                     </div>
                 </div>
                 <div class="price-add-wrapper">
