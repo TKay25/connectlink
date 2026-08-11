@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PreviewServer",
+  "file": "_preview_server.py",
+  "purpose": "Index",
+  "entry_function": "index()",
+  "entry_flows": [
+    "_preview_server → app.route, app.run"
+  ],
+  "public_api": [
+    "index()",
+    "pos()"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7fbdd920d20e6961",
+  "file_mtime": 1786445940210.5415,
+  "file_size": 494,
+  "file_birthtime": 1786445940008.5896,
+  "generated_at": "2026-08-11T10:59:03.287951Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

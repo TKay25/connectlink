@@ -2782,6 +2782,1621 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
 </style>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components-ui.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ================================================================
+   POS SYSTEM — MODERN UI POLISH  (visual-only, no behavior changed)
+   ================================================================ */
+
+/* ---------- Design tokens: modern navy + crimson accent ---------- */
+:root {
+    --dark-blue-deep: #0B1526;
+    --dark-blue-primary: #13233C;
+    --primary: #0F1B2D;
+    --primary-dark: #0B1526;
+    --primary-hover: #1A2D47;
+    --primary-light: rgba(15, 27, 45, 0.08);
+    --crimson-bright: #C12B3E;
+    --crimson-dark: #9E1F2E;
+    --crimson-light: rgba(193, 43, 62, 0.12);
+    --crimson-gradient: linear-gradient(135deg, #C12B3E 0%, #9E1F2E 100%);
+    --bg-body: #EEF1F6;
+    --border-color: rgba(15, 27, 45, 0.08);
+    --shadow-sm: 0 1px 3px rgba(15,27,45,0.06), 0 1px 2px rgba(15,27,45,0.04);
+    --shadow-md: 0 6px 18px rgba(15,27,45,0.08), 0 2px 6px rgba(15,27,45,0.05);
+    --shadow-lg: 0 16px 40px rgba(15,27,45,0.14), 0 4px 10px rgba(15,27,45,0.06);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --font: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+    font-family: var(--font);
+    background: var(--bg-body);
+    background-image:
+        radial-gradient(1100px 550px at 12% -5%, rgba(193,43,62,0.05), transparent 60%),
+        radial-gradient(1100px 550px at 90% 110%, rgba(15,27,45,0.07), transparent 60%);
+    background-attachment: fixed;
+    color: #0F172A;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: 0.1px;
+}
+
+/* ---------- Global readable base size (overrides the ultra-compact rules) ---------- */
+#posPage, #posPage *,
+#inventoryPage, #inventoryPage *,
+#salesPage, #salesPage *,
+#transactionsPage, #transactionsPage *,
+#analyticsPage, #analyticsPage * {
+    font-size: 0.8rem !important;
+    line-height: 1.45 !important;
+}
+
+#posPage .small, #posPage small,
+#inventoryPage .small, #inventoryPage small,
+#salesPage .small, #salesPage small,
+#transactionsPage .small, #transactionsPage small,
+#analyticsPage .small, #analyticsPage small {
+    font-size: 0.7rem !important;
+}
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+    width: 268px;
+    background:
+        radial-gradient(600px 420px at -10% -10%, rgba(193,43,62,0.18), transparent 55%),
+        radial-gradient(520px 520px at 115% 112%, rgba(59,130,246,0.14), transparent 55%),
+        linear-gradient(180deg, #0F1B2D 0%, #0B1526 100%);
+    box-shadow: 4px 0 26px rgba(15,27,45,0.18);
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+.sidebar-header {
+    padding: 22px 18px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.sidebar-header h6 { font-size: 0.9rem !important; letter-spacing: 0.2px; }
+.sidebar-header small { font-size: 0.68rem !important; opacity: 0.7; }
+
+.sidebar-menu { padding: 14px 12px; }
+
+.menu-item {
+    padding: 10px 14px;
+    margin: 4px 4px;
+    border-radius: 12px;
+    font-size: 0.82rem !important;
+    font-weight: 600;
+    color: rgba(255,255,255,0.72);
+    gap: 12px;
+    transition: all 0.22s ease;
+    position: relative;
+}
+.menu-item:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    transform: translateX(3px);
+}
+.menu-item.active {
+    background: linear-gradient(135deg, #C12B3E 0%, #9E1F2E 100%);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(193,43,62,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.menu-item i { width: 22px; font-size: 0.95rem !important; text-align: center; }
+
+.main-content { margin-left: 268px; }
+.toggle-sidebar { left: 278px; background: linear-gradient(135deg, #0F1B2D, #13233C); border-radius: 10px; box-shadow: 0 3px 10px rgba(15,27,45,0.2); }
+.toggle-sidebar:hover { background: linear-gradient(135deg, #C12B3E, #9E1F2E); }
+.toggle-sidebar.shifted { left: 85px; }
+
+/* ---------- Top bar (glassmorphism) ---------- */
+.top-bar {
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+    border: 1px solid rgba(15,27,45,0.06);
+    border-radius: 14px;
+    padding: 10px 18px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+}
+.top-bar .vr { height: 32px; background: #E2E8F0; }
+
+#currentDate { font-size: 0.72rem !important; color: #64748B; }
+#currentTime { font-size: 0.9rem !important; color: var(--crimson-bright); letter-spacing: 0.5px; }
+
+.logout-top-btn {
+    background: rgba(193,43,62,0.06);
+    border: 1px solid rgba(193,43,62,0.25);
+    color: var(--crimson-bright);
+    border-radius: 30px;
+    padding: 6px 14px;
+    font-weight: 600;
+}
+.logout-top-btn:hover {
+    background: var(--crimson-bright);
+    color: #fff;
+    border-color: var(--crimson-bright);
+    box-shadow: 0 4px 14px rgba(193,43,62,0.32);
+}
+
+#posThemeToggle {
+    border-radius: 8px;
+    border: 1px solid #E2E8F0 !important;
+    color: #475569 !important;
+    transition: all 0.2s;
+}
+#posThemeToggle:hover { background: #F1F5F9 !important; color: var(--crimson-bright) !important; }
+
+/* ---------- Stat cards ---------- */
+.stat-card {
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(15,27,45,0.07);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: rgba(193,43,62,0.18);
+}
+
+/* POS metric cards: colored icon chips */
+#posPage .stat-card { padding: 16px 18px !important; }
+#posPage .stat-card small { font-size: 0.72rem !important; }
+#posPage .stat-card h5 { font-size: 1.45rem !important; }
+#posPage .stat-card i {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 1.15rem !important;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+#posPage .stat-card:hover i { transform: scale(1.06); }
+#posPage .stat-card i.text-primary { background: #E8EDF7; color: #243B6B !important; }
+#posPage .stat-card i.text-warning { background: #FFF4DC; color: #B45309 !important; }
+#posPage .stat-card i.text-danger  { background: #FDE8E8; color: #B91C1C !important; }
+
+/* Dashboard (inventory / sales / analytics) stat cards: soft icon tiles */
+#inventoryPage .stat-card > i,
+#salesPage .stat-card > i,
+#transactionsPage .stat-card > i,
+#analyticsPage .stat-card > i {
+    width: 48px;
+    height: 48px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: #F1F5F9;
+    color: #64748B !important;
+    opacity: 1 !important;
+    font-size: 1.25rem !important;
+    flex-shrink: 0;
+}
+#inventoryPage .stat-card h5, #inventoryPage .stat-card h3,
+#salesPage .stat-card h5, #salesPage .stat-card h3,
+#transactionsPage .stat-card h5, #transactionsPage .stat-card h3,
+#analyticsPage .stat-card h5, #analyticsPage .stat-card h3 {
+    font-size: 1.25rem !important;
+}
+#inventoryPage .stat-card small,
+#salesPage .stat-card small,
+#transactionsPage .stat-card small,
+#analyticsPage .stat-card small {
+    font-size: 0.68rem !important;
+}
+
+/* ---------- Section cards ---------- */
+.section-card {
+    background: #fff;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(15,27,45,0.06);
+    box-shadow: var(--shadow-sm);
+    padding: 18px;
+}
+.section-card:hover { box-shadow: var(--shadow-md); }
+#posPage .section-card { padding: 16px !important; }
+.section-card h5 { font-size: 1.02rem !important; }
+.section-card h6 { font-size: 0.92rem !important; }
+
+/* ---------- Category chips ---------- */
+.category-chip {
+    background: #fff;
+    border: 1px solid rgba(15,27,45,0.09);
+    border-radius: 30px;
+    padding: 6px 14px;
+    font-size: 0.72rem !important;
+    font-weight: 600;
+    color: #475569;
+    transition: all 0.2s ease;
+}
+.category-chip:hover {
+    border-color: rgba(193,43,62,0.5);
+    color: var(--crimson-bright);
+    background: #FFF7F7;
+    transform: translateY(-1px);
+}
+.category-chip.active {
+    background: var(--crimson-gradient);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(193,43,62,0.3);
+}
+
+/* ---------- Product cards ---------- */
+.product-card-compact {
+    background: #fff;
+    border: 1px solid rgba(15,27,45,0.07);
+    border-radius: 14px;
+    padding: 12px 12px !important;
+    min-height: 96px !important;
+    gap: 10px;
+    box-shadow: 0 1px 2px rgba(15,27,45,0.04);
+}
+.product-card-compact:hover {
+    border-color: rgba(193,43,62,0.4);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
+}
+.product-icon-compact {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(193,43,62,0.12), rgba(193,43,62,0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.product-icon-compact i { color: var(--crimson-bright); font-size: 1.05rem !important; }
+.product-name-compact { font-size: 0.8rem !important; line-height: 1.35 !important; color: #0F172A; }
+.product-unit-compact {
+    font-size: 0.66rem !important;
+    background: #F1F5F9;
+    color: #475569;
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+.product-stock-compact { font-size: 0.68rem !important; color: #64748B; }
+.product-stock-compact.low-stock { color: var(--crimson-bright); font-weight: 700; }
+.price-above { font-size: 0.84rem !important; font-weight: 800; color: var(--crimson-bright); }
+.add-btn-compact {
+    background: var(--crimson-gradient);
+    border-radius: 10px;
+    padding: 5px 12px !important;
+    font-size: 0.7rem !important;
+    font-weight: 600;
+    box-shadow: 0 3px 10px rgba(193,43,62,0.25);
+}
+.add-btn-compact:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 14px rgba(193,43,62,0.35);
+}
+
+/* ---------- Cart ---------- */
+.cart-item {
+    background: linear-gradient(135deg, #fff, #FAFBFF);
+    border: 1px solid rgba(15,27,45,0.05);
+    border-left: 3px solid var(--crimson-bright);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 2px rgba(15,27,45,0.03);
+    transition: all 0.2s ease;
+}
+.cart-item:hover { box-shadow: var(--shadow-sm); border-color: rgba(193,43,62,0.2); }
+.cart-item h6 { font-size: 0.82rem !important; }
+.qty-control {
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 2px 6px;
+    box-shadow: inset 0 1px 2px rgba(15,27,45,0.03);
+}
+.qty-btn { color: #475569; transition: all 0.15s; }
+.qty-btn:hover { background: #F1F5F9; color: var(--crimson-bright); }
+
+/* ---------- Payment methods ---------- */
+.payment-method {
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 10px 6px !important;
+    background: #fff;
+    color: #475569;
+    transition: all 0.2s ease;
+}
+.payment-method:hover {
+    border-color: rgba(193,43,62,0.4);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+.payment-method.active {
+    border-color: var(--crimson-bright);
+    background: linear-gradient(135deg, #FEF2F4, #FCE8EB);
+    color: var(--crimson-bright);
+    box-shadow: 0 4px 12px rgba(193,43,62,0.15);
+}
+
+/* ---------- Buttons ---------- */
+.btn { border-radius: 10px; font-weight: 600; }
+.btn:active { transform: scale(0.97); }
+.btn:focus { box-shadow: 0 0 0 3px rgba(193,43,62,0.15) !important; }
+
+.btn-primary-dark {
+    background: var(--crimson-gradient);
+    border: none;
+    border-radius: 10px;
+    color: #fff !important;
+    font-weight: 600;
+    box-shadow: 0 3px 10px rgba(193,43,62,0.22);
+}
+.btn-primary-dark:hover {
+    background: linear-gradient(135deg, #A81F31, #8F1B28);
+    color: #fff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(193,43,62,0.3);
+}
+
+.btn-view-receipt {
+    background: var(--crimson-gradient);
+    border: none;
+    border-radius: 30px;
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(193,43,62,0.2);
+}
+.btn-view-receipt:hover { background: linear-gradient(135deg, #A81F31, #8F1B28); color: #fff; transform: translateY(-1px); }
+
+/* ---------- Forms ---------- */
+.form-control, .form-select {
+    border: 1px solid #D9E0EA;
+    border-radius: 10px;
+    padding: 8px 12px !important;
+    background-color: #fff;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--crimson-bright);
+    box-shadow: 0 0 0 3px rgba(193,43,62,0.12) !important;
+}
+.form-label { font-size: 0.74rem !important; font-weight: 600; color: #334155; }
+.input-group-text {
+    background: #F1F5F9;
+    border: 1px solid #D9E0EA;
+    color: #475569;
+    border-radius: 10px 0 0 10px !important;
+}
+.input-group .form-control { border-radius: 0 10px 10px 0 !important; }
+
+/* ---------- Tables ---------- */
+.table thead th, .table-light th {
+    background: linear-gradient(180deg, #0F1B2D, #0B1526) !important;
+    color: #fff !important;
+    font-size: 0.68rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 10px 12px !important;
+    white-space: nowrap;
+}
+.table tbody tr { transition: background 0.15s ease; }
+.table-hover tbody tr:hover { background: rgba(193,43,62,0.05); }
+.table td { padding: 10px 12px !important; }
+
+/* ---------- Modals ---------- */
+.modal {
+    background-color: rgba(15,23,42,0.55) !important;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.modal-content {
+    border: none;
+    border-radius: 18px !important;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+}
+.modal-header {
+    background: linear-gradient(135deg, #13233C 0%, #0B1526 100%) !important;
+    border-bottom: 1px solid rgba(193,43,62,0.35) !important;
+    padding: 16px 20px;
+    position: relative;
+}
+.modal-header h5, .modal-header h6 { font-size: 1rem !important; font-weight: 700; letter-spacing: 0.2px; }
+.modal-header .btn-close { filter: brightness(0) invert(1); opacity: 0.8; transition: all 0.2s; }
+.modal-header .btn-close:hover { opacity: 1; transform: rotate(90deg); }
+.modal-body { padding: 20px; }
+.modal-footer { background: #F8FAFC; border-top: 1px solid #EEF1F6; padding: 14px 20px; }
+
+/* ---------- Alerts & badges ---------- */
+.alert { border-radius: 12px; border: 1px solid transparent; }
+.badge-low-stock { background: rgba(193,43,62,0.1); color: var(--crimson-bright); }
+.unit-badge { background: rgba(193,43,62,0.1); color: var(--crimson-bright); }
+#inventoryPage .badge,
+#inventoryPage .badge.bg-secondary,
+#inventoryPage .badge.bg-danger,
+#inventoryPage .badge.bg-success {
+    font-size: 0.62rem !important;
+    padding: 3px 9px !important;
+    border-radius: 20px !important;
+}
+
+/* ---------- Transaction expandable items ---------- */
+.transaction-items-preview { color: var(--crimson-bright); font-size: 0.72rem; }
+.transaction-items-preview:hover { color: var(--crimson-dark); }
+.transaction-items-detail {
+    background: #F6F8FB;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    border: 1px solid #EEF1F6;
+}
+
+/* ---------- Autocomplete ---------- */
+.autocomplete-items {
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    background: #fff;
+}
+.autocomplete-items div { padding: 10px 14px; font-size: 0.8rem; }
+.autocomplete-items div:hover { background: #F6F8FB; }
+.autocomplete-active { background: var(--crimson-bright) !important; color: #fff; }
+
+/* ---------- Toast ---------- */
+.toast-notify {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(15,27,45,0.06);
+    border-left: 3px solid var(--crimson-bright);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    padding: 14px 24px;
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C4CDD9; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #AAB4C2; }
+
+/* ---------- Loader overlay ---------- */
+.loader-overlay { background: rgba(11,21,38,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+
+/* ---------- Sticky cart card ---------- */
+#posPage .col-lg-3 .section-card.sticky-top {
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(15,27,45,0.06);
+}
+
+/* ---------- Tablets: readable scale (overrides the tiny-tablet rules) ---------- */
+@media (min-width: 769px) and (max-width: 1024px) {
+    #posSystem, #posSystem * { font-size: 0.72rem !important; line-height: 1.4 !important; }
+    #posSystem .stat-card h3, #posSystem .stat-card h5 { font-size: 1rem !important; }
+    #posSystem .btn, #posSystem .btn-sm, #posSystem .btn-primary-dark { font-size: 0.66rem !important; }
+    #posSystem .table, #posSystem .table th, #posSystem .table td { font-size: 0.62rem !important; }
+}
+
+/* ================================================================
+   POS SYSTEM — PREMIUM LAYER  (visual-only polish & new components)
+   ================================================================ */
+
+/* ---------- Typography ---------- */
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.section-card h5, .section-card h6, .stat-card-value, .menu-item, .topbar-title { font-family: 'Sora', 'Inter', sans-serif; }
+
+/* ---------- Sidebar: flex layout + footer + labels ---------- */
+.sidebar { display: flex; flex-direction: column; }
+.sidebar-menu { flex: 1; }
+
+.sidebar-section-label {
+    font-size: 0.6rem !important;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.38);
+    padding: 18px 14px 6px;
+    margin: 0 4px;
+}
+.sidebar-section-label:first-child { padding-top: 8px; }
+
+.sidebar-brand-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    padding: 4px 12px;
+    border-radius: 30px;
+    background: rgba(193,43,62,0.16);
+    border: 1px solid rgba(193,43,62,0.35);
+    color: #FFB4BE;
+    font-size: 0.62rem !important;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.sidebar-footer {
+    padding: 12px 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+}
+.sidebar-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.68rem !important;
+    font-weight: 500;
+    color: rgba(255,255,255,0.55);
+    padding: 4px 2px;
+}
+.sidebar-status i { font-size: 0.7rem !important; width: 16px; text-align: center; }
+.sidebar.collapsed .sidebar-footer { display: none; }
+
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22C55E;
+    box-shadow: 0 0 0 0 rgba(34,197,94,0.6);
+    animation: statusPulse 2.2s infinite;
+    flex-shrink: 0;
+}
+@keyframes statusPulse {
+    0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.55); }
+    70% { box-shadow: 0 0 0 7px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+
+/* ---------- Top bar badges ---------- */
+.topbar-logo-chip {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #FDF2F3, #FCE8EB);
+    border: 1px solid rgba(193,43,62,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(193,43,62,0.1);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.pos-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #EAF7EF, #DCF3E6);
+    border: 1px solid rgba(34,197,94,0.3);
+    color: #15803D;
+    font-size: 0.62rem !important;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22C55E;
+    box-shadow: 0 0 0 0 rgba(34,197,94,0.5);
+    animation: statusPulse 2.2s infinite;
+}
+
+/* ---------- POS KPI metric cards ---------- */
+.stat-card.pos-metric {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 16px !important;
+    cursor: pointer;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #FDFDFF 100%);
+    position: relative;
+    transition: transform 0.22s cubic-bezier(0.4,0,0.2,1), box-shadow 0.22s, border-color 0.22s;
+    animation: cardIn 0.4s ease both;
+}
+.stat-card.pos-metric:nth-child(2) { animation-delay: 0.06s; }
+.stat-card.pos-metric:nth-child(3) { animation-delay: 0.12s; }
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.stat-card.pos-metric:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: rgba(193,43,62,0.22);
+}
+.stat-card.pos-metric:hover .stat-card-arrow { transform: translateX(2px); opacity: 1; }
+.stat-card.pos-metric:active { transform: translateY(-1px) scale(0.99); }
+
+.stat-card-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem !important;
+    flex-shrink: 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+}
+.stat-card-icon.ic-blue  { background: linear-gradient(135deg, #E8EDF7, #DCE4F3); color: #243B6B !important; }
+.stat-card-icon.ic-amber { background: linear-gradient(135deg, #FFF4DC, #FDEBCB); color: #B45309 !important; }
+.stat-card-icon.ic-red   { background: linear-gradient(135deg, #FDE8E8, #FBD5D5); color: #B91C1C !important; }
+
+.stat-card-body { flex: 1; min-width: 0; }
+.stat-card-label {
+    font-size: 0.68rem !important;
+    font-weight: 600;
+    color: #64748B;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+.stat-card-value {
+    font-size: 1.7rem !important;
+    font-weight: 800;
+    line-height: 1.25;
+    color: #0F172A;
+    letter-spacing: -0.5px;
+}
+.stat-card-value.value-amber { color: #B45309; }
+.stat-card-value.value-red   { color: #B91C1C; }
+.stat-card-sub {
+    font-size: 0.64rem !important;
+    color: #94A3B8;
+    font-weight: 500;
+    margin-top: 2px;
+}
+.stat-card-arrow {
+    color: #CBD5E1;
+    font-size: 0.7rem !important;
+    opacity: 0.5;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+/* ---------- Section card headers ---------- */
+.section-card-head { min-width: 0; }
+.section-card-subtitle {
+    display: block;
+    font-size: 0.68rem !important;
+    color: #94A3B8;
+    font-weight: 500;
+}
+
+/* ---------- Cart count chip ---------- */
+.cart-count-chip {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-left: 6px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: rgba(193,43,62,0.1);
+    color: var(--crimson-bright);
+    font-size: 0.6rem !important;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+/* ---------- Product cards premium ---------- */
+.product-card-compact {
+    position: relative;
+    background: linear-gradient(180deg, #FFFFFF 0%, #FCFCFE 100%);
+    border: 1px solid rgba(15,27,45,0.07);
+    border-radius: 14px;
+    padding: 12px 12px !important;
+    min-height: 100px !important;
+    gap: 10px;
+    box-shadow: 0 1px 2px rgba(15,27,45,0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.product-card-compact:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 22px rgba(15,27,45,0.1);
+    border-color: rgba(193,43,62,0.35);
+}
+.product-card-compact.is-out { opacity: 0.62; }
+.product-card-compact.is-out .product-icon-compact,
+.product-card-compact.is-out .product-name-compact { filter: grayscale(0.5); }
+.product-card-compact.is-out .add-btn-compact { background: #94A3B8; box-shadow: none; cursor: not-allowed; }
+
+.product-icon-compact {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(193,43,62,0.12), rgba(193,43,62,0.04));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+}
+
+.product-stock-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-size: 0.56rem !important;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.product-stock-pill.pill-low { background: rgba(245,158,11,0.14); color: #B45309; }
+.product-stock-pill.pill-out { background: rgba(239,68,68,0.12); color: #B91C1C; }
+
+/* ---------- Cart items premium ---------- */
+.cart-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: linear-gradient(135deg, #FFFFFF, #FAFBFF);
+    border: 1px solid rgba(15,27,45,0.06);
+    border-left: 3px solid var(--crimson-bright);
+    border-radius: 12px;
+    padding: 10px 12px !important;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 2px rgba(15,27,45,0.03);
+}
+.cart-item-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(193,43,62,0.12), rgba(193,43,62,0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.85rem !important;
+    color: var(--crimson-bright);
+}
+.cart-item-remove {
+    background: rgba(239,68,68,0.08);
+    border: none;
+    border-radius: 8px;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #DC2626;
+    font-size: 0.68rem !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+.cart-item-remove:hover { background: #DC2626; color: #fff; transform: scale(1.08); }
+.cart-item-total {
+    font-size: 0.8rem !important;
+    font-weight: 700;
+    color: var(--crimson-bright);
+}
+
+/* ---------- Chart cards ---------- */
+canvas { border-radius: 12px; }
+
+/* ---------- Scroll fade on product grid ---------- */
+.products-scroll {
+    scrollbar-width: thin;
+}
+
+/* ---------- Payment method tiles refinement ---------- */
+.payment-method .small { font-size: 0.66rem !important; font-weight: 600; }
+.payment-method i { font-size: 1rem !important; }
+
+/* ---------- Total row in cart ---------- */
+#posPage .border-top .fw-bold.small { font-size: 0.82rem !important; }
+#posPage #total { font-size: 1.05rem !important; }
+
+/* ---------- Confirm payment button ---------- */
+#posPage .btn-primary-dark.w-100 {
+    padding: 12px !important;
+    font-size: 0.82rem !important;
+    border-radius: 12px;
+    letter-spacing: 0.2px;
+}
+
+/* ---------- Toast refinement ---------- */
+.toast-notify { font-weight: 600; font-size: 0.85rem; }
+
+/* ---------- Small screens: metric cards stack nicely ---------- */
+@media (max-width: 768px) {
+    .stat-card.pos-metric { padding: 14px !important; gap: 12px; }
+    .stat-card-value { font-size: 1.4rem !important; }
+    .pos-mode-badge { display: none; }
+}
+
+/* ================================================================
+   POS SYSTEM — ULTRA LAYER  (category colors, dark mode, motion)
+   ================================================================ */
+
+/* ---------- Page transitions (fires when a page is shown) ---------- */
+#posPage, #inventoryPage, #salesPage, #transactionsPage, #analyticsPage {
+    animation: pageReveal 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes pageReveal {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Category-based product icon colors ---------- */
+.product-card-compact[data-category="Electricals"] .product-icon-compact { background: linear-gradient(135deg, rgba(245,158,11,0.16), rgba(245,158,11,0.04)); }
+.product-card-compact[data-category="Electricals"] .product-icon-compact i { color: #D97706; }
+.product-card-compact[data-category="Plumbing"]   .product-icon-compact { background: linear-gradient(135deg, rgba(37,99,235,0.14), rgba(37,99,235,0.04)); }
+.product-card-compact[data-category="Plumbing"]   .product-icon-compact i { color: #2563EB; }
+.product-card-compact[data-category="DIY"]        .product-icon-compact { background: linear-gradient(135deg, rgba(22,163,74,0.14), rgba(22,163,74,0.04)); }
+.product-card-compact[data-category="DIY"]        .product-icon-compact i { color: #16A34A; }
+.product-card-compact[data-category="Machinery"]  .product-icon-compact { background: linear-gradient(135deg, rgba(124,58,237,0.14), rgba(124,58,237,0.04)); }
+.product-card-compact[data-category="Machinery"]  .product-icon-compact i { color: #7C3AED; }
+
+/* ---------- Category-based cart icon colors ---------- */
+.cart-item[data-category="Electricals"] .cart-item-icon { background: rgba(245,158,11,0.16); color: #D97706 !important; }
+.cart-item[data-category="Plumbing"]    .cart-item-icon { background: rgba(37,99,235,0.14); color: #2563EB !important; }
+.cart-item[data-category="DIY"]         .cart-item-icon { background: rgba(22,163,74,0.14); color: #16A34A !important; }
+.cart-item[data-category="Machinery"]   .cart-item-icon { background: rgba(124,58,237,0.14); color: #7C3AED !important; }
+
+/* ---------- Payment method tiles: colored icon chips + active states ---------- */
+.payment-method {
+    position: relative;
+    overflow: hidden;
+}
+.payment-method i {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 5px;
+    border-radius: 10px;
+    background: #F1F5F9;
+    color: #475569;
+    font-size: 0.95rem !important;
+    transition: all 0.2s ease;
+}
+.payment-method[data-method="cash"]     i { background: #E7F7EE; color: #16A34A; }
+.payment-method[data-method="card"]     i { background: #E8F0FE; color: #2563EB; }
+.payment-method[data-method="transfer"] i { background: #F1ECFE; color: #7C3AED; }
+.payment-method.active[data-method="cash"]     { border-color: #16A34A; background: #F0FDF4; color: #15803D; box-shadow: 0 4px 12px rgba(22,163,74,0.18); }
+.payment-method.active[data-method="card"]     { border-color: #2563EB; background: #EFF6FF; color: #1D4ED8; box-shadow: 0 4px 12px rgba(37,99,235,0.18); }
+.payment-method.active[data-method="transfer"] { border-color: #7C3AED; background: #F5F3FF; color: #6D28D9; box-shadow: 0 4px 12px rgba(124,58,237,0.18); }
+
+/* ---------- Cart total row: premium summary panel ---------- */
+.cart-total-row {
+    background: linear-gradient(135deg, #0F1B2D, #13233C);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(15,27,45,0.18);
+}
+.cart-total-row span { font-size: 0.82rem !important; }
+.cart-total-amount { font-size: 1.15rem !important; color: #FFD2DA !important; letter-spacing: 0.3px; }
+
+/* ---------- Shimmer sweep on primary buttons ---------- */
+.add-btn-compact, .btn-primary-dark { position: relative; overflow: hidden; }
+.add-btn-compact::after, .btn-primary-dark::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -80%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.5s ease;
+}
+.add-btn-compact:hover::after, .btn-primary-dark:hover::after { left: 130%; }
+
+/* ---------- Empty states ---------- */
+.empty-state-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(193,43,62,0.1), rgba(193,43,62,0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem !important;
+    color: var(--crimson-bright);
+}
+.cart-empty-state { padding: 26px 12px !important; }
+.cart-empty-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 12px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(193,43,62,0.1), rgba(193,43,62,0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem !important;
+    color: var(--crimson-bright);
+}
+
+/* ---------- Selection & focus polish ---------- */
+::selection { background: rgba(193,43,62,0.22); }
+:focus-visible { outline: 2px solid rgba(193,43,62,0.5); outline-offset: 2px; }
+
+/* ---------- Scroll area polish ---------- */
+.products-scroll, .cart-scroll { scrollbar-color: #C4CDD9 transparent; scrollbar-width: thin; }
+
+/* ================================================================
+   DARK THEME  (activates the existing theme toggle button)
+   ================================================================ */
+body.dark-theme {
+    --bg-body: #0D1320;
+    --border-color: rgba(255,255,255,0.08);
+    color: #E2E8F0;
+    background: #0D1320;
+    background-image:
+        radial-gradient(1100px 550px at 12% -5%, rgba(193,43,62,0.08), transparent 60%),
+        radial-gradient(1100px 550px at 90% 110%, rgba(59,130,246,0.06), transparent 60%);
+}
+body.dark-theme .top-bar {
+    background: rgba(19,25,38,0.85);
+    border-color: rgba(255,255,255,0.08);
+}
+body.dark-theme .top-bar .fw-bold,
+body.dark-theme .top-bar span { color: #F1F5F9 !important; }
+body.dark-theme #currentDate { color: #94A3B8; }
+
+body.dark-theme .section-card,
+body.dark-theme .stat-card {
+    background: #141B2A;
+    border-color: rgba(255,255,255,0.07);
+}
+body.dark-theme .stat-card.pos-metric { background: linear-gradient(180deg, #161D2D, #131A28); }
+body.dark-theme .section-card h5,
+body.dark-theme .section-card h6,
+body.dark-theme .section-card-subtitle,
+body.dark-theme .fw-bold { color: #F1F5F9; }
+body.dark-theme .stat-card-label { color: #94A3B8; }
+body.dark-theme .stat-card-value { color: #F8FAFC; }
+body.dark-theme .stat-card-sub { color: #7C8AA0; }
+body.dark-theme .text-muted { color: #94A3B8 !important; }
+
+body.dark-theme .product-card-compact {
+    background: linear-gradient(180deg, #161D2D, #141A28);
+    border-color: rgba(255,255,255,0.07);
+}
+body.dark-theme .product-card-compact:hover { border-color: rgba(193,43,62,0.45); box-shadow: 0 8px 22px rgba(0,0,0,0.4); }
+body.dark-theme .product-name-compact { color: #F1F5F9; }
+body.dark-theme .product-unit-compact { background: rgba(255,255,255,0.08); color: #CBD5E1; }
+body.dark-theme .product-stock-compact { color: #94A3B8; }
+body.dark-theme .product-card-compact[data-category="Electricals"] .product-icon-compact { background: rgba(245,158,11,0.18); }
+body.dark-theme .product-card-compact[data-category="Plumbing"]   .product-icon-compact { background: rgba(37,99,235,0.18); }
+body.dark-theme .product-card-compact[data-category="DIY"]        .product-icon-compact { background: rgba(22,163,74,0.18); }
+body.dark-theme .product-card-compact[data-category="Machinery"]  .product-icon-compact { background: rgba(124,58,237,0.18); }
+
+body.dark-theme .cart-item {
+    background: linear-gradient(135deg, #171E2E, #141B29);
+    border-color: rgba(255,255,255,0.07);
+}
+body.dark-theme .cart-item h6 { color: #F1F5F9; }
+body.dark-theme .cart-item-icon { background: rgba(193,43,62,0.18); color: #FFB4BE; }
+body.dark-theme .cart-item-remove { background: rgba(239,68,68,0.14); }
+body.dark-theme .qty-control { background: #0F1524; border-color: rgba(255,255,255,0.12); }
+body.dark-theme .qty-btn { color: #CBD5E1; }
+body.dark-theme .qty-btn:hover { background: rgba(255,255,255,0.08); color: #FFB4BE; }
+
+body.dark-theme .payment-method { background: #151C2B; border-color: rgba(255,255,255,0.1); color: #CBD5E1; }
+body.dark-theme .payment-method i { background: rgba(255,255,255,0.08); color: #CBD5E1; }
+body.dark-theme .payment-method[data-method="cash"]     i { background: rgba(22,163,74,0.16); color: #4ADE80; }
+body.dark-theme .payment-method[data-method="card"]     i { background: rgba(37,99,235,0.18); color: #60A5FA; }
+body.dark-theme .payment-method[data-method="transfer"] i { background: rgba(124,58,237,0.18); color: #A78BFA; }
+body.dark-theme .payment-method.active[data-method="cash"]     { border-color: #16A34A; background: rgba(22,163,74,0.14); color: #4ADE80; }
+body.dark-theme .payment-method.active[data-method="card"]     { border-color: #2563EB; background: rgba(37,99,235,0.14); color: #60A5FA; }
+body.dark-theme .payment-method.active[data-method="transfer"] { border-color: #7C3AED; background: rgba(124,58,237,0.14); color: #A78BFA; }
+
+body.dark-theme .form-control, body.dark-theme .form-select {
+    background: #0F1524;
+    border-color: rgba(255,255,255,0.12);
+    color: #E2E8F0;
+}
+body.dark-theme .form-control::placeholder { color: #64748B; }
+body.dark-theme .form-control:focus, body.dark-theme .form-select:focus { border-color: var(--crimson-bright); box-shadow: 0 0 0 3px rgba(193,43,62,0.18) !important; }
+body.dark-theme .form-label { color: #CBD5E1; }
+body.dark-theme .input-group-text { background: #1A2233; border-color: rgba(255,255,255,0.12); color: #94A3B8; }
+
+body.dark-theme .table { color: #E2E8F0; }
+body.dark-theme .table td { color: #CBD5E1; border-color: rgba(255,255,255,0.06); }
+body.dark-theme .table-hover tbody tr:hover { background: rgba(255,255,255,0.04); }
+
+body.dark-theme .category-chip { background: #151C2B; border-color: rgba(255,255,255,0.12); color: #CBD5E1; }
+body.dark-theme .category-chip:hover { background: rgba(193,43,62,0.12); border-color: rgba(193,43,62,0.5); color: #FFB4BE; }
+
+body.dark-theme .modal-content { background: #141B2A; }
+body.dark-theme .modal-body { color: #E2E8F0; }
+body.dark-theme .modal-footer { background: #101623; border-top-color: rgba(255,255,255,0.07); }
+
+body.dark-theme .alert-info { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.25); color: #BFDBFE; }
+body.dark-theme .alert-warning { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.25); color: #FDE68A; }
+body.dark-theme .alert-danger { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.25); color: #FECACA; }
+
+body.dark-theme .toast-notify { background: rgba(21,28,43,0.95); color: #E2E8F0; border-color: rgba(255,255,255,0.1); }
+body.dark-theme .autocomplete-items { background: #141B2A; border-color: rgba(255,255,255,0.12); }
+body.dark-theme .autocomplete-items div { color: #E2E8F0; border-bottom-color: rgba(255,255,255,0.06); }
+body.dark-theme .autocomplete-items div:hover { background: rgba(255,255,255,0.06); }
+body.dark-theme .transaction-items-detail { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.08); }
+body.dark-theme .cart-total-row { background: linear-gradient(135deg, #1A2233, #101623); box-shadow: 0 4px 14px rgba(0,0,0,0.3); }
+body.dark-theme .empty-state-icon,
+body.dark-theme .cart-empty-icon { background: rgba(193,43,62,0.14); }
+body.dark-theme ::-webkit-scrollbar-thumb { background: #2A3447; }
+body.dark-theme .btn-outline-danger { color: #FCA5A5; border-color: rgba(239,68,68,0.4); }
+body.dark-theme .btn-outline-danger:hover { background: rgba(239,68,68,0.15); color: #FECACA; }
+
+/* ================================================================
+   POS SYSTEM — FINALE LAYER  (depth, micro-interactions, delight)
+   ================================================================ */
+
+/* ---------- Body texture: subtle dot grid ---------- */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: radial-gradient(rgba(15,27,45,0.045) 1px, transparent 1px);
+    background-size: 22px 22px;
+    pointer-events: none;
+}
+body.dark-theme::before {
+    background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+}
+
+/* ---------- KPI cards: gradient accent bar + depth ---------- */
+.stat-card.pos-metric::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(90deg, var(--crimson-bright), #FF8A9B) !important;
+    box-shadow: 0 1px 6px rgba(193,43,62,0.35);
+}
+.stat-card.pos-metric:has(.ic-blue)::before  { background: linear-gradient(90deg, #2563EB, #60A5FA) !important; box-shadow: 0 1px 6px rgba(37,99,235,0.35); }
+.stat-card.pos-metric:has(.ic-amber)::before { background: linear-gradient(90deg, #D97706, #FBBF24) !important; box-shadow: 0 1px 6px rgba(217,119,6,0.35); }
+.stat-card.pos-metric:has(.ic-red)::before   { background: linear-gradient(90deg, #DC2626, #F87171) !important; box-shadow: 0 1px 6px rgba(220,38,38,0.35); }
+.stat-card.pos-metric .stat-card-icon {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 4px 10px rgba(15,27,45,0.06);
+    transition: transform 0.2s ease;
+}
+.stat-card.pos-metric:hover .stat-card-icon { transform: scale(1.07) rotate(-3deg); }
+
+/* ---------- Sidebar active indicator bar ---------- */
+.menu-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 22%;
+    bottom: 22%;
+    width: 3px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #FFB4BE, #C12B3E);
+    box-shadow: 0 0 8px rgba(193,43,62,0.7);
+}
+
+/* ---------- Product card micro-interactions ---------- */
+.product-icon-compact { transition: transform 0.2s ease, background 0.2s ease; }
+.product-card-compact:hover .product-icon-compact { transform: scale(1.1) rotate(-3deg); }
+.product-card-compact:active { transform: translateY(-1px) scale(0.99); }
+.product-card-compact .add-btn-compact { transition: all 0.2s ease; }
+.product-card-compact:hover .add-btn-compact { box-shadow: 0 6px 16px rgba(193,43,62,0.4); }
+
+/* ---------- Cart total pulse on change ---------- */
+@keyframes totalPulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.18); }
+    100% { transform: scale(1); }
+}
+.cart-total-amount.total-pulse { animation: totalPulse 0.4s ease; }
+
+/* ---------- Products count chip ---------- */
+.products-count-chip {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin-left: 6px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: rgba(15,27,45,0.06);
+    color: #64748B;
+    font-size: 0.6rem !important;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+body.dark-theme .products-count-chip { background: rgba(255,255,255,0.1); color: #94A3B8; }
+
+/* ---------- Modal entrance + gradient edge ---------- */
+.modal.fade .modal-dialog {
+    transform: translateY(14px) scale(0.97);
+    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+}
+.modal.fade.show .modal-dialog { transform: translateY(0) scale(1); }
+.modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #C12B3E, #FF8A9B, #C12B3E);
+    border-radius: 18px 18px 0 0;
+    z-index: 2;
+}
+
+/* ---------- Toasts: icon chip + slide + progress ---------- */
+.toast-notify {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    overflow: hidden;
+    animation: toastIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.toast-notify i {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.8rem !important;
+    background: rgba(193,43,62,0.1);
+    flex-shrink: 0;
+}
+.toast-notify i.text-success { background: rgba(22,163,74,0.12); }
+.toast-notify i.text-danger  { background: rgba(239,68,68,0.12); }
+.toast-notify i.text-info    { background: rgba(59,130,246,0.12); }
+.toast-notify::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--crimson-bright), #FF8A9B);
+    animation: toastProgress 2.5s linear forwards;
+}
+body.dark-theme .toast-notify i { background: rgba(255,255,255,0.08); }
+body.dark-theme .toast-notify i.text-success { background: rgba(22,163,74,0.2); }
+body.dark-theme .toast-notify i.text-danger  { background: rgba(239,68,68,0.2); }
+body.dark-theme .toast-notify i.text-info    { background: rgba(59,130,246,0.2); }
+@keyframes toastIn {
+    from { opacity: 0; transform: translate(-50%, -18px) scale(0.96); }
+    to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes toastProgress {
+    from { width: 100%; }
+    to   { width: 0%; }
+}
+
+/* ---------- Buttons: outline/secondary refinements ---------- */
+.btn-outline-danger {
+    border: 1px solid rgba(239,68,68,0.4);
+    color: #DC2626;
+    background: transparent;
+    border-radius: 9px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+.btn-outline-danger:hover { background: #DC2626; color: #fff; border-color: #DC2626; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239,68,68,0.25); }
+
+/* ---------- Table zebra + refined hover ---------- */
+.table tbody tr:nth-child(even) { background: rgba(15,27,45,0.015); }
+.table-hover tbody tr:hover { background: rgba(193,43,62,0.05) !important; }
+body.dark-theme .table tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+/* ---------- Top bar: refined spacing ---------- */
+.top-bar { min-height: 56px; }
+
+/* ---------- Sticky products column on large screens ---------- */
+@media (min-width: 1200px) {
+    #posPage .col-lg-9 .section-card { display: flex; flex-direction: column; }
+    #posPage .products-scroll { flex: 1; }
+}
+
+/* ================================================================
+   POS SYSTEM — BEST LAYER  (true POS tile grid + final polish)
+   ================================================================ */
+
+/* ---------- Product cards → centered POS tiles ---------- */
+.product-card-compact {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 16px 12px 12px !important;
+    min-height: 138px !important;
+    border-radius: 16px;
+}
+.product-card-compact .product-icon-compact {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    font-size: 1.15rem !important;
+    margin-bottom: 2px;
+}
+.product-card-compact .product-icon-compact i { font-size: 1.2rem !important; }
+.product-card-compact .product-info-compact { width: 100%; }
+.product-card-compact .product-name-compact {
+    font-size: 0.78rem !important;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    min-height: 2.05em;
+}
+.product-card-compact .product-details-compact { justify-content: center; }
+.product-card-compact .product-stock-compact { font-size: 0.66rem !important; }
+.product-card-compact .price-add-wrapper {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    padding-top: 2px;
+}
+.price-above {
+    background: rgba(193,43,62,0.08);
+    color: var(--crimson-bright);
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-size: 0.85rem !important;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+body.dark-theme .price-above { background: rgba(193,43,62,0.16); }
+
+/* ---------- Out of stock badge ---------- */
+.product-card-compact.is-out::after {
+    content: 'OUT OF STOCK';
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 0.46rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    background: rgba(220,38,38,0.92);
+    color: #fff;
+    padding: 3px 7px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(220,38,38,0.3);
+    text-transform: uppercase;
+}
+
+/* ---------- Scan field: distinct focus glow ---------- */
+#barcodeScanInput:focus {
+    border-color: #2563EB !important;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important;
+}
+
+/* ---------- Qty stepper: circular buttons ---------- */
+.qty-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem !important;
+    font-weight: 700;
+}
+.qty-btn:nth-child(1):hover { background: #FEE2E2; color: #DC2626; }
+.qty-btn:nth-child(3):hover { background: #DCFCE7; color: #16A34A; }
+
+/* ---------- Top bar user chip ---------- */
+.user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #F1F5F9, #E8ECF1);
+    border: 1px solid rgba(15,27,45,0.08);
+    font-size: 0.72rem !important;
+    font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+}
+.user-chip i {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0F1B2D, #243B5E);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem !important;
+    flex-shrink: 0;
+}
+body.dark-theme .user-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); color: #E2E8F0; }
+body.dark-theme .user-chip i { background: linear-gradient(135deg, #C12B3E, #9E1F2E); }
+
+/* ---------- Products toolbar: cohesive controls row ---------- */
+#posPage .section-card-head h6 { display: flex; align-items: center; }
+#posPage .section-card-head h6 .products-count-chip { margin-left: 8px; }
+
+/* ---------- KPI values: tabular numbers ---------- */
+.stat-card-value { font-variant-numeric: tabular-nums; }
+
+/* ---------- Mobile: product tiles breathe ---------- */
+@media (max-width: 575px) {
+    .product-card-compact { min-height: 122px !important; padding: 12px 10px !important; }
+    .product-card-compact .product-icon-compact { width: 44px; height: 44px; }
+    .product-card-compact .product-icon-compact i { font-size: 1rem !important; }
+    .price-above { font-size: 0.75rem !important; padding: 2px 8px; }
+}
+
+/* ================================================================
+   POS SYSTEM — COMPACT LAYER  (space-efficient POS terminal)
+   ================================================================ */
+
+/* ---------- Slimmer top bar ---------- */
+.top-bar { min-height: 46px; padding: 6px 14px; margin-bottom: 10px; }
+
+/* ---------- Compact KPI metric cards (single-line feel) ---------- */
+#posPage .stat-card.pos-metric {
+    padding: 9px 12px !important;
+    gap: 10px;
+    border-radius: 12px;
+}
+#posPage .stat-card.pos-metric .stat-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 0.9rem !important;
+}
+#posPage .stat-card.pos-metric .stat-card-label { font-size: 0.6rem !important; margin-bottom: 1px; }
+#posPage .stat-card.pos-metric .stat-card-value { font-size: 1.2rem !important; }
+#posPage .stat-card.pos-metric .stat-card-sub { display: none; }
+#posPage .stat-card.pos-metric .stat-card-arrow { font-size: 0.6rem !important; }
+
+/* ---------- Tighter POS section cards ---------- */
+#posPage .section-card { padding: 12px !important; }
+#posPage .section-card h6 { font-size: 0.85rem !important; }
+#posPage .section-card-subtitle { display: none; }
+
+/* ---------- Slimmer product toolbar ---------- */
+#posPage .section-card-head + div .small.fw-bold { display: none; }
+#posPage #categorySelect { width: 132px !important; font-size: 0.72rem !important; padding: 5px 10px !important; }
+#posPage #searchProduct { width: 168px !important; font-size: 0.72rem !important; padding: 6px 12px !important; }
+#posPage #barcodeScanInput { width: 186px !important; font-size: 0.72rem !important; padding: 6px 12px !important; }
+#posPage .products-count-chip { font-size: 0.54rem !important; padding: 1px 7px; }
+
+/* ---------- Compact product tiles ---------- */
+#posPage .product-card-compact {
+    min-height: 104px !important;
+    padding: 10px 8px 8px !important;
+    gap: 6px;
+    border-radius: 12px;
+}
+#posPage .product-card-compact .product-icon-compact {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 0.9rem !important;
+    margin-bottom: 0;
+}
+#posPage .product-card-compact .product-icon-compact i { font-size: 1rem !important; }
+#posPage .product-card-compact .product-name-compact {
+    font-size: 0.7rem !important;
+    min-height: 1.9em;
+    line-height: 1.3 !important;
+}
+#posPage .product-card-compact .product-details-compact,
+#posPage .product-card-compact .product-stock-compact {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0;
+}
+#posPage .product-card-compact .product-stock-compact { font-size: 0.58rem !important; }
+#posPage .price-above { font-size: 0.72rem !important; padding: 2px 7px; }
+#posPage .add-btn-compact { font-size: 0.6rem !important; padding: 3px 8px !important; border-radius: 8px; }
+
+/* ---------- Use more vertical space for the grids ---------- */
+#posPage .products-scroll { max-height: calc(100vh - 300px) !important; }
+#posPage .cart-scroll { max-height: calc(100vh - 430px) !important; }
+
+/* ---------- Compact cart panel ---------- */
+#posPage .col-lg-3 .section-card.sticky-top { padding: 12px !important; }
+#posPage .cart-item { padding: 8px 10px !important; margin-bottom: 6px; gap: 8px; }
+#posPage .cart-item h6 { font-size: 0.76rem !important; }
+#posPage .cart-item-icon { width: 30px; height: 30px; border-radius: 9px; font-size: 0.72rem !important; }
+#posPage .cart-item-remove { width: 24px; height: 24px; }
+#posPage .cart-total-row { padding: 8px 12px; margin-bottom: 8px !important; }
+#posPage .cart-total-row span { font-size: 0.76rem !important; }
+#posPage .cart-total-amount { font-size: 1rem !important; }
+#posPage .payment-title { font-size: 0.7rem !important; margin-bottom: 4px !important; }
+#posPage .payment-method { padding: 6px 4px !important; border-radius: 10px; }
+#posPage .payment-method i { width: 28px; height: 28px; font-size: 0.78rem !important; margin-bottom: 3px; }
+#posPage .payment-method .small { font-size: 0.6rem !important; }
+#posPage .btn-primary-dark.w-100 { padding: 9px !important; font-size: 0.76rem !important; }
+
+/* ---------- Compact empty states ---------- */
+#posPage .cart-empty-state { padding: 16px 12px !important; }
+#posPage .cart-empty-icon { width: 44px; height: 44px; font-size: 1.05rem !important; margin-bottom: 8px; }
+#posPage .empty-state-icon { width: 54px; height: 54px; font-size: 1.3rem !important; }
+
+/* ================================================================
+   POS SYSTEM — ICONS & GLOW LAYER  (category icons, status dots)
+   ================================================================ */
+
+/* ---------- Stock status dot on product tiles ---------- */
+.product-card-compact::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #22C55E;
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.15);
+    transition: all 0.2s ease;
+}
+.product-card-compact.is-low::before {
+    background: #F59E0B;
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.16);
+}
+.product-card-compact.is-out::before {
+    background: #EF4444;
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.16);
+}
+body.dark-theme .product-card-compact::before { box-shadow: 0 0 0 3px rgba(34,197,94,0.22); }
+body.dark-theme .product-card-compact.is-low::before { box-shadow: 0 0 0 3px rgba(245,158,11,0.24); }
+body.dark-theme .product-card-compact.is-out::before { box-shadow: 0 0 0 3px rgba(239,68,68,0.24); }
+
+/* ---------- Tile fade-in (re-plays on re-render) ---------- */
+.product-card-compact { animation: tileFade 0.28s ease; }
+@keyframes tileFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ---------- Category icon chips: subtle depth ---------- */
+.product-card-compact .product-icon-compact,
+#posPage .stat-card.pos-metric .stat-card-icon {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 3px 8px rgba(15,27,45,0.06);
+}
+
+/* ---------- Product details row tidy ---------- */
+#posPage .product-card-compact .product-details-compact { gap: 4px; }
+
+/* ================================================================
+   POS SYSTEM — POLISH 2 LAYER  (section headers, confirm modal)
+   ================================================================ */
+
+/* ---------- Section card header icon chips (all pages) ---------- */
+.section-card h5 > i,
+.section-card h6 > i {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(193,43,62,0.1);
+    color: var(--crimson-bright);
+    font-size: 0.78rem !important;
+    margin-right: 7px;
+    vertical-align: middle;
+}
+body.dark-theme .section-card h5 > i,
+body.dark-theme .section-card h6 > i { background: rgba(193,43,62,0.18); color: #FFB4BE; }
+
+/* ---------- Premium payment confirmation modal ---------- */
+.confirm-wrap { padding: 2px 0; }
+.confirm-summary {
+    background: rgba(15,27,45,0.03);
+    border: 1px solid rgba(15,27,45,0.06);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+.confirm-summary-title {
+    font-size: 0.72rem !important;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #64748B;
+    margin-bottom: 8px;
+}
+.confirm-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(15,27,45,0.08);
+}
+.confirm-item:last-child { border-bottom: none; padding-bottom: 2px; }
+.confirm-item-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(193,43,62,0.12), rgba(193,43,62,0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--crimson-bright);
+    font-size: 0.8rem !important;
+    flex-shrink: 0;
+}
+.confirm-item-body { min-width: 0; }
+.confirm-item-total { color: #0F172A; font-size: 0.85rem !important; white-space: nowrap; }
+.confirm-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #0F1B2D, #13233C);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: #fff;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 14px rgba(15,27,45,0.16);
+}
+.confirm-total-row span { font-size: 0.85rem !important; }
+.confirm-total-amount { color: #FFD2DA !important; font-size: 1.15rem !important; }
+.confirm-cash {
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.18);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+.confirm-pay-badge {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: linear-gradient(135deg, rgba(37,99,235,0.1), rgba(37,99,235,0.04));
+    border: 1px solid rgba(37,99,235,0.2);
+    color: #1D4ED8;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: 0.78rem !important;
+}
+
+/* Dark variants for confirmation modal */
+body.dark-theme .confirm-summary { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
+body.dark-theme .confirm-summary-title { color: #94A3B8; }
+body.dark-theme .confirm-item { border-bottom-color: rgba(255,255,255,0.08); }
+body.dark-theme .confirm-item-icon { background: rgba(193,43,62,0.18); color: #FFB4BE; }
+body.dark-theme .confirm-item-total { color: #F1F5F9; }
+body.dark-theme .confirm-total-row { background: linear-gradient(135deg, #1A2233, #101623); box-shadow: 0 4px 14px rgba(0,0,0,0.3); }
+body.dark-theme .confirm-cash { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.28); }
+body.dark-theme .confirm-pay-badge { background: rgba(37,99,235,0.14); border-color: rgba(37,99,235,0.3); color: #93C5FD; }
+
+/* ---------- Loader refinement ---------- */
+.loader-spinner {
+    width: 44px;
+    height: 44px;
+    border: 3px solid rgba(255,255,255,0.22);
+    border-top: 3px solid #C12B3E;
+    border-right: 3px solid rgba(193,43,62,0.4);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+/* ---------- Empty table states ---------- */
+.table tbody td[colspan].text-center {
+    color: #94A3B8;
+    padding: 28px 12px !important;
+    font-style: italic;
+}
+</style>
 </head>
 
 <!-- ===== PAGE FOOTER ===== -->
@@ -2903,7 +4518,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                         <div class="eds-logo">
                             <img style="width: 150px;" src="/static/images/web-logo-white.png" alt="ConnectLink Properties Logo">
                         </div>
-                        <small class="opacity-75 d-block mt-1">Hardware</small>
+                        <span class="sidebar-brand-badge"><i class="fas fa-bolt me-1"></i>POS System</span>
                     </div>
                     <div class="logo-icon">
                         <div class="eds-logo">
@@ -2913,6 +4528,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                 </div>
             </div>
             <div class="sidebar-menu">
+                <div class="sidebar-section-label menu-text">Main Menu</div>
                 <div class="menu-item active" data-page="pos">
                     <i class="fas fa-cash-register"></i>
                     <span class="menu-text">POS Terminal</span>
@@ -2921,6 +4537,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                     <i class="fas fa-boxes"></i>
                     <span class="menu-text">Inventory</span>
                 </div>
+                <div class="sidebar-section-label menu-text">Reports &amp; Insights</div>
                 <div class="menu-item" data-page="sales">
                     <i class="fas fa-chart-line"></i>
                     <span class="menu-text">Sales Report</span>
@@ -2933,6 +4550,10 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                     <i class="fas fa-chart-pie"></i>
                     <span class="menu-text">Analytics</span>
                 </div>
+            </div>
+            <div class="sidebar-footer">
+                <div class="sidebar-status"><span class="status-dot"></span><span class="menu-text">System Online</span></div>
+                <div class="sidebar-status"><i class="fas fa-shield-halved"></i><span class="menu-text">Secure Session</span></div>
             </div>
         </div>
 
@@ -2948,8 +4569,9 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                 <div class="d-flex justify-content-between align-items-center w-100">
                     <!-- Center - Logo and Company Name (using auto margins) -->
                     <div class="d-flex align-items-center gap-2" style="margin: 0 auto;">
-                        <img src="/static/images/reqlogo.jpg" style="height: 28px; width: auto;" alt="ConnectLink Properties Logo">
-                        <span class="fw-semibold" style="color: var(--dark-blue-deep); font-size: 0.85rem;">ConnectLink Hardware</span>
+                        <div class="topbar-logo-chip"><img src="/static/images/reqlogo.jpg" style="height: 24px; width: auto;" alt="ConnectLink Properties Logo"></div>
+                        <span class="fw-bold" style="color: var(--dark-blue-deep); font-size: 0.9rem;">ConnectLink Hardware</span>
+                        <span class="pos-mode-badge"><span class="badge-dot"></span>POS Live</span>
                     </div>
                     
                     <!-- Right side - Date/Time and User Info -->
@@ -2963,7 +4585,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                             <button id="posThemeToggle" onclick="togglePOSTheme()" title="Toggle theme" style="background:none;border:1px solid var(--gray-200);border-radius:6px;padding:2px 6px;cursor:pointer;color:var(--gray-500);font-size:0.6rem;">
                                 <i id="posThemeIcon" class="fas fa-moon"></i>
                             </button>
-                            <span class="small"><i class="fas fa-user-circle me-1"></i> <span id="userName">Administrator</span></span>
+                            <span class="user-chip"><i class="fas fa-user"></i><span id="userName">Administrator</span></span>
                             <button class="logout-top-btn" id="logoutBtn">
                                 <i class="fas fa-sign-out-alt me-1"></i>Logout
                             </button>
@@ -3110,49 +4732,52 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
 
 <!-- POS Page -->
 <div id="posPage">
-    <!-- Metrics Cards Row - Single Line Format -->
-    <div class="row g-2 mb-3">
+    <!-- Metrics Cards Row - Modern KPI layout -->
+    <div class="row g-2 mb-2">
         <div class="col-md-4 col-sm-4">
-            <div class="stat-card" style="padding: 10px 12px; cursor: pointer;" onclick="showAllProductsModal()">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="fas fa-boxes text-primary" style="font-size: 1.3rem;"></i>
-                        <span class="small fw-bold text-muted">Total Products</span>
-                    </div>
-                    <h5 class="mb-0 fw-bold" style="font-size: 1.3rem;" id="totalProductsCount">0</h5>
+            <div class="stat-card pos-metric" onclick="showAllProductsModal()">
+                <div class="stat-card-icon ic-blue"><i class="fas fa-boxes"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-label">Total Products</div>
+                    <div class="stat-card-value" id="totalProductsCount">0</div>
+                    <div class="stat-card-sub"><i class="fas fa-layer-group me-1"></i>Catalogue items</div>
                 </div>
+                <div class="stat-card-arrow"><i class="fas fa-chevron-right"></i></div>
             </div>
         </div>
         <div class="col-md-4 col-sm-4">
-            <div class="stat-card" style="padding: 10px 12px; cursor: pointer;" onclick="showLowStockModal()">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="fas fa-exclamation-triangle text-warning" style="font-size: 1.3rem;"></i>
-                        <span class="small fw-bold text-muted">Low Stock</span>
-                    </div>
-                    <h5 class="mb-0 fw-bold text-warning" style="font-size: 1.3rem;" id="lowStockCountMetric">0</h5>
+            <div class="stat-card pos-metric" onclick="showLowStockModal()">
+                <div class="stat-card-icon ic-amber"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-label">Low Stock</div>
+                    <div class="stat-card-value value-amber" id="lowStockCountMetric">0</div>
+                    <div class="stat-card-sub"><i class="fas fa-triangle-exclamation me-1"></i>Below 10 units</div>
                 </div>
+                <div class="stat-card-arrow"><i class="fas fa-chevron-right"></i></div>
             </div>
         </div>
         <div class="col-md-4 col-sm-4">
-            <div class="stat-card" style="padding: 10px 12px; cursor: pointer;" onclick="showOutOfStockModal()">
-                <div class="d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="fas fa-times-circle text-danger" style="font-size: 1.3rem;"></i>
-                        <span class="small fw-bold text-muted">Out of Stock</span>
-                    </div>
-                    <h5 class="mb-0 fw-bold text-danger" style="font-size: 1.3rem;" id="outOfStockCount">0</h5>
+            <div class="stat-card pos-metric" onclick="showOutOfStockModal()">
+                <div class="stat-card-icon ic-red"><i class="fas fa-circle-xmark"></i></div>
+                <div class="stat-card-body">
+                    <div class="stat-card-label">Out of Stock</div>
+                    <div class="stat-card-value value-red" id="outOfStockCount">0</div>
+                    <div class="stat-card-sub"><i class="fas fa-circle-exclamation me-1"></i>Unavailable now</div>
                 </div>
+                <div class="stat-card-arrow"><i class="fas fa-chevron-right"></i></div>
             </div>
         </div>
     </div>
     
-    <div class="row g-3">
+    <div class="row g-2">
         <div class="col-lg-9">
-            <div class="section-card mb-3">
+            <div class="section-card mb-2">
                 <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                    <h6 class="fw-bold mb-0"><i class="fas fa-box-open me-1"></i>Products</h6>
-                    <div class="d-flex gap-2">
+                    <div class="section-card-head">
+                        <h6 class="fw-bold mb-1"><i class="fas fa-box-open me-1"></i>Products <span class="products-count-chip" id="productsCountChip"></span></h6>
+                        <span class="section-card-subtitle">Browse the catalogue &amp; tap to add to the order</span>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
                         <!-- Category Filter -->
                         <div class="d-flex align-items-center gap-2">
                             <label class="small fw-bold mb-0" style="white-space: nowrap;"><i class="fas fa-filter me-1"></i>Category:</label>
@@ -3174,7 +4799,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
                         </div>
                     </div>
                 </div>
-                <div class="row g-2 products-scroll" id="productsContainer">
+                <div class="row g-1 products-scroll" id="productsContainer">
                     <div class="col-12 text-center py-4">
                         <div class="spinner-border" style="color: var(--crimson-bright);" role="status">
                             <span class="visually-hidden">Loading...</span>
@@ -3187,21 +4812,22 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
 
         <div class="col-lg-3">
             <!-- Cart Section -->
-            <div class="section-card sticky-top" style="top: 20px;">
+            <div class="section-card sticky-top" style="top: 8px;">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="fw-bold mb-0"><i class="fas fa-shopping-cart me-1"></i>Current Order</h6>
+                    <h6 class="fw-bold mb-0"><i class="fas fa-shopping-cart me-1"></i>Current Order <span class="cart-count-chip" id="cartCountChip">Empty</span></h6>
                     <button class="btn btn-sm btn-outline-danger" onclick="clearCart()"><i class="fas fa-trash-alt"></i> Clear</button>
                 </div>
                 <div class="cart-scroll" id="cartItems">
-                    <div class="text-center py-4">
-                        <i class="fas fa-shopping-cart fa-2x text-muted mb-2"></i>
-                        <p class="text-muted small">Cart is empty</p>
+                    <div class="cart-empty-state text-center py-4">
+                        <div class="cart-empty-icon"><i class="fas fa-basket-shopping"></i></div>
+                        <p class="fw-semibold mb-1" style="font-size:0.8rem;">Cart is empty</p>
+                        <p class="text-muted" style="font-size:0.65rem;">Tap a product to add it</p>
                     </div>
                 </div>
-                <div class="border-top pt-2 mt-2">
-                    <div class="d-flex justify-content-between mb-2 pb-1 border-bottom">
-                        <span class="fw-bold small">Total:</span>
-                        <span class="fw-bold small" style="color: var(--crimson-bright);" id="total">$0.00</span>
+                <div class="border-top pt-3 mt-2">
+                    <div class="cart-total-row d-flex justify-content-between align-items-center mb-3">
+                        <span class="fw-bold"><i class="fas fa-receipt me-1"></i>Total Due</span>
+                        <span class="fw-bold cart-total-amount" id="total">$0.00</span>
                     </div>
                     <div class="mb-2">
                         <div class="small fw-bold mb-1">Payment Method</div>
@@ -8769,9 +10395,15 @@ async function fetchTransactionsData() {
     
 function getCategoryIcon(category) {
     const icons = {
+        // ===== MAIN CATEGORIES =====
+        'DIY': 'fa-toolbox',
+        'Electricals': 'fa-bolt',
+        'Plumbing': 'fa-faucet',
+        'Machinery': 'fa-gears',
+
         // Gas Products
-        'Gas Tanks': 'fa-fire',
-        'Gas Regulators': 'fa-tachometer-alt',
+        'Gas Tanks': 'fa-gas-pump',
+        'Gas Regulators': 'fa-gauge-high',
 
         // Blankets & Comforters
         'Blankets': 'fa-bed',
@@ -8779,23 +10411,23 @@ function getCategoryIcon(category) {
         'Medium Blanket': 'fa-thermometer-half',
         'Heavy Blanket': 'fa-fire',
         'Li View Comforters': 'fa-bed',
-        
+
         // Building Materials
         'Brickforce': 'fa-cubes',
         'DPC': 'fa-layer-group',
         'Plastic': 'fa-box',
         'Wire Mesh': 'fa-border-all',
-        'Edge Strips': 'fa-chart-line',
+        'Edge Strips': 'fa-grip-lines',
         'Barbed Wire': 'fa-bolt',
         'Rope': 'fa-link',
         'Sand Paper': 'fa-file',
-        
+
         // Electrical
         'Cables': 'fa-bolt',
-        'Conduit': 'fa-tube',
+        'Conduit': 'fa-route',
         'Switches': 'fa-toggle-on',
         'Sockets': 'fa-plug',
-        'Breakers': 'fa-shield-alt',
+        'Breakers': 'fa-shield-halved',
         'Magnetic Breakers': 'fa-bolt',
         'Meter Boxes': 'fa-box',
         'Insulation Tape': 'fa-tape',
@@ -8805,35 +10437,33 @@ function getCategoryIcon(category) {
         'Cable Terminals': 'fa-plug',
         'Gang Switches': 'fa-toggle-on',
         'Cooker Units': 'fa-microchip',
+        'Batteries': 'fa-battery-full',
 
-        // Measuring Tools        'Measuring Tools': 'fa-ruler',
+        // Measuring Tools
+        'Measuring Tools': 'fa-ruler',
         'Tape Measures': 'fa-ruler',
-        'Spirit Level': 'fa-level-up-alt',
+        'Spirit Level': 'fa-ruler-horizontal',
         'Straight Edge': 'fa-ruler-combined',
 
-        
         // Plumbing
-        'Pipes': 'fa-chart-line',
+        'Pipes': 'fa-faucet-drip',
         'Pipe Fittings': 'fa-link',
         'Couplings': 'fa-link',
-        'Bends': 'fa-chart-line',
-        'Tees': 'fa-share-alt',
-        'Traps': 'fa-shield-alt',
+        'Bends': 'fa-turn-down',
+        'Tees': 'fa-share-nodes',
+        'Traps': 'fa-shield-halved',
         'Flexi Pipes': 'fa-water',
         'Silicone': 'fa-fill-drip',
         'Hose Pipe': 'fa-water',
         'Angle Valves': 'fa-toggle-on',
         'Saddles': 'fa-link',
-        'Glass Pipes': 'fa-glass-cheers',
-        
+        'Glass Pipes': 'fa-glass-water',
+
         // Tools
-        'Hammers': 'fa-gavel',
-        'Claw Hammer': 'fa-gavel',
+        'Hammers': 'fa-hammer',
+        'Claw Hammer': 'fa-hammer',
         'Chasing Hammer': 'fa-hammer',
         'Hammer Heads': 'fa-gavel',
-        'Measuring Tools': 'fa-ruler',
-        'Tape Measures': 'fa-ruler',
-        'Spirit Level': 'fa-level-up-alt',
         'Shovel': 'fa-shovel',
         'Spade': 'fa-shovel',
         'Screwdrivers': 'fa-screwdriver',
@@ -8841,22 +10471,22 @@ function getCategoryIcon(category) {
         'Spanners': 'fa-wrench',
         'Shifting Spanner': 'fa-wrench',
         'Pliers': 'fa-hand-peace',
-        'Side Cutters': 'fa-cut',
-        'Cutters': 'fa-cut',
-        'Saws': 'fa-cut',
+        'Side Cutters': 'fa-scissors',
+        'Cutters': 'fa-scissors',
+        'Saws': 'fa-saw',
         'Hack Saws': 'fa-saw',
         'Drill Bits': 'fa-drill',
         'Concrete Drill Bits': 'fa-drill',
         'Trowels': 'fa-trowel',
         'Floats': 'fa-trowel',
         'Jointers': 'fa-trowel',
-        'Paint Brushes': 'fa-paint-brush',
-        'Rolling Brush': 'fa-paint-brush',
+        'Paint Brushes': 'fa-paintbrush',
+        'Rolling Brush': 'fa-paint-roller',
         'Flicker Machine': 'fa-tools',
         'Torque Wrench': 'fa-wrench',
-        'Wheel Barrows': 'fa-wheelchair',
+        'Wheel Barrows': 'fa-truck',
         'Wooden Float': 'fa-trowel',
-        
+
         // Hardware
         'Door Locks': 'fa-lock',
         'Lock Sets': 'fa-key',
@@ -8870,19 +10500,19 @@ function getCategoryIcon(category) {
         'Handles': 'fa-hand-peace',
         'Metal Clamps': 'fa-hand-paper',
         'Fischer Plugs': 'fa-plug',
-        'Security Sticks': 'fa-shield',
-        
+        'Security Sticks': 'fa-shield-halved',
+
         // Fasteners
-        'Screws': 'fa-arrow-up',
-        'Nails': 'fa-arrow-right',
-        'Wire Nails': 'fa-arrow-right',
+        'Screws': 'fa-screwdriver',
+        'Nails': 'fa-thumbtack',
+        'Wire Nails': 'fa-thumbtack',
         'Bolts': 'fa-bolt',
         'Basin Bolts': 'fa-bolt',
         'Washers': 'fa-circle-notch',
         'Nuts': 'fa-circle',
         'Anchors': 'fa-anchor',
         'Epoxy Steel': 'fa-cubes',
-        
+
         // Bathroom & Kitchen
         'Shower Mixers': 'fa-shower',
         'Basin': 'fa-sink',
@@ -8890,19 +10520,19 @@ function getCategoryIcon(category) {
         'S-Trap': 'fa-arrow-down',
         'P-Trap': 'fa-arrow-up',
         'Stove': 'fa-fire',
-        'Oven': 'fa-oven',
-        
+        'Oven': 'fa-kitchen-set',
+
         // Garden & Pots
         'Garden Pots': 'fa-seedling',
         'Gainstar Pots': 'fa-seedling',
         'Maifam Pots': 'fa-tree',
-        'Cast Iron Pots': 'fa-cog',
-        
+        'Cast Iron Pots': 'fa-gear',
+
         // Paint
         'Paint': 'fa-palette',
         'Spray Paint': 'fa-spray-can',
         'Lime Green': 'fa-palette',
-        
+
         // Safety
         'Gloves': 'fa-hand-peace',
         'Glass Gloves': 'fa-hand-peace',
@@ -8910,29 +10540,88 @@ function getCategoryIcon(category) {
         'Goggles': 'fa-eye',
         'Masks': 'fa-head-side-mask',
         'Hard Hats': 'fa-hard-hat',
-        
+
         // Cleaning
         'Brooms': 'fa-broom',
         'Square Brooms': 'fa-broom',
         'Flat Brooms': 'fa-broom',
         'Mops': 'fa-water',
         'Rakes': 'fa-leaf',
-        
+
         // Pest Control
         'Termite Poison': 'fa-bug',
-        
+
         // Belts & Straps
         'Truck Belts': 'fa-truck',
-        
+
         // Aluminium
         'Aluminium': 'fa-chart-line',
         'Aluminium Saws': 'fa-saw',
-        
+
         // Default
         'Other': 'fa-box'
     };
-    
-    return icons[category] || 'fa-box';
+
+    if (icons[category]) return icons[category];
+
+    // Smart fallback: keyword match so unknown/legacy categories still get a fitting icon
+    const c = String(category || '').toLowerCase();
+    const keywordMap = [
+        ['diy', 'fa-toolbox'],
+        ['electr', 'fa-bolt'],
+        ['cable', 'fa-bolt'],
+        ['light', 'fa-lightbulb'],
+        ['plumb', 'fa-faucet'],
+        ['pipe', 'fa-faucet-drip'],
+        ['tap', 'fa-faucet'],
+        ['faucet', 'fa-faucet'],
+        ['valve', 'fa-toggle-on'],
+        ['bath', 'fa-bath'],
+        ['shower', 'fa-shower'],
+        ['pump', 'fa-water'],
+        ['paint', 'fa-palette'],
+        ['tool', 'fa-tools'],
+        ['hammer', 'fa-hammer'],
+        ['screw', 'fa-screwdriver'],
+        ['drill', 'fa-drill'],
+        ['saw', 'fa-saw'],
+        ['wrench', 'fa-wrench'],
+        ['lock', 'fa-lock'],
+        ['door', 'fa-door-open'],
+        ['key', 'fa-key'],
+        ['box', 'fa-box'],
+        ['wire', 'fa-border-all'],
+        ['cement', 'fa-cube'],
+        ['brick', 'fa-cubes'],
+        ['timber', 'fa-tree'],
+        ['wood', 'fa-tree'],
+        ['gas', 'fa-gas-pump'],
+        ['machine', 'fa-gears'],
+        ['engine', 'fa-gear'],
+        ['motor', 'fa-gear'],
+        ['garden', 'fa-seedling'],
+        ['pot', 'fa-seedling'],
+        ['clean', 'fa-broom'],
+        ['safety', 'fa-hard-hat'],
+        ['glove', 'fa-hand-peace'],
+        ['glass', 'fa-glasses'],
+        ['bed', 'fa-bed'],
+        ['blanket', 'fa-bed'],
+        ['nut', 'fa-circle'],
+        ['bolt', 'fa-bolt'],
+        ['adhesive', 'fa-fill-drip'],
+        ['glue', 'fa-fill-drip'],
+        ['seal', 'fa-fill-drip'],
+        ['metal', 'fa-cube'],
+        ['steel', 'fa-cube'],
+        ['plastic', 'fa-box'],
+        ['building', 'fa-cubes'],
+        ['hardware', 'fa-box']
+    ];
+    for (const [kw, icon] of keywordMap) {
+        if (c.includes(kw)) return icon;
+    }
+    return 'fa-box';
 }
     
     function escapeHtml(text) {
@@ -8974,13 +10663,13 @@ function renderProductsWithFilter(filteredProducts = null) {
     const productsToShow = filteredProducts || filterProducts();
     
     if (!productsToShow.length) {
-        container.innerHTML = '<div class="col-12 text-center py-4"><i class="fas fa-box-open fa-2x text-muted"></i><p class="text-muted mt-1 small">No products found</p></div>';
+        container.innerHTML = '<div class="col-12 text-center py-5"><div class="empty-state-icon"><i class="fas fa-box-open"></i></div><p class="fw-semibold mb-1" style="font-size:0.85rem;">No products found</p><p class="text-muted" style="font-size:0.68rem;">Try a different search or category</p></div>';
         return;
     }
     
     container.innerHTML = productsToShow.map(product => `
         <div class="col-6 col-md-4 col-lg-3">
-            <div class="product-card-compact" onclick="addToCart(${product.id})">
+            <div class="product-card-compact ${product.stock === 0 ? 'is-out' : (product.stock < 10 ? 'is-low' : '')}" data-category="${escapeHtml(product.category)}" onclick="addToCart(${product.id})">
                 <div class="product-icon-compact">
                     <i class="fas ${getCategoryIcon(product.category)}"></i>
                 </div>
@@ -8988,9 +10677,10 @@ function renderProductsWithFilter(filteredProducts = null) {
                     <div class="product-name-compact" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</div>
                     <div class="product-details-compact">
                         <span class="product-unit-compact">${product.unit_type}: ${product.unit_details || 'N/A'}</span>
+                        ${product.stock === 0 ? '<span class="product-stock-pill pill-out"><i class="fas fa-times-circle"></i> Out</span>' : (product.stock < 10 ? '<span class="product-stock-pill pill-low"><i class="fas fa-exclamation"></i> Low</span>' : '')}
                     </div>
                     <div class="product-stock-compact ${product.stock < 10 ? 'low-stock' : ''}">
-                        Stock: ${product.stock}
+                        ${product.stock === 0 ? '<i class="fas fa-circle-xmark me-1"></i>Out of stock' : '<i class="fas fa-boxes-stacked me-1"></i>Stock: ' + product.stock}
                     </div>
                 </div>
                 <div class="price-add-wrapper">
@@ -9697,12 +11387,13 @@ function setupAddProductFundingSelection() {
         if (!container) return;
         
         if (!cart.length) {
-            container.innerHTML = '<div class="text-center py-4"><i class="fas fa-shopping-cart fa-2x text-muted mb-1"></i><p class="text-muted small">Cart empty</p></div>';
+            container.innerHTML = '<div class="cart-empty-state text-center py-4"><div class="cart-empty-icon"><i class="fas fa-basket-shopping"></i></div><p class="fw-semibold mb-1" style="font-size:0.8rem;">Cart is empty</p><p class="text-muted" style="font-size:0.65rem;">Tap a product to add it</p></div>';
         } else {
             container.innerHTML = cart.map((item, idx) => `
-                <div class="cart-item">
-                    <div class="d-flex justify-content-between">
-                        <div class="flex-grow-1">
+                <div class="cart-item" data-category="${escapeHtml(item.category)}">
+                    <div class="cart-item-icon"><i class="fas ${getCategoryIcon(item.category)}"></i></div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
                             <div>
                                 <h6 class="fw-bold mb-0">${escapeHtml(item.name)}</h6>
                                 ${item.unit_type && item.unit_details ? `
@@ -9711,13 +11402,13 @@ function setupAddProductFundingSelection() {
                                     </small>
                                 ` : ''}
                             </div>
-                            <div class="small text-muted mt-1">$${(item.sell_price || item.price || 0).toFixed(2)} each</div>
-                            <div class="mt-1"><div class="qty-control"><button class="qty-btn" onclick="updateQuantity(${idx}, -1)">-</button><span class="fw-bold small">${item.quantity}</span><button class="qty-btn" onclick="updateQuantity(${idx}, 1)">+</button></div></div>
+                            <button class="cart-item-remove" onclick="removeFromCart(${idx})" title="Remove item"><i class="fas fa-trash-alt"></i></button>
                         </div>
-                        <div class="text-end">
-                            <div class="fw-bold small" style="color:var(--crimson-bright);">$${((item.sell_price || item.price || 0) * item.quantity).toFixed(2)}</div>
-                            <button class="btn btn-sm btn-link text-danger p-0 mt-1" onclick="removeFromCart(${idx})"><i class="fas fa-trash-alt fa-xs"></i></button>
-                        </div>
+                        <div class="small text-muted mt-1">$${(item.sell_price || item.price || 0).toFixed(2)} each</div>
+                        <div class="mt-1"><div class="qty-control"><button class="qty-btn" onclick="updateQuantity(${idx}, -1)">−</button><span class="fw-bold small">${item.quantity}</span><button class="qty-btn" onclick="updateQuantity(${idx}, 1)">+</button></div></div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold cart-item-total">$${((item.sell_price || item.price || 0) * item.quantity).toFixed(2)}</div>
                     </div>
                 </div>
             `).join('');
@@ -9958,25 +11649,24 @@ function setupAddProductFundingSelection() {
                                     selectedPaymentMethod === 'card' ? 'Card' : 'Bank/Mobile Money Transfer';
         
         let confirmationHTML = `
-            <div>
-                <div class="mb-2 p-2 bg-light rounded">
-                    <h6 class="fw-bold mb-1 small">Order Summary</h6>
+            <div class="confirm-wrap">
+                <div class="confirm-summary">
+                    <div class="confirm-summary-title"><i class="fas fa-receipt me-1"></i>Order Summary</div>
                     ${cart.map(item => `
-                        <div class="d-flex justify-content-between py-1 border-bottom small">
-                            <div>
-                                <strong>${escapeHtml(item.name)}</strong>
-                                ${item.unit_type && item.unit_details ? `<br><small class="text-muted">${item.unit_type}: ${item.unit_details}</small>` : ''}
-                                <br><span class="text-muted">$${(item.sell_price || item.price || 0).toFixed(2)} x ${item.quantity}</span>
+                        <div class="confirm-item">
+                            <div class="confirm-item-icon"><i class="fas ${getCategoryIcon(item.category)}"></i></div>
+                            <div class="flex-grow-1 confirm-item-body">
+                                <strong class="d-block">${escapeHtml(item.name)}</strong>
+                                ${item.unit_type && item.unit_details ? `<small class="text-muted d-block">${item.unit_type}: ${item.unit_details}</small>` : ''}
+                                <span class="text-muted small">$${(item.sell_price || item.price || 0).toFixed(2)} x ${item.quantity}</span>
                             </div>
-                            <span class="fw-bold">$${((item.sell_price || item.price || 0) * item.quantity).toFixed(2)}</span>
+                            <span class="fw-bold confirm-item-total">$${((item.sell_price || item.price || 0) * item.quantity).toFixed(2)}</span>
                         </div>
                     `).join('')}
                 </div>
-                <div class="mb-2">
-                    <div class="d-flex justify-content-between fw-bold pt-1 border-top small">
-                        <span>Total:</span>
-                        <span style="color:var(--crimson-bright);">$${total.toFixed(2)}</span>
-                    </div>
+                <div class="confirm-total-row">
+                    <span class="fw-bold"><i class="fas fa-calculator me-1"></i>Total Due</span>
+                    <span class="fw-bold confirm-total-amount">$${total.toFixed(2)}</span>
                 </div>
         `;
         
@@ -9985,23 +11675,22 @@ function setupAddProductFundingSelection() {
             const change = cashAmount - total;
             
             confirmationHTML += `
-                <div class="mb-2">
+                <div class="confirm-cash">
                     <div class="d-flex justify-content-between small mb-1">
-                        <span>Amount Tendered:</span>
+                        <span>Amount Tendered</span>
                         <span class="fw-bold">$${cashAmount.toFixed(2)}</span>
                     </div>
-                    <div class="d-flex justify-content-between small mb-2">
-                        <span>Change:</span>
+                    <div class="d-flex justify-content-between small">
+                        <span>Change</span>
                         <span class="fw-bold text-success">$${change >= 0 ? change.toFixed(2) : '0.00'}</span>
                     </div>
                 </div>
             `;
         }
         
+        const payIcon = selectedPaymentMethod === 'cash' ? 'fa-money-bill-wave' : selectedPaymentMethod === 'card' ? 'fa-credit-card' : 'fa-university';
         confirmationHTML += `
-                <div class="alert alert-info small py-1 mb-0">
-                    <i class="fas fa-credit-card me-1"></i>Payment: ${paymentMethodDisplay}
-                </div>
+                <div class="confirm-pay-badge"><i class="fas ${payIcon} me-1"></i>Payment via ${paymentMethodDisplay}</div>
             </div>
         `;
         
@@ -12783,6 +14472,79 @@ function setupEventListeners() {
         </div>
     </div>
 </div>
+
+<!-- Cosmetic UI counters & feedback (visual only, does not affect POS logic) -->
+<script>
+(function () {
+    // Cart item counter
+    var cartEl = document.getElementById('cartItems');
+    var badgeEl = document.getElementById('cartCountChip');
+    if (cartEl && badgeEl) {
+        var updateCart = function () {
+            var n = cartEl.querySelectorAll('.cart-item').length;
+            badgeEl.textContent = n === 0 ? 'Empty' : n + (n === 1 ? ' item' : ' items');
+        };
+        updateCart();
+        if (window.MutationObserver) {
+            new MutationObserver(updateCart).observe(cartEl, { childList: true });
+        }
+    }
+
+    // Products counter (number of cards currently shown)
+    var productsEl = document.getElementById('productsContainer');
+    var productsChip = document.getElementById('productsCountChip');
+    if (productsEl && productsChip) {
+        var updateProducts = function () {
+            var n = productsEl.querySelectorAll('.product-card-compact').length;
+            productsChip.textContent = n === 0 ? '' : n + (n === 1 ? ' product' : ' products');
+        };
+        updateProducts();
+        if (window.MutationObserver) {
+            new MutationObserver(updateProducts).observe(productsEl, { childList: true, subtree: true });
+        }
+    }
+
+    // Cart total pulse when the amount changes
+    var totalEl = document.getElementById('total');
+    if (totalEl && window.MutationObserver) {
+        var lastTotal = totalEl.textContent;
+        new MutationObserver(function () {
+            if (totalEl.textContent !== lastTotal) {
+                lastTotal = totalEl.textContent;
+                totalEl.classList.remove('total-pulse');
+                void totalEl.offsetWidth;
+                totalEl.classList.add('total-pulse');
+            }
+        }).observe(totalEl, { childList: true, subtree: true, characterData: true });
+    }
+
+    // KPI count-up animation (cosmetic; animates the displayed number only)
+    ['totalProductsCount', 'lowStockCountMetric', 'outOfStockCount'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el || !window.MutationObserver) return;
+        var last = parseInt(el.textContent, 10) || 0;
+        var busy = false;
+        new MutationObserver(function () {
+            if (busy) return;
+            var target = parseInt(el.textContent, 10) || 0;
+            if (target === last) return;
+            busy = true;
+            var start = last;
+            var end = target;
+            var dur = 550;
+            var t0 = performance.now();
+            var step = function (now) {
+                var p = Math.min((now - t0) / dur, 1);
+                var eased = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.round(start + (end - start) * eased);
+                if (p < 1) { requestAnimationFrame(step); }
+                else { el.textContent = end; last = end; busy = false; }
+            };
+            requestAnimationFrame(step);
+        }).observe(el, { childList: true, subtree: true, characterData: true });
+    });
+})();
+</script>
 
 </body>
 </html>
