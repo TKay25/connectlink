@@ -5043,6 +5043,35 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     border-radius: 14px !important;
     flex-shrink: 0 !important;
 }
+
+/* ================================================================
+   POS SYSTEM — INVENTORY PAGE (smaller summary numbers + table)
+   Added 2026-08-11 at user request. Targets #inventoryPage elements
+   (outside #posPage) with id/high-specificity + !important so they
+   beat the global `#inventoryPage, #inventoryPage *` font override.
+   ================================================================ */
+#inventoryPage #totalPurchaseValue,
+#inventoryPage #totalSalesValue,
+#inventoryPage #marginProfit,
+#inventoryPage #totalStockItems {
+    font-size: 0.8rem !important;
+}
+#inventoryPage #marginPercent { font-size: 0.55rem !important; }
+#inventoryPage table,
+#inventoryPage table th,
+#inventoryPage table td,
+#inventoryPage .table,
+#inventoryPage .table th,
+#inventoryPage .table td {
+    font-size: 0.5rem !important;
+}
+#inventoryPage .table .btn,
+#inventoryPage .table .btn-sm,
+#inventoryPage table .btn,
+#inventoryPage table .btn-sm {
+    font-size: 0.48rem !important;
+    padding: 2px 7px !important;
+}
 </style>
 </head>
 
