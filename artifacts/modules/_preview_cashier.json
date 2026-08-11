@@ -3,10 +3,10 @@
   "_managed_by": "artifacto-plugin",
   "module": "PreviewCashier",
   "file": "_preview_cashier.py",
-  "purpose": "THROWAWAY preview server (verification only) - mock data with large stock to test ###,###,###.## formatting.",
+  "purpose": "THROWAWAY preview server (verification only).",
   "entry_function": "index()",
   "entry_flows": [
-    "_preview_cashier → 2.5mm, 32.5N, app.route"
+    "_preview_cashier → 2.5mm, 32.5N, app.route, app.run"
   ],
   "public_api": [
     "index()",
@@ -28,7 +28,7 @@
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "Key constants: PRODUCTS = [{'id': 1, 'name': 'PVC Pipe 110mm x 6m', 'category': 'Plumbing', 'sub_category': 'Pipes', 'price': 5.04, 'sell_price': 5.04197, 'buy_price': 3.09242, 'stock': 15044, 'min_stock_level': 10, 'unit_type': 'Pieces', 'unit_details': '6m length', 'barcode': '', 'description': ''}, {'id': 2, 'name': 'Copper Cable 2.5mm (100m roll)', 'category': 'Electricals', 'sub_category': 'Cables', 'price': 63.5, 'sell_price': 63.5, 'buy_price': 40.0, 'stock': 0, 'min_stock_level': 10, 'unit_type': 'Roll', 'unit_details': '100m', 'barcode': '', 'description': ''}, {'id': 3, 'name': 'Cement 32.5N (50kg bag)', 'category': 'DIY', 'sub_category': 'Building', 'price': 21.0, 'sell_price': 21.0, 'buy_price': 15.0, 'stock': 0, 'min_stock_level': 10, 'unit_type': 'Bag', 'unit_details': '50kg', 'barcode': '', 'description': ''}, {'id': 4, 'name': 'Angle Grinder 750W', 'category': 'Machinery', 'sub_category': 'Power Tools', 'price': 95.0, 'sell_price': 95.0, 'buy_price': 70.0, 'stock': 0, 'min_stock_level': 5, 'unit_type': 'Unit', 'unit_details': '', 'barcode': '', 'description': ''}, {'id': 5, 'name': 'Rolling Brush', 'category': 'DIY', 'sub_category': 'Paint Tools', 'price': 4.5, 'sell_price': 4.5, 'buy_price': 3.0, 'stock': 0, 'min_stock_level': 10, 'unit_type': 'Unit', 'unit_details': '', 'barcode': '', 'description': ''}]",
+  "notes": "Key constants: PRODUCTS = [{'id': 1, 'name': 'PVC Pipe 110mm x 6m', 'category': 'Plumbing', 'sub_category': 'Pipes', 'price': 5.04, 'sell_price': 5.04, 'buy_price': 3.09, 'stock': 24, 'min_stock_level': 10, 'unit_type': 'Pieces', 'unit_details': '6m length', 'barcode': '', 'description': ''}, {'id': 2, 'name': 'Copper Cable 2.5mm (100m roll)', 'category': 'Electricals', 'sub_category': 'Cables', 'price': 63.5, 'sell_price': 63.5, 'buy_price': 40.0, 'stock': 8, 'min_stock_level': 10, 'unit_type': 'Roll', 'unit_details': '100m', 'barcode': '', 'description': ''}, {'id': 3, 'name': 'Cement 32.5N (50kg bag)', 'category': 'DIY', 'sub_category': 'Building', 'price': 21.0, 'sell_price': 21.0, 'buy_price': 15.0, 'stock': 45, 'min_stock_level': 10, 'unit_type': 'Bag', 'unit_details': '50kg', 'barcode': '', 'description': ''}]",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -38,7 +38,7 @@
   "file_mtime": 1786450956449.9556,
   "file_size": 4722,
   "file_birthtime": 1786450956233.7334,
-  "generated_at": "2026-08-11T12:52:47.765514Z",
+  "generated_at": "2026-08-11T13:04:20.232548Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }
