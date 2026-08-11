@@ -5002,11 +5002,13 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 }
 #posPage .product-meta-row {
     display: flex !important;
+    flex-wrap: wrap !important;
     align-items: center !important;
-    gap: 5px !important;
+    gap: 4px 6px !important;
     min-width: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
 }
+#posPage .product-card-compact:not(.is-out)::after { content: none !important; }
 #posPage .product-unit-compact {
     font-size: 0.48rem !important;
     padding: 0 5px !important;
