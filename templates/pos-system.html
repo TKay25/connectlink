@@ -12801,6 +12801,7 @@ function setupAddProductFundingSelection() {
             
             cart = [];
             updateCartDisplay();
+            resetPaymentUI();
             fetchProductsFromAPI();
             fetchTransactions();
             fetchDashboardStats();
@@ -15283,6 +15284,22 @@ function setupEventListeners() {
             }
         });
     });
+
+    // Reset the payment form after a successful sale so the next transaction
+    // starts clean: clear the tendered cash amount + change, hide the cash
+    // input, and return the selected method to the default Cash.
+    function resetPaymentUI() {
+        const cashInput = document.getElementById('cashAmount');
+        if (cashInput) cashInput.value = '';
+        const changeDue = document.getElementById('changeDue');
+        if (changeDue) changeDue.textContent = '';
+        const cashDiv = document.getElementById('cashInputDiv');
+        if (cashDiv) cashDiv.style.display = 'none';
+        selectedPaymentMethod = 'cash';
+        document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('active'));
+        const cashBtn = document.querySelector('.payment-method[data-method="cash"]');
+        if (cashBtn) cashBtn.classList.add('active');
+    }
     
     // Menu item navigation
     document.querySelectorAll('.menu-item').forEach(item => { 
