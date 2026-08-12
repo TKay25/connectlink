@@ -5133,27 +5133,31 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     min-height: 0;
     -webkit-overflow-scrolling: touch;
 }
-/* Footer: payment summary (Total Due / Tendered / Change / Payment via) + buttons */
+/* Footer: payment summary (Total Due / Tendered / Change / Payment via) + buttons
+   — everything centered */
 #confirmationModal .confirmation-footer {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
     background: var(--gray-50, #f8f9fa);
     border-top: 1px solid var(--gray-200);
 }
 #confirmationModal .confirmation-payment-info {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 6px;
-    flex: 1 1 220px;
-    min-width: 200px;
+    flex: none;
+    min-width: 0;
 }
 #confirmationModal .pay-summary-grid {
     display: flex;
     gap: 16px;
     flex-wrap: wrap;
+    justify-content: center;
 }
 #confirmationModal .pay-summary-col {
     display: flex;
@@ -5186,36 +5190,42 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 #confirmationModal .confirmation-footer-buttons {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     flex-shrink: 0;
 }
 </style>
 
 <!-- ===== POS cart + payment fit on screen without page scroll =====
-     Makes the right-hand cart card a viewport-height flex column so the
-     payment block (Total Due / Payment Method / Cash Amount / Change /
-     Confirm Payment) is always visible, while only the item list scrolls. -->
+     The cart card starts ~220px down the page (fixed 56px navbar + POS
+     header + KPI metrics row). We cap the card so its bottom stays inside
+     the viewport (max-height: calc(100vh - 240px)), make it a flex column,
+     and let ONLY the item list scroll internally. The payment block
+     (Total Due / Payment Method / Cash Amount / Change / Confirm Payment)
+     stays pinned at the card bottom, always visible without scrolling. -->
 <style>
 #posPage .col-lg-3 .section-card.sticky-top {
-    position: sticky;
-    top: 8px;
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100vh - 16px);
-    overflow: hidden;
-    box-sizing: border-box;
+    position: sticky !important;
+    top: 60px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: calc(100vh - 240px) !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
 }
 /* Header (Current Order / Clear) and payment block stay fixed */
 #posPage .col-lg-3 .section-card.sticky-top > .d-flex,
 #posPage .col-lg-3 .section-card.sticky-top > .border-top {
-    flex: 0 0 auto;
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
 }
-/* Cart items flex & scroll within the remaining space */
+/* Cart items flex & scroll within the remaining space only */
 #posPage .cart-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
     max-height: none !important;
-    overflow-y: auto;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 </style>
 </head>
