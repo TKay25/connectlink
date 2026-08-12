@@ -5105,6 +5105,35 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     }
 }
 </style>
+
+<!-- ===== Order Confirmation modal: scrollable body, fixed header & footer =====
+     Guarantees the body scrolls while the header and footer (with the buttons)
+     stay pinned, even if other modal CSS in this file overrides Bootstrap. -->
+<style>
+#confirmationModal .modal-dialog {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100% - 1rem);
+    margin: 0.5rem auto;
+}
+#confirmationModal .modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    overflow: hidden;
+}
+#confirmationModal .modal-header,
+#confirmationModal .modal-footer {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+}
+#confirmationModal .modal-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+}
+</style>
 </head>
 
 <!-- ===== PAGE FOOTER ===== -->
@@ -6351,7 +6380,22 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 </div>
 
     <!-- Modals -->
-    <div class="modal fade" id="confirmationModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered modal-md"><div class="modal-content"><div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);"><h5 class="modal-title"><i class="fas fa-receipt me-1"></i>Order Confirmation</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body" id="confirmationContent"></div><div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary-dark" onclick="processPayment()">Confirm & Pay</button></div></div></div></div>
+    <!-- Order Confirmation Modal - scrollable body, fixed header & footer -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-md">
+            <div class="modal-content">
+                <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
+                    <h5 class="modal-title"><i class="fas fa-receipt me-1"></i>Order Confirmation</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="confirmationContent"></div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary-dark" onclick="processPayment()">Confirm & Pay</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 <div class="modal fade" id="addInventoryModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
