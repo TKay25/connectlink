@@ -5133,6 +5133,62 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     min-height: 0;
     -webkit-overflow-scrolling: touch;
 }
+/* Footer: payment summary (Total Due / Tendered / Change / Payment via) + buttons */
+#confirmationModal .confirmation-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--gray-50, #f8f9fa);
+    border-top: 1px solid var(--gray-200);
+}
+#confirmationModal .confirmation-payment-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 220px;
+    min-width: 200px;
+}
+#confirmationModal .pay-summary-grid {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+#confirmationModal .pay-summary-col {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+#confirmationModal .pay-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted, #6c757d);
+}
+#confirmationModal .pay-value {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--dark-blue-deep, #0F172A);
+}
+#confirmationModal .pay-method-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--crimson-bright, #C12B3E);
+    background: rgba(193,43,62,0.1);
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+#confirmationModal .confirmation-footer-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
 </style>
 </head>
 
@@ -6389,9 +6445,30 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="confirmationContent"></div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-primary-dark" onclick="processPayment()">Confirm & Pay</button>
+                <div class="modal-footer confirmation-footer">
+                    <div class="confirmation-payment-info">
+                        <div class="pay-summary-grid">
+                            <div class="pay-summary-col">
+                                <span class="pay-label"><i class="fas fa-calculator me-1"></i>Total Due</span>
+                                <span class="pay-value" id="cfTotalDue">$0.00</span>
+                            </div>
+                            <div class="pay-summary-col">
+                                <span class="pay-label">Tendered</span>
+                                <span class="pay-value" id="cfTendered">$0.00</span>
+                            </div>
+                            <div class="pay-summary-col">
+                                <span class="pay-label">Change</span>
+                                <span class="pay-value text-success" id="cfChange">$0.00</span>
+                            </div>
+                        </div>
+                        <div class="pay-method-badge" id="cfPayMethod">
+                            <i class="fas fa-money-bill-wave me-1"></i>Payment via Cash
+                        </div>
+                    </div>
+                    <div class="confirmation-footer-buttons">
+                        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        <button class="btn btn-primary-dark" onclick="processPayment()">Confirm & Pay</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -12532,6 +12609,7 @@ function setupAddProductFundingSelection() {
         const paymentMethodDisplay = selectedPaymentMethod === 'cash' ? 'Cash' : 
                                     selectedPaymentMethod === 'card' ? 'Card' : 'Bank/Mobile Money Transfer';
         
+        // Body: scrollable order summary only
         let confirmationHTML = `
             <div class="confirm-wrap">
                 <div class="confirm-summary">
@@ -12548,37 +12626,19 @@ function setupAddProductFundingSelection() {
                         </div>
                     `).join('')}
                 </div>
-                <div class="confirm-total-row">
-                    <span class="fw-bold"><i class="fas fa-calculator me-1"></i>Total Due</span>
-                    <span class="fw-bold confirm-total-amount">$${total.toFixed(2)}</span>
-                </div>
-        `;
-        
-        if (selectedPaymentMethod === 'cash') {
-            const cashAmount = parseFloat(document.getElementById('cashAmount').value) || 0;
-            const change = cashAmount - total;
-            
-            confirmationHTML += `
-                <div class="confirm-cash">
-                    <div class="d-flex justify-content-between small mb-1">
-                        <span>Amount Tendered</span>
-                        <span class="fw-bold">$${cashAmount.toFixed(2)}</span>
-                    </div>
-                    <div class="d-flex justify-content-between small">
-                        <span>Change</span>
-                        <span class="fw-bold text-success">$${change >= 0 ? change.toFixed(2) : '0.00'}</span>
-                    </div>
-                </div>
-            `;
-        }
-        
-        const payIcon = selectedPaymentMethod === 'cash' ? 'fa-money-bill-wave' : selectedPaymentMethod === 'card' ? 'fa-credit-card' : 'fa-university';
-        confirmationHTML += `
-                <div class="confirm-pay-badge"><i class="fas ${payIcon} me-1"></i>Payment via ${paymentMethodDisplay}</div>
             </div>
         `;
-        
         document.getElementById('confirmationContent').innerHTML = confirmationHTML;
+        
+        // Footer: payment summary + method, arranged nicely
+        const cashAmount = selectedPaymentMethod === 'cash' ? (parseFloat(document.getElementById('cashAmount').value) || 0) : total;
+        const change = selectedPaymentMethod === 'cash' ? Math.max(0, cashAmount - total) : 0;
+        const payIcon = selectedPaymentMethod === 'cash' ? 'fa-money-bill-wave' : selectedPaymentMethod === 'card' ? 'fa-credit-card' : 'fa-university';
+        
+        document.getElementById('cfTotalDue').textContent = `$${total.toFixed(2)}`;
+        document.getElementById('cfTendered').textContent = `$${cashAmount.toFixed(2)}`;
+        document.getElementById('cfChange').textContent = `$${change.toFixed(2)}`;
+        document.getElementById('cfPayMethod').innerHTML = `<i class="fas ${payIcon} me-1"></i>Payment via ${paymentMethodDisplay}`;
         
         const modalElement = document.getElementById('confirmationModal');
         let modal = bootstrap.Modal.getInstance(modalElement);
