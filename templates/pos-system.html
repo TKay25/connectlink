@@ -11234,6 +11234,13 @@ async function fetchTransactionsData() {
     }
     
     function hidePaymentLoader() {
+        // Move focus away from the loader BEFORE hiding. Bootstrap sets
+        // aria-hidden="true" on the modal during the hide transition, and if
+        // the modal (or a descendant) still holds focus, the browser warns:
+        // "Blocked aria-hidden on an element because its descendant retained focus."
+        if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+        }
         if (paymentLoaderModal) {
             paymentLoaderModal.hide();
             paymentLoaderModal = null;
