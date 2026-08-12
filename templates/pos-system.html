@@ -5190,6 +5190,34 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     flex-shrink: 0;
 }
 </style>
+
+<!-- ===== POS cart + payment fit on screen without page scroll =====
+     Makes the right-hand cart card a viewport-height flex column so the
+     payment block (Total Due / Payment Method / Cash Amount / Change /
+     Confirm Payment) is always visible, while only the item list scrolls. -->
+<style>
+#posPage .col-lg-3 .section-card.sticky-top {
+    position: sticky;
+    top: 8px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 16px);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+/* Header (Current Order / Clear) and payment block stay fixed */
+#posPage .col-lg-3 .section-card.sticky-top > .d-flex,
+#posPage .col-lg-3 .section-card.sticky-top > .border-top {
+    flex: 0 0 auto;
+}
+/* Cart items flex & scroll within the remaining space */
+#posPage .cart-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
+}
+</style>
 </head>
 
 <!-- ===== PAGE FOOTER ===== -->
