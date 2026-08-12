@@ -11350,22 +11350,43 @@ async function fetchTransactionsData() {
                 })
             });
             
-            // Always parse the response as JSON
-            const transactionData = await transactionResponse.json();
+            console.log('Transaction HTTP status:', transactionResponse.status);
+            
+            // Try to parse JSON - the server may return non-JSON (e.g. an HTML error page)
+            let transactionData = null;
+            try {
+                transactionData = await transactionResponse.json();
+            } catch (jsonErr) {
+                console.error('Could not parse transaction response as JSON:', jsonErr);
+                const rawText = await transactionResponse.text().catch(() => '');
+                console.error('Raw transaction response:', rawText);
+                showToast('Payment error (HTTP ' + transactionResponse.status + ') - could not read server response. Check console.', 'error');
+                return false;
+            }
             
             // Log the response for debugging
             console.log('Transaction Response:', transactionData);
             
-            // Check the success flag directly from the parsed JSON
-            if (transactionData.success === true) {
+            // Check success loosely - the server may return `true`, `1`, or `"true"`
+            const ok = transactionData && (
+                transactionData.success === true ||
+                transactionData.success === 1 ||
+                String(transactionData.success).toLowerCase() === 'true' ||
+                Boolean(transactionData.transaction_id)
+            );
+            if (ok) {
                 return true;
             } else {
-                showToast(transactionData.error || 'Payment failed', 'error');
+                const msg = transactionData && transactionData.error
+                    ? transactionData.error
+                    : ('Payment failed (HTTP ' + transactionResponse.status + '): ' + JSON.stringify(transactionData));
+                console.error('Payment rejected:', transactionData, 'HTTP', transactionResponse.status);
+                showToast(msg, 'error');
                 return false;
             }
         } catch (error) { 
             console.error('Transaction error:', error);
-            showToast('Connection error', 'error'); 
+            showToast('Connection error - ' + (error && error.message ? error.message : error), 'error'); 
             return false; 
         }
     }
@@ -12766,7 +12787,7 @@ function setupAddProductFundingSelection() {
         } catch (error) {
             console.error('9. ERROR in processPayment:', error);
             hidePaymentLoader();
-            showToast('Payment failed', 'error');
+            showToast('Payment error: ' + (error && error.message ? error.message : error), 'error');
         }
     }
 
