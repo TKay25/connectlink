@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-08-11T10:32:37.096Z",
+  "last_sync": "2026-08-12T07:24:45.163Z",
   "module_count": 57,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 17,
+  "orphaned_count": 28,
   "orphaned": [
     {
       "artifact": "artifacts/modules/LOCs.json",
@@ -72,12 +72,100 @@
     {
       "artifact": "artifacts/modules/_fix_v3.json",
       "source": "_fix_v3.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_cashier.json",
+      "source": "_preview_cashier.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server.json",
+      "source": "_preview_server.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server10.json",
+      "source": "_preview_server10.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server2.json",
+      "source": "_preview_server2.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server3.json",
+      "source": "_preview_server3.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server4.json",
+      "source": "_preview_server4.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server5.json",
+      "source": "_preview_server5.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server6.json",
+      "source": "_preview_server6.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server7.json",
+      "source": "_preview_server7.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server8.json",
+      "source": "_preview_server8.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_server9.json",
+      "source": "_preview_server9.py"
     }
   ],
   "recent_deletions": [
     {
-      "rel": "_diag_user_link.py",
-      "ts": "2026-08-04T08:12:49.073Z"
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T14:51:37.680Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T14:39:50.991Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T14:26:29.502Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T14:23:27.079Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T13:59:38.163Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T13:47:22.875Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T12:53:45.084Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T12:48:01.302Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T12:37:24.881Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T12:33:43.124Z"
+    },
+    {
+      "rel": "_preview_cashier.py",
+      "ts": "2026-08-11T12:24:16.060Z"
+    },
+    {
+      "rel": "_preview_server10.py",
+      "ts": "2026-08-11T12:05:05.799Z"
     }
   ]
 }

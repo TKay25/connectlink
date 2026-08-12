@@ -5073,6 +5073,38 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     padding: 2px 7px !important;
 }
 </style>
+
+<!-- ===== FIX: Product names rendering vertically (top-to-bottom) on some machines =====
+     Root cause: .product-name-compact uses display:-webkit-box + -webkit-box-orient:vertical
+     for 2-line clamping. On browsers that DON'T support -webkit-line-clamp, the text flows
+     VERTICALLY (one letter per line) instead of clamping horizontally.
+     Fix: always force horizontal writing mode (harmless on normal browsers since that is
+     already the default), and when -webkit-line-clamp is unsupported, drop the -webkit-box
+     display entirely so names wrap normally. -->
+<style>
+/* Force horizontal text flow on product names (fixes top-to-bottom letters like
+   "p / o / t / s" rendering for "pots" on affected machines) */
+.product-name-compact,
+#posPage .product-name-compact,
+.product-card-compact .product-name-compact {
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+}
+
+/* Browsers without -webkit-line-clamp support: drop the -webkit-box vertical layout
+   that causes the vertical letter stacking, letting the name wrap normally. */
+@supports not (-webkit-line-clamp: 2) {
+    .product-name-compact,
+    #posPage .product-name-compact,
+    .product-card-compact .product-name-compact {
+        display: block !important;
+        -webkit-box-orient: horizontal !important;
+        white-space: normal !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+}
+</style>
 </head>
 
 <!-- ===== PAGE FOOTER ===== -->
