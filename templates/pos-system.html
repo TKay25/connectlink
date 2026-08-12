@@ -5228,6 +5228,32 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     overflow-x: hidden !important;
 }
 </style>
+
+<!-- ===== Receipt modal: scrollable body, fixed header + footer with Print/Close =====
+     Without a scrollable body the tall receipt (many items) clips both the top
+     items and the bottom footer when center-aligned. This keeps header + footer
+     pinned and lets ONLY the receipt body scroll. -->
+<style>
+#receiptModal .modal-dialog {
+    max-width: 360px;
+}
+#receiptModal .modal-content {
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+#receiptModal .modal-header,
+#receiptModal .modal-footer {
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+}
+#receiptModal .modal-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+</style>
 </head>
 
 </body>
@@ -6644,7 +6670,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     </div>
 
     <div class="modal fade" id="receiptModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-sm">
             <div class="modal-content">
                 <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
                     <h6 class="modal-title"><i class="fas fa-receipt"></i> Receipt</h6>
