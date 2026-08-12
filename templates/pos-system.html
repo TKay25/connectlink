@@ -12398,7 +12398,6 @@ function setupAddProductFundingSelection() {
                             </div>
                             <button class="cart-item-remove" onclick="removeFromCart(${idx})" title="Remove item"><i class="fas fa-trash-alt"></i></button>
                         </div>
-                        <div class="small text-muted mt-1">$${(item.sell_price || item.price || 0).toFixed(2)} each</div>
                         <div class="mt-1"><div class="qty-control"><button class="qty-btn" onclick="updateQuantity(${idx}, -1)">−</button><span class="fw-bold small">${item.quantity}</span><button class="qty-btn" onclick="updateQuantity(${idx}, 1)">+</button></div></div>
                     </div>
                     <div class="text-end">
