@@ -5744,6 +5744,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                                 <button class="btn btn-success" id="downloadInventoryExcelBtn">
                                     <i class="fas fa-file-excel me-1"></i>Download Excel
                                 </button>
+                                <button class="btn btn-danger" id="downloadInventoryPdfBtn" onclick="downloadInventoryPDF()">
+                                    <i class="fas fa-file-pdf me-1"></i>Download PDF
+                                </button>
                                 <button class="btn btn-primary-dark" id="toggleAuditReportBtn" onclick="toggleAuditReport()">
                                     <i class="fas fa-clipboard-list me-1"></i>Audit Report
                                 </button>
@@ -6923,6 +6926,131 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
             });
         }
     });
+
+    // Download Inventory PDF (frontend export of visible table)
+    function downloadInventoryPDF() {
+        const btn = document.getElementById('downloadInventoryPdfBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+        }
+        try {
+            // Use the same filter as the inventory table
+            const filteredProducts = filterInventory();
+            if (!filteredProducts.length) {
+                showToast('No products to export.', 'error');
+                return;
+            }
+            let totalBuy = 0;
+            let totalSell = 0;
+            let totalStock = 0;
+
+            const rowsHtml = filteredProducts.map(p => {
+                const buyPrice = p.buy_price || 0;
+                const sellPrice = p.sell_price || p.price || 0;
+                const stock = p.stock || 0;
+                totalBuy += buyPrice * stock;
+                totalSell += sellPrice * stock;
+                totalStock += stock;
+                const status = stock < 5 ? 'Low' : 'OK';
+                const statusColor = stock < 5 ? '#dc2626' : '#15803d';
+                return `
+                    <tr>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">${p.id}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd;">${escapeHtml(p.name)}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd;">${escapeHtml(p.category || 'N/A')}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd;">${escapeHtml(p.unit_type || 'N/A')}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd;">${escapeHtml(p.unit_details || 'N/A')}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">$${buyPrice.toFixed(2)}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">$${sellPrice.toFixed(2)}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">${stock}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">$${(buyPrice * stock).toFixed(2)}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">$${(sellPrice * stock).toFixed(2)}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: ${statusColor}; font-weight: bold;">${status}</td>
+                    </tr>`;
+            }).join('');
+
+            const pdfContent = document.createElement('div');
+            pdfContent.style.padding = '20px';
+            pdfContent.style.fontFamily = 'Arial, sans-serif';
+
+            pdfContent.innerHTML = `
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="/static/images/reqlogo.jpg" style="height: 50px; width: auto;" alt="ConnectLink Properties Logo">
+                    <h2 style="color: #1E293B; margin: 8px 0 4px;">ConnectLink Hardware</h2>
+                    <p style="margin: 0; color: #475569;">Inventory Management Report</p>
+                    <p style="margin: 0; color: #94A3B8;"><small>Generated: ${new Date().toLocaleString()}</small></p>
+                    <hr style="border-top: 2px solid #1E293B;">
+                </div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                    <thead>
+                        <tr style="background-color: #1E293B; color: white;">
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: center;">ID</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: left;">Product</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: left;">Category</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: left;">Unit</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: left;">Detail</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: right;">Buy Price</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: right;">Sell Price</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: center;">Stock</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: right;">Total Buy</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: right;">Total Sell</th>
+                            <th style="padding: 6px; border: 1px solid #1E293B; text-align: center;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                        <tr style="background-color: #FFF9C4; font-weight: bold;">
+                            <td colspan="7" style="padding: 6px; border: 1px solid #ddd; text-align: right;">TOTALS:</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">${totalStock}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">$${totalBuy.toFixed(2)}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">$${totalSell.toFixed(2)}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: center;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="text-align: center; margin-top: 20px;">
+                    <small style="color: #64748B;">ConnectLink Hardware &mdash; Inventory Report</small>
+                </div>
+            `;
+
+            document.body.appendChild(pdfContent);
+
+            const opt = {
+                margin: [0.4, 0.4, 0.4, 0.4],
+                filename: `Inventory_ConnectLink_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 1.5 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(pdfContent).save()
+                .then(() => {
+                    document.body.removeChild(pdfContent);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-file-pdf me-1"></i>Download PDF';
+                    }
+                    showToast('PDF export complete!', 'success');
+                })
+                .catch(err => {
+                    console.error('PDF generation error:', err);
+                    if (pdfContent.parentNode) document.body.removeChild(pdfContent);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-file-pdf me-1"></i>Download PDF';
+                    }
+                    showToast('Error generating PDF', 'error');
+                });
+        } catch (err) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-file-pdf me-1"></i>Download PDF';
+            }
+            console.error('Inventory PDF export error:', err);
+            showToast('Failed to export inventory PDF: ' + err.message, 'error');
+        }
+    }
 
     // ==================== AI PRODUCT CLASSIFIER ====================
     
@@ -11257,6 +11385,24 @@ async function fetchTransactionsData() {
         if (messageEl) messageEl.innerHTML = message;
     }
     
+    // ==================== PAYMENT UI FUNCTIONS ====================
+    
+    // Reset the payment form after a successful sale so the next transaction
+    // starts clean: clear the tendered cash amount + change, hide the cash
+    // input, and return the selected method to the default Cash.
+    function resetPaymentUI() {
+        const cashInput = document.getElementById('cashAmount');
+        if (cashInput) cashInput.value = '';
+        const changeDue = document.getElementById('changeDue');
+        if (changeDue) changeDue.textContent = '';
+        const cashDiv = document.getElementById('cashInputDiv');
+        if (cashDiv) cashDiv.style.display = 'none';
+        selectedPaymentMethod = 'cash';
+        document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('active'));
+        const cashBtn = document.querySelector('.payment-method[data-method="cash"]');
+        if (cashBtn) cashBtn.classList.add('active');
+    }
+    
     // ==================== API FUNCTIONS ====================
     
     async function fetchCategories() {
@@ -15306,21 +15452,7 @@ function setupEventListeners() {
         });
     });
 
-    // Reset the payment form after a successful sale so the next transaction
-    // starts clean: clear the tendered cash amount + change, hide the cash
-    // input, and return the selected method to the default Cash.
-    function resetPaymentUI() {
-        const cashInput = document.getElementById('cashAmount');
-        if (cashInput) cashInput.value = '';
-        const changeDue = document.getElementById('changeDue');
-        if (changeDue) changeDue.textContent = '';
-        const cashDiv = document.getElementById('cashInputDiv');
-        if (cashDiv) cashDiv.style.display = 'none';
-        selectedPaymentMethod = 'cash';
-        document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('active'));
-        const cashBtn = document.querySelector('.payment-method[data-method="cash"]');
-        if (cashBtn) cashBtn.classList.add('active');
-    }
+
     
     // Menu item navigation
     document.querySelectorAll('.menu-item').forEach(item => { 
