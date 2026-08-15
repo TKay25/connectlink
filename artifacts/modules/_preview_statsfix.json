@@ -1,0 +1,44 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PreviewStatsfix",
+  "file": "_preview_statsfix.py",
+  "purpose": "Throwaway mock server to verify the POS Today's Sales / Items Sold pill fix.",
+  "entry_function": "page()",
+  "entry_flows": [
+    "_preview_statsfix → app.route, app.run"
+  ],
+  "public_api": [
+    "page()",
+    "static_files(filename)",
+    "check_auth()",
+    "categories()",
+    "products()",
+    "stats()",
+    "today_by_cashier()",
+    "transactions()"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: BASE = os.path.dirname(os.path.abspath(__file__)), PRODUCTS = [{'id': 1, 'name': 'Copper Wire 2.5mm', 'price': 120.0, 'sell_price': 120.0, 'stock': 25, 'category': 'Electricals', 'unit_type': 'roll', 'unit_details': '50m', 'min_stock_level': 5, 'buy_price': 80.0, 'barcode': '1'}, {'id': 2, 'name': 'PVC Pipe 50mm', 'price': 45.0, 'sell_price': 45.0, 'stock': 4, 'category': 'Plumbing', 'unit_type': 'piece', 'unit_details': '6m', 'min_stock_level': 10, 'buy_price': 30.0, 'barcode': '2'}, {'id': 3, 'name': 'Paint Brush 4\"', 'price': 35.0, 'sell_price': 35.0, 'stock': 60, 'category': 'DIY', 'unit_type': 'piece', 'unit_details': '4 inch', 'min_stock_level': 10, 'buy_price': 20.0, 'barcode': '3'}]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "cc2d84f7c915ed74",
+  "file_mtime": 1786807482144.8564,
+  "file_size": 2856,
+  "file_birthtime": 1786807481850.71,
+  "generated_at": "2026-08-15T15:25:12.510249Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

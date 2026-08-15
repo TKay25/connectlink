@@ -11427,7 +11427,22 @@ async function fetchTransactionsData() {
                 currentTotalProfit = statsData.stats.total_profit || 0;
             }
             await loadTodayByCashier();
+            renderPOSHeaderStats();
         } catch (error) { console.error('Error fetching stats:', error); }
+    }
+
+    // Render the POS header "Today's Sales" / "Items Sold" pills from the global
+    // transactionsData. Called whenever transactionsData changes (init, refresh,
+    // after a sale) so the pills never go stale or freeze at $0.00.
+    function renderPOSHeaderStats() {
+        const s = document.getElementById('todaySalesChip');
+        if (s) {
+            s.textContent = '$' + Number(transactionsData.todaySales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        const it = document.getElementById('itemsSoldChip');
+        if (it) {
+            it.textContent = Number(transactionsData.itemsSold || 0).toLocaleString();
+        }
     }
 
     // Today's sales grouped by cashier (lightweight aggregate for the POS header)
@@ -12960,6 +12975,7 @@ function setupAddProductFundingSelection() {
             transactionsData.itemsSold += cart.reduce((sum, i) => sum + i.quantity, 0);
             
             updateStats();
+            renderPOSHeaderStats();
             hidePaymentLoader();
             
             // After successful payment
@@ -15717,21 +15733,15 @@ function setupEventListeners() {
         }).observe(el, { childList: true, subtree: true, characterData: true });
     });
 
-    // POS page header live stats (reads existing transactionsData global)
-    var headerTick = setInterval(function () {
-        var s = document.getElementById('todaySalesChip');
-        var it = document.getElementById('itemsSoldChip');
-        var ok = true;
-        try {
-            if (s && typeof transactionsData !== 'undefined' && transactionsData.todaySales !== undefined) {
-                s.textContent = '$' + Number(transactionsData.todaySales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            } else { ok = false; }
-            if (it && typeof transactionsData !== 'undefined' && transactionsData.itemsSold !== undefined) {
-                it.textContent = Number(transactionsData.itemsSold || 0).toLocaleString();
-            } else { ok = false; }
-        } catch (e) { ok = false; }
-        if (ok) clearInterval(headerTick);
-    }, 300);
+    // POS page header live stats — renders the Today's Sales / Items Sold pills
+    // from the global transactionsData. fetchDashboardStats() and processOrder()
+    // call renderPOSHeaderStats() directly, so the pills always reflect fresh
+    // data. This interval is only a safety fallback (it no longer self-clears
+    // early, which previously froze the pills at $0.00 before the first fetch
+    // had returned).
+    setInterval(function () {
+        if (typeof renderPOSHeaderStats === 'function') renderPOSHeaderStats();
+    }, 1000);
 })();
 </script>
 

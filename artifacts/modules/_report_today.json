@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ReportToday",
+  "file": "_report_today.py",
+  "purpose": "READ-ONLY: Report today's sales summary (mirrors dashboard/stats + today-by-cashier).",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_report_today → psycopg2.connect, conn.cursor, cur.execute, cur.fetchone, cur.fetchall"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: URL = os.getenv('DATABASE_URL', 'postgresql://connectlinkdata_user:RsYLVxq6lzCBXV7m3e2drdiNMebYBFIC@dpg-d4m0bqggjchc73avg3eg-a.oregon-postgres.render.com/connectlinkdata')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "9c6bcf1a716e3106",
+  "file_mtime": 1786807579674.888,
+  "file_size": 2523,
+  "file_birthtime": 1786807579481.8364,
+  "generated_at": "2026-08-15T15:26:22.953526Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

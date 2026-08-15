@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "DiagTodaySales",
+  "file": "_diag_today_sales.py",
+  "purpose": "READ-ONLY diagnostic: compare /api/dashboard/stats vs /api/dashboard/today-by-cashier queries.",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_diag_today_sales → db_helper.get_db, psycopg2.connect, conn.cursor, cur.execute, cur.fetchone"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: URL = os.getenv('DATABASE_URL', 'postgresql://connectlinkdata_user:RsYLVxq6lzCBXV7m3e2drdiNMebYBFIC@dpg-d4m0bqggjchc73avg3eg-a.oregon-postgres.render.com/connectlinkdata')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "011375c17f02d786",
+  "file_mtime": 1786807205073.368,
+  "file_size": 2674,
+  "file_birthtime": 1786807204840.596,
+  "generated_at": "2026-08-15T15:20:08.309174Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
