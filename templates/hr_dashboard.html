@@ -6048,9 +6048,19 @@ async function loadMyPayslips() {
         const res = await fetch('/api/hr/my-payslips');
         const data = await res.json();
         if (!data.success || !data.data.length) {
+            const isAdmin = HR_ROLE === 'Administrator';
+            const viewBtn = isAdmin
+                ? `<button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="showModule('payroll')"><i class="bi bi-wallet2"></i> View Payroll</button>`
+                : '';
             container.innerHTML = `<div class="text-center py-5 text-muted" style="font-size:0.7rem;">
                 <i class="bi bi-inbox" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>
                 No payslips found for your account.
+                <div style="margin-top:6px;color:var(--text-muted);max-width:400px;margin-left:auto;margin-right:auto;">
+                    ${isAdmin
+                        ? 'Your account has no personal payslip in any processed payroll run. Admins can view and download every employee\u2019s payslip in the Payroll module.'
+                        : 'Payslips appear here once a payroll run includes your employee record.'}
+                </div>
+                ${viewBtn}
             </div>`;
             return;
         }

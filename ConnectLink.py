@@ -14983,8 +14983,11 @@ def hr_dashboard():
         session['hr_role'] = hr_role
         session['can_manage_hr'] = can_manage_hr
         session['hr_access'] = hr_access
-        session['hr_employee_id'] = userid
-        hr_employee_id = userid
+        # Resolve to the real hr_employees record id (admin_users.source_id == hr_employees.user_id),
+        # falling back to the legacy direct-id match.
+        resolved = resolve_hr_employee_ids(userid, user_name)
+        hr_employee_id = resolved[0] if resolved else userid
+        session['hr_employee_id'] = hr_employee_id
 
     # Fallback: if hr_employee_id still not set, use userid
     if hr_employee_id is None and userid:
@@ -16145,6 +16148,37 @@ def hr_payroll_delete_run(period, run_version):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def resolve_hr_employee_ids(userid, user_name=''):
+    """Resolve a logged-in HR user (session userid = admin_users.id) to the linked
+    hr_employees record id(s).
+
+    Canonical link: admin_users.source_id == connectlinkusers.id == hr_employees.user_id.
+    Falls back to a direct id match (legacy records created with id = admin_users.id)
+    then an exact full-name match.
+    """
+    if not userid:
+        return []
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT source_id FROM admin_users WHERE id = %s AND source_id IS NOT NULL", (userid,))
+            row = cursor.fetchone()
+            linked = row[0] if row else None
+            emp_ids = []
+            if linked:
+                cursor.execute("SELECT id FROM hr_employees WHERE user_id = %s", (linked,))
+                emp_ids = [r[0] for r in cursor.fetchall()]
+            if not emp_ids:
+                cursor.execute("SELECT id FROM hr_employees WHERE id = %s", (userid,))
+                emp_ids = [r[0] for r in cursor.fetchall()]
+            if not emp_ids and user_name:
+                cursor.execute("SELECT id FROM hr_employees WHERE CONCAT(first_name, ' ', last_name) = %s", (user_name,))
+                emp_ids = [r[0] for r in cursor.fetchall()]
+            return emp_ids
+    except Exception as e:
+        print(f"resolve_hr_employee_ids error: {e}")
+        return []
+
+
 @app.route('/api/hr/my-payslips', methods=['GET'])
 def hr_my_payslips():
     """Return payslip periods for the logged-in employee."""
@@ -16153,22 +16187,12 @@ def hr_my_payslips():
         user_name = session.get('user_name', '')
         if not userid:
             return jsonify({'success': False, 'error': 'Not logged in'}), 401
+
+        emp_ids = resolve_hr_employee_ids(userid, user_name)
+        if not emp_ids:
+            return jsonify({'success': True, 'data': []})
+
         with get_db() as (cursor, connection):
-            # Find employee id(s) linked to this user
-            # Check by: user_id, source_id from admin_users, or matching name
-            source_id = session.get('source_id')
-            cursor.execute("""
-                SELECT id FROM hr_employees
-                WHERE user_id = %s
-                   OR id = %s
-                   OR id = (SELECT source_id FROM admin_users WHERE id = %s AND source_id IS NOT NULL)
-                   OR CONCAT(first_name, ' ', last_name) = %s
-            """, (userid, userid, userid, user_name))
-            emp_ids = [r[0] for r in cursor.fetchall()]
-
-            if not emp_ids:
-                return jsonify({'success': True, 'data': []})
-
             placeholders = ','.join(['%s'] * len(emp_ids))
             cursor.execute(f"""
                 SELECT DISTINCT hp.period, hp.gross_pay, hp.deductions, hp.net_pay,
