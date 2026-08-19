@@ -852,44 +852,247 @@
         body.dark-theme .link-row { background: #131722; border-color: #1E2538; color: #e5e7eb; }
         body.dark-theme .link-row:hover { border-color: rgba(193,43,62,0.5); }
         body.dark-theme .legend-row b { color: #F1F5F9; }
+        body.dark-theme .commission-emp-list { background: #0B0E17; border-color: #1E2538; }
+        body.dark-theme .commission-emp-row { border-color: #1E2538; }
+        body.dark-theme .commission-emp-row:hover { background: rgba(255,255,255,0.03); }
+        body.dark-theme .commission-emp-row.highlight { background: rgba(99,102,241,0.15); outline-color: rgba(99,102,241,0.5); }
+        body.dark-theme .commission-emp-row .ce-name { color: #e5e7eb; }
+        body.dark-theme .commission-emp-row .ce-existing { color: #94A3B8; }
 
-        /* Dashboard grid: 4 columns side by side */
-        .dash-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            flex: 1;
-            min-height: 0;
-        }
-        .dash-kpi {
+        /* ===== WORLD-CLASS DASHBOARD — KPI row + widget layout ===== */
+        .kpi-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .kpi-card {
+            position: relative;
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            transition: var(--transition-slow);
+        }
+        .kpi-card::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--chart-indigo), var(--chart-purple), var(--chart-blue));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+        }
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+            border-color: rgba(99,102,241,0.35);
+        }
+        .kpi-card:hover::after { transform: scaleX(1); }
+        .kpi-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.05rem;
             flex-shrink: 0;
         }
-        .dash-cols {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            flex: 1;
-            min-height: 0;
+        .kpi-icon.blue { background: linear-gradient(135deg,#e8f0fe,#d4e4fc); color: #1a73e8; }
+        .kpi-icon.amber { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #b45309; }
+        .kpi-icon.purple { background: linear-gradient(135deg,#f3e8ff,#e4d0fc); color: #7c3aed; }
+        .kpi-icon.red { background: linear-gradient(135deg,#fee2e2,#fecaca); color: #dc2626; }
+        .kpi-body { min-width: 0; flex: 1; }
+        .kpi-label { font-size: var(--font-size-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+        .kpi-value { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); line-height: 1.15; margin: 2px 0; letter-spacing: -0.5px; }
+        .kpi-sub { font-size: var(--font-size-xs); color: var(--text-muted); }
+        .kpi-pill {
+            display: inline-flex; align-items: center; gap: 3px;
+            padding: 1px 7px; border-radius: 20px;
+            font-weight: 700; font-size: var(--font-size-xs);
         }
-        .dash-col {
-            min-width: 0;
+        .kpi-pill.up { background: #dcfce7; color: #166534; }
+        .kpi-pill.warn { background: #fef3c7; color: #92400e; }
+
+        .dash-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+            gap: 12px;
+            align-items: start;
         }
-        .dash-col .hr-stat-card,
-        .dash-col .hr-card {
-            margin-bottom: 4px;
+        .dash-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+        .dash-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+        .dash-duo { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+        .widget-card {
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            transition: var(--transition-slow);
         }
-        .dash-col .hr-stat-card:last-child,
-        .dash-col .hr-card:last-child {
-            margin-bottom: 0;
+        .widget-card:hover { box-shadow: var(--shadow-md); }
+        .widget-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #FAFBFC, #F3F6F9);
+            border-bottom: 1px solid var(--border-color);
         }
+        .widget-title {
+            font-size: var(--font-size-sm); font-weight: 700; color: var(--text-primary);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .widget-title i { color: var(--primary); }
+        .widget-badge {
+            font-size: var(--font-size-xs); font-weight: 700;
+            background: rgba(193,43,62,0.08); color: var(--primary);
+            padding: 2px 8px; border-radius: 20px;
+        }
+        .widget-body { padding: 10px 12px; }
+        .widget-center { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+        .chart-box { position: relative; height: 230px; width: 100%; }
+        .chart-box.small { height: 160px; max-width: 220px; }
+
+        .legend { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+        .legend-row {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: var(--font-size-xs); color: var(--text-secondary);
+        }
+        .legend-row b { color: var(--text-primary); }
+        .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+        .legend-dot.green { background: var(--chart-green); }
+        .legend-dot.red { background: var(--chart-red); }
+        .legend-dot.amber { background: var(--chart-amber); }
+
+        .stat-mini-row { display: flex; gap: 8px; width: 100%; }
+        .stat-mini {
+            flex: 1; text-align: center;
+            background: var(--slate-50);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 6px 4px;
+        }
+        .stat-mini-label { display: block; font-size: var(--font-size-xs); color: var(--text-muted); }
+        .stat-mini-value { display: block; font-size: 0.9rem; font-weight: 800; color: var(--text-primary); }
+
+        .chip-group { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; width: 100%; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: var(--slate-100);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 3px 10px; border-radius: 20px;
+            font-size: var(--font-size-xs); font-weight: 600;
+        }
+        .chip b { color: var(--text-primary); }
+        .chip.blue { background: #e8f0fe; border-color: #d4e4fc; color: #1a73e8; }
+        .chip.blue b { color: #1a73e8; }
+        .chip.purple { background: #f3e8ff; border-color: #e4d0fc; color: #7c3aed; }
+        .chip.purple b { color: #7c3aed; }
+        .chip.cyan { background: #e0f7fa; border-color: #b2ebf2; color: #00838f; }
+        .chip.cyan b { color: #00838f; }
+
+        .status-block { display: flex; flex-direction: column; gap: 6px; }
+        .status-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: var(--font-size-sm); font-weight: 600;
+            padding: 5px 10px; border-radius: var(--radius-sm);
+        }
+        .status-chip.ok { background: #dcfce7; color: #166534; }
+        .status-chip.warn { background: #fef3c7; color: #92400e; }
+        .status-chip.err { background: #fee2e2; color: #b91c1c; }
+        .status-chip.neutral { background: var(--slate-100); color: var(--text-secondary); }
+        .status-chip.info { background: #dbeafe; color: #1e40af; }
+        .status-empty { display: inline-block; font-size: var(--font-size-xs); color: var(--text-muted); padding: 4px 0; }
+
+        .budget-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 7px 0; border-bottom: 1px dashed var(--gray-200);
+            font-size: var(--font-size-sm); color: var(--text-secondary);
+        }
+        .budget-row:last-child { border-bottom: none; }
+        .budget-row b { color: var(--text-primary); }
+        .budget-row b.red { color: var(--chart-red); }
+        .budget-row b.green { color: var(--chart-green); }
+
+        .link-list { display: flex; flex-direction: column; gap: 6px; }
+        .link-row {
+            display: flex; align-items: center; gap: 10px;
+            width: 100%; text-align: left;
+            font-family: inherit;
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: var(--font-size-sm); font-weight: 600;
+            padding: 9px 12px; cursor: pointer;
+            transition: var(--transition);
+        }
+        .link-row i:first-child { color: var(--primary); }
+        .link-row i:last-child { margin-left: auto; color: var(--gray-400); transition: var(--transition); }
+        .link-row:hover { border-color: rgba(193,43,62,0.4); transform: translateX(2px); box-shadow: var(--shadow-sm); }
+        .link-row:hover i:last-child { color: var(--primary); transform: translateX(2px); }
+
+        .date-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--white);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: var(--font-size-xs); font-weight: 600;
+            padding: 4px 10px; border-radius: 20px;
+        }
+
+        /* ===== COMMISSION BULK ENTRY LIST ===== */
+        .commission-list-header {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; margin: 2px 0 6px;
+        }
+        .commission-emp-list {
+            max-height: 320px; overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 4px;
+            background: var(--slate-50);
+        }
+        .commission-emp-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 120px 140px;
+            gap: 8px; align-items: center;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--gray-200);
+            border-radius: 6px;
+        }
+        .commission-emp-row:last-child { border-bottom: none; }
+        .commission-emp-row:hover { background: rgba(193,43,62,0.04); }
+        .commission-emp-row.highlight { background: rgba(99,102,241,0.08); outline: 1px solid rgba(99,102,241,0.4); }
+        .commission-emp-row .ce-name {
+            font-size: var(--font-size-sm); font-weight: 600; color: var(--text-primary);
+            min-width: 0; display: flex; align-items: center; gap: 6px;
+            overflow: hidden; white-space: nowrap;
+        }
+        .commission-emp-row .ce-name .badge-hr { flex-shrink: 0; }
+        .commission-emp-row .ce-existing {
+            font-size: var(--font-size-xs); color: var(--text-muted);
+            display: inline-flex; align-items: center; gap: 3px;
+        }
+        .commission-emp-row .ce-existing i { color: var(--chart-green); }
+        .commission-emp-row .ce-amount { font-size: var(--font-size-sm); padding: 4px 8px; width: 100%; }
+        .commission-emp-row .ce-notes { font-size: var(--font-size-sm); padding: 4px 8px; width: 100%; }
+
+        /* ===== DASHBOARD RESPONSIVE ===== */
         @media (max-width: 1200px) {
-            .dash-kpi { grid-template-columns: repeat(2, 1fr); }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .dash-layout { grid-template-columns: 1fr; }
         }
         @media (max-width: 768px) {
-            .dash-kpi { grid-template-columns: repeat(2, 1fr); }
+            .kpi-grid { grid-template-columns: 1fr; }
+            .dash-duo { grid-template-columns: 1fr; }
         }
 </style>
 </head>
@@ -1896,7 +2099,7 @@
                     <label class="form-label mb-0" style="font-size:0.6rem;">Period</label>
                     <input type="month" class="form-control form-control-sm" id="commissionPeriod" style="width:170px;font-size:0.65rem;" onchange="loadCommissions()">
                     <button class="btn btn-primary btn-sm admin-only" onclick="openCommissionModal()">
-                        <i class="bi bi-plus-circle"></i> Log Commission
+                        <i class="bi bi-plus-circle"></i> Log Commissions
                     </button>
                     <div class="d-flex gap-2 admin-only">
                         <button class="btn btn-outline-success btn-sm" onclick="exportCommissionsExcel('period')" title="Export the currently selected month">
@@ -2656,37 +2859,39 @@
 <div id="commissionModal" class="modal-overlay">
     <div class="modal-container">
         <div class="modal-header-custom">
-            <h3><i class="bi bi-cash-coin"></i> <span id="commissionModalTitle">Log Commission</span></h3>
+            <h3><i class="bi bi-cash-coin"></i> <span id="commissionModalTitle">Log Commissions</span></h3>
             <button class="modal-close" onclick="closeModal('commissionModal')">&times;</button>
         </div>
         <div class="modal-body-custom">
             <form id="commissionForm" onsubmit="return false;">
-                <div class="mb-3" style="position:relative;">
-                    <label class="form-label">Employee <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="commissionEmpInput" placeholder="Type to search employee..." autocomplete="off" style="font-size:0.65rem;padding:4px 8px;">
-                    <input type="hidden" id="commissionEmpId" value="">
-                    <div id="commissionEmpDropdown" style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;max-height:160px;overflow-y:auto;display:none;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
-                </div>
-                <div class="row g-3 mb-3">
+                <div class="row g-2 mb-2">
                     <div class="col-md-6">
                         <label class="form-label">Period (Month-Year) <span class="text-danger">*</span></label>
                         <input type="month" class="form-control" id="commissionPeriodField">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Amount (USD) <span class="text-danger">*</span></label>
-                        <input type="number" class="form-control" id="commissionAmount" step="0.01" min="0" placeholder="0.00">
+                        <label class="form-label">Department</label>
+                        <input type="text" class="form-control" id="commissionDeptField" value="Sales and Marketing" disabled style="background:var(--slate-100);color:var(--text-muted);">
                     </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Notes</label>
-                    <textarea class="form-control" id="commissionNotes" rows="2" placeholder="e.g. Q3 target bonus, new client incentive..."></textarea>
+                <div class="commission-list-header">
+                    <span class="form-label mb-0"><i class="bi bi-people-fill"></i> Sales &amp; Marketing Employees <span id="commissionEmpCount" class="text-muted"></span></span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="commissionLoadExisting()" title="Pre-fill amounts already saved for this period">
+                        <i class="bi bi-arrow-repeat"></i> Load existing
+                    </button>
                 </div>
+                <div id="commissionEmpList" class="commission-emp-list">
+                    <div class="status-empty" style="padding:12px;">Loading employees...</div>
+                </div>
+                <p class="form-text" style="font-size:0.55rem;margin-bottom:0;margin-top:6px;">
+                    <i class="bi bi-info-circle"></i> Enter an amount for each Sales &amp; Marketing employee and save them all at once. Leave blank to skip (already-saved values are kept). Applied automatically when payroll runs for the selected month.
+                </p>
             </form>
         </div>
         <div class="modal-footer-custom">
             <button class="btn btn-danger" onclick="closeModal('commissionModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="saveCommission()">
-                <i class="bi bi-check-circle"></i> Save Commission
+            <button class="btn btn-primary" onclick="saveCommissions()">
+                <i class="bi bi-check-circle"></i> Save Commissions
             </button>
         </div>
     </div>
@@ -5572,41 +5777,55 @@ async function loadCommissionEmployees() {
         const data = await res.json();
         if (!data.success || !data.data) return;
         _commissionEmployees = data.data;
-        setupCommissionEmployeePicker();
     } catch(e) { console.error('Commission employees error:', e); }
 }
 
-function setupCommissionEmployeePicker() {
-    const input = document.getElementById('commissionEmpInput');
-    const hidden = document.getElementById('commissionEmpId');
-    const dropdown = document.getElementById('commissionEmpDropdown');
-    if (!input || !hidden || !dropdown) return;
+function getSalesMarketingEmployees() {
+    return (_commissionEmployees || []).filter(function(e) {
+        return /sales\s*&?\s*marketing/i.test(e.department || '');
+    });
+}
 
-    const renderDropdown = (filter) => {
-        const q = (filter || '').toLowerCase();
-        const filtered = q ? _commissionEmployees.filter(e => (e.first_name + ' ' + e.last_name).toLowerCase().includes(q)) : _commissionEmployees;
-        dropdown.innerHTML = filtered.length
-            ? filtered.map(e => `<div data-id="${e.id}" data-name="${e.first_name} ${e.last_name}" style="padding:5px 10px;font-size:0.6rem;cursor:pointer;border-bottom:1px solid #f3f4f6;">${e.first_name} ${e.last_name} <span style="color:#9ca3af;">(${escapeHtml(e.department || 'N/A')})</span></div>`).join('')
-            : '<div style="padding:5px 10px;font-size:0.55rem;color:#9ca3af;">No matching employees</div>';
-        dropdown.style.display = 'block';
-    };
+async function commissionFetchForPeriod(period) {
+    try {
+        const res = await fetch('/api/hr/commissions?period=' + encodeURIComponent(period || ''));
+        const data = await res.json();
+        return (data.success && data.data) ? data.data : [];
+    } catch(e) { return []; }
+}
 
-    input.addEventListener('input', function() {
-        if (this.value !== (hidden._label || '')) { hidden.value = ''; hidden._label = ''; }
-        renderDropdown(this.value);
-    });
-    input.addEventListener('focus', function() { renderDropdown(this.value); });
-    dropdown.addEventListener('click', function(e) {
-        const div = e.target.closest('[data-id]');
-        if (!div) return;
-        hidden.value = div.dataset.id;
-        hidden._label = div.dataset.name;
-        input.value = div.dataset.name;
-        dropdown.style.display = 'none';
-    });
-    document.addEventListener('click', function(e) {
-        if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display = 'none';
-    });
+function renderCommissionEmpList(recordsForPeriod, highlightEmpId) {
+    const list = document.getElementById('commissionEmpList');
+    if (!list) return;
+    const sm = getSalesMarketingEmployees();
+    const countEl = document.getElementById('commissionEmpCount');
+    if (countEl) countEl.textContent = sm.length ? '(' + sm.length + ' employee' + (sm.length === 1 ? '' : 's') + ')' : '';
+    if (!sm.length) {
+        list.innerHTML = '<div class="status-empty" style="padding:14px;">No Sales &amp; Marketing employees found.</div>';
+        return;
+    }
+    const byEmp = {};
+    (recordsForPeriod || []).forEach(function(r) { byEmp[r.employee_id] = r; });
+    list.innerHTML = sm.map(function(e) {
+        const rec = byEmp[e.id];
+        const hl = (highlightEmpId && String(e.id) === String(highlightEmpId)) ? ' highlight' : '';
+        const name = escapeHtml(e.first_name + ' ' + e.last_name);
+        const existing = rec
+            ? '<span class="ce-existing" title="Saved ' + (rec.amount || 0).toFixed(2) + ' for this period"><i class="bi bi-check-circle-fill"></i> ' + (rec.amount || 0).toFixed(2) + '</span>'
+            : '';
+        return '<div class="commission-emp-row' + hl + '" data-id="' + e.id + '">' +
+            '<div class="ce-name">' + name + '<span class="badge-hr pending">S&amp;M</span>' + existing + '</div>' +
+            '<input type="number" class="form-control ce-amount" step="0.01" min="0" placeholder="0.00"' + (rec ? ' value="' + (rec.amount || 0) + '"' : '') + '>' +
+            '<input type="text" class="form-control ce-notes" placeholder="Notes (optional)"' + (rec && rec.notes ? ' value="' + escapeHtml(rec.notes) + '"' : '') + '>' +
+            '</div>';
+    }).join('');
+}
+
+async function commissionLoadExisting() {
+    const period = document.getElementById('commissionPeriodField').value;
+    if (!period) { alert('Select the month-year first.'); return; }
+    const records = await commissionFetchForPeriod(period);
+    renderCommissionEmpList(records);
 }
 
 async function loadCommissions() {
@@ -5671,66 +5890,81 @@ async function loadCommissions() {
 }
 
 function resetCommissionForm() {
-    document.getElementById('commissionForm').reset();
-    const input = document.getElementById('commissionEmpInput');
-    const hidden = document.getElementById('commissionEmpId');
-    if (input) input.value = '';
-    if (hidden) { hidden.value = ''; hidden._label = ''; }
-    const dd = document.getElementById('commissionEmpDropdown');
-    if (dd) dd.style.display = 'none';
-    document.getElementById('commissionPeriodField').value = getCurrentMonthYear();
+    const form = document.getElementById('commissionForm');
+    if (form) form.reset();
+    const periodEl = document.getElementById('commissionPeriodField');
+    if (periodEl) periodEl.value = getCurrentMonthYear();
     _editingCommissionId = null;
-    document.getElementById('commissionModalTitle').textContent = 'Log Commission';
+    document.getElementById('commissionModalTitle').textContent = 'Log Commissions';
+    const list = document.getElementById('commissionEmpList');
+    if (list) list.innerHTML = '<div class="status-empty" style="padding:12px;">Loading employees...</div>';
 }
 
-function openCommissionModal(commissionId) {
+async function openCommissionModal(commissionId) {
     resetCommissionForm();
-    // Sync the module's period filter into the form
-    const modulePeriod = document.getElementById('commissionPeriod');
-    if (modulePeriod && modulePeriod.value) document.getElementById('commissionPeriodField').value = modulePeriod.value;
+    let period = getCurrentMonthYear();
+    let highlightEmpId = null;
 
     if (commissionId) {
         const rec = _commissionRecords.find(x => x.id == commissionId);
         if (rec) {
+            period = rec.period;
+            highlightEmpId = rec.employee_id;
             _editingCommissionId = commissionId;
-            document.getElementById('commissionModalTitle').textContent = 'Edit Commission';
-            const input = document.getElementById('commissionEmpInput');
-            const hidden = document.getElementById('commissionEmpId');
-            if (input) input.value = rec.employee_name;
-            if (hidden) { hidden.value = rec.employee_id; hidden._label = rec.employee_name; }
-            document.getElementById('commissionPeriodField').value = rec.period;
-            document.getElementById('commissionAmount').value = rec.amount;
-            document.getElementById('commissionNotes').value = rec.notes || '';
+            document.getElementById('commissionModalTitle').textContent = 'Edit Commission - ' + rec.period;
         }
+    } else {
+        // Sync the module's period filter into the form
+        const modulePeriod = document.getElementById('commissionPeriod');
+        if (modulePeriod && modulePeriod.value) period = modulePeriod.value;
     }
+
+    const periodEl = document.getElementById('commissionPeriodField');
+    if (periodEl) periodEl.value = period;
+
+    if (!_commissionEmployees.length) await loadCommissionEmployees();
+
     openModal('commissionModal');
+
+    const records = await commissionFetchForPeriod(period);
+    renderCommissionEmpList(records, highlightEmpId);
 }
 
-async function saveCommission() {
-    const employee_id = parseInt(document.getElementById('commissionEmpId').value) || 0;
+async function saveCommissions() {
     const period = document.getElementById('commissionPeriodField').value;
-    const amount = parseFloat(document.getElementById('commissionAmount').value) || 0;
-    const notes = document.getElementById('commissionNotes').value.trim();
-
-    if (!employee_id) { alert('Please select an employee.'); return; }
     if (!period) { alert('Please select the month-year.'); return; }
-    if (amount < 0) { alert('Amount cannot be negative.'); return; }
+
+    const rows = Array.prototype.slice.call(document.querySelectorAll('#commissionEmpList .commission-emp-row'));
+    const entries = [];
+    for (let i = 0; i < rows.length; i++) {
+        const empId = parseInt(rows[i].getAttribute('data-id')) || 0;
+        const amount = parseFloat(rows[i].querySelector('.ce-amount').value) || 0;
+        const notes = (rows[i].querySelector('.ce-notes').value || '').trim();
+        if (amount > 0) entries.push({ employee_id: empId, period: period, amount: amount, notes: notes });
+    }
+
+    if (!entries.length) { alert('Enter at least one commission amount.'); return; }
 
     document.getElementById('hrLoader').classList.add('active');
+    let saved = 0;
+    let failed = 0;
     try {
-        const res = await fetch('/api/hr/commissions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employee_id, period, amount, notes })
-        });
-        const data = await res.json();
+        for (let i = 0; i < entries.length; i++) {
+            const res = await fetch('/api/hr/commissions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entries[i])
+            });
+            const data = await res.json();
+            if (data.success) saved++; else failed++;
+        }
         document.getElementById('hrLoader').classList.remove('active');
-        if (data.success) {
-            closeModal('commissionModal');
-            await loadCommissions();
-            alert('✅ Commission saved for ' + period);
+        closeModal('commissionModal');
+        await loadCommissions();
+        if (failed === 0) {
+            alert('✅ Commissions saved for ' + period + ' (' + saved + ' employee' + (saved === 1 ? '' : 's') + ').');
         } else {
-            alert('❌ ' + (data.error || 'Failed to save'));
+            alert('⚠️ Saved ' + saved + ' of ' + entries.length + ' for ' + period + '. ' + failed + ' failed.');
         }
     } catch(e) {
         document.getElementById('hrLoader').classList.remove('active');
