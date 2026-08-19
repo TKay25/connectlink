@@ -6,7 +6,7 @@
   "purpose": "Database Helper Module for EDSDEVV",
   "entry_function": "get_db()",
   "entry_flows": [
-    "db_helper → cursor.execute, cursor.fetchone, connection.commit, psycopg2.connect, connection.cursor"
+    "db_helper → threading.Lock, psycopg2.connect, _idle.pop, conn.cursor"
   ],
   "public_api": [
     "get_db()",
@@ -23,7 +23,7 @@
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "notes": "Key constants: DB_POOL_MAX = int(os.getenv('DB_POOL_MAX', '3')), POOL_IDLE_PROBE_SECONDS = 15",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -33,6 +33,6 @@
   "file_mtime": 1776794366000,
   "file_size": 3555,
   "file_birthtime": 1776794366272.5293,
-  "generated_at": "2026-07-08T05:01:12.430045Z",
+  "generated_at": "2026-08-19T18:22:51.167784Z",
   "stale": false
 }

@@ -19142,6 +19142,163 @@ def hr_export_commissions():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/hr/dashboard')
+def hr_dashboard_data_api():
+    """HR: Aggregated dashboard payload (stats + departments + assets + leave + PAYE).
+
+    Fetched in a SINGLE DB connection so the dashboard renders quickly — opening
+    one connection per endpoint was the main cause of slow dashboard loads. The
+    payload shapes mirror the individual endpoints so the frontend can use them
+    interchangeably.
+    """
+    try:
+        today = datetime.now().strftime('%Y-%m-%d')
+        period = datetime.now().strftime('%Y-%m')
+        with get_db() as (cursor, connection):
+            # --- stats ---
+            cursor.execute("SELECT COUNT(*) FROM hr_employees")
+            total_employees = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM hr_employees WHERE status = 'Active'")
+            active_employees = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM hr_leave_applications WHERE status = 'Pending'")
+            pending_leave = cursor.fetchone()[0]
+            cursor.execute("""
+                SELECT COUNT(*) FROM hr_leave_applications
+                WHERE status = 'Approved' AND %s BETWEEN from_date AND to_date
+            """, (today,))
+            on_leave_today = cursor.fetchone()[0]
+            cursor.execute("SELECT COALESCE(SUM(net_pay), 0) FROM hr_payroll WHERE period = %s", (period,))
+            payroll_total = float(cursor.fetchone()[0])
+
+            stats = {
+                'success': True,
+                'data': {
+                    'total_employees': total_employees,
+                    'active_employees': active_employees,
+                    'present_today': 0,
+                    'on_leave_today': on_leave_today,
+                    'pending_leave': pending_leave,
+                    'payroll_total': payroll_total,
+                    'period': period,
+                    'today': today
+                }
+            }
+
+            # --- departments (employee-stats) ---
+            cursor.execute("""
+                SELECT department, COUNT(*) as cnt,
+                       SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
+                       SUM(CASE WHEN gender = 'Male' THEN 1 ELSE 0 END) as male,
+                       SUM(CASE WHEN gender = 'Female' THEN 1 ELSE 0 END) as female
+                FROM hr_employees
+                GROUP BY department
+                ORDER BY department
+            """)
+            dept_rows = cursor.fetchall()
+            departments = []
+            dept_total = 0
+            for r in dept_rows:
+                departments.append({'name': r[0], 'count': r[1], 'active': r[2], 'male': r[3], 'female': r[4]})
+                dept_total += r[1]
+            cursor.execute("SELECT employment_type, COUNT(*) FROM hr_employees GROUP BY employment_type")
+            emp_types = {r[0]: r[1] for r in cursor.fetchall()}
+            dept = {'success': True, 'data': {'total': dept_total, 'departments': departments, 'employment_types': emp_types}}
+
+            # --- assets ---
+            cursor.execute("""
+                SELECT a.id, a.asset_tag, a.asset_name, a.category,
+                       COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as assigned_to,
+                       a.value, a.purchase_date, a.status, a.notes
+                FROM hr_assets a
+                LEFT JOIN hr_employees e ON a.assigned_to = e.id
+                ORDER BY a.asset_name
+            """)
+            asset_rows = cursor.fetchall()
+            assets = {'success': True, 'data': [
+                {
+                    'id': r[0], 'asset_tag': r[1], 'asset_name': r[2], 'category': r[3],
+                    'assigned_to': r[4], 'value': float(r[5] or 0),
+                    'purchase_date': str(r[6]) if r[6] else None, 'status': r[7], 'notes': r[8]
+                } for r in asset_rows
+            ]}
+
+            # --- leave ---
+            cursor.execute("""
+                SELECT a.id, a.employee_id, a.employee_name, a.leave_type, a.from_date, a.to_date,
+                       a.days, a.reason, a.status, a.approved_by, a.approved_at, a.created_at,
+                       COALESCE(e.whatsapp, '') as whatsapp, COALESCE(e.email, '') as email
+                FROM hr_leave_applications a
+                LEFT JOIN hr_employees e ON a.employee_id = e.id
+                ORDER BY a.created_at DESC
+            """)
+            leave_rows = cursor.fetchall()
+            leaves = {'success': True, 'data': [
+                {
+                    'id': r[0], 'employee_id': r[1], 'employee_name': r[2],
+                    'leave_type': r[3], 'from_date': str(r[4]) if r[4] else None,
+                    'to_date': str(r[5]) if r[5] else None, 'days': r[6],
+                    'reason': r[7], 'status': r[8], 'approved_by': r[9],
+                    'approved_at': str(r[10]) if r[10] else None,
+                    'created_at': str(r[11]) if r[11] else None,
+                    'whatsapp': r[12] or '', 'email': r[13] or ''
+                } for r in leave_rows
+            ]}
+
+            # --- active PAYE ---
+            paye = {'success': True, 'data': None}
+            try:
+                cursor.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'paye_tax_tables' AND column_name = 'month_start'
+                """)
+                has_ms = cursor.fetchone() is not None
+                if has_ms:
+                    cursor.execute("""
+                        SELECT id, name, description, filename, period, uploaded_by, uploaded_at,
+                               month_start, month_end
+                        FROM paye_tax_tables WHERE is_active = TRUE LIMIT 1
+                    """)
+                else:
+                    cursor.execute("""
+                        SELECT id, name, description, filename, period, uploaded_by, uploaded_at,
+                               NULL as month_start, NULL as month_end
+                        FROM paye_tax_tables WHERE is_active = TRUE LIMIT 1
+                    """)
+                t = cursor.fetchone()
+                if t:
+                    cursor.execute("""
+                        SELECT income_from, income_to, tax_rate, cumulative_tax, bracket_order
+                        FROM paye_tax_brackets WHERE table_id = %s
+                        ORDER BY bracket_order, income_from
+                    """, (t[0],))
+                    brackets = []
+                    for b in cursor.fetchall():
+                        brackets.append({
+                            'income_from': float(b[0]), 'income_to': float(b[1]),
+                            'tax_rate': float(b[2]), 'deduction': float(b[3] or 0)
+                        })
+                    paye['data'] = {
+                        'id': t[0], 'name': t[1], 'description': t[2],
+                        'period': t[4], 'uploaded_by': t[5],
+                        'uploaded_at': str(t[6]) if t[6] else None,
+                        'month_start': t[7] or '', 'month_end': t[8] or '',
+                        'brackets': brackets
+                    }
+            except Exception:
+                paye['data'] = None
+
+            return jsonify({
+                'success': True,
+                'stats': stats,
+                'departments': dept,
+                'assets': assets,
+                'leaves': leaves,
+                'paye': paye
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/hr/stats')
 def hr_stats_api():
     """HR: Get dashboard statistics"""

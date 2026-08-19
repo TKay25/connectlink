@@ -3313,24 +3313,9 @@ function renderDashboardCharts() {
     });
 }
 
-async function loadDashboardStats() {
-    // Fetch each API independently so one failure doesn't block others
-    const [statsRes, deptRes, assetRes, leaveRes] = await Promise.all([
-        fetch('/api/hr/stats').catch(function() { return null; }),
-        fetch('/api/hr/employee-stats').catch(function() { return null; }),
-        fetch('/api/hr/assets').catch(function() { return null; }),
-        fetch('/api/hr/leave').catch(function() { return null; })
-    ]);
-
-    // Parse responses individually with error handling
-    var stats = null, dept = null, assets = null, leaves = null;
-    try { if (statsRes) stats = await statsRes.json(); } catch(e) {}
-    try { if (deptRes) dept = await deptRes.json(); } catch(e) {}
-    try { if (assetRes) assets = await assetRes.json(); } catch(e) {}
-    try { if (leaveRes) leaves = await leaveRes.json(); } catch(e) {}
-
+function applyDashboardPayload(stats, dept, assets, leaves, paye) {
     // Cache for theme-aware chart re-render
-    __dashCache = { stats: stats, dept: dept, assets: assets, leaves: leaves, paye: null };
+    __dashCache = { stats: stats, dept: dept, assets: assets, leaves: leaves, paye: paye || null };
 
     // --- MAIN STATS + KPI ---
     if (stats && stats.success) {
@@ -3415,29 +3400,59 @@ async function loadDashboardStats() {
     }
 
     // PAYE table status
-    try {
-        const payeRes = await fetch('/api/hr/paye/active');
-        const payeData = await payeRes.json();
-        __dashCache.paye = payeData;
-        const payeStatusEl = document.getElementById('payeDashboardStatus');
-        if (payeStatusEl) {
-            if (payeData.success && payeData.data) {
-                const t = payeData.data;
-                const bracketCount = t.brackets ? t.brackets.length : 0;
-                payeStatusEl.innerHTML =
-                    '<span class="status-chip ok"><i class="bi bi-check-circle-fill"></i> ' + escapeHtml(t.name || 'Active') + '</span>' +
-                    '<span class="status-chip neutral"><i class="bi bi-list-ol"></i> ' + bracketCount + ' bracket(s)</span>' +
-                    '<span class="status-chip neutral"><i class="bi bi-calendar3"></i> ' + escapeHtml(t.period || '') + '</span>';
-            } else {
-                payeStatusEl.innerHTML = '<span class="status-chip err"><i class="bi bi-exclamation-triangle"></i> No active PAYE table</span>';
-            }
+    const payeStatusEl = document.getElementById('payeDashboardStatus');
+    if (payeStatusEl) {
+        if (paye && paye.success && paye.data) {
+            const t = paye.data;
+            const bracketCount = t.brackets ? t.brackets.length : 0;
+            payeStatusEl.innerHTML =
+                '<span class="status-chip ok"><i class="bi bi-check-circle-fill"></i> ' + escapeHtml(t.name || 'Active') + '</span>' +
+                '<span class="status-chip neutral"><i class="bi bi-list-ol"></i> ' + bracketCount + ' bracket(s)</span>' +
+                '<span class="status-chip neutral"><i class="bi bi-calendar3"></i> ' + escapeHtml(t.period || '') + '</span>';
+        } else if (paye && paye.success) {
+            payeStatusEl.innerHTML = '<span class="status-chip err"><i class="bi bi-exclamation-triangle"></i> No active PAYE table</span>';
+        } else {
+            payeStatusEl.innerHTML = '<span class="status-empty">Error loading</span>';
         }
-    } catch(e) {
-        const payeStatusEl = document.getElementById('payeDashboardStatus');
-        if (payeStatusEl) payeStatusEl.innerHTML = '<span class="status-empty">Error loading</span>';
     }
 
     renderDashboardCharts();
+}
+
+async function loadDashboardStats() {
+    // Preferred: one aggregated request (single DB connection -> much faster).
+    try {
+        const res = await fetch('/api/hr/dashboard');
+        const d = await res.json();
+        if (d && d.success && d.stats) {
+            applyDashboardPayload(d.stats, d.departments, d.assets, d.leaves, d.paye);
+            return;
+        }
+    } catch(e) {}
+
+    // Fallback: individual endpoints (works even if the aggregated endpoint isn't
+    // deployed yet). Fetch each independently so one failure doesn't block others.
+    const [statsRes, deptRes, assetRes, leaveRes] = await Promise.all([
+        fetch('/api/hr/stats').catch(function() { return null; }),
+        fetch('/api/hr/employee-stats').catch(function() { return null; }),
+        fetch('/api/hr/assets').catch(function() { return null; }),
+        fetch('/api/hr/leave').catch(function() { return null; })
+    ]);
+
+    // Parse responses individually with error handling
+    var stats = null, dept = null, assets = null, leaves = null;
+    try { if (statsRes) stats = await statsRes.json(); } catch(e) {}
+    try { if (deptRes) dept = await deptRes.json(); } catch(e) {}
+    try { if (assetRes) assets = await assetRes.json(); } catch(e) {}
+    try { if (leaveRes) leaves = await leaveRes.json(); } catch(e) {}
+
+    var paye = null;
+    try {
+        const payeRes = await fetch('/api/hr/paye/active');
+        paye = await payeRes.json();
+    } catch(e) {}
+
+    applyDashboardPayload(stats, dept, assets, leaves, paye);
 }
 
 
