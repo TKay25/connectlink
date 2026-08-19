@@ -1221,6 +1221,31 @@ def initialize_database_tables():
                 )
             """, commit=True)
 
+            # Product removals audit table.
+            # Records deleted / wiped items so the audit report can show them
+            # even after the product row is soft-deleted or hard-wiped.
+            # Intentionally has NO FK to products and is NEVER cleared by the
+            # 'Remove All Items & History' wipe, so the removal trail survives.
+            execute_query("""
+                CREATE TABLE IF NOT EXISTS product_removals (
+                    id SERIAL PRIMARY KEY,
+                    product_id INTEGER,
+                    product_name VARCHAR(100),
+                    category VARCHAR(50),
+                    action VARCHAR(30) NOT NULL,
+                    quantity INTEGER DEFAULT 0,
+                    user_id INTEGER,
+                    user_name VARCHAR(100),
+                    details TEXT,
+                    removed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """, commit=True)
+
+            execute_query("""
+                CREATE INDEX IF NOT EXISTS idx_product_removals_removed_at
+                ON product_removals (removed_at)
+            """, commit=True)
+
             # Remove legacy icon column
             execute_query("""
                 ALTER TABLE products 
@@ -12462,7 +12487,31 @@ def get_stock_movements():
         ORDER BY t.created_at DESC
     """
     transaction_sales = execute_query(sales_query, (start_date, end_date), fetch_all=True) or []
-    
+
+    # Get product removals / deletions in the period (audit trail)
+    removals_query = """
+        SELECT id, product_id, product_name, category, action, quantity,
+               user_name, details, removed_at
+        FROM product_removals
+        WHERE removed_at >= %s::timestamp AND removed_at <= (%s::timestamp + INTERVAL '1 day')
+        ORDER BY removed_at DESC
+    """
+    removals = execute_query(removals_query, (start_date, end_date), fetch_all=True) or []
+
+    removal_list = []
+    for row in removals:
+        removal_list.append({
+            'id': row[0],
+            'product_id': row[1],
+            'product_name': row[2] or 'Unknown',
+            'category': row[3] or 'N/A',
+            'action': row[4],
+            'quantity': row[5] or 0,
+            'user': row[6] or 'System',
+            'details': row[7] or '',
+            'date': row[8].isoformat() if row[8] else ''
+        })
+
     # Separate reductions by type (from stock_reductions table)
     # IMPORTANT: Only count inventory edits from stock_reductions.
     # Sales come from transaction_items (to avoid double-counting with new
@@ -12608,12 +12657,14 @@ def get_stock_movements():
         'total_additions': sum(m['quantity'] for m in movements if m['type'] == 'addition'),
         'total_reductions': sum(m['quantity'] for m in movements if m['type'] == 'reduction'),
         'total_addition_cost': sum(m['total_cost'] for m in movements if m['type'] == 'addition'),
+        'total_removed': len(removal_list),
     }
     
     return jsonify({
         'success': True,
         'products': products_list,
         'movements': movements,
+        'removals': removal_list,
         'summary': summary
     })
 
@@ -13000,6 +13051,27 @@ def update_product(product_id):
 @app.route('/api/products/<int:product_id>', methods=['DELETE'])
 @login_required
 def delete_product(product_id):
+    # Capture product info BEFORE deactivating so the removal is auditable
+    product = execute_query("""
+        SELECT name, category, stock, COALESCE(buy_price, 0)
+        FROM products WHERE id = %s
+    """, (product_id,), fetch_one=True)
+
+    # Log the removal to the audit trail (survives the soft delete)
+    if product:
+        try:
+            user_name = session.get('user_name') or session.get('username') or 'System'
+            user_id = session.get('user_id', 0)
+            execute_query("""
+                INSERT INTO product_removals
+                    (product_id, product_name, category, action, quantity,
+                     user_id, user_name, details, removed_at)
+                VALUES (%s, %s, %s, 'deleted', %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            """, (product_id, product[0], product[1], product[2], user_id, user_name,
+                  f"Stock at deletion: {product[2]} | Buy price: ${float(product[3]):.2f}"), commit=True)
+        except Exception as log_error:
+            print(f"Warning: Could not log product removal: {str(log_error)}")
+
     # Soft delete - just mark as inactive
     execute_query("""
         UPDATE products 
@@ -13094,6 +13166,32 @@ def remove_all_stock():
         password = data.get('password', '')
         if password != REMOVE_ALL_STOCK_PASSWORD:
             return jsonify({'success': False, 'error': 'Incorrect password'}), 403
+
+        # Log the wipe to the audit trail BEFORE deleting anything.
+        # product_removals is intentionally NOT cleared by this wipe, so the
+        # fact that a wipe happened remains permanently visible.
+        try:
+            counts = execute_query("""
+                SELECT
+                    (SELECT COUNT(*) FROM products),
+                    (SELECT COUNT(*) FROM stock_additions),
+                    (SELECT COUNT(*) FROM stock_reductions),
+                    (SELECT COUNT(*) FROM transactions)
+            """, fetch_one=True)
+            user_name = session.get('user_name') or session.get('username') or 'System'
+            user_id = session.get('user_id', 0)
+            execute_query("""
+                INSERT INTO product_removals
+                    (product_id, product_name, category, action, quantity,
+                     user_id, user_name, details, removed_at)
+                VALUES (NULL, 'ALL ITEMS', 'ALL', 'wipe_all', %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            """, (counts[0] if counts else 0, user_id, user_name,
+                  f"Wiped {counts[0] if counts else 0} products, "
+                  f"{counts[1] if counts else 0} additions, "
+                  f"{counts[2] if counts else 0} reductions, "
+                  f"{counts[3] if counts else 0} transactions"), commit=True)
+        except Exception as log_error:
+            print(f"Warning: Could not log wipe-all: {str(log_error)}")
 
         with get_db() as (cursor, connection):
             # Clear history first (FK dependencies), then all products

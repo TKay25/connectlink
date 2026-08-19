@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-08-15T15:18:20.775Z",
+  "last_sync": "2026-08-19T16:27:54.142Z",
   "module_count": 57,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 28,
+  "orphaned_count": 31,
   "orphaned": [
     {
       "artifact": "artifacts/modules/LOCs.json",
@@ -48,6 +48,10 @@
     {
       "artifact": "artifacts/modules/_clean_leave3.json",
       "source": "_clean_leave3.py"
+    },
+    {
+      "artifact": "artifacts/modules/_diag_today_sales.json",
+      "source": "_diag_today_sales.py"
     },
     {
       "artifact": "artifacts/modules/_diag_user_link.json",
@@ -116,9 +120,29 @@
     {
       "artifact": "artifacts/modules/_preview_server9.json",
       "source": "_preview_server9.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_statsfix.json",
+      "source": "_preview_statsfix.py"
+    },
+    {
+      "artifact": "artifacts/modules/_report_today.json",
+      "source": "_report_today.py"
     }
   ],
   "recent_deletions": [
+    {
+      "rel": "_report_today.py",
+      "ts": "2026-08-15T15:26:44.267Z"
+    },
+    {
+      "rel": "_preview_statsfix.py",
+      "ts": "2026-08-15T15:25:44.324Z"
+    },
+    {
+      "rel": "_diag_today_sales.py",
+      "ts": "2026-08-15T15:25:44.307Z"
+    },
     {
       "rel": "_preview_cashier.py",
       "ts": "2026-08-11T14:51:37.680Z"
@@ -154,18 +178,6 @@
     {
       "rel": "_preview_cashier.py",
       "ts": "2026-08-11T12:37:24.881Z"
-    },
-    {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T12:33:43.124Z"
-    },
-    {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T12:24:16.060Z"
-    },
-    {
-      "rel": "_preview_server10.py",
-      "ts": "2026-08-11T12:05:05.799Z"
     }
   ]
 }

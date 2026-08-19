@@ -5899,6 +5899,17 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                             </div>
                         </div>
                     </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="stat-card" style="border-left:3px solid #6f42c1;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-muted">Removed Items</small>
+                                    <h5 class="mb-0 fw-bold text-warning" id="auditTotalRemoved">0</h5>
+                                </div>
+                                <i class="fas fa-trash-alt fa-2x text-muted opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Itemised Movements Table -->
@@ -5923,6 +5934,26 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                                 </tr>
                             </thead>
                             <tbody id="auditMovementsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Removed / Deleted Items Audit Table -->
+                <div id="auditRemovalsContainer" style="display:none;margin-top:12px;">
+                    <h6 class="fw-bold mb-2"><i class="fas fa-trash-alt me-1"></i>Removed / Deleted Items</h6>
+                    <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+                        <table class="table table-sm table-hover" id="auditRemovalsTable" style="font-size:0.65rem;">
+                            <thead class="table-light" style="position:sticky;top:0;background:var(--dark-blue-deep);z-index:2;">
+                                <tr>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Date</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Product</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Category</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Action</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Details</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">User</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditRemovalsBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -9004,6 +9035,7 @@ function updateInventoryMetrics() {
 // ==================== STOCK AUDIT REPORT FUNCTIONS ====================
 let auditMovementData = [];
 let auditProductData = [];
+let auditRemovalData = [];
 
 function toggleAuditReport() {
     // Show modal to enter date parameters first
@@ -9054,8 +9086,9 @@ function generateAuditReport() {
             
             auditMovementData = data.movements || [];
             auditProductData = data.products || [];
+            auditRemovalData = data.removals || [];
             
-            if (!auditMovementData.length && !auditProductData.length) {
+            if (!auditMovementData.length && !auditProductData.length && !auditRemovalData.length) {
                 showToast('No stock movements found for the selected period', 'warning');
                 return;
             }
@@ -9088,6 +9121,7 @@ async function loadStockAuditReport() {
     document.getElementById('auditLoading').style.display = 'block';
     document.getElementById('auditSummaryCards').style.display = 'none';
     document.getElementById('auditMovementsContainer').style.display = 'none';
+    document.getElementById('auditRemovalsContainer').style.display = 'none';
     document.getElementById('auditProductSummaryContainer').style.display = 'none';
     document.getElementById('auditNoData').style.display = 'none';
     document.getElementById('exportAuditBtn').style.display = 'none';
@@ -9105,6 +9139,7 @@ async function loadStockAuditReport() {
         
         auditMovementData = data.movements || [];
         auditProductData = data.products || [];
+        auditRemovalData = data.removals || [];
         const summary = data.summary || {};
         
         // Show containers
@@ -9116,14 +9151,18 @@ async function loadStockAuditReport() {
         document.getElementById('auditTotalAdditions').textContent = summary.total_additions || 0;
         document.getElementById('auditTotalReductions').textContent = summary.total_reductions || 0;
         document.getElementById('auditAdditionCost').textContent = '$' + (summary.total_addition_cost || 0).toFixed(2);
+        document.getElementById('auditTotalRemoved').textContent = summary.total_removed || 0;
         
         // Render movements table
         renderAuditMovements(auditMovementData);
         
+        // Render removed items table
+        renderAuditRemovals(auditRemovalData);
+        
         // Render product summary table
         renderAuditProductSummary(auditProductData);
         
-        if (!auditMovementData.length) {
+        if (!auditMovementData.length && !auditRemovalData.length) {
             document.getElementById('auditNoData').style.display = 'block';
         }
         
@@ -9159,6 +9198,33 @@ function renderAuditMovements(movements) {
                 <td class="${qtyColor} fw-bold">${isAddition ? '+' : '-'}${m.quantity}</td>
                 <td><small class="text-muted">${escapeHtml(m.details || '')}</small></td>
                 <td><small>${escapeHtml(m.user || 'System')}</small></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderAuditRemovals(removals) {
+    const container = document.getElementById('auditRemovalsContainer');
+    const tbody = document.getElementById('auditRemovalsBody');
+    if (!container || !tbody) return;
+    if (!removals || !removals.length) {
+        container.style.display = 'none';
+        return;
+    }
+    container.style.display = 'block';
+    tbody.innerHTML = removals.map(r => {
+        const isWipe = r.action === 'wipe_all';
+        const badgeClass = isWipe ? 'bg-warning text-dark' : 'bg-danger';
+        const label = isWipe ? 'Wipe All' : 'Deleted';
+        const icon = isWipe ? 'fa-eraser' : 'fa-trash-alt';
+        return `
+            <tr>
+                <td style="white-space:nowrap;">${formatDateShort(r.date)}</td>
+                <td><strong>${escapeHtml(r.product_name || 'Unknown')}</strong></td>
+                <td><span class="badge bg-secondary">${escapeHtml(r.category || 'N/A')}</span></td>
+                <td><span class="badge ${badgeClass}"><i class="fas ${icon} me-1"></i>${label}</span></td>
+                <td><small class="text-muted">${escapeHtml(r.details || '')}</small></td>
+                <td><small>${escapeHtml(r.user || 'System')}</small></td>
             </tr>
         `;
     }).join('');
@@ -9210,7 +9276,7 @@ function filterAuditMovements() {
 }
 
 function exportStockAuditExcel() {
-    if (!auditMovementData.length && !auditProductData.length) {
+    if (!auditMovementData.length && !auditProductData.length && !auditRemovalData.length) {
         showToast('No data to export', 'error');
         return;
     }
@@ -9313,10 +9379,51 @@ function exportStockAuditExcel() {
     // Freeze header row
     wsMovements['!freeze'] = { x: 0, y: 4 };
     
-    // Create workbook — Summary first, Movements second
+    // ===== REMOVALS SHEET =====
+    const removalHeader = ['Date', 'Product', 'Category', 'Action', 'Details', 'User'];
+    const removalRows = auditRemovalData.map(r => [
+        r.date ? new Date(r.date).toLocaleString() : '',
+        r.product_name || '',
+        r.category || '',
+        r.action === 'wipe_all' ? 'Wipe All' : 'Deleted',
+        r.details || '',
+        r.user || ''
+    ]);
+    
+    const wsRemovals_data = [
+        ['Removed / Deleted Items Audit Report'],
+        [`Period: ${startDate} to ${endDate}`],
+        [],
+        removalHeader,
+        ...removalRows
+    ];
+    
+    const wsRemovals = XLSX.utils.aoa_to_sheet(wsRemovals_data);
+    
+    // Set column widths for removals sheet
+    wsRemovals['!cols'] = [
+        { wch: 20 },  // Date
+        { wch: 30 },  // Product
+        { wch: 18 },  // Category
+        { wch: 12 },  // Action
+        { wch: 40 },  // Details
+        { wch: 20 }   // User
+    ];
+    
+    // Merge title and period cells across all columns
+    wsRemovals['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } }
+    ];
+    
+    // Freeze header row
+    wsRemovals['!freeze'] = { x: 0, y: 4 };
+    
+    // Create workbook — Summary, Movements, then Removals
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
     XLSX.utils.book_append_sheet(wb, wsMovements, 'Movements');
+    XLSX.utils.book_append_sheet(wb, wsRemovals, 'Removals');
     
     XLSX.writeFile(wb, `stock_audit_${startDate}_to_${endDate}.xlsx`);
     
