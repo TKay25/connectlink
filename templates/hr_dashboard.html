@@ -5780,9 +5780,15 @@ async function loadCommissionEmployees() {
     } catch(e) { console.error('Commission employees error:', e); }
 }
 
+function isSalesMarketingDept(dept) {
+    if (!dept) return false;
+    const d = String(dept).toLowerCase();
+    return d.indexOf('sales') !== -1 && d.indexOf('marketing') !== -1;
+}
+
 function getSalesMarketingEmployees() {
     return (_commissionEmployees || []).filter(function(e) {
-        return /sales\s*&?\s*marketing/i.test(e.department || '');
+        return isSalesMarketingDept(e.department);
     });
 }
 
