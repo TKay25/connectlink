@@ -1847,6 +1847,29 @@ def initialize_database_tables():
                 );
             """)
 
+            # Sales & Marketing commissions — logged per month-year (not on the employee form).
+            # One record per employee per period; payroll looks these up by period and applies them.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hr_commissions (
+                    id SERIAL PRIMARY KEY,
+                    employee_id INT REFERENCES hr_employees(id) ON DELETE CASCADE,
+                    period VARCHAR(7) NOT NULL,
+                    amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+                    notes TEXT,
+                    created_by VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_hr_commissions_period
+                ON hr_commissions (period)
+            """)
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS hr_commissions_emp_period_unique
+                ON hr_commissions (employee_id, period)
+            """)
+
             connection.commit()
             print("✅ HR module tables initialized!")
 
@@ -16631,6 +16654,17 @@ def hr_payroll_api():
                 cursor.execute("SELECT COALESCE(MAX(run_version), 0) FROM hr_payroll WHERE period = %s", (period,))
                 run_version = (cursor.fetchone()[0] or 0) + 1
 
+                # Load per-period commissions for this payroll period (hr_commissions).
+                # A logged commission for this month-year overrides the fixed value on the
+                # employee record; if none is logged, fall back to the employee's allowances.
+                commission_map = {}
+                try:
+                    cursor.execute("SELECT employee_id, amount FROM hr_commissions WHERE period = %s", (period,))
+                    for c_row in cursor.fetchall():
+                        commission_map[c_row[0]] = float(c_row[1] or 0)
+                except Exception as ce:
+                    print(f"Note: could not load commissions for {period}: {ce}")
+
                 cursor.execute("""
                     SELECT id, first_name, last_name, department, classification, basic_salary, allowances, medical_aid_package, usd_percent, zwg_percent, exchange_rate
                     FROM hr_employees WHERE status = 'Active' AND (omit_from_payroll IS NULL OR omit_from_payroll = FALSE)
@@ -16642,7 +16676,7 @@ def hr_payroll_api():
                     department = (emp[3] or '').strip().lower()
                     classification = (emp[4] or '').strip().lower()
                     basic = float(emp[5] or 0)
-                    commission = float(emp[6] or 0)
+                    commission = commission_map.get(emp_id, float(emp[6] or 0))
                     medical_aid_package = (emp[7] or '').strip()
                     # Designer's cut (10%) only applies to Sales and Marketing department
                     designers_cut = round(commission * 0.10, 2) if (commission > 0 and department == 'sales and marketing') else 0
@@ -18804,6 +18838,283 @@ tr:nth-child(even) td {{ background: #F8FAFC; }}
 
     except Exception as e:
         print(f"Export assets error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== HR COMMISSIONS ====================
+
+@app.route('/api/hr/commissions/periods', methods=['GET'])
+def hr_commission_periods():
+    """HR: List distinct commission periods (YYYY-MM) for the picker."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT DISTINCT period FROM hr_commissions ORDER BY period DESC")
+            periods = [r[0] for r in cursor.fetchall()]
+            return jsonify({'success': True, 'periods': periods})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/commissions', methods=['GET', 'POST'])
+def hr_commissions_api():
+    """HR: List commissions for a period (GET) or save/upsert one (POST)."""
+    if request.method == 'GET':
+        try:
+            period = request.args.get('period', '').strip()
+            with get_db() as (cursor, connection):
+                if period:
+                    cursor.execute("""
+                        SELECT c.id, c.employee_id, e.first_name, e.last_name, e.department,
+                               c.period, c.amount, c.notes, c.created_by, c.created_at
+                        FROM hr_commissions c
+                        LEFT JOIN hr_employees e ON c.employee_id = e.id
+                        WHERE c.period = %s
+                        ORDER BY e.last_name, e.first_name
+                    """, (period,))
+                else:
+                    cursor.execute("""
+                        SELECT c.id, c.employee_id, e.first_name, e.last_name, e.department,
+                               c.period, c.amount, c.notes, c.created_by, c.created_at
+                        FROM hr_commissions c
+                        LEFT JOIN hr_employees e ON c.employee_id = e.id
+                        ORDER BY c.period DESC, e.last_name, e.first_name
+                        LIMIT 500
+                    """)
+                rows = cursor.fetchall()
+                records = []
+                total_amount = 0.0
+                sales_marketing_count = 0
+                for r in rows:
+                    records.append({
+                        'id': r[0], 'employee_id': r[1],
+                        'employee_name': ((r[2] or '') + ' ' + (r[3] or '')).strip() or 'Unknown',
+                        'department': r[4] or '',
+                        'period': r[5],
+                        'amount': float(r[6] or 0),
+                        'notes': r[7] or '',
+                        'created_by': r[8] or 'System',
+                        'created_at': str(r[9]) if r[9] else ''
+                    })
+                    total_amount += float(r[6] or 0)
+                    if (r[4] or '').strip().lower() == 'sales and marketing':
+                        sales_marketing_count += 1
+
+                cursor.execute("SELECT DISTINCT period FROM hr_commissions ORDER BY period DESC")
+                periods = [p[0] for p in cursor.fetchall()]
+
+                return jsonify({
+                    'success': True,
+                    'data': records,
+                    'summary': {
+                        'total_amount': total_amount,
+                        'count': len(records),
+                        'sales_marketing_count': sales_marketing_count
+                    },
+                    'periods': periods
+                })
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    elif request.method == 'POST':
+        if not session.get('can_manage_hr', False):
+            return jsonify({'success': False, 'error': 'Access denied: cannot manage commissions.'}), 403
+        try:
+            data = request.get_json() or {}
+            employee_id = int(data.get('employee_id') or 0)
+            period = (data.get('period') or '').strip()
+            amount = float(data.get('amount') or 0)
+            notes = (data.get('notes') or '').strip()
+            user_name = session.get('user_name') or session.get('username') or 'System'
+
+            if not employee_id:
+                return jsonify({'success': False, 'error': 'Select an employee.'}), 400
+            if not period or len(period) != 7:
+                return jsonify({'success': False, 'error': 'A valid month-year (YYYY-MM) is required.'}), 400
+            if amount < 0:
+                return jsonify({'success': False, 'error': 'Commission cannot be negative.'}), 400
+
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO hr_commissions (employee_id, period, amount, notes, created_by)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (employee_id, period)
+                    DO UPDATE SET amount = EXCLUDED.amount, notes = EXCLUDED.notes, updated_at = CURRENT_TIMESTAMP
+                    RETURNING id
+                """, (employee_id, period, amount, notes, user_name))
+                cid = cursor.fetchone()[0]
+                connection.commit()
+                return jsonify({'success': True, 'id': cid, 'message': 'Commission saved'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/commissions/<int:commission_id>', methods=['DELETE'])
+def hr_commission_delete(commission_id):
+    """HR: Delete a commission record."""
+    if not session.get('can_manage_hr', False):
+        return jsonify({'success': False, 'error': 'Access denied: cannot manage commissions.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM hr_commissions WHERE id = %s", (commission_id,))
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Commission deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/hr/export-commissions', methods=['POST'])
+def hr_export_commissions():
+    """Export commissions to Excel (.xlsx) for a specific period or all months."""
+    try:
+        data = request.get_json() or {}
+        period = (data.get('period') or '').strip()
+        user_name = session.get('user_name', 'Employee')
+
+        with get_db() as (cursor, connection):
+            if period:
+                cursor.execute("""
+                    SELECT e.first_name, e.last_name, e.department, c.period, c.amount, c.notes, c.created_by, c.created_at
+                    FROM hr_commissions c
+                    LEFT JOIN hr_employees e ON c.employee_id = e.id
+                    WHERE c.period = %s
+                    ORDER BY e.last_name, e.first_name
+                """, (period,))
+            else:
+                cursor.execute("""
+                    SELECT e.first_name, e.last_name, e.department, c.period, c.amount, c.notes, c.created_by, c.created_at
+                    FROM hr_commissions c
+                    LEFT JOIN hr_employees e ON c.employee_id = e.id
+                    ORDER BY c.period DESC, e.last_name, e.first_name
+                """)
+            rows = cursor.fetchall()
+
+        if not rows:
+            return jsonify({'success': False, 'error': 'No commissions to export for the selected period.'}), 400
+
+        from openpyxl import Workbook
+        from openpyxl.styles import Font as XlFont, PatternFill as XlFill, Alignment as XlAlign, Border as XlBorder, Side as XlSide
+        from openpyxl.utils import get_column_letter
+
+        header_fill = XlFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+        header_font = XlFont(bold=True, color='FFFFFF', size=10)
+        title_font = XlFont(bold=True, size=14, color='1E2A56')
+        subtitle_font = XlFont(size=9, color='64748B')
+        thin_border = XlBorder(
+            left=XlSide(style='thin', color='CBD5E1'),
+            right=XlSide(style='thin', color='CBD5E1'),
+            top=XlSide(style='thin', color='CBD5E1'),
+            bottom=XlSide(style='thin', color='CBD5E1')
+        )
+        data_font = XlFont(size=10)
+
+        scope_label = period if period else 'All months'
+        total_amount = sum(float(r[4] or 0) for r in rows)
+
+        wb = Workbook()
+
+        # ===== Detail sheet =====
+        ws = wb.active
+        ws.title = "Commission Log"
+        ws.merge_cells('A1:H1')
+        ws['A1'].value = f"ConnectLink — Commission Log ({scope_label})"
+        ws['A1'].font = title_font
+        ws['A1'].alignment = XlAlign(horizontal='left')
+
+        ws.merge_cells('A2:H2')
+        ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {len(rows)} | Total: ${total_amount:,.2f} | Prepared by: {user_name}"
+        ws['A2'].font = subtitle_font
+
+        headers = ['First Name', 'Last Name', 'Department', 'Period', 'Amount (USD)', 'Notes', 'Logged By', 'Logged At']
+        for col_idx, h in enumerate(headers, 1):
+            cell = ws.cell(row=4, column=col_idx, value=h)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = XlAlign(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = thin_border
+
+        for row_idx, r in enumerate(rows, 5):
+            values = [
+                r[0] or '', r[1] or '', r[2] or '', r[3], float(r[4] or 0),
+                r[5] or '', r[6] or '', str(r[7])[:19] if r[7] else ''
+            ]
+            for col_idx, val in enumerate(values, 1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                cell.font = data_font
+                cell.border = thin_border
+                if isinstance(val, float):
+                    cell.number_format = '#,##0.00'
+                    cell.alignment = XlAlign(horizontal='right')
+
+        widths = [16, 16, 20, 12, 14, 32, 14, 18]
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+        # ===== Summary sheet (totals per period) =====
+        ws2 = wb.create_sheet(title="Summary")
+        ws2.merge_cells('A1:C1')
+        ws2['A1'].value = "ConnectLink — Commission Summary"
+        ws2['A1'].font = title_font
+        ws2['A1'].alignment = XlAlign(horizontal='left')
+
+        ws2.merge_cells('A2:C2')
+        ws2['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')}"
+        ws2['A2'].font = subtitle_font
+
+        sum_headers = ['Period', 'Employees', 'Total Amount (USD)']
+        for col_idx, h in enumerate(sum_headers, 1):
+            cell = ws2.cell(row=4, column=col_idx, value=h)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = XlAlign(horizontal='center', vertical='center')
+            cell.border = thin_border
+
+        period_totals = {}
+        for r in rows:
+            p = r[3]
+            entry = period_totals.setdefault(p, {'count': 0, 'amount': 0.0})
+            entry['count'] += 1
+            entry['amount'] += float(r[4] or 0)
+
+        row_idx = 5
+        grand_count = 0
+        grand_amount = 0.0
+        for p in sorted(period_totals.keys(), reverse=True):
+            e = period_totals[p]
+            vals = [p, e['count'], e['amount']]
+            for col_idx, val in enumerate(vals, 1):
+                cell = ws2.cell(row=row_idx, column=col_idx, value=val)
+                cell.font = data_font
+                cell.border = thin_border
+                if isinstance(val, float):
+                    cell.number_format = '#,##0.00'
+                    cell.alignment = XlAlign(horizontal='right')
+            row_idx += 1
+            grand_count += e['count']
+            grand_amount += e['amount']
+
+        for col_idx, val in enumerate(['TOTAL', grand_count, grand_amount], 1):
+            cell = ws2.cell(row=row_idx, column=col_idx, value=val)
+            cell.font = XlFont(bold=True, size=10)
+            cell.border = thin_border
+            if isinstance(val, float):
+                cell.number_format = '#,##0.00'
+                cell.alignment = XlAlign(horizontal='right')
+
+        for col_idx, w in enumerate([12, 12, 18], 1):
+            ws2.column_dimensions[get_column_letter(col_idx)].width = w
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        fname = f"commissions_{period if period else 'all_months'}.xlsx"
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=fname,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        print(f"Export commissions error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

@@ -54,9 +54,15 @@
             --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05);
             --shadow-glow: 0 0 20px rgba(193,43,62,0.15);
             --nav-height: 44px;
-            --font-size-base: 0.7rem;
+            --font-size-base: 0.78rem;
+            --font-size-sm: 0.68rem;
+            --font-size-xs: 0.6rem;
             --transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
             --transition-slow: all 0.35s cubic-bezier(0.4,0,0.2,1);
+            /* Chart / accent palette */
+            --chart-blue: #3B82F6; --chart-indigo: #6366F1; --chart-purple: #8B5CF6;
+            --chart-green: #10B981; --chart-amber: #F59E0B; --chart-red: #EF4444;
+            --chart-cyan: #06B6D4; --chart-pink: #EC4899; --chart-slate: #64748B;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -829,9 +835,23 @@
         body.dark-theme .dash-col-header span { color: #6b7280 !important; }
         body.dark-theme .quick-action-card { background: #131722; border-color: #1E2538; }
         body.dark-theme .quick-action-card:hover { border-color: rgba(193,43,62,0.2); }
-        body.dark-theme #deptBreakdown span,
-        body.dark-theme #assetSummary span,
-        body.dark-theme .dash-col .hr-stat-card span { background: #1E2538 !important; color: #94A3B8 !important; border-color: #2D3550 !important; }
+        body.dark-theme .page-header { background: rgba(19,23,34,0.6); border-color: #1E2538; }
+        body.dark-theme .date-chip { background: #131722; border-color: #1E2538; color: #94A3B8; }
+        body.dark-theme .kpi-card { background: #131722; border-color: #1E2538; }
+        body.dark-theme .kpi-card:hover { border-color: rgba(99,102,241,0.4); }
+        body.dark-theme .kpi-value { color: #F1F5F9; }
+        body.dark-theme .widget-card { background: #131722; border-color: #1E2538; }
+        body.dark-theme .widget-head { background: linear-gradient(135deg, rgba(11,14,23,0.85), rgba(19,23,34,0.45)); border-color: #1E2538; }
+        body.dark-theme .chip { background: #1E2538; border-color: #2D3550; color: #94A3B8; }
+        body.dark-theme .chip b { color: #e5e7eb; }
+        body.dark-theme .stat-mini { background: #0B0E17; border-color: #1E2538; }
+        body.dark-theme .stat-mini-value { color: #F1F5F9; }
+        body.dark-theme .status-chip.neutral { background: #1E2538; color: #94A3B8; }
+        body.dark-theme .status-chip.info { background: #1e3a5f; color: #93c5fd; }
+        body.dark-theme .budget-row b { color: #F1F5F9; }
+        body.dark-theme .link-row { background: #131722; border-color: #1E2538; color: #e5e7eb; }
+        body.dark-theme .link-row:hover { border-color: rgba(193,43,62,0.5); }
+        body.dark-theme .legend-row b { color: #F1F5F9; }
 
         /* Dashboard grid: 4 columns side by side */
         .dash-grid {
@@ -950,6 +970,9 @@
         <button class="nav-btn" data-module="paye" onclick="showModule('paye')" id="sidebar-paye">
             <i class="bi bi-calculator"></i> <span>PAYE Tax Tables</span>
         </button>
+        <button class="nav-btn" data-module="commissions" onclick="showModule('commissions')" id="sidebar-commissions">
+            <i class="bi bi-cash-coin"></i> <span>Commissions</span>
+        </button>
         <button class="nav-btn" data-module="my-payslips" onclick="showModule('my-payslips')" id="sidebar-my-payslips">
             <i class="bi bi-download"></i> <span>My Payslips</span>
         </button>
@@ -976,10 +999,11 @@
                     <h4><i class="bi bi-layout-three-columns"></i> HR Dashboard</h4>
                     <div class="breadcrumb"><i class="bi bi-house"></i> Home / HR / Dashboard</div>
                 </div>
-                <div>
-                    <span style="font-size:0.6rem;color:var(--text-muted);">
-                        <i class="bi bi-calendar3"></i> <span id="currentDate"></span>
-                    </span>
+                <div class="page-header-right">
+                    <span class="date-chip"><i class="bi bi-calendar3"></i> <span id="currentDate"></span></span>
+                    <button class="btn btn-primary btn-sm" onclick="loadDashboardStats()" title="Refresh dashboard data">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
                 </div>
             </div>
 
@@ -1027,31 +1051,114 @@
                 </div>
             </div>
 
-            <!-- ===== DASHBOARD GRID (Redesigned) ===== -->
-            <div class="dash-grid">
-                <div class="dash-kpi">
-                    <div class="admin-only"><div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#e8f0fe,#d4e4fc);display:flex;align-items:center;justify-content:center;color:#2563eb;flex-shrink:0;"><i class="bi bi-people-fill"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">Total Employees</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statTotalEmployees">0</div></div></div></div></div>
-                    <div class="admin-only"><div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fff3e0,#ffe4b3);display:flex;align-items:center;justify-content:center;color:#d97706;flex-shrink:0;"><i class="bi bi-calendar-check"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">On Leave Today</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statOnLeave">0</div></div></div></div></div>
-                    <div class="admin-only"><div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f5f0ff,#e4d0fc);display:flex;align-items:center;justify-content:center;color:#7c3aed;flex-shrink:0;"><i class="bi bi-wallet2"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">Payroll (Month)</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statPayroll">$0</div></div></div></div></div>
-                    <div class="hr-stat-card"><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#fce4ec,#f8d0da);display:flex;align-items:center;justify-content:center;color:#dc2626;flex-shrink:0;"><i class="bi bi-exclamation-triangle"></i></div><div><div style="font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;">Pending Leave Requests</div><div style="font-size:1.1rem;font-weight:800;color:var(--text-primary);line-height:1.2;" id="statPendingRequests">0</div></div></div></div>
-                </div>
-                <div class="dash-cols">
-                    <div class="admin-only"><div class="dash-col dash-section-hr"><div class="dash-col-header"><i class="bi bi-people-fill" style="color:#2563eb;"></i> Human Resources</div>
-                        <div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Departments</div><div id="deptBreakdown" style="font-size:0.65rem;color:var(--text-secondary);"><span style="color:#9ca3af;">Loading...</span></div></div>
-                        <div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Employee Status</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><span style="font-size:0.65rem;color:#16a34a;font-weight:500;"><span style="font-weight:700;" id="statActiveEmployees">0</span> Active</span><span style="font-size:0.65rem;color:#dc2626;font-weight:500;"><span style="font-weight:700;" id="statInactiveEmployees">0</span> Inactive</span><span style="font-size:0.65rem;color:#d97706;font-weight:500;"><span style="font-weight:700;" id="statOnLeaveEmployees">0</span> On Leave</span></div></div>
-                        <div class="hr-stat-card" onclick="showModule('employees')" style="cursor:pointer;"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;"><i class="bi bi-person-plus" style="color:#2563eb;font-size:0.8rem;"></i><span style="font-size:0.7rem;font-weight:600;color:#2563eb;">Manage Employees →</span></div></div>
-                    </div></div>
-                    <div class="dash-col dash-section-leave"><div class="dash-col-header"><i class="bi bi-calendar-check" style="color:#d97706;"></i> Leave &amp; Activity</div>
-                        <div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">This Month</div><div style="display:flex;gap:12px;flex-wrap:wrap;"><span style="font-size:0.65rem;color:var(--text-secondary);font-weight:500;"><span style="font-weight:700;" id="statApprovedLeaves">0</span> Approved</span><span style="font-size:0.65rem;color:var(--text-secondary);font-weight:500;"><span style="font-weight:700;" id="statTotalDays">0</span> Days taken</span></div></div>
-                        <div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Leave Types</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><span style="font-size:0.65rem;color:#2563eb;font-weight:500;"><span style="font-weight:700;" id="statAnnualLeave">0</span> Annual</span><span style="font-size:0.65rem;color:#7c3aed;font-weight:500;"><span style="font-weight:700;" id="statSickLeave">0</span> Sick</span><span style="font-size:0.65rem;color:#0891b2;font-weight:500;"><span style="font-weight:700;" id="statOtherLeave">0</span> Other</span></div></div>
-                        <div class="hr-stat-card" onclick="showModule('leave')" style="cursor:pointer;"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;"><i class="bi bi-send-plus" style="color:#d97706;font-size:0.8rem;"></i><span style="font-size:0.7rem;font-weight:600;color:#d97706;">New Leave Request →</span></div></div>
+            <!-- ===== KPI ROW ===== -->
+            <div class="kpi-grid">
+                <div class="kpi-card admin-only">
+                    <div class="kpi-icon blue"><i class="bi bi-people-fill"></i></div>
+                    <div class="kpi-body">
+                        <div class="kpi-label">Total Employees</div>
+                        <div class="kpi-value" id="statTotalEmployees">0</div>
+                        <div class="kpi-sub"><span class="kpi-pill up"><i class="bi bi-arrow-up-right"></i> Active <b id="statActivePct">0</b>%</span></div>
                     </div>
-                    <div class="dash-col dash-section-finance"><div class="dash-col-header"><i class="bi bi-briefcase-fill" style="color:#7c3aed;"></i> Finance &amp; Assets</div>
-                        <div class="admin-only"><div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">PAYE Tax Table</div><div id="payeDashboardStatus" style="font-size:0.65rem;color:var(--text-secondary);"><span style="color:#9ca3af;">Loading...</span></div></div></div>
-                        <div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Asset Summary</div><div id="assetSummary" style="font-size:0.65rem;color:var(--text-secondary);"><span style="color:#9ca3af;">Loading...</span></div></div>
-                        <div class="admin-only"><div class="hr-stat-card"><div style="font-size:0.55rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Department Budget</div><div style="display:flex;gap:10px;flex-wrap:wrap;"><span style="font-size:0.65rem;color:var(--text-secondary);font-weight:500;"><span style="font-weight:700;" id="statDeptBudget">$0</span> Allocated</span><span style="font-size:0.65rem;color:#16a34a;font-weight:500;"><span style="font-weight:700;" id="statDeptSpent">$0</span> Spent</span></div></div></div>
-                        <div class="admin-only"><div class="hr-stat-card" onclick="showModule('payroll')" style="cursor:pointer;"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;"><i class="bi bi-wallet2" style="color:#7c3aed;font-size:0.8rem;"></i><span style="font-size:0.7rem;font-weight:600;color:#7c3aed;">Open Payroll →</span></div></div></div>
-                        <div class="hr-stat-card" onclick="showModule('assets')" style="cursor:pointer;"><div style="display:flex;align-items:center;gap:8px;padding:2px 0;"><i class="bi bi-boxes" style="color:#0891b2;font-size:0.8rem;"></i><span style="font-size:0.7rem;font-weight:600;color:#0891b2;">Open Asset Register →</span></div></div>
+                </div>
+                <div class="kpi-card admin-only">
+                    <div class="kpi-icon amber"><i class="bi bi-calendar-check"></i></div>
+                    <div class="kpi-body">
+                        <div class="kpi-label">On Leave Today</div>
+                        <div class="kpi-value" id="statOnLeave">0</div>
+                        <div class="kpi-sub">employees off today</div>
+                    </div>
+                </div>
+                <div class="kpi-card admin-only">
+                    <div class="kpi-icon purple"><i class="bi bi-wallet2"></i></div>
+                    <div class="kpi-body">
+                        <div class="kpi-label">Payroll (Month)</div>
+                        <div class="kpi-value" id="statPayroll">$0</div>
+                        <div class="kpi-sub">monthly payroll total</div>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+                    <div class="kpi-body">
+                        <div class="kpi-label">Pending Leave Requests</div>
+                        <div class="kpi-value" id="statPendingRequests">0</div>
+                        <div class="kpi-sub"><span class="kpi-pill warn"><i class="bi bi-hourglass-split"></i> awaiting approval</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== DASHBOARD LAYOUT ===== -->
+            <div class="dash-layout">
+                <div class="dash-main">
+                    <!-- Headcount chart -->
+                    <div class="widget-card">
+                        <div class="widget-head">
+                            <div class="widget-title"><i class="bi bi-diagram-3-fill"></i> Headcount by Department</div>
+                            <span class="widget-badge" id="statDeptCount">—</span>
+                        </div>
+                        <div class="widget-body">
+                            <div class="chart-box"><canvas id="deptChart"></canvas></div>
+                            <div id="deptBreakdown" class="chip-group"><span class="status-empty">Loading...</span></div>
+                        </div>
+                    </div>
+                    <!-- Employee status + leave -->
+                    <div class="dash-duo">
+                        <div class="widget-card">
+                            <div class="widget-head"><div class="widget-title"><i class="bi bi-person-check-fill"></i> Employee Status</div></div>
+                            <div class="widget-body widget-center">
+                                <div class="chart-box small"><canvas id="statusChart"></canvas></div>
+                                <div class="legend">
+                                    <div class="legend-row"><span class="legend-dot green"></span> Active <b id="statActiveEmployees">0</b></div>
+                                    <div class="legend-row"><span class="legend-dot red"></span> Inactive <b id="statInactiveEmployees">0</b></div>
+                                    <div class="legend-row"><span class="legend-dot amber"></span> On Leave <b id="statOnLeaveEmployees">0</b></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="widget-card">
+                            <div class="widget-head"><div class="widget-title"><i class="bi bi-calendar-check-fill"></i> Leave This Month</div></div>
+                            <div class="widget-body widget-center">
+                                <div class="chart-box small"><canvas id="leaveChart"></canvas></div>
+                                <div class="stat-mini-row">
+                                    <div class="stat-mini"><span class="stat-mini-label">Approved</span><span class="stat-mini-value" id="statApprovedLeaves">0</span></div>
+                                    <div class="stat-mini"><span class="stat-mini-label">Days Taken</span><span class="stat-mini-value" id="statTotalDays">0</span></div>
+                                </div>
+                                <div class="chip-group">
+                                    <span class="chip blue"><b id="statAnnualLeave">0</b> Annual</span>
+                                    <span class="chip purple"><b id="statSickLeave">0</b> Sick</span>
+                                    <span class="chip cyan"><b id="statOtherLeave">0</b> Other</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dash-side">
+                    <!-- PAYE -->
+                    <div class="widget-card admin-only">
+                        <div class="widget-head"><div class="widget-title"><i class="bi bi-percent"></i> PAYE Tax Table</div></div>
+                        <div class="widget-body"><div id="payeDashboardStatus" class="status-block"><span class="status-empty">Loading...</span></div></div>
+                    </div>
+                    <!-- Assets -->
+                    <div class="widget-card">
+                        <div class="widget-head"><div class="widget-title"><i class="bi bi-box-seam-fill"></i> Company Assets</div></div>
+                        <div class="widget-body"><div id="assetSummary" class="status-block"><span class="status-empty">Loading...</span></div></div>
+                    </div>
+                    <!-- Monthly overview -->
+                    <div class="widget-card admin-only">
+                        <div class="widget-head"><div class="widget-title"><i class="bi bi-graph-up-arrow"></i> Monthly Overview</div></div>
+                        <div class="widget-body">
+                            <div class="budget-row"><span>Payroll total</span><b id="overviewPayroll">$0</b></div>
+                            <div class="budget-row"><span>On leave today</span><b id="overviewOnLeave">0</b></div>
+                            <div class="budget-row"><span>Pending requests</span><b id="overviewPending" class="red">0</b></div>
+                            <div class="budget-row"><span>Active workforce</span><b id="overviewActivePct" class="green">0%</b></div>
+                        </div>
+                    </div>
+                    <!-- Quick links -->
+                    <div class="link-list">
+                        <button class="link-row" onclick="showModule('employees')"><i class="bi bi-person-plus-fill"></i><span>Manage Employees</span><i class="bi bi-chevron-right"></i></button>
+                        <button class="link-row" onclick="showModule('leave')"><i class="bi bi-send-plus-fill"></i><span>New Leave Request</span><i class="bi bi-chevron-right"></i></button>
+                        <button class="link-row admin-only" onclick="showModule('payroll')"><i class="bi bi-wallet2"></i><span>Open Payroll</span><i class="bi bi-chevron-right"></i></button>
+                        <button class="link-row" onclick="showModule('assets')"><i class="bi bi-boxes"></i><span>Open Asset Register</span><i class="bi bi-chevron-right"></i></button>
                     </div>
                 </div>
             </div>
@@ -1780,6 +1887,89 @@
             </div>
         </div>
 
+        <!-- ===== MODULE: COMMISSIONS ===== -->
+        <div id="module-commissions" class="hr-module">
+
+            <div class="page-header">
+                <h4><i class="bi bi-cash-coin"></i> Sales &amp; Marketing Commissions</h4>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <label class="form-label mb-0" style="font-size:0.6rem;">Period</label>
+                    <input type="month" class="form-control form-control-sm" id="commissionPeriod" style="width:170px;font-size:0.65rem;" onchange="loadCommissions()">
+                    <button class="btn btn-primary btn-sm admin-only" onclick="openCommissionModal()">
+                        <i class="bi bi-plus-circle"></i> Log Commission
+                    </button>
+                    <div class="d-flex gap-2 admin-only">
+                        <button class="btn btn-outline-success btn-sm" onclick="exportCommissionsExcel('period')" title="Export the currently selected month">
+                            <i class="bi bi-file-earmark-excel"></i> Export Month
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="exportCommissionsExcel('all')" title="Export commissions for all months">
+                            <i class="bi bi-file-earmark-excel"></i> Export All
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
+                <div class="hr-stat-card">
+                    <div class="stat-icon green"><i class="bi bi-cash-stack"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Total Commission</div>
+                        <div class="stat-value" id="commTotalAmount">$0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon blue"><i class="bi bi-person-lines-fill"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Commissioned Employees</div>
+                        <div class="stat-value" id="commCount">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon purple"><i class="bi bi-megaphone-fill"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Sales &amp; Marketing</div>
+                        <div class="stat-value" id="commSmCount">0</div>
+                    </div>
+                </div>
+                <div class="hr-stat-card">
+                    <div class="stat-icon amber"><i class="bi bi-calendar-month"></i></div>
+                    <div class="stat-body">
+                        <div class="stat-label">Period</div>
+                        <div class="stat-value" id="commPeriodLabel">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hr-card">
+                <div class="card-header-custom">
+                    <h6><i class="bi bi-list"></i> Commission Log</h6>
+                    <div>
+                        <span style="font-size:0.55rem;color:var(--text-muted);">
+                            <i class="bi bi-info-circle"></i> Applied automatically when payroll is run for the selected month.
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body-custom" style="padding:0;">
+                    <div class="table-scroll">
+                        <table class="table-hr" id="commissionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th><th>Department</th><th>Period</th>
+                                    <th>Amount</th><th>Notes</th><th>Logged By</th><th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="commissionsTableBody">
+                                <tr><td colspan="7" class="text-center text-muted py-4">
+                                    <i class="bi bi-cash-coin" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>
+                                    No commissions logged for this period. Click <strong>"Log Commission"</strong> to add one.
+                                </td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== MODULE: DOCUMENTS ===== -->
         <div id="module-documents" class="hr-module">
 
@@ -2220,10 +2410,6 @@
                         <input type="number" class="form-control" id="empSalary" step="0.01" placeholder="0.00">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Commission (USD)</label>
-                        <input type="number" class="form-control" id="empAllowances" step="0.01" placeholder="0.00">
-                    </div>
-                    <div class="col-md-3">
                         <label class="form-label">Currency</label>
                         <select class="form-select" id="empCurrency">
                             <option>USD</option>
@@ -2466,6 +2652,46 @@
     </div>
 </div>
 
+<!-- Log / Edit Commission Modal -->
+<div id="commissionModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-cash-coin"></i> <span id="commissionModalTitle">Log Commission</span></h3>
+            <button class="modal-close" onclick="closeModal('commissionModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom">
+            <form id="commissionForm" onsubmit="return false;">
+                <div class="mb-3" style="position:relative;">
+                    <label class="form-label">Employee <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="commissionEmpInput" placeholder="Type to search employee..." autocomplete="off" style="font-size:0.65rem;padding:4px 8px;">
+                    <input type="hidden" id="commissionEmpId" value="">
+                    <div id="commissionEmpDropdown" style="position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;max-height:160px;overflow-y:auto;display:none;z-index:999;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Period (Month-Year) <span class="text-danger">*</span></label>
+                        <input type="month" class="form-control" id="commissionPeriodField">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Amount (USD) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="commissionAmount" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" id="commissionNotes" rows="2" placeholder="e.g. Q3 target bonus, new client incentive..."></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer-custom">
+            <button class="btn btn-danger" onclick="closeModal('commissionModal')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveCommission()">
+                <i class="bi bi-check-circle"></i> Save Commission
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Upload Document Modal -->
 <div id="uploadDocModal" class="modal-overlay">
     <div class="modal-container">
@@ -2540,6 +2766,7 @@
 <!-- ===== SCRIPTS ===== -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <script>
 // ===== THEME TOGGLE =====
@@ -2549,6 +2776,11 @@ window.toggleTheme = function() {
     localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
     const icon = document.getElementById('themeIcon');
     if (icon) icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon';
+    // Re-render dashboard charts with theme-aware colors
+    if (typeof renderDashboardCharts === 'function') {
+        const dash = document.getElementById('module-dashboard');
+        if (dash && dash.classList.contains('active')) renderDashboardCharts();
+    }
 };
 
 // ===== PAGE DATA =====
@@ -2599,7 +2831,7 @@ function toggleAdminView() {
     isAdminView = !isAdminView;
     const adminBtn = document.getElementById('roleAdminBtn');
     const userBtn = document.getElementById('roleUserBtn');
-    const adminModules = ['employees', 'payroll', 'paye', 'reports'];
+    const adminModules = ['employees', 'payroll', 'paye', 'commissions', 'reports'];
     const profileModules = ['my-activity', 'my-payslips'];
     const profileSection = document.getElementById('sidebarProfileSection');
 
@@ -2662,7 +2894,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (HR_ROLE !== 'Administrator') {
         // Ordinary users: hide admin-only sidebar items
         document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-        ['employees', 'payroll', 'paye', 'reports'].forEach(m => {
+        ['employees', 'payroll', 'paye', 'commissions', 'reports'].forEach(m => {
             const el = document.getElementById('sidebar-' + m);
             if (el) el.style.display = 'none';
         });
@@ -2683,6 +2915,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAssets();
     loadApprovers();
     loadAssetAssignees();
+    loadCommissionEmployees();
+    loadCommissions();
     loadPayeTables();
     loadDocumentCounts();
     // Init leave view — basic users see only their own leaves
@@ -2722,6 +2956,8 @@ function showModule(moduleId) {
         loadPayeTables();
     } else if (moduleId === 'payroll') {
         loadPayroll();
+    } else if (moduleId === 'commissions') {
+        loadCommissions();
     } else if (moduleId === 'documents') {
         loadDocumentCounts();
     } else if (moduleId === 'my-payslips') {
@@ -2790,6 +3026,88 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ===== LOAD DASHBOARD STATS =====
+// ===== DASHBOARD CHARTS & HELPERS =====
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
+let __dashCache = { stats: null, dept: null, assets: null, leaves: null, paye: null };
+let __hrCharts = {};
+
+function chartFontColor() {
+    return document.body.classList.contains('dark-theme') ? '#94A3B8' : '#64748B';
+}
+function chartGridColor() {
+    return document.body.classList.contains('dark-theme') ? 'rgba(148,163,184,0.14)' : 'rgba(100,116,139,0.14)';
+}
+function chartCardBg() {
+    return document.body.classList.contains('dark-theme') ? '#131722' : '#FFFFFF';
+}
+function destroyCharts() {
+    Object.keys(__hrCharts).forEach(function(k) { if (__hrCharts[k]) { try { __hrCharts[k].destroy(); } catch(e) {} } });
+    __hrCharts = {};
+}
+function makeChart(id, config) {
+    if (typeof Chart === 'undefined') return null;
+    const el = document.getElementById(id);
+    if (!el) return null;
+    if (__hrCharts[id]) { try { __hrCharts[id].destroy(); } catch(e) {} }
+    __hrCharts[id] = new Chart(el, config);
+    return __hrCharts[id];
+}
+
+function renderDashboardCharts() {
+    if (typeof Chart === 'undefined') return;
+    const c = __dashCache;
+    const font = chartFontColor();
+    const grid = chartGridColor();
+    const border = chartCardBg();
+    const tooltipStyle = { backgroundColor: '#0F172A', padding: 10, cornerRadius: 8, titleFont: { family: 'Inter', size: 11 }, bodyFont: { family: 'Inter', size: 11 } };
+
+    // --- Headcount by department (bar) ---
+    const depts = (c.dept && c.dept.data && c.dept.data.departments) || [];
+    const deptNames = depts.slice(0, 8).map(function(d) { const n = d.name || 'N/A'; return n.length > 14 ? n.slice(0, 13) + '…' : n; });
+    const deptCounts = depts.slice(0, 8).map(function(d) { return d.count || d.cnt || 0; });
+    const deptPalette = ['#3B82F6','#6366F1','#8B5CF6','#06B6D4','#10B981','#F59E0B','#EC4899','#EF4444'];
+    makeChart('deptChart', {
+        type: 'bar',
+        data: { labels: deptNames, datasets: [{ data: deptCounts, backgroundColor: deptPalette, borderRadius: 6, maxBarThickness: 34 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: tooltipStyle },
+            scales: {
+                x: { ticks: { color: font, font: { family: 'Inter', size: 10 } }, grid: { display: false } },
+                y: { beginAtZero: true, ticks: { color: font, precision: 0, font: { family: 'Inter', size: 10 } }, grid: { color: grid } }
+            }
+        }
+    });
+
+    // --- Employee status (doughnut) ---
+    const total = (c.stats && c.stats.data) ? (c.stats.data.total_employees || 0) : 0;
+    const active = (c.stats && c.stats.data) ? (c.stats.data.active_employees || 0) : 0;
+    const onLeave = (c.stats && c.stats.data) ? (c.stats.data.on_leave_today || 0) : 0;
+    const inactive = Math.max(0, total - active);
+    makeChart('statusChart', {
+        type: 'doughnut',
+        data: { labels: ['Active', 'Inactive', 'On Leave'], datasets: [{ data: [active, inactive, onLeave], backgroundColor: ['#10B981', '#EF4444', '#F59E0B'], borderWidth: 3, borderColor: border, hoverOffset: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: tooltipStyle } }
+    });
+
+    // --- Leave this month (doughnut) ---
+    const approvedLeaves = (c.leaves && c.leaves.success && c.leaves.data) ? c.leaves.data.filter(function(l) { return l.status === 'Approved'; }) : [];
+    const annual = approvedLeaves.filter(function(l) { return /annual/i.test(l.leave_type || ''); }).length;
+    const sick = approvedLeaves.filter(function(l) { return /sick/i.test(l.leave_type || ''); }).length;
+    const other = Math.max(0, approvedLeaves.length - annual - sick);
+    makeChart('leaveChart', {
+        type: 'doughnut',
+        data: { labels: ['Annual', 'Sick', 'Other'], datasets: [{ data: [annual, sick, other], backgroundColor: ['#3B82F6', '#8B5CF6', '#06B6D4'], borderWidth: 3, borderColor: border, hoverOffset: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: tooltipStyle } }
+    });
+}
+
 async function loadDashboardStats() {
     // Fetch each API independently so one failure doesn't block others
     const [statsRes, deptRes, assetRes, leaveRes] = await Promise.all([
@@ -2798,112 +3116,123 @@ async function loadDashboardStats() {
         fetch('/api/hr/assets').catch(function() { return null; }),
         fetch('/api/hr/leave').catch(function() { return null; })
     ]);
-    
+
     // Parse responses individually with error handling
     var stats = null, dept = null, assets = null, leaves = null;
     try { if (statsRes) stats = await statsRes.json(); } catch(e) {}
     try { if (deptRes) dept = await deptRes.json(); } catch(e) {}
     try { if (assetRes) assets = await assetRes.json(); } catch(e) {}
     try { if (leaveRes) leaves = await leaveRes.json(); } catch(e) {}
-    
-    // --- MAIN STATS ---
+
+    // Cache for theme-aware chart re-render
+    __dashCache = { stats: stats, dept: dept, assets: assets, leaves: leaves, paye: null };
+
+    // --- MAIN STATS + KPI ---
     if (stats && stats.success) {
-            document.getElementById('statTotalEmployees').textContent = stats.data.total_employees;
-            document.getElementById('statActiveEmployees').textContent = stats.data.active_employees;
-            document.getElementById('statInactiveEmployees').textContent = Math.max(0, stats.data.total_employees - stats.data.active_employees);
-            document.getElementById('statOnLeaveEmployees').textContent = stats.data.on_leave_today;
-            document.getElementById('statOnLeave').textContent = stats.data.on_leave_today;
-            document.getElementById('statPendingRequests').textContent = stats.data.pending_leave;
-            document.getElementById('statPayroll').textContent = '$' + stats.data.payroll_total.toLocaleString();
+        document.getElementById('statTotalEmployees').textContent = stats.data.total_employees;
+        document.getElementById('statActiveEmployees').textContent = stats.data.active_employees;
+        document.getElementById('statInactiveEmployees').textContent = Math.max(0, stats.data.total_employees - stats.data.active_employees);
+        document.getElementById('statOnLeaveEmployees').textContent = stats.data.on_leave_today;
+        document.getElementById('statOnLeave').textContent = stats.data.on_leave_today;
+        document.getElementById('statPendingRequests').textContent = stats.data.pending_leave;
+        document.getElementById('statPayroll').textContent = '$' + stats.data.payroll_total.toLocaleString();
 
-            // Active percentage
-            const total = stats.data.total_employees || 1;
-            const active = stats.data.active_employees || 0;
-            const pctEl = document.getElementById('statActivePct');
-            if (pctEl) pctEl.textContent = Math.round((active / total) * 100);
-        }
+        const total = stats.data.total_employees || 1;
+        const active = stats.data.active_employees || 0;
+        const pct = Math.round((active / total) * 100);
+        const pctEl = document.getElementById('statActivePct');
+        if (pctEl) pctEl.textContent = pct;
 
-        // Department breakdown
-        const deptEl = document.getElementById('deptBreakdown');
-        if (deptEl) {
-            if (dept && dept.success) {
-                const rawDepts = dept.data && dept.data.departments ? dept.data.departments : [];
-                const countEl = document.getElementById('statDeptCount');
-                if (countEl) countEl.textContent = rawDepts.length;
-                if (rawDepts.length) {
-                    deptEl.innerHTML = rawDepts.slice(0, 5).map(d =>
-                        `<span style="display:inline-block;background:#f3f4f6;padding:1px 5px;border-radius:3px;margin:1px;font-size:0.5rem;">${d.name || 'N/A'}: ${d.count||d.cnt||0}</span>`
-                    ).join('');
-                    if (rawDepts.length > 5) {
-                        deptEl.innerHTML += `<span style="font-size:0.5rem;color:var(--text-muted);margin-left:2px;">+${rawDepts.length - 5} more</span>`;
-                    }
-                } else {
-                    deptEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">No departments</span>';
+        // Monthly overview widget (real data)
+        const oPay = document.getElementById('overviewPayroll');
+        if (oPay) oPay.textContent = '$' + stats.data.payroll_total.toLocaleString();
+        const oLeave = document.getElementById('overviewOnLeave');
+        if (oLeave) oLeave.textContent = stats.data.on_leave_today;
+        const oPend = document.getElementById('overviewPending');
+        if (oPend) oPend.textContent = stats.data.pending_leave;
+        const oPct = document.getElementById('overviewActivePct');
+        if (oPct) oPct.textContent = pct + '%';
+    }
+
+    // Department breakdown (chips) + count badge
+    const deptEl = document.getElementById('deptBreakdown');
+    if (deptEl) {
+        if (dept && dept.success) {
+            const rawDepts = dept.data && dept.data.departments ? dept.data.departments : [];
+            const countEl = document.getElementById('statDeptCount');
+            if (countEl) countEl.textContent = rawDepts.length ? rawDepts.length + ' departments' : '—';
+            if (rawDepts.length) {
+                deptEl.innerHTML = rawDepts.slice(0, 6).map(function(d) {
+                    return '<span class="chip"><b>' + escapeHtml(d.name || 'N/A') + '</b> ' + (d.count || d.cnt || 0) + '</span>';
+                }).join('');
+                if (rawDepts.length > 6) {
+                    deptEl.innerHTML += '<span class="chip">+' + (rawDepts.length - 6) + ' more</span>';
                 }
             } else {
-                deptEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">Unable to load</span>';
+                deptEl.innerHTML = '<span class="status-empty">No departments</span>';
+            }
+        } else {
+            deptEl.innerHTML = '<span class="status-empty">Unable to load</span>';
+        }
+    }
+
+    // Asset summary (filter for basic users or profile mode)
+    const assetEl = document.getElementById('assetSummary');
+    if (assetEl && assets && assets.success && assets.data) {
+        let assetData = assets.data;
+        if ((HR_ROLE !== 'Administrator' || !isAdminView) && HR_USER_NAME) {
+            assetData = assetData.filter(function(a) { return a.assigned_to === HR_USER_NAME; });
+        }
+        const totalAssets = assetData.length || 0;
+        const inService = assetData.filter(function(a) { return a.status === 'In Service'; }).length;
+        const totalVal = assetData.reduce(function(s, a) { return s + (a.value || 0); }, 0);
+        assetEl.innerHTML =
+            '<span class="status-chip info"><i class="bi bi-box-seam"></i> ' + totalAssets + ' total</span>' +
+            '<span class="status-chip ok"><i class="bi bi-check-circle"></i> ' + inService + ' in use</span>' +
+            '<span class="status-chip warn"><i class="bi bi-cash-coin"></i> $' + totalVal.toLocaleString(undefined, { maximumFractionDigits: 0 }) + '</span>';
+    } else if (assetEl) {
+        assetEl.innerHTML = '<span class="status-empty">No assets</span>';
+    }
+
+    // Leave month stats (approved only) + leave-type chips
+    if (leaves && leaves.success && leaves.data) {
+        const approved = leaves.data.filter(function(l) { return l.status === 'Approved'; });
+        const approvedCount = approved.length;
+        const totalDays = approved.reduce(function(s, l) { return s + (l.days || 0); }, 0);
+        const annual = approved.filter(function(l) { return /annual/i.test(l.leave_type || ''); }).length;
+        const sick = approved.filter(function(l) { return /sick/i.test(l.leave_type || ''); }).length;
+        const other = Math.max(0, approvedCount - annual - sick);
+        document.getElementById('statApprovedLeaves').textContent = approvedCount;
+        document.getElementById('statTotalDays').textContent = totalDays;
+        document.getElementById('statAnnualLeave').textContent = annual;
+        document.getElementById('statSickLeave').textContent = sick;
+        document.getElementById('statOtherLeave').textContent = other;
+    }
+
+    // PAYE table status
+    try {
+        const payeRes = await fetch('/api/hr/paye/active');
+        const payeData = await payeRes.json();
+        __dashCache.paye = payeData;
+        const payeStatusEl = document.getElementById('payeDashboardStatus');
+        if (payeStatusEl) {
+            if (payeData.success && payeData.data) {
+                const t = payeData.data;
+                const bracketCount = t.brackets ? t.brackets.length : 0;
+                payeStatusEl.innerHTML =
+                    '<span class="status-chip ok"><i class="bi bi-check-circle-fill"></i> ' + escapeHtml(t.name || 'Active') + '</span>' +
+                    '<span class="status-chip neutral"><i class="bi bi-list-ol"></i> ' + bracketCount + ' bracket(s)</span>' +
+                    '<span class="status-chip neutral"><i class="bi bi-calendar3"></i> ' + escapeHtml(t.period || '') + '</span>';
+            } else {
+                payeStatusEl.innerHTML = '<span class="status-chip err"><i class="bi bi-exclamation-triangle"></i> No active PAYE table</span>';
             }
         }
+    } catch(e) {
+        const payeStatusEl = document.getElementById('payeDashboardStatus');
+        if (payeStatusEl) payeStatusEl.innerHTML = '<span class="status-empty">Error loading</span>';
+    }
 
-        // Asset summary (filter for basic users or profile mode)
-        const assetEl = document.getElementById('assetSummary');
-        if (assetEl && assets.success && assets.data) {
-            let assetData = assets.data;
-            if ((HR_ROLE !== 'Administrator' || !isAdminView) && HR_USER_NAME) {
-                assetData = assetData.filter(a => a.assigned_to === HR_USER_NAME);
-            }
-            const totalAssets = assetData.length || 0;
-            const inService = assetData.filter(a => a.status === 'In Service').length;
-            const totalVal = assetData.reduce((s, a) => s + (a.value || 0), 0);
-            assetEl.innerHTML = `
-                <span style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:3px;">Total: ${totalAssets}</span>
-                    <span style="font-size:0.5rem;background:#d1fae5;padding:2px 6px;border-radius:3px;color:#065f46;">In use: ${inService}</span>
-                    <span style="font-size:0.5rem;background:#fef3c7;padding:2px 6px;border-radius:3px;color:#92400e;">Value: $${totalVal.toFixed(0)}</span>
-                </span>
-            `;
-        } else if (assetEl) {
-            assetEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">No assets</span>';
-        }
-
-        // Leave month stats
-        if (leaves && leaves.success && leaves.data) {
-            const approved = leaves.data.filter(l => l.status === 'Approved').length;
-            const totalDays = leaves.data.reduce((s, l) => s + (l.days || 0), 0);
-            document.getElementById('statApprovedLeaves').textContent = approved;
-            document.getElementById('statTotalDays').textContent = totalDays;
-        }
-
-        // PAYE table status
-        try {
-            const payeRes = await fetch('/api/hr/paye/active');
-            const payeData = await payeRes.json();
-            const payeStatusEl = document.getElementById('payeDashboardStatus');
-            if (payeStatusEl) {
-                if (payeData.success && payeData.data) {
-                    const t = payeData.data;
-                    const bracketCount = t.brackets ? t.brackets.length : 0;
-                    payeStatusEl.innerHTML = `
-                        <span style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <span style="font-size:0.5rem;background:#d1fae5;padding:2px 6px;border-radius:3px;color:#065f46;">
-                                <i class="bi bi-check-circle-fill"></i> ${t.name || 'Active'}
-                            </span>
-                            <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:3px;">
-                                ${bracketCount} bracket(s)
-                            </span>
-                            <span style="font-size:0.5rem;background:#f3f4f6;padding:2px 6px;border-radius:3px;">
-                                ${t.period || ''}
-                            </span>
-                        </span>
-                    `;
-                } else {
-                    payeStatusEl.innerHTML = '<span style="color:#dc2626;font-size:0.5rem;"><i class="bi bi-exclamation-triangle"></i> No active PAYE table</span>';
-                }
-            }
-        } catch(e) {
-            const payeStatusEl = document.getElementById('payeDashboardStatus');
-            if (payeStatusEl) payeStatusEl.innerHTML = '<span style="color:#9ca3af;font-size:0.5rem;">Error loading</span>';
-        }
+    renderDashboardCharts();
 }
 
 
@@ -3216,7 +3545,6 @@ async function saveEmployee() {
         current_leave_balance: leaveBalanceToSave,
         monthly_accumulation: monthlyAccrualToSave,
         salary: parseFloat(document.getElementById('empSalary').value) || 0,
-        allowances: parseFloat(document.getElementById('empAllowances').value) || 0,
         medical_aid_package: document.getElementById('empMedAidPackage').value || '',
         omit_from_payroll: document.getElementById('empOmitPayroll').checked,
         currency: document.getElementById('empCurrency').value,
@@ -3345,7 +3673,6 @@ async function viewEmployee(empId) {
         document.getElementById('empClassification').value = emp.classification || 'Ordinary';
         document.getElementById('empStatus').value = emp.status || 'Active';
         document.getElementById('empSalary').value = emp.basic_salary || 0;
-        document.getElementById('empAllowances').value = emp.allowances || 0;
         document.getElementById('empMedAidPackage').value = emp.medical_aid_package || '';
         document.getElementById('empOmitPayroll').checked = emp.omit_from_payroll ? true : false;
         document.getElementById('empCurrency').value = emp.currency || 'USD';
@@ -5226,6 +5553,240 @@ async function saveAsset() {
     } catch(e) {
         document.getElementById('hrLoader').classList.remove('active');
         alert('Error: ' + e.message);
+    }
+}
+
+// ===== COMMISSIONS =====
+let _commissionEmployees = [];
+let _commissionRecords = [];
+let _editingCommissionId = null;
+
+function getCurrentMonthYear() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+async function loadCommissionEmployees() {
+    try {
+        const res = await fetch('/api/hr/employees');
+        const data = await res.json();
+        if (!data.success || !data.data) return;
+        _commissionEmployees = data.data;
+        setupCommissionEmployeePicker();
+    } catch(e) { console.error('Commission employees error:', e); }
+}
+
+function setupCommissionEmployeePicker() {
+    const input = document.getElementById('commissionEmpInput');
+    const hidden = document.getElementById('commissionEmpId');
+    const dropdown = document.getElementById('commissionEmpDropdown');
+    if (!input || !hidden || !dropdown) return;
+
+    const renderDropdown = (filter) => {
+        const q = (filter || '').toLowerCase();
+        const filtered = q ? _commissionEmployees.filter(e => (e.first_name + ' ' + e.last_name).toLowerCase().includes(q)) : _commissionEmployees;
+        dropdown.innerHTML = filtered.length
+            ? filtered.map(e => `<div data-id="${e.id}" data-name="${e.first_name} ${e.last_name}" style="padding:5px 10px;font-size:0.6rem;cursor:pointer;border-bottom:1px solid #f3f4f6;">${e.first_name} ${e.last_name} <span style="color:#9ca3af;">(${escapeHtml(e.department || 'N/A')})</span></div>`).join('')
+            : '<div style="padding:5px 10px;font-size:0.55rem;color:#9ca3af;">No matching employees</div>';
+        dropdown.style.display = 'block';
+    };
+
+    input.addEventListener('input', function() {
+        if (this.value !== (hidden._label || '')) { hidden.value = ''; hidden._label = ''; }
+        renderDropdown(this.value);
+    });
+    input.addEventListener('focus', function() { renderDropdown(this.value); });
+    dropdown.addEventListener('click', function(e) {
+        const div = e.target.closest('[data-id]');
+        if (!div) return;
+        hidden.value = div.dataset.id;
+        hidden._label = div.dataset.name;
+        input.value = div.dataset.name;
+        dropdown.style.display = 'none';
+    });
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display = 'none';
+    });
+}
+
+async function loadCommissions() {
+    const periodInput = document.getElementById('commissionPeriod');
+    const period = periodInput ? periodInput.value : '';
+    try {
+        const res = await fetch('/api/hr/commissions' + (period ? '?period=' + encodeURIComponent(period) : ''));
+        const data = await res.json();
+        if (!data.success) return;
+
+        _commissionRecords = data.data || [];
+        const summary = data.summary || {};
+
+        const totalEl = document.getElementById('commTotalAmount');
+        if (totalEl) totalEl.textContent = '$' + (summary.total_amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        const cntEl = document.getElementById('commCount');
+        if (cntEl) cntEl.textContent = summary.count || 0;
+        const smEl = document.getElementById('commSmCount');
+        if (smEl) smEl.textContent = summary.sales_marketing_count || 0;
+        const periodLabel = document.getElementById('commPeriodLabel');
+        if (periodLabel) periodLabel.textContent = period || (data.periods && data.periods[0]) || getCurrentMonthYear();
+
+        // Default the period picker to the current month on first load
+        if (periodInput) {
+            if (!periodInput.value) periodInput.value = getCurrentMonthYear();
+            if (data.periods && data.periods.length) {
+                let dl = document.getElementById('commissionPeriodList');
+                if (!dl) {
+                    dl = document.createElement('datalist');
+                    dl.id = 'commissionPeriodList';
+                    periodInput.setAttribute('list', 'commissionPeriodList');
+                    periodInput.parentNode.appendChild(dl);
+                }
+                dl.innerHTML = data.periods.map(p => `<option value="${p}"></option>`).join('');
+            }
+        }
+
+        const tbody = document.getElementById('commissionsTableBody');
+        if (!tbody) return;
+        if (!_commissionRecords.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' +
+                '<i class="bi bi-cash-coin" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                (period ? 'No commissions logged for ' + period + '.' : 'No commissions logged yet.') +
+                ' Click <strong>"Log Commission"</strong> to add one.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = _commissionRecords.map(c => `
+            <tr>
+                <td><strong>${escapeHtml(c.employee_name)}</strong></td>
+                <td><span class="badge-hr ${(c.department || '').toLowerCase() === 'sales and marketing' ? 'active' : 'pending'}">${escapeHtml(c.department || 'N/A')}</span></td>
+                <td>${escapeHtml(c.period)}</td>
+                <td class="fw-bold" style="color:var(--chart-green);">$${(c.amount || 0).toFixed(2)}</td>
+                <td><small style="color:var(--text-muted);">${escapeHtml(c.notes || '—')}</small></td>
+                <td><small>${escapeHtml(c.created_by)}</small></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" title="Edit" onclick="openCommissionModal(${c.id})"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteCommission(${c.id}, '${escapeHtml(c.employee_name).replace(/'/g, "\\'")}')"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    } catch(e) { console.error('Commissions error:', e); }
+}
+
+function resetCommissionForm() {
+    document.getElementById('commissionForm').reset();
+    const input = document.getElementById('commissionEmpInput');
+    const hidden = document.getElementById('commissionEmpId');
+    if (input) input.value = '';
+    if (hidden) { hidden.value = ''; hidden._label = ''; }
+    const dd = document.getElementById('commissionEmpDropdown');
+    if (dd) dd.style.display = 'none';
+    document.getElementById('commissionPeriodField').value = getCurrentMonthYear();
+    _editingCommissionId = null;
+    document.getElementById('commissionModalTitle').textContent = 'Log Commission';
+}
+
+function openCommissionModal(commissionId) {
+    resetCommissionForm();
+    // Sync the module's period filter into the form
+    const modulePeriod = document.getElementById('commissionPeriod');
+    if (modulePeriod && modulePeriod.value) document.getElementById('commissionPeriodField').value = modulePeriod.value;
+
+    if (commissionId) {
+        const rec = _commissionRecords.find(x => x.id == commissionId);
+        if (rec) {
+            _editingCommissionId = commissionId;
+            document.getElementById('commissionModalTitle').textContent = 'Edit Commission';
+            const input = document.getElementById('commissionEmpInput');
+            const hidden = document.getElementById('commissionEmpId');
+            if (input) input.value = rec.employee_name;
+            if (hidden) { hidden.value = rec.employee_id; hidden._label = rec.employee_name; }
+            document.getElementById('commissionPeriodField').value = rec.period;
+            document.getElementById('commissionAmount').value = rec.amount;
+            document.getElementById('commissionNotes').value = rec.notes || '';
+        }
+    }
+    openModal('commissionModal');
+}
+
+async function saveCommission() {
+    const employee_id = parseInt(document.getElementById('commissionEmpId').value) || 0;
+    const period = document.getElementById('commissionPeriodField').value;
+    const amount = parseFloat(document.getElementById('commissionAmount').value) || 0;
+    const notes = document.getElementById('commissionNotes').value.trim();
+
+    if (!employee_id) { alert('Please select an employee.'); return; }
+    if (!period) { alert('Please select the month-year.'); return; }
+    if (amount < 0) { alert('Amount cannot be negative.'); return; }
+
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const res = await fetch('/api/hr/commissions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employee_id, period, amount, notes })
+        });
+        const data = await res.json();
+        document.getElementById('hrLoader').classList.remove('active');
+        if (data.success) {
+            closeModal('commissionModal');
+            await loadCommissions();
+            alert('✅ Commission saved for ' + period);
+        } else {
+            alert('❌ ' + (data.error || 'Failed to save'));
+        }
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deleteCommission(id, name) {
+    if (!confirm('Delete commission for ' + name + '?')) return;
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const res = await fetch('/api/hr/commissions/' + id, { method: 'DELETE' });
+        const data = await res.json();
+        document.getElementById('hrLoader').classList.remove('active');
+        if (data.success) {
+            await loadCommissions();
+            alert('✅ Commission deleted');
+        } else {
+            alert('❌ ' + (data.error || 'Failed to delete'));
+        }
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('Error: ' + e.message);
+    }
+}
+
+async function exportCommissionsExcel(scope) {
+    const period = scope === 'all' ? '' : (document.getElementById('commissionPeriod').value || '');
+    document.getElementById('hrLoader').classList.add('active');
+    try {
+        const res = await fetch('/api/hr/export-commissions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ period: period })
+        });
+        if (!res.ok) {
+            let errMsg = 'Export failed';
+            try { const err = await res.json(); errMsg = err.error || errMsg; } catch(_e) {}
+            alert('❌ ' + errMsg);
+            document.getElementById('hrLoader').classList.remove('active');
+            return;
+        }
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = period ? `commissions_${period}.xlsx` : 'commissions_all_months.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('✅ Commission export downloaded');
+    } catch(e) {
+        document.getElementById('hrLoader').classList.remove('active');
+        alert('Export error: ' + e.message);
     }
 }
 
