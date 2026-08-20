@@ -6726,7 +6726,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 
     <!-- POS Activity Log Modal -->
     <div class="modal fade" id="activityLogModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
                     <h5 class="modal-title"><i class="fas fa-history me-1"></i>POS Activity Log</h5>
@@ -9115,7 +9115,7 @@ function toggleAuditReport() {
 }
 
 // ==================== POS USER ACTIVITY LOG ====================
-const POS_ACTIVITY_TYPES = ['sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','user_login'];
+const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all'];
 
 async function toggleActivityLog() {
     const modalEl = document.getElementById('activityLogModal');
@@ -9209,7 +9209,8 @@ function posActivityBadge(type) {
         'stock_remove': 'danger',
         'product_delete': 'danger',
         'wipe_all': 'danger',
-        'user_login': 'secondary'
+        'pos_login': 'secondary',
+        'pos_logout': 'secondary'
     };
     const cls = map[type] || 'secondary';
     const label = String(type || 'action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });

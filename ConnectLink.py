@@ -12771,7 +12771,7 @@ def api_login():
             session['userid'] = userid
             session['user_name'] = user[3]
             
-            log_activity('user_login', f'POS login via admin_users: {username}', 'user', userid)
+            log_activity('pos_login', f'POS login via admin_users: {username}', 'user', userid)
             
             return jsonify({
                 'success': True,
@@ -12793,7 +12793,7 @@ def api_login():
 @app.route('/api/logoutpos', methods=['POST','GET'])
 def api_logout():
     user_name = session.get('username') or session.get('user_name') or 'Unknown'
-    log_activity('user_logout', f'User {user_name} logged out from POS', 'user', session.get('user_id') or session.get('userid'))
+    log_activity('pos_logout', f'User {user_name} logged out from POS', 'user', session.get('user_id') or session.get('userid'))
     session.clear()
     return render_template('mainindex.html')  # Or send_from_directory for static HTML
 
