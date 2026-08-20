@@ -7019,6 +7019,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                     }
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+                    logPosActivity('download', 'Downloaded Inventory to Excel (' + filteredProducts.length + ' products)');
                     XLSX.writeFile(wb, `Inventory_ConnectLink_${new Date().toISOString().split('T')[0]}.xlsx`);
                 } catch (err) {
                     alert('Failed to export inventory Excel: ' + err.message);
@@ -7044,6 +7045,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                 showToast('No products to export.', 'error');
                 return;
             }
+            logPosActivity('download', 'Downloaded Inventory to PDF (' + filteredProducts.length + ' products)');
             let totalBuy = 0;
             let totalSell = 0;
             let totalStock = 0;
@@ -8958,6 +8960,7 @@ async function exportModalData(type, format) {
     let data = [];
     let filename = '';
     let title = '';
+    logPosActivity('download', 'Downloaded product report (' + type + ') to ' + String(format || '').toUpperCase());
     
     if (type === 'all') {
         data = currentAllProductsData;
@@ -9127,7 +9130,18 @@ function toggleAuditReport() {
 }
 
 // ==================== POS USER ACTIVITY LOG ====================
-const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all'];
+const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','download'];
+
+// Best-effort client-side activity logging (exports/downloads happen in the browser)
+async function logPosActivity(actionType, description, details) {
+    try {
+        await fetch('/api/activity-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action_type: actionType, description: description, details: details || null })
+        });
+    } catch(e) { /* best-effort, never block the export */ }
+}
 
 async function toggleActivityLog() {
     const modalEl = document.getElementById('activityLogModal');
@@ -9222,7 +9236,8 @@ function posActivityBadge(type) {
         'product_delete': 'danger',
         'wipe_all': 'danger',
         'pos_login': 'secondary',
-        'pos_logout': 'secondary'
+        'pos_logout': 'secondary',
+        'download': 'info'
     };
     const cls = map[type] || 'secondary';
     const label = String(type || 'action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
@@ -9460,6 +9475,8 @@ function exportStockAuditExcel() {
         showToast('Excel library not available', 'error');
         return;
     }
+    
+    logPosActivity('download', 'Exported Stock Audit Report to Excel');
     
     const startDate = document.getElementById('auditStartDate').value;
     const endDate = document.getElementById('auditEndDate').value;
@@ -10077,6 +10094,8 @@ async function deleteStockAddition() {
             showToast('No data to export', 'error');
             return;
         }
+        
+        logPosActivity('download', 'Exported Sales Report to ' + String(type || '').toUpperCase());
         
         const totalRevenue = currentReportData.reduce((s, t) => s + (t.total || 0), 0);
         const totalProfit = currentReportData.reduce((s, t) => s + (t.profit || 0), 0);
@@ -11214,6 +11233,8 @@ function renderFilteredTransactions() {
             return;
         }
         
+        logPosActivity('download', 'Downloaded Transactions to Excel (' + transactionsToExport.length + ' rows)');
+        
         // Prepare data for Excel with items list
         const excelData = transactionsToExport.map(t => ({
             'Date': t.date || t.created_at || '',
@@ -11339,6 +11360,7 @@ function renderFilteredTransactions() {
 
     function exportDayEndExcel() {
         if (!dayEndReportData) { showToast('Generate the report first', 'error'); return; }
+        logPosActivity('download', 'Downloaded Day End Report to Excel');
         const data = dayEndReportData;
         const rows = [];
         (data.cashiers || []).forEach(c => {
@@ -11366,6 +11388,8 @@ function renderFilteredTransactions() {
             showToast('No transactions to export', 'error');
             return;
         }
+        
+        logPosActivity('download', 'Downloaded Transactions to PDF (' + transactionsToExport.length + ' rows)');
         
         const pdfContent = document.createElement('div');
         pdfContent.style.padding = '20px';

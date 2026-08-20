@@ -13080,7 +13080,10 @@ def update_product(product_id):
     update_fields = []
     params = []
     
-    updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'price', 'stock', 'min_stock_level', 'description', 'barcode']
+    # NOTE: 'price' is intentionally NOT here — the legacy 'price' column was
+    # renamed to 'sell_price' (see migration below). If a client sends a 'price'
+    # key (legacy alias), ignore it; writing it would raise UndefinedColumn.
+    updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'stock', 'min_stock_level', 'description', 'barcode']
     
     for field in updatable_fields:
         if field in data:
