@@ -1746,17 +1746,17 @@
 
         /* ---------- Compact single-screen layout (v3) ---------- */
         .main-content {
-            padding: 28px 4% 8px;
+            padding: 24px 4% 6px;
             min-height: calc(100vh - 88px);
         }
         .portal-header { margin-bottom: 8px; }
         .portal-header .badge { padding: 3px 10px; font-size: 0.5rem; margin-bottom: 6px; }
         .portal-header h2 { font-size: 1.06rem; margin-bottom: 2px; }
         .portal-header p { font-size: 0.57rem; margin-bottom: 0; }
-        .cards-container { gap: 9px; }
-        .system-card { padding: 9px 13px; }
-        .card-tags { margin-top: 3px; }
-        .card-tags span { font-size: 0.46rem; padding: 1px 6px; }
+        .cards-container { gap: 14px; }
+        .system-card { padding: 12px 16px; }
+        .card-tags { margin-top: 6px; }
+        .card-tags span { font-size: 0.48rem; padding: 2px 8px; }
 
         /* Single-row compact footer */
         .footer-inner {
@@ -1767,6 +1767,28 @@
             flex-wrap: wrap;
         }
         .footer p { margin: 0; }
+
+        /* ---------- Compact single-screen layout (v4 — breathing room, still fits) ---------- */
+        /* Trim hero/footer vertical budget to fund extra card spacing */
+        .hero-logo-wrapper { margin-bottom: 4px; }
+        .hero-logo { height: 44px; }
+        .hero-badge { margin-bottom: 7px; padding: 3px 10px; font-size: 0.52rem; }
+        .hero-section h1 { font-size: 1.72rem; margin-bottom: 4px; }
+        .lead-text { margin-bottom: 7px; font-size: 0.77rem !important; }
+        .hero-features { margin-bottom: 7px; gap: 5px; }
+        .hf-chip { padding: 3px 9px; font-size: 0.52rem; }
+        .hero-ctas { margin-bottom: 9px; gap: 8px; }
+        .btn-hero-primary, .btn-hero-ghost { padding: 7px 16px; font-size: 0.6rem; }
+        .hero-stats .stat-number { font-size: 1.15rem; }
+        .hero-stats .stat-item { padding-right: 18px; }
+        .capabilities-strip { margin-top: 7px; }
+        .capabilities-set span { font-size: 0.56rem; }
+        .footer { padding: 6px 14px; margin-top: 6px; }
+        .footer-brand { font-size: 0.66rem; }
+        .footer p { font-size: 0.52rem; }
+        .footer-links { font-size: 0.54rem; gap: 6px; }
+        .system-card h3 { margin-bottom: 2px; }
+        .system-card p { line-height: 1.25; }
 
         /* ---------- Reduced motion ---------- */
         @media (prefers-reduced-motion: reduce) {
