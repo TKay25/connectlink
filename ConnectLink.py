@@ -12032,7 +12032,8 @@ def get_user_by_id(user_id):
 def log_activity(action_type, description, reference_type=None, reference_id=None, details=None):
     """Log an activity to the activity_log table"""
     try:
-        user_name = session.get('username') or session.get('user_name') or 'System'
+        # Prefer the full name (user_name) so logs read as a person, not a login handle
+        user_name = session.get('user_name') or session.get('username') or 'System'
         with get_db() as (cursor, connection):
             cursor.execute("""
                 INSERT INTO activity_log (action_type, description, user_name, reference_type, reference_id, details)
@@ -12111,15 +12112,27 @@ def handle_activity_log():
         action_filter = request.args.get('action_type', '')
         user_filter = request.args.get('user_name', '')
         date_range = request.args.get('date_range', 'today')
+        action_types_param = request.args.get('action_types', '')
+        action_types = [t.strip() for t in action_types_param.split(',') if t.strip()]
+        start_date_param = request.args.get('start_date', '').strip()
+        end_date_param = request.args.get('end_date', '').strip()
+        search_term = request.args.get('search', '').strip()
         
         with get_db() as (cursor, connection):
             conditions = []
             params = []
             
-            # Apply date range filter
+            # Apply date range filter (explicit from/to dates override the preset)
             from datetime import datetime, timedelta
             now = datetime.now()
-            if date_range == 'today':
+            if start_date_param or end_date_param:
+                if start_date_param:
+                    conditions.append("created_at >= %s")
+                    params.append(start_date_param)
+                if end_date_param:
+                    conditions.append("created_at <= %s")
+                    params.append(end_date_param + ' 23:59:59')
+            elif date_range == 'today':
                 start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
                 conditions.append("created_at >= %s")
                 params.append(start_date)
@@ -12161,9 +12174,17 @@ def handle_activity_log():
             if action_filter:
                 conditions.append("action_type = %s")
                 params.append(action_filter)
+            if action_types:
+                placeholders = ','.join(['%s'] * len(action_types))
+                conditions.append(f"action_type IN ({placeholders})")
+                params.extend(action_types)
             if user_filter:
                 conditions.append("user_name = %s")
                 params.append(user_filter)
+            if search_term:
+                conditions.append("(description ILIKE %s OR user_name ILIKE %s OR action_type ILIKE %s)")
+                like_term = f'%{search_term}%'
+                params.extend([like_term, like_term, like_term])
             
             where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
             
@@ -12965,6 +12986,21 @@ def create_product():
         print(f"Error creating product: {e}")
         return jsonify({'error': 'Failed to create product. Please check the details and try again.'}), 500
 
+    # Log the creation to the activity log (best-effort, never blocks the response)
+    try:
+        log_activity(
+            'product_create',
+            f'Created product "{data["name"]}" — buy ${float(data.get("buy_price", 0) or 0):.2f}, '
+            f'sell ${float(data.get("sell_price", 0) or 0):.2f}, stock {data.get("stock", 0)}',
+            'product', result[0],
+            {'name': data['name'], 'category': data.get('category', ''),
+             'buy_price': float(data.get('buy_price', 0) or 0),
+             'sell_price': float(data.get('sell_price', 0) or 0),
+             'stock': data.get('stock', 0)}
+        )
+    except Exception as log_err:
+        print(f"Warning: Could not log product creation: {log_err}")
+
     return jsonify({
         'success': True,
         'product_id': result[0],
@@ -13000,6 +13036,17 @@ def update_product_price(product_id):
             WHERE id = %s
         """
         execute_query(update_query, (new_price, product_id), commit=True)
+
+        # Log the price change to the activity log (best-effort)
+        try:
+            log_activity(
+                'price_change',
+                f'Changed price of "{product_name}" from ${current_sell_price:.2f} to ${float(new_price):.2f}',
+                'product', product_id,
+                {'old_price': current_sell_price, 'new_price': float(new_price)}
+            )
+        except Exception as log_err:
+            print(f"Warning: Could not log price change: {log_err}")
         
         return jsonify({
             'success': True,
@@ -13016,6 +13063,11 @@ def update_product_price(product_id):
 @login_required
 def update_product(product_id):
     data = request.json
+
+    # Capture current product state so the activity log can describe what changed
+    old_product = execute_query(
+        "SELECT name, category, buy_price, sell_price, stock FROM products WHERE id = %s",
+        (product_id,), fetch_one=True)
 
     # Refuse to assign a barcode that belongs to another product
     if 'barcode' in data and data.get('barcode'):
@@ -13068,6 +13120,37 @@ def update_product(product_id):
     query = f"UPDATE products SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = %s"
     
     execute_query(query, tuple(params), commit=True)
+
+    # Log the change (rename / price change / stock addition) to the activity log
+    try:
+        old_name = old_product[0] if old_product else ''
+        old_buy = float(old_product[2] or 0) if old_product else 0
+        old_sell = float(old_product[3] or 0) if old_product else 0
+        old_stock = old_product[4] if old_product else 0
+        new_name = str(data.get('name', old_name) or old_name)
+        changes = []
+        action_type = 'product_update'
+        if str(data.get('name') or '').strip() and str(data['name']).strip() != (old_name or '').strip():
+            changes.append(f'Renamed "{old_name}" to "{data["name"]}"')
+        if 'sell_price' in data and float(data['sell_price'] or 0) != old_sell:
+            changes.append(f'Changed sell price from ${old_sell:.2f} to ${float(data["sell_price"] or 0):.2f}')
+        if 'buy_price' in data and float(data['buy_price'] or 0) != old_buy:
+            changes.append(f'Changed buy price from ${old_buy:.2f} to ${float(data["buy_price"] or 0):.2f}')
+        if 'stock' in data:
+            new_stock = int(data['stock'] or 0)
+            if new_stock > old_stock:
+                action_type = 'stock_add'
+                changes.append(f'Added {new_stock - old_stock} units to "{new_name or old_name}" (stock: {old_stock} → {new_stock})')
+            elif new_stock < old_stock:
+                changes.append(f'Adjusted stock of "{new_name or old_name}" from {old_stock} to {new_stock}')
+        if not changes:
+            changes.append(f'Updated product "{new_name or old_name}"')
+        log_activity(action_type, '; '.join(changes), 'product', product_id, {
+            'product_id': product_id, 'name': new_name,
+            'old_stock': old_stock, 'new_stock': int(data.get('stock', old_stock) or old_stock)
+        })
+    except Exception as log_err:
+        print(f"Warning: Could not log product update: {log_err}")
     
     return jsonify({'success': True, 'message': 'Product updated successfully'})
 
@@ -13094,6 +13177,16 @@ def delete_product(product_id):
                   f"Stock at deletion: {product[2]} | Buy price: ${float(product[3]):.2f}"), commit=True)
         except Exception as log_error:
             print(f"Warning: Could not log product removal: {str(log_error)}")
+        # Log to the user activity log (best-effort)
+        try:
+            log_activity(
+                'product_delete',
+                f'Deleted product "{product[0]}" (category: {product[1]})',
+                'product', product_id,
+                {'name': product[0], 'category': product[1], 'stock_at_deletion': product[2]}
+            )
+        except Exception as log_error:
+            print(f"Warning: Could not log product deletion activity: {str(log_error)}")
 
     # Soft delete - just mark as inactive
     execute_query("""
@@ -13166,7 +13259,19 @@ def subtract_stock(product_id):
         except Exception as log_error:
             # If the table doesn't exist, just log to console and continue
             print(f"Warning: Could not log stock reduction: {str(log_error)}")
-        
+
+        # Log to the user activity log (best-effort)
+        try:
+            log_activity(
+                'stock_remove',
+                f'Removed {quantity} units from "{product_name}" (reason: {reason})',
+                'product', product_id,
+                {'quantity': quantity, 'reason': reason, 'notes': notes,
+                 'stock_before': current_stock, 'stock_after': new_stock}
+            )
+        except Exception as log_error:
+            print(f"Warning: Could not log stock removal activity: {str(log_error)}")
+
         return jsonify({
             'success': True,
             'message': f'Removed {quantity} units from {product_name}. Reason: {reason}',
@@ -13224,6 +13329,20 @@ def remove_all_stock():
             cursor.execute("DELETE FROM stock_reductions")
             cursor.execute("DELETE FROM products")
             connection.commit()
+
+        # Log the wipe to the user activity log (activity_log is NOT cleared by the wipe)
+        try:
+            log_activity(
+                'wipe_all',
+                'Wiped ALL inventory (products, stock history, and sales transactions)',
+                None, None,
+                {'products': counts[0] if counts else 0,
+                 'additions': counts[1] if counts else 0,
+                 'reductions': counts[2] if counts else 0,
+                 'transactions': counts[3] if counts else 0}
+            )
+        except Exception as log_error:
+            print(f"Warning: Could not log wipe-all activity: {str(log_error)}")
 
         return jsonify({'success': True, 'message': 'All items and history removed'})
     except Exception as e:
@@ -13520,6 +13639,18 @@ def create_transaction():
                 """, (item['id'], item['quantity'], f"Sale #{transaction_number}", session.get('user_id', 0)), commit=True)
             except Exception as log_err:
                 print(f"Warning: Could not log sale reduction: {str(log_err)}")
+
+        # Log the sale to the user activity log (best-effort)
+        try:
+            log_activity(
+                'sale',
+                f'Sale {transaction_number} — ${float(total):.2f}, {len(items)} item(s), paid by {data.get("payment_method", "")}',
+                'transaction', transaction_id,
+                {'transaction_number': transaction_number, 'total': float(total),
+                 'items': len(items), 'payment_method': data.get('payment_method', '')}
+            )
+        except Exception as log_err:
+            print(f"Warning: Could not log sale activity: {log_err}")
         
         return jsonify({
             'success': True,

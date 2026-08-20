@@ -5750,6 +5750,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                                 <button class="btn btn-primary-dark" id="toggleAuditReportBtn" onclick="toggleAuditReport()">
                                     <i class="fas fa-clipboard-list me-1"></i>Audit Report
                                 </button>
+                                <button class="btn btn-primary-dark" onclick="toggleActivityLog()">
+                                    <i class="fas fa-history me-1"></i>Activity Log
+                                </button>
                                 <button class="btn btn-outline-danger" onclick="openRemoveAllStockModal()">
                                     <i class="fas fa-eraser me-1"></i>Remove All Items &amp; History
                                 </button>
@@ -5995,6 +5998,8 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                     <p class="text-muted small">No stock movements found for the selected date range.</p>
                 </div>
             </div>
+
+            <!-- POS Activity Log opens as a modal (see #activityLogModal) -->
 
             <!-- Sales Report Page - Enhanced with Profit Tracking & Reinvestment -->
             <div id="salesPage" style="display: none;">
@@ -6713,6 +6718,61 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                 <div class="modal-body" id="receiptContent"></div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-primary-dark" onclick="printReceipt()">Print</button>
+                    <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- POS Activity Log Modal -->
+    <div class="modal fade" id="activityLogModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
+                    <h5 class="modal-title"><i class="fas fa-history me-1"></i>POS Activity Log</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <label class="small fw-bold mb-0">Cashier:</label>
+                            <select id="activityLogUser" class="form-select form-select-sm" style="width:165px;font-size:0.7rem;">
+                                <option value="">All Cashiers</option>
+                            </select>
+                            <label class="small fw-bold mb-0 ms-2">From:</label>
+                            <input type="date" class="form-control form-control-sm" id="activityLogFrom" style="width:145px;font-size:0.7rem;">
+                            <label class="small fw-bold mb-0 ms-2">To:</label>
+                            <input type="date" class="form-control form-control-sm" id="activityLogTo" style="width:145px;font-size:0.7rem;">
+                        </div>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <div class="position-relative">
+                                <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size:0.65rem;"></i>
+                                <input type="text" class="form-control form-control-sm ps-5" id="activityLogSearch" placeholder="Search product, sale, user..." style="width:230px;font-size:0.7rem;">
+                            </div>
+                            <button class="btn btn-sm btn-primary-dark" onclick="loadPosActivityLog()">
+                                <i class="fas fa-sync me-1"></i>Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive" style="max-height:480px;overflow-y:auto;">
+                        <table class="table table-sm table-hover" id="activityLogTable" style="font-size:0.7rem;">
+                            <thead class="table-light" style="position:sticky;top:0;background:var(--dark-blue-deep);z-index:2;">
+                                <tr>
+                                    <th style="background:var(--dark-blue-deep);color:white;width:150px;">Time</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;width:150px;">User</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;width:140px;">Action</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activityLogBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="activityLogEmpty" class="text-center py-4" style="display:none;">
+                        <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                        <p class="text-muted small">No activity recorded for this period.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
                     <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -9052,6 +9112,108 @@ function toggleAuditReport() {
     // Open the modal
     const modal = new bootstrap.Modal(document.getElementById('auditReportModal'));
     modal.show();
+}
+
+// ==================== POS USER ACTIVITY LOG ====================
+const POS_ACTIVITY_TYPES = ['sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','user_login'];
+
+async function toggleActivityLog() {
+    const modalEl = document.getElementById('activityLogModal');
+    if (!modalEl) return;
+    // Default the date range to this month on first open
+    const fromEl = document.getElementById('activityLogFrom');
+    const toEl = document.getElementById('activityLogTo');
+    if (fromEl && !fromEl.value) {
+        const now = new Date();
+        const first = new Date(now.getFullYear(), now.getMonth(), 1);
+        fromEl.value = first.toISOString().split('T')[0];
+        toEl.value = now.toISOString().split('T')[0];
+    }
+    // Populate the cashier dropdown once (kept stable across refreshes)
+    const userSel = document.getElementById('activityLogUser');
+    if (userSel && userSel.options.length <= 1) {
+        await loadPosActivityUsers();
+    }
+    loadPosActivityLog();
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+}
+
+async function loadPosActivityUsers() {
+    const userSel = document.getElementById('activityLogUser');
+    if (!userSel) return;
+    try {
+        const url = '/api/activity-log?limit=500&date_range=all_time&action_types=' + encodeURIComponent(POS_ACTIVITY_TYPES.join(','));
+        const res = await fetch(url);
+        const data = await res.json();
+        const users = [];
+        (data.data || []).forEach(function(a) {
+            const u = a.user_name || 'System';
+            if (users.indexOf(u) === -1) users.push(u);
+        });
+        users.sort();
+        userSel.innerHTML = '<option value="">All Cashiers</option>' + users.map(function(u) {
+            return '<option value="' + escapeHtml(u) + '">' + escapeHtml(u) + '</option>';
+        }).join('');
+    } catch(e) { /* ignore — dropdown stays at All Cashiers */ }
+}
+
+async function loadPosActivityLog() {
+    const body = document.getElementById('activityLogBody');
+    const empty = document.getElementById('activityLogEmpty');
+    if (!body) return;
+    const from = (document.getElementById('activityLogFrom') || {}).value || '';
+    const to = (document.getElementById('activityLogTo') || {}).value || '';
+    const user = (document.getElementById('activityLogUser') || {}).value || '';
+    const search = ((document.getElementById('activityLogSearch') || {}).value || '').trim();
+
+    body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-1"></i>Loading activity...</td></tr>';
+    try {
+        const params = new URLSearchParams({ limit: '300', action_types: POS_ACTIVITY_TYPES.join(',') });
+        if (from) params.set('start_date', from);
+        if (to) params.set('end_date', to);
+        if (user) params.set('user_name', user);
+        if (search) params.set('search', search);
+        const res = await fetch('/api/activity-log?' + params.toString());
+        const data = await res.json();
+        if (!data.success) {
+            showToast(data.error || 'Failed to load activity log', 'error');
+            body.innerHTML = '';
+            empty.style.display = 'block';
+            return;
+        }
+        const rows = data.data || [];
+        empty.style.display = rows.length ? 'none' : 'block';
+        body.innerHTML = rows.map(function(a) {
+            return '<tr>' +
+                '<td class="text-nowrap">' + escapeHtml(a.created_at || '') + '</td>' +
+                '<td class="text-nowrap"><i class="fas fa-user me-1 text-muted"></i>' + escapeHtml(a.user_name || 'System') + '</td>' +
+                '<td>' + posActivityBadge(a.action_type) + '</td>' +
+                '<td>' + escapeHtml(a.description || '') + '</td>' +
+            '</tr>';
+        }).join('');
+    } catch(e) {
+        showToast('Error loading activity log: ' + e.message, 'error');
+        body.innerHTML = '';
+        empty.style.display = 'block';
+    }
+}
+
+function posActivityBadge(type) {
+    const map = {
+        'sale': 'success',
+        'product_create': 'success',
+        'stock_add': 'success',
+        'product_update': 'info',
+        'price_change': 'warning',
+        'stock_remove': 'danger',
+        'product_delete': 'danger',
+        'wipe_all': 'danger',
+        'user_login': 'secondary'
+    };
+    const cls = map[type] || 'secondary';
+    const label = String(type || 'action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    return '<span class="badge bg-' + cls + '">' + label + '</span>';
 }
 
 function generateAuditReport() {
