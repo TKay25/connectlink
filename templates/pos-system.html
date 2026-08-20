@@ -6726,7 +6726,19 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 
     <!-- POS Activity Log Modal -->
     <div class="modal fade" id="activityLogModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+    <style>
+        #activityLogModal .modal-dialog {
+            max-width: 95vw !important;
+            width: 95vw !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        #activityLogModal .modal-content {
+            max-width: 95vw !important;
+            width: 95vw !important;
+        }
+    </style>
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable" style="max-width: 95vw;">
             <div class="modal-content">
                 <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
                     <h5 class="modal-title"><i class="fas fa-history me-1"></i>POS Activity Log</h5>
