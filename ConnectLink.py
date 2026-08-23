@@ -9747,10 +9747,7 @@ def webhook():
                                                                                         <li>Any notice required in terms of this Agreement shall be in writing.</li>
                                                                                         <li>Notices shall be delivered::
                                                                                             <ul>
-                                                                                                <li>By hand (with signed acknowledgment of receipt);</li>
-                                                                                                <li>By registered mail;</li>
-                                                                                                <li>By courier; or</li>
-                                                                                                <li>By email to the designated address of the receiving party.</li>
+                                                                                                <li>By hand (with signed acknowledgment of receipt); By registered mail; By courier; By email to the designated address of the receiving party.</li>
                                                                                             </ul>
                                                                                         </li>
                                                                                         <li>Notices sent by email shall be deemed received on the date of transmission, provided no delivery failure notification is received.</li>
@@ -9759,7 +9756,7 @@ def webhook():
 
                                                                                 <div class="section-header">ADVERTISING AND MARKETING</div>
                                                                                 <div class="terms-box">
-                                                                                    <p style="font-size:11px;">ConnectLink Properties reserves the right to use the videos and pictures of the finished properties or kitchen and cabinets for advertising and marketing purposes.</p>
+                                                                                    <p style="font-size:11px;">ConnectLink Properties reserves the right to use the videos and pictures of the finished properties or kitchen and cabinets projects for advertising and marketing purposes.</p>
                                                                                 </div>
 
                                                                                 <div class="section-header">ENTIRE AGREEMENT</div>
@@ -22221,10 +22218,7 @@ def download_contract(project_id):
                             <li>Any notice required in terms of this Agreement shall be in writing.</li>
                             <li>Notices shall be delivered::
                                 <ul>
-                                    <li>By hand (with signed acknowledgment of receipt);</li>
-                                    <li>By registered mail;</li>
-                                    <li>By courier; or</li>
-                                    <li>By email to the designated address of the receiving party.</li>
+                                    <li>By hand (with signed acknowledgment of receipt); By registered mail; By courier; By email to the designated address of the receiving party.</li>
                                 </ul>
                             </li>
                             <li>Notices sent by email shall be deemed received on the date of transmission, provided no delivery failure notification is received.</li>
@@ -22233,7 +22227,7 @@ def download_contract(project_id):
 
                     <div class="section-header">ADVERTISING AND MARKETING</div>
                     <div class="terms-box">
-                        <p style="font-size:11px;">ConnectLink Properties reserves the right to use the videos and pictures of the finished properties or kitchen and cabinets for advertising and marketing purposes.</p>
+                        <p style="font-size:11px;">ConnectLink Properties reserves the right to use the videos and pictures of the finished properties or kitchen and cabinets projects for advertising and marketing purposes.</p>
                     </div>
 
                     <div class="section-header">ENTIRE AGREEMENT</div>
