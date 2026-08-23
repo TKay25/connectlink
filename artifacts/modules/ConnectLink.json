@@ -41,18 +41,18 @@
     "pytz"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 14135"
+    "INSTRUCTIONS @ line 14140"
   ],
   "token_controls": [
-    "max_length = 0 @ line 24970",
-    "max_length = len(str(cell.value)) @ line 24975",
-    "adjusted_width = min(max_length + 2, 50) @ line 24978",
-    "max_length = 0 @ line 25796",
-    "max_length = cell_length @ line 25803",
-    "adjusted_width = min(max_length + 2, 50) @ line 25806",
-    "max_length = 0 @ line 26791",
-    "max_length = cell_length @ line 26798",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 26801"
+    "max_length = 0 @ line 24980",
+    "max_length = len(str(cell.value)) @ line 24985",
+    "adjusted_width = min(max_length + 2, 50) @ line 24988",
+    "max_length = 0 @ line 25806",
+    "max_length = cell_length @ line 25813",
+    "adjusted_width = min(max_length + 2, 50) @ line 25816",
+    "max_length = 0 @ line 26801",
+    "max_length = cell_length @ line 26808",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 26811"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -69,6 +69,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-08-20T16:47:32.564480Z",
+  "generated_at": "2026-08-23T07:25:47.750974Z",
   "stale": false
 }

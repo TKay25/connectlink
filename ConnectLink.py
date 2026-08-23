@@ -9757,6 +9757,11 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
+                                                                                <div class="section-header">ADVERTISING AND MARKETING</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">ConnectLink Properties reserves the right to use the videos and pictures of the finished properties or kitchen and cabinets for advertising and marketing purposes.</p>
+                                                                                </div>
+
                                                                                 <div class="section-header">ENTIRE AGREEMENT</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -22224,6 +22229,11 @@ def download_contract(project_id):
                             </li>
                             <li>Notices sent by email shall be deemed received on the date of transmission, provided no delivery failure notification is received.</li>
                         </ol>
+                    </div>
+
+                    <div class="section-header">ADVERTISING AND MARKETING</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">ConnectLink Properties reserves the right to use the videos and pictures of the finished properties or kitchen and cabinets for advertising and marketing purposes.</p>
                     </div>
 
                     <div class="section-header">ENTIRE AGREEMENT</div>
