@@ -9745,11 +9745,7 @@ def webhook():
                                                                                 <div class="terms-box">
                                                                                     <ol>
                                                                                         <li>Any notice required in terms of this Agreement shall be in writing.</li>
-                                                                                        <li>Notices shall be delivered::
-                                                                                            <ul>
-                                                                                                <li>By hand (with signed acknowledgment of receipt); By registered mail; By courier; By email to the designated address of the receiving party.</li>
-                                                                                            </ul>
-                                                                                        </li>
+                                                                                        <li>Notices shall be delivered; By hand (with signed acknowledgment of receipt); By registered mail; By courier; By email to the designated address of the receiving party.</li>
                                                                                         <li>Notices sent by email shall be deemed received on the date of transmission, provided no delivery failure notification is received.</li>
                                                                                     </ol>
                                                                                 </div>
@@ -22216,11 +22212,7 @@ def download_contract(project_id):
                     <div class="terms-box">
                         <ol>
                             <li>Any notice required in terms of this Agreement shall be in writing.</li>
-                            <li>Notices shall be delivered::
-                                <ul>
-                                    <li>By hand (with signed acknowledgment of receipt); By registered mail; By courier; By email to the designated address of the receiving party.</li>
-                                </ul>
-                            </li>
+                            <li>Notices shall be delivered; By hand (with signed acknowledgment of receipt); By registered mail; By courier; By email to the designated address of the receiving party.</li>
                             <li>Notices sent by email shall be deemed received on the date of transmission, provided no delivery failure notification is received.</li>
                         </ol>
                     </div>
