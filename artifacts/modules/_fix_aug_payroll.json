@@ -1,0 +1,42 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "FixAugPayroll",
+  "file": "_fix_aug_payroll.py",
+  "purpose": "Faithfully re-run the 2026-08 payroll with the corrected commission logic,",
+  "entry_function": "calc_paye_tax(monthly_salary, brackets)",
+  "entry_flows": [
+    "_fix_aug_payroll → io.TextIOWrapper, cur.execute, cur.fetchall"
+  ],
+  "public_api": [
+    "calc_paye_tax(monthly_salary, brackets)",
+    "calc_nssa(gross_pay)",
+    "calc_statutory_deductions(taxable_income, monthly_paye, nssa_amount, gross_pay, apply_nec)",
+    "calc_emp_nssa(gross)"
+  ],
+  "dependencies": [
+    "db_helper",
+    "openpyxl",
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: PERIOD = '2026-08', FIELDS = ['basic_pay', 'allowances', 'designers_cut', 'gross_pay', 'deductions', 'paye_tax', 'aids_levy', 'nssa', 'nec', 'medical_aid', 'zimdef', 'wcif', 'sdf', 'net_pay']",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "53b18ba95d5342ed",
+  "file_mtime": 1787682188792.4375,
+  "file_size": 20205,
+  "file_birthtime": 1787682188608.1436,
+  "generated_at": "2026-08-25T18:23:18.578842Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

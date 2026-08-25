@@ -16811,8 +16811,10 @@ def hr_payroll_api():
                 run_version = (cursor.fetchone()[0] or 0) + 1
 
                 # Load per-period commissions for this payroll period (hr_commissions).
-                # A logged commission for this month-year overrides the fixed value on the
-                # employee record; if none is logged, fall back to the employee's allowances.
+                # Sales & Marketing commissions are logged per month in hr_commissions and
+                # are the source of truth: no record for the period means no commission ($0),
+                # so a stale value on the employee profile can never leak into another month.
+                # For other departments, fall back to the fixed value on the employee record.
                 commission_map = {}
                 try:
                     cursor.execute("SELECT employee_id, amount FROM hr_commissions WHERE period = %s", (period,))
@@ -16832,7 +16834,17 @@ def hr_payroll_api():
                     department = (emp[3] or '').strip().lower()
                     classification = (emp[4] or '').strip().lower()
                     basic = float(emp[5] or 0)
-                    commission = commission_map.get(emp_id, float(emp[6] or 0))
+                    # A commission logged for this exact period overrides everything.
+                    # Sales & Marketing: if nothing is logged for the period, commission is $0
+                    # (never reuse the standing profile value, which is a different month's amount).
+                    # Other departments: keep the fallback to the fixed profile value.
+                    logged_commission = commission_map.get(emp_id)
+                    if logged_commission is not None:
+                        commission = float(logged_commission)
+                    elif department == 'sales and marketing':
+                        commission = 0.0
+                    else:
+                        commission = float(emp[6] or 0)
                     medical_aid_package = (emp[7] or '').strip()
                     # Designer's cut (10%) only applies to Sales and Marketing department
                     designers_cut = round(commission * 0.10, 2) if (commission > 0 and department == 'sales and marketing') else 0

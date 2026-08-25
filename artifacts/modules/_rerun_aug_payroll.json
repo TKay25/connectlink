@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "RerunAugPayroll",
+  "file": "_rerun_aug_payroll.py",
+  "purpose": "Delete the wrong August payroll run and re-run it with the commission fix applied.",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_rerun_aug_payroll → io.TextIOWrapper, app.test_client, client.delete, r.get_json, client.post"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "ConnectLink"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "93a98f555097cd06",
+  "file_mtime": 1787682038407.0508,
+  "file_size": 627,
+  "file_birthtime": 1787682038312.4705,
+  "generated_at": "2026-08-25T18:20:42.699944Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
