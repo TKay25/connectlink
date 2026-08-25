@@ -2867,7 +2867,7 @@
                 <div class="row g-2 mb-2">
                     <div class="col-md-6">
                         <label class="form-label">Period (Month-Year) <span class="text-danger">*</span></label>
-                        <input type="month" class="form-control" id="commissionPeriodField">
+                        <input type="month" class="form-control" id="commissionPeriodField" onchange="commissionPeriodChanged()">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Department</label>
@@ -5846,6 +5846,14 @@ async function commissionLoadExisting() {
     const period = document.getElementById('commissionPeriodField').value;
     if (!period) { alert('Select the month-year first.'); return; }
     const records = await commissionFetchForPeriod(period);
+    renderCommissionEmpList(records);
+}
+
+async function commissionPeriodChanged() {
+    // When the user picks a different period, automatically pre-fill any
+    // commissions already saved for it into the amount fields.
+    const period = document.getElementById('commissionPeriodField').value;
+    const records = period ? await commissionFetchForPeriod(period) : [];
     renderCommissionEmpList(records);
 }
 
