@@ -16556,7 +16556,8 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                     COALESCE(SUM(aids_levy), 0) as ytd_aids,
                     COALESCE(SUM(nssa), 0) as ytd_nssa,
                     COALESCE(SUM(nec), 0) as ytd_nec,
-                    COALESCE(SUM(medical_aid), 0) as ytd_medical_aid
+                    COALESCE(SUM(medical_aid), 0) as ytd_medical_aid,
+                    COALESCE(SUM(zimdef), 0) as ytd_zimdef
                 FROM hr_payroll
                 WHERE employee_id = %s AND period LIKE %s AND period <= %s
             """, (emp_id, f"{ytd_year}%", period))
@@ -16567,6 +16568,33 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             ytd_nssa = float(yr[3] or 0)
             ytd_nec = float(yr[4] or 0)
             ytd_medical_aid = float(yr[5] or 0)
+            ytd_zimdef = float(yr[6] or 0)
+
+            # Employer-side YTD contributions: NSSA is capped per period, so sum row by row.
+            cursor.execute("""
+                SELECT gross_pay, nssa, nec FROM hr_payroll
+                WHERE employee_id = %s AND period LIKE %s AND period <= %s
+            """, (emp_id, f"{ytd_year}%", period))
+            nec_combined_rate = float(employer_cfg.get('NEC_EMPLOYEE', 2.0)) + float(employer_cfg.get('NEC_EMPLOYER', 2.0))
+            wcif_rate = float(employer_cfg.get('WCIF', 2.16))
+            sdf_rate = float(employer_cfg.get('SDF', 0.5))
+            ytd_employer_nssa = 0.0
+            ytd_employer_nec = 0.0
+            ytd_employer_wcif = 0.0
+            ytd_employer_sdf = 0.0
+            for prow in cursor.fetchall():
+                pg = float(prow[0] or 0)
+                pn = float(prow[1] or 0)
+                pne = float(prow[2] or 0)
+                nssa_basis_r = pg
+                if nssa_ceiling > 0 and nssa_basis_r > nssa_ceiling:
+                    nssa_basis_r = nssa_ceiling
+                ytd_employer_nssa += nssa_basis_r * (nssa_rate / 100)
+                ytd_employer_nec += max(0.0, pg * (nec_combined_rate / 100) - pne)
+                ptax = pg - pn
+                ytd_employer_wcif += ptax * (wcif_rate / 100)
+                ytd_employer_sdf += ptax * (sdf_rate / 100)
+            ytd_employer_medical_aid = ytd_medical_aid  # employer matches the employee's half
 
         # Compute taxable income and employer contributions
         taxable_income = emp['gross_pay'] - emp['nssa']
@@ -16597,6 +16625,10 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             taxable_income=taxable_income,
             ytd_taxable_income=ytd_taxable_income, ytd_paye=ytd_paye, ytd_aids=ytd_aids,
             ytd_nssa=ytd_nssa, ytd_nec=ytd_nec, ytd_medical_aid=ytd_medical_aid,
+            ytd_zimdef=ytd_zimdef,
+            ytd_employer_nssa=ytd_employer_nssa, ytd_employer_medical_aid=ytd_employer_medical_aid,
+            ytd_employer_nec=ytd_employer_nec, ytd_employer_wcif=ytd_employer_wcif,
+            ytd_employer_sdf=ytd_employer_sdf,
             exch_rate=emp['exchange_rate'],
             now=datetime.now()
         )
@@ -18206,7 +18238,8 @@ def generate_payslip_pdf(employee_id):
                     COALESCE(SUM(aids_levy), 0) as ytd_aids,
                     COALESCE(SUM(nssa), 0) as ytd_nssa,
                     COALESCE(SUM(nec), 0) as ytd_nec,
-                    COALESCE(SUM(medical_aid), 0) as ytd_medical_aid
+                    COALESCE(SUM(medical_aid), 0) as ytd_medical_aid,
+                    COALESCE(SUM(zimdef), 0) as ytd_zimdef
                 FROM hr_payroll
                 WHERE employee_id = %s AND period LIKE %s AND period <= %s
             """, (employee_id, f"{ytd_year}%", period))
@@ -18217,6 +18250,33 @@ def generate_payslip_pdf(employee_id):
             ytd_nssa = float(yr[3] or 0)
             ytd_nec = float(yr[4] or 0)
             ytd_medical_aid = float(yr[5] or 0)
+            ytd_zimdef = float(yr[6] or 0)
+
+            # Employer-side YTD contributions: NSSA is capped per period, so sum row by row.
+            cursor.execute("""
+                SELECT gross_pay, nssa, nec FROM hr_payroll
+                WHERE employee_id = %s AND period LIKE %s AND period <= %s
+            """, (employee_id, f"{ytd_year}%", period))
+            nec_combined_rate = float(employer_cfg.get('NEC_EMPLOYEE', 2.0)) + float(employer_cfg.get('NEC_EMPLOYER', 2.0))
+            wcif_rate = float(employer_cfg.get('WCIF', 2.16))
+            sdf_rate = float(employer_cfg.get('SDF', 0.5))
+            ytd_employer_nssa = 0.0
+            ytd_employer_nec = 0.0
+            ytd_employer_wcif = 0.0
+            ytd_employer_sdf = 0.0
+            for prow in cursor.fetchall():
+                pg = float(prow[0] or 0)
+                pn = float(prow[1] or 0)
+                pne = float(prow[2] or 0)
+                nssa_basis_r = pg
+                if nssa_ceiling > 0 and nssa_basis_r > nssa_ceiling:
+                    nssa_basis_r = nssa_ceiling
+                ytd_employer_nssa += nssa_basis_r * (nssa_rate / 100)
+                ytd_employer_nec += max(0.0, pg * (nec_combined_rate / 100) - pne)
+                ptax = pg - pn
+                ytd_employer_wcif += ptax * (wcif_rate / 100)
+                ytd_employer_sdf += ptax * (sdf_rate / 100)
+            ytd_employer_medical_aid = ytd_medical_aid  # employer matches the employee's half
 
         # Build logo
         logo_b64 = ''
@@ -18245,6 +18305,10 @@ def generate_payslip_pdf(employee_id):
             taxable_income=taxable_income,
             ytd_taxable_income=ytd_taxable_income, ytd_paye=ytd_paye, ytd_aids=ytd_aids,
             ytd_nssa=ytd_nssa, ytd_nec=ytd_nec, ytd_medical_aid=ytd_medical_aid,
+            ytd_zimdef=ytd_zimdef,
+            ytd_employer_nssa=ytd_employer_nssa, ytd_employer_medical_aid=ytd_employer_medical_aid,
+            ytd_employer_nec=ytd_employer_nec, ytd_employer_wcif=ytd_employer_wcif,
+            ytd_employer_sdf=ytd_employer_sdf,
             exch_rate=exch_rate,
             now=datetime.now()
         )

@@ -5122,14 +5122,25 @@ async function loadPayroll(period) {
             return;
         }
 
-        // In profile view, show only current user's payroll record
-        const payrollData = !isAdminView && HR_EMPLOYEE_ID
-            ? data.data.filter(rec => rec.employee_id === HR_EMPLOYEE_ID)
+        // In a personal view (ordinary user, OR an admin toggled to "My Profile"),
+        // show ONLY the current user's payroll record — never everyone's.
+        // If no employee id is resolvable, show an empty state instead of leaking all records.
+        const inPersonalView = (HR_ROLE !== 'Administrator' || !isAdminView);
+        const payrollData = inPersonalView
+            ? (HR_EMPLOYEE_ID
+                ? data.data.filter(rec => rec.employee_id === HR_EMPLOYEE_ID)
+                : [])
             : data.data;
 
         let gross = 0, deductions = 0, net = 0;
         let sumPaye = 0, sumAids = 0, sumNssa = 0, sumNec = 0;
         tbody.innerHTML = '';
+
+        if (inPersonalView && !payrollData.length) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">' +
+                '<i class="bi bi-person-lock" style="font-size:1.2rem;display:block;margin-bottom:4px;"></i>' +
+                'No payroll record found for your account in this period.</td></tr>';
+        }
 
         payrollData.forEach(rec => {
             gross += rec.gross_pay || 0;

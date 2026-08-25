@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "HrlinkErr",
+  "file": "hrlink_err.txt",
+  "purpose": "<!-- Describe what HrlinkErr does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "e3b0c44298fc1c14",
+  "file_mtime": 1787683775370.4287,
+  "file_size": 0,
+  "file_birthtime": 1787683775370.4287,
+  "generated_at": "2026-08-25T18:49:37.891Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
