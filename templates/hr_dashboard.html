@@ -2860,7 +2860,7 @@
     <div class="modal-container">
         <div class="modal-header-custom">
             <h3><i class="bi bi-cash-coin"></i> <span id="commissionModalTitle">Log Commissions</span></h3>
-            <button class="modal-close" onclick="closeModal('commissionModal')">&times;</button>
+            <button class="modal-close" onclick="closeCommissionModal()">&times;</button>
         </div>
         <div class="modal-body-custom">
             <form id="commissionForm" onsubmit="return false;">
@@ -2889,7 +2889,7 @@
             </form>
         </div>
         <div class="modal-footer-custom">
-            <button class="btn btn-danger" onclick="closeModal('commissionModal')">Cancel</button>
+            <button class="btn btn-danger" onclick="closeCommissionModal()">Cancel</button>
             <button class="btn btn-primary" onclick="saveCommissions()">
                 <i class="bi bi-check-circle"></i> Save Commissions
             </button>
@@ -3216,6 +3216,7 @@ function closeModal(modalId) {
 
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('modal-overlay')) {
+        if (e.target.id === 'commissionModal') captureCommissionDraft();
         e.target.classList.remove('active');
         document.body.style.overflow = '';
     }
@@ -3224,6 +3225,7 @@ document.addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay.active').forEach(m => {
+            if (m.id === 'commissionModal') captureCommissionDraft();
             m.classList.remove('active');
         });
         document.body.style.overflow = '';
@@ -5780,6 +5782,10 @@ async function saveAsset() {
 let _commissionEmployees = [];
 let _commissionRecords = [];
 let _editingCommissionId = null;
+// Unsaved (typed but not yet saved) commission entries kept per period, so closing
+// and reopening the Log Commissions modal never loses in-progress amounts.
+// period -> { empId: { amount, notes } }
+let _commissionDrafts = {};
 
 function getCurrentMonthYear() {
     const d = new Date();
@@ -5815,7 +5821,7 @@ async function commissionFetchForPeriod(period) {
     } catch(e) { return []; }
 }
 
-function renderCommissionEmpList(recordsForPeriod, highlightEmpId) {
+function renderCommissionEmpList(recordsForPeriod, highlightEmpId, draft) {
     const list = document.getElementById('commissionEmpList');
     if (!list) return;
     const sm = getSalesMarketingEmployees();
@@ -5834,12 +5840,43 @@ function renderCommissionEmpList(recordsForPeriod, highlightEmpId) {
         const existing = rec
             ? '<span class="ce-existing" title="Saved ' + (rec.amount || 0).toFixed(2) + ' for this period"><i class="bi bi-check-circle-fill"></i> ' + (rec.amount || 0).toFixed(2) + '</span>'
             : '';
+        // An unsaved draft (typed but not yet saved) takes priority over the saved value.
+        const d = draft && draft[e.id] ? draft[e.id] : null;
+        const amountVal = (d && d.amount !== undefined && d.amount !== null && d.amount !== '')
+            ? d.amount
+            : (rec ? (rec.amount || 0) : '');
+        const notesVal = (d && d.notes) ? d.notes : (rec && rec.notes ? rec.notes : '');
         return '<div class="commission-emp-row' + hl + '" data-id="' + e.id + '">' +
             '<div class="ce-name">' + name + '<span class="badge-hr pending">S&amp;M</span>' + existing + '</div>' +
-            '<input type="number" class="form-control ce-amount" step="0.01" min="0" placeholder="0.00"' + (rec ? ' value="' + (rec.amount || 0) + '"' : '') + '>' +
-            '<input type="text" class="form-control ce-notes" placeholder="Notes (optional)"' + (rec && rec.notes ? ' value="' + escapeHtml(rec.notes) + '"' : '') + '>' +
+            '<input type="number" class="form-control ce-amount" step="0.01" min="0" placeholder="0.00"' + (amountVal !== '' ? ' value="' + amountVal + '"' : '') + '>' +
+            '<input type="text" class="form-control ce-notes" placeholder="Notes (optional)"' + (notesVal ? ' value="' + escapeHtml(notesVal) + '"' : '') + '>' +
             '</div>';
     }).join('');
+}
+
+function captureCommissionDraft() {
+    const period = document.getElementById('commissionPeriodField').value;
+    if (!period) return;
+    const rows = {};
+    document.querySelectorAll('#commissionEmpList .commission-emp-row').forEach(function(row) {
+        const empId = parseInt(row.getAttribute('data-id')) || 0;
+        if (!empId) return;
+        rows[empId] = {
+            amount: row.querySelector('.ce-amount').value,
+            notes: row.querySelector('.ce-notes').value
+        };
+    });
+    _commissionDrafts[period] = rows;
+}
+
+function clearCommissionDraft(period) {
+    if (period) delete _commissionDrafts[period];
+}
+
+function closeCommissionModal() {
+    // Preserve any unsaved entries for this period before hiding the modal.
+    captureCommissionDraft();
+    closeModal('commissionModal');
 }
 
 async function commissionLoadExisting() {
@@ -5847,14 +5884,20 @@ async function commissionLoadExisting() {
     if (!period) { alert('Select the month-year first.'); return; }
     const records = await commissionFetchForPeriod(period);
     renderCommissionEmpList(records);
+    captureCommissionDraft();
 }
 
 async function commissionPeriodChanged() {
-    // When the user picks a different period, automatically pre-fill any
-    // commissions already saved for it into the amount fields.
+    // Keep the previous period's unsaved draft, then pre-fill the newly selected
+    // period (restore its unsaved draft if one exists, else its saved records).
+    captureCommissionDraft();
     const period = document.getElementById('commissionPeriodField').value;
-    const records = period ? await commissionFetchForPeriod(period) : [];
-    renderCommissionEmpList(records);
+    if (period && _commissionDrafts[period]) {
+        renderCommissionEmpList([], null, _commissionDrafts[period]);
+    } else {
+        const records = period ? await commissionFetchForPeriod(period) : [];
+        renderCommissionEmpList(records);
+    }
 }
 
 async function loadCommissions() {
@@ -5955,8 +5998,14 @@ async function openCommissionModal(commissionId) {
 
     openModal('commissionModal');
 
-    const records = await commissionFetchForPeriod(period);
-    renderCommissionEmpList(records, highlightEmpId);
+    // Restore this period's unsaved draft when logging fresh, otherwise load the
+    // commissions already saved for the period from the server.
+    if (!commissionId && _commissionDrafts[period]) {
+        renderCommissionEmpList([], highlightEmpId, _commissionDrafts[period]);
+    } else {
+        const records = await commissionFetchForPeriod(period);
+        renderCommissionEmpList(records, highlightEmpId);
+    }
 }
 
 async function saveCommissions() {
@@ -5988,6 +6037,7 @@ async function saveCommissions() {
             if (data.success) saved++; else failed++;
         }
         document.getElementById('hrLoader').classList.remove('active');
+        clearCommissionDraft(period);
         closeModal('commissionModal');
         await loadCommissions();
         if (failed === 0) {
