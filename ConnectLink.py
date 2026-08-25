@@ -18571,7 +18571,7 @@ def payroll_remittances(period):
 </style></head>
 <body>
   <h1>ConnectLink Properties — Company Remittances</h1>
-  <div class="sub">{period} &middot; Generated {now.strftime('%d %B %Y %H:%M')} &middot; Month: {m_emp} employees &middot; YTD: {y_emp} employees</div>
+  <div class="sub">{period} &middot; Generated {datetime.now().strftime('%d %B %Y %H:%M')} &middot; Month: {m_emp} employees &middot; YTD: {y_emp} employees</div>
 
   <div class="section-title">Month: {period}</div>
   <table><thead><tr><th>Type</th><th>Description</th><th>Employee</th><th>Employer</th><th>Total</th></tr></thead><tbody>{m_remit_rows}{m_total_row}</tbody></table>
