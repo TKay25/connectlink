@@ -18513,6 +18513,7 @@ def payroll_remittances(period):
                 ws.cell(row=ytr, column=1).border = thin_border; ws.cell(row=ytr, column=2).border = thin_border
                 ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_nec_emp + y_med_emp
                 ys_er = y_er_nssa + y_nec_er + y_med_emp
+
                 for col, val in [(3, ys_emp), (4, ys_er), (5, ys_emp + ys_er)]:
                     c = ws.cell(row=ytr, column=col, value=round(val, 2))
                     c.number_format = money_fmt; c.font = Font(bold=True, color='C12B3E', size=10)
@@ -18532,6 +18533,7 @@ def payroll_remittances(period):
                     f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${me:,.2f}</td><td style="text-align:right;">${mer:,.2f}</td><td style="text-align:right;">${me+mer:,.2f}</td></tr>'
                     for c, d, me, mer, ye, yer in remittances
                 )
+
                 sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef + m_nec_emp + m_med_emp
                 sm_er = m_er_nssa + m_nec_er + m_med_emp
                 m_total_row = f'<tr class="gt"><td></td><td><strong>MONTH TOTAL</strong></td><td style="text-align:right;"><strong>${sm_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_er:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_emp+sm_er:,.2f}</strong></td></tr>'
@@ -18540,11 +18542,13 @@ def payroll_remittances(period):
                     f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${ye:,.2f}</td><td style="text-align:right;">${yer:,.2f}</td><td style="text-align:right;">${ye+yer:,.2f}</td></tr>'
                     for c, d, me, mer, ye, yer in remittances
                 )
+
                 ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_nec_emp + y_med_emp
                 ys_er = y_er_nssa + y_nec_er + y_med_emp
                 y_total_row = f'<tr class="gt"><td></td><td><strong>YTD TOTAL</strong></td><td style="text-align:right;"><strong>${ys_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_er:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_emp+ys_er:,.2f}</strong></td></tr>'
 
                 html = f"""<!DOCTYPE html>
+
 <html><head><meta charset="UTF-8">
 <style>
   @page {{ size: A4 landscape; margin: 6mm; }}
@@ -18589,7 +18593,7 @@ def payroll_remittances(period):
   </div>
 
   <div class="footer">ConnectLink Properties (Pvt) Ltd &middot; {period} &middot; Remittances Report &middot; Page 1 of 1</div>
-</body></html>"""
+  </body></html>"""
 
                 pdf_bytes = HTML(string=html).write_pdf()
                 response = make_response(pdf_bytes)

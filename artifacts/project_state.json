@@ -1,13 +1,37 @@
 {
-  "last_sync": "2026-08-25T18:15:19.946Z",
+  "last_sync": "2026-08-26T06:58:32.690Z",
   "module_count": 59,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 31,
+  "orphaned_count": 50,
   "orphaned": [
+    {
+      "artifact": "artifacts/modules/final_err.json",
+      "source": "final_err.txt"
+    },
+    {
+      "artifact": "artifacts/modules/final_out.json",
+      "source": "final_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/hrlink_err.json",
+      "source": "hrlink_err.txt"
+    },
+    {
+      "artifact": "artifacts/modules/hrlink_out.json",
+      "source": "hrlink_out.txt"
+    },
     {
       "artifact": "artifacts/modules/LOCs.json",
       "source": "LOCs.py"
+    },
+    {
+      "artifact": "artifacts/modules/payslip_err.json",
+      "source": "payslip_err.txt"
+    },
+    {
+      "artifact": "artifacts/modules/payslip_out.json",
+      "source": "payslip_out.txt"
     },
     {
       "artifact": "artifacts/modules/templates--copy.json",
@@ -38,6 +62,22 @@
       "source": "test_pagination_api.py"
     },
     {
+      "artifact": "artifacts/modules/verify_err.json",
+      "source": "verify_err.txt"
+    },
+    {
+      "artifact": "artifacts/modules/verify_out.json",
+      "source": "verify_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/zero_err.json",
+      "source": "zero_err.txt"
+    },
+    {
+      "artifact": "artifacts/modules/zero_out.json",
+      "source": "zero_out.txt"
+    },
+    {
       "artifact": "artifacts/modules/_clean_leave.json",
       "source": "_clean_leave.py"
     },
@@ -50,6 +90,18 @@
       "source": "_clean_leave3.py"
     },
     {
+      "artifact": "artifacts/modules/_diag_aug_commissions.json",
+      "source": "_diag_aug_commissions.py"
+    },
+    {
+      "artifact": "artifacts/modules/_diag_aug_commissions2.json",
+      "source": "_diag_aug_commissions2.py"
+    },
+    {
+      "artifact": "artifacts/modules/_diag_hr_link.json",
+      "source": "_diag_hr_link.py"
+    },
+    {
       "artifact": "artifacts/modules/_diag_today_sales.json",
       "source": "_diag_today_sales.py"
     },
@@ -60,6 +112,10 @@
     {
       "artifact": "artifacts/modules/_fix_approve_msg.json",
       "source": "_fix_approve_msg.py"
+    },
+    {
+      "artifact": "artifacts/modules/_fix_aug_payroll.json",
+      "source": "_fix_aug_payroll.py"
     },
     {
       "artifact": "artifacts/modules/_fix_leave_template.json",
@@ -128,56 +184,76 @@
     {
       "artifact": "artifacts/modules/_report_today.json",
       "source": "_report_today.py"
+    },
+    {
+      "artifact": "artifacts/modules/_rerun_aug_payroll.json",
+      "source": "_rerun_aug_payroll.py"
+    },
+    {
+      "artifact": "artifacts/modules/_verify_aug_payroll.json",
+      "source": "_verify_aug_payroll.py"
+    },
+    {
+      "artifact": "artifacts/modules/_verify_final_aug.json",
+      "source": "_verify_final_aug.py"
+    },
+    {
+      "artifact": "artifacts/modules/_verify_payslip.json",
+      "source": "_verify_payslip.py"
+    },
+    {
+      "artifact": "artifacts/modules/_zero_allowances.json",
+      "source": "_zero_allowances.py"
     }
   ],
   "recent_deletions": [
     {
-      "rel": "_report_today.py",
-      "ts": "2026-08-15T15:26:44.267Z"
+      "rel": "_diag_hr_link.py",
+      "ts": "2026-08-25T18:50:47.879Z"
     },
     {
-      "rel": "_preview_statsfix.py",
-      "ts": "2026-08-15T15:25:44.324Z"
+      "rel": "hrlink_out.txt",
+      "ts": "2026-08-25T18:50:47.874Z"
     },
     {
-      "rel": "_diag_today_sales.py",
-      "ts": "2026-08-15T15:25:44.307Z"
+      "rel": "hrlink_err.txt",
+      "ts": "2026-08-25T18:50:47.868Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T14:51:37.680Z"
+      "rel": "_verify_payslip.py",
+      "ts": "2026-08-25T18:28:06.508Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T14:39:50.991Z"
+      "rel": "payslip_out.txt",
+      "ts": "2026-08-25T18:28:06.504Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T14:26:29.502Z"
+      "rel": "payslip_err.txt",
+      "ts": "2026-08-25T18:28:06.499Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T14:23:27.079Z"
+      "rel": "_zero_allowances.py",
+      "ts": "2026-08-25T18:26:22.305Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T13:59:38.163Z"
+      "rel": "zero_out.txt",
+      "ts": "2026-08-25T18:26:22.302Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T13:47:22.875Z"
+      "rel": "zero_err.txt",
+      "ts": "2026-08-25T18:26:22.298Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T12:53:45.084Z"
+      "rel": "_verify_aug_payroll.py",
+      "ts": "2026-08-25T18:24:36.937Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T12:48:01.302Z"
+      "rel": "_rerun_aug_payroll.py",
+      "ts": "2026-08-25T18:24:36.932Z"
     },
     {
-      "rel": "_preview_cashier.py",
-      "ts": "2026-08-11T12:37:24.881Z"
+      "rel": "_verify_final_aug.py",
+      "ts": "2026-08-25T18:24:36.927Z"
     }
   ]
 }
