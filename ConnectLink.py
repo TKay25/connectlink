@@ -1670,6 +1670,7 @@ def initialize_database_tables():
                     po_no VARCHAR(30) NOT NULL UNIQUE,
                     supplier_id INTEGER REFERENCES suppliers(id),
                     supplier_name VARCHAR(150),
+                    supplier_phone VARCHAR(50),
                     requisition_ids TEXT,
                     status VARCHAR(30) DEFAULT 'ordered',
                     total_amount DECIMAL(12,2) DEFAULT 0,
@@ -1691,6 +1692,29 @@ def initialize_database_tables():
                     quantity_ordered INTEGER DEFAULT 0,
                     quantity_received INTEGER DEFAULT 0,
                     unit_cost DECIMAL(12,2) DEFAULT 0
+                )
+            """)
+            connection.commit()
+
+            # Supplier phone snapshot on POs (for existing databases)
+            try:
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_phone VARCHAR(50)")
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add supplier_phone column: {e}")
+
+            # Purchase order attachments (supplier invoices + goods-received receipts)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS procurement_attachments (
+                    id SERIAL PRIMARY KEY,
+                    po_id INTEGER REFERENCES purchase_orders(id) ON DELETE CASCADE,
+                    attachment_type VARCHAR(20) DEFAULT 'invoice',
+                    original_name VARCHAR(255),
+                    stored_name VARCHAR(255),
+                    mime_type VARCHAR(120),
+                    file_size INTEGER DEFAULT 0,
+                    uploaded_by VARCHAR(100),
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             connection.commit()
@@ -36307,8 +36331,9 @@ def procurement_api_purchase_orders():
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT po.id, po.po_no, po.supplier_id, po.supplier_name, po.requisition_ids,
-                       po.status, po.total_amount, po.expected_delivery, po.created_by, po.created_at, po.received_at
+                SELECT po.id, po.po_no, po.supplier_id, po.supplier_name, po.supplier_phone, po.requisition_ids,
+                       po.status, po.total_amount, po.expected_delivery, po.created_by, po.created_at, po.received_at,
+                       (SELECT COUNT(*) FROM procurement_attachments pa WHERE pa.po_id = po.id) AS attach_count
                 FROM purchase_orders po ORDER BY po.created_at DESC
             """)
             rows = cursor.fetchall()
@@ -36316,10 +36341,12 @@ def procurement_api_purchase_orders():
             for r in rows:
                 pos.append({
                     'id': r[0], 'po_no': r[1], 'supplier_id': r[2], 'supplier_name': r[3],
-                    'requisition_ids': r[4], 'status': r[5], 'total_amount': float(r[6] or 0),
-                    'expected_delivery': str(r[7]) if r[7] else None,
-                    'created_by': r[8], 'created_at': str(r[9]) if r[9] else None,
-                    'received_at': str(r[10]) if r[10] else None
+                    'supplier_phone': r[4], 'requisition_ids': r[5], 'status': r[6],
+                    'total_amount': float(r[7] or 0),
+                    'expected_delivery': str(r[8]) if r[8] else None,
+                    'created_by': r[9], 'created_at': str(r[10]) if r[10] else None,
+                    'received_at': str(r[11]) if r[11] else None,
+                    'attachments_count': r[12] or 0
                 })
             return jsonify({'success': True, 'data': pos})
     except Exception as e:
@@ -36340,11 +36367,13 @@ def procurement_api_create_purchase_order():
     try:
         with get_db() as (cursor, connection):
             supplier_name = ''
+            supplier_phone = ''
             if supplier_id:
-                cursor.execute("SELECT name FROM suppliers WHERE id = %s", (supplier_id,))
+                cursor.execute("SELECT name, phone FROM suppliers WHERE id = %s", (supplier_id,))
                 s = cursor.fetchone()
                 if s:
-                    supplier_name = s[0]
+                    supplier_name = s[0] or ''
+                    supplier_phone = s[1] or ''
             placeholders = ','.join(['%s'] * len(req_ids))
             cursor.execute(f"""
                 SELECT ri.product_id, ri.product_name, ri.quantity, ri.unit_cost, r.req_no
@@ -36361,10 +36390,10 @@ def procurement_api_create_purchase_order():
             po_no = f'PO-{po_id:04d}'
             total = sum(float(i[3] or 0) * int(i[2] or 0) for i in items)
             cursor.execute("""
-                INSERT INTO purchase_orders (po_no, supplier_id, supplier_name, requisition_ids,
+                INSERT INTO purchase_orders (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids,
                                              status, total_amount, expected_delivery, created_by)
-                VALUES (%s, %s, %s, %s, 'ordered', %s, %s, %s)
-            """, (po_no, supplier_id, supplier_name, ','.join(str(x) for x in req_ids), total,
+                VALUES (%s, %s, %s, %s, %s, 'ordered', %s, %s, %s)
+            """, (po_no, supplier_id, supplier_name, supplier_phone, ','.join(str(x) for x in req_ids), total,
                   expected_delivery or None, user['name']))
             for it in items:
                 cursor.execute("""
@@ -36407,6 +36436,16 @@ def procurement_api_po_detail(po_id):
                 'id': l[0], 'product_id': l[1], 'product_name': l[2],
                 'quantity_ordered': l[3], 'quantity_received': l[4], 'unit_cost': float(l[5] or 0)
             } for l in lines]
+            cursor.execute("""
+                SELECT id, attachment_type, original_name, stored_name, mime_type, file_size, uploaded_by, uploaded_at
+                FROM procurement_attachments WHERE po_id = %s ORDER BY uploaded_at DESC
+            """, (po_id,))
+            atts = cursor.fetchall()
+            po['attachments'] = [{
+                'id': a[0], 'attachment_type': a[1], 'original_name': a[2], 'stored_name': a[3],
+                'mime_type': a[4], 'file_size': a[5], 'uploaded_by': a[6],
+                'uploaded_at': str(a[7]) if a[7] else None
+            } for a in atts]
             return jsonify({'success': True, 'data': po})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -36475,6 +36514,337 @@ def procurement_api_receive_po(po_id):
     except Exception as e:
         print(f"Receive PO error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ------------------------------- PO ATTACHMENTS -------------------------------
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/attachment', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_po_upload_attachment(po_id):
+    """Attach a supplier invoice or goods-received receipt to a purchase order."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, po_no FROM purchase_orders WHERE id = %s", (po_id,))
+            po = cursor.fetchone()
+        if not po:
+            return jsonify({'success': False, 'error': 'PO not found.'}), 404
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file selected.'}), 400
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'Empty file.'}), 400
+        att_type = (request.form.get('attachment_type') or 'invoice').strip().lower()
+        if att_type not in ('invoice', 'receipt'):
+            att_type = 'invoice'
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        os.makedirs(folder, exist_ok=True)
+        safe = secure_filename(file.filename) or 'file'
+        ext = os.path.splitext(safe)[1].lower()
+        stored = f"{po_id}_{att_type}_{uuid.uuid4().hex[:10]}{ext}"
+        file.save(os.path.join(folder, stored))
+        user = _procurement_user()
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO procurement_attachments (po_id, attachment_type, original_name, stored_name, mime_type, file_size, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (po_id, att_type, file.filename, stored, file.content_type or 'application/octet-stream',
+                  os.path.getsize(os.path.join(folder, stored)), user['name']))
+            connection.commit()
+        log_activity('po_attachment', f'Attached {att_type} "{file.filename}" to {po[1]}', 'purchase_order', po_id)
+        return jsonify({'success': True, 'message': f'{att_type.title()} attached to {po[1]}.'})
+    except Exception as e:
+        print(f"Upload attachment error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/attachment/<int:att_id>', methods=['GET'])
+@login_required
+def procurement_api_attachment_download(att_id):
+    """Open/view a stored attachment (invoice or receipt)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT original_name, stored_name, mime_type FROM procurement_attachments WHERE id = %s", (att_id,))
+            r = cursor.fetchone()
+        if not r:
+            return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        path = os.path.join(folder, r[1])
+        if not os.path.exists(path):
+            return jsonify({'success': False, 'error': 'File missing on disk.'}), 404
+        return send_file(path, mimetype=r[2] or 'application/octet-stream')
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/attachment/<int:att_id>', methods=['DELETE'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_attachment_delete(att_id):
+    """Delete an attachment and remove its file from disk."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT stored_name FROM procurement_attachments WHERE id = %s", (att_id,))
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
+            cursor.execute("DELETE FROM procurement_attachments WHERE id = %s", (att_id,))
+            connection.commit()
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        path = os.path.join(folder, r[0])
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+        return jsonify({'success': True, 'message': 'Attachment deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ------------------------------- PO PDF -------------------------------
+
+def _render_po_pdf(po_id):
+    """Render a neat Purchase Order PDF (reportlab) -> (pdf_bytes, po_no)."""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
+    except Exception as e:
+        print(f"reportlab import error: {e}")
+        return None, None
+
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            SELECT po.po_no, po.supplier_id, po.supplier_name, po.supplier_phone, po.requisition_ids,
+                   po.status, po.total_amount, po.expected_delivery, po.created_by, po.created_at, po.received_at,
+                   s.contact_person, s.email, s.address
+            FROM purchase_orders po
+            LEFT JOIN suppliers s ON s.id = po.supplier_id
+            WHERE po.id = %s
+        """, (po_id,))
+        r = cursor.fetchone()
+        if not r:
+            return None, None
+        cursor.execute("""
+            SELECT product_name, quantity_ordered, quantity_received, unit_cost
+            FROM grn_lines WHERE purchase_order_id = %s ORDER BY id
+        """, (po_id,))
+        lines = cursor.fetchall()
+
+    (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids, status,
+     total_amount, expected_delivery, created_by, created_at, received_at,
+     contact_person, email, address) = r
+
+    def _s(v):
+        return (v if v is not None else '')
+
+    status_map = {
+        'ordered': ('Ordered', colors.HexColor('#2563EB')),
+        'partial': ('Partial', colors.HexColor('#D97706')),
+        'received': ('Received', colors.HexColor('#16A34A')),
+        'cancelled': ('Cancelled', colors.HexColor('#DC2626')),
+    }
+    status_label, status_color = status_map.get(status, (str(status or '—'), colors.HexColor('#475569')))
+
+    navy = colors.HexColor('#0F172A')
+    slate = colors.HexColor('#64748B')
+    line_col = colors.HexColor('#E2E8F0')
+    soft = colors.HexColor('#F8FAFC')
+    gold = colors.HexColor('#FACC15')
+
+    base = ParagraphStyle('base', fontName='Helvetica', fontSize=9, leading=12, textColor=colors.HexColor('#0F172A'))
+    small = ParagraphStyle('small', parent=base, fontSize=8, leading=11, textColor=slate)
+    label = ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=7, leading=9, textColor=slate)
+    val = ParagraphStyle('val', fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.HexColor('#0F172A'))
+    brand = ParagraphStyle('brand', fontName='Helvetica-Bold', fontSize=18, leading=20, textColor=colors.white)
+    brandsub = ParagraphStyle('brandsub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#CBD5E1'))
+    doctitle = ParagraphStyle('doctitle', fontName='Helvetica-Bold', fontSize=15, leading=18, textColor=gold)
+    docsub = ParagraphStyle('docsub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#CBD5E1'))
+    cellc = ParagraphStyle('cellc', parent=base, alignment=TA_CENTER)
+    cellr = ParagraphStyle('cellr', parent=base, alignment=TA_RIGHT)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
+                            topMargin=14 * mm, bottomMargin=14 * mm,
+                            title=f'{po_no} — Purchase Order', author='ConnectLink')
+    story = []
+
+    # ---- Header band ----
+    header = Table(
+        [[Paragraph('CONNECTLINK', brand), Paragraph('PURCHASE ORDER', doctitle)],
+         [Paragraph('Hardware &amp; Building Projects • Procurement Suite', brandsub),
+          Paragraph(f'<b>{po_no}</b>', docsub)]],
+        colWidths=[115 * mm, 67 * mm]
+    )
+    header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), navy),
+        ('LEFTPADDING', (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+        ('TOPPADDING', (0, 0), (-1, 0), 13),
+        ('BOTTOMPADDING', (-1, 1), (-1, 1), 13),
+        ('BOTTOMPADDING', (0, 1), (0, 1), 3),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('ALIGN', (1, 1), (1, 1), 'RIGHT'),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 5 * mm))
+
+    # ---- Status pill ----
+    pill = Table([[Paragraph(f'<font color="white"><b>{status_label}</b></font>', ParagraphStyle('pill', parent=base, alignment=TA_CENTER, fontSize=8))]],
+                 colWidths=[34 * mm])
+    pill.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), status_color),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(pill)
+    story.append(Spacer(1, 4 * mm))
+
+    # ---- Meta grid ----
+    sup_lines = [f'<b>{_s(supplier_name) or "—"}</b>']
+    if contact_person:
+        sup_lines.append(f'Contact: {_s(contact_person)}')
+    if supplier_phone:
+        sup_lines.append(f'Phone: {_s(supplier_phone)}')
+    if email:
+        sup_lines.append(f'Email: {_s(email)}')
+    if address:
+        sup_lines.append(f'Address: {_s(address)}')
+    sup_html = '<br/>'.join(sup_lines)
+
+    created_date = str(created_at)[:10] if created_at else '—'
+    received_date = str(received_at)[:10] if received_at else '—'
+    exp_del = str(expected_delivery)[:10] if expected_delivery else '—'
+
+    meta = Table([
+        [Paragraph('SUPPLIER', label), Paragraph('ORDER', label), Paragraph('INFORMATION', label)],
+        [Paragraph(sup_html, base),
+         Paragraph(f'<b>{_s(po_no)}</b><br/><font color="{status_color.hexval()}"><b>{status_label}</b></font>', val),
+         Paragraph(f'<b>Created By:</b> {_s(created_by) or "—"}<br/><b>Requisitions:</b> {_s(requisition_ids) or "—"}', small)],
+    ], colWidths=[82 * mm, 50 * mm, 50 * mm])
+    meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), soft),
+        ('SPAN', (1, 1), (1, 1)),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(meta)
+    story.append(Spacer(1, 3 * mm))
+
+    # ---- Created / Expected / Received line ----
+    timeline = Table([
+        [Paragraph(f'<b>Created:</b> {created_date}', base),
+         Paragraph(f'<b>Expected Delivery:</b> {exp_del}', base),
+         Paragraph(f'<b>Received:</b> {received_date}', base)],
+    ], colWidths=[60.6 * mm, 60.6 * mm, 60.6 * mm])
+    timeline.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(timeline)
+
+    # ---- Line items ----
+    item_header = ['#', 'Item', 'Qty Ordered', 'Qty Received', 'Unit Cost (USD)', 'Total (USD)']
+    data = [item_header]
+    computed_total = 0.0
+    for i, ln in enumerate(lines, 1):
+        name, qty_o, qty_r, unit = ln
+        unit = float(unit or 0)
+        qty_o = int(qty_o or 0)
+        qty_r = int(qty_r or 0)
+        total = unit * qty_o
+        computed_total += total
+        data.append([
+            Paragraph(str(i), cellc),
+            Paragraph(_s(name), base),
+            Paragraph(str(qty_o), cellc),
+            Paragraph(str(qty_r), cellc),
+            Paragraph(f'{unit:,.2f}', cellr),
+            Paragraph(f'{total:,.2f}', cellr),
+        ])
+    grand_total = float(total_amount or 0) if total_amount else computed_total
+    data.append([
+        Paragraph('', base),
+        Paragraph('<b>GRAND TOTAL</b>', ParagraphStyle('gt', parent=base, fontName='Helvetica-Bold', fontSize=10)),
+        Paragraph('', base), Paragraph('', base), Paragraph('', base),
+        Paragraph(f'<b>{grand_total:,.2f}</b>', ParagraphStyle('gtn', parent=cellr, fontName='Helvetica-Bold', fontSize=11)),
+    ])
+    items = Table(data, colWidths=[16 * mm, 78 * mm, 22 * mm, 26 * mm, 26 * mm, 26 * mm])
+    items.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#334155')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('BACKGROUND', (0, -1), (-1, -1), soft),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(items)
+    story.append(Spacer(1, 6 * mm))
+
+    # ---- Footer ----
+    story.append(Paragraph(
+        f'Generated by ConnectLink Procurement on {datetime.now().strftime("%d %b %Y, %H:%M")} '
+        f'• Requisitions: {_s(requisition_ids) or "—"} • Supplier: {_s(supplier_name) or "—"}',
+        small
+    ))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.getvalue(), po_no
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/pdf', methods=['GET'])
+@login_required
+def procurement_api_po_pdf(po_id):
+    """Download a tidy PDF of the purchase order."""
+    pdf_bytes, po_no = _render_po_pdf(po_id)
+    if pdf_bytes is None:
+        return jsonify({'success': False, 'error': 'Could not generate PDF (PO not found or PDF library unavailable).'}), 404
+    return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf',
+                     as_attachment=True, download_name=f'{po_no}.pdf')
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/pdf/send', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_po_pdf_send(po_id):
+    """Send the PO PDF to the supplier's WhatsApp number."""
+    pdf_bytes, po_no = _render_po_pdf(po_id)
+    if pdf_bytes is None:
+        return jsonify({'success': False, 'error': 'Could not generate PDF.'}), 500
+    with get_db() as (cursor, connection):
+        cursor.execute("SELECT supplier_name, supplier_phone FROM purchase_orders WHERE id = %s", (po_id,))
+        r = cursor.fetchone()
+    supplier_name = (r[0] if r else None) or 'Supplier'
+    phone = (r[1] if r else '') or ''
+    number = _wa_normalize_phone(phone)
+    if not number:
+        return jsonify({'success': False, 'error': 'This PO has no supplier phone number to send to. Add one on the supplier record.'}), 400
+    try:
+        send_pdf_document_whatsapp(number.lstrip('+'), pdf_bytes, f'{po_no}.pdf',
+                                   f'Purchase Order {po_no} from ConnectLink. Please supply as per the order.')
+        log_activity('po_pdf_send', f'Sent {po_no} PDF to {supplier_name} ({number}) via WhatsApp', 'purchase_order', po_id)
+        return jsonify({'success': True, 'message': f'{po_no} PDF sent to {supplier_name} via WhatsApp.'})
+    except Exception as e:
+        print(f"Send PO PDF error: {e}")
+        return jsonify({'success': False, 'error': f'Could not send: {e}'}), 500
 
 
 # ------------------------------- EXPORTS -------------------------------

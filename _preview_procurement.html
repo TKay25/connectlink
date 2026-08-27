@@ -178,9 +178,9 @@
         button.pc-disabled, .pc-btn.pc-disabled, a.pc-disabled { pointer-events: none !important; }
 
         /* ===== FORMS ===== */
-        .pc-form-label { font-size: 0.58rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block; }
+        .pc-form-label { font-size: 0.58rem; font-weight: 800; color: #475569; margin-bottom: 4px; display: block; }
         .pc-input, .pc-select, .pc-textarea {
-            width: 100%; padding: 7px 10px; font-size: 0.66rem; border: 1px solid #e2e8f0; border-radius: 8px;
+            width: 100%; padding: 6px 9px; font-size: 0.6rem; border: 1px solid #e2e8f0; border-radius: 8px;
             background: #fff; color: #1E293B; transition: all 0.18s; outline: none;
         }
         .pc-input:focus, .pc-select:focus, .pc-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(193,43,62,0.12); }
@@ -479,6 +479,49 @@
             scrollbar-width: thin;
         }
 
+        /* One-line textarea that auto-grows as you type */
+        .pc-auto-grow {
+            resize: none;
+            min-height: 34px;
+            max-height: 140px;
+            overflow-y: auto;
+            line-height: 1.45;
+            padding: 6px 9px;
+        }
+
+        /* Purchase-order attachment panel */
+        .pc-attach-box {
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 10px 12px;
+            background: rgba(248, 250, 252, 0.6);
+        }
+        .pc-attach-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 10px;
+            border: 1px solid #eef2f7;
+            border-radius: 8px;
+            background: #fff;
+            margin-bottom: 6px;
+            font-size: 0.66rem;
+        }
+        .pc-attach-item i { color: var(--primary); font-size: 1rem; }
+        .pc-attach-tag {
+            font-size: 0.52rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            padding: 2px 7px;
+            border-radius: 20px;
+            margin-left: 6px;
+        }
+        .pc-attach-invoice { background: #EDE9FE; color: #6D28D9; }
+        .pc-attach-receipt { background: #DCFCE7; color: #15803D; }
+        body.dark-theme .pc-attach-box { background: rgba(15, 23, 42, 0.5); border-color: #334155; }
+        body.dark-theme .pc-attach-item { background: #1E293B; border-color: #334155; }
+
         body.dark-theme .modal-content { background:#111A2E; }
         body.dark-theme .modal-header, body.dark-theme .modal-footer { border-color:#1E293B; }
 
@@ -717,7 +760,7 @@
                     </div>
                     <div class="col-md-7">
                         <label class="pc-form-label">Notes</label>
-                        <input type="text" class="pc-input" id="reqNotes" placeholder="Any additional information">
+                        <textarea class="pc-input pc-textarea pc-auto-grow" id="reqNotes" rows="1" placeholder="Any additional information"></textarea>
                     </div>
                 </div>
 
@@ -834,8 +877,26 @@
                         <tbody id="viewPoItems"></tbody>
                     </table>
                 </div>
+                <div class="pc-attach-box mt-3" id="poAttachBox">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <label class="pc-form-label mb-0"><i class="bi bi-paperclip me-1"></i>Attachments — Supplier Invoice / Goods Receipt</label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <label class="pc-btn pc-btn-outline pc-btn-sm mb-0" data-perm-action="can_manage_purchase_orders" style="cursor:pointer;">
+                                <i class="bi bi-file-earmark-text"></i> Attach Invoice
+                                <input type="file" id="poInvoiceFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" hidden onchange="uploadPoAttachment('invoice')">
+                            </label>
+                            <label class="pc-btn pc-btn-success pc-btn-sm mb-0" data-perm-action="can_manage_purchase_orders" style="cursor:pointer;">
+                                <i class="bi bi-receipt"></i> Attach Receipt
+                                <input type="file" id="poReceiptFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" hidden onchange="uploadPoAttachment('receipt')">
+                            </label>
+                        </div>
+                    </div>
+                    <div id="poAttachList"></div>
+                </div>
             </div>
             <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" onclick="downloadPoPdf()"><i class="bi bi-file-earmark-pdf"></i> Download PDF</button>
+                <button class="pc-btn pc-btn-outline" onclick="sendPoPdf()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-whatsapp"></i> Send PDF</button>
                 <button class="pc-btn pc-btn-primary" onclick="saveReceive()" id="receiveBtn" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Record Receipt</button>
             </div>
         </div>
@@ -1099,7 +1160,7 @@ async function loadDashboard() {
     const tbody = document.getElementById('dashRecentBody');
     showSkeleton(tbody, 8, 4);
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park", "priority": "High", "status": "submitted", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": ""}, {"id": 2, "req_no": "REQ-0002", "title": "Cement & Block Order", "department": "Construction", "requested_by": "K. Moyo", "project_ref": "222--Msasa Single Storey", "priority": "Urgent", "status": "approved", "item_count": 2, "total": 5870.0, "created_at": "2026-08-21 11:40:00", "notes": ""}]})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "approved", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
         const data = await res.json();
         REQUISITIONS = data.data || [];
         tbody.innerHTML = REQUISITIONS.slice(0, 6).map(r => `
@@ -1124,7 +1185,7 @@ async function loadRequisitions() {
     showSkeleton(tbody, 9);
     const status = document.getElementById('reqStatusFilter').value;
     try {
-        const res = await fetch('/api/procurement/requisitions?status=' + encodeURIComponent(status), { credentials: 'include' });
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "approved", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
         const data = await res.json();
         REQUISITIONS = data.data || [];
         tbody.innerHTML = REQUISITIONS.map(r => `
@@ -1265,14 +1326,14 @@ const PROJECT_FIELD_ORDER = [
 
 async function loadProjects() {
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 221, "projectname": "Rainham Park", "clientname": "John Doe", "location": "Harare", "amount": 50000, "deposit": 5000, "status": "Active", "admin": "Admin"}, {"id": 222, "projectname": "Msasa Single Storey", "clientname": "Jane Moyo", "location": "Msasa", "amount": 80000, "deposit": 8000, "status": "Active", "admin": "Admin"}],total:2})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 221, "projectname": "Rainham Park", "clientname": "John Doe", "location": "Harare", "amount": 50000, "deposit": 5000, "status": "Active", "admin": "Admin"}, {"id": 222, "projectname": "Chisipite House", "clientname": "A. Ncube", "location": "Chisipite", "amount": 32000, "deposit": 3000, "status": "Active", "admin": "Admin"}],total:2})));
         const data = await res.json();
         PROJECTS = (data && data.data) || [];
     } catch (e) { PROJECTS = []; }
 }
 
 function projectLabel(p) {
-    return (p.id != null ? p.id : '') + '--' + (p.projectname || '');
+    return (p.id != null ? p.id : '') + '--' + (p.projectname || '') + '--' + (p.location || p.projectlocation || '') + '--' + (p.clientname || '');
 }
 
 function setupSearchableCombo(input, listEl, getOptions, onSelect, onInput) {
@@ -1332,7 +1393,7 @@ function setupReqProject() {
     setupSearchableCombo(
         input, list,
         (q) => PROJECTS
-            .filter(p => !q || (p.projectname || '').toLowerCase().includes(q.toLowerCase()) || String(p.id).includes(q))
+            .filter(p => !q || (p.projectname || '').toLowerCase().includes(q.toLowerCase()) || String(p.id).includes(q) || (p.location || p.projectlocation || '').toLowerCase().includes(q.toLowerCase()) || (p.clientname || '').toLowerCase().includes(q.toLowerCase()))
             .map(p => ({ label: projectLabel(p), value: p })),
         (val) => syncSelection(val ? projectLabel(val) : ''),
         (text) => syncSelection(text)
@@ -1369,6 +1430,17 @@ async function openProjectView() {
     }
 }
 
+function growReqNotes() {
+    const el = document.getElementById('reqNotes');
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 140) + 'px';
+}
+(function wireReqNotes() {
+    const el = document.getElementById('reqNotes');
+    if (el) el.addEventListener('input', growReqNotes);
+})();
+
 window.openReqModal = function() {
     EDIT_REQ_ID = null;
     document.getElementById('reqModalTitle').textContent = 'New Requisition';
@@ -1383,6 +1455,7 @@ window.openReqModal = function() {
     document.getElementById('reqPriority').value = 'Medium';
     document.getElementById('reqNeededBy').value = '';
     document.getElementById('reqNotes').value = '';
+    growReqNotes();
     document.getElementById('itemRows').innerHTML = '';
     addItemRow();
     if (!PROJECTS.length) loadProjects();
@@ -1411,6 +1484,7 @@ window.editReq = async function(id) {
         document.getElementById('reqPriority').value = r.priority || 'Medium';
         document.getElementById('reqNeededBy').value = r.needed_by || '';
         document.getElementById('reqNotes').value = r.notes || '';
+        growReqNotes();
         document.getElementById('itemRows').innerHTML = '';
         (r.items || []).forEach(it => addItemRow(it));
         if (!(r.items || []).length) addItemRow();
@@ -1574,13 +1648,13 @@ async function loadPOs() {
     const tbody = document.getElementById('poBody');
     showSkeleton(tbody, 9);
     try {
-        const res = await fetch('/api/procurement/purchase-orders', { credentials: 'include' });
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "po_no": "PO-0001", "supplier_id": 1, "supplier_name": "Zimbabwe Electrical Wholesalers", "supplier_phone": "+263 77 123 4567", "requisition_ids": "REQ-0001", "status": "partial", "total_amount": 2450.0, "expected_delivery": "2026-08-30", "created_by": "T. Chikerema", "created_at": "2026-08-22 10:00:00", "received_at": null, "attachments_count": 2}]})));
         const data = await res.json();
         PURCHASE_ORDERS = data.data || [];
         tbody.innerHTML = PURCHASE_ORDERS.map(po => `
             <tr style="cursor:pointer;" onclick="viewPo(${po.id})">
                 <td>${esc(po.po_no)}</td>
-                <td>${esc(po.supplier_name || '—')}</td>
+                <td>${esc(po.supplier_name || '—')}${po.supplier_phone ? `<div style="color:#94A3B8;font-size:0.58rem;">${esc(po.supplier_phone)}</div>` : ''}</td>
                 <td>${esc(po.requisition_ids || '—')}</td>
                 <td>${poBadge(po.status)}</td>
                 <td class="num">${fmtMoney(po.total_amount)}</td>
@@ -1588,6 +1662,8 @@ async function loadPOs() {
                 <td>${esc(po.created_by || '—')}</td>
                 <td>${esc((po.created_at || '').slice(0,10))}</td>
                 <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
+                    ${po.attachments_count ? `<button class="pc-btn pc-btn-outline pc-btn-sm" title="${po.attachments_count} attachment(s)" onclick="viewPo(${po.id})"><i class="bi bi-paperclip"></i> ${po.attachments_count}</button>` : ''}
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" title="Download PDF" onclick="downloadPoPdfById(${po.id})"><i class="bi bi-file-earmark-pdf"></i></button>
                     <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewPo(${po.id})"><i class="bi bi-eye"></i></button>
                     ${['ordered','partial'].includes(po.status) ? `<button class="pc-btn pc-btn-success pc-btn-sm" onclick="viewPo(${po.id}, true)" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Receive</button>` : ''}
                 </td>
@@ -1602,10 +1678,10 @@ window.openPoModal = async function() {
     // suppliers
     let supOpts = '<option value="">— No supplier —</option>';
     try {
-        const res = await fetch('/api/procurement/suppliers', { credentials: 'include' });
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "name": "Zimbabwe Electrical Wholesalers", "contact_person": "S. Moyo", "phone": "+263 77 123 4567", "email": "sales@zew.co.zw", "address": "Harare", "lead_time_days": 5, "payment_terms": "30 days", "rating": 4, "notes": "", "is_active": true}, {"id": 2, "name": "Bulawayo Hardware Distributors", "contact_person": "P. Dube", "phone": "+263 71 555 8899", "email": "info@bhd.co.zw", "address": "Bulawayo", "lead_time_days": 7, "payment_terms": "COD", "rating": 3, "notes": "", "is_active": true}]})));
         const data = await res.json();
         SUPPLIERS = data.data || [];
-        supOpts += SUPPLIERS.filter(s => s.is_active).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+        supOpts += SUPPLIERS.filter(s => s.is_active).map(s => `<option value="${s.id}">${esc(s.name)}${s.phone ? ' — ' + esc(s.phone) : ''}</option>`).join('');
     } catch (e) {}
     document.getElementById('poSupplier').innerHTML = supOpts;
     document.getElementById('poExpectedDelivery').value = '';
@@ -1614,7 +1690,7 @@ window.openPoModal = async function() {
     // approved requisitions (not already in a PO)
     const list = document.getElementById('poReqList');
     try {
-        const res = await fetch('/api/procurement/requisitions?status=approved', { credentials: 'include' });
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "approved", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
         const data = await res.json();
         const approved = data.data || [];
         if (!approved.length) {
@@ -1656,7 +1732,7 @@ window.savePo = async function() {
 
 window.viewPo = async function(id, openReceive) {
     try {
-        const res = await fetch('/api/procurement/purchase-orders/' + id, { credentials: 'include' });
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"id": 1, "po_no": "PO-0001", "supplier_id": 1, "supplier_name": "Zimbabwe Electrical Wholesalers", "supplier_phone": "+263 77 123 4567", "requisition_ids": "REQ-0001", "status": "partial", "total_amount": 2450.0, "expected_delivery": "2026-08-30", "created_by": "T. Chikerema", "created_at": "2026-08-22 10:00:00", "received_at": null, "lines": [{"id": 1, "product_id": 10, "product_name": "Electrical Cable 2.5mm", "quantity_ordered": 100, "quantity_received": 40, "unit_cost": 15.0}, {"id": 2, "product_id": 11, "product_name": "Socket Outlet", "quantity_ordered": 50, "quantity_received": 0, "unit_cost": 19.0}], "attachments": [{"id": 1, "attachment_type": "invoice", "original_name": "invoice_zew_001.pdf", "stored_name": "x.pdf", "mime_type": "application/pdf", "file_size": 204800, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-22 11:00:00"}, {"id": 2, "attachment_type": "receipt", "original_name": "grn_receipt_01.jpg", "stored_name": "y.jpg", "mime_type": "image/jpeg", "file_size": 90112, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-23 09:30:00"}]}})));
         const data = await res.json();
         if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
         VIEW_PO = data.data;
@@ -1664,7 +1740,7 @@ window.viewPo = async function(id, openReceive) {
         document.getElementById('viewPoTitle').textContent = po.po_no + ' — ' + (po.supplier_name || 'No supplier');
         document.getElementById('viewPoMeta').innerHTML = `
             <div class="row g-2" style="font-size:0.64rem;">
-                <div class="col-md-3"><strong>Supplier:</strong> ${esc(po.supplier_name || '—')}</div>
+                <div class="col-md-3"><strong>Supplier:</strong> ${esc(po.supplier_name || '—')}${po.supplier_phone ? `<br><span style="color:#64748B;">${esc(po.supplier_phone)}</span>` : ''}</div>
                 <div class="col-md-2"><strong>Status:</strong> ${poBadge(po.status)}</div>
                 <div class="col-md-2"><strong>Total:</strong> $${fmtMoney(po.total_amount)}</div>
                 <div class="col-md-2"><strong>Created By:</strong> ${esc(po.created_by || '—')}</div>
@@ -1693,6 +1769,16 @@ window.viewPo = async function(id, openReceive) {
         } else {
             recBtn.style.display = 'none';
         }
+        const atts = po.attachments || [];
+        document.getElementById('poAttachList').innerHTML = atts.length ? atts.map(a => `
+            <div class="pc-attach-item">
+                <i class="bi ${a.attachment_type === 'receipt' ? 'bi-receipt' : 'bi-file-earmark-text'}"></i>
+                <span class="flex-grow-1">${esc(a.original_name)} <span class="pc-attach-tag pc-attach-${a.attachment_type}">${a.attachment_type}</span></span>
+                <span style="color:#94A3B8;font-size:0.6rem;white-space:nowrap;">${esc(a.uploaded_by || '')} · ${esc((a.uploaded_at || '').slice(0,10))}</span>
+                <button class="pc-btn pc-btn-outline pc-btn-sm" title="View" onclick="viewAttachment(${a.id})"><i class="bi bi-eye"></i></button>
+                <button class="pc-btn pc-btn-danger pc-btn-sm" title="Delete" data-perm-action="can_manage_purchase_orders" onclick="deleteAttachment(${a.id})"><i class="bi bi-trash"></i></button>
+            </div>`).join('')
+            : '<div class="pc-empty" style="padding:12px;"><i class="bi bi-paperclip"></i> No attachments yet — upload a supplier invoice or a goods-received receipt.</div>';
         showModal('viewPoModal');
         if (openReceive) {
             document.getElementById('viewPoItems').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1700,6 +1786,52 @@ window.viewPo = async function(id, openReceive) {
         applyProcurementPermissions();
     } catch (e) { toast('Failed to load PO', 'error'); }
 };
+window.downloadPoPdfById = function(id) {
+    window.open('/api/procurement/purchase-orders/' + id + '/pdf', '_blank');
+};
+window.downloadPoPdf = function() {
+    if (VIEW_PO) downloadPoPdfById(VIEW_PO.id);
+};
+window.sendPoPdf = async function() {
+    if (!VIEW_PO) return;
+    if (!confirm('Send the PO PDF to the supplier on WhatsApp?')) return;
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + VIEW_PO.id + '/pdf/send', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+window.uploadPoAttachment = async function(type) {
+    if (!VIEW_PO) return;
+    const input = document.getElementById(type === 'invoice' ? 'poInvoiceFile' : 'poReceiptFile');
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast('Max file size is 10MB', 'error'); input.value = ''; return; }
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('attachment_type', type);
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + VIEW_PO.id + '/attachment', { method: 'POST', credentials: 'include', body: fd });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        input.value = '';
+        if (data.success) viewPo(VIEW_PO.id);
+    } catch (e) { toast('Connection error', 'error'); input.value = ''; }
+};
+window.viewAttachment = function(id) {
+    window.open('/api/procurement/attachment/' + id, '_blank');
+};
+window.deleteAttachment = async function(id) {
+    if (!confirm('Delete this attachment?')) return;
+    try {
+        const res = await fetch('/api/procurement/attachment/' + id, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) viewPo(VIEW_PO.id);
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
 window.saveReceive = async function() {
     if (!VIEW_PO) return;
     const received = {};
@@ -1728,7 +1860,7 @@ async function loadSuppliers() {
     const tbody = document.getElementById('supBody');
     showSkeleton(tbody, 9);
     try {
-        const res = await fetch('/api/procurement/suppliers', { credentials: 'include' });
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "name": "Zimbabwe Electrical Wholesalers", "contact_person": "S. Moyo", "phone": "+263 77 123 4567", "email": "sales@zew.co.zw", "address": "Harare", "lead_time_days": 5, "payment_terms": "30 days", "rating": 4, "notes": "", "is_active": true}, {"id": 2, "name": "Bulawayo Hardware Distributors", "contact_person": "P. Dube", "phone": "+263 71 555 8899", "email": "info@bhd.co.zw", "address": "Bulawayo", "lead_time_days": 7, "payment_terms": "COD", "rating": 3, "notes": "", "is_active": true}]})));
         const data = await res.json();
         SUPPLIERS = data.data || [];
         tbody.innerHTML = SUPPLIERS.map(s => `
