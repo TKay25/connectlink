@@ -455,6 +455,22 @@
         .pc-modal-title { font-weight:700; letter-spacing:0.1px; }
         .modal.fade .modal-dialog { transform: translateY(14px) scale(0.98); transition: transform .25s cubic-bezier(0.2,0.7,0.3,1); }
         .modal.show .modal-dialog { transform: none; }
+
+        /* Fix design-system.css modal caps on Bootstrap modals: design-system
+           forces .modal-content to max-width:520px/width:92%, which makes the
+           real content tiny and LEFT-ALIGNED inside the wide modal-dialog
+           (flex container). Un-cap it, centre the dialog, and widen it. */
+        .modal .modal-dialog { margin: 1.75rem auto !important; }
+        .modal-dialog-centered { justify-content: center; }
+        .modal .modal-content {
+            max-width: none !important;
+            width: 100% !important;
+            max-height: calc(100vh - 2rem);
+            transform: none !important;
+        }
+        .modal-xl { --bs-modal-width: 1240px; }
+        .modal-lg { --bs-modal-width: 980px; }
+
         body.dark-theme .modal-content { background:#111A2E; }
         body.dark-theme .modal-header, body.dark-theme .modal-footer { border-color:#1E293B; }
 
@@ -664,11 +680,10 @@
                     </div>
                     <div class="col-md-3">
                         <label class="pc-form-label">Department</label>
-                        <input type="text" class="pc-input" id="reqDepartment" placeholder="e.g. Hardware Sales">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="pc-form-label">Project Ref</label>
-                        <input type="text" class="pc-input" id="reqProjectRef" placeholder="Optional project / site">
+                        <div style="position:relative;">
+                            <input type="text" class="pc-input" id="reqDepartment" placeholder="Select department..." autocomplete="off">
+                            <div class="pc-suggest" id="reqDepartmentList"></div>
+                        </div>
                     </div>
                     <div class="col-md-2">
                         <label class="pc-form-label">Priority</label>
@@ -679,11 +694,20 @@
                             <option value="Urgent">Urgent</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="pc-form-label">Needed By</label>
                         <input type="date" class="pc-input" id="reqNeededBy">
                     </div>
-                    <div class="col-md-8">
+                    <div class="col-md-5">
+                        <label class="pc-form-label">Project Ref</label>
+                        <div style="position:relative;">
+                            <input type="text" class="pc-input" id="reqProjectRef" placeholder="Search project (e.g. 221--Rainham Park)..." autocomplete="off">
+                            <input type="hidden" id="reqProjectId" value="">
+                            <div class="pc-suggest" id="reqProjectList"></div>
+                        </div>
+                        <button type="button" class="pc-btn pc-btn-info pc-btn-sm mt-1" id="viewProjectBtn" style="display:none;" onclick="openProjectView()"><i class="bi bi-folder2-open"></i> View Project</button>
+                    </div>
+                    <div class="col-md-7">
                         <label class="pc-form-label">Notes</label>
                         <input type="text" class="pc-input" id="reqNotes" placeholder="Any additional information">
                     </div>
@@ -836,6 +860,30 @@
             <div class="modal-footer">
                 <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
                 <button class="pc-btn pc-btn-primary" onclick="saveSupplier()"><i class="bi bi-save"></i> Save Supplier</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== VIEW PROJECT MODAL (mirrors adminpage viewprojectModal) ==================== -->
+<div class="modal fade" id="viewProjectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-card-list me-2"></i>Project Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div class="table-responsive">
+                    <table class="pc-table">
+                        <tbody id="procProjectDetailsBody">
+                            <tr><td colspan="2" class="text-center text-muted py-3">No project selected</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -1026,6 +1074,9 @@ async function init() {
     } catch (e) { PERMS = SERVER_PERMS || {}; }
 
     applyProcurementPermissions();
+    loadProjects();
+    setupReqDepartment();
+    setupReqProject();
     showModule('dashboard');
 }
 
@@ -1188,6 +1239,130 @@ function recalcReqTotal() {
     document.getElementById('reqGrandTotal').textContent = '$' + fmtMoney(total);
 }
 
+// ===== DEPARTMENT + PROJECT REF SEARCHABLE DROPDOWNS =====
+// Department list matches the HR "Add Employee" form (hr_dashboard.html #empDepartment)
+const DEPARTMENTS = ['Sales and Marketing','Administration','Finance','HR','Logistics','Management','Systems & IT','Production'];
+let PROJECTS = [];
+let selectedProjectId = null;
+
+const PROJECT_FIELD_ORDER = [
+    "id","datecaptured","capturer","capturerid","clientname","clientidnumber","clientaddress",
+    "clientwanumber","clientemail","clientnextofkinname","clientnextofkinaddress",
+    "clientnextofkinphone","nextofkinrelationship","projectname","projectlocation",
+    "projectdescription","projectadministratorname","projectstartdate","projectduration",
+    "contractagreementdate","totalcontractamount","latepaymentinterest","paymentmethod",
+    "monthstopay","depositorbullet","datedepositorbullet","monthlyinstallment",
+    "installment1amount","installment1duedate","installment1date",
+    "installment2amount","installment2duedate","installment2date",
+    "installment3amount","installment3duedate","installment3date",
+    "installment4amount","installment4duedate","installment4date",
+    "installment5amount","installment5duedate","installment5date",
+    "installment6amount","installment6duedate","installment6date",
+    "projectcompletionstatus","latepaymentinterest","momid",
+    "installment7amount","installment7duedate","installment7date",
+    "installment8amount","installment8duedate","installment8date",
+    "installment9amount","installment9duedate","installment9date",
+    "installment10amount","installment10duedate","installment10date"
+];
+
+async function loadProjects() {
+    try {
+        const res = await fetch('/api/projects-page?offset=0&limit=500', { credentials: 'include' });
+        const data = await res.json();
+        PROJECTS = (data && data.data) || [];
+    } catch (e) { PROJECTS = []; }
+}
+
+function projectLabel(p) {
+    return (p.id != null ? p.id : '') + '--' + (p.projectname || '');
+}
+
+function setupSearchableCombo(input, listEl, getOptions, onSelect, onInput) {
+    const show = (items) => {
+        if (!items || !items.length) { listEl.style.display = 'none'; return; }
+        listEl.innerHTML = items.map((it, i) => `<div class="pc-sug-item" data-i="${i}"><span>${esc(it.label)}</span></div>`).join('');
+        listEl.style.display = 'block';
+        listEl.querySelectorAll('.pc-sug-item').forEach(el => {
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const item = items[parseInt(el.dataset.i, 10)];
+                input.value = item.label;
+                listEl.style.display = 'none';
+                if (onSelect) onSelect(item.value, item.label);
+            });
+        });
+    };
+    input.addEventListener('focus', () => show(getOptions(input.value.trim()).slice(0, 30)));
+    input.addEventListener('input', () => {
+        show(getOptions(input.value.trim()).slice(0, 30));
+        if (onInput) onInput(input.value.trim());
+    });
+    input.addEventListener('blur', () => setTimeout(() => { listEl.style.display = 'none'; }, 150));
+    document.addEventListener('click', () => { listEl.style.display = 'none'; });
+}
+
+function setupReqDepartment() {
+    const input = document.getElementById('reqDepartment');
+    const list = document.getElementById('reqDepartmentList');
+    if (!input || !list) return;
+    setupSearchableCombo(
+        input, list,
+        (q) => DEPARTMENTS
+            .filter(d => !q || d.toLowerCase().includes(q.toLowerCase()))
+            .map(d => ({ label: d, value: d })),
+        (val) => {}  // department is stored directly in the input value
+    );
+}
+
+function setupReqProject() {
+    const input = document.getElementById('reqProjectRef');
+    const list = document.getElementById('reqProjectList');
+    if (!input || !list) return;
+    const syncSelection = (text) => {
+        const m = PROJECTS.find(p => projectLabel(p).toLowerCase() === String(text).trim().toLowerCase());
+        selectedProjectId = m ? m.id : null;
+        document.getElementById('reqProjectId').value = selectedProjectId || '';
+        const vp = document.getElementById('viewProjectBtn');
+        if (vp) vp.style.display = selectedProjectId ? 'inline-flex' : 'none';
+    };
+    setupSearchableCombo(
+        input, list,
+        (q) => PROJECTS
+            .filter(p => !q || (p.projectname || '').toLowerCase().includes(q.toLowerCase()) || String(p.id).includes(q))
+            .map(p => ({ label: projectLabel(p), value: p })),
+        (val) => syncSelection(val ? projectLabel(val) : ''),
+        (text) => syncSelection(text)
+    );
+}
+
+async function openProjectView() {
+    const pid = parseInt(document.getElementById('reqProjectId').value || '', 10) || selectedProjectId;
+    if (!pid) { toast('Select a project first', 'error'); return; }
+    const tbody = document.getElementById('procProjectDetailsBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3 text-muted"><i class="bi bi-arrow-repeat me-1"></i>Loading project...</td></tr>';
+    showModal('viewProjectModal');
+    try {
+        const res = await fetch('/get_project/' + pid, { credentials: 'include' });
+        const data = await res.json();
+        if (!data || !data.id) { tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger">Project not found</td></tr>'; return; }
+        tbody.innerHTML = '';
+        PROJECT_FIELD_ORDER.forEach(key => {
+            if (data[key] === undefined || data[key] === null || data[key] === '') return;
+            const tr = document.createElement('tr');
+            const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).trim();
+            let val = String(data[key]);
+            if ((key.toLowerCase().includes('amount') || key.toLowerCase().includes('installment')) && !key.toLowerCase().includes('date') && !key.toLowerCase().includes('duedate')) {
+                if (!isNaN(parseFloat(val))) val = '$' + parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            tr.innerHTML = '<th style="width:35%;text-transform:capitalize;font-size:0.62rem;">' + esc(displayKey) + '</th><td style="font-size:0.64rem;">' + esc(val) + '</td>';
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger">Failed to load project: ' + esc(err.message) + '</td></tr>';
+    }
+}
+
 window.openReqModal = function() {
     EDIT_REQ_ID = null;
     document.getElementById('reqModalTitle').textContent = 'New Requisition';
@@ -1195,11 +1370,16 @@ window.openReqModal = function() {
     document.getElementById('reqTitle').value = '';
     document.getElementById('reqDepartment').value = '';
     document.getElementById('reqProjectRef').value = '';
+    document.getElementById('reqProjectId').value = '';
+    selectedProjectId = null;
+    const vp = document.getElementById('viewProjectBtn');
+    if (vp) vp.style.display = 'none';
     document.getElementById('reqPriority').value = 'Medium';
     document.getElementById('reqNeededBy').value = '';
     document.getElementById('reqNotes').value = '';
     document.getElementById('itemRows').innerHTML = '';
     addItemRow();
+    if (!PROJECTS.length) loadProjects();
     showModal('reqModal');
 };
 window.editReq = async function(id) {
@@ -1214,6 +1394,14 @@ window.editReq = async function(id) {
         document.getElementById('reqTitle').value = r.title || '';
         document.getElementById('reqDepartment').value = r.department || '';
         document.getElementById('reqProjectRef').value = r.project_ref || '';
+        document.getElementById('reqProjectId').value = '';
+        selectedProjectId = null;
+        const vp = document.getElementById('viewProjectBtn');
+        if (vp) {
+            const m = PROJECTS.find(p => projectLabel(p).toLowerCase() === String(r.project_ref || '').trim().toLowerCase());
+            if (m) { selectedProjectId = m.id; document.getElementById('reqProjectId').value = m.id; vp.style.display = 'inline-flex'; }
+            else { vp.style.display = 'none'; }
+        }
         document.getElementById('reqPriority').value = r.priority || 'Medium';
         document.getElementById('reqNeededBy').value = r.needed_by || '';
         document.getElementById('reqNotes').value = r.notes || '';

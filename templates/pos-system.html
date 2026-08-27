@@ -11033,14 +11033,9 @@ function viewReceipt(transactionId) {
         return;
     }
 
-    // Extract values from transaction
-    const items = transaction.items || [];
-    const method = transaction.payment_method || 'cash';
-    const paid = transaction.amount_paid || transaction.total || 0;
-    const change = transaction.change_amount || 0;
-
-    // Generate clean receipt HTML
-    const receiptHTML = generateReceiptHTML(items, method, paid, change);
+    // Generate the receipt from the SAVED transaction so the date/time matches
+    // the original sale — not the live-sale generator (which stamps "now").
+    const receiptHTML = generatePastReceiptHTML(transaction);
     showReceiptWithPrint(receiptHTML);
 }
 
