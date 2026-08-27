@@ -1265,7 +1265,7 @@ const PROJECT_FIELD_ORDER = [
 
 async function loadProjects() {
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 221, "projectname": "Rainham Park", "clientname": "John Doe", "location": "Harare", "amount": 50000, "deposit": 5000, "status": "Active", "admin": "Admin"}, {"id": 222, "projectname": "Msasa Single Storey", "clientname": "Jane Moyo", "location": "Msasa", "amount": 80000, "deposit": 8000, "status": "Active", "admin": "Admin"}, {"id": 223, "projectname": "Glen View Double Storey", "clientname": "K. Moyo", "location": "Glen View", "amount": 120000, "deposit": 12000, "status": "Pending", "admin": "Admin"}],total:3})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 221, "projectname": "Rainham Park", "clientname": "John Doe", "location": "Harare", "amount": 50000, "deposit": 5000, "status": "Active", "admin": "Admin"}, {"id": 222, "projectname": "Msasa Single Storey", "clientname": "Jane Moyo", "location": "Msasa", "amount": 80000, "deposit": 8000, "status": "Active", "admin": "Admin"}],total:2})));
         const data = await res.json();
         PROJECTS = (data && data.data) || [];
     } catch (e) { PROJECTS = []; }
@@ -1347,7 +1347,7 @@ async function openProjectView() {
     tbody.innerHTML = '<tr><td colspan="2" class="text-center py-3 text-muted"><i class="bi bi-arrow-repeat me-1"></i>Loading project...</td></tr>';
     showModal('viewProjectModal');
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({"id": 221, "clientname": "John Doe", "clientidnumber": "63-123456A70", "projectname": "Rainham Park", "projectlocation": "Harare", "projectdescription": "Boundary wall and slab", "projectadministratorname": "T. Chikerema", "projectstartdate": "2026-05-01", "projectduration": "3 months", "totalcontractamount": 50000, "depositorbullet": 5000, "monthlyinstallment": 15000, "projectcompletionstatus": "Active", "paymentmethod": "Bank Transfer", "monthstopay": 3})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({"id": 221, "clientname": "John Doe", "projectname": "Rainham Park", "projectlocation": "Harare", "projectdescription": "<p>kadoma Tv unit</p>", "projectadministratorname": "T. Chikerema", "totalcontractamount": 50000, "projectcompletionstatus": "Active"})));
         const data = await res.json();
         if (!data || !data.id) { tbody.innerHTML = '<tr><td colspan="2" class="text-center text-danger">Project not found</td></tr>'; return; }
         tbody.innerHTML = '';
@@ -1356,6 +1356,8 @@ async function openProjectView() {
             const tr = document.createElement('tr');
             const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).trim();
             let val = String(data[key]);
+            // Strip any HTML tags (e.g. <p> wrappers in project descriptions) and collapse whitespace
+            val = val.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
             if ((key.toLowerCase().includes('amount') || key.toLowerCase().includes('installment')) && !key.toLowerCase().includes('date') && !key.toLowerCase().includes('duedate')) {
                 if (!isNaN(parseFloat(val))) val = '$' + parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }

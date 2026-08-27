@@ -1366,6 +1366,8 @@ async function openProjectView() {
             const tr = document.createElement('tr');
             const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).trim();
             let val = String(data[key]);
+            // Strip any HTML tags (e.g. <p> wrappers in project descriptions) and collapse whitespace
+            val = val.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
             if ((key.toLowerCase().includes('amount') || key.toLowerCase().includes('installment')) && !key.toLowerCase().includes('date') && !key.toLowerCase().includes('duedate')) {
                 if (!isNaN(parseFloat(val))) val = '$' + parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
