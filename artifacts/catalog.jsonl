@@ -1,4 +1,4 @@
-{"_type": "catalog_meta", "generated_at": "2026-08-26T06:58:47.818407Z", "count": 59}
+{"_type": "catalog_meta", "generated_at": "2026-08-27T10:17:57.794493Z", "count": 59}
 {"path": "_preview_mainindex.html", "kind": "bulk", "bytes": 166743, "hash": "3f8bc6ab24cb17ed", "policy": "skip", "summary": "large .html (166743 bytes) — do not open", "artifact": null, "index": {"stems": ["166743", "bulk", "bytes", "do", "html", "large", "mainindex", "not", "preview"], "path_lc": "_preview_mainindex.html"}}
 {"path": "_preview_users_dashboard.html", "kind": "bulk", "bytes": 120461, "hash": "4c1f23040050878e", "policy": "skip", "summary": "large .html (120461 bytes) — do not open", "artifact": null, "index": {"stems": ["120461", "bulk", "bytes", "dashboard", "do", "html", "large", "not", "preview", "users"], "path_lc": "_preview_users_dashboard.html"}}
 {"path": "_test_server.py", "kind": "code", "bytes": 365, "hash": "f83ecc28209f8d8f", "policy": "use_artifact", "summary": "code — _test_server.py", "artifact": "artifacts/modules/_test_server.json", "index": {"stems": ["artifacts", "flask", "index", "py", "server", "test", "testserver"], "path_lc": "_test_server.py"}}

@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ConnectLink | Procurement</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/css/design-system.css">
+    <link rel="stylesheet" href="static/css/components-ui.css">
+    <link rel="icon" type="image/png" href="static/images/web-logo-white.png">
+    <meta name="theme-color" content="#0E1F42">
+    <style>
+        :root {
+            --primary: #C12B3E;
+            --primary-dark: #9B1D2C;
+            --primary-light: rgba(193, 43, 62, 0.08);
+            --slate-800: #1E293B;
+            --slate-900: #0F172A;
+            --nav-height: 44px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.7rem;
+            background: #f1f5f9;
+            color: #1E293B;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        /* ===== TOP NAVBAR ===== */
+        .pc-navbar {
+            position: fixed; top: 0; left: 0; width: 100%; height: var(--nav-height); z-index: 1050;
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 16px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .pc-navbar .brand { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .pc-navbar .brand img { height: 24px; width: auto; border-radius: 4px; }
+        .pc-navbar .brand .brand-text { color: #1f2937; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.3px; }
+        .pc-navbar .brand .brand-text span { color: var(--primary); }
+        .pc-navbar .brand .brand-badge {
+            font-size: 0.45rem; font-weight: 600; text-transform: uppercase;
+            background: var(--primary); color: #fff; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.5px; margin-left: 4px;
+        }
+        .pc-navbar .nav-actions { display: flex; align-items: center; gap: 8px; }
+        .pc-navbar .user-badge {
+            display: flex; align-items: center; gap: 6px;
+            background: #f9fafb; padding: 2px 10px 2px 6px; border-radius: 6px;
+            color: #374151; font-size: 0.65rem; font-weight: 500;
+            border: 1px solid #e5e7eb; cursor: pointer; transition: all 0.2s; position: relative;
+        }
+        .pc-navbar .user-badge:hover { background: #f3f4f6; border-color: var(--primary); }
+        .pc-navbar .user-badge .avatar {
+            width: 22px; height: 22px; border-radius: 4px; background: var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600; font-size: 0.6rem; color: white;
+        }
+        .user-dropdown-menu {
+            position: absolute; top: calc(100% + 6px); right: 0; min-width: 200px;
+            background: #fff; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid #e5e7eb; z-index: 99999; overflow: hidden;
+        }
+        .user-dropdown-menu .dropdown-header { padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+        .user-dropdown-menu .dropdown-user-name { font-weight: 600; color: #111827; font-size: 0.7rem; }
+        .user-dropdown-menu .dropdown-user-role { font-size: 0.55rem; color: #6b7280; margin-top: 1px; }
+        .user-dropdown-menu .dropdown-item {
+            display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+            font-size: 0.65rem; color: #1E293B; cursor: pointer; transition: all 0.15s;
+            border: none; background: none; width: 100%; text-align: left;
+        }
+        .user-dropdown-menu .dropdown-item:hover { background: #f8fafc; }
+        .user-dropdown-menu .dropdown-item i { font-size: 0.75rem; width: 18px; text-align: center; color: #94A3B8; }
+        .user-dropdown-menu .dropdown-divider { height: 1px; background: #e5e7eb; margin: 4px 0; }
+
+        /* ===== LAYOUT ===== */
+        .pc-layout { display: flex; padding-top: var(--nav-height); min-height: 100vh; }
+        .pc-sidebar {
+            width: 190px; flex-shrink: 0; background: #ffffff; border-right: 1px solid #e5e7eb;
+            padding: 14px 10px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: var(--nav-height); height: calc(100vh - var(--nav-height)); overflow-y: auto;
+        }
+        .pc-sidebar .pc-side-label { font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94A3B8; padding: 8px 8px 2px; }
+        .pc-nav-btn {
+            display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px;
+            border: none; background: transparent; border-radius: 8px; cursor: pointer;
+            color: #475569; font-size: 0.66rem; font-weight: 500; text-align: left; transition: all 0.18s;
+        }
+        .pc-nav-btn i { font-size: 0.8rem; width: 18px; text-align: center; color: #94A3B8; }
+        .pc-nav-btn:hover { background: #f1f5f9; color: #1E293B; }
+        .pc-nav-btn.active { background: linear-gradient(135deg, #C12B3E, #E91E63); color: #fff; box-shadow: 0 4px 14px -4px rgba(193,43,62,0.5); }
+        .pc-nav-btn.active i { color: #fff; }
+        .pc-sidebar .pc-sup { margin-top: auto; padding: 10px 8px; font-size: 0.55rem; color: #94A3B8; border-top: 1px solid #eef2f7; }
+
+        .pc-main { flex: 1; padding: 18px 22px 30px; min-width: 0; }
+        .pc-module { display: none; }
+        .pc-module.active { display: block; animation: pcFade 0.25s ease; }
+        @keyframes pcFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        /* ===== CARDS ===== */
+        .pc-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .pc-kpi-card {
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 14px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: all 0.2s; position: relative; overflow: hidden;
+        }
+        .pc-kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px -6px rgba(193,43,62,0.18); }
+        .pc-kpi-card .kpi-icon {
+            width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, rgba(193,43,62,0.12), rgba(233,30,99,0.08)); color: var(--primary); font-size: 0.9rem; margin-bottom: 8px;
+        }
+        .pc-kpi-card .kpi-value { font-size: 1.15rem; font-weight: 700; color: #0F172A; line-height: 1.1; }
+        .pc-kpi-card .kpi-label { font-size: 0.56rem; color: #64748B; margin-top: 2px; }
+
+        .pc-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 16px; }
+        .pc-panel .pc-panel-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+            padding: 12px 16px; border-bottom: 1px solid #eef2f7;
+        }
+        .pc-panel .pc-panel-title { font-size: 0.72rem; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 8px; }
+        .pc-panel .pc-panel-title i { color: var(--primary); }
+        .pc-panel-body { padding: 14px 16px; }
+
+        /* ===== TABLE ===== */
+        .pc-table-wrap { overflow-x: auto; }
+        .pc-table { width: 100%; border-collapse: collapse; font-size: 0.64rem; }
+        .pc-table thead th {
+            background: linear-gradient(135deg, #0E1F42, #17305E); color: #fff; text-align: left;
+            padding: 8px 10px; font-weight: 600; white-space: nowrap; font-size: 0.6rem; letter-spacing: 0.3px;
+        }
+        .pc-table thead th:first-child { border-top-left-radius: 8px; }
+        .pc-table thead th:last-child { border-top-right-radius: 8px; }
+        .pc-table tbody td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .pc-table tbody tr:hover { background: #f8fafc; }
+        .pc-table tbody tr:last-child td { border-bottom: none; }
+        .pc-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+        .pc-empty { text-align: center; padding: 34px 10px; color: #94A3B8; }
+        .pc-empty i { font-size: 1.6rem; display: block; margin-bottom: 8px; opacity: 0.5; }
+
+        /* ===== BADGES ===== */
+        .pc-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 0.55rem; font-weight: 600; }
+        .pc-badge-draft { background: #e2e8f0; color: #475569; }
+        .pc-badge-submitted { background: #dbeafe; color: #1d4ed8; }
+        .pc-badge-approved { background: #dcfce7; color: #15803d; }
+        .pc-badge-pocreated { background: #ccfbf1; color: #0f766e; }
+        .pc-badge-rejected { background: #fee2e2; color: #b91c1c; }
+        .pc-badge-cancelled { background: #f1f5f9; color: #64748b; }
+        .pc-badge-ordered { background: #dbeafe; color: #1d4ed8; }
+        .pc-badge-partial { background: #fef3c7; color: #b45309; }
+        .pc-badge-received { background: #dcfce7; color: #15803d; }
+        .pc-badge-high { background: #fee2e2; color: #b91c1c; }
+        .pc-badge-medium { background: #fef3c7; color: #b45309; }
+        .pc-badge-low { background: #dcfce7; color: #15803d; }
+
+        /* ===== BUTTONS ===== */
+        .pc-btn {
+            display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px;
+            font-size: 0.62rem; font-weight: 600; border: 1px solid transparent; cursor: pointer; transition: all 0.18s; white-space: nowrap;
+        }
+        .pc-btn-primary { background: linear-gradient(135deg, #C12B3E, #E91E63); color: #fff; box-shadow: 0 3px 10px -3px rgba(193,43,62,0.5); }
+        .pc-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(193,43,62,0.6); }
+        .pc-btn-outline { background: #fff; color: #475569; border-color: #d1d5db; }
+        .pc-btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+        .pc-btn-success { background: #16a34a; color: #fff; }
+        .pc-btn-danger { background: #dc2626; color: #fff; }
+        .pc-btn-info { background: #2563eb; color: #fff; }
+        .pc-btn-sm { padding: 3px 8px; font-size: 0.56rem; border-radius: 6px; }
+
+        /* ===== GREY-OUT (disabled by permission) ===== */
+        .pc-disabled {
+            opacity: 0.38 !important;
+            filter: grayscale(0.8) !important;
+            pointer-events: none !important;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+        }
+        button.pc-disabled, .pc-btn.pc-disabled, a.pc-disabled { pointer-events: none !important; }
+
+        /* ===== FORMS ===== */
+        .pc-form-label { font-size: 0.58rem; font-weight: 600; color: #475569; margin-bottom: 4px; display: block; }
+        .pc-input, .pc-select, .pc-textarea {
+            width: 100%; padding: 7px 10px; font-size: 0.66rem; border: 1px solid #e2e8f0; border-radius: 8px;
+            background: #fff; color: #1E293B; transition: all 0.18s; outline: none;
+        }
+        .pc-input:focus, .pc-select:focus, .pc-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(193,43,62,0.12); }
+        .pc-textarea { resize: vertical; min-height: 54px; }
+
+        /* ===== ITEM ROWS ===== */
+        .pc-item-row { display: grid; grid-template-columns: 2.2fr 1fr 0.7fr 0.9fr 0.7fr 1.2fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+        .pc-item-row .pc-prod-wrap { position: relative; }
+        .pc-suggest {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+            max-height: 220px; overflow-y: auto; display: none;
+        }
+        .pc-suggest .pc-sug-item { padding: 8px 12px; font-size: 0.62rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; gap: 8px; }
+        .pc-suggest .pc-sug-item:hover { background: #f8fafc; }
+        .pc-suggest .pc-sug-item .sub { color: #94A3B8; font-size: 0.55rem; white-space: nowrap; }
+
+        /* ===== TOASTS ===== */
+        .pc-toast-wrap { position: fixed; top: 54px; right: 18px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; }
+        .pc-toast { padding: 10px 16px; border-radius: 10px; color: #fff; font-size: 0.66rem; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 8px; animation: pcToastIn 0.25s ease; }
+        .pc-toast-success { background: #16a34a; }
+        .pc-toast-error { background: #dc2626; }
+        .pc-toast-info { background: #2563eb; }
+        @keyframes pcToastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+        /* ===== MODAL BODY ===== */
+        .pc-modal-body { max-height: 70vh; overflow-y: auto; }
+
+        /* ===== DARK THEME ===== */
+        body.dark-theme { background: #0F172A; color: #e2e8f0; }
+        body.dark-theme .pc-navbar, body.dark-theme .pc-sidebar { background: #111A2E; border-color: #1E293B; }
+        body.dark-theme .pc-navbar .brand-text { color: #e2e8f0; }
+        body.dark-theme .pc-navbar .user-badge { background: #1E293B; border-color: #334155; color: #e2e8f0; }
+        body.dark-theme .user-dropdown-menu { background: #111A2E; border-color: #1E293B; }
+        body.dark-theme .user-dropdown-menu .dropdown-header { background: #0B1220; border-color: #1E293B; }
+        body.dark-theme .user-dropdown-menu .dropdown-item { color: #e2e8f0; }
+        body.dark-theme .user-dropdown-menu .dropdown-item:hover { background: #1E293B; }
+        body.dark-theme .pc-nav-btn { color: #94A3B8; }
+        body.dark-theme .pc-nav-btn:hover { background: #1E293B; color: #e2e8f0; }
+        body.dark-theme .pc-kpi-card, body.dark-theme .pc-panel { background: #111A2E; border-color: #1E293B; }
+        body.dark-theme .pc-kpi-card .kpi-value { color: #f1f5f9; }
+        body.dark-theme .pc-panel-title { color: #f1f5f9; }
+        body.dark-theme .pc-table tbody td { border-color: #1E293B; }
+        body.dark-theme .pc-table tbody tr:hover { background: #16203A; }
+        body.dark-theme .pc-input, body.dark-theme .pc-select, body.dark-theme .pc-textarea { background: #0B1220; color: #e2e8f0; border-color: #334155; }
+        body.dark-theme .pc-btn-outline { background: transparent; color: #cbd5e1; border-color: #334155; }
+        body.dark-theme .pc-btn-outline:hover { color: var(--primary); }
+        body.dark-theme .pc-suggest { background: #111A2E; border-color: #1E293B; }
+        body.dark-theme .pc-suggest .pc-sug-item { border-color: #1E293B; }
+        body.dark-theme .pc-suggest .pc-sug-item:hover { background: #1E293B; }
+        body.dark-theme .modal-content { background: #111A2E; color: #e2e8f0; }
+        body.dark-theme .modal-header, body.dark-theme .modal-footer { border-color: #1E293B; }
+        body.dark-theme .pc-modal-title { color: #f1f5f9; }
+        body.dark-theme .pc-form-label { color: #94A3B8; }
+        body.dark-theme .pc-badge-draft { background: #1E293B; color: #cbd5e1; }
+
+        @media (max-width: 992px) {
+            .pc-sidebar { width: 56px; padding: 14px 6px; }
+            .pc-sidebar .pc-nav-btn span, .pc-sidebar .pc-side-label { display: none; }
+            .pc-nav-btn { justify-content: center; }
+            .pc-item-row { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 640px) {
+            .pc-main { padding: 14px 12px; }
+            .pc-kpi-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* ============================================================
+           WORLD-CLASS UI UPGRADE (Procurement)
+           Pure-CSS premium pass — gradients, blur, transitions only.
+           No heavy libraries, no images, nothing that slows loading.
+           ============================================================ */
+
+        /* ----- Ambient backdrop: deep-navy mesh + soft crimson/cyan glows ----- */
+        body {
+            background:
+                radial-gradient(1100px 620px at 12% -10%, rgba(193,43,62,0.10), transparent 60%),
+                radial-gradient(920px 520px at 112% 8%, rgba(8,145,178,0.12), transparent 55%),
+                radial-gradient(1200px 720px at 50% 125%, rgba(14,31,66,0.10), transparent 60%),
+                linear-gradient(160deg, #f5f7fc 0%, #eef2f9 50%, #f8f9fd 100%);
+            background-attachment: fixed;
+        }
+        body.dark-theme {
+            background:
+                radial-gradient(1100px 620px at 12% -10%, rgba(193,43,62,0.16), transparent 60%),
+                radial-gradient(920px 520px at 112% 8%, rgba(8,145,178,0.16), transparent 55%),
+                linear-gradient(160deg, #0b1220 0%, #0e1729 50%, #090e1b 100%);
+            background-attachment: fixed;
+        }
+
+        /* ----- Navbar: glass + gradient brand ----- */
+        .pc-navbar {
+            background: rgba(255,255,255,0.72);
+            backdrop-filter: blur(14px) saturate(1.4);
+            -webkit-backdrop-filter: blur(14px) saturate(1.4);
+            border-bottom: 1px solid rgba(15,23,42,0.06);
+            box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 34px -22px rgba(15,23,42,0.5);
+        }
+        body.dark-theme .pc-navbar { background: rgba(13,20,38,0.8); border-bottom-color: rgba(255,255,255,0.05); }
+        .pc-navbar .brand { position: relative; }
+        .pc-navbar .brand img { box-shadow: 0 2px 8px -2px rgba(15,23,42,0.35); }
+        .pc-navbar .brand-text {
+            background: linear-gradient(135deg,#0E1F42,#17305E 55%,#C12B3E);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+        }
+        body.dark-theme .pc-navbar .brand-text {
+            background: linear-gradient(135deg,#e2e8f0,#94a3b8 55%,#f472b6);
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+        }
+        .pc-navbar .brand .brand-badge { background: linear-gradient(135deg,#0891B2,#0E7490); box-shadow: 0 2px 8px -2px rgba(8,145,178,0.7); }
+        .pc-navbar .brand::after {
+            content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; border-radius:2px;
+            background: linear-gradient(90deg,#C12B3E,#0891B2); opacity:0; transition:opacity .25s;
+        }
+        .pc-navbar .brand:hover::after { opacity:1; }
+        .pc-navbar .user-badge {
+            background: rgba(255,255,255,0.7); border-color: rgba(15,23,42,0.08);
+            box-shadow: 0 2px 10px -5px rgba(15,23,42,0.25); backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        body.dark-theme .pc-navbar .user-badge { background: rgba(30,41,59,0.6); border-color: rgba(255,255,255,0.08); color:#e2e8f0; }
+        .pc-navbar .user-badge .avatar { background: linear-gradient(135deg,#C12B3E,#E91E63); box-shadow: 0 2px 8px -2px rgba(193,43,62,0.8); }
+        .user-dropdown-menu { border-radius: 12px; box-shadow: 0 18px 50px -12px rgba(15,23,42,0.35); border:1px solid rgba(15,23,42,0.06); animation: pcDropIn .18s ease; }
+        @keyframes pcDropIn { from { opacity:0; transform: translateY(-6px); } to { opacity:1; transform:none; } }
+        .user-dropdown-menu .dropdown-header { background: linear-gradient(135deg,#f8fafc,#f1f5f9); }
+        body.dark-theme .user-dropdown-menu .dropdown-header { background: #0B1220; }
+
+        /* ----- Sidebar: glass + premium active pill ----- */
+        .pc-sidebar {
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(15,23,42,0.06);
+        }
+        body.dark-theme .pc-sidebar { background: rgba(13,20,38,0.55); border-right-color: rgba(255,255,255,0.05); }
+        .pc-nav-btn { position: relative; font-weight: 600; letter-spacing: 0.2px; }
+        .pc-nav-btn i { transition: transform .2s; }
+        .pc-nav-btn:hover i { transform: translateX(2px) scale(1.08); }
+        .pc-nav-btn.active {
+            background: linear-gradient(135deg,#C12B3E,#E91E63 62%,#7A1A2A);
+            box-shadow: 0 8px 20px -6px rgba(193,43,62,0.55), inset 0 1px 0 rgba(255,255,255,0.18);
+        }
+        .pc-nav-btn.active::before {
+            content:''; position:absolute; left:7px; top:50%; transform:translateY(-50%);
+            width:3px; height:16px; border-radius:3px; background:rgba(255,255,255,0.92);
+            box-shadow: 0 0 8px rgba(255,255,255,0.7);
+        }
+        body.dark-theme .pc-nav-btn { color:#94A3B8; }
+        body.dark-theme .pc-nav-btn:hover { background:#1E293B; color:#e2e8f0; }
+        .pc-side-label { letter-spacing: 1.4px; }
+        .pc-sup { background: rgba(15,23,42,0.03); border-radius: 10px; }
+        body.dark-theme .pc-sup { background: rgba(255,255,255,0.03); }
+
+        /* ----- Page header ----- */
+        .pc-page-head { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
+        .pc-eyebrow {
+            font-size:0.56rem; font-weight:700; letter-spacing:2.4px; text-transform:uppercase;
+            color:#C12B3E; margin-bottom:7px; display:flex; align-items:center; gap:9px;
+        }
+        .pc-eyebrow::before { content:''; width:24px; height:2px; border-radius:2px; background:linear-gradient(90deg,#C12B3E,#E91E63); }
+        .pc-page-title { font-size:1.45rem; font-weight:800; letter-spacing:-0.02em; color:#0F172A; margin:0; line-height:1.1; }
+        body.dark-theme .pc-page-title { color:#f1f5f9; }
+        .pc-page-sub { font-size:0.68rem; color:#64748B; margin:5px 0 0; max-width:560px; }
+        body.dark-theme .pc-page-sub { color:#94A3B8; }
+
+        /* ----- KPI cards: premium glass tiles with accent bar + entrance ----- */
+        .pc-kpi-grid { gap: 14px; }
+        .pc-kpi-card {
+            background: rgba(255,255,255,0.82);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(15,23,42,0.06);
+            border-radius: 16px;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 14px 34px -22px rgba(15,23,42,0.4);
+            overflow: hidden;
+            animation: pcCardIn .5s cubic-bezier(0.2,0.7,0.3,1) backwards;
+        }
+        .pc-kpi-card:nth-child(1){animation-delay:.02s}.pc-kpi-card:nth-child(2){animation-delay:.06s}
+        .pc-kpi-card:nth-child(3){animation-delay:.10s}.pc-kpi-card:nth-child(4){animation-delay:.14s}
+        .pc-kpi-card:nth-child(5){animation-delay:.18s}.pc-kpi-card:nth-child(6){animation-delay:.22s}
+        .pc-kpi-card:nth-child(7){animation-delay:.26s}.pc-kpi-card:nth-child(8){animation-delay:.30s}
+        @keyframes pcCardIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+        .pc-kpi-card::before {
+            content:''; position:absolute; top:0; left:0; right:0; height:3px;
+            background: linear-gradient(90deg, var(--kpi-accent,#C12B3E), transparent); opacity:.9;
+        }
+        .pc-kpi-card .kpi-icon {
+            background: linear-gradient(135deg, color-mix(in srgb, var(--kpi-accent,#C12B3E) 15%, #ffffff), color-mix(in srgb, var(--kpi-accent,#C12B3E) 5%, #ffffff));
+            color: var(--kpi-accent,#C12B3E);
+            box-shadow: 0 6px 14px -8px var(--kpi-accent,#C12B3E);
+        }
+        .pc-kpi-card:hover { transform: translateY(-3px); box-shadow: 0 20px 44px -20px var(--kpi-accent,#C12B3E); }
+        .pc-kpi-card .kpi-value { font-size: 1.4rem; letter-spacing:-0.02em; color:#0F172A; }
+        body.dark-theme .pc-kpi-card { background: rgba(17,26,46,0.72); border-color: rgba(255,255,255,0.06); }
+        body.dark-theme .pc-kpi-card .kpi-value { color:#f1f5f9; }
+        #kpiDraft { --kpi-accent:#64748B; }
+        #kpiSubmitted { --kpi-accent:#2563EB; }
+        #kpiApproved { --kpi-accent:#16A34A; }
+        #kpiRejected { --kpi-accent:#DC2626; }
+        #kpiOpenPos { --kpi-accent:#0891B2; }
+        #kpiPoValue { --kpi-accent:#0E7490; }
+        #kpiSuppliers { --kpi-accent:#7C3AED; }
+        #kpiApprovedValue { --kpi-accent:#D97706; }
+
+        /* ----- Panels: glass with refined header ----- */
+        .pc-panel {
+            background: rgba(255,255,255,0.82);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(15,23,42,0.06);
+            border-radius: 16px;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 16px 40px -26px rgba(15,23,42,0.45);
+            animation: pcCardIn .5s cubic-bezier(0.2,0.7,0.3,1) backwards .1s;
+            overflow: hidden;
+        }
+        body.dark-theme .pc-panel { background: rgba(17,26,46,0.72); border-color: rgba(255,255,255,0.06); }
+        .pc-panel .pc-panel-head { padding: 14px 18px; background: linear-gradient(180deg, rgba(15,23,42,0.015), rgba(15,23,42,0)); border-bottom:1px solid rgba(15,23,42,0.05); }
+        body.dark-theme .pc-panel .pc-panel-head { border-bottom-color: rgba(255,255,255,0.05); }
+        .pc-panel .pc-panel-title { font-size:0.76rem; letter-spacing:0.2px; }
+        .pc-panel .pc-panel-title i {
+            width:26px; height:26px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center;
+            background: linear-gradient(135deg,#C12B3E,#E91E63); color:#fff; font-size:0.72rem; box-shadow:0 4px 10px -4px rgba(193,43,62,0.7);
+        }
+        .pc-panel-body { padding: 16px 18px; }
+
+        /* ----- Table: gradient header, hover accent, premium rows ----- */
+        .pc-table thead th { background: linear-gradient(135deg,#0E1F42,#17305E); font-weight:700; letter-spacing:0.5px; }
+        .pc-table thead th:first-child { border-top-left-radius: 10px; }
+        .pc-table thead th:last-child { border-top-right-radius: 10px; }
+        .pc-table tbody tr { transition: background .15s; }
+        .pc-table tbody tr:hover { background: rgba(193,43,62,0.03); }
+        .pc-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #C12B3E; }
+        .pc-table tbody td { border-bottom:1px solid rgba(15,23,42,0.05); }
+        .pc-table .num { font-variant-numeric: tabular-nums; }
+
+        /* ----- Badges: glowing dot pills ----- */
+        .pc-badge { position: relative; padding-left: 16px; font-weight: 700; letter-spacing: 0.2px; }
+        .pc-badge::before {
+            content:''; position:absolute; left:7px; top:50%; transform:translateY(-50%);
+            width:5px; height:5px; border-radius:50%; background:currentColor; box-shadow:0 0 6px currentColor;
+        }
+
+        /* ----- Buttons: premium gradients + glow ----- */
+        .pc-btn { font-weight:600; letter-spacing:0.2px; border-radius:9px; }
+        .pc-btn-primary { background:linear-gradient(135deg,#C12B3E,#E91E63 70%,#ad1a30); box-shadow:0 5px 16px -8px rgba(193,43,62,0.7); }
+        .pc-btn-primary:hover { transform:translateY(-1px); box-shadow:0 10px 26px -10px rgba(193,43,62,0.8); }
+        .pc-btn-success { background:linear-gradient(135deg,#16a34a,#22c55e); box-shadow:0 5px 16px -8px rgba(22,163,74,0.7); }
+        .pc-btn-danger { background:linear-gradient(135deg,#dc2626,#ef4444); box-shadow:0 5px 16px -8px rgba(220,38,38,0.7); }
+        .pc-btn-info { background:linear-gradient(135deg,#2563eb,#3b82f6); box-shadow:0 5px 16px -8px rgba(37,99,235,0.7); }
+        .pc-btn-outline { background:rgba(255,255,255,0.7); border-color:rgba(15,23,42,0.14); }
+        .pc-btn-outline:hover { transform:translateY(-1px); }
+        body.dark-theme .pc-btn-outline { background:transparent; border-color:#334155; }
+
+        /* ----- Grey-out (permission) still clearly visible ----- */
+        .pc-disabled { opacity:0.4 !important; filter:grayscale(0.9) !important; }
+
+        /* ----- Forms ----- */
+        .pc-input, .pc-select, .pc-textarea { border-radius:9px; box-shadow:0 1px 2px rgba(15,23,42,0.03) inset; }
+        .pc-form-label { letter-spacing:0.2px; }
+
+        /* ----- Modals: gradient accent bar + refined entrance ----- */
+        .modal-content {
+            border:none; border-radius:18px; overflow:hidden;
+            box-shadow:0 30px 90px -24px rgba(15,23,42,0.55);
+        }
+        .modal-content::before {
+            content:''; display:block; height:4px;
+            background: linear-gradient(90deg,#C12B3E,#E91E63 40%,#0891B2);
+        }
+        .modal-header { border-bottom:1px solid rgba(15,23,42,0.06); padding:16px 20px; }
+        .modal-footer { border-top:1px solid rgba(15,23,42,0.06); padding:14px 20px; }
+        .pc-modal-title { font-weight:700; letter-spacing:0.1px; }
+        .modal.fade .modal-dialog { transform: translateY(14px) scale(0.98); transition: transform .25s cubic-bezier(0.2,0.7,0.3,1); }
+        .modal.show .modal-dialog { transform: none; }
+        body.dark-theme .modal-content { background:#111A2E; }
+        body.dark-theme .modal-header, body.dark-theme .modal-footer { border-color:#1E293B; }
+
+        /* ----- Toasts: glass ----- */
+        .pc-toast { border-radius:12px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.18); box-shadow:0 14px 34px -10px rgba(15,23,42,0.4); }
+
+        /* ----- Skeleton shimmer (loading) ----- */
+        .pc-skel {
+            display:inline-block; height:11px; width:100%; max-width:170px; border-radius:6px;
+            background: linear-gradient(90deg, rgba(148,163,184,0.16) 25%, rgba(148,163,184,0.38) 50%, rgba(148,163,184,0.16) 75%);
+            background-size: 200% 100%;
+            animation: pcShimmer 1.3s infinite;
+        }
+        body.dark-theme .pc-skel {
+            background: linear-gradient(90deg, rgba(148,163,184,0.08) 25%, rgba(148,163,184,0.22) 50%, rgba(148,163,184,0.08) 75%);
+            background-size: 200% 100%;
+        }
+        @keyframes pcShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ----- Empty state ----- */
+        .pc-empty i { color:#C12B3E; opacity:0.35; }
+
+        /* ----- Custom scrollbar ----- */
+        *::-webkit-scrollbar { width:8px; height:8px; }
+        *::-webkit-scrollbar-track { background:transparent; }
+        *::-webkit-scrollbar-thumb { background:rgba(148,163,184,0.4); border-radius:8px; }
+        *::-webkit-scrollbar-thumb:hover { background:rgba(148,163,184,0.6); }
+
+        /* ----- Accessibility: focus rings ----- */
+        .pc-btn:focus-visible, .pc-nav-btn:focus-visible, .pc-input:focus-visible,
+        .pc-select:focus-visible, .pc-textarea:focus-visible { outline:2px solid #C12B3E; outline-offset:2px; }
+
+        /* ----- Reduced motion: keep it instant ----- */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== TOP NAVBAR ===== -->
+<nav class="pc-navbar">
+    <div class="brand" onclick="location.href='/'">
+        <img src="static/images/web-logo.png" alt="ConnectLink">
+        <span class="brand-text">ConnectLink <span>Procurement</span></span>
+        <span class="brand-badge">v1.0</span>
+    </div>
+    <div class="nav-actions">
+        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="bi bi-moon" id="themeIcon"></i></button>
+        <div class="user-badge" onclick="toggleUserMenu(event)">
+            <div class="avatar">P</div>
+            <span>Preview User</span>
+            <i class="bi bi-chevron-down" style="font-size:0.5rem;"></i>
+            <div class="user-dropdown-menu" id="userMenu" style="display:none;">
+                <div class="dropdown-header">
+                    <div class="dropdown-user-name">Preview User</div>
+                    <div class="dropdown-user-role">Procurement Portal</div>
+                </div>
+                <div class="dropdown-item" onclick="location.href='/'"><i class="bi bi-house"></i> Back to Home</div>
+                <div class="dropdown-divider"></div>
+                <div class="dropdown-item" onclick="location.href='/dashboard'"><i class="bi bi-building"></i> Building Projects</div>
+                <div class="dropdown-item" onclick="location.href='/pos-system.html'"><i class="bi bi-cash-register"></i> Hardware POS</div>
+                <div class="dropdown-item" onclick="location.href='/hr-dashboard'"><i class="bi bi-people"></i> Human Resources</div>
+                <div class="dropdown-item" onclick="location.href='/user-management'"><i class="bi bi-shield-lock"></i> User Management</div>
+                <div class="dropdown-divider"></div>
+                <div class="dropdown-item" onclick="logout()" style="color:#dc2626;"><i class="bi bi-box-arrow-right"></i> Sign Out</div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="pc-layout">
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="pc-sidebar">
+        <div class="pc-side-label">Procurement</div>
+        <button class="pc-nav-btn active" data-module="dashboard" onclick="showModule('dashboard')"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></button>
+        <button class="pc-nav-btn" data-module="requisitions" onclick="showModule('requisitions')"><i class="bi bi-clipboard-check"></i> <span>Requisitions</span></button>
+        <button class="pc-nav-btn" data-module="pos" onclick="showModule('pos')"><i class="bi bi-receipt-cutoff"></i> <span>Purchase Orders</span></button>
+        <button class="pc-nav-btn" data-module="suppliers" onclick="showModule('suppliers')"><i class="bi bi-truck"></i> <span>Suppliers</span></button>
+        <div class="pc-sup"><i class="bi bi-info-circle"></i> Requisitions → Approvals → POs → Stock-in</div>
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <main class="pc-main">
+        <!-- ===== PAGE HEADER ===== -->
+        <div class="pc-page-head">
+            <div>
+                <div class="pc-eyebrow">Procurement Suite</div>
+                <h1 class="pc-page-title" id="pageTitle">Dashboard</h1>
+                <p class="pc-page-sub" id="pageSub">Your procurement command centre — track requisitions, approvals and stock movement.</p>
+            </div>
+        </div>
+
+        <!-- ============ DASHBOARD ============ -->
+        <section class="pc-module active" id="module-dashboard">
+            <div class="pc-kpi-grid" id="dashKpis">
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-file-earmark-plus"></i></div><div class="kpi-value" id="kpiDraft">0</div><div class="kpi-label">Draft Requisitions</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="kpiSubmitted">0</div><div class="kpi-label">Awaiting Approval</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div class="kpi-value" id="kpiApproved">0</div><div class="kpi-label">Approved</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-x-circle"></i></div><div class="kpi-value" id="kpiRejected">0</div><div class="kpi-label">Rejected</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-box-seam"></i></div><div class="kpi-value" id="kpiOpenPos">0</div><div class="kpi-label">Open POs</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div><div class="kpi-value" id="kpiPoValue" data-money="1">$0</div><div class="kpi-label">Open PO Value</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-truck"></i></div><div class="kpi-value" id="kpiSuppliers">0</div><div class="kpi-label">Active Suppliers</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-arrow-down-up"></i></div><div class="kpi-value" id="kpiApprovedValue" data-money="1">$0</div><div class="kpi-label">Approved Req. Value</div></div>
+            </div>
+
+            <div class="pc-panel">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-clock-history"></i> Recent Requisitions</div>
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="showModule('requisitions')">View All <i class="bi bi-arrow-right"></i></button>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Req No</th><th>Title</th><th>Department</th><th>Priority</th><th>Status</th><th>Items</th><th class="num">Total (USD)</th><th>Created</th></tr></thead>
+                        <tbody id="dashRecentBody"><tr><td colspan="8" class="pc-empty"><i class="bi bi-inbox"></i> No requisitions yet</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ REQUISITIONS ============ -->
+        <section class="pc-module" id="module-requisitions">
+            <div class="pc-panel">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-clipboard-check"></i> Requisitions</div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select class="pc-select" id="reqStatusFilter" style="width:150px;" onchange="loadRequisitions()">
+                            <option value="">All Statuses</option>
+                            <option value="draft">Draft</option>
+                            <option value="submitted">Submitted</option>
+                            <option value="approved">Approved</option>
+                            <option value="po_created">PO Created</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="exportData('requisitions')" data-perm-action="can_export_data"><i class="bi bi-file-earmark-excel"></i> Export</button>
+                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openReqModal()" data-perm-action="can_create_requisitions"><i class="bi bi-plus-lg"></i> New Requisition</button>
+                    </div>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Req No</th><th>Title</th><th>Department</th><th>Requested By</th><th>Priority</th><th>Status</th><th>Items</th><th class="num">Total (USD)</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="reqBody"><tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ PURCHASE ORDERS ============ -->
+        <section class="pc-module" id="module-pos">
+            <div class="pc-panel">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-receipt-cutoff"></i> Purchase Orders</div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="exportData('purchase_orders')" data-perm-action="can_export_data"><i class="bi bi-file-earmark-excel"></i> Export</button>
+                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openPoModal()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-plus-lg"></i> New Purchase Order</button>
+                    </div>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>PO No</th><th>Supplier</th><th>Requisitions</th><th>Status</th><th class="num">Total (USD)</th><th>Expected Delivery</th><th>Created By</th><th>Created</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="poBody"><tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ SUPPLIERS ============ -->
+        <section class="pc-module" id="module-suppliers">
+            <div class="pc-panel">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-truck"></i> Suppliers</div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="exportData('suppliers')" data-perm-action="can_export_data"><i class="bi bi-file-earmark-excel"></i> Export</button>
+                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openSupplierModal()" data-perm-action="can_manage_suppliers"><i class="bi bi-plus-lg"></i> Add Supplier</button>
+                    </div>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Email</th><th>Lead Time</th><th>Terms</th><th>Rating</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="supBody"><tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- ==================== REQUISITION MODAL (create/edit) ==================== -->
+<div class="modal fade" id="reqModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-clipboard-plus me-2"></i><span id="reqModalTitle">New Requisition</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <input type="hidden" id="reqId" value="">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="pc-form-label">Title *</label>
+                        <input type="text" class="pc-input" id="reqTitle" placeholder="e.g. Restock Electrical Cable &amp; Fittings">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pc-form-label">Department</label>
+                        <input type="text" class="pc-input" id="reqDepartment" placeholder="e.g. Hardware Sales">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pc-form-label">Project Ref</label>
+                        <input type="text" class="pc-input" id="reqProjectRef" placeholder="Optional project / site">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="pc-form-label">Priority</label>
+                        <select class="pc-select" id="reqPriority">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                            <option value="Urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="pc-form-label">Needed By</label>
+                        <input type="date" class="pc-input" id="reqNeededBy">
+                    </div>
+                    <div class="col-md-8">
+                        <label class="pc-form-label">Notes</label>
+                        <input type="text" class="pc-input" id="reqNotes" placeholder="Any additional information">
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="pc-form-label mb-0">Line Items</label>
+                    <button type="button" class="pc-btn pc-btn-outline pc-btn-sm" onclick="addItemRow()"><i class="bi bi-plus-lg"></i> Add Item</button>
+                </div>
+                <div class="pc-item-row fw-semibold" style="font-size:0.56rem;color:#64748B;">
+                    <span>Product / Item *</span><span>Category</span><span>Qty *</span><span>Unit Cost (USD)</span><span>Total</span><span>Notes</span><span></span>
+                </div>
+                <div id="itemRows"></div>
+                <div class="d-flex justify-content-end mt-2" style="font-size:0.66rem;font-weight:700;">
+                    Grand Total: <span class="ms-2 text-danger" id="reqGrandTotal">$0.00</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-primary" onclick="saveReq()" id="saveReqBtn"><i class="bi bi-save"></i> Save Draft</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== VIEW REQUISITION MODAL ==================== -->
+<div class="modal fade" id="viewReqModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-file-earmark-text me-2"></i><span id="viewReqTitle">Requisition</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div id="viewReqMeta" class="mb-3"></div>
+                <div class="pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>#</th><th>Item</th><th>Category</th><th class="num">Qty</th><th class="num">Unit Cost</th><th class="num">Total</th><th>Notes</th></tr></thead>
+                        <tbody id="viewReqItems"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="d-flex gap-2 flex-wrap w-100" id="viewReqActions"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== REJECT MODAL ==================== -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-x-circle me-2 text-danger"></i>Reject Requisition</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="pc-form-label">Reason for rejection *</label>
+                <textarea class="pc-textarea" id="rejectReason"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-danger" onclick="confirmReject()"><i class="bi bi-x-lg"></i> Reject</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== PURCHASE ORDER MODAL (create) ==================== -->
+<div class="modal fade" id="poModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-receipt-cutoff me-2"></i>New Purchase Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Supplier *</label>
+                        <select class="pc-select" id="poSupplier"></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Expected Delivery</label>
+                        <input type="date" class="pc-input" id="poExpectedDelivery">
+                    </div>
+                </div>
+                <label class="pc-form-label">Select Approved Requisitions *</label>
+                <div id="poReqList" class="mb-2" style="max-height:200px;overflow-y:auto;border:1px solid #eef2f7;border-radius:10px;padding:6px;"></div>
+                <div class="d-flex justify-content-end" style="font-size:0.66rem;font-weight:700;">
+                    PO Total: <span class="ms-2 text-danger" id="poTotal">$0.00</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-primary" onclick="savePo()"><i class="bi bi-check-lg"></i> Create PO</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== VIEW / RECEIVE PO MODAL ==================== -->
+<div class="modal fade" id="viewPoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-receipt me-2"></i><span id="viewPoTitle">Purchase Order</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div id="viewPoMeta" class="mb-3"></div>
+                <div class="pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>#</th><th>Item</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Unit Cost</th><th class="num">Total</th><th class="num">Receive Now</th></tr></thead>
+                        <tbody id="viewPoItems"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-primary" onclick="saveReceive()" id="receiveBtn" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Record Receipt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== SUPPLIER MODAL ==================== -->
+<div class="modal fade" id="supplierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-truck me-2"></i><span id="supModalTitle">Add Supplier</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <input type="hidden" id="supId" value="">
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="pc-form-label">Name *</label><input type="text" class="pc-input" id="supName"></div>
+                    <div class="col-md-6"><label class="pc-form-label">Contact Person</label><input type="text" class="pc-input" id="supContact"></div>
+                    <div class="col-md-6"><label class="pc-form-label">Phone</label><input type="text" class="pc-input" id="supPhone"></div>
+                    <div class="col-md-6"><label class="pc-form-label">Email</label><input type="email" class="pc-input" id="supEmail"></div>
+                    <div class="col-md-6"><label class="pc-form-label">Lead Time (days)</label><input type="number" class="pc-input" id="supLead" min="0"></div>
+                    <div class="col-md-6"><label class="pc-form-label">Payment Terms</label><input type="text" class="pc-input" id="supTerms" placeholder="e.g. 30 days credit"></div>
+                    <div class="col-md-4"><label class="pc-form-label">Rating (0-5)</label><input type="number" class="pc-input" id="supRating" min="0" max="5"></div>
+                    <div class="col-md-8"><label class="pc-form-label">Address</label><input type="text" class="pc-input" id="supAddress"></div>
+                    <div class="col-12"><label class="pc-form-label">Notes</label><textarea class="pc-textarea" id="supNotes"></textarea></div>
+                    <div class="col-12"><label class="pc-form-label"><input type="checkbox" id="supActive" checked style="margin-right:6px;">Active supplier</label></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-primary" onclick="saveSupplier()"><i class="bi bi-save"></i> Save Supplier</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="pc-toast-wrap" id="pcToasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ===== THEME =====
+(function() {
+    const saved = localStorage.getItem('connectlink_theme');
+    const isDark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (isDark) document.body.classList.add('dark-theme');
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon';
+})();
+window.toggleTheme = function() {
+    const isDark = document.body.classList.toggle('dark-theme');
+    localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon';
+};
+
+const USER_NAME = 'Preview User';
+const SERVER_PERMS = {} || {};
+let PERMS = {};
+
+// ===== STATE =====
+let REQUISITIONS = [];
+let PURCHASE_ORDERS = [];
+let SUPPLIERS = [];
+let VIEW_REQ = null;
+let VIEW_PO = null;
+let EDIT_REQ_ID = null;
+
+// ===== LIGHTWEIGHT POLISH (no extra libraries) =====
+function animateValue(el, target, isMoney, dur) {
+    if (!el) return;
+    dur = dur || 650;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.textContent = isMoney ? '$' + fmtMoney(target) : String(Math.round(target));
+        return;
+    }
+    const start = performance.now();
+    function frame(now) {
+        const p = Math.min((now - start) / dur, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const v = target * eased;
+        el.textContent = isMoney ? '$' + fmtMoney(v) : String(Math.round(v));
+        if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+}
+
+function showSkeleton(tbody, cols, rows) {
+    if (!tbody) return;
+    rows = rows || 5;
+    let html = '';
+    for (let r = 0; r < rows; r++) {
+        html += '<tr>';
+        for (let c = 0; c < cols; c++) html += '<td><span class="pc-skel" style="width:' + (55 + ((c * 13) % 38)) + '%"></span></td>';
+        html += '</tr>';
+    }
+    tbody.innerHTML = html;
+}
+
+const PAGE_META = {
+    dashboard: { title: 'Dashboard', sub: 'Your procurement command centre — track requisitions, approvals and stock movement.' },
+    requisitions: { title: 'Requisitions', sub: 'Request goods, route for approval and keep every request auditable.' },
+    pos: { title: 'Purchase Orders', sub: 'Convert approved requisitions into orders and receive goods into stock.' },
+    suppliers: { title: 'Suppliers', sub: 'Manage your supplier register, lead times, terms and ratings.' }
+};
+
+// ===== HELPERS =====
+function can(permName) {
+    return PERMS && (PERMS.is_super_admin || PERMS[permName]);
+}
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function fmtMoney(n) {
+    const v = Number(n || 0);
+    return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function toast(message, type) {
+    type = type || 'success';
+    const wrap = document.getElementById('pcToasts');
+    if (!wrap) return;
+    const el = document.createElement('div');
+    el.className = 'pc-toast pc-toast-' + type;
+    const icon = type === 'success' ? 'check-circle-fill' : (type === 'error' ? 'exclamation-circle-fill' : 'info-circle-fill');
+    el.innerHTML = '<i class="bi bi-' + icon + '"></i> ' + esc(message);
+    wrap.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 3500);
+}
+function modal(id) {
+    const el = document.getElementById(id);
+    return el ? bootstrap.Modal.getOrCreateInstance(el) : null;
+}
+function showModal(id) { const m = modal(id); if (m) m.show(); }
+function hideModal(id) { const m = modal(id); if (m) m.hide(); }
+
+function reqBadge(status) {
+    const map = { draft:'pc-badge-draft', submitted:'pc-badge-submitted', approved:'pc-badge-approved', po_created:'pc-badge-pocreated', rejected:'pc-badge-rejected', cancelled:'pc-badge-cancelled' };
+    return `<span class="pc-badge ${map[status] || 'pc-badge-draft'}">${esc(status.replace(/_/g,' '))}</span>`;
+}
+function prioBadge(p) {
+    const map = { High:'pc-badge-high', Urgent:'pc-badge-high', Medium:'pc-badge-medium', Low:'pc-badge-low' };
+    return `<span class="pc-badge ${map[p] || 'pc-badge-medium'}">${esc(p || 'Medium')}</span>`;
+}
+function poBadge(status) {
+    const map = { ordered:'pc-badge-ordered', partial:'pc-badge-partial', received:'pc-badge-received' };
+    return `<span class="pc-badge ${map[status] || 'pc-badge-ordered'}">${esc(status)}</span>`;
+}
+function ratingStars(r) {
+    r = Number(r || 0);
+    let s = '';
+    for (let i = 1; i <= 5; i++) s += `<i class="bi ${i <= r ? 'bi-star-fill' : 'bi-star'}" style="color:#f59e0b;font-size:0.55rem;"></i>`;
+    return s;
+}
+
+// ===== PERMISSION GREY-OUT =====
+function applyProcurementPermissions() {
+    if (!PERMS) return;
+    document.querySelectorAll('[data-perm-action]').forEach(el => {
+        const perm = el.dataset.permAction;
+        const allowed = can(perm);
+        if (!allowed) {
+            el.classList.add('pc-disabled');
+            if (el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'A') el.setAttribute('disabled', 'disabled');
+            el.title = 'Requires permission: ' + perm.replace(/_/g, ' ');
+        } else {
+            el.classList.remove('pc-disabled');
+            el.removeAttribute('disabled');
+            el.title = '';
+        }
+    });
+}
+
+// ===== MODULE NAV =====
+function showModule(name) {
+    document.querySelectorAll('.pc-module').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.pc-nav-btn').forEach(b => b.classList.remove('active'));
+    const sec = document.getElementById('module-' + name);
+    if (sec) sec.classList.add('active');
+    const btn = document.querySelector('.pc-nav-btn[data-module="' + name + '"]');
+    if (btn) btn.classList.add('active');
+    const meta = PAGE_META[name];
+    if (meta) {
+        const t = document.getElementById('pageTitle');
+        const s = document.getElementById('pageSub');
+        if (t) t.textContent = meta.title;
+        if (s) s.textContent = meta.sub;
+    }
+    // lazy-load data
+    if (name === 'dashboard') loadDashboard();
+    if (name === 'requisitions') loadRequisitions();
+    if (name === 'pos') loadPOs();
+    if (name === 'suppliers') loadSuppliers();
+}
+
+// ===== NAVBAR =====
+window.toggleUserMenu = function(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('userMenu');
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+};
+document.addEventListener('click', function() {
+    const menu = document.getElementById('userMenu');
+    if (menu) menu.style.display = 'none';
+});
+window.logout = function() {
+    fetch('/api/logoutpos', { credentials: 'include' }).finally(() => { window.location.href = '/'; });
+};
+
+// ===== AUTH + PERMS =====
+async function init() {
+    PERMS = { is_super_admin: true, can_create_requisitions: true, can_approve_requisitions: true, can_manage_purchase_orders: true, can_manage_suppliers: true, can_export_data: true };
+    applyProcurementPermissions();
+    showModule('dashboard');
+}
+
+// ===================== DASHBOARD =====================
+async function loadDashboard() {
+    const kpiMap = [
+        ['kpiDraft', 'draft', false], ['kpiSubmitted', 'submitted', false],
+        ['kpiApproved', 'approved', false], ['kpiRejected', 'rejected', false],
+        ['kpiOpenPos', 'open_pos', false], ['kpiPoValue', 'open_po_value', true],
+        ['kpiSuppliers', 'active_suppliers', false], ['kpiApprovedValue', 'approved_value', true]
+    ];
+    try {
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{draft:5,submitted:3,approved:8,rejected:2,open_pos:4,open_po_value:5870.0,active_suppliers:9,approved_value:4567.89}})));
+        const data = await res.json();
+        if (data.success) {
+            const d = data.data;
+            kpiMap.forEach(([id, key, money]) => animateValue(document.getElementById(id), Number(d[key] || 0), money));
+        }
+    } catch (e) { /* non-fatal */ }
+
+    // recent 6
+    const tbody = document.getElementById('dashRecentBody');
+    showSkeleton(tbody, 8, 4);
+    try {
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "Site 12", "priority": "High", "status": "submitted", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": ""}, {"id": 2, "req_no": "REQ-0002", "title": "Cement & Block Order", "department": "Construction", "requested_by": "K. Moyo", "project_ref": "Double Storey \u2013 Glen View", "priority": "Urgent", "status": "approved", "item_count": 2, "total": 5870.0, "created_at": "2026-08-21 11:40:00", "notes": ""}, {"id": 3, "req_no": "REQ-0003", "title": "Power Tools Replenishment", "department": "Workshop", "requested_by": "S. Ncube", "project_ref": "", "priority": "Medium", "status": "draft", "item_count": 4, "total": 1230.0, "created_at": "2026-08-22 14:05:00", "notes": ""}, {"id": 4, "req_no": "REQ-0004", "title": "Plumbing Pipe Stock", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "", "priority": "Low", "status": "rejected", "item_count": 5, "total": 980.0, "created_at": "2026-08-23 08:30:00", "notes": "", "reject_reason": "Budget not approved"}, {"id": 5, "req_no": "REQ-0005", "title": "Machinery Spares", "department": "Workshop", "requested_by": "S. Ncube", "project_ref": "", "priority": "Medium", "status": "po_created", "item_count": 6, "total": 3210.0, "created_at": "2026-08-24 09:00:00", "notes": ""}, {"id": 6, "req_no": "REQ-0006", "title": "Paint & Finishes", "department": "Construction", "requested_by": "K. Moyo", "project_ref": "Single Storey \u2013 Msasa", "priority": "High", "status": "approved", "item_count": 4, "total": 1875.0, "created_at": "2026-08-25 15:20:00", "notes": ""}]})));
+        const data = await res.json();
+        REQUISITIONS = data.data || [];
+        tbody.innerHTML = REQUISITIONS.slice(0, 6).map(r => `
+            <tr style="cursor:pointer;" onclick="viewReq(${r.id})">
+                <td>${esc(r.req_no)}</td>
+                <td><strong>${esc(r.title)}</strong></td>
+                <td>${esc(r.department || '—')}</td>
+                <td>${prioBadge(r.priority)}</td>
+                <td>${reqBadge(r.status)}</td>
+                <td>${r.item_count}</td>
+                <td class="num">${fmtMoney(r.total)}</td>
+                <td>${esc((r.created_at || '').slice(0,10))}</td>
+            </tr>`).join('') || '<tr><td colspan="8" class="pc-empty"><i class="bi bi-inbox"></i> No requisitions yet</td></tr>';
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="8" class="pc-empty text-danger">Failed to load</td></tr>';
+    }
+}
+
+// ===================== REQUISITIONS =====================
+async function loadRequisitions() {
+    const tbody = document.getElementById('reqBody');
+    showSkeleton(tbody, 9);
+    const status = document.getElementById('reqStatusFilter').value;
+    try {
+        const res = await fetch('/api/procurement/requisitions?status=' + encodeURIComponent(status), { credentials: 'include' });
+        const data = await res.json();
+        REQUISITIONS = data.data || [];
+        tbody.innerHTML = REQUISITIONS.map(r => `
+            <tr style="cursor:pointer;" onclick="viewReq(${r.id})">
+                <td>${esc(r.req_no)}</td>
+                <td><strong>${esc(r.title)}</strong></td>
+                <td>${esc(r.department || '—')}</td>
+                <td>${esc(r.requested_by || '—')}</td>
+                <td>${prioBadge(r.priority)}</td>
+                <td>${reqBadge(r.status)}</td>
+                <td>${r.item_count}</td>
+                <td class="num">${fmtMoney(r.total)}</td>
+                <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewReq(${r.id})"><i class="bi bi-eye"></i></button>
+                    ${['draft'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="editReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-pencil"></i></button>` : ''}
+                    ${['draft','submitted'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="submitReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-send"></i></button>` : ''}
+                    ${['draft','cancelled','rejected'].includes(r.status) ? `<button class="pc-btn pc-btn-danger pc-btn-sm" onclick="deleteReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-trash"></i></button>` : ''}
+                </td>
+            </tr>`).join('') || '<tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> No requisitions found</td></tr>';
+        applyProcurementPermissions();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="9" class="pc-empty text-danger">Failed to load: ' + esc(e.message) + '</td></tr>';
+    }
+}
+
+// ----- Req modal (create / edit) -----
+let PRODUCT_CACHE = [];
+function addItemRow(data) {
+    data = data || {};
+    const wrap = document.getElementById('itemRows');
+    const row = document.createElement('div');
+    row.className = 'pc-item-row';
+    row.innerHTML = `
+        <div class="pc-prod-wrap">
+            <input type="text" class="pc-input pc-prod-input" placeholder="Search product or type item" value="${esc(data.product_name || '')}" autocomplete="off">
+            <input type="hidden" class="pc-prod-id" value="${data.product_id || ''}">
+            <div class="pc-suggest"></div>
+        </div>
+        <input type="text" class="pc-input pc-item-cat" placeholder="Category" value="${esc(data.category || '')}">
+        <input type="number" class="pc-input pc-item-qty" min="1" value="${data.quantity || 1}" oninput="recalcReqTotal()">
+        <input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()">
+        <span class="pc-item-line-total" style="text-align:right;font-weight:600;">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span>
+        <input type="text" class="pc-input pc-item-notes" placeholder="Notes" value="${esc(data.notes || '')}">
+        <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="this.closest('.pc-item-row').remove(); recalcReqTotal();" title="Remove"><i class="bi bi-x-lg"></i></button>
+    `;
+    wrap.appendChild(row);
+    wireProductSearch(row.querySelector('.pc-prod-input'), row);
+    recalcReqTotal();
+}
+function wireProductSearch(input, row) {
+    let t = null;
+    input.addEventListener('input', function() {
+        clearTimeout(t);
+        t = setTimeout(async () => {
+            const q = input.value.trim();
+            const sug = row.querySelector('.pc-suggest');
+            if (!q) { sug.style.display = 'none'; return; }
+            try {
+                const res = await fetch('/api/procurement/products?q=' + encodeURIComponent(q), { credentials: 'include' });
+                const data = await res.json();
+                const items = (data.data || []).filter(p => !p.name || p.name.toLowerCase().includes(q.toLowerCase()));
+                if (!items.length) { sug.style.display = 'none'; return; }
+                sug.innerHTML = items.map(p => `
+                    <div class="pc-sug-item" data-id="${p.id}" data-name="${esc(p.name)}" data-cat="${esc(p.category)}" data-cost="${p.buy_price || p.sell_price || ''}">
+                        <span>${esc(p.name)}</span><span class="sub">${esc(p.category)} • stock ${p.stock}</span>
+                    </div>`).join('');
+                sug.style.display = 'block';
+                sug.querySelectorAll('.pc-sug-item').forEach(el => {
+                    el.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        row.querySelector('.pc-prod-input').value = el.dataset.name;
+                        row.querySelector('.pc-prod-id').value = el.dataset.id;
+                        row.querySelector('.pc-item-cat').value = el.dataset.cat;
+                        if (el.dataset.cost && !row.querySelector('.pc-item-cost').value) row.querySelector('.pc-item-cost').value = el.dataset.cost;
+                        sug.style.display = 'none';
+                        recalcReqTotal();
+                    });
+                });
+            } catch (e) { sug.style.display = 'none'; }
+        }, 220);
+    });
+    input.addEventListener('blur', function() { setTimeout(() => { row.querySelector('.pc-suggest').style.display = 'none'; }, 150); });
+}
+function collectReqItems() {
+    const items = [];
+    document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
+        const name = row.querySelector('.pc-prod-input').value.trim();
+        const qty = parseInt(row.querySelector('.pc-item-qty').value || '0', 10);
+        if (!name || qty <= 0) return;
+        items.push({
+            product_id: row.querySelector('.pc-prod-id').value ? parseInt(row.querySelector('.pc-prod-id').value, 10) : null,
+            product_name: name,
+            category: row.querySelector('.pc-item-cat').value.trim(),
+            quantity: qty,
+            unit_cost: parseFloat(row.querySelector('.pc-item-cost').value || '0') || 0,
+            notes: row.querySelector('.pc-item-notes').value.trim()
+        });
+    });
+    return items;
+}
+function recalcReqTotal() {
+    let total = 0;
+    document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
+        const qty = parseFloat(row.querySelector('.pc-item-qty').value || '0');
+        const cost = parseFloat(row.querySelector('.pc-item-cost').value || '0');
+        const line = (qty || 0) * (cost || 0);
+        row.querySelector('.pc-item-line-total').textContent = fmtMoney(line);
+        total += line;
+    });
+    document.getElementById('reqGrandTotal').textContent = '$' + fmtMoney(total);
+}
+
+window.openReqModal = function() {
+    EDIT_REQ_ID = null;
+    document.getElementById('reqModalTitle').textContent = 'New Requisition';
+    document.getElementById('reqId').value = '';
+    document.getElementById('reqTitle').value = '';
+    document.getElementById('reqDepartment').value = '';
+    document.getElementById('reqProjectRef').value = '';
+    document.getElementById('reqPriority').value = 'Medium';
+    document.getElementById('reqNeededBy').value = '';
+    document.getElementById('reqNotes').value = '';
+    document.getElementById('itemRows').innerHTML = '';
+    addItemRow();
+    showModal('reqModal');
+};
+window.editReq = async function(id) {
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
+        const r = data.data;
+        EDIT_REQ_ID = id;
+        document.getElementById('reqModalTitle').textContent = 'Edit ' + r.req_no;
+        document.getElementById('reqId').value = id;
+        document.getElementById('reqTitle').value = r.title || '';
+        document.getElementById('reqDepartment').value = r.department || '';
+        document.getElementById('reqProjectRef').value = r.project_ref || '';
+        document.getElementById('reqPriority').value = r.priority || 'Medium';
+        document.getElementById('reqNeededBy').value = r.needed_by || '';
+        document.getElementById('reqNotes').value = r.notes || '';
+        document.getElementById('itemRows').innerHTML = '';
+        (r.items || []).forEach(it => addItemRow(it));
+        if (!(r.items || []).length) addItemRow();
+        showModal('reqModal');
+    } catch (e) { toast('Failed to load requisition', 'error'); }
+};
+window.saveReq = async function() {
+    const title = document.getElementById('reqTitle').value.trim();
+    const items = collectReqItems();
+    if (!title) { toast('Title is required', 'error'); return; }
+    if (!items.length) { toast('Add at least one item with a quantity', 'error'); return; }
+    const payload = {
+        title,
+        department: document.getElementById('reqDepartment').value.trim(),
+        project_ref: document.getElementById('reqProjectRef').value.trim(),
+        priority: document.getElementById('reqPriority').value,
+        needed_by: document.getElementById('reqNeededBy').value || null,
+        notes: document.getElementById('reqNotes').value.trim(),
+        items
+    };
+    const btn = document.getElementById('saveReqBtn');
+    btn.disabled = true;
+    try {
+        const url = EDIT_REQ_ID ? '/api/procurement/requisitions/' + EDIT_REQ_ID : '/api/procurement/requisitions';
+        const method = EDIT_REQ_ID ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (data.success) {
+            hideModal('reqModal');
+            toast(data.message, 'success');
+            loadRequisitions(); loadDashboard();
+        } else {
+            toast(data.error || data.message || 'Failed to save', 'error');
+        }
+    } catch (e) { toast('Connection error', 'error'); }
+    btn.disabled = false;
+};
+
+// ----- Req actions -----
+window.viewReq = async function(id) {
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
+        VIEW_REQ = data.data;
+        const r = VIEW_REQ;
+        document.getElementById('viewReqTitle').textContent = r.req_no + ' — ' + r.title;
+        document.getElementById('viewReqMeta').innerHTML = `
+            <div class="row g-2" style="font-size:0.64rem;">
+                <div class="col-md-3"><strong>Department:</strong> ${esc(r.department || '—')}</div>
+                <div class="col-md-3"><strong>Requested By:</strong> ${esc(r.requested_by || '—')}</div>
+                <div class="col-md-2"><strong>Priority:</strong> ${prioBadge(r.priority)}</div>
+                <div class="col-md-2"><strong>Status:</strong> ${reqBadge(r.status)}</div>
+                <div class="col-md-2"><strong>Needed By:</strong> ${esc(r.needed_by || '—')}</div>
+                <div class="col-md-4"><strong>Project:</strong> ${esc(r.project_ref || '—')}</div>
+                <div class="col-md-4"><strong>Created:</strong> ${esc(r.created_at || '—')}</div>
+                <div class="col-md-4"><strong>Submitted:</strong> ${esc(r.submitted_at || '—')}</div>
+                ${r.approved_by ? `<div class="col-md-4"><strong>Approved By:</strong> ${esc(r.approved_by)} @ ${esc(r.approved_at || '')}</div>` : ''}
+                ${r.reject_reason ? `<div class="col-md-8"><strong>Reject Reason:</strong> <span class="text-danger">${esc(r.reject_reason)}</span></div>` : ''}
+                ${r.notes ? `<div class="col-12"><strong>Notes:</strong> ${esc(r.notes)}</div>` : ''}
+            </div>`;
+        document.getElementById('viewReqItems').innerHTML = (r.items || []).map((it, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td>${esc(it.product_name)}</td>
+                <td>${esc(it.category || '—')}</td>
+                <td class="num">${it.quantity}</td>
+                <td class="num">${fmtMoney(it.unit_cost)}</td>
+                <td class="num">${fmtMoney(it.total_cost)}</td>
+                <td>${esc(it.notes || '')}</td>
+            </tr>`).join('') || '<tr><td colspan="7" class="pc-empty">No items</td></tr>';
+
+        // actions based on status + perms
+        let actions = '';
+        if (r.status === 'draft') {
+            const canEdit = can('can_create_requisitions');
+            if (canEdit) {
+                actions += `<button class="pc-btn pc-btn-outline" onclick="editReq(${r.id})"><i class="bi bi-pencil"></i> Edit</button>`;
+                actions += `<button class="pc-btn pc-btn-primary" onclick="submitReq(${r.id})"><i class="bi bi-send"></i> Submit</button>`;
+                actions += `<button class="pc-btn pc-btn-danger" onclick="deleteReq(${r.id})"><i class="bi bi-trash"></i> Delete</button>`;
+            } else {
+                actions += `<button class="pc-btn pc-btn-danger pc-disabled" disabled title="Requires permission: create requisitions"><i class="bi bi-lock"></i> Delete</button>`;
+            }
+        }
+        if (r.status === 'submitted') {
+            if (can('can_approve_requisitions')) {
+                actions += `<button class="pc-btn pc-btn-success" onclick="approveReq(${r.id})"><i class="bi bi-check-lg"></i> Approve</button>`;
+                actions += `<button class="pc-btn pc-btn-danger" onclick="openReject(${r.id})"><i class="bi bi-x-lg"></i> Reject</button>`;
+            }
+            if (can('can_create_requisitions') || can('can_approve_requisitions')) {
+                actions += `<button class="pc-btn pc-btn-outline" onclick="cancelReq(${r.id})"><i class="bi bi-slash-circle"></i> Cancel</button>`;
+            }
+        }
+        if (r.status === 'approved') {
+            if (can('can_approve_requisitions') || can('can_manage_purchase_orders')) {
+                actions += `<button class="pc-btn pc-btn-outline" onclick="cancelReq(${r.id})"><i class="bi bi-slash-circle"></i> Cancel</button>`;
+            }
+        }
+        if (actions === '') actions = '<span style="color:#94A3B8;font-size:0.62rem;">No actions available for this status.</span>';
+        document.getElementById('viewReqActions').innerHTML = actions;
+        applyProcurementPermissions();
+        showModal('viewReqModal');
+    } catch (e) { toast('Failed to load requisition', 'error'); }
+};
+
+window.submitReq = async function(id) {
+    if (!confirm('Submit this requisition for approval?')) return;
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id + '/submit', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.approveReq = async function(id) {
+    if (!confirm('Approve this requisition?')) return;
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id + '/approve', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.openReject = function(id) {
+    document.getElementById('rejectReason').value = '';
+    document.getElementById('rejectModal').dataset.reqId = id;
+    showModal('rejectModal');
+};
+window.confirmReject = async function() {
+    const id = document.getElementById('rejectModal').dataset.reqId;
+    const reason = document.getElementById('rejectReason').value.trim();
+    if (!reason) { toast('Please enter a rejection reason', 'error'); return; }
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id + '/reject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ reason }) });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('rejectModal'); hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.cancelReq = async function(id) {
+    if (!confirm('Cancel this requisition?')) return;
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id + '/cancel', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.deleteReq = async function(id) {
+    if (!confirm('Delete this requisition permanently?')) return;
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id + '/delete', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+// ===================== PURCHASE ORDERS =====================
+async function loadPOs() {
+    const tbody = document.getElementById('poBody');
+    showSkeleton(tbody, 9);
+    try {
+        const res = await fetch('/api/procurement/purchase-orders', { credentials: 'include' });
+        const data = await res.json();
+        PURCHASE_ORDERS = data.data || [];
+        tbody.innerHTML = PURCHASE_ORDERS.map(po => `
+            <tr style="cursor:pointer;" onclick="viewPo(${po.id})">
+                <td>${esc(po.po_no)}</td>
+                <td>${esc(po.supplier_name || '—')}</td>
+                <td>${esc(po.requisition_ids || '—')}</td>
+                <td>${poBadge(po.status)}</td>
+                <td class="num">${fmtMoney(po.total_amount)}</td>
+                <td>${esc(po.expected_delivery || '—')}</td>
+                <td>${esc(po.created_by || '—')}</td>
+                <td>${esc((po.created_at || '').slice(0,10))}</td>
+                <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewPo(${po.id})"><i class="bi bi-eye"></i></button>
+                    ${['ordered','partial'].includes(po.status) ? `<button class="pc-btn pc-btn-success pc-btn-sm" onclick="viewPo(${po.id}, true)" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Receive</button>` : ''}
+                </td>
+            </tr>`).join('') || '<tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> No purchase orders yet</td></tr>';
+        applyProcurementPermissions();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="9" class="pc-empty text-danger">Failed to load</td></tr>';
+    }
+}
+
+window.openPoModal = async function() {
+    // suppliers
+    let supOpts = '<option value="">— No supplier —</option>';
+    try {
+        const res = await fetch('/api/procurement/suppliers', { credentials: 'include' });
+        const data = await res.json();
+        SUPPLIERS = data.data || [];
+        supOpts += SUPPLIERS.filter(s => s.is_active).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    } catch (e) {}
+    document.getElementById('poSupplier').innerHTML = supOpts;
+    document.getElementById('poExpectedDelivery').value = '';
+    document.getElementById('poTotal').textContent = '$0.00';
+
+    // approved requisitions (not already in a PO)
+    const list = document.getElementById('poReqList');
+    try {
+        const res = await fetch('/api/procurement/requisitions?status=approved', { credentials: 'include' });
+        const data = await res.json();
+        const approved = data.data || [];
+        if (!approved.length) {
+            list.innerHTML = '<div class="pc-empty" style="padding:16px;"><i class="bi bi-info-circle"></i> No approved requisitions available. Approve requisitions first.</div>';
+        } else {
+            list.innerHTML = approved.map(r => `
+                <label class="d-flex align-items-center gap-2" style="padding:7px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:0.64rem;">
+                    <input type="checkbox" class="po-req-check" value="${r.id}" data-total="${r.total}" onchange="recalcPoTotal()">
+                    <span><strong>${esc(r.req_no)}</strong> — ${esc(r.title)} (${esc(r.department || '—')})</span>
+                    <span class="ms-auto text-danger fw-semibold">$${fmtMoney(r.total)}</span>
+                </label>`).join('');
+        }
+    } catch (e) {
+        list.innerHTML = '<div class="pc-empty">Failed to load approved requisitions.</div>';
+    }
+    showModal('poModal');
+};
+window.recalcPoTotal = function() {
+    let total = 0;
+    document.querySelectorAll('.po-req-check:checked').forEach(c => { total += parseFloat(c.dataset.total || '0'); });
+    document.getElementById('poTotal').textContent = '$' + fmtMoney(total);
+};
+window.savePo = async function() {
+    const reqIds = Array.from(document.querySelectorAll('.po-req-check:checked')).map(c => parseInt(c.value, 10));
+    const supplier_id = document.getElementById('poSupplier').value ? parseInt(document.getElementById('poSupplier').value, 10) : null;
+    if (!reqIds.length) { toast('Select at least one approved requisition', 'error'); return; }
+    try {
+        const res = await fetch('/api/procurement/purchase-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ requisition_ids: reqIds, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null })
+        });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('poModal'); loadPOs(); loadRequisitions(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+window.viewPo = async function(id, openReceive) {
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + id, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
+        VIEW_PO = data.data;
+        const po = VIEW_PO;
+        document.getElementById('viewPoTitle').textContent = po.po_no + ' — ' + (po.supplier_name || 'No supplier');
+        document.getElementById('viewPoMeta').innerHTML = `
+            <div class="row g-2" style="font-size:0.64rem;">
+                <div class="col-md-3"><strong>Supplier:</strong> ${esc(po.supplier_name || '—')}</div>
+                <div class="col-md-2"><strong>Status:</strong> ${poBadge(po.status)}</div>
+                <div class="col-md-2"><strong>Total:</strong> $${fmtMoney(po.total_amount)}</div>
+                <div class="col-md-2"><strong>Created By:</strong> ${esc(po.created_by || '—')}</div>
+                <div class="col-md-3"><strong>Expected Delivery:</strong> ${esc(po.expected_delivery || '—')}</div>
+                <div class="col-md-4"><strong>Requisitions:</strong> ${esc(po.requisition_ids || '—')}</div>
+                <div class="col-md-4"><strong>Created:</strong> ${esc(po.created_at || '—')}</div>
+                <div class="col-md-4"><strong>Received:</strong> ${esc(po.received_at || '—')}</div>
+            </div>`;
+        document.getElementById('viewPoItems').innerHTML = (po.lines || []).map((ln, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td>${esc(ln.product_name)}</td>
+                <td class="num">${ln.quantity_ordered}</td>
+                <td class="num">${ln.quantity_received}</td>
+                <td class="num">${fmtMoney(ln.unit_cost)}</td>
+                <td class="num">${fmtMoney((ln.quantity_ordered||0) * (ln.unit_cost||0))}</td>
+                <td class="num" style="min-width:90px;">
+                    ${['ordered','partial'].includes(po.status)
+                        ? `<input type="number" class="pc-input pc-input-sm po-rec" data-line="${ln.id}" min="0" max="${Math.max(0, ln.quantity_ordered - ln.quantity_received)}" placeholder="0" style="width:80px;text-align:right;">`
+                        : `<span style="color:#94A3B8;">—</span>`}
+                </td>
+            </tr>`).join('') || '<tr><td colspan="7" class="pc-empty">No items</td></tr>';
+        const recBtn = document.getElementById('receiveBtn');
+        if (['ordered','partial'].includes(po.status)) {
+            recBtn.style.display = 'inline-flex';
+        } else {
+            recBtn.style.display = 'none';
+        }
+        showModal('viewPoModal');
+        if (openReceive) {
+            document.getElementById('viewPoItems').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        applyProcurementPermissions();
+    } catch (e) { toast('Failed to load PO', 'error'); }
+};
+window.saveReceive = async function() {
+    if (!VIEW_PO) return;
+    const received = {};
+    let any = false;
+    document.querySelectorAll('.po-rec').forEach(inp => {
+        const v = parseInt(inp.value || '0', 10);
+        if (v > 0) { received[inp.dataset.line] = v; any = true; }
+    });
+    if (!any) { toast('Enter a quantity to receive for at least one item', 'error'); return; }
+    if (!confirm('Record receipt? Received stock will be added to inventory.')) return;
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + VIEW_PO.id + '/receive', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ received })
+        });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewPoModal'); loadPOs(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+// ===================== SUPPLIERS =====================
+async function loadSuppliers() {
+    const tbody = document.getElementById('supBody');
+    showSkeleton(tbody, 9);
+    try {
+        const res = await fetch('/api/procurement/suppliers', { credentials: 'include' });
+        const data = await res.json();
+        SUPPLIERS = data.data || [];
+        tbody.innerHTML = SUPPLIERS.map(s => `
+            <tr>
+                <td><strong>${esc(s.name)}</strong></td>
+                <td>${esc(s.contact_person || '—')}</td>
+                <td>${esc(s.phone || '—')}</td>
+                <td>${esc(s.email || '—')}</td>
+                <td>${s.lead_time_days ? s.lead_time_days + ' days' : '—'}</td>
+                <td>${esc(s.payment_terms || '—')}</td>
+                <td>${ratingStars(s.rating)}</td>
+                <td>${s.is_active ? '<span class="pc-badge pc-badge-approved">Active</span>' : '<span class="pc-badge pc-badge-cancelled">Inactive</span>'}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="editSupplier(${s.id})" data-perm-action="can_manage_suppliers"><i class="bi bi-pencil"></i></button>
+                    <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="deleteSupplier(${s.id})" data-perm-action="can_manage_suppliers"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>`).join('') || '<tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> No suppliers yet</td></tr>';
+        applyProcurementPermissions();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="9" class="pc-empty text-danger">Failed to load</td></tr>';
+    }
+}
+window.openSupplierModal = function() {
+    document.getElementById('supModalTitle').textContent = 'Add Supplier';
+    document.getElementById('supId').value = '';
+    ['supName','supContact','supPhone','supEmail','supAddress','supTerms','supNotes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('supLead').value = '';
+    document.getElementById('supRating').value = '';
+    document.getElementById('supActive').checked = true;
+    showModal('supplierModal');
+};
+window.editSupplier = function(id) {
+    const s = SUPPLIERS.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('supModalTitle').textContent = 'Edit Supplier';
+    document.getElementById('supId').value = s.id;
+    document.getElementById('supName').value = s.name || '';
+    document.getElementById('supContact').value = s.contact_person || '';
+    document.getElementById('supPhone').value = s.phone || '';
+    document.getElementById('supEmail').value = s.email || '';
+    document.getElementById('supAddress').value = s.address || '';
+    document.getElementById('supLead').value = s.lead_time_days || '';
+    document.getElementById('supTerms').value = s.payment_terms || '';
+    document.getElementById('supRating').value = s.rating || '';
+    document.getElementById('supNotes').value = s.notes || '';
+    document.getElementById('supActive').checked = !!s.is_active;
+    showModal('supplierModal');
+};
+window.saveSupplier = async function() {
+    const name = document.getElementById('supName').value.trim();
+    if (!name) { toast('Supplier name is required', 'error'); return; }
+    const payload = {
+        name,
+        contact_person: document.getElementById('supContact').value.trim(),
+        phone: document.getElementById('supPhone').value.trim(),
+        email: document.getElementById('supEmail').value.trim(),
+        address: document.getElementById('supAddress').value.trim(),
+        lead_time_days: parseInt(document.getElementById('supLead').value || '0', 10),
+        payment_terms: document.getElementById('supTerms').value.trim(),
+        rating: parseInt(document.getElementById('supRating').value || '0', 10),
+        notes: document.getElementById('supNotes').value.trim(),
+        is_active: document.getElementById('supActive').checked
+    };
+    const id = document.getElementById('supId').value;
+    try {
+        const url = id ? '/api/procurement/suppliers/' + id : '/api/procurement/suppliers';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('supplierModal'); loadSuppliers(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.deleteSupplier = async function(id) {
+    if (!confirm('Delete this supplier?')) return;
+    try {
+        const res = await fetch('/api/procurement/suppliers/' + id, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { loadSuppliers(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+// ===================== EXPORT =====================
+window.exportData = async function(scope) {
+    try {
+        const res = await fetch('/api/procurement/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ scope }) });
+        if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            toast(d.error || 'Export failed', 'error');
+            return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const cd = res.headers.get('Content-Disposition') || '';
+        const m = cd.match(/filename="?([^"]+)"?/);
+        a.download = m ? m[1] : ('procurement_' + scope + '.xlsx');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        toast('Export downloaded', 'success');
+    } catch (e) { toast('Export failed', 'error'); }
+};
+
+init();
+</script>
+</body>
+</html>

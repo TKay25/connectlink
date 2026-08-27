@@ -1427,6 +1427,7 @@
         .system-card[data-portal="hardware"] { --card-accent: #059669; --card-accent-2: #047857; }
         .system-card[data-portal="hr"]       { --card-accent: #7c3aed; --card-accent-2: #6d28d9; }
         .system-card[data-portal="users"]    { --card-accent: #d97706; --card-accent-2: #b45309; }
+        .system-card[data-portal="procurement"] { --card-accent: #0891b2; --card-accent-2: #0e7490; }
         .system-card { --card-accent: #C12B3E; --card-accent-2: #9B1D2C; }
 
         /* Left accent bar */
@@ -1790,6 +1791,22 @@
         .system-card h3 { margin-bottom: 2px; }
         .system-card p { line-height: 1.25; }
 
+        /* ---------- Portal cards as a 2-column app grid (v5 — makes room for the 5th portal) ---------- */
+        /* 5 cards in a 2-col grid = 3 rows, SHORTER than the old 4-card single column,
+           so the landing page still fits one screen. Procurement spans the bottom row. */
+        .portal-section .cards-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            align-items: stretch;
+        }
+        .portal-section .system-card { min-height: 96px; }
+        .portal-section .system-card[data-portal="procurement"] { grid-column: 1 / -1; }
+        @media (max-width: 768px) {
+            .portal-section .cards-container { grid-template-columns: 1fr; }
+            .portal-section .system-card[data-portal="procurement"] { grid-column: auto; }
+        }
+
         /* ---------- Reduced motion ---------- */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -1968,6 +1985,27 @@
                             <span class="card-badge">v2.1</span>
                             <button class="btn-explore">
                                 Manage <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Procurement Card -->
+                    <div class="system-card" data-portal="procurement">
+                        <span class="card-index">05</span>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-truck-fast"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Procurement</h3>
+                            <p>Requisitions, approvals, purchase orders &amp; supplier management</p>
+                            <div class="card-tags">
+                                <span>Requisitions</span><span>Purchase Orders</span><span>Suppliers</span>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v1.0</span>
+                            <button class="btn-explore">
+                                Access <i class="fas fa-arrow-right"></i>
                             </button>
                         </div>
                     </div>
@@ -2320,6 +2358,122 @@
     </div>
 </div>
 
+<!-- Procurement Modal -->
+<div class="modal-overlay" id="procurementLoginModal">
+    <div class="login-modal">
+        <div class="modal-header">
+            <button class="close-modal" onclick="closeProcurementModal()"><i class="fas fa-times"></i></button>
+            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <h3>Procurement</h3>
+            <p>Sign in to manage requisitions, purchase orders &amp; suppliers</p>
+        </div>
+        <div class="modal-body">
+            <div class="login-form-wrap" id="procurementLoginWrap">
+                <div class="error-message" id="procurementErrorMsg"></div>
+                <form id="procurementLoginForm">
+                    <div class="form-group">
+                        <label>Username / Email</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="procurementEmail" placeholder="admin@connectlinkproperties.co.zw" required>
+                            <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="procurementPassword" placeholder="••••••••" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleProcurementPassword(event)"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+                </form>
+                <div class="modal-footer-links">
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('procurement')">Forgot Password?</a>
+                    <a href="#">Support</a>
+                </div>
+            </div>
+            <!-- First Login: Set New Password -->
+            <div id="procurementSetPasswordForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Set New Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">First-time login — choose your new password</div>
+                <div class="error-message" id="procurementSetPwError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="procurementCurrentPw" placeholder="Temporary password" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="procurementSetNewPw" placeholder="Min 4 characters" required>
+                        <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('procurementSetNewPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="procurementSetConfirmPw" placeholder="Re-enter new password" required>
+                        <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('procurementSetConfirmPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="button" class="modal-login-btn" onclick="firstLoginReset('procurement')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Set Password</button>
+            </div>
+            <!-- Reset Password Form (WhatsApp code flow) -->
+            <div id="procurementResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔐 Reset Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">A code will be sent to your WhatsApp</div>
+                <div class="error-message" id="procurementResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="success-message" id="procurementResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
+                <!-- Step 1: Request code -->
+                <div id="procurementStep1">
+                    <div class="form-group">
+                        <label>Username / Email</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="procurementResetEmail" placeholder="your@email.com" required>
+                            <div class="input-icon-modal"><i class="fas fa-user"></i></div>
+                        </div>
+                    </div>
+                    <button type="button" class="modal-login-btn" onclick="sendResetCode('procurement')" style="margin-bottom:6px;"><i class="fab fa-whatsapp me-1"></i> Send Code to WhatsApp</button>
+                    <div id="procurementCodeSent" style="display:none;font-size:0.55rem;color:#065f46;text-align:center;margin-bottom:4px;"></div>
+                </div>
+                <!-- Step 2: Verify code + set new password -->
+                <div id="procurementStep2" style="display:none;">
+                    <div class="form-group">
+                        <label>Verification Code</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="procurementResetCode" placeholder="6-digit code" maxlength="6" required>
+                            <div class="input-icon-modal"><i class="fas fa-shield-alt"></i></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="procurementNewPw" placeholder="Min 4 characters" required>
+                            <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('procurementNewPw', event)"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="procurementConfirmPw" placeholder="Re-enter new password" required>
+                            <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('procurementConfirmPw', event)"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <button type="button" class="modal-login-btn" onclick="verifyResetCode('procurement')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Reset Password</button>
+                </div>
+                <a href="#" onclick="event.preventDefault(); toggleResetForm('procurement')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;margin-top:4px;"><i class="fas fa-arrow-left"></i> Back to login</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Toast Container -->
 <div id="toastContainer" class="toast-container"></div>
 
@@ -2497,9 +2651,9 @@
     (function() {
         // State management
         const state = {
-            modals: { projects: false, hardware: false, hr: false, users: false },
+            modals: { projects: false, hardware: false, hr: false, users: false, procurement: false },
             loading: false,
-            errors: { projects: '', hardware: '', hr: '', users: '' },
+            errors: { projects: '', hardware: '', hr: '', users: '', procurement: '' },
             loadingInterval: null,
             loadingStep: 0
         };
@@ -2519,6 +2673,7 @@
             hardwareModal: document.getElementById('hardwareLoginModal'),
             hrModal: document.getElementById('hrLoginModal'),
             usersModal: document.getElementById('usersLoginModal'),
+            procurementModal: document.getElementById('procurementLoginModal'),
             loadingOverlay: document.getElementById('loadingOverlay'),
             loadingMessage: document.getElementById('loadingMessage'),
             loadingSub: document.getElementById('loadingSub'),
@@ -2526,10 +2681,12 @@
             hardwareError: document.getElementById('hardwareErrorMsg'),
             hrError: document.getElementById('hrErrorMsg'),
             usersError: document.getElementById('usersErrorMsg'),
+            procurementError: document.getElementById('procurementErrorMsg'),
             projectsForm: document.getElementById('projectsLoginForm'),
             hardwareForm: document.getElementById('hardwareLoginForm'),
             hrForm: document.getElementById('hrLoginForm'),
             usersForm: document.getElementById('usersLoginForm'),
+            procurementForm: document.getElementById('procurementLoginForm'),
             projectsEmail: document.getElementById('projectsEmail'),
             projectsPassword: document.getElementById('projectsPassword'),
             hardwareUsername: document.getElementById('hardwareUsername'),
@@ -2537,7 +2694,9 @@
             hrEmail: document.getElementById('hrEmail'),
             hrPassword: document.getElementById('hrPassword'),
             usersEmail: document.getElementById('usersEmail'),
-            usersPassword: document.getElementById('usersPassword')
+            usersPassword: document.getElementById('usersPassword'),
+            procurementEmail: document.getElementById('procurementEmail'),
+            procurementPassword: document.getElementById('procurementPassword')
         };
 
         // Start loading animation with rotating messages - each once, then stay at final
@@ -2583,13 +2742,15 @@
             if (dom.hardwareModal) dom.hardwareModal.classList.toggle('active', state.modals.hardware);
             if (dom.hrModal) dom.hrModal.classList.toggle('active', state.modals.hr);
             if (dom.usersModal) dom.usersModal.classList.toggle('active', state.modals.users);
-            document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr || state.modals.users) ? 'hidden' : '';
+            if (dom.procurementModal) dom.procurementModal.classList.toggle('active', state.modals.procurement);
+            document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr || state.modals.users || state.modals.procurement) ? 'hidden' : '';
             // Log which modals ended up active
             const active = [];
             if (dom.projectsModal?.classList.contains('active')) active.push('projects');
             if (dom.hardwareModal?.classList.contains('active')) active.push('hardware');
             if (dom.hrModal?.classList.contains('active')) active.push('hr');
             if (dom.usersModal?.classList.contains('active')) active.push('users');
+            if (dom.procurementModal?.classList.contains('active')) active.push('procurement');
             console.log('[render] active overlay classes:', active.length ? active : 'none');
             
             // Loading overlay
@@ -2601,10 +2762,11 @@
                 stopLoadingAnimation();
             }
             
-            ['projects', 'hardware', 'hr', 'users'].forEach(type => {
+            ['projects', 'hardware', 'hr', 'users', 'procurement'].forEach(type => {
                 const errorEl = type === 'projects' ? dom.projectsError :
                                type === 'hardware' ? dom.hardwareError :
-                               type === 'hr' ? dom.hrError : dom.usersError;
+                               type === 'hr' ? dom.hrError :
+                               type === 'users' ? dom.usersError : dom.procurementError;
                 if (!errorEl) return;
                 const msg = state.errors[type];
                 if (msg) {
@@ -2627,7 +2789,7 @@
             setTimeout(() => {
                 render();
                 // Focus the first input
-                const focusId = { projects:'projectsEmail', hardware:'hardwareUsername', hr:'hrEmail', users:'usersEmail' }[portal];
+                const focusId = { projects:'projectsEmail', hardware:'hardwareUsername', hr:'hrEmail', users:'usersEmail', procurement:'procurementEmail' }[portal];
                 const inputEl = document.getElementById(focusId);
                 console.log('[openPortal] focusId:', focusId, 'element found:', !!inputEl);
                 if (inputEl) inputEl.focus();
@@ -2674,6 +2836,14 @@
             render();
         }
 
+        function closeProcurementModal() {
+            state.modals.procurement = false;
+            state.errors.procurement = '';
+            const el = document.getElementById('procurementLoginForm');
+            if (el && typeof el.reset === 'function') el.reset();
+            render();
+        }
+
         function showToast(message, type) {
             type = type || 'success';
             const container = document.getElementById('toastContainer');
@@ -2690,7 +2860,8 @@
             if (type === 'projects') state.errors.projects = msg;
             else if (type === 'hardware') state.errors.hardware = msg;
             else if (type === 'hr') state.errors.hr = msg;
-            else state.errors.users = msg;
+            else if (type === 'users') state.errors.users = msg;
+            else state.errors.procurement = msg;
             render();
         }
 
@@ -2735,6 +2906,18 @@
 
         window.toggleHrPassword = function(e) {
             const input = dom.hrPassword;
+            const icon = e.currentTarget.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        };
+
+        window.toggleProcurementPassword = function(e) {
+            const input = dom.procurementPassword;
             const icon = e.currentTarget.querySelector('i');
             if (input.type === 'password') {
                 input.type = 'text';
@@ -2956,6 +3139,7 @@
         window.closeHardwareModal = closeHardwareModal;
         window.closeHrModal = closeHrModal;
         window.closeUsersModal = closeUsersModal;
+        window.closeProcurementModal = closeProcurementModal;
 
         document.querySelectorAll('.system-card').forEach(card => {
             card.addEventListener('click', function(e) {
@@ -2985,6 +3169,9 @@
         dom.usersModal.addEventListener('click', e => {
             if (e.target === dom.usersModal) closeUsersModal();
         });
+        dom.procurementModal.addEventListener('click', e => {
+            if (e.target === dom.procurementModal) closeProcurementModal();
+        });
 
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
@@ -2992,6 +3179,7 @@
                 if (state.modals.hardware) closeHardwareModal();
                 if (state.modals.hr) closeHrModal();
                 if (state.modals.users) closeUsersModal();
+                if (state.modals.procurement) closeProcurementModal();
             }
         });
 
@@ -3181,6 +3369,57 @@
             .catch(() => {
                 setLoading(false);
                 setError('users', 'Connection error. Please try again.');
+            });
+        });
+
+        // Procurement Login
+        dom.procurementForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            setError('procurement', '');
+
+            const email = dom.procurementEmail.value.trim();
+            const password = dom.procurementPassword.value;
+
+            if (!email || !password) {
+                setError('procurement', 'Please fill in all fields');
+                return;
+            }
+
+            setLoading(true);
+
+            const formData = new URLSearchParams();
+            formData.append('emaillogin', email);
+            formData.append('passwordlogin', password);
+
+            fetch('/procurement-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                credentials: 'include',
+                body: formData.toString()
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect || '/procurement';
+                } else if (data.must_reset) {
+                    setLoading(false);
+                    // Show first-login set password form inside the modal (keep modal open)
+                    document.getElementById('procurementLoginWrap').style.display = 'none';
+                    document.getElementById('procurementSetPasswordForm').style.display = 'block';
+                    document.getElementById('procurementResetForm').style.display = 'none';
+                    document.getElementById('procurementEmail').value = data.username;
+                    // Pre-fill current password from what they typed
+                    document.getElementById('procurementCurrentPw').value = dom.procurementPassword.value;
+                    setError('procurement', data.message || 'First-time login — please set a new password.');
+                } else {
+                    setLoading(false);
+                    setError('procurement', data.message || 'Invalid credentials');
+                    dom.procurementPassword.value = '';
+                }
+            })
+            .catch(() => {
+                setLoading(false);
+                setError('procurement', 'Connection error. Please try again.');
             });
         });
 

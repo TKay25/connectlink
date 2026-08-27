@@ -1341,7 +1341,22 @@ def initialize_database_tables():
                 ALTER TABLE transactions 
                 ADD COLUMN IF NOT EXISTS change_amount DECIMAL(10,2) DEFAULT 0.00
             """, commit=True)
-            
+
+            # Revert/void support — a voided sale is hidden from history and its
+            # stock is returned to inventory (soft-delete, keeps the audit trail)
+            execute_query("""
+                ALTER TABLE transactions 
+                ADD COLUMN IF NOT EXISTS voided BOOLEAN DEFAULT FALSE
+            """, commit=True)
+            execute_query("""
+                ALTER TABLE transactions 
+                ADD COLUMN IF NOT EXISTS voided_at TIMESTAMP
+            """, commit=True)
+            execute_query("""
+                ALTER TABLE transactions 
+                ADD COLUMN IF NOT EXISTS voided_by VARCHAR(100)
+            """, commit=True)
+
             # Transaction Items table
             execute_query("""
                 CREATE TABLE IF NOT EXISTS transaction_items (
@@ -1574,6 +1589,113 @@ def initialize_database_tables():
                 print(f"Note: Could not add can_download_master_file column: {e}")
 
             print("✅ User permissions table initialized!")
+
+            # ========== PROCUREMENT & REQUISITIONS MODULE ==========
+            # Permission flags that grey-out action buttons on the Procurement portal.
+            for _proc_col in ['can_create_requisitions', 'can_approve_requisitions',
+                              'can_manage_purchase_orders', 'can_manage_suppliers']:
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE user_permissions ADD COLUMN IF NOT EXISTS {_proc_col} BOOLEAN DEFAULT FALSE"
+                    )
+                    connection.commit()
+                except Exception as e:
+                    print(f"Note: Could not add {_proc_col} column: {e}")
+
+            # Suppliers
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS suppliers (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(150) NOT NULL,
+                    contact_person VARCHAR(100),
+                    phone VARCHAR(50),
+                    email VARCHAR(150),
+                    address TEXT,
+                    lead_time_days INTEGER DEFAULT 0,
+                    payment_terms VARCHAR(100),
+                    rating INTEGER DEFAULT 0,
+                    notes TEXT,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            # Requisition headers
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS requisitions (
+                    id SERIAL PRIMARY KEY,
+                    req_no VARCHAR(30) NOT NULL UNIQUE,
+                    title VARCHAR(200) NOT NULL,
+                    department VARCHAR(100),
+                    requested_by VARCHAR(100),
+                    requested_by_user_id INTEGER,
+                    project_ref VARCHAR(150),
+                    priority VARCHAR(20) DEFAULT 'Medium',
+                    status VARCHAR(30) DEFAULT 'draft',
+                    notes TEXT,
+                    needed_by DATE,
+                    approved_by VARCHAR(100),
+                    approved_at TIMESTAMP,
+                    rejected_by VARCHAR(100),
+                    rejected_at TIMESTAMP,
+                    reject_reason TEXT,
+                    submitted_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            # Requisition line items
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS requisition_items (
+                    id SERIAL PRIMARY KEY,
+                    requisition_id INTEGER REFERENCES requisitions(id) ON DELETE CASCADE,
+                    product_id INTEGER,
+                    product_name VARCHAR(150) NOT NULL,
+                    category VARCHAR(50),
+                    quantity INTEGER NOT NULL,
+                    unit_cost DECIMAL(12,2) DEFAULT 0,
+                    total_cost DECIMAL(12,2) DEFAULT 0,
+                    notes VARCHAR(200)
+                )
+            """)
+            connection.commit()
+
+            # Purchase orders
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS purchase_orders (
+                    id SERIAL PRIMARY KEY,
+                    po_no VARCHAR(30) NOT NULL UNIQUE,
+                    supplier_id INTEGER REFERENCES suppliers(id),
+                    supplier_name VARCHAR(150),
+                    requisition_ids TEXT,
+                    status VARCHAR(30) DEFAULT 'ordered',
+                    total_amount DECIMAL(12,2) DEFAULT 0,
+                    expected_delivery DATE,
+                    created_by VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    received_at TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            # Goods received note (GRN) lines — one per PO line
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS grn_lines (
+                    id SERIAL PRIMARY KEY,
+                    purchase_order_id INTEGER REFERENCES purchase_orders(id) ON DELETE CASCADE,
+                    product_id INTEGER,
+                    product_name VARCHAR(150),
+                    quantity_ordered INTEGER DEFAULT 0,
+                    quantity_received INTEGER DEFAULT 0,
+                    unit_cost DECIMAL(12,2) DEFAULT 0
+                )
+            """)
+            connection.commit()
+
+            print("✅ Procurement & requisitions tables initialized!")
 
             # ========== HR MODULE TABLES ==========
             cursor.execute("""
@@ -7397,6 +7519,10 @@ def webhook():
                                                         
                                                         print(f"🔘 Template button clicked: {button_text}")
                                                         print(f"📦 Button payload: {payload}")
+                                                        # Procurement: requisition approve/decline from WhatsApp
+                                                        if handle_procurement_button_payload(payload, sender_id, sender_number):
+                                                            return jsonify({"status": "received"}), 200
+
                                                         
                                                         # Find which receipt type this payload matches
                                                         matched_type = None
@@ -10496,6 +10622,10 @@ def webhook():
                                                             
                                                             print(f"🔘 Template button clicked: {button_text}")
                                                             print(f"📦 Button payload: {payload}")
+                                                            # Procurement: requisition approve/decline from WhatsApp
+                                                            if handle_procurement_button_payload(payload, sender_id, sender_number):
+                                                                continue
+
                                                             
                                                             # Find which receipt type this payload matches
                                                             matched_type = None
@@ -11816,6 +11946,10 @@ def webhook():
 
                                                             print(f"🔘 Template button clicked: {button_text}")
                                                             print(f"📦 Button payload: {payload}")
+                                                            # Procurement: requisition approve/decline from WhatsApp
+                                                            if handle_procurement_button_payload(payload, sender_id, sender_number):
+                                                                continue
+
 
                                                             def send_text_message(to_number, text):
                                                                 """Send simple text message via WhatsApp"""
@@ -13693,6 +13827,7 @@ def get_transactions():
                ), '[]'::json) as items
         FROM transactions t
         LEFT JOIN admin_users u ON t.user_id = u.id
+        WHERE t.voided = FALSE
         ORDER BY t.created_at DESC
         LIMIT %s
     """
@@ -13749,6 +13884,7 @@ def day_end_report():
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
             WHERE t.created_at::date = %s::date
+              AND t.voided = FALSE
             ORDER BY t.created_at ASC
         """
         rows = execute_query(query, (day,), fetch_all=True)
@@ -13823,6 +13959,7 @@ def get_daily_summary():
         FROM transactions
         WHERE DATE(created_at) = CURRENT_DATE
         AND status = 'completed'
+        AND voided = FALSE
     """
     
     result = execute_query(query, fetch_one=True)
@@ -13870,6 +14007,149 @@ def clear_all_transactions():
         print(f"Error clearing transactions: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+@app.route('/api/transactions/<int:transaction_id>/revert', methods=['POST'])
+@login_required
+def revert_transaction(transaction_id):
+    """Revert/void a sale from the POS Transaction History tab.
+    - Marks the transaction as voided so it disappears from sales history.
+    - Returns the sold quantity of each item back to products.stock.
+    - Logs the restoration to stock_additions (funding_source 'VOID') and
+      removes the sale's item_sale stock-reduction rows, so stock movements
+      reconcile. Requires the transaction-revert PIN."""
+    try:
+        data = request.get_json() or {}
+        pin = data.get('pin', '')
+        if pin != TRANSACTION_REVERT_PIN:
+            return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
+
+        user_name = session.get('user_name') or session.get('username') or 'System'
+        user_id = session.get('user_id') or session.get('userid') or 0
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, transaction_number, status, voided, total
+                FROM transactions WHERE id = %s
+            """, (transaction_id,))
+            t = cursor.fetchone()
+            if not t:
+                return jsonify({'success': False, 'error': 'Transaction not found'}), 404
+            if t[3]:
+                return jsonify({'success': False, 'error': f'Transaction {t[1]} has already been reverted'}), 400
+
+            cursor.execute("""
+                SELECT ti.product_id, ti.quantity, p.buy_price
+                FROM transaction_items ti
+                LEFT JOIN products p ON ti.product_id = p.id
+                WHERE ti.transaction_id = %s
+            """, (transaction_id,))
+            items = cursor.fetchall()
+            if not items:
+                return jsonify({'success': False, 'error': 'No items found for this transaction'}), 400
+
+            restored = 0
+            for it in items:
+                pid = it[0]
+                qty = int(it[1] or 0)
+                buy = float(it[2] or 0)
+                if not pid or qty <= 0:
+                    continue
+                # Restore stock to inventory
+                cursor.execute("UPDATE products SET stock = stock + %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s", (qty, pid))
+                # Log the restoration for the audit trail (best-effort)
+                try:
+                    cursor.execute("""
+                        INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at)
+                        VALUES (%s, %s, %s, %s, 'VOID', %s, CURRENT_TIMESTAMP)
+                    """, (pid, qty, buy, round(buy * qty, 2), user_id))
+                except Exception as sa_err:
+                    print(f"Warning: Could not log reverted stock addition: {sa_err}")
+                restored += 1
+
+            # Remove the sale's stock-reduction rows (keyed by the sale note)
+            try:
+                cursor.execute("""
+                    DELETE FROM stock_reductions
+                    WHERE reason = 'item_sale' AND notes = %s
+                """, (f"Sale #{t[1]}",))
+            except Exception as sr_err:
+                print(f"Warning: Could not remove sale reductions: {sr_err}")
+
+            # Mark the transaction as voided (soft-delete from history)
+            cursor.execute("""
+                UPDATE transactions SET voided = TRUE, voided_at = CURRENT_TIMESTAMP, voided_by = %s
+                WHERE id = %s
+            """, (user_name, transaction_id))
+            connection.commit()
+
+        try:
+            log_activity(
+                'transaction_revert',
+                f'Reverted sale {t[1]} (${float(t[4] or 0):,.2f}) — stock restored to inventory',
+                'transaction', transaction_id,
+                {'transaction_number': t[1], 'reverted_by': user_name, 'items_restored': restored}
+            )
+        except Exception as log_err:
+            print(f"Warning: Could not log revert activity: {log_err}")
+
+        return jsonify({'success': True, 'message': f'Sale {t[1]} reverted. Stock restored to inventory.'})
+    except Exception as e:
+        print(f"Revert transaction error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/transactions/voided', methods=['GET'])
+@login_required
+def get_voided_transactions():
+    """List reverted/voided transactions for the POS audit view.
+    Optional start_date / end_date filter on the voided_at date."""
+    try:
+        start = request.args.get('start_date', '').strip()
+        end = request.args.get('end_date', '').strip()
+        where = "WHERE t.voided = TRUE"
+        params = []
+        if start and end:
+            where += " AND t.voided_at::date BETWEEN %s AND %s"
+            params += [start, end]
+
+        query = f"""
+            SELECT t.id, t.transaction_number, t.user_id, u.full_name as cashier,
+                   t.total, t.payment_method, t.created_at, t.voided_at, t.voided_by,
+                   COALESCE((
+                       SELECT json_agg(json_build_object(
+                           'product_name', p.name,
+                           'quantity', ti.quantity,
+                           'price', ti.price_at_time
+                       ))
+                       FROM transaction_items ti
+                       LEFT JOIN products p ON ti.product_id = p.id
+                       WHERE ti.transaction_id = t.id
+                   ), '[]'::json) as items
+            FROM transactions t
+            LEFT JOIN admin_users u ON t.user_id = u.id
+            {where}
+            ORDER BY t.voided_at DESC
+        """
+        rows = execute_query(query, tuple(params), fetch_all=True)
+        voided = []
+        for r in rows:
+            voided.append({
+                'id': r[0],
+                'transaction_number': r[1],
+                'cashier': r[3],
+                'total': float(r[4] or 0),
+                'payment_method': r[5],
+                'created_at': r[6].isoformat() if r[6] else None,
+                'voided_at': r[7].isoformat() if r[7] else None,
+                'voided_by': r[8],
+                'items': r[9] if r[9] else []
+            })
+        return jsonify({'success': True, 'voided': voided, 'count': len(voided)})
+    except Exception as e:
+        print(f"Voided transactions error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ==================== CATEGORY MANAGEMENT ====================
 
 @app.route('/api/categories', methods=['GET'])
@@ -13906,6 +14186,7 @@ def get_dashboard_stats():
         FROM transactions
         WHERE DATE(created_at) = CURRENT_DATE
         AND status = 'completed'
+        AND voided = FALSE
     """
     today_result = execute_query(today_query, fetch_one=True)
     
@@ -13924,6 +14205,7 @@ def get_dashboard_stats():
         JOIN products p ON ti.product_id = p.id
         JOIN transactions t ON ti.transaction_id = t.id
         WHERE t.status = 'completed'
+          AND t.voided = FALSE
     """
     profit_result = execute_query(profit_query, fetch_one=True)
     total_profit = float(profit_result[0]) if profit_result else 0
@@ -13960,6 +14242,7 @@ def today_by_cashier():
             LEFT JOIN admin_users u ON t.user_id = u.id
             WHERE DATE(t.created_at) = CURRENT_DATE
               AND t.status = 'completed'
+              AND t.voided = FALSE
             GROUP BY u.full_name
             ORDER BY total DESC
         """
@@ -13973,6 +14256,7 @@ def today_by_cashier():
             LEFT JOIN admin_users u ON t.user_id = u.id
             WHERE DATE(t.created_at) = CURRENT_DATE
               AND t.status = 'completed'
+              AND t.voided = FALSE
             GROUP BY u.full_name, t.payment_method
         """
         pm_rows = execute_query(pm_query, fetch_all=True)
@@ -14224,6 +14508,9 @@ WHATSAPP_API_VERSION = "v22.0"
 # Password required to perform a bulk "Remove All Stock" from the POS inventory
 # NOTE: ideally move to an environment variable, not committed source.
 REMOVE_ALL_STOCK_PASSWORD = "Fibo011235"
+
+# PIN required to revert/void a transaction from the POS Transaction History tab
+TRANSACTION_REVERT_PIN = os.getenv('TRANSACTION_REVERT_PIN', 'Conlink01Admin011235')
 WHATSAPP_API_URL = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{PHONE_NUMBER_ID}/messages"
 power = "Echelon Equipment Pvt Ltd"
 bot = "ConnectLink Properties"
@@ -30055,7 +30342,9 @@ def get_user_permissions(user_type, user_id):
                        can_add_users, can_edit_users, can_delete_users,
                        can_export_data, can_view_audit, can_manage_roles,
                        is_super_admin, can_view_payments, can_edit_projects,
-                       can_download_master_file, hr_access
+                       can_download_master_file, hr_access,
+                       can_create_requisitions, can_approve_requisitions,
+                       can_manage_purchase_orders, can_manage_suppliers
                 FROM user_permissions WHERE user_type=%s AND user_id=%s
             """, (user_type, user_id))
             row = cursor.fetchone()
@@ -30068,7 +30357,11 @@ def get_user_permissions(user_type, user_id):
                     'can_manage_roles': row[8], 'is_super_admin': row[9],
                     'can_view_payments': row[10], 'can_edit_projects': row[11] if len(row) > 11 else True,
                     'can_download_master_file': row[12] if len(row) > 12 else True,
-                    'hr_access': row[13] if len(row) > 13 else False
+                    'hr_access': row[13] if len(row) > 13 else False,
+                    'can_create_requisitions': row[14] if len(row) > 14 else False,
+                    'can_approve_requisitions': row[15] if len(row) > 15 else False,
+                    'can_manage_purchase_orders': row[16] if len(row) > 16 else False,
+                    'can_manage_suppliers': row[17] if len(row) > 17 else False
                 }
                 print(f"📊 get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}, hr_access={result['hr_access']}")
                 return result
@@ -30081,17 +30374,21 @@ def get_user_permissions(user_type, user_id):
                         can_manage_projects, can_manage_hardware, can_manage_hr,
                         can_add_users, can_edit_users, can_delete_users,
                         can_export_data, can_view_audit, can_manage_roles, can_view_payments,
-                        can_edit_projects, can_download_master_file, hr_access)
-                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                        can_edit_projects, can_download_master_file, hr_access,
+                        can_create_requisitions, can_approve_requisitions,
+                        can_manage_purchase_orders, can_manage_suppliers)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
                 """, (user_type, user_id))
                 connection.commit()
                 return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access']}
+                    'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access',
+                    'can_create_requisitions','can_approve_requisitions','can_manage_purchase_orders','can_manage_suppliers']}
             # Default: no permissions
             return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                 'can_add_users','can_edit_users','can_delete_users','can_export_data',
-                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access']}
+                'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access',
+                'can_create_requisitions','can_approve_requisitions','can_manage_purchase_orders','can_manage_suppliers']}
     except Exception as e:
         print(f"Permissions error: {e}")
         return {}
@@ -30112,7 +30409,9 @@ def um_permissions_api():
                            up.can_manage_hr, up.can_add_users, up.can_edit_users,
                            up.can_delete_users, up.can_export_data, up.can_view_audit,
                            up.can_manage_roles, up.can_view_payments, up.can_edit_projects,
-                           up.can_download_master_file, up.hr_access
+                           up.can_download_master_file, up.hr_access,
+                           up.can_create_requisitions, up.can_approve_requisitions,
+                           up.can_manage_purchase_orders, up.can_manage_suppliers
                     FROM user_permissions up
                     LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
                     LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
@@ -30130,7 +30429,11 @@ def um_permissions_api():
                         'can_view_audit': r[12], 'can_manage_roles': r[13],
                         'can_view_payments': r[14], 'can_edit_projects': r[15],
                         'can_download_master_file': r[16] if len(r) > 16 else True,
-                        'hr_access': r[17] if len(r) > 17 else False
+                        'hr_access': r[17] if len(r) > 17 else False,
+                        'can_create_requisitions': r[18] if len(r) > 18 else False,
+                        'can_approve_requisitions': r[19] if len(r) > 19 else False,
+                        'can_manage_purchase_orders': r[20] if len(r) > 20 else False,
+                        'can_manage_suppliers': r[21] if len(r) > 21 else False
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
@@ -30149,7 +30452,9 @@ def um_permissions_api():
                       'can_manage_hr', 'can_add_users', 'can_edit_users', 'can_delete_users',
                       'can_export_data', 'can_view_audit', 'can_manage_roles',
                       'can_view_payments', 'can_edit_projects', 'can_download_master_file',
-                      'hr_access']
+                      'hr_access',
+                      'can_create_requisitions', 'can_approve_requisitions',
+                      'can_manage_purchase_orders', 'can_manage_suppliers']
 
             with get_db() as (cursor, connection):
                 # Upsert
@@ -35405,6 +35710,1105 @@ try:
     print("✅ Monthly leave accrual scheduler started (runs 1st of each month at 00:05)")
 except Exception as e:
     print(f"Note: Scheduler may already be running: {e}")
+
+
+# ============================================================================
+# PROCUREMENT & REQUISITIONS MODULE
+# Requisitions -> Approvals -> Purchase Orders -> Goods Receiving -> Stock-in
+# Self-contained. Any admin_users account can open the portal; individual
+# action buttons grey out on the page based on the 4 procurement permissions.
+# ============================================================================
+
+def _procurement_perms():
+    """Current user's procurement permission flags, resolved and cached in session."""
+    perms = session.get('procurement_permissions')
+    if not perms:
+        userid = session.get('userid') or session.get('user_id')
+        if userid:
+            source_sys = session.get('source_system') or 'projects'
+            source_id = session.get('source_id') or userid
+            perms = get_user_permissions(source_sys, source_id)
+            session['procurement_permissions'] = perms
+    return perms or {}
+
+
+def _procurement_user():
+    return {
+        'id': session.get('userid') or session.get('user_id'),
+        'name': session.get('user_name') or session.get('full_name') or 'User',
+    }
+
+
+def _procurement_perm_required(perm):
+    """Decorator: require the given procurement permission (super admin overrides)."""
+    def deco(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            perms = _procurement_perms()
+            if not perms.get('is_super_admin', False) and not perms.get(perm, False):
+                return jsonify({'success': False, 'error': f'Access denied: missing permission "{perm}".'}), 403
+            return f(*args, **kwargs)
+        return wrapper
+    return deco
+
+
+@app.route('/procurement-login', methods=['POST'])
+def procurement_login():
+    """Procurement portal login — ANY valid admin_users account can access.
+    Individual actions are gated by perms (buttons grey out on the page)."""
+    try:
+        email_or_username = request.form.get('emaillogin', '').strip()
+        password = request.form.get('passwordlogin', '').strip()
+        if not email_or_username or not password:
+            return jsonify({'success': False, 'message': 'Email/Username and password are required.'}), 400
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, username, password, full_name, source_system, source_id, role, must_reset_password
+                FROM admin_users WHERE username = %s AND is_active = TRUE
+            """, (email_or_username,))
+            au = cursor.fetchone()
+            if not au or au[2] != password:
+                return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
+            if au[7]:
+                return jsonify({
+                    'success': False, 'must_reset': True,
+                    'message': 'You must reset your password before continuing.',
+                    'username': email_or_username
+                }), 403
+
+            userid = int(au[0])
+            user_name = au[3]
+            user_uuid = uuid.uuid4()
+            session['user_uuid'] = str(user_uuid)
+            session.permanent = True
+            user_sessions[email_or_username] = {'uuid': str(user_uuid), 'email': email_or_username}
+            session['userid'] = userid
+            session['user_id'] = userid
+            session['user_name'] = user_name
+            session['username'] = au[1]
+            session['full_name'] = user_name
+            session['role'] = au[6]
+            session['source_system'] = au[4]
+            session['source_id'] = au[5]
+            session['procurement_access'] = True
+
+            source_sys = au[4] or 'projects'
+            source_id = au[5] or userid
+            perms = get_user_permissions(source_sys, source_id)
+            session['procurement_permissions'] = perms
+
+            log_activity('user_login', f'Procurement: {user_name} logged in', 'user', userid)
+            print(f"Procurement login: {user_name}")
+            return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/procurement'}), 200
+    except Exception as e:
+        print(f"Procurement login error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/procurement')
+def procurement_dashboard():
+    """Procurement & Requisitions portal page."""
+    user_uuid = session.get('user_uuid')
+    userid = session.get('userid') or session.get('user_id')
+    if not user_uuid or not userid:
+        return render_template('mainindex.html')
+    # Ensure login_required key exists even when the user arrived from another
+    # portal (projects login only sets 'userid'); the /api/procurement/* routes
+    # gate on 'user_id'.
+    if 'user_id' not in session and session.get('userid'):
+        session['user_id'] = session['userid']
+    user_name = session.get('user_name') or session.get('full_name') or 'User'
+    perms = session.get('procurement_permissions')
+    if perms is None:
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
+                au = cursor.fetchone()
+                source_sys = au[0] if au else 'projects'
+                source_id = au[1] if au and au[1] is not None else userid
+                perms = get_user_permissions(source_sys, source_id)
+                session['procurement_permissions'] = perms
+        except Exception as e:
+            print(f"Procurement perms lookup error: {e}")
+            perms = {}
+    return render_template('procurement.html', user_name=user_name, perms=perms or {})
+
+
+@app.route('/api/procurement/permissions', methods=['GET'])
+def procurement_api_permissions():
+    """Return current user's procurement permission flags (for grey-out UI)."""
+    return jsonify({'success': True, 'perms': _procurement_perms(), 'user': _procurement_user()})
+
+
+@app.route('/api/procurement/dashboard', methods=['GET'])
+@login_required
+def procurement_api_dashboard():
+    """Aggregate KPI stats for the procurement dashboard."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT
+                    COUNT(*) FILTER (WHERE status='draft'),
+                    COUNT(*) FILTER (WHERE status='submitted'),
+                    COUNT(*) FILTER (WHERE status IN ('approved','po_created')),
+                    COUNT(*) FILTER (WHERE status='rejected'),
+                    COUNT(*)
+                FROM requisitions
+            """)
+            r = cursor.fetchone()
+            cursor.execute("""
+                SELECT
+                    COUNT(*) FILTER (WHERE status IN ('ordered','partial')),
+                    COALESCE(SUM(total_amount) FILTER (WHERE status IN ('ordered','partial')), 0),
+                    COUNT(*) FILTER (WHERE status='received')
+                FROM purchase_orders
+            """)
+            p = cursor.fetchone()
+            cursor.execute("SELECT COUNT(*) FROM suppliers WHERE is_active = TRUE")
+            sup = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM suppliers")
+            sup_total = cursor.fetchone()[0]
+            cursor.execute("""
+                SELECT COALESCE(SUM(total_cost),0) FROM requisition_items ri
+                JOIN requisitions r ON r.id = ri.requisition_id
+                WHERE r.status IN ('approved','po_created')
+            """)
+            approved_value = cursor.fetchone()[0]
+        return jsonify({'success': True, 'data': {
+            'draft': r[0], 'submitted': r[1], 'approved': r[2], 'rejected': r[3], 'total': r[4],
+            'open_pos': p[0], 'open_po_value': float(p[1] or 0), 'received_pos': p[2],
+            'active_suppliers': sup, 'total_suppliers': sup_total,
+            'approved_value': float(approved_value or 0)
+        }})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ------------------------------- SUPPLIERS -------------------------------
+
+@app.route('/api/procurement/suppliers', methods=['GET'])
+@login_required
+def procurement_api_suppliers():
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, contact_person, phone, email, address, lead_time_days,
+                       payment_terms, rating, notes, is_active, created_at
+                FROM suppliers ORDER BY name ASC
+            """)
+            rows = cursor.fetchall()
+            suppliers = [{
+                'id': r[0], 'name': r[1], 'contact_person': r[2], 'phone': r[3], 'email': r[4],
+                'address': r[5], 'lead_time_days': r[6], 'payment_terms': r[7], 'rating': r[8],
+                'notes': r[9], 'is_active': r[10], 'created_at': str(r[11]) if r[11] else None
+            } for r in rows]
+            return jsonify({'success': True, 'data': suppliers})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/suppliers', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_suppliers')
+def procurement_api_create_supplier():
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'Supplier name is required.'}), 400
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO suppliers (name, contact_person, phone, email, address, lead_time_days,
+                                       payment_terms, rating, notes, is_active)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (name, data.get('contact_person'), data.get('phone'), data.get('email'),
+                  data.get('address'), int(data.get('lead_time_days') or 0),
+                  data.get('payment_terms'), int(data.get('rating') or 0),
+                  data.get('notes'), data.get('is_active', True)))
+            connection.commit()
+            log_activity('procurement_supplier', f'Added supplier "{name}"', 'supplier')
+            return jsonify({'success': True, 'message': 'Supplier added.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/suppliers/<int:sid>', methods=['PUT'])
+@login_required
+@_procurement_perm_required('can_manage_suppliers')
+def procurement_api_update_supplier(sid):
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'Supplier name is required.'}), 400
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                UPDATE suppliers SET name=%s, contact_person=%s, phone=%s, email=%s, address=%s,
+                    lead_time_days=%s, payment_terms=%s, rating=%s, notes=%s, is_active=%s
+                WHERE id=%s
+            """, (name, data.get('contact_person'), data.get('phone'), data.get('email'),
+                  data.get('address'), int(data.get('lead_time_days') or 0),
+                  data.get('payment_terms'), int(data.get('rating') or 0),
+                  data.get('notes'), data.get('is_active', True), sid))
+            connection.commit()
+            log_activity('procurement_supplier', f'Updated supplier "{name}"', 'supplier', sid)
+            return jsonify({'success': True, 'message': 'Supplier updated.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/suppliers/<int:sid>', methods=['DELETE'])
+@login_required
+@_procurement_perm_required('can_manage_suppliers')
+def procurement_api_delete_supplier(sid):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT name FROM suppliers WHERE id = %s", (sid,))
+            s = cursor.fetchone()
+            cursor.execute("DELETE FROM suppliers WHERE id = %s", (sid,))
+            connection.commit()
+            log_activity('procurement_supplier', f'Deleted supplier "{s[0] if s else sid}"', 'supplier', sid)
+            return jsonify({'success': True, 'message': 'Supplier deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ----------------------------- PRODUCT LOOKUP -----------------------------
+
+@app.route('/api/procurement/products', methods=['GET'])
+@login_required
+def procurement_api_products():
+    q = (request.args.get('q') or '').strip()
+    try:
+        with get_db() as (cursor, connection):
+            if q:
+                cursor.execute("""
+                    SELECT id, name, category, stock, buy_price, sell_price, unit_type
+                    FROM products WHERE name ILIKE %s OR category ILIKE %s
+                    ORDER BY name LIMIT 25
+                """, (f'%{q}%', f'%{q}%'))
+            else:
+                cursor.execute("""
+                    SELECT id, name, category, stock, buy_price, sell_price, unit_type
+                    FROM products ORDER BY name LIMIT 25
+                """)
+            rows = cursor.fetchall()
+            products = [{
+                'id': r[0], 'name': r[1], 'category': r[2], 'stock': r[3],
+                'buy_price': float(r[4] or 0), 'sell_price': float(r[5] or 0), 'unit_type': r[6]
+            } for r in rows]
+            return jsonify({'success': True, 'data': products})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ----------------------------- REQUISITIONS -----------------------------
+
+@app.route('/api/procurement/requisitions', methods=['GET'])
+@login_required
+def procurement_api_requisitions():
+    status = (request.args.get('status') or '').strip()
+    try:
+        with get_db() as (cursor, connection):
+            base = """
+                SELECT r.id, r.req_no, r.title, r.department, r.requested_by, r.project_ref,
+                       r.priority, r.status, r.notes, r.needed_by, r.requested_by_user_id,
+                       r.approved_by, r.approved_at, r.reject_reason, r.created_at, r.submitted_at,
+                       COALESCE(SUM(ri.total_cost), 0) AS total, COUNT(ri.id) AS item_count
+                FROM requisitions r
+                LEFT JOIN requisition_items ri ON ri.requisition_id = r.id
+            """
+            where = ''
+            params = []
+            if status:
+                where = ' WHERE r.status = %s'
+                params.append(status)
+            cursor.execute(base + where + ' GROUP BY r.id ORDER BY r.created_at DESC', params)
+            rows = cursor.fetchall()
+            requisitions = []
+            for r in rows:
+                requisitions.append({
+                    'id': r[0], 'req_no': r[1], 'title': r[2], 'department': r[3],
+                    'requested_by': r[4], 'project_ref': r[5], 'priority': r[6], 'status': r[7],
+                    'notes': r[8], 'needed_by': str(r[9]) if r[9] else None,
+                    'requested_by_user_id': r[10], 'approved_by': r[11],
+                    'approved_at': str(r[12]) if r[12] else None, 'reject_reason': r[13],
+                    'created_at': str(r[14]) if r[14] else None,
+                    'submitted_at': str(r[15]) if r[15] else None,
+                    'total': float(r[16] or 0), 'item_count': r[17]
+                })
+            return jsonify({'success': True, 'data': requisitions})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisitions', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_create_requisitions')
+def procurement_api_create_requisition():
+    data = request.get_json() or {}
+    title = (data.get('title') or '').strip()
+    items = data.get('items') or []
+    if not title:
+        return jsonify({'success': False, 'error': 'Requisition title is required.'}), 400
+    if not items or not isinstance(items, list):
+        return jsonify({'success': False, 'error': 'Add at least one item.'}), 400
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM requisitions")
+            next_id = cursor.fetchone()[0]
+            req_no = f'REQ-{next_id:04d}'
+            cursor.execute("""
+                INSERT INTO requisitions (req_no, title, department, requested_by, requested_by_user_id,
+                    project_ref, priority, status, notes, needed_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', %s, %s)
+                RETURNING id
+            """, (req_no, title, data.get('department'), user['name'], user['id'],
+                  data.get('project_ref'), data.get('priority', 'Medium'), data.get('notes'),
+                  data.get('needed_by') or None))
+            req_id = cursor.fetchone()[0]
+            for it in items:
+                pname = (it.get('product_name') or '').strip()
+                if not pname:
+                    continue
+                qty = int(it.get('quantity') or 0)
+                if qty <= 0:
+                    continue
+                unit = float(it.get('unit_cost') or 0)
+                cursor.execute("""
+                    INSERT INTO requisition_items (requisition_id, product_id, product_name, category,
+                                                   quantity, unit_cost, total_cost, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (req_id, it.get('product_id'), pname, it.get('category'), qty, unit,
+                      round(unit * qty, 2), it.get('notes')))
+            connection.commit()
+            log_activity('requisition_create', f'Created requisition {req_no} "{title}"', 'requisition', req_id)
+            return jsonify({'success': True, 'message': f'Requisition {req_no} created (draft).'})
+    except Exception as e:
+        print(f"Create requisition error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisitions/<int:rid>', methods=['GET'])
+@login_required
+def procurement_api_requisition_detail(rid):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT * FROM requisitions WHERE id = %s", (rid,))
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
+            cols = [d[0] for d in cursor.description]
+            req = dict(zip(cols, r))
+            for k in ('created_at', 'updated_at', 'approved_at', 'rejected_at', 'submitted_at', 'needed_by'):
+                if req.get(k):
+                    req[k] = str(req[k])
+            cursor.execute("""
+                SELECT id, product_id, product_name, category, quantity, unit_cost, total_cost, notes
+                FROM requisition_items WHERE requisition_id = %s ORDER BY id
+            """, (rid,))
+            items = cursor.fetchall()
+            req['items'] = [{
+                'id': i[0], 'product_id': i[1], 'product_name': i[2], 'category': i[3],
+                'quantity': i[4], 'unit_cost': float(i[5] or 0), 'total_cost': float(i[6] or 0), 'notes': i[7]
+            } for i in items]
+            return jsonify({'success': True, 'data': req})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisitions/<int:rid>', methods=['PUT'])
+@login_required
+@_procurement_perm_required('can_create_requisitions')
+def procurement_api_update_requisition(rid):
+    """Edit a draft requisition (requester/creator or super admin)."""
+    data = request.get_json() or {}
+    title = (data.get('title') or '').strip()
+    items = data.get('items') or []
+    if not title:
+        return jsonify({'success': False, 'error': 'Requisition title is required.'}), 400
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, req_no, status, requested_by_user_id FROM requisitions WHERE id = %s", (rid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
+            if row[2] != 'draft':
+                return jsonify({'success': False, 'error': 'Only draft requisitions can be edited.'}), 400
+            perms = _procurement_perms()
+            is_owner = (row[3] == user['id'])
+            if not perms.get('is_super_admin', False) and not is_owner:
+                return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            cursor.execute("""
+                UPDATE requisitions SET title=%s, department=%s, project_ref=%s, priority=%s,
+                    notes=%s, needed_by=%s, updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, (title, data.get('department'), data.get('project_ref'), data.get('priority', 'Medium'),
+                  data.get('notes'), data.get('needed_by') or None, rid))
+            cursor.execute("DELETE FROM requisition_items WHERE requisition_id = %s", (rid,))
+            for it in items or []:
+                pname = (it.get('product_name') or '').strip()
+                if not pname:
+                    continue
+                qty = int(it.get('quantity') or 0)
+                if qty <= 0:
+                    continue
+                unit = float(it.get('unit_cost') or 0)
+                cursor.execute("""
+                    INSERT INTO requisition_items (requisition_id, product_id, product_name, category,
+                                                   quantity, unit_cost, total_cost, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (rid, it.get('product_id'), pname, it.get('category'), qty, unit,
+                      round(unit * qty, 2), it.get('notes')))
+            connection.commit()
+            log_activity('requisition_edit', f'Edited requisition {row[1]}', 'requisition', rid)
+            return jsonify({'success': True, 'message': 'Requisition updated.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisitions/<int:rid>/submit', methods=['POST'])
+@login_required
+def procurement_api_submit_requisition(rid):
+    perms = _procurement_perms()
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, req_no, status, requested_by_user_id FROM requisitions WHERE id = %s", (rid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
+            if row[2] != 'draft':
+                return jsonify({'success': False, 'error': 'Only drafts can be submitted.'}), 400
+            is_owner = (row[3] == user['id'])
+            if not perms.get('is_super_admin', False) and not perms.get('can_create_requisitions', False) and not is_owner:
+                return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            cursor.execute("""
+                UPDATE requisitions SET status='submitted', submitted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, (rid,))
+            connection.commit()
+            log_activity('requisition_submit', f'Submitted requisition {row[1]} for approval', 'requisition', rid)
+            _procurement_notify_approvers(rid)  # best-effort WhatsApp, never blocks
+            return jsonify({'success': True, 'message': 'Requisition submitted for approval.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisitions/<int:rid>/approve', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_approve_requisitions')
+def procurement_api_approve_requisition(rid):
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, req_no, status FROM requisitions WHERE id = %s", (rid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
+            if row[2] not in ('submitted', 'draft'):
+                return jsonify({'success': False, 'error': f'Requisition is already {row[2]}.'}), 400
+            cursor.execute("""
+                UPDATE requisitions SET status='approved', approved_by=%s, approved_at=CURRENT_TIMESTAMP,
+                    reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, (user['name'], rid))
+            connection.commit()
+            log_activity('requisition_approve', f'Approved requisition {row[1]}', 'requisition', rid)
+            _procurement_notify_requester(rid, 'approved')  # best-effort WhatsApp, never blocks
+            return jsonify({'success': True, 'message': 'Requisition approved.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisitions/<int:rid>/reject', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_approve_requisitions')
+def procurement_api_reject_requisition(rid):
+    data = request.get_json() or {}
+    reason = (data.get('reason') or '').strip()
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, req_no, status FROM requisitions WHERE id = %s", (rid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
+            if row[2] not in ('submitted', 'draft'):
+                return jsonify({'success': False, 'error': f'Requisition is already {row[2]}.'}), 400
+            cursor.execute("""
+                UPDATE requisitions SET status='rejected', rejected_by=%s, rejected_at=CURRENT_TIMESTAMP,
+                    reject_reason=%s, approved_by=NULL, approved_at=NULL, updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, (user['name'], reason, rid))
+            connection.commit()
+            log_activity('requisition_reject', f'Rejected requisition {row[1]}{": " + reason if reason else ""}', 'requisition', rid)
+            _procurement_notify_requester(rid, 'rejected')  # best-effort WhatsApp, never blocks
+            return jsonify({'success': True, 'message': 'Requisition rejected.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisitions/<int:rid>/cancel', methods=['POST'])
+@login_required
+def procurement_api_cancel_requisition(rid):
+    user = _procurement_user()
+    perms = _procurement_perms()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, req_no, status, requested_by_user_id FROM requisitions WHERE id = %s", (rid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
+            if row[2] not in ('draft', 'submitted', 'approved'):
+                return jsonify({'success': False, 'error': f'Requisition cannot be cancelled in status {row[2]}.'}), 400
+            is_owner = (row[3] == user['id'])
+            if not perms.get('is_super_admin', False) and not is_owner and not perms.get('can_approve_requisitions', False):
+                return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            cursor.execute("UPDATE requisitions SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE id=%s", (rid,))
+            connection.commit()
+            log_activity('requisition_cancel', f'Cancelled requisition {row[1]}', 'requisition', rid)
+            return jsonify({'success': True, 'message': 'Requisition cancelled.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisitions/<int:rid>/delete', methods=['POST'])
+@login_required
+def procurement_api_delete_requisition(rid):
+    user = _procurement_user()
+    perms = _procurement_perms()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, req_no, status, requested_by_user_id FROM requisitions WHERE id = %s", (rid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
+            if row[2] not in ('draft', 'cancelled', 'rejected'):
+                return jsonify({'success': False, 'error': 'Only draft, cancelled or rejected requisitions can be deleted.'}), 400
+            is_owner = (row[3] == user['id'])
+            if not perms.get('is_super_admin', False) and not perms.get('can_manage_purchase_orders', False) and not is_owner:
+                return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            cursor.execute("DELETE FROM requisitions WHERE id = %s", (rid,))
+            connection.commit()
+            log_activity('requisition_delete', f'Deleted requisition {row[1]}', 'requisition', rid)
+            return jsonify({'success': True, 'message': 'Requisition deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------------------------- PURCHASE ORDERS ----------------------------
+
+@app.route('/api/procurement/purchase-orders', methods=['GET'])
+@login_required
+def procurement_api_purchase_orders():
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT po.id, po.po_no, po.supplier_id, po.supplier_name, po.requisition_ids,
+                       po.status, po.total_amount, po.expected_delivery, po.created_by, po.created_at, po.received_at
+                FROM purchase_orders po ORDER BY po.created_at DESC
+            """)
+            rows = cursor.fetchall()
+            pos = []
+            for r in rows:
+                pos.append({
+                    'id': r[0], 'po_no': r[1], 'supplier_id': r[2], 'supplier_name': r[3],
+                    'requisition_ids': r[4], 'status': r[5], 'total_amount': float(r[6] or 0),
+                    'expected_delivery': str(r[7]) if r[7] else None,
+                    'created_by': r[8], 'created_at': str(r[9]) if r[9] else None,
+                    'received_at': str(r[10]) if r[10] else None
+                })
+            return jsonify({'success': True, 'data': pos})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/purchase-orders', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_create_purchase_order():
+    data = request.get_json() or {}
+    req_ids = data.get('requisition_ids') or []
+    supplier_id = data.get('supplier_id')
+    expected_delivery = data.get('expected_delivery')
+    user = _procurement_user()
+    if not req_ids or not isinstance(req_ids, list):
+        return jsonify({'success': False, 'error': 'Select at least one approved requisition.'}), 400
+    try:
+        with get_db() as (cursor, connection):
+            supplier_name = ''
+            if supplier_id:
+                cursor.execute("SELECT name FROM suppliers WHERE id = %s", (supplier_id,))
+                s = cursor.fetchone()
+                if s:
+                    supplier_name = s[0]
+            placeholders = ','.join(['%s'] * len(req_ids))
+            cursor.execute(f"""
+                SELECT ri.product_id, ri.product_name, ri.quantity, ri.unit_cost, r.req_no
+                FROM requisition_items ri
+                JOIN requisitions r ON r.id = ri.requisition_id
+                WHERE r.id IN ({placeholders}) AND r.status = 'approved'
+            """, req_ids)
+            items = cursor.fetchall()
+            if not items:
+                return jsonify({'success': False, 'error': 'No approved requisitions with items were selected.'}), 400
+
+            cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM purchase_orders")
+            po_id = cursor.fetchone()[0]
+            po_no = f'PO-{po_id:04d}'
+            total = sum(float(i[3] or 0) * int(i[2] or 0) for i in items)
+            cursor.execute("""
+                INSERT INTO purchase_orders (po_no, supplier_id, supplier_name, requisition_ids,
+                                             status, total_amount, expected_delivery, created_by)
+                VALUES (%s, %s, %s, %s, 'ordered', %s, %s, %s)
+            """, (po_no, supplier_id, supplier_name, ','.join(str(x) for x in req_ids), total,
+                  expected_delivery or None, user['name']))
+            for it in items:
+                cursor.execute("""
+                    INSERT INTO grn_lines (purchase_order_id, product_id, product_name,
+                                           quantity_ordered, quantity_received, unit_cost)
+                    VALUES (%s, %s, %s, %s, 0, %s)
+                """, (po_id, it[0], it[1], int(it[2] or 0), float(it[3] or 0)))
+            cursor.execute(f"""
+                UPDATE requisitions SET status='po_created', updated_at=CURRENT_TIMESTAMP
+                WHERE id IN ({placeholders}) AND status='approved'
+            """, req_ids)
+            connection.commit()
+            log_activity('po_create', f'Created {po_no} ({supplier_name or "No supplier"}) from {len(req_ids)} requisition(s)', 'purchase_order', po_id)
+            return jsonify({'success': True, 'message': f'{po_no} created. Total: ${total:,.2f}'})
+    except Exception as e:
+        print(f"Create PO error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>', methods=['GET'])
+@login_required
+def procurement_api_po_detail(po_id):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT * FROM purchase_orders WHERE id = %s", (po_id,))
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({'success': False, 'error': 'PO not found.'}), 404
+            cols = [d[0] for d in cursor.description]
+            po = dict(zip(cols, r))
+            for k in ('created_at', 'received_at', 'expected_delivery'):
+                if po.get(k):
+                    po[k] = str(po[k])
+            cursor.execute("""
+                SELECT id, product_id, product_name, quantity_ordered, quantity_received, unit_cost
+                FROM grn_lines WHERE purchase_order_id = %s ORDER BY id
+            """, (po_id,))
+            lines = cursor.fetchall()
+            po['lines'] = [{
+                'id': l[0], 'product_id': l[1], 'product_name': l[2],
+                'quantity_ordered': l[3], 'quantity_received': l[4], 'unit_cost': float(l[5] or 0)
+            } for l in lines]
+            return jsonify({'success': True, 'data': po})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/receive', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_receive_po(po_id):
+    """Receive goods against a PO. received = {grn_line_id: qty received now}."""
+    data = request.get_json() or {}
+    received = data.get('received') or {}
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, po_no, status FROM purchase_orders WHERE id = %s", (po_id,))
+            po = cursor.fetchone()
+            if not po:
+                return jsonify({'success': False, 'error': 'PO not found.'}), 404
+            if po[2] == 'received':
+                return jsonify({'success': False, 'error': 'PO already fully received.'}), 400
+
+            cursor.execute("""
+                SELECT id, product_id, product_name, quantity_ordered, quantity_received, unit_cost
+                FROM grn_lines WHERE purchase_order_id = %s
+            """, (po_id,))
+            lines = cursor.fetchall()
+            all_done = True
+            any_received = False
+            for ln in lines:
+                ln_id = ln[0]
+                qty_rec = int(received.get(str(ln_id), received.get(ln_id, 0)) or 0)
+                if qty_rec <= 0:
+                    if ln[4] < ln[3]:
+                        all_done = False
+                    continue
+                any_received = True
+                add = qty_rec
+                new_received = ln[4] + add
+                if ln[1]:
+                    cursor.execute("""
+                        UPDATE products SET stock = stock + %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s
+                    """, (add, ln[1]))
+                    try:
+                        cursor.execute("""
+                            INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
+                                                         funding_source, user_id, added_at)
+                            VALUES (%s, %s, %s, %s, 'PO', %s, CURRENT_TIMESTAMP)
+                        """, (ln[1], add, float(ln[5] or 0), round(float(ln[5] or 0) * add, 2), user['id']))
+                    except Exception as sa:
+                        print(f"Warning: stock_additions log failed on PO receive: {sa}")
+                cursor.execute("UPDATE grn_lines SET quantity_received = %s WHERE id = %s",
+                               (min(new_received, ln[3]), ln_id))
+                if new_received < ln[3]:
+                    all_done = False
+
+            if not any_received:
+                return jsonify({'success': False, 'error': 'Enter a quantity to receive for at least one item.'}), 400
+
+            new_status = 'received' if all_done else 'partial'
+            cursor.execute("UPDATE purchase_orders SET status=%s, received_at=CURRENT_TIMESTAMP WHERE id=%s",
+                           (new_status, po_id))
+            connection.commit()
+            log_activity('po_receive', f'Received goods on {po[1]} ({new_status})', 'purchase_order', po_id)
+            return jsonify({'success': True, 'message': f'Receipt recorded on {po[1]}. Status: {new_status}.'})
+    except Exception as e:
+        print(f"Receive PO error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ------------------------------- EXPORTS -------------------------------
+
+@app.route('/api/procurement/export', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_export_data')
+def procurement_api_export():
+    data = request.get_json() or {}
+    scope = data.get('scope', 'requisitions')
+    wb = Workbook()
+    try:
+        hfill = PatternFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+        hfont = Font(bold=True, color='FFFFFF')
+
+        def _style(ws):
+            for cell in ws[1]:
+                cell.font = hfont
+                cell.fill = hfill
+            for col in ws.columns:
+                try:
+                    width = max(len(str(c.value)) if c.value is not None else 10 for c in col) + 2
+                except Exception:
+                    width = 14
+                ws.column_dimensions[col[0].column_letter].width = min(width, 45)
+
+        if scope == 'requisitions':
+            ws = wb.active
+            ws.title = 'Requisitions'
+            ws.append(['Req No', 'Title', 'Department', 'Requested By', 'Project Ref', 'Priority',
+                       'Status', 'Items', 'Total (USD)', 'Needed By', 'Created', 'Approved By', 'Reject Reason'])
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT r.req_no, r.title, r.department, r.requested_by, r.project_ref, r.priority, r.status,
+                           COUNT(ri.id), COALESCE(SUM(ri.total_cost),0), r.needed_by, r.created_at, r.approved_by, r.reject_reason
+                    FROM requisitions r LEFT JOIN requisition_items ri ON ri.requisition_id = r.id
+                    GROUP BY r.id ORDER BY r.created_at DESC
+                """)
+                for row in cursor.fetchall():
+                    ws.append([row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7],
+                               float(row[8] or 0), str(row[9]) if row[9] else '', str(row[10]) if row[10] else '',
+                               row[11], row[12]])
+            _style(ws)
+        elif scope == 'purchase_orders':
+            ws = wb.active
+            ws.title = 'Purchase Orders'
+            ws.append(['PO No', 'Supplier', 'Requisitions', 'Status', 'Total (USD)', 'Expected Delivery', 'Created By', 'Created', 'Received At'])
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT po_no, supplier_name, requisition_ids, status, total_amount, expected_delivery,
+                           created_by, created_at, received_at
+                    FROM purchase_orders ORDER BY created_at DESC
+                """)
+                for row in cursor.fetchall():
+                    ws.append([row[0], row[1], row[2], row[3], float(row[4] or 0),
+                               str(row[5]) if row[5] else '', row[6],
+                               str(row[7]) if row[7] else '', str(row[8]) if row[8] else ''])
+            _style(ws)
+        elif scope == 'suppliers':
+            ws = wb.active
+            ws.title = 'Suppliers'
+            ws.append(['Name', 'Contact Person', 'Phone', 'Email', 'Address', 'Lead Time (days)',
+                       'Payment Terms', 'Rating', 'Notes', 'Active', 'Created'])
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    SELECT name, contact_person, phone, email, address, lead_time_days, payment_terms,
+                           rating, notes, is_active, created_at
+                    FROM suppliers ORDER BY name
+                """)
+                for row in cursor.fetchall():
+                    ws.append([row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7],
+                               row[8], 'Yes' if row[9] else 'No', str(row[10]) if row[10] else ''])
+            _style(ws)
+        else:
+            return jsonify({'success': False, 'error': 'Unknown export scope.'}), 400
+
+        bio = io.BytesIO()
+        wb.save(bio)
+        bio.seek(0)
+        fname = f"procurement_{scope}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return send_file(bio, as_attachment=True, download_name=fname,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
+# PROCUREMENT WHATSAPP NOTIFICATIONS (additive — never blocks the in-app flow)
+# Uses Meta-approved templates to bypass the 24-hour customer-service window.
+# Templates to create in Meta Business Manager (Utility category, en):
+#   - requisition_approval_request
+#       Body: "Hello {{1}}, you have a new requisition {{2}} from {{3}}
+#              ({{4}}) awaiting your approval."
+#       Buttons: quick_reply "Approve" payload reqappr_{{5}},
+#                quick_reply "Decline" payload reqdecl_{{5}}
+#   - requisition_status_update
+#       Body: "Hello {{1}}, your requisition {{2}} ({{3}}) is now {{4}}."
+# All sends are best-effort: missing numbers / unapproved templates / API
+# errors only print a warning — the in-app action always succeeds.
+# ============================================================================
+
+PROC_REQ_APPROVAL_TEMPLATE = 'requisition_approval_request'
+PROC_REQ_STATUS_TEMPLATE = 'requisition_status_update'
+
+
+def _wa_normalize_phone(phone):
+    if not phone:
+        return None
+    digits = re.sub(r'[^0-9]', '', str(phone))
+    if not digits:
+        return None
+    if digits.startswith('0'):
+        digits = '263' + digits[1:]
+    elif not digits.startswith('263'):
+        digits = '263' + digits
+    return f'+{digits}'
+
+
+def _procurement_send_text(to, text):
+    """Best-effort free-form WhatsApp text (module-scope copy of the webhook's
+    send_text_message so we don't depend on closure scope)."""
+    try:
+        e164 = _wa_normalize_phone(to)
+        if not e164:
+            return None
+        headers_wa = {'Authorization': f'Bearer {ACCESS_TOKEN}', 'Content-Type': 'application/json'}
+        data = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": e164,
+            "type": "text",
+            "text": {"body": str(text)}
+        }
+        resp = requests.post(WHATSAPP_API_URL, json=data, headers=headers_wa, timeout=15)
+        return resp.text
+    except Exception as e:
+        print(f"Procurement WhatsApp text error: {e}")
+        return None
+
+
+def _procurement_send_template(to_phone, template_name, body_params, button_payloads=None):
+    """Send a Meta-approved template (bypasses the 24h window). Best-effort."""
+    try:
+        e164 = _wa_normalize_phone(to_phone)
+        if not e164:
+            return False, 'no phone'
+        headers_wa = {'Authorization': f'Bearer {ACCESS_TOKEN}', 'Content-Type': 'application/json'}
+        components = []
+        if body_params:
+            components.append({
+                "type": "body",
+                "parameters": [{"type": "text", "text": str(p)} for p in body_params]
+            })
+        if button_payloads:
+            for idx, pld in enumerate(button_payloads):
+                components.append({
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": idx,
+                    "parameters": [{"type": "payload", "payload": str(pld)}]
+                })
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": e164,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": "en"},
+                "components": components
+            }
+        }
+        resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers_wa, timeout=15)
+        return resp.status_code == 200, resp.text
+    except Exception as e:
+        print(f"Procurement WhatsApp template error: {e}")
+        return False, str(e)
+
+
+def _procurement_user_whatsapp(userid):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT whatsapp FROM admin_users WHERE id = %s", (userid,))
+            row = cursor.fetchone()
+            return row[0] if row else None
+    except Exception as e:
+        print(f"User whatsapp lookup error: {e}")
+        return None
+
+
+def _procurement_approvers():
+    """Active admin_users who can approve requisitions (or super admin) and
+    have a WhatsApp number saved."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, full_name, whatsapp, source_system, source_id
+                FROM admin_users WHERE is_active = TRUE
+            """)
+            rows = cursor.fetchall()
+        out = []
+        for r in rows:
+            if not r[2]:
+                continue
+            perms = get_user_permissions(r[3] or 'projects', r[4] or r[0])
+            if perms.get('is_super_admin') or perms.get('can_approve_requisitions'):
+                out.append({'id': r[0], 'name': r[1] or 'Approver', 'whatsapp': r[2]})
+        return out
+    except Exception as e:
+        print(f"Approver lookup error: {e}")
+        return []
+
+
+def _procurement_notify_approvers(req_id):
+    """Notify every approver about a submitted requisition via the
+    requisition_approval_request template (with approve/decline buttons)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT req_no, title, requested_by FROM requisitions WHERE id = %s", (req_id,))
+            row = cursor.fetchone()
+            if not row:
+                return
+            req_no, req_title, req_by = row[0], row[1], (row[2] or 'Staff')
+        for ap in _procurement_approvers():
+            try:
+                ok, txt = _procurement_send_template(
+                    ap['whatsapp'], PROC_REQ_APPROVAL_TEMPLATE,
+                    [ap['name'], req_no, req_by, req_title],
+                    button_payloads=[f"reqappr_{req_id}", f"reqdecl_{req_id}"])
+                print(f"Procurement approval request -> {ap['name']}: ok={ok}")
+            except Exception as e:
+                print(f"Procurement approver notify error: {e}")
+    except Exception as e:
+        print(f"Procurement notify approvers error: {e}")
+
+
+def _procurement_notify_requester(req_id, new_status):
+    """Notify the requester that their requisition changed status via the
+    requisition_status_update template."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT req_no, title, requested_by, requested_by_user_id FROM requisitions WHERE id = %s", (req_id,))
+            row = cursor.fetchone()
+            if not row:
+                return
+            req_no, req_title, req_by, req_user_id = row
+        phone = _procurement_user_whatsapp(req_user_id) if req_user_id else None
+        if phone:
+            ok, txt = _procurement_send_template(phone, PROC_REQ_STATUS_TEMPLATE,
+                                                 [req_by or 'there', req_no, req_title, new_status])
+            print(f"Procurement status '{new_status}' -> {req_by}: ok={ok}")
+    except Exception as e:
+        print(f"Procurement notify requester error: {e}")
+
+
+def handle_procurement_button_payload(payload, sender_id, sender_number):
+    """Handle reqappr_<id> / reqdecl_<id> quick-reply payloads from the
+    requisition_approval_request WhatsApp template.
+    Returns True if the payload was a procurement button (already handled),
+    False otherwise (so other payloads keep flowing to existing handlers)."""
+    try:
+        if not payload:
+            return False
+        low = payload.lower()
+        if not (low.startswith('reqappr_') or low.startswith('reqdecl_')):
+            return False
+        action = 'approve' if low.startswith('reqappr_') else 'reject'
+        try:
+            req_id = int(payload.split('_', 1)[1])
+        except (IndexError, ValueError):
+            req_id = None
+        if not req_id:
+            _procurement_send_text(sender_id, "Invalid requisition reference.")
+            return True
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, req_no, title, status, requested_by_user_id, requested_by
+                FROM requisitions WHERE id = %s
+            """, (req_id,))
+            row = cursor.fetchone()
+            if not row:
+                _procurement_send_text(sender_id, "Requisition not found.")
+                return True
+            r_id, req_no, req_title, status, req_user_id, req_by = row
+            if status != 'submitted':
+                _procurement_send_text(sender_id, f"{req_no} is already {status.replace('_', ' ')} - no change made.")
+                return True
+
+            # Identify sender + check they may approve
+            sender_name = 'Approver'
+            perms = {}
+            try:
+                cursor.execute("SELECT full_name, source_system, source_id FROM admin_users WHERE REPLACE(whatsapp, ' ', '') LIKE %s LIMIT 1", (f"%{sender_number}%",))
+                au = cursor.fetchone()
+                if au:
+                    sender_name = au[0] or 'Approver'
+                    perms = get_user_permissions(au[1] or 'projects', au[2] or sender_id)
+            except Exception as pe:
+                print(f"Sender lookup error: {pe}")
+            if not perms.get('is_super_admin', False) and not perms.get('can_approve_requisitions', False):
+                _procurement_send_text(sender_id, "You don't have permission to approve requisitions. Contact an administrator.")
+                return True
+
+            if action == 'approve':
+                cursor.execute("""
+                    UPDATE requisitions SET status='approved', approved_by=%s,
+                        approved_at=CURRENT_TIMESTAMP, reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (sender_name, req_id))
+                new_status = 'approved'
+            else:
+                cursor.execute("""
+                    UPDATE requisitions SET status='rejected', rejected_by=%s,
+                        rejected_at=CURRENT_TIMESTAMP, reject_reason='Declined via WhatsApp',
+                        updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (sender_name, req_id))
+                new_status = 'rejected'
+            connection.commit()
+            log_activity('requisition_approve' if action == 'approve' else 'requisition_reject',
+                         f'Requisition {req_no} {new_status} via WhatsApp by {sender_name}', 'requisition', req_id)
+
+        _procurement_send_text(sender_id, f"Requisition {req_no} has been {new_status}.")
+        if req_user_id:
+            _procurement_notify_requester(req_id, new_status)
+        return True
+    except Exception as e:
+        print(f"Procurement button payload error: {e}")
+        try:
+            _procurement_send_text(sender_id, "An error occurred processing the requisition.")
+        except Exception:
+            pass
+        return True
 
 
 

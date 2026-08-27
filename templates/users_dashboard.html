@@ -1252,6 +1252,25 @@
                 <span class="perm-label"><i class="bi bi-download"></i> Download Master File &amp; Ask AI</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_download_master_file"><span class="toggle-slider"></span></label>
             </div>
+            <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
+                <i class="bi bi-truck"></i> Procurement Access
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-clipboard-plus"></i> Create Requisitions <span style="font-size:0.5rem;color:var(--text-muted);">(request goods)</span></span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_create_requisitions"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-check2-circle"></i> Approve Requisitions</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_approve_requisitions"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-receipt-cutoff"></i> Manage Purchase Orders <span style="font-size:0.5rem;color:var(--text-muted);">(create POs, receive stock)</span></span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_purchase_orders"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-truck"></i> Manage Suppliers</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_suppliers"><span class="toggle-slider"></span></label>
+            </div>
             <div id="permModalMsg" style="font-size:0.6rem;margin-top:8px;text-align:center;min-height:18px;"></div>
         </div>
         <div class="modal-footer-custom">
@@ -1942,7 +1961,9 @@ const PERM_TOGGLE_IDS = [
     'hr_access',
     'can_add_users', 'can_edit_users', 'can_delete_users',
     'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments',
-    'can_edit_projects', 'can_download_master_file'
+    'can_edit_projects', 'can_download_master_file',
+    'can_create_requisitions', 'can_approve_requisitions',
+    'can_manage_purchase_orders', 'can_manage_suppliers'
 ];
 
 function toggleAllPermissions(checked) {
@@ -1976,7 +1997,9 @@ async function loadPermModalData(userType, userId) {
                      'hr_access',
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
-                     'can_download_master_file'];
+                     'can_download_master_file',
+                     'can_create_requisitions','can_approve_requisitions',
+                     'can_manage_purchase_orders','can_manage_suppliers'];
     // Reset all toggles to off
     toggles.forEach(t => {
         const el = document.getElementById('toggle-' + t);
@@ -2009,7 +2032,9 @@ async function savePermModal() {
                      'hr_access',
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
-                     'can_download_master_file'];  
+                     'can_download_master_file',
+                     'can_create_requisitions','can_approve_requisitions',
+                     'can_manage_purchase_orders','can_manage_suppliers'];  
     const payload = {
         user_type: permModalUserType,
         user_id: permModalUserId

@@ -5580,6 +5580,32 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     </div>
 </div>
 
+<!-- Revert Transaction Modal -->
+<div class="modal fade" id="revertTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#b91c1c;color:white;border-bottom:2px solid #7f1d1d;">
+                <h5 class="modal-title"><i class="fas fa-undo me-1"></i>Revert Transaction</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>Warning:</strong> This removes the sale from history and <strong>returns the sold stock to inventory</strong>.
+                </div>
+                <div id="revertTxInfo" class="small mb-2"></div>
+                <label class="form-label" for="revertTxPin">Enter PIN</label>
+                <input type="password" class="form-control" id="revertTxPin" placeholder="PIN required" autocomplete="off">
+                <div id="revertTxError" class="text-danger small mt-1" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-danger btn-sm" onclick="confirmRevertTransaction()"><i class="fas fa-undo me-1"></i>Revert Sale</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- POS Page -->
 
 <!-- POS Page -->
@@ -5913,6 +5939,17 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                             </div>
                         </div>
                     </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="stat-card" style="border-left:3px solid #b91c1c;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-muted">Voided Transactions</small>
+                                    <h5 class="mb-0 fw-bold text-danger" id="auditTotalVoided">0</h5>
+                                </div>
+                                <i class="fas fa-undo fa-2x text-muted opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Itemised Movements Table -->
@@ -5957,6 +5994,28 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                                 </tr>
                             </thead>
                             <tbody id="auditRemovalsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Voided / Reverted Transactions Audit Table -->
+                <div id="auditVoidedContainer" style="display:none;margin-top:12px;">
+                    <h6 class="fw-bold mb-2"><i class="fas fa-undo me-1"></i>Voided / Reverted Transactions</h6>
+                    <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+                        <table class="table table-sm table-hover" id="auditVoidedTable" style="font-size:0.65rem;">
+                            <thead class="table-light" style="position:sticky;top:0;background:var(--dark-blue-deep);z-index:2;">
+                                <tr>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Voided On</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Receipt #</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Items</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Total</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Payment</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Cashier</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Voided By</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Original Sale</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditVoidedBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -9111,6 +9170,7 @@ function updateInventoryMetrics() {
 let auditMovementData = [];
 let auditProductData = [];
 let auditRemovalData = [];
+let auditVoidedData = [];
 
 function toggleAuditReport() {
     // Show modal to enter date parameters first
@@ -9352,7 +9412,11 @@ async function loadStockAuditReport() {
         // Render product summary table
         renderAuditProductSummary(auditProductData);
         
-        if (!auditMovementData.length && !auditRemovalData.length) {
+        // Load + render voided (reverted) transactions for the audit view
+        const voided = await loadVoidedTransactions(startDate, endDate);
+        renderAuditVoided(voided);
+        
+        if (!auditMovementData.length && !auditRemovalData.length && !(voided && voided.length)) {
             document.getElementById('auditNoData').style.display = 'block';
         }
         
@@ -9420,6 +9484,53 @@ function renderAuditRemovals(removals) {
     }).join('');
 }
 
+async function loadVoidedTransactions(startDate, endDate) {
+    try {
+        let url = `${API_BASE}/api/transactions/voided`;
+        if (startDate && endDate) url += `?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
+        const res = await fetch(url, { credentials: 'include' });
+        const data = await res.json();
+        const voided = (data && data.success) ? (data.voided || []) : [];
+        auditVoidedData = voided;
+        const totalEl = document.getElementById('auditTotalVoided');
+        if (totalEl) totalEl.textContent = voided.length;
+        return voided;
+    } catch (error) {
+        console.error('Voided transactions error:', error);
+        return [];
+    }
+}
+
+function renderAuditVoided(voided) {
+    const container = document.getElementById('auditVoidedContainer');
+    const tbody = document.getElementById('auditVoidedBody');
+    if (!container || !tbody) return;
+    if (!voided || !voided.length) { container.style.display = 'none'; return; }
+    container.style.display = 'block';
+    tbody.innerHTML = voided.map(v => {
+        const its = v.items || [];
+        let itemsPreview = '\u2014';
+        if (its.length) {
+            const names = its.slice(0, 2).map(i => escapeHtml(i.product_name || 'Item') + (i.quantity ? ' x' + i.quantity : '')).join(', ');
+            itemsPreview = names + (its.length > 2 ? ' +' + (its.length - 2) + ' more' : '');
+        }
+        const pm = (v.payment_method || 'N/A').toUpperCase();
+        const pmClass = v.payment_method === 'cash' ? 'bg-success' : v.payment_method === 'card' ? 'bg-info' : v.payment_method === 'transfer' ? 'bg-primary' : 'bg-warning';
+        return `
+            <tr>
+                <td style="white-space:nowrap;">${formatDateShort(v.voided_at)}</td>
+                <td><strong>${escapeHtml(v.transaction_number || 'N/A')}</strong></td>
+                <td><small>${itemsPreview}</small></td>
+                <td class="fw-bold text-danger">$${(v.total || 0).toFixed(2)}</td>
+                <td><span class="badge ${pmClass}">${escapeHtml(pm)}</span></td>
+                <td><small>${escapeHtml(v.cashier || 'Admin')}</small></td>
+                <td><small>${escapeHtml(v.voided_by || 'System')}</small></td>
+                <td><small class="text-muted">${formatDateShort(v.created_at)}</small></td>
+            </tr>
+        `;
+    }).join('');
+}
+
 function renderAuditProductSummary(products) {
     const tbody = document.getElementById('auditSummaryBody');
     document.getElementById('auditProductSummaryContainer').style.display = 'block';
@@ -9465,10 +9576,23 @@ function filterAuditMovements() {
     renderAuditMovements(filtered);
 }
 
-function exportStockAuditExcel() {
-    if (!auditMovementData.length && !auditProductData.length && !auditRemovalData.length) {
+async function exportStockAuditExcel() {
+    if (!auditMovementData.length && !auditProductData.length && !auditRemovalData.length && !auditVoidedData.length) {
         showToast('No data to export', 'error');
         return;
+    }
+    
+    // Ensure voided data is loaded (covers quick-export paths that skip the audit table)
+    if (!auditVoidedData.length) {
+        const sd = document.getElementById('auditStartDate').value;
+        const ed = document.getElementById('auditEndDate').value;
+        try {
+            let u = `${API_BASE}/api/transactions/voided`;
+            if (sd && ed) u += `?start_date=${encodeURIComponent(sd)}&end_date=${encodeURIComponent(ed)}`;
+            const r = await fetch(u, { credentials: 'include' });
+            const d = await r.json();
+            auditVoidedData = (d && d.success) ? (d.voided || []) : [];
+        } catch (e) { auditVoidedData = []; }
     }
     
     if (typeof XLSX === 'undefined') {
@@ -9611,11 +9735,64 @@ function exportStockAuditExcel() {
     // Freeze header row
     wsRemovals['!freeze'] = { x: 0, y: 4 };
     
-    // Create workbook — Summary, Movements, then Removals
+    // ===== VOIDED TRANSACTIONS SHEET =====
+    const voidedHeader = ['Voided On', 'Receipt #', 'Items', 'Total', 'Payment', 'Cashier', 'Voided By', 'Original Sale'];
+    const voidedRows = auditVoidedData.map(v => {
+        const its = v.items || [];
+        let itemsPreview = '';
+        if (its.length) {
+            itemsPreview = its.slice(0, 2).map(i => (i.product_name || 'Item') + (i.quantity ? ' x' + i.quantity : '')).join(', ');
+            if (its.length > 2) itemsPreview += ' +' + (its.length - 2) + ' more';
+        }
+        return [
+            v.voided_at ? new Date(v.voided_at).toLocaleString() : '',
+            v.transaction_number || '',
+            itemsPreview,
+            v.total || 0,
+            (v.payment_method || 'N/A').toUpperCase(),
+            v.cashier || 'Admin',
+            v.voided_by || 'System',
+            v.created_at ? new Date(v.created_at).toLocaleString() : ''
+        ];
+    });
+
+    const wsVoided_data = [
+        ['Voided / Reverted Transactions Audit Report'],
+        [`Period: ${startDate} to ${endDate}`],
+        [],
+        voidedHeader,
+        ...voidedRows
+    ];
+
+    const wsVoided = XLSX.utils.aoa_to_sheet(wsVoided_data);
+
+    // Set column widths for voided sheet
+    wsVoided['!cols'] = [
+        { wch: 20 },  // Voided On
+        { wch: 18 },  // Receipt #
+        { wch: 40 },  // Items
+        { wch: 12 },  // Total
+        { wch: 14 },  // Payment
+        { wch: 20 },  // Cashier
+        { wch: 20 },  // Voided By
+        { wch: 20 }   // Original Sale
+    ];
+
+    // Merge title and period cells across all columns
+    wsVoided['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }
+    ];
+
+    // Freeze header row
+    wsVoided['!freeze'] = { x: 0, y: 4 };
+
+    // Create workbook — Summary, Movements, Removals, then Voided
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
     XLSX.utils.book_append_sheet(wb, wsMovements, 'Movements');
     XLSX.utils.book_append_sheet(wb, wsRemovals, 'Removals');
+    XLSX.utils.book_append_sheet(wb, wsVoided, 'Voided');
     
     XLSX.writeFile(wb, `stock_audit_${startDate}_to_${endDate}.xlsx`);
     
@@ -11217,7 +11394,10 @@ function renderFilteredTransactions() {
             '<td class="fw-bold text-success">$' + (t.total || 0).toFixed(2) + '</td>' +
             '<td><span class="badge ' + paymentBadgeClass + '">' + paymentDisplay + '</span></td>' +
             '<td><small>' + escapeHtml(t.cashier || 'Admin') + '</small></td>' +
-            '<td><button class="btn-view-receipt" onclick="viewReceipt(\'' + (t.transaction_number || t.id) + '\')"><i class="fas fa-receipt me-1"></i>View Receipt</button></td>' +
+            '<td>' +
+                '<button class="btn-view-receipt" onclick="viewReceipt(\'' + (t.transaction_number || t.id) + '\')"><i class="fas fa-receipt me-1"></i>View Receipt</button> ' +
+                '<button class="btn btn-sm btn-outline-danger" onclick="openRevertTransactionModal(' + t.id + ')" title="Revert sale and return stock to inventory"><i class="fas fa-undo me-1"></i>Revert</button>' +
+            '</td>' +
         '</tr>';
     }
     
@@ -12810,6 +12990,63 @@ function setupAddProductFundingSelection() {
             console.error('Remove all stock error:', error);
             errEl.textContent = 'Connection error';
             errEl.style.display = 'block';
+        } finally {
+            hideLoader();
+        }
+    }
+    // ==================== REVERT TRANSACTION (void sale, restore stock) ====================
+    let pendingRevertTx = null;
+
+    function openRevertTransactionModal(txId) {
+        const t = (transactionsData.transactions || []).find(x => x.id === txId);
+        pendingRevertTx = {
+            id: txId,
+            number: t ? (t.transaction_number || ('#' + txId)) : ('#' + txId),
+            total: t ? (t.total || 0) : 0,
+            items: t && t.items ? t.items.length : 0
+        };
+        const info = document.getElementById('revertTxInfo');
+        if (info) info.innerHTML = 'Receipt <strong>' + escapeHtml(pendingRevertTx.number) + '</strong> — <strong>$' + Number(pendingRevertTx.total).toFixed(2) + '</strong> · ' + pendingRevertTx.items + ' item(s).';
+        const pin = document.getElementById('revertTxPin');
+        if (pin) pin.value = '';
+        const err = document.getElementById('revertTxError');
+        if (err) err.style.display = 'none';
+        new bootstrap.Modal(document.getElementById('revertTransactionModal')).show();
+    }
+
+    async function confirmRevertTransaction() {
+        const pinEl = document.getElementById('revertTxPin');
+        const errEl = document.getElementById('revertTxError');
+        const pin = pinEl ? pinEl.value : '';
+        if (!pin) {
+            if (errEl) { errEl.textContent = 'Please enter the PIN.'; errEl.style.display = 'block'; }
+            return;
+        }
+        if (!pendingRevertTx) return;
+        showLoader('Reverting sale and restoring stock...');
+        try {
+            const res = await fetch(`${API_BASE}/api/transactions/${pendingRevertTx.id}/revert`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ pin: pin })
+            });
+            const data = await res.json();
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('revertTransactionModal')).hide();
+                pendingRevertTx = null;
+                showToast(data.message, 'success');
+                await fetchTransactionsData();
+                await fetchProductsFromAPI();
+                if (typeof fetchDashboardStats === 'function') fetchDashboardStats();
+                if (typeof renderInventory === 'function') renderInventory();
+                if (typeof renderProducts === 'function') renderProducts();
+            } else {
+                if (errEl) { errEl.textContent = data.error || 'Failed to revert transaction'; errEl.style.display = 'block'; }
+            }
+        } catch (error) {
+            console.error('Revert transaction error:', error);
+            if (errEl) { errEl.textContent = 'Connection error'; errEl.style.display = 'block'; }
         } finally {
             hideLoader();
         }

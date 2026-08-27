@@ -8,19 +8,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <!-- Modern Design System -->
-    <link rel="stylesheet" href="/static/css/design-system.css">
-    <link rel="stylesheet" href="/static/css/components-ui.css">
+    <link rel="stylesheet" href="static/css/design-system.css">
+    <link rel="stylesheet" href="static/css/components-ui.css">
     <!-- PWA Meta Tags -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="ConnectLink">
     <meta name="application-name" content="ConnectLink">
-    <link rel="manifest" href="/manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="/static/images/reqlogo.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="/static/images/reqlogo.png">
-    <link rel="apple-touch-icon" sizes="192x192" href="/static/images/reqlogo.png">
-    <link rel="apple-touch-icon" sizes="512x512" href="/static/images/reqlogo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="static/images/reqlogo.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="static/images/reqlogo.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="static/images/reqlogo.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="static/images/reqlogo.png">
     <meta name="theme-color" content="#0A2B3E">
     <style>
 * {
@@ -1427,6 +1427,7 @@
         .system-card[data-portal="hardware"] { --card-accent: #059669; --card-accent-2: #047857; }
         .system-card[data-portal="hr"]       { --card-accent: #7c3aed; --card-accent-2: #6d28d9; }
         .system-card[data-portal="users"]    { --card-accent: #d97706; --card-accent-2: #b45309; }
+        .system-card[data-portal="procurement"] { --card-accent: #0891b2; --card-accent-2: #0e7490; }
         .system-card { --card-accent: #C12B3E; --card-accent-2: #9B1D2C; }
 
         /* Left accent bar */
@@ -1774,385 +1775,41 @@
         .hero-logo { height: 44px; }
         .hero-badge { margin-bottom: 7px; padding: 3px 10px; font-size: 0.52rem; }
         .hero-section h1 { font-size: 1.72rem; margin-bottom: 4px; }
-        .lead-text { margin-bottom: 6px; font-size: 0.77rem !important; }
-        .hero-features { margin-bottom: 6px; gap: 5px; }
+        .lead-text { margin-bottom: 7px; font-size: 0.77rem !important; }
+        .hero-features { margin-bottom: 7px; gap: 5px; }
         .hf-chip { padding: 3px 9px; font-size: 0.52rem; }
-        .hero-ctas { margin-bottom: 8px; gap: 8px; }
+        .hero-ctas { margin-bottom: 9px; gap: 8px; }
         .btn-hero-primary, .btn-hero-ghost { padding: 7px 16px; font-size: 0.6rem; }
         .hero-stats .stat-number { font-size: 1.15rem; }
         .hero-stats .stat-item { padding-right: 18px; }
-        .capabilities-strip { margin-top: 4px; }
+        .capabilities-strip { margin-top: 7px; }
         .capabilities-set span { font-size: 0.56rem; }
-        .footer { padding: 6px 14px; margin-top: 4px; }
+        .footer { padding: 6px 14px; margin-top: 6px; }
         .footer-brand { font-size: 0.66rem; }
         .footer p { font-size: 0.52rem; }
         .footer-links { font-size: 0.54rem; gap: 6px; }
         .system-card h3 { margin-bottom: 2px; }
         .system-card p { line-height: 1.25; }
 
-        /* ============================================================
-           V5 REFINEMENTS — premium micro-details
-           Pure CSS only: no new assets, no JS, no network requests.
-           ============================================================ */
-
-        /* One-shot entrance reveal (backwards fill so hover transforms still work) */
-        .hero-section { animation: v5Rise .7s cubic-bezier(.22,1,.36,1) backwards; }
-        .portal-section { animation: v5Rise .7s .08s cubic-bezier(.22,1,.36,1) backwards; }
-        .cards-container .system-card { animation: v5Rise .55s cubic-bezier(.22,1,.36,1) backwards; }
-        .cards-container .system-card:nth-child(1) { animation-delay: .10s; }
-        .cards-container .system-card:nth-child(2) { animation-delay: .16s; }
-        .cards-container .system-card:nth-child(3) { animation-delay: .22s; }
-        .cards-container .system-card:nth-child(4) { animation-delay: .28s; }
-        .capabilities-strip { animation: v5Fade 1s .35s ease backwards; }
-        .footer { animation: v5Fade .9s .45s ease backwards; }
-        @keyframes v5Rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes v5Fade { from { opacity: 0; } to { opacity: 1; } }
-
-        /* Per-portal top accent line on each card (identity at rest) */
-        .system-card::after {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-            background: linear-gradient(90deg, var(--card-accent), var(--card-accent-2) 55%, transparent);
-            opacity: .9; transition: opacity .3s ease;
-        }
-        .system-card:hover::after { opacity: 1; }
-        body.dark-theme .system-card::after { opacity: .8; }
-
-        /* Card index → premium chip */
-        .card-index {
-            top: 12px; right: 12px;
-            font-size: .46rem; padding: 2px 8px; border-radius: 999px; letter-spacing: 1px;
-            background: rgba(10,43,62,.05); border: 1px solid rgba(10,43,62,.07);
-        }
-        .system-card:hover .card-index { background: rgba(193,43,62,.10); border-color: rgba(193,43,62,.22); color: #b02a3c; }
-        body.dark-theme .card-index { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.08); }
-
-        /* Icon tiles: resting glow + hover pop */
-        .system-card .card-icon-wrapper { box-shadow: 0 6px 16px -6px var(--card-accent); }
-        .system-card:hover .card-icon-wrapper { box-shadow: 0 10px 24px -6px var(--card-accent); transform: translateY(-2px) rotate(-4deg) scale(1.04); }
-
-        /* Explore buttons: arrow slide + keyboard focus ring */
-        .btn-explore i { transition: transform .25s cubic-bezier(.4,0,.2,1); }
-        .btn-explore:hover i { transform: translateX(3px); }
-        .btn-explore:focus-visible, .btn-hero-primary:focus-visible, .btn-hero-ghost:focus-visible { outline: 2px solid rgba(193,43,62,.55); outline-offset: 2px; }
-
-        /* Hero badge: gentle lift + glow on hover */
-        .hero-badge { transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease; }
-        .hero-badge:hover { transform: translateY(-2px); box-shadow: 0 8px 22px -8px rgba(193,43,62,.35); border-color: rgba(193,43,62,.35); }
-
-        /* Hero stats: subtle hover lift */
-        .hero-stats .stat-item { transition: transform .25s ease; }
-        .hero-stats .stat-item:hover { transform: translateY(-2px); }
-
-        /* Navbar brand: playful hover */
-        .navbar-brand { transition: transform .3s cubic-bezier(.4,0,.2,1); }
-        .navbar-brand:hover { transform: scale(1.02); }
-        .navbar-brand img { transition: transform .3s ease; }
-        .navbar-brand:hover img { transform: rotate(-3deg) scale(1.06); }
-
-        /* "Choose Your Portal" animated underline */
-        .portal-header h2 { position: relative; padding-bottom: 2px; }
-        .portal-header h2::after {
-            content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; border-radius: 3px;
-            background: linear-gradient(90deg, #C12B3E, #E91E63, transparent);
-            transform: scaleX(.3); transform-origin: left;
-            transition: transform .45s cubic-bezier(.4,0,.2,1);
-        }
-        .portal-section:hover .portal-header h2::after { transform: scaleX(1); }
-
-        /* Capabilities: hairline band + item hover colour */
-        .capabilities-strip {
-            border-top: 1px solid rgba(10,43,62,.06);
-            border-bottom: 1px solid rgba(10,43,62,.06);
-            background: rgba(255,255,255,.35);
-        }
-        .capabilities-set span { transition: color .2s ease; }
-        .capabilities-set span:hover { color: #C12B3E; }
-        body.dark-theme .capabilities-strip { border-color: rgba(255,255,255,.06); background: rgba(255,255,255,.02); }
-        body.dark-theme .capabilities-set span:hover { color: #ff9aa8; }
-
-        /* Footer: glassy band */
-        .footer {
-            background: rgba(255,255,255,.55);
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(10,43,62,.06);
-        }
-        body.dark-theme .footer { background: rgba(15,18,25,.6); }
-
-        /* ============================================================
-           V6 — HERO SIDE: PREMIUM GLASS PANEL + FLOATING ACCENTS
-           Decorative only. Pure CSS. No JS / functionality touched.
-           ============================================================ */
-        .hero-section {
-            position: relative;
-            isolation: isolate;
-            padding: 6px 20px 6px 6px;
-        }
-        /* Glass panel behind the hero content (inset, so no layout height is added) */
-        .hero-section::before {
-            content: '';
-            position: absolute;
-            inset: -10px -8px -6px -6px;
-            border-radius: 28px;
-            z-index: -1;
-            background:
-                linear-gradient(rgba(10,43,62,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(10,43,62,0.03) 1px, transparent 1px),
-                linear-gradient(160deg, rgba(255,255,255,0.92), rgba(255,255,255,0.55) 55%, rgba(255,255,255,0.78));
-            background-size: 28px 28px, 28px 28px, auto;
-            border: 1px solid rgba(10,43,62,0.08);
-            box-shadow:
-                0 40px 80px -40px rgba(10,43,62,0.30),
-                0 12px 30px -18px rgba(193,43,62,0.18),
-                inset 0 1px 0 rgba(255,255,255,0.9);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        /* Rotating conic-gradient border ring (modern signature effect) */
-        .hero-section::after {
-            content: '';
-            position: absolute;
-            inset: -10px -8px -6px -6px;
-            border-radius: 28px;
-            padding: 1.5px;
-            background: conic-gradient(from var(--hs-angle, 0deg),
-                transparent 0deg, rgba(193,43,62,0) 30deg,
-                rgba(193,43,62,0.85) 95deg, rgba(233,30,99,0.85) 140deg,
-                transparent 210deg, transparent 360deg);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask-composite: exclude;
-            pointer-events: none;
-            opacity: 0.75;
-            filter: drop-shadow(0 0 10px rgba(193,43,62,0.35));
-            animation: hsSpin 7s linear infinite;
-        }
-        @property --hs-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-        @keyframes hsSpin { to { --hs-angle: 360deg; } }
-        body.dark-theme .hero-section::before {
-            background:
-                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
-                linear-gradient(160deg, rgba(20,26,43,0.9), rgba(15,20,32,0.72) 55%, rgba(22,29,48,0.9));
-            background-size: 28px 28px, 28px 28px, auto;
-            border-color: rgba(255,255,255,0.08);
-            box-shadow: 0 40px 80px -40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
-        }
-
-        /* Floating decorative accent chips */
-        .hero-float {
-            position: absolute;
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 6px 12px; border-radius: 999px;
-            background: rgba(255,255,255,0.85);
-            border: 1px solid rgba(10,43,62,0.08);
-            box-shadow: 0 12px 28px -12px rgba(10,43,62,0.35), 0 2px 6px rgba(10,43,62,0.05);
-            font-size: 0.52rem; font-weight: 700; letter-spacing: 0.4px;
-            color: #0a2b3e;
-            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-            z-index: 2;
-            animation: heroFloat 6s ease-in-out infinite;
-            white-space: nowrap;
-        }
-        .hero-float i { color: #C12B3E; font-size: 0.6rem; }
-        .hf-1 { top: 2%; right: 8%; }
-        .hf-2 { bottom: 8%; left: 2%; animation-delay: -3s; }
-        @keyframes heroFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        body.dark-theme .hero-float { background: rgba(26,31,46,0.85); color: #e5e7eb; border-color: rgba(255,255,255,0.1); }
-
-        /* Stats: premium glass tiles */
-        .hero-stats { gap: 8px; }
-        .hero-stats .stat-item {
-            padding: 7px 13px;
-            border-radius: 14px;
-            background: rgba(255,255,255,0.65);
-            border: 1px solid rgba(10,43,62,0.07);
-            box-shadow: 0 6px 16px -10px rgba(10,43,62,0.25), inset 0 1px 0 rgba(255,255,255,0.8);
-            backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-        }
-        .hero-stats .stat-item:not(:last-child)::after { display: none; }
-        .hero-stats .stat-item:hover {
-            transform: translateY(-3px);
-            border-color: rgba(193,43,62,0.25);
-            box-shadow: 0 12px 24px -12px rgba(193,43,62,0.35), inset 0 1px 0 rgba(255,255,255,0.8);
-        }
-        body.dark-theme .hero-stats .stat-item {
-            background: rgba(255,255,255,0.04);
-            border-color: rgba(255,255,255,0.08);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-        }
-        body.dark-theme .hero-stats .stat-item:hover { border-color: rgba(193,43,62,0.5); }
-
-        /* Compensating trims to keep the one-screen fit after the tile padding */
-        .hero-badge { margin-bottom: 5px; }
-        .hero-section h1 { margin-bottom: 3px; }
-        .lead-text { margin-bottom: 5px; }
-        .hero-features { margin-bottom: 5px; }
-        .hero-ctas { margin-bottom: 6px; }
-
-        /* ============================================================
-           V7 — MODERN REVAMP: centered command center + 2×2 app grid
-           Layout re-arrangement only. All JS hooks (.system-card,
-           .btn-explore, .portal-section, data-portal) preserved.
-           ============================================================ */
-        .main-content {
-            flex-direction: column;
-            justify-content: center;
-            align-items: stretch;
-            padding: 12px 4% 8px;
-        }
-        .launcher {
-            width: 100%;
-            max-width: 960px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        /* Hero: centered band */
-        .hero-section {
-            text-align: center;
-            padding: 12px 30px 12px;
-        }
-        .hero-section::before,
-        .hero-section::after {
-            inset: -12px -14px -10px -14px;
-            border-radius: 30px;
-        }
-        .hero-features { justify-content: center; }
-        .hero-ctas { justify-content: center; }
-        .hero-stats { justify-content: center; }
-        .hero-section h1 { font-size: 1.55rem; }
-        .hero-badge { padding: 2px 10px; font-size: 0.5rem; }
-        .lead-text { font-size: 0.74rem; }
-        .hf-chip { padding: 2px 9px; font-size: 0.5rem; }
-        .btn-hero-primary, .btn-hero-ghost { padding: 6px 15px; font-size: 0.58rem; }
-        .hero-stats .stat-item { padding: 5px 11px; }
-
-        /* Floating chips repositioned for the centered band */
-        .hf-1 { top: -3%; right: 2%; }
-        .hf-2 { bottom: -2%; left: 2%; }
-
-        /* Portal: centered header + 2×2 grid */
-        .portal-section { padding-left: 0; }
-        .portal-header { text-align: center; margin-bottom: 6px; }
-        .portal-header h2 { font-size: 1.12rem; }
-        .portal-header p { font-size: 0.55rem; }
-        .cards-container.portal-grid {
+        /* ---------- Portal cards as a 2-column app grid (v5 — makes room for the 5th portal) ---------- */
+        /* 5 cards in a 2-col grid = 3 rows, SHORTER than the old 4-card single column,
+           so the landing page still fits one screen. Procurement spans the bottom row. */
+        .portal-section .cards-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 10px;
+            align-items: stretch;
         }
-        /* Tiles sized for the grid */
-        .cards-container.portal-grid .system-card {
-            padding: 14px 16px;
-            min-height: 92px;
+        .portal-section .system-card { min-height: 96px; }
+        .portal-section .system-card[data-portal="procurement"] { grid-column: 1 / -1; }
+        @media (max-width: 768px) {
+            .portal-section .cards-container { grid-template-columns: 1fr; }
+            .portal-section .system-card[data-portal="procurement"] { grid-column: auto; }
         }
-        .cards-container.portal-grid .system-card .card-icon-wrapper {
-            width: 46px; height: 46px; border-radius: 14px;
-        }
-        .cards-container.portal-grid .system-card h3 { font-size: 0.92rem; }
-        .cards-container.portal-grid .system-card p { font-size: 0.64rem; line-height: 1.3; }
-        .cards-container.portal-grid .card-tags { margin-top: 6px; }
-        .cards-container.portal-grid .card-tags span { font-size: 0.48rem; padding: 2px 8px; }
-
-        body.dark-theme .launcher { background: transparent; }
-
-        @media (max-width: 880px) {
-            .cards-container.portal-grid { grid-template-columns: 1fr; }
-            .launcher { max-width: 540px; }
-            .hero-section { padding: 12px 18px; }
-        }
-
-        /* ============================================================
-           V8 — REDO: clean, confident premium launcher
-           Removes the hero glass box / rotating ring / floating chips
-           (over-designed noise) in favour of bold typography over the
-           atmospheric background, and refines the portal tiles.
-           Pure CSS; no JS / functionality touched.
-           ============================================================ */
-        .launcher { gap: 12px; }
-        .main-content { padding: 12px 4% 6px; }
-        /* Kill the V6 hero decorations */
-        .hero-section::before, .hero-section::after { content: none !important; }
-        .hero-float { display: none !important; }
-
-        /* Hero: bold typographic hero */
-        .hero-section { padding: 4px 24px 6px; }
-        .hero-badge {
-            padding: 4px 13px; font-size: 0.56rem; letter-spacing: 1.3px;
-            border-radius: 999px; margin-bottom: 6px;
-        }
-        .hero-section h1 { font-size: 1.9rem; letter-spacing: -1px; margin-bottom: 5px; }
-        .lead-text {
-            font-size: 0.8rem !important;
-            max-width: 580px; margin-left: auto; margin-right: auto;
-            margin-bottom: 7px;
-        }
-        .hero-features { margin-bottom: 6px; gap: 6px; }
-        .hf-chip { padding: 3px 11px; font-size: 0.52rem; }
-        .hero-ctas { margin-bottom: 6px; gap: 10px; }
-        .btn-hero-primary, .btn-hero-ghost { padding: 7px 18px; font-size: 0.6rem; }
-
-        /* Stats: clean hairline-separated row (no tiles) */
-        .hero-stats { gap: 0; }
-        .hero-stats .stat-item {
-            background: none !important; border: none !important;
-            box-shadow: none !important; backdrop-filter: none !important;
-            padding: 3px 18px; border-radius: 0;
-        }
-        .hero-stats .stat-item:not(:last-child) { border-right: 1px solid rgba(10,43,62,0.14) !important; }
-        body.dark-theme .hero-stats .stat-item:not(:last-child) { border-right-color: rgba(255,255,255,0.16) !important; }
-        .hero-stats .stat-number { font-size: 1.3rem; }
-
-        /* Portal header: refined */
-        .portal-header { margin-bottom: 4px; }
-        .portal-header h2 { font-size: 1.16rem; letter-spacing: -0.5px; }
-        .portal-header p { font-size: 0.55rem; }
-
-        /* Cards: premium launcher tiles (resting crimson border + glow) */
-        .cards-container.portal-grid { gap: 12px; }
-        .cards-container.portal-grid .system-card {
-            padding: 16px 18px;
-            min-height: 96px;
-            border-radius: 18px !important; /* design-system.css forces radius with !important */
-            background: rgba(255,255,255,0.9);
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(193,43,62,0.25);
-            box-shadow: 0 16px 36px -20px rgba(193,43,62,0.35), 0 2px 10px rgba(10,43,62,0.05);
-            transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s ease, border-color .3s ease, background .3s ease;
-        }
-        .cards-container.portal-grid .system-card:hover {
-            transform: translateY(-4px);
-            border-color: #C12B3E;
-            background: #fff;
-            box-shadow: 0 26px 54px -22px rgba(193,43,62,0.5), 0 6px 18px rgba(10,43,62,0.07);
-        }
-        .cards-container.portal-grid .system-card .card-icon-wrapper {
-            width: 50px; height: 50px; border-radius: 15px;
-            background: linear-gradient(135deg, var(--card-accent), var(--card-accent-2));
-            box-shadow: 0 10px 20px -8px var(--card-accent);
-        }
-        .cards-container.portal-grid .system-card .card-icon-wrapper i { font-size: 1.15rem; color: #fff; }
-        .cards-container.portal-grid .system-card h3 { font-size: 0.96rem; margin-bottom: 3px; letter-spacing: -0.3px; }
-        .cards-container.portal-grid .system-card p { font-size: 0.65rem; line-height: 1.32; }
-        .cards-container.portal-grid .card-tags { margin-top: 6px; gap: 5px; }
-        .cards-container.portal-grid .card-tags span { font-size: 0.48rem; padding: 2px 8px; }
-        .cards-container.portal-grid .card-actions .btn-explore { padding: 5px 13px; font-size: 0.54rem; }
-
-        /* Dark theme for the new tiles */
-        body.dark-theme .cards-container.portal-grid .system-card { background: rgba(26,31,46,0.85); border-color: rgba(193,43,62,0.45); }
-        body.dark-theme .cards-container.portal-grid .system-card:hover { background: #1a1f2e; border-color: rgba(193,43,62,0.7); }
 
         /* ---------- Reduced motion ---------- */
         @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-delay: 0s !important;
-                animation-fill-mode: none !important;
-                transition-duration: 0.01ms !important;
-            }
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
 </style>
 </head>
@@ -2170,7 +1827,7 @@
 <nav class="navbar">
     <div class="container-fluid px-0">
         <a class="navbar-brand" href="#">
-            <img src="/static/images/web-logo.png" alt="ConnectLink">
+            <img src="static/images/web-logo.png" alt="ConnectLink">
             <span class="brand-text">Connect<span>Link</span></span>
         </a>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -2188,145 +1845,173 @@
 
 <!-- Main Content -->
 <div class="main-content">
-    <div class="launcher">
-        <!-- Hero band (centered, modern) -->
-        <section class="hero-section">
-            <div class="hero-badge">
-                <i class="fas fa-crown"></i>
-                Enterprise System
-            </div>
-            <h1>
-                Building Projects &amp; <span class="highlight">Hardware</span> Solutions
-            </h1>
-            <p class="lead-text">
-                ConnectLink construction project management and hardware retail operations — 
-                unified platform for modern building enterprises.
-            </p>
-            <div class="hero-features">
-                <span class="hf-chip"><i class="fas fa-hard-hat"></i> Construction</span>
-                <span class="hf-chip"><i class="fas fa-store"></i> Hardware Retail</span>
-                <span class="hf-chip"><i class="fas fa-users"></i> HR &amp; Payroll</span>
-                <span class="hf-chip"><i class="fas fa-shield-halved"></i> Secure Access</span>
-            </div>
-            <div class="hero-ctas">
-                <button class="btn-hero-primary" onclick="document.querySelector('.portal-section').scrollIntoView({behavior:'smooth',block:'start'});">
-                    <i class="fas fa-rocket"></i> Explore Portals
-                </button>
-                <a class="btn-hero-ghost" href="/privacy-policy">
-                    <i class="fas fa-shield-halved"></i> Privacy &amp; Terms
-                </a>
-            </div>
-            <div class="hero-stats">
-                <div class="stat-item">
-                    <span class="stat-number">130+</span>
-                    <span class="stat-label">Active Projects</span>
+    <div class="container-fluid">
+        <div class="row align-items-center g-4">
+            <!-- Left Column - Hero -->
+            <div class="col-lg-6 hero-section">
+                <div class="hero-logo-wrapper">
+                    <img src="static/images/web-logo.png" alt="ConnectLink" class="hero-logo">
                 </div>
-                <div class="stat-item">
-                    <span class="stat-number">20+</span>
-                    <span class="stat-label">Building Projects Locations</span>
+                <div class="hero-badge">
+                    <i class="fas fa-crown"></i>
+                    Enterprise System
                 </div>
-                <div class="stat-item">
-                    <span class="stat-number">100%</span>
-                    <span class="stat-label">Building Projects Satisfaction Rate</span>
+                <h1>
+                    Building Projects<br>
+                    & <span class="highlight">Hardware</span> Solutions
+                </h1>
+                <p class="lead-text">
+                    ConnectLink construction project management and hardware retail operations — 
+                    unified platform for modern building enterprises.
+                </p>
+                <div class="hero-features">
+                    <span class="hf-chip"><i class="fas fa-hard-hat"></i> Construction</span>
+                    <span class="hf-chip"><i class="fas fa-store"></i> Hardware Retail</span>
+                    <span class="hf-chip"><i class="fas fa-users"></i> HR &amp; Payroll</span>
+                    <span class="hf-chip"><i class="fas fa-shield-halved"></i> Secure Access</span>
                 </div>
-            </div>
-        </section>
-
-        <!-- Portal grid: modern 2×2 app launcher -->
-        <section class="portal-section">
-            <div class="portal-header">
-                <span class="badge">
-                    <i class="fas fa-compass me-1"></i> Select Workspace
-                </span>
-                <h2>Choose Your Portal</h2>
-                <p>Access the right tools for your role in the ecosystem</p>
-            </div>
-            <div class="cards-container portal-grid">
-                <!-- Building Projects Card -->
-                <div class="system-card" data-portal="projects">
-                    <span class="card-index">01</span>
-                    <div class="card-icon-wrapper">
-                        <i class="fas fa-hard-hat"></i>
+                <div class="hero-ctas">
+                    <button class="btn-hero-primary" onclick="document.querySelector('.portal-section').scrollIntoView({behavior:'smooth',block:'start'});">
+                        <i class="fas fa-rocket"></i> Explore Portals
+                    </button>
+                    <a class="btn-hero-ghost" href="/privacy-policy">
+                        <i class="fas fa-shield-halved"></i> Privacy &amp; Terms
+                    </a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">130+</span>
+                        <span class="stat-label">Active Projects</span>
                     </div>
-                    <div class="card-content">
-                        <h3>Building Projects</h3>
-                        <p>Construction management, contracts, payment tracking &amp; project oversight</p>
-                        <div class="card-tags">
-                            <span>Quotes</span><span>Payments</span><span>Contracts</span>
+                    <div class="stat-item">
+                        <span class="stat-number">20+</span>
+                        <span class="stat-label">Building Projects Locations</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">100%</span>
+                        <span class="stat-label">Building Projects Satisfaction Rate</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column - Portal Cards -->
+            <div class="col-lg-6 portal-section">
+                <div class="portal-header">
+                    <span class="badge">
+                        <i class="fas fa-compass me-1"></i> Select Workspace
+                    </span>
+                    <h2>Choose Your Portal</h2>
+                    <p>Access the right tools for your role in the ecosystem</p>
+                </div>
+                
+                <div class="cards-container">
+                    <!-- Building Projects Card -->
+                    <div class="system-card" data-portal="projects">
+                        <span class="card-index">01</span>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-hard-hat"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Building Projects</h3>
+                            <p>Construction management, contracts, payment tracking &amp; project oversight</p>
+                            <div class="card-tags">
+                                <span>Quotes</span><span>Payments</span><span>Contracts</span>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v3.2</span>
+                            <button class="btn-explore">
+                                Access <i class="fas fa-arrow-right"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="card-actions">
-                        <span class="card-badge">v3.2</span>
-                        <button class="btn-explore">
-                            Access <i class="fas fa-arrow-right"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Hardware POS Card -->
-                <div class="system-card" data-portal="hardware">
-                    <span class="card-index">02</span>
-                    <div class="card-icon-wrapper">
-                        <i class="fas fa-cash-register"></i>
-                    </div>
-                    <div class="card-content">
-                        <h3>Hardware POS</h3>
-                        <p>Complete retail management for ConnectLink hardware operations &amp; inventory</p>
-                        <div class="card-tags">
-                            <span>Sales</span><span>Stock</span><span>Barcodes</span>
+                    
+                    <!-- Hardware POS Card -->
+                    <div class="system-card" data-portal="hardware">
+                        <span class="card-index">02</span>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-cash-register"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Hardware POS</h3>
+                            <p>Complete retail management for ConnectLink hardware operations &amp; inventory</p>
+                            <div class="card-tags">
+                                <span>Sales</span><span>Stock</span><span>Barcodes</span>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v4.1</span>
+                            <button class="btn-explore">
+                                Launch <i class="fas fa-arrow-right"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="card-actions">
-                        <span class="card-badge">v4.1</span>
-                        <button class="btn-explore">
-                            Launch <i class="fas fa-arrow-right"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Human Resources Card -->
-                <div class="system-card" data-portal="hr">
-                    <span class="card-index">03</span>
-                    <div class="card-icon-wrapper">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="card-content">
-                        <h3>Human Resources</h3>
-                        <p>Employee management, payroll, leave tracking &amp; personnel records</p>
-                        <div class="card-tags">
-                            <span>Payroll</span><span>Leave</span><span>Assets</span>
+                    
+                    <!-- Human Resources Card -->
+                    <div class="system-card" data-portal="hr">
+                        <span class="card-index">03</span>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Human Resources</h3>
+                            <p>Employee management, payroll, leave tracking &amp; personnel records</p>
+                            <div class="card-tags">
+                                <span>Payroll</span><span>Leave</span><span>Assets</span>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v1.0</span>
+                            <button class="btn-explore">
+                                Access <i class="fas fa-arrow-right"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="card-actions">
-                        <span class="card-badge">v1.0</span>
-                        <button class="btn-explore">
-                            Access <i class="fas fa-arrow-right"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- User Management Card -->
-                <div class="system-card" data-portal="users">
-                    <span class="card-index">04</span>
-                    <div class="card-icon-wrapper">
-                        <i class="fas fa-user-shield"></i>
-                    </div>
-                    <div class="card-content">
-                        <h3>User Management</h3>
-                        <p>System users, roles, permissions &amp; account administration</p>
-                        <div class="card-tags">
-                            <span>Roles</span><span>Permissions</span><span>Audit</span>
+                    
+                    <!-- User Management Card -->
+                    <div class="system-card" data-portal="users">
+                        <span class="card-index">04</span>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-user-shield"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>User Management</h3>
+                            <p>System users, roles, permissions &amp; account administration</p>
+                            <div class="card-tags">
+                                <span>Roles</span><span>Permissions</span><span>Audit</span>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v2.1</span>
+                            <button class="btn-explore">
+                                Manage <i class="fas fa-arrow-right"></i>
+                            </button>
                         </div>
                     </div>
-                    <div class="card-actions">
-                        <span class="card-badge">v2.1</span>
-                        <button class="btn-explore">
-                            Manage <i class="fas fa-arrow-right"></i>
-                        </button>
+                    
+                    <!-- Procurement Card -->
+                    <div class="system-card" data-portal="procurement">
+                        <span class="card-index">05</span>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-truck-fast"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Procurement</h3>
+                            <p>Requisitions, approvals, purchase orders &amp; supplier management</p>
+                            <div class="card-tags">
+                                <span>Requisitions</span><span>Purchase Orders</span><span>Suppliers</span>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v1.0</span>
+                            <button class="btn-explore">
+                                Access <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
     </div>
 </div>
 
@@ -2360,7 +2045,7 @@
     <div class="login-modal">
         <div class="modal-header">
             <button class="close-modal" onclick="closeProjectsModal()"><i class="fas fa-times"></i></button>
-            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <img src="static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
             <h3>Building Projects</h3>
             <p>Sign in to access project management dashboard</p>
         </div>
@@ -2478,7 +2163,7 @@
     <div class="login-modal">
         <div class="modal-header">
             <button class="close-modal" onclick="closeHardwareModal()"><i class="fas fa-times"></i></button>
-            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <img src="static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
             <h3>Hardware POS</h3>
             <p>Sign in to access retail management system</p>
         </div>
@@ -2563,7 +2248,7 @@
     <div class="login-modal">
         <div class="modal-header">
             <button class="close-modal" onclick="closeHrModal()"><i class="fas fa-times"></i></button>
-            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <img src="static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
             <h3>Human Resources</h3>
             <p>Sign in to access employee management portal</p>
         </div>
@@ -2673,6 +2358,122 @@
     </div>
 </div>
 
+<!-- Procurement Modal -->
+<div class="modal-overlay" id="procurementLoginModal">
+    <div class="login-modal">
+        <div class="modal-header">
+            <button class="close-modal" onclick="closeProcurementModal()"><i class="fas fa-times"></i></button>
+            <img src="static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <h3>Procurement</h3>
+            <p>Sign in to manage requisitions, purchase orders &amp; suppliers</p>
+        </div>
+        <div class="modal-body">
+            <div class="login-form-wrap" id="procurementLoginWrap">
+                <div class="error-message" id="procurementErrorMsg"></div>
+                <form id="procurementLoginForm">
+                    <div class="form-group">
+                        <label>Username / Email</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="procurementEmail" placeholder="admin@connectlinkproperties.co.zw" required>
+                            <div class="input-icon-modal"><i class="fas fa-envelope"></i></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="procurementPassword" placeholder="••••••••" required>
+                            <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleProcurementPassword(event)"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
+                </form>
+                <div class="modal-footer-links">
+                    <a href="#" onclick="event.preventDefault(); toggleResetForm('procurement')">Forgot Password?</a>
+                    <a href="#">Support</a>
+                </div>
+            </div>
+            <!-- First Login: Set New Password -->
+            <div id="procurementSetPasswordForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔑 Set New Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">First-time login — choose your new password</div>
+                <div class="error-message" id="procurementSetPwError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="procurementCurrentPw" placeholder="Temporary password" required>
+                        <div class="input-icon-modal"><i class="fas fa-lock"></i></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="procurementSetNewPw" placeholder="Min 4 characters" required>
+                        <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('procurementSetNewPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <div class="input-group-modal">
+                        <input type="password" class="form-input-modal" id="procurementSetConfirmPw" placeholder="Re-enter new password" required>
+                        <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                        <button type="button" class="password-toggle-modal" onclick="toggleField('procurementSetConfirmPw', event)"><i class="fas fa-eye"></i></button>
+                    </div>
+                </div>
+                <button type="button" class="modal-login-btn" onclick="firstLoginReset('procurement')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Set Password</button>
+            </div>
+            <!-- Reset Password Form (WhatsApp code flow) -->
+            <div id="procurementResetForm" style="display:none;">
+                <div style="text-align:center;margin-bottom:6px;"><span style="font-size:0.7rem;font-weight:700;color:var(--accent);">🔐 Reset Password</span></div>
+                <div style="text-align:center;margin-bottom:8px;font-size:0.6rem;color:var(--gray-500);">A code will be sent to your WhatsApp</div>
+                <div class="error-message" id="procurementResetError" style="font-size:0.6rem;padding:5px 8px;"></div>
+                <div class="success-message" id="procurementResetSuccess" style="display:none;background:#d1fae5;color:#065f46;padding:6px 10px;border-radius:8px;font-size:0.6rem;margin-bottom:6px;"></div>
+                <!-- Step 1: Request code -->
+                <div id="procurementStep1">
+                    <div class="form-group">
+                        <label>Username / Email</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="procurementResetEmail" placeholder="your@email.com" required>
+                            <div class="input-icon-modal"><i class="fas fa-user"></i></div>
+                        </div>
+                    </div>
+                    <button type="button" class="modal-login-btn" onclick="sendResetCode('procurement')" style="margin-bottom:6px;"><i class="fab fa-whatsapp me-1"></i> Send Code to WhatsApp</button>
+                    <div id="procurementCodeSent" style="display:none;font-size:0.55rem;color:#065f46;text-align:center;margin-bottom:4px;"></div>
+                </div>
+                <!-- Step 2: Verify code + set new password -->
+                <div id="procurementStep2" style="display:none;">
+                    <div class="form-group">
+                        <label>Verification Code</label>
+                        <div class="input-group-modal">
+                            <input type="text" class="form-input-modal" id="procurementResetCode" placeholder="6-digit code" maxlength="6" required>
+                            <div class="input-icon-modal"><i class="fas fa-shield-alt"></i></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="procurementNewPw" placeholder="Min 4 characters" required>
+                            <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('procurementNewPw', event)"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="procurementConfirmPw" placeholder="Re-enter new password" required>
+                            <div class="input-icon-modal"><i class="fas fa-check-circle"></i></div>
+                            <button type="button" class="password-toggle-modal" onclick="toggleField('procurementConfirmPw', event)"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </div>
+                    <button type="button" class="modal-login-btn" onclick="verifyResetCode('procurement')" style="margin-bottom:6px;"><i class="fas fa-save me-1"></i> Reset Password</button>
+                </div>
+                <a href="#" onclick="event.preventDefault(); toggleResetForm('procurement')" style="display:block;text-align:center;font-size:0.55rem;color:var(--gray-400);text-decoration:none;margin-top:4px;"><i class="fas fa-arrow-left"></i> Back to login</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Toast Container -->
 <div id="toastContainer" class="toast-container"></div>
 
@@ -2681,7 +2482,7 @@
     <div class="login-modal">
         <div class="modal-header">
             <button class="close-modal" onclick="closeUsersModal()"><i class="fas fa-times"></i></button>
-            <img src="/static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
+            <img src="static/images/web-logo-white.png" alt="ConnectLink" class="modal-logo">
             <h3>User Management</h3>
             <p>Sign in to manage system users &amp; accounts</p>
         </div>
@@ -2795,7 +2596,7 @@
 <!-- Loading Overlay - Dark background with rotating messages -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
-    <img src="/static/images/web-logo-white.png" alt="ConnectLink" style="width:120px;opacity:0.85;margin-bottom:14px;">
+    <img src="static/images/web-logo-white.png" alt="ConnectLink" style="width:120px;opacity:0.85;margin-bottom:14px;">
     <div class="loading-text" id="loadingMessage">Authenticating <span>...</span></div>
     <div class="loading-sub" id="loadingSub">Verifying credentials</div>
 </div>
@@ -2804,7 +2605,7 @@
 <footer class="footer">
     <div class="footer-inner">
         <div class="footer-brand">
-            <img src="/static/images/web-logo.png" alt="ConnectLink">
+            <img src="static/images/web-logo.png" alt="ConnectLink">
             <span>ConnectLink</span>
         </div>
         <p>© 2026 ConnectLink Properties &amp; Hardware — From Concept to Creation, Let's Build Together</p>
@@ -2850,9 +2651,9 @@
     (function() {
         // State management
         const state = {
-            modals: { projects: false, hardware: false, hr: false, users: false },
+            modals: { projects: false, hardware: false, hr: false, users: false, procurement: false },
             loading: false,
-            errors: { projects: '', hardware: '', hr: '', users: '' },
+            errors: { projects: '', hardware: '', hr: '', users: '', procurement: '' },
             loadingInterval: null,
             loadingStep: 0
         };
@@ -2872,6 +2673,7 @@
             hardwareModal: document.getElementById('hardwareLoginModal'),
             hrModal: document.getElementById('hrLoginModal'),
             usersModal: document.getElementById('usersLoginModal'),
+            procurementModal: document.getElementById('procurementLoginModal'),
             loadingOverlay: document.getElementById('loadingOverlay'),
             loadingMessage: document.getElementById('loadingMessage'),
             loadingSub: document.getElementById('loadingSub'),
@@ -2879,10 +2681,12 @@
             hardwareError: document.getElementById('hardwareErrorMsg'),
             hrError: document.getElementById('hrErrorMsg'),
             usersError: document.getElementById('usersErrorMsg'),
+            procurementError: document.getElementById('procurementErrorMsg'),
             projectsForm: document.getElementById('projectsLoginForm'),
             hardwareForm: document.getElementById('hardwareLoginForm'),
             hrForm: document.getElementById('hrLoginForm'),
             usersForm: document.getElementById('usersLoginForm'),
+            procurementForm: document.getElementById('procurementLoginForm'),
             projectsEmail: document.getElementById('projectsEmail'),
             projectsPassword: document.getElementById('projectsPassword'),
             hardwareUsername: document.getElementById('hardwareUsername'),
@@ -2890,7 +2694,9 @@
             hrEmail: document.getElementById('hrEmail'),
             hrPassword: document.getElementById('hrPassword'),
             usersEmail: document.getElementById('usersEmail'),
-            usersPassword: document.getElementById('usersPassword')
+            usersPassword: document.getElementById('usersPassword'),
+            procurementEmail: document.getElementById('procurementEmail'),
+            procurementPassword: document.getElementById('procurementPassword')
         };
 
         // Start loading animation with rotating messages - each once, then stay at final
@@ -2936,13 +2742,15 @@
             if (dom.hardwareModal) dom.hardwareModal.classList.toggle('active', state.modals.hardware);
             if (dom.hrModal) dom.hrModal.classList.toggle('active', state.modals.hr);
             if (dom.usersModal) dom.usersModal.classList.toggle('active', state.modals.users);
-            document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr || state.modals.users) ? 'hidden' : '';
+            if (dom.procurementModal) dom.procurementModal.classList.toggle('active', state.modals.procurement);
+            document.body.style.overflow = (state.modals.projects || state.modals.hardware || state.modals.hr || state.modals.users || state.modals.procurement) ? 'hidden' : '';
             // Log which modals ended up active
             const active = [];
             if (dom.projectsModal?.classList.contains('active')) active.push('projects');
             if (dom.hardwareModal?.classList.contains('active')) active.push('hardware');
             if (dom.hrModal?.classList.contains('active')) active.push('hr');
             if (dom.usersModal?.classList.contains('active')) active.push('users');
+            if (dom.procurementModal?.classList.contains('active')) active.push('procurement');
             console.log('[render] active overlay classes:', active.length ? active : 'none');
             
             // Loading overlay
@@ -2954,10 +2762,11 @@
                 stopLoadingAnimation();
             }
             
-            ['projects', 'hardware', 'hr', 'users'].forEach(type => {
+            ['projects', 'hardware', 'hr', 'users', 'procurement'].forEach(type => {
                 const errorEl = type === 'projects' ? dom.projectsError :
                                type === 'hardware' ? dom.hardwareError :
-                               type === 'hr' ? dom.hrError : dom.usersError;
+                               type === 'hr' ? dom.hrError :
+                               type === 'users' ? dom.usersError : dom.procurementError;
                 if (!errorEl) return;
                 const msg = state.errors[type];
                 if (msg) {
@@ -2980,7 +2789,7 @@
             setTimeout(() => {
                 render();
                 // Focus the first input
-                const focusId = { projects:'projectsEmail', hardware:'hardwareUsername', hr:'hrEmail', users:'usersEmail' }[portal];
+                const focusId = { projects:'projectsEmail', hardware:'hardwareUsername', hr:'hrEmail', users:'usersEmail', procurement:'procurementEmail' }[portal];
                 const inputEl = document.getElementById(focusId);
                 console.log('[openPortal] focusId:', focusId, 'element found:', !!inputEl);
                 if (inputEl) inputEl.focus();
@@ -3027,6 +2836,14 @@
             render();
         }
 
+        function closeProcurementModal() {
+            state.modals.procurement = false;
+            state.errors.procurement = '';
+            const el = document.getElementById('procurementLoginForm');
+            if (el && typeof el.reset === 'function') el.reset();
+            render();
+        }
+
         function showToast(message, type) {
             type = type || 'success';
             const container = document.getElementById('toastContainer');
@@ -3043,7 +2860,8 @@
             if (type === 'projects') state.errors.projects = msg;
             else if (type === 'hardware') state.errors.hardware = msg;
             else if (type === 'hr') state.errors.hr = msg;
-            else state.errors.users = msg;
+            else if (type === 'users') state.errors.users = msg;
+            else state.errors.procurement = msg;
             render();
         }
 
@@ -3088,6 +2906,18 @@
 
         window.toggleHrPassword = function(e) {
             const input = dom.hrPassword;
+            const icon = e.currentTarget.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        };
+
+        window.toggleProcurementPassword = function(e) {
+            const input = dom.procurementPassword;
             const icon = e.currentTarget.querySelector('i');
             if (input.type === 'password') {
                 input.type = 'text';
@@ -3309,6 +3139,7 @@
         window.closeHardwareModal = closeHardwareModal;
         window.closeHrModal = closeHrModal;
         window.closeUsersModal = closeUsersModal;
+        window.closeProcurementModal = closeProcurementModal;
 
         document.querySelectorAll('.system-card').forEach(card => {
             card.addEventListener('click', function(e) {
@@ -3338,6 +3169,9 @@
         dom.usersModal.addEventListener('click', e => {
             if (e.target === dom.usersModal) closeUsersModal();
         });
+        dom.procurementModal.addEventListener('click', e => {
+            if (e.target === dom.procurementModal) closeProcurementModal();
+        });
 
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape') {
@@ -3345,6 +3179,7 @@
                 if (state.modals.hardware) closeHardwareModal();
                 if (state.modals.hr) closeHrModal();
                 if (state.modals.users) closeUsersModal();
+                if (state.modals.procurement) closeProcurementModal();
             }
         });
 
@@ -3537,6 +3372,57 @@
             });
         });
 
+        // Procurement Login
+        dom.procurementForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            setError('procurement', '');
+
+            const email = dom.procurementEmail.value.trim();
+            const password = dom.procurementPassword.value;
+
+            if (!email || !password) {
+                setError('procurement', 'Please fill in all fields');
+                return;
+            }
+
+            setLoading(true);
+
+            const formData = new URLSearchParams();
+            formData.append('emaillogin', email);
+            formData.append('passwordlogin', password);
+
+            fetch('/procurement-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                credentials: 'include',
+                body: formData.toString()
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect || '/procurement';
+                } else if (data.must_reset) {
+                    setLoading(false);
+                    // Show first-login set password form inside the modal (keep modal open)
+                    document.getElementById('procurementLoginWrap').style.display = 'none';
+                    document.getElementById('procurementSetPasswordForm').style.display = 'block';
+                    document.getElementById('procurementResetForm').style.display = 'none';
+                    document.getElementById('procurementEmail').value = data.username;
+                    // Pre-fill current password from what they typed
+                    document.getElementById('procurementCurrentPw').value = dom.procurementPassword.value;
+                    setError('procurement', data.message || 'First-time login — please set a new password.');
+                } else {
+                    setLoading(false);
+                    setError('procurement', data.message || 'Invalid credentials');
+                    dom.procurementPassword.value = '';
+                }
+            })
+            .catch(() => {
+                setLoading(false);
+                setError('procurement', 'Connection error. Please try again.');
+            });
+        });
+
         render();
 
         // ==================== REACT-LIKE ENHANCEMENTS ====================
@@ -3713,13 +3599,13 @@
     })();
 </script>
 <!-- Component Library -->
-<script src="/static/js/components.js"></script>
+<script src="static/js/components.js"></script>
 
 <!-- PWA: Register Service Worker -->
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+        navigator.serviceWorker.register('sw.js').then(function(reg) {
             console.log('PWA: Service Worker registered', reg.scope);
         }).catch(function(err) {
             console.warn('PWA: Service Worker registration failed', err);
