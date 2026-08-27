@@ -468,8 +468,16 @@
             max-height: calc(100vh - 2rem);
             transform: none !important;
         }
-        .modal-xl { --bs-modal-width: 1240px; }
-        .modal-lg { --bs-modal-width: 980px; }
+        .modal-xl { --bs-modal-width: min(90vw, 1240px); }
+        .modal-lg { --bs-modal-width: min(90vw, 980px); }
+
+        /* Scrollable line-items area inside the requisition modal */
+        .pc-item-scroll {
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 6px;
+            scrollbar-width: thin;
+        }
 
         body.dark-theme .modal-content { background:#111A2E; }
         body.dark-theme .modal-header, body.dark-theme .modal-footer { border-color:#1E293B; }
@@ -715,12 +723,12 @@
 
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <label class="pc-form-label mb-0">Line Items</label>
-                    <button type="button" class="pc-btn pc-btn-outline pc-btn-sm" onclick="addItemRow()"><i class="bi bi-plus-lg"></i> Add Item</button>
+                    <button type="button" class="pc-btn pc-btn-primary pc-btn-sm" onclick="addItemRow()"><i class="bi bi-plus-lg"></i> Add Item</button>
                 </div>
                 <div class="pc-item-row fw-semibold" style="font-size:0.56rem;color:#64748B;">
                     <span>Product / Item *</span><span>Category</span><span>Qty *</span><span>Unit Cost (USD)</span><span>Total</span><span>Notes</span><span></span>
                 </div>
-                <div id="itemRows"></div>
+                <div id="itemRows" class="pc-item-scroll"></div>
                 <div class="d-flex justify-content-end mt-2" style="font-size:0.66rem;font-weight:700;">
                     Grand Total: <span class="ms-2 text-danger" id="reqGrandTotal">$0.00</span>
                 </div>
@@ -1257,7 +1265,7 @@ const PROJECT_FIELD_ORDER = [
 
 async function loadProjects() {
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 221, "projectname": "Rainham Park", "clientname": "John Doe", "location": "Harare", "amount": 50000, "deposit": 5000, "status": "Active", "admin": "Admin"}, {"id": 222, "projectname": "Msasa Single Storey", "clientname": "Jane Moyo", "location": "Msasa", "amount": 80000, "deposit": 8000, "status": "Active", "admin": "Admin"}, {"id": 223, "projectname": "Glen View Double Storey", "clientname": "K. Moyo", "location": "Glen View", "amount": 120000, "deposit": 12000, "status": "Pending", "admin": "Admin"}, {"id": 224, "projectname": "Borrowdale Fence", "clientname": "P. Smith", "location": "Borrowdale", "amount": 15000, "deposit": 1500, "status": "Active", "admin": "Admin"}],total:4})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 221, "projectname": "Rainham Park", "clientname": "John Doe", "location": "Harare", "amount": 50000, "deposit": 5000, "status": "Active", "admin": "Admin"}, {"id": 222, "projectname": "Msasa Single Storey", "clientname": "Jane Moyo", "location": "Msasa", "amount": 80000, "deposit": 8000, "status": "Active", "admin": "Admin"}, {"id": 223, "projectname": "Glen View Double Storey", "clientname": "K. Moyo", "location": "Glen View", "amount": 120000, "deposit": 12000, "status": "Pending", "admin": "Admin"}],total:3})));
         const data = await res.json();
         PROJECTS = (data && data.data) || [];
     } catch (e) { PROJECTS = []; }
@@ -1288,7 +1296,13 @@ function setupSearchableCombo(input, listEl, getOptions, onSelect, onInput) {
         if (onInput) onInput(input.value.trim());
     });
     input.addEventListener('blur', () => setTimeout(() => { listEl.style.display = 'none'; }, 150));
-    document.addEventListener('click', () => { listEl.style.display = 'none'; });
+    // Don't close the list when the click that opened it happens inside the input/list
+    // (otherwise the dropdown flashes open then immediately hides).
+    document.addEventListener('click', (e) => {
+        if (listEl.style.display === 'block' && !input.contains(e.target) && !listEl.contains(e.target)) {
+            listEl.style.display = 'none';
+        }
+    });
 }
 
 function setupReqDepartment() {
