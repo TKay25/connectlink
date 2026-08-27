@@ -1791,21 +1791,13 @@
         .system-card h3 { margin-bottom: 2px; }
         .system-card p { line-height: 1.25; }
 
-        /* ---------- Portal cards as a 2-column app grid (v5 — makes room for the 5th portal) ---------- */
-        /* 5 cards in a 2-col grid = 3 rows, SHORTER than the old 4-card single column,
-           so the landing page still fits one screen. Procurement spans the bottom row. */
+        /* ---------- Portal cards stacked in a single column (v6) ---------- */
         .portal-section .cards-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
+            flex-direction: column;
             gap: 10px;
-            align-items: stretch;
         }
-        .portal-section .system-card { min-height: 96px; }
-        .portal-section .system-card[data-portal="procurement"] { grid-column: 1 / -1; }
-        @media (max-width: 768px) {
-            .portal-section .cards-container { grid-template-columns: 1fr; }
-            .portal-section .system-card[data-portal="procurement"] { grid-column: auto; }
-        }
+        .portal-section .system-card { width: 100%; }
 
         /* ---------- Reduced motion ---------- */
         @media (prefers-reduced-motion: reduce) {
