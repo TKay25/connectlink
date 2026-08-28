@@ -1428,6 +1428,7 @@
         .system-card[data-portal="hr"]       { --card-accent: #7c3aed; --card-accent-2: #6d28d9; }
         .system-card[data-portal="users"]    { --card-accent: #d97706; --card-accent-2: #b45309; }
         .system-card[data-portal="procurement"] { --card-accent: #0891b2; --card-accent-2: #0e7490; }
+        .system-card[data-portal="finance"]    { --card-accent: #e11d48; --card-accent-2: #be123c; }
         .system-card { --card-accent: #C12B3E; --card-accent-2: #9B1D2C; }
 
         /* Left accent bar */
@@ -1992,6 +1993,26 @@
                             <p>Requisitions, approvals, purchase orders &amp; supplier management</p>
                             <div class="card-tags">
                                 <span>Requisitions</span><span>Purchase Orders</span><span>Suppliers</span>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <span class="card-badge">v1.0</span>
+                            <button class="btn-explore">
+                                Access <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="system-card" data-portal="finance">
+                        <span class="card-index">06</span>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-balance-scale"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Finance</h3>
+                            <p>Profit &amp; Loss, income statement &amp; cash flow for the whole operation</p>
+                            <div class="card-tags">
+                                <span>P&amp;L</span><span>Income</span><span>Cash Flow</span>
                             </div>
                         </div>
                         <div class="card-actions">
@@ -2772,6 +2793,7 @@
 
         function openPortal(portal) {
             console.log('[openPortal] called for:', portal);
+            if (portal === 'finance') { window.location.href = '/finance'; return; }
             // Close all modals first, then open only the one clicked
             Object.keys(state.modals).forEach(k => state.modals[k] = false);
             Object.keys(state.errors).forEach(k => state.errors[k] = '');

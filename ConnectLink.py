@@ -1770,6 +1770,14 @@ def initialize_database_tables():
             """)
             connection.commit()
 
+            # Funding source on procurement spend: 'business' (from own cash flows) or 'injection' (capital injection into the business)
+            try:
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS funding_source VARCHAR(20) DEFAULT 'business'")
+                cursor.execute("ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS funding_source VARCHAR(20) DEFAULT 'business'")
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add funding_source columns: {e}")
+
             print("✅ Procurement & requisitions tables initialized!")
 
             # ========== HR MODULE TABLES ==========
@@ -36497,7 +36505,8 @@ def procurement_api_purchase_orders():
             cursor.execute("""
                 SELECT po.id, po.po_no, po.supplier_id, po.supplier_name, po.supplier_phone, po.requisition_ids,
                        po.status, po.total_amount, po.expected_delivery, po.created_by, po.created_at, po.received_at,
-                       (SELECT COUNT(*) FROM procurement_attachments pa WHERE pa.po_id = po.id) AS attach_count
+                       (SELECT COUNT(*) FROM procurement_attachments pa WHERE pa.po_id = po.id) AS attach_count,
+                       po.funding_source
                 FROM purchase_orders po ORDER BY po.created_at DESC
             """)
             rows = cursor.fetchall()
@@ -36510,7 +36519,8 @@ def procurement_api_purchase_orders():
                     'expected_delivery': str(r[8]) if r[8] else None,
                     'created_by': r[9], 'created_at': str(r[10]) if r[10] else None,
                     'received_at': str(r[11]) if r[11] else None,
-                    'attachments_count': r[12] or 0
+                    'attachments_count': r[12] or 0,
+                    'funding_source': r[13] or 'business'
                 })
             return jsonify({'success': True, 'data': pos})
     except Exception as e:
@@ -36553,12 +36563,15 @@ def procurement_api_create_purchase_order():
             po_id = cursor.fetchone()[0]
             po_no = f'PO-{po_id:04d}'
             total = sum(float(i[3] or 0) * int(i[2] or 0) for i in items)
+            funding_source = (data.get('funding_source') or 'business').strip().lower()
+            if funding_source not in ('business', 'injection'):
+                funding_source = 'business'
             cursor.execute("""
                 INSERT INTO purchase_orders (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids,
-                                             status, total_amount, expected_delivery, created_by)
-                VALUES (%s, %s, %s, %s, %s, 'ordered', %s, %s, %s)
+                                             status, total_amount, expected_delivery, created_by, funding_source)
+                VALUES (%s, %s, %s, %s, %s, 'ordered', %s, %s, %s, %s)
             """, (po_no, supplier_id, supplier_name, supplier_phone, ','.join(str(x) for x in req_ids), total,
-                  expected_delivery or None, user['name']))
+                  expected_delivery or None, user['name'], funding_source))
             for it in items:
                 cursor.execute("""
                     INSERT INTO grn_lines (purchase_order_id, product_id, product_name,
@@ -36879,14 +36892,15 @@ def procurement_api_payables():
                 'outstanding': max(0.0, float(r[3] or 0) - float(r[4] or 0))
             } for r in rows]
             cursor.execute("""
-                SELECT id, supplier_id, supplier_name, amount, payment_date, payment_method, reference, notes, created_by, created_at
+                SELECT id, supplier_id, supplier_name, amount, payment_date, payment_method, reference, notes, created_by, created_at, funding_source
                 FROM supplier_payments ORDER BY payment_date DESC, id DESC LIMIT 100
             """)
             pays = cursor.fetchall()
             payments = [{
                 'id': p[0], 'supplier_id': p[1], 'supplier_name': p[2], 'amount': float(p[3] or 0),
                 'payment_date': str(p[4]) if p[4] else None, 'payment_method': p[5], 'reference': p[6],
-                'notes': p[7], 'created_by': p[8], 'created_at': str(p[9]) if p[9] else None
+                'notes': p[7], 'created_by': p[8], 'created_at': str(p[9]) if p[9] else None,
+                'funding_source': p[10] or 'business'
             } for p in pays]
             return jsonify({'success': True, 'data': {'payables': payables, 'payments': payments}})
     except Exception as e:
@@ -36908,11 +36922,14 @@ def procurement_api_add_payment():
             cursor.execute("SELECT name FROM suppliers WHERE id = %s", (supplier_id,))
             s = cursor.fetchone()
             supplier_name = s[0] if s else 'Supplier'
+            funding_source = (data.get('funding_source') or 'business').strip().lower()
+            if funding_source not in ('business', 'injection'):
+                funding_source = 'business'
             cursor.execute("""
-                INSERT INTO supplier_payments (supplier_id, supplier_name, amount, payment_date, payment_method, reference, notes, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO supplier_payments (supplier_id, supplier_name, amount, payment_date, payment_method, reference, notes, created_by, funding_source)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (supplier_id, supplier_name, round(amount, 2), data.get('payment_date') or None,
-                  data.get('payment_method'), data.get('reference'), data.get('notes'), user['name']))
+                  data.get('payment_method'), data.get('reference'), data.get('notes'), user['name'], funding_source))
             connection.commit()
             log_activity('supplier_payment', f'Recorded payment ${amount:,.2f} to {supplier_name}', 'supplier', supplier_id)
             return jsonify({'success': True, 'message': f'Payment of ${amount:,.2f} recorded.'})
@@ -37751,6 +37768,248 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
         except Exception:
             pass
         return True
+
+
+# ============================================================
+# FINANCE PORTAL — Income Statement (P&L) & Cash Flow
+# Fully additive: reads from existing tables only, changes nothing.
+# ============================================================
+
+@app.route('/finance')
+def finance_page():
+    if not session.get('user_id') and not session.get('userid'):
+        return redirect('/')
+    return render_template('finance.html',
+                           user_name=session.get('user_name') or session.get('full_name') or 'User')
+
+
+@app.route('/api/finance/statements', methods=['GET'])
+@login_required
+def api_finance_statements():
+    """Income Statement (P&L) + Cash Flow for the whole operation over a date range."""
+    try:
+        start = (request.args.get('start_date') or '').strip()
+        end = (request.args.get('end_date') or '').strip()
+        today = date.today()
+        if not start:
+            start = today.replace(day=1).isoformat()
+        if not end:
+            end = today.isoformat()
+        start_period = start[:7]
+        end_period = end[:7]
+
+        with get_db() as (cursor, connection):
+            # POS revenue by payment method (completed, non-voided sales)
+            cursor.execute("""
+                SELECT COALESCE(SUM(CASE WHEN lower(t.payment_method) = 'cash' THEN t.total ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN lower(t.payment_method) <> 'cash' THEN t.total ELSE 0 END), 0)
+                FROM transactions t
+                WHERE t.voided = FALSE AND t.created_at::date BETWEEN %s AND %s
+            """, (start, end))
+            pos_cash, pos_noncash = cursor.fetchone()
+
+            # COGS (transaction items x product buy_price)
+            cursor.execute("""
+                SELECT COALESCE(SUM(ti.quantity * COALESCE(p.buy_price, 0)), 0)
+                FROM transaction_items ti
+                JOIN transactions t ON t.id = ti.transaction_id AND t.voided = FALSE
+                LEFT JOIN products p ON p.id = ti.product_id
+                WHERE t.created_at::date BETWEEN %s AND %s
+            """, (start, end))
+            cogs = cursor.fetchone()[0]
+
+            # Project payments received (deposit + installments with a payment date in range)
+            cursor.execute("""
+                SELECT COALESCE(SUM(p.amount), 0) FROM (
+                    SELECT datedepositorbullet AS paid_on, depositorbullet AS amount FROM connectlinkdatabase
+                        WHERE datedepositorbullet IS NOT NULL AND depositorbullet IS NOT NULL
+                    UNION ALL SELECT installment1date, installment1amount FROM connectlinkdatabase
+                        WHERE installment1date IS NOT NULL AND installment1amount IS NOT NULL
+                    UNION ALL SELECT installment2date, installment2amount FROM connectlinkdatabase
+                        WHERE installment2date IS NOT NULL AND installment2amount IS NOT NULL
+                    UNION ALL SELECT installment3date, installment3amount FROM connectlinkdatabase
+                        WHERE installment3date IS NOT NULL AND installment3amount IS NOT NULL
+                    UNION ALL SELECT installment4date, installment4amount FROM connectlinkdatabase
+                        WHERE installment4date IS NOT NULL AND installment4amount IS NOT NULL
+                    UNION ALL SELECT installment5date, installment5amount FROM connectlinkdatabase
+                        WHERE installment5date IS NOT NULL AND installment5amount IS NOT NULL
+                    UNION ALL SELECT installment6date, installment6amount FROM connectlinkdatabase
+                        WHERE installment6date IS NOT NULL AND installment6amount IS NOT NULL
+                    UNION ALL SELECT installment7date, installment7amount FROM connectlinkdatabase
+                        WHERE installment7date IS NOT NULL AND installment7amount IS NOT NULL
+                    UNION ALL SELECT installment8date, installment8amount FROM connectlinkdatabase
+                        WHERE installment8date IS NOT NULL AND installment8amount IS NOT NULL
+                    UNION ALL SELECT installment9date, installment9amount FROM connectlinkdatabase
+                        WHERE installment9date IS NOT NULL AND installment9amount IS NOT NULL
+                    UNION ALL SELECT installment10date, installment10amount FROM connectlinkdatabase
+                        WHERE installment10date IS NOT NULL AND installment10amount IS NOT NULL
+                ) p WHERE p.paid_on BETWEEN %s AND %s
+            """, (start, end))
+            project_received = cursor.fetchone()[0]
+
+            # Payroll gross + net for periods in range
+            cursor.execute("""
+                SELECT COALESCE(SUM(basic_pay + allowances), 0), COALESCE(SUM(net_pay), 0)
+                FROM hr_payroll WHERE period BETWEEN %s AND %s
+            """, (start_period, end_period))
+            payroll_gross, payroll_net = cursor.fetchone()
+
+            # Commissions for periods in range
+            cursor.execute("""
+                SELECT COALESCE(SUM(amount), 0) FROM hr_commissions WHERE period BETWEEN %s AND %s
+            """, (start_period, end_period))
+            commissions = cursor.fetchone()[0]
+
+            # Purchases (POs created in range) split by funding source
+            cursor.execute("""
+                SELECT COALESCE(SUM(CASE WHEN COALESCE(po.funding_source,'business') = 'injection' THEN po.total_amount ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN COALESCE(po.funding_source,'business') = 'business' THEN po.total_amount ELSE 0 END), 0)
+                FROM purchase_orders po
+                WHERE po.created_at::date BETWEEN %s AND %s AND po.status IN ('ordered','partial','received')
+            """, (start, end))
+            purchases_inj, purchases_biz = cursor.fetchone()
+
+            # Supplier payments in range split by funding source
+            cursor.execute("""
+                SELECT COALESCE(SUM(CASE WHEN COALESCE(sp.funding_source,'business') = 'injection' THEN sp.amount ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN COALESCE(sp.funding_source,'business') = 'business' THEN sp.amount ELSE 0 END), 0)
+                FROM supplier_payments sp WHERE sp.payment_date BETWEEN %s AND %s
+            """, (start, end))
+            supplier_inj, supplier_biz = cursor.fetchone()
+
+        pos_cash = float(pos_cash or 0)
+        pos_noncash = float(pos_noncash or 0)
+        pos_revenue = pos_cash + pos_noncash
+        cogs = float(cogs or 0)
+        project_received = float(project_received or 0)
+        payroll_gross = float(payroll_gross or 0)
+        payroll_net = float(payroll_net or 0)
+        commissions = float(commissions or 0)
+        purchases_inj = float(purchases_inj or 0)
+        purchases_biz = float(purchases_biz or 0)
+        supplier_inj = float(supplier_inj or 0)
+        supplier_biz = float(supplier_biz or 0)
+        purchases = purchases_biz + purchases_inj
+        supplier_paid = supplier_biz + supplier_inj
+
+        total_revenue = pos_revenue + project_received
+        gross_profit = total_revenue - cogs
+        total_expenses = payroll_gross + commissions
+        net_profit = gross_profit - total_expenses
+
+        # ---- Cash flow: operating vs financing (capital injections) ----
+        op_inflows = pos_cash + pos_noncash + project_received
+        op_outflows = supplier_biz + purchases_biz + payroll_net + commissions
+        net_operating = op_inflows - op_outflows
+        injections_in = supplier_inj + purchases_inj   # capital injected into the business to fund this spend
+        injections_out = supplier_inj + purchases_inj  # the injection-funded spend itself
+        net_financing = injections_in - injections_out
+        net_cashflow = net_operating + net_financing
+
+        # ---- Balance sheet (Statement of Financial Position, management estimate) ----
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT COALESCE(SUM(p.stock * COALESCE(p.buy_price, 0)), 0) FROM products p")
+            inventory_value = float(cursor.fetchone()[0] or 0)
+
+            # Accounts receivable = unpaid project balances (contract amount - deposit paid - paid installments)
+            cursor.execute("""
+                SELECT id, clientname, projectname, totalcontractamount,
+                       depositorbullet, datedepositorbullet,
+                       installment1amount, installment1date, installment2amount, installment2date,
+                       installment3amount, installment3date, installment4amount, installment4date,
+                       installment5amount, installment5date, installment6amount, installment6date,
+                       installment7amount, installment7date, installment8amount, installment8date,
+                       installment9amount, installment9date, installment10amount, installment10date
+                FROM connectlinkdatabase
+            """)
+            projs = cursor.fetchall()
+            receivables = 0.0
+            for row in projs:
+                total_contract = float(row[3] or 0)
+                paid = 0.0
+                if row[5] is not None:  # datedepositorbullet set => deposit paid
+                    paid += float(row[4] or 0)
+                for k in range(6, 25, 2):  # installment amounts (k) + paid dates (k+1)
+                    if row[k + 1] is not None:
+                        paid += float(row[k] or 0)
+                receivables += max(0.0, total_contract - paid)
+
+            cursor.execute("""
+                SELECT
+                  (SELECT COALESCE(SUM(total_amount),0) FROM purchase_orders WHERE COALESCE(funding_source,'business') = 'injection'),
+                  (SELECT COALESCE(SUM(amount),0) FROM supplier_payments WHERE COALESCE(funding_source,'business') = 'injection'),
+                  (SELECT COALESCE(SUM(CASE WHEN status IN ('received','partial') THEN total_amount ELSE 0 END),0) FROM purchase_orders),
+                  (SELECT COALESCE(SUM(amount),0) FROM supplier_payments)
+            """)
+            bs = cursor.fetchone()
+            inj_po = float(bs[0] or 0)
+            inj_pay = float(bs[1] or 0)
+            received_po = float(bs[2] or 0)
+            paid_all = float(bs[3] or 0)
+
+            # Cumulative retained earnings = all-time net profit estimate
+            cursor.execute("SELECT COALESCE(SUM(t.total),0) FROM transactions t WHERE t.voided = FALSE")
+            at_pos_rev = float(cursor.fetchone()[0] or 0)
+            cursor.execute("""
+                SELECT COALESCE(SUM(ti.quantity * COALESCE(p.buy_price,0)),0)
+                FROM transaction_items ti JOIN transactions t ON t.id = ti.transaction_id AND t.voided = FALSE
+                LEFT JOIN products p ON p.id = ti.product_id
+            """)
+            at_cogs = float(cursor.fetchone()[0] or 0)
+            cursor.execute("SELECT COALESCE(SUM(basic_pay + allowances),0) FROM hr_payroll")
+            at_payroll = float(cursor.fetchone()[0] or 0)
+            cursor.execute("SELECT COALESCE(SUM(amount),0) FROM hr_commissions")
+            at_comm = float(cursor.fetchone()[0] or 0)
+            retained_earnings = at_pos_rev - at_cogs - at_payroll - at_comm
+
+        injections_total = inj_po + inj_pay
+        supplier_payables = max(0.0, received_po - paid_all)
+        equity = injections_total + retained_earnings
+        assets_no_cash = inventory_value + receivables
+        derived_cash = max(0.0, supplier_payables + equity - assets_no_cash)
+        total_assets = inventory_value + receivables + derived_cash
+
+        return jsonify({'success': True, 'data': {
+            'range': {'start_date': start, 'end_date': end},
+            'income': {
+                'pos_revenue': pos_revenue, 'pos_cash': pos_cash, 'pos_noncash': pos_noncash,
+                'project_received': project_received, 'total_revenue': total_revenue,
+                'cogs': cogs, 'gross_profit': gross_profit,
+                'payroll': payroll_gross, 'commissions': commissions,
+                'total_expenses': total_expenses, 'net_profit': net_profit
+            },
+            'cashflow': {
+                'in_cash': pos_cash, 'in_bank': pos_noncash, 'in_projects': project_received,
+                'total_inflows': op_inflows,
+                'out_suppliers_biz': supplier_biz, 'out_purchases_biz': purchases_biz,
+                'out_suppliers_inj': supplier_inj, 'out_purchases_inj': purchases_inj,
+                'out_payroll': payroll_net, 'out_commissions': commissions,
+                'total_operating_outflows': op_outflows, 'net_operating': net_operating,
+                'injections_in': injections_in, 'injections_out': injections_out,
+                'net_financing': net_financing,
+                'total_outflows': op_outflows + injections_out,
+                'net_cashflow': net_cashflow
+            },
+            'funding': {
+                'purchases_biz': purchases_biz, 'purchases_inj': purchases_inj,
+                'supplier_biz': supplier_biz, 'supplier_inj': supplier_inj,
+                'total_biz': supplier_biz + purchases_biz,
+                'total_inj': supplier_inj + purchases_inj
+            },
+            'balance_sheet': {
+                'inventory_value': inventory_value,
+                'receivables': receivables,
+                'derived_cash': derived_cash,
+                'total_assets': total_assets,
+                'supplier_payables': supplier_payables,
+                'injections_total': injections_total,
+                'retained_earnings': retained_earnings,
+                'total_equity_liabilities': supplier_payables + equity
+            }
+        }})
+    except Exception as e:
+        print(f"Finance statements error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 

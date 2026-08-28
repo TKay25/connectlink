@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ConnectLink | Finance</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/design-system.css') }}" rel="stylesheet">
+<style>
+    :root {
+        --primary: #C12B3E;
+        --primary-2: #E91E63;
+        --accent-cyan: #0891B2;
+        --accent-gold: #D97706;
+        --navy: #0E1F42;
+        --ink: #0F172A;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background:
+            radial-gradient(1100px 620px at 8% -8%, rgba(193,43,62,0.14), transparent 55%),
+            radial-gradient(900px 520px at 108% 8%, rgba(8,145,178,0.14), transparent 55%),
+            radial-gradient(1000px 700px at 50% 120%, rgba(14,31,66,0.16), transparent 55%),
+            #F4F6FB;
+        color: var(--ink); min-height: 100vh;
+    }
+    body.dark-theme { background: #0B1220; color: #E2E8F0; }
+
+    .pc-navbar {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:10px 22px; position:sticky; top:0; z-index:1030;
+        background: rgba(255,255,255,0.72); backdrop-filter: blur(14px);
+        border-bottom:1px solid rgba(226,232,240,0.8);
+    }
+    body.dark-theme .pc-navbar { background: rgba(11,18,32,0.8); border-color:#1E293B; }
+    .brand { display:flex; align-items:center; gap:10px; cursor:pointer; text-decoration:none; color:inherit; }
+    .brand img { height:34px; width:34px; border-radius:8px; }
+    .brand-text { font-weight:800; font-size:1rem; letter-spacing:0.3px; }
+    .brand-text span { background: linear-gradient(90deg, var(--primary), var(--accent-cyan)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+    .brand-badge { font-size:0.55rem; background:#EEF2F7; padding:2px 8px; border-radius:20px; color:#475569; }
+    body.dark-theme .brand-badge { background:#1E293B; color:#94A3B8; }
+    .nav-actions { display:flex; align-items:center; gap:10px; }
+
+    .pc-layout { display:flex; min-height:calc(100vh - 57px); }
+    .pc-sidebar {
+        width:220px; padding:14px 10px; flex-shrink:0;
+        background: rgba(255,255,255,0.6); backdrop-filter: blur(10px);
+        border-right:1px solid rgba(226,232,240,0.8);
+    }
+    body.dark-theme .pc-sidebar { background: rgba(11,18,32,0.6); border-color:#1E293B; }
+    .pc-side-label { font-size:0.58rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#94A3B8; margin:6px 10px 10px; }
+    .pc-nav-btn {
+        display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+        background:transparent; border:none; color:#475569; font-size:0.72rem; font-weight:600;
+        padding:9px 12px; border-radius:9px; margin-bottom:4px; transition:all .18s;
+    }
+    .pc-nav-btn i { font-size:0.85rem; width:18px; text-align:center; }
+    .pc-nav-btn:hover { background:#EEF2F7; color:var(--primary); }
+    .pc-nav-btn.active { background: linear-gradient(90deg, var(--primary), var(--primary-2)); color:#fff; box-shadow:0 6px 14px -6px rgba(193,43,62,.5); }
+    body.dark-theme .pc-nav-btn { color:#CBD5E1; }
+    body.dark-theme .pc-nav-btn:hover { background:#1E293B; }
+
+    .pc-main { flex:1; padding:22px 26px; overflow:auto; }
+    .pc-eyebrow { font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:1.4px; color:var(--primary); }
+    .pc-page-title { font-size:1.5rem; font-weight:800; margin:2px 0 4px; }
+    .pc-page-sub { font-size:0.78rem; color:#64748B; margin:0 0 16px; }
+    body.dark-theme .pc-page-sub { color:#94A3B8; }
+
+    .pc-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    .pc-preset { background:#fff; border:1px solid #E2E8F0; border-radius:8px; padding:6px 12px; font-size:0.68rem; font-weight:600; color:#475569; cursor:pointer; transition:all .15s; }
+    .pc-preset:hover { border-color:var(--primary); color:var(--primary); }
+    .pc-preset.active { background: var(--primary); color:#fff; border-color:var(--primary); }
+    body.dark-theme .pc-preset { background:#1E293B; border-color:#334155; color:#CBD5E1; }
+    .pc-date { border:1px solid #E2E8F0; border-radius:8px; padding:6px 9px; font-size:0.68rem; background:#fff; color:var(--ink); }
+    body.dark-theme .pc-date { background:#0B1220; border-color:#334155; color:#E2E8F0; }
+
+    .pc-btn {
+        display:inline-flex; align-items:center; gap:6px; border:none; border-radius:8px;
+        padding:7px 14px; font-size:0.7rem; font-weight:700; cursor:pointer; transition:all .18s; text-decoration:none;
+    }
+    .pc-btn-primary { background: linear-gradient(90deg, var(--primary), var(--primary-2)); color:#fff; box-shadow:0 8px 18px -8px rgba(193,43,62,.6); }
+    .pc-btn-primary:hover { transform:translateY(-1px); filter:brightness(1.05); }
+    .pc-btn-outline { background:#fff; border:1px solid #E2E8F0; color:#475569; }
+    .pc-btn-outline:hover { border-color:var(--primary); color:var(--primary); }
+    body.dark-theme .pc-btn-outline { background:#1E293B; border-color:#334155; color:#CBD5E1; }
+
+    .pc-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+    .pc-kpi-card {
+        position:relative; overflow:hidden; border-radius:14px; padding:16px 18px; background:rgba(255,255,255,0.85);
+        box-shadow:0 10px 30px -14px rgba(15,23,42,.18); border:1px solid rgba(226,232,240,.8); backdrop-filter: blur(8px);
+    }
+    .pc-kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, var(--primary), var(--primary-2)); }
+    .kpi-label { font-size:0.62rem; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:.6px; }
+    .kpi-value { font-size:1.45rem; font-weight:800; color:var(--ink); margin-top:2px; }
+    .kpi-value.pos { color:#15803D; } .kpi-value.neg { color:#DC2626; }
+    body.dark-theme .pc-kpi-card { background:rgba(17,26,46,.8); border-color:#1E293B; }
+    body.dark-theme .kpi-value { color:#E2E8F0; }
+
+    .pc-panel { background:#fff; border:1px solid #E2E8F0; border-radius:14px; overflow:hidden; box-shadow:0 8px 24px -16px rgba(15,23,42,.15); margin-bottom:18px; }
+    body.dark-theme .pc-panel { background:#111A2E; border-color:#1E293B; }
+    .pc-panel-head { display:flex; align-items:center; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF2F7; }
+    body.dark-theme .pc-panel-head { border-color:#1E293B; }
+    .pc-panel-title { font-size:0.78rem; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:8px; }
+    .pc-panel-title i { color:var(--primary); }
+    body.dark-theme .pc-panel-title { color:#E2E8F0; }
+    .pc-panel-body { padding:10px 18px; }
+
+    .fin-table { width:100%; border-collapse:collapse; }
+    .fin-table td { padding:9px 10px; font-size:0.74rem; border-bottom:1px solid #F1F5F9; }
+    .fin-table tr.section td { font-size:0.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:#64748B; background:#F8FAFC; padding-top:11px; }
+    .fin-table tr.total td { font-weight:800; font-size:0.82rem; color:var(--ink); background:#FBFDFF; border-top:2px solid #E2E8F0; }
+    .fin-table td.num { text-align:right; font-variant-numeric: tabular-nums; }
+    .fin-table td.pos { color:#15803D; } .fin-table td.neg { color:#DC2626; }
+    body.dark-theme .fin-table td { border-color:#1E293B; }
+    body.dark-theme .fin-table tr.section td { background:#0F172A; color:#94A3B8; }
+    body.dark-theme .fin-table tr.total td { color:#E2E8F0; background:#0F172A; }
+
+    .pc-view { display:none; }
+    .pc-view.active { display:block; }
+    .pc-note { font-size:0.62rem; color:#94A3B8; margin-top:8px; }
+    #pcToasts { position:fixed; top:16px; right:16px; z-index:2000; display:flex; flex-direction:column; gap:8px; }
+    .pc-toast { background:#0F172A; color:#fff; padding:10px 16px; border-radius:10px; font-size:0.72rem; box-shadow:0 12px 30px -10px rgba(0,0,0,.4); }
+    .pc-toast-success { border-left:4px solid #22C55E; }
+    .pc-toast-error { border-left:4px solid #EF4444; }
+
+    @media (max-width: 1000px) { .pc-kpi-grid { grid-template-columns:repeat(2,1fr); } .pc-sidebar { width:170px; } }
+    @media (max-width: 720px) { .pc-kpi-grid { grid-template-columns:1fr; } .pc-layout { flex-direction:column; } .pc-sidebar { width:100%; } }
+</style>
+</head>
+<body>
+
+<nav class="pc-navbar">
+    <div class="brand" onclick="location.href='/'">
+        <img src="/static/images/web-logo.png" alt="ConnectLink">
+        <span class="brand-text">ConnectLink <span>Finance</span></span>
+        <span class="brand-badge">v1.0</span>
+    </div>
+    <div class="nav-actions">
+        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="toggleTheme()" title="Toggle theme"><i class="bi bi-moon" id="themeIcon"></i></button>
+        <div class="brand-badge" style="padding:6px 12px;font-size:0.68rem;">{{ user_name or 'User' }}</div>
+    </div>
+</nav>
+
+<div class="pc-layout">
+    <aside class="pc-sidebar">
+        <div class="pc-side-label">Finance</div>
+        <button class="pc-nav-btn active" data-view="income" onclick="showView('income')"><i class="bi bi-file-earmark-text"></i> Income Statement</button>
+        <button class="pc-nav-btn" data-view="cashflow" onclick="showView('cashflow')"><i class="bi bi-cash-stack"></i> Cash Flow</button>
+        <button class="pc-nav-btn" data-view="balance" onclick="showView('balance')"><i class="bi bi-safe"></i> Balance Sheet</button>
+        <div class="pc-side-label" style="margin-top:18px;">Whole Operation</div>
+        <button class="pc-nav-btn" onclick="location.href='/'"><i class="bi bi-house"></i> Back to Home</button>
+    </aside>
+
+    <main class="pc-main">
+        <div class="pc-eyebrow">Finance Suite</div>
+        <h1 class="pc-page-title" id="pageTitle">Income Statement (P&amp;L)</h1>
+        <p class="pc-page-sub" id="pageSub">Profit &amp; loss, income and cash flow across the whole operation — POS, projects, HR &amp; procurement.</p>
+
+        <div class="pc-toolbar">
+            <button class="pc-preset active" data-preset="month" onclick="setPreset('month')">This Month</button>
+            <button class="pc-preset" data-preset="lastmonth" onclick="setPreset('lastmonth')">Last Month</button>
+            <button class="pc-preset" data-preset="quarter" onclick="setPreset('quarter')">This Quarter</button>
+            <button class="pc-preset" data-preset="year" onclick="setPreset('year')">This Year</button>
+            <button class="pc-preset" data-preset="all" onclick="setPreset('all')">All Time</button>
+            <input type="date" class="pc-date" id="finStart">
+            <span style="font-size:0.7rem;color:#94A3B8;">to</span>
+            <input type="date" class="pc-date" id="finEnd">
+            <button class="pc-btn pc-btn-primary" onclick="applyRange()"><i class="bi bi-search"></i> Apply</button>
+            <button class="pc-btn pc-btn-outline" onclick="exportStatements()"><i class="bi bi-file-earmark-excel"></i> Export</button>
+        </div>
+
+        <div class="pc-kpi-grid">
+            <div class="pc-kpi-card"><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="kpiRevenue">$0.00</div></div>
+            <div class="pc-kpi-card"><div class="kpi-label">Total Expenses</div><div class="kpi-value neg" id="kpiExpenses">$0.00</div></div>
+            <div class="pc-kpi-card"><div class="kpi-label">Net Profit</div><div class="kpi-value" id="kpiProfit">$0.00</div></div>
+            <div class="pc-kpi-card"><div class="kpi-label">Net Cash Flow</div><div class="kpi-value" id="kpiCashflow">$0.00</div></div>
+        </div>
+
+        <div class="pc-view active" id="view-income">
+            <div class="pc-panel">
+                <div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-file-earmark-text"></i> Income Statement (Profit &amp; Loss)</div><span style="font-size:0.66rem;color:#94A3B8;" id="rangeLabel"></span></div>
+                <div class="pc-panel-body">
+                    <table class="fin-table">
+                        <tr class="section"><td colspan="2">Revenue</td></tr>
+                        <tr><td>Hardware Sales (POS)</td><td class="num" id="inPosRev">$0.00</td></tr>
+                        <tr><td style="padding-left:22px;">— Cash</td><td class="num" id="inPosCash">$0.00</td></tr>
+                        <tr><td style="padding-left:22px;">— Bank / Mobile</td><td class="num" id="inPosNoncash">$0.00</td></tr>
+                        <tr><td>Project Payments Received</td><td class="num" id="inProjects">$0.00</td></tr>
+                        <tr class="total"><td>Total Revenue</td><td class="num" id="inTotalRev">$0.00</td></tr>
+                        <tr class="section"><td colspan="2">Cost of Goods Sold</td></tr>
+                        <tr><td>Hardware COGS (cost of items sold)</td><td class="num neg" id="inCogs">$0.00</td></tr>
+                        <tr class="total"><td>Gross Profit</td><td class="num" id="inGross">$0.00</td></tr>
+                        <tr class="section"><td colspan="2">Operating Expenses</td></tr>
+                        <tr><td>Payroll (gross)</td><td class="num neg" id="inPayroll">$0.00</td></tr>
+                        <tr><td>Commissions</td><td class="num neg" id="inCommissions">$0.00</td></tr>
+                        <tr class="total"><td>Total Operating Expenses</td><td class="num neg" id="inExpenses">$0.00</td></tr>
+                        <tr class="total"><td>NET PROFIT</td><td class="num" id="inNet">$0.00</td></tr>
+                    </table>
+                    <p class="pc-note">Hardware COGS is estimated from current product buy prices × quantities sold. Payroll uses gross pay (basic + allowances) for the period.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="pc-view" id="view-cashflow">
+            <div class="pc-panel">
+                <div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-cash-stack"></i> Cash Flow Statement</div><span style="font-size:0.66rem;color:#94A3B8;" id="rangeLabel2"></span></div>
+                <div class="pc-panel-body">
+                    <table class="fin-table">
+                        <tr class="section"><td colspan="2">Cash from Operations — Inflows</td></tr>
+                        <tr><td>POS — Cash Sales</td><td class="num" id="cfInCash">$0.00</td></tr>
+                        <tr><td>POS — Bank / Mobile</td><td class="num" id="cfInBank">$0.00</td></tr>
+                        <tr><td>Project Payments Received</td><td class="num" id="cfInProjects">$0.00</td></tr>
+                        <tr class="total"><td>Total Inflows</td><td class="num" id="cfTotalIn">$0.00</td></tr>
+                        <tr class="section"><td colspan="2">Operating Outflows (from business cash flows)</td></tr>
+                        <tr><td>Supplier Payments</td><td class="num neg" id="cfOutSuppliersBiz">$0.00</td></tr>
+                        <tr><td>Purchases (Purchase Orders)</td><td class="num neg" id="cfOutPurchasesBiz">$0.00</td></tr>
+                        <tr><td>Payroll (net paid)</td><td class="num neg" id="cfOutPayroll">$0.00</td></tr>
+                        <tr><td>Commissions</td><td class="num neg" id="cfOutCommissions">$0.00</td></tr>
+                        <tr class="total"><td>Total Operating Outflows</td><td class="num neg" id="cfTotalOpOut">$0.00</td></tr>
+                        <tr class="total"><td>NET OPERATING CASH FLOW</td><td class="num" id="cfNetOperating">$0.00</td></tr>
+                        <tr class="section"><td colspan="2">Financing — Capital Injections</td></tr>
+                        <tr><td>Capital injections into business</td><td class="num" id="cfInjectionsIn">$0.00</td></tr>
+                        <tr><td>Injection-funded purchases / payments</td><td class="num neg" id="cfInjectionsOut">$0.00</td></tr>
+                        <tr class="total"><td>Net Financing</td><td class="num" id="cfNetFinancing">$0.00</td></tr>
+                        <tr class="total"><td>NET CASH FLOW (change in cash)</td><td class="num" id="cfNet">$0.00</td></tr>
+                    </table>
+                    <p class="pc-note">Purchases and supplier payments marked "capital injection" are excluded from operating outflows and shown under Financing, so operating cash flow isn't distorted by money injected into the business.</p>
+                </div>
+            </div>
+
+            <div class="pc-panel">
+                <div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-diagram-3"></i> Procurement Funding Summary</div></div>
+                <div class="pc-panel-body">
+                    <table class="fin-table">
+                        <tr class="section"><td colspan="2">How procurement spend was funded</td></tr>
+                        <tr><td>Purchases — from business cash flows</td><td class="num" id="fuPurchasesBiz">$0.00</td></tr>
+                        <tr><td>Purchases — from capital injection</td><td class="num" id="fuPurchasesInj">$0.00</td></tr>
+                        <tr><td>Supplier payments — from business cash flows</td><td class="num" id="fuSupplierBiz">$0.00</td></tr>
+                        <tr><td>Supplier payments — from capital injection</td><td class="num" id="fuSupplierInj">$0.00</td></tr>
+                        <tr class="total"><td>Total funded from business</td><td class="num" id="fuTotalBiz">$0.00</td></tr>
+                        <tr class="total"><td>Total funded by capital injection</td><td class="num" id="fuTotalInj">$0.00</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="pc-view" id="view-balance">
+            <div class="pc-panel">
+                <div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-safe"></i> Statement of Financial Position (Balance Sheet)</div><span style="font-size:0.66rem;color:#94A3B8;">As at period end</span></div>
+                <div class="pc-panel-body">
+                    <table class="fin-table">
+                        <tr class="section"><td colspan="2">Assets</td></tr>
+                        <tr><td>Inventory (stock at cost)</td><td class="num" id="bsInventory">$0.00</td></tr>
+                        <tr><td>Accounts Receivable (project balances)</td><td class="num" id="bsReceivables">$0.00</td></tr>
+                        <tr><td>Cash &amp; bank (derived)</td><td class="num" id="bsCash">$0.00</td></tr>
+                        <tr class="total"><td>Total Assets</td><td class="num" id="bsTotalAssets">$0.00</td></tr>
+                        <tr class="section"><td colspan="2">Liabilities &amp; Equity</td></tr>
+                        <tr><td>Supplier payables</td><td class="num neg" id="bsPayables">$0.00</td></tr>
+                        <tr><td>Owner capital (capital injections)</td><td class="num" id="bsInjections">$0.00</td></tr>
+                        <tr><td>Retained earnings (cumulative net profit)</td><td class="num" id="bsRetained">$0.00</td></tr>
+                        <tr class="total"><td>Total Liabilities &amp; Equity</td><td class="num" id="bsTotalEq">$0.00</td></tr>
+                    </table>
+                    <p class="pc-note">Management estimate. "Cash &amp; bank (derived)" is the balancing figure (no opening cash balance is tracked) — reconcile it with the cash flow statement. Inventory is valued at current buy prices.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div id="pcToasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let FIN = null;
+let ACTIVE_VIEW = 'income';
+
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function money(n) {
+    return Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function toast(message, type) {
+    const wrap = document.getElementById('pcToasts');
+    const el = document.createElement('div');
+    el.className = 'pc-toast pc-toast-' + (type || 'success');
+    el.innerHTML = '<i class="bi bi-' + (type === 'error' ? 'exclamation-circle-fill' : 'check-circle-fill') + '"></i> ' + esc(message);
+    wrap.appendChild(el);
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 3500);
+}
+function toggleTheme() {
+    document.body.classList.toggle('dark-theme');
+    const ic = document.getElementById('themeIcon');
+    if (ic) ic.className = document.body.classList.contains('dark-theme') ? 'bi bi-sun' : 'bi bi-moon';
+}
+
+function showView(name) {
+    ACTIVE_VIEW = name;
+    document.querySelectorAll('.pc-view').forEach(v => v.classList.remove('active'));
+    const sec = document.getElementById('view-' + name);
+    if (sec) sec.classList.add('active');
+    document.querySelectorAll('.pc-nav-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+    const titles = { income: 'Income Statement (P&amp;L)', cashflow: 'Cash Flow Statement', balance: 'Balance Sheet' };
+    const subs = {
+        income: 'Profit &amp; loss and income across the whole operation — POS, projects, HR &amp; procurement.',
+        cashflow: 'How cash moved through the whole operation — operating vs capital injections.',
+        balance: 'Statement of financial position — assets, liabilities and equity (management estimate).'
+    };
+    document.getElementById('pageTitle').textContent = titles[name] || 'Statements';
+    document.getElementById('pageSub').textContent = subs[name] || '';
+}
+
+function setPreset(name) {
+    document.querySelectorAll('.pc-preset').forEach(b => b.classList.toggle('active', b.dataset.preset === name));
+    const t = new Date();
+    const fmt = d => d.toISOString().slice(0, 10);
+    let s, e = fmt(t);
+    if (name === 'month') { s = fmt(new Date(t.getFullYear(), t.getMonth(), 1)); }
+    else if (name === 'lastmonth') { s = fmt(new Date(t.getFullYear(), t.getMonth() - 1, 1)); e = fmt(new Date(t.getFullYear(), t.getMonth(), 0)); }
+    else if (name === 'quarter') { const q = Math.floor(t.getMonth() / 3); s = fmt(new Date(t.getFullYear(), q * 3, 1)); }
+    else if (name === 'year') { s = t.getFullYear() + '-01-01'; }
+    else { s = '2000-01-01'; }
+    document.getElementById('finStart').value = s;
+    document.getElementById('finEnd').value = e;
+    loadStatements();
+}
+function applyRange() { loadStatements(); }
+
+function setText(id, v, color) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = '$' + money(v);
+    if (color !== undefined) el.className = 'num ' + color;
+}
+
+async function loadStatements() {
+    const start = document.getElementById('finStart').value;
+    const end = document.getElementById('finEnd').value;
+    try {
+        const res = await fetch('/api/finance/statements?start_date=' + encodeURIComponent(start) + '&end_date=' + encodeURIComponent(end), { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { toast(data.error || 'Failed to load statements', 'error'); return; }
+        FIN = data.data;
+        renderStatements();
+    } catch (e) { toast('Connection error', 'error'); }
+}
+
+function renderStatements() {
+    if (!FIN) return;
+    const inc = FIN.income, cf = FIN.cashflow;
+    const rangeLabel = FIN.range.start_date + ' to ' + FIN.range.end_date;
+    document.getElementById('rangeLabel').textContent = rangeLabel;
+    document.getElementById('rangeLabel2').textContent = rangeLabel;
+
+    // KPIs
+    const profitColor = inc.net_profit >= 0 ? 'pos' : 'neg';
+    const cfColor = cf.net_cashflow >= 0 ? 'pos' : 'neg';
+    document.getElementById('kpiRevenue').textContent = '$' + money(inc.total_revenue);
+    document.getElementById('kpiExpenses').textContent = '$' + money(inc.total_expenses);
+    document.getElementById('kpiProfit').textContent = '$' + money(inc.net_profit);
+    document.getElementById('kpiProfit').className = 'kpi-value ' + profitColor;
+    document.getElementById('kpiCashflow').textContent = '$' + money(cf.net_cashflow);
+    document.getElementById('kpiCashflow').className = 'kpi-value ' + cfColor;
+
+    // Income
+    setText('inPosRev', inc.pos_revenue); setText('inPosCash', inc.pos_cash);
+    setText('inPosNoncash', inc.pos_noncash); setText('inProjects', inc.project_received);
+    setText('inTotalRev', inc.total_revenue);
+    setText('inCogs', inc.cogs, 'neg'); setText('inGross', inc.gross_profit);
+    setText('inPayroll', inc.payroll, 'neg'); setText('inCommissions', inc.commissions, 'neg');
+    setText('inExpenses', inc.total_expenses, 'neg');
+    setText('inNet', inc.net_profit, inc.net_profit >= 0 ? 'pos' : 'neg');
+
+    // Cash flow (operating vs financing)
+    setText('cfInCash', cf.in_cash); setText('cfInBank', cf.in_bank); setText('cfInProjects', cf.in_projects);
+    setText('cfTotalIn', cf.total_inflows);
+    setText('cfOutSuppliersBiz', cf.out_suppliers_biz, 'neg'); setText('cfOutPurchasesBiz', cf.out_purchases_biz, 'neg');
+    setText('cfOutPayroll', cf.out_payroll, 'neg'); setText('cfOutCommissions', cf.out_commissions, 'neg');
+    setText('cfTotalOpOut', cf.total_operating_outflows, 'neg');
+    setText('cfNetOperating', cf.net_operating, cf.net_operating >= 0 ? 'pos' : 'neg');
+    setText('cfInjectionsIn', cf.injections_in); setText('cfInjectionsOut', cf.injections_out, 'neg');
+    setText('cfNetFinancing', cf.net_financing);
+    setText('cfNet', cf.net_cashflow, cf.net_cashflow >= 0 ? 'pos' : 'neg');
+
+    // Procurement funding summary
+    const fu = FIN.funding || {};
+    setText('fuPurchasesBiz', fu.purchases_biz); setText('fuPurchasesInj', fu.purchases_inj);
+    setText('fuSupplierBiz', fu.supplier_biz); setText('fuSupplierInj', fu.supplier_inj);
+    setText('fuTotalBiz', fu.total_biz); setText('fuTotalInj', fu.total_inj);
+
+    // Balance sheet
+    const bs = FIN.balance_sheet || {};
+    setText('bsInventory', bs.inventory_value); setText('bsReceivables', bs.receivables);
+    setText('bsCash', bs.derived_cash); setText('bsTotalAssets', bs.total_assets);
+    setText('bsPayables', bs.supplier_payables, 'neg'); setText('bsInjections', bs.injections_total);
+    setText('bsRetained', bs.retained_earnings, bs.retained_earnings >= 0 ? 'pos' : 'neg');
+    setText('bsTotalEq', bs.total_equity_liabilities);
+}
+
+function exportStatements() {
+    if (!FIN) return;
+    const inc = FIN.income, cf = FIN.cashflow, fu = FIN.funding || {}, bs = FIN.balance_sheet || {};
+    const rows = [
+        ['ConnectLink — Financial Statements'],
+        ['Period', FIN.range.start_date + ' to ' + FIN.range.end_date],
+        [],
+        ['INCOME STATEMENT (P&L)'],
+        ['Hardware Sales (POS)', inc.pos_revenue],
+        ['  Cash', inc.pos_cash],
+        ['  Bank / Mobile', inc.pos_noncash],
+        ['Project Payments Received', inc.project_received],
+        ['Total Revenue', inc.total_revenue],
+        ['Cost of Goods Sold', inc.cogs],
+        ['Gross Profit', inc.gross_profit],
+        ['Payroll (gross)', inc.payroll],
+        ['Commissions', inc.commissions],
+        ['Total Operating Expenses', inc.total_expenses],
+        ['NET PROFIT', inc.net_profit],
+        [],
+        ['CASH FLOW STATEMENT'],
+        ['POS — Cash Sales', cf.in_cash],
+        ['POS — Bank / Mobile', cf.in_bank],
+        ['Project Payments Received', cf.in_projects],
+        ['Total Inflows', cf.total_inflows],
+        ['Supplier Payments', cf.out_suppliers],
+        ['Purchases (Purchase Orders)', cf.out_purchases],
+        ['Payroll (net paid)', cf.out_payroll],
+        ['Commissions', cf.out_commissions],
+        ['Total Operating Outflows', cf.total_operating_outflows],
+        ['Net Operating Cash Flow', cf.net_operating],
+        ['Capital injections', cf.injections_in],
+        ['Injection-funded spend', cf.injections_out],
+        ['NET CASH FLOW', cf.net_cashflow],
+        [],
+        ['PROCUREMENT FUNDING'],
+        ['Purchases — business', fu.purchases_biz],
+        ['Purchases — injection', fu.purchases_inj],
+        ['Supplier payments — business', fu.supplier_biz],
+        ['Supplier payments — injection', fu.supplier_inj],
+        [],
+        ['BALANCE SHEET (management estimate)'],
+        ['Inventory (stock at cost)', bs.inventory_value],
+        ['Accounts Receivable (projects)', bs.receivables],
+        ['Cash & bank (derived)', bs.derived_cash],
+        ['Total Assets', bs.total_assets],
+        ['Supplier payables', bs.supplier_payables],
+        ['Owner capital (injections)', bs.injections_total],
+        ['Retained earnings', bs.retained_earnings],
+        ['Total Liabilities & Equity', bs.total_equity_liabilities]
+    ];
+    if (typeof XLSX !== 'undefined') {
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{ wch: 34 }, { wch: 18 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Statements');
+        XLSX.writeFile(wb, 'ConnectLink_Financial_Statements.xlsx');
+    } else {
+        const csv = rows.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'ConnectLink_Financial_Statements.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+}
+
+(async function init() {
+    try {
+        const auth = await fetch('/api/check-auth', { credentials: 'include' });
+        if (!auth.ok) { window.location.href = '/'; return; }
+    } catch (e) { window.location.href = '/'; return; }
+    setPreset('month');
+})();
+</script>
+</body>
+</html>
