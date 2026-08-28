@@ -697,6 +697,34 @@
         body.dark-theme .eq-status.in_progress { background: #1a237e; color: #90caf9; }
         body.dark-theme .eq-status.completed { background: #1b5e20; color: #81c784; }
 
+        .enquiry-card .eq-attended {
+            font-size: 0.6rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            display: inline-block;
+            margin-left: 4px;
+        }
+        body.dark-theme .enquiry-card .eq-attended { background: #1b5e20; color: #81c784; }
+        .enquiry-card .btn-attend {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border: none;
+            border-radius: 6px;
+            background: #25D366;
+            color: #fff;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: filter 0.12s;
+        }
+        .enquiry-card .btn-attend:hover { filter: brightness(1.1); }
+        .enquiry-card .btn-attend:disabled { opacity: 0.5; cursor: not-allowed; }
+
         .eq-actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
         .eq-actions button {
             padding: 3px 10px;
@@ -881,6 +909,7 @@
                 </select>
                 <span class="enq-count" id="enqCount">0 enquiries</span>
                 <button class="refresh-enq-btn" onclick="loadEnquiries()" title="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+                <button style="padding:5px 10px;font-size:0.65rem;font-weight:600;border:none;border-radius:6px;background:#25D366;color:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" onclick="openManualEnquiryModal()" title="Create enquiry from a chat that never filled the form"><i class="bi bi-plus-lg"></i> New</button>
             </div>
             <div class="enquiries-section" id="enquiriesList">
                 <div class="loading-spinner"><div class="spinner"></div></div>
@@ -1083,6 +1112,60 @@
                     <i class="bi bi-box-arrow-up-right"></i> Open WhatsApp Web
                 </button>
                 <button class="btn-cancel" onclick="closeEnquiryChatModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Enquiry Entry Modal (chats that never filled the meta form) -->
+<div class="modal-overlay" id="manualEnquiryModal" onclick="if(event.target===this)closeManualEnquiryModal()">
+    <div class="modal-box" style="max-width:420px;">
+        <div class="modal-head">
+            <span><i class="bi bi-person-plus"></i> New Enquiry (from chat)</span>
+            <button onclick="closeManualEnquiryModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.4;">Customer didn't fill the WhatsApp form? Enter their details here — it posts to the system and shows on <b>every user screen</b> until someone clicks <b>Attended</b>.</div>
+            <label style="font-size:0.68rem;font-weight:600;color:var(--text-primary);">Customer Name</label>
+            <input type="text" id="meqName" placeholder="e.g. T. Ncube" style="width:100%;padding:7px 10px;font-size:0.72rem;margin:3px 0 9px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;">
+            <label style="font-size:0.68rem;font-weight:600;color:var(--text-primary);">WhatsApp Number</label>
+            <input type="text" id="meqPhone" placeholder="e.g. 263771234567" style="width:100%;padding:7px 10px;font-size:0.72rem;margin:3px 0 9px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;">
+            <label style="font-size:0.68rem;font-weight:600;color:var(--text-primary);">Category</label>
+            <select id="meqCategory" style="width:100%;padding:7px 10px;font-size:0.72rem;margin:3px 0 9px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;">
+                <option>General</option>
+                <option>Building &amp; Construction</option>
+                <option>Kitchen &amp; Fittings</option>
+                <option>Hardware / Materials</option>
+                <option>Electrical</option>
+                <option>Plumbing</option>
+                <option>Finance / Payment</option>
+                <option>Other</option>
+            </select>
+            <label style="font-size:0.68rem;font-weight:600;color:var(--text-primary);">Enquiry Details *</label>
+            <textarea id="meqDetails" rows="3" placeholder="What does the customer want?" style="width:100%;padding:7px 10px;font-size:0.72rem;margin:3px 0 9px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;resize:vertical;"></textarea>
+            <label style="font-size:0.68rem;font-weight:600;color:var(--text-primary);">Attach Plan / Image (optional)</label>
+            <input type="file" id="meqFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx" style="width:100%;padding:6px 10px;font-size:0.7rem;margin:3px 0 6px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);">
+            <div class="modal-actions" style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end;">
+                <button class="btn-cancel" onclick="closeManualEnquiryModal()">Cancel</button>
+                <button class="btn-success" onclick="saveManualEnquiry()"><i class="bi bi-check-lg"></i> Post Enquiry</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Who Attended Modal (admin picker — radio list) -->
+<div class="modal-overlay" id="attendModal" onclick="if(event.target===this)closeAttendModal()">
+    <div class="modal-box" style="max-width:380px;">
+        <div class="modal-head">
+            <span><i class="bi bi-person-check"></i> <span id="attendModalTitle">Who attended to this enquiry?</span></span>
+            <button onclick="closeAttendModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.4;">Select the administrator who handled this enquiry — they'll be recorded as the attendant.</div>
+            <div id="attendAdminList" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+            <div class="modal-actions" style="margin-top:12px;display:flex;gap:6px;justify-content:flex-end;">
+                <button class="btn-cancel" onclick="closeAttendModal()">Cancel</button>
+                <button class="btn-success" onclick="confirmAttend()"><i class="bi bi-check-lg"></i> Confirm</button>
             </div>
         </div>
     </div>
@@ -2359,11 +2442,13 @@ function renderEnquiries(enquiries) {
                 <div>
                     <span class="eq-category">${escapeHtml(eq.enqcategory || eq.category || 'General')}</span>
                     <span class="eq-status ${statusClass}">${statusLabel}</span>
+                    ${eq.attended_by ? `<span class="eq-attended" title="Click to change who attended" style="cursor:pointer;" onclick="event.stopPropagation();openAttendModal(${eq.id},'change')">✓ ${escapeHtml(eq.attended_by)} <i class="bi bi-pencil-square" style="font-size:0.55rem;"></i></span>` : ''}
                 </div>
                 <div class="eq-message">${escapeHtml(shortMsg)}${hasMore ? '...' : ''}</div>
                 <div class="eq-actions">
+                    ${statusClass === 'pending' && !eq.attended_by ? `<button class="btn-attend" onclick="event.stopPropagation();openAttendModal(${eq.id})"><i class="bi bi-check2-circle"></i> Attended to</button>` : ''}
                     <button class="btn-status" onclick="event.stopPropagation();updateEnquiryStatus(${eq.id},'${statusClass}')">
-                        <i class="bi bi-arrow-repeat"></i> ${statusClass === 'pending' ? 'Start' : statusClass === 'in_progress' ? 'Complete' : 'Reopen'}
+                        <i class="bi bi-arrow-repeat"></i> ${statusClass === 'pending' && !eq.attended_by ? 'Start' : statusClass === 'in_progress' ? 'Complete' : 'Reopen'}
                     </button>
                     <button class="btn-whatsapp" onclick="event.stopPropagation();openEnquiryChat('${waPhone}','${escapeHtml(eq.username || eq.clientwhatsapp || 'Unknown')}')">
                         <i class="bi bi-whatsapp"></i> Chat
@@ -2378,6 +2463,8 @@ function renderEnquiries(enquiries) {
                     <span><strong>WhatsApp:</strong> <a href="#" onclick="event.preventDefault();openEnquiryChat('${waPhone}','${escapeHtml(eq.username || eq.clientwhatsapp || 'Unknown')}')">${eq.clientwhatsapp || 'N/A'}</a></span>
                     <span><strong>Status:</strong> ${statusLabel}</span>
                     <span><strong>Category:</strong> ${escapeHtml(eq.enqcategory || eq.category || 'General')}</span>
+                    ${eq.attended_by ? `<span><strong>Attended by:</strong> ${escapeHtml(eq.attended_by)}${eq.attended_at ? ' · ' + escapeHtml(eq.attended_at) : ''}${eq.attended_updated_by ? ' · Updated by ' + escapeHtml(eq.attended_updated_by) + (eq.attended_updated_at ? ' ' + escapeHtml(eq.attended_updated_at) : '') : ''}</span>` : ''}
+                    ${eq.source === 'manual' ? '<span class="eq-attended">✍ Manual entry</span>' : ''}
                 </div>
             </div>`;
     });
@@ -2404,6 +2491,12 @@ function updateEnquiryStatus(id, currentStatus) {
     else if (currentStatus === 'in_progress') newStatus = 'completed';
     else newStatus = 'pending';
 
+    if (newStatus === 'completed') {
+        // Changing TO completed → ask who attended to it
+        openAttendModal(id, 'attend');
+        return;
+    }
+
     fetch('/api/enquiries/' + id + '/status', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2423,6 +2516,122 @@ function updateEnquiryStatus(id, currentStatus) {
         console.error('Status update error:', err);
         showToast('Error updating status', 'error', 'Error');
     });
+}
+
+// ==================== MANUAL ENQUIRY (from chat) + ATTEND ====================
+function openManualEnquiryModal() {
+    document.getElementById('meqName').value = '';
+    document.getElementById('meqPhone').value = '';
+    document.getElementById('meqCategory').value = 'General';
+    document.getElementById('meqDetails').value = '';
+    document.getElementById('meqFile').value = '';
+    document.getElementById('manualEnquiryModal').classList.add('active');
+}
+function closeManualEnquiryModal() {
+    document.getElementById('manualEnquiryModal').classList.remove('active');
+}
+function saveManualEnquiry() {
+    const details = document.getElementById('meqDetails').value.trim();
+    if (!details) { showToast('Enter the enquiry details', 'error', 'Missing details'); return; }
+    const fd = new FormData();
+    fd.append('username', document.getElementById('meqName').value.trim());
+    fd.append('clientwhatsapp', document.getElementById('meqPhone').value.trim());
+    fd.append('enqcategory', document.getElementById('meqCategory').value);
+    fd.append('enq', details);
+    const fileInput = document.getElementById('meqFile');
+    if (fileInput.files && fileInput.files[0]) fd.append('plan', fileInput.files[0]);
+    fetch('/api/enquiries/manual', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success' || res.success) {
+                showToast(res.message || 'Enquiry posted', 'success', 'Posted');
+                closeManualEnquiryModal();
+                loadEnquiries();
+                updateEnquiryBadge();
+            } else {
+                showToast(res.message || 'Failed to post enquiry', 'error', 'Error');
+            }
+        })
+        .catch(err => {
+            console.error('Manual enquiry error:', err);
+            showToast('Connection error', 'error', 'Error');
+        });
+}
+function attendEnquiry(id) {
+    fetch('/api/enquiries/' + id + '/attend', { method: 'POST' })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success' || res.success) {
+                showToast('Enquiry #' + id + ' attended to', 'success', 'Attended to');
+                loadEnquiries();
+                updateEnquiryBadge();
+            } else {
+                showToast(res.message || 'Could not mark as attended', 'error', 'Error');
+            }
+        })
+        .catch(err => {
+            console.error('Attend error:', err);
+            showToast('Connection error', 'error', 'Error');
+        });
+}
+
+// ==================== WHO ATTENDED? PICKER ====================
+let _attendId = null;
+let _attendMode = 'attend';
+
+function openAttendModal(id, mode) {
+    _attendId = id;
+    _attendMode = mode === 'change' ? 'change' : 'attend';
+    document.getElementById('attendModalTitle').textContent = _attendMode === 'change' ? 'Change who attended to this' : 'Who attended to this enquiry?';
+    const list = document.getElementById('attendAdminList');
+    list.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    document.getElementById('attendModal').classList.add('active');
+    fetch('/api/enquiries/admins')
+        .then(r => r.json())
+        .then(res => {
+            const admins = (res && res.data) || [];
+            if (!admins.length) {
+                list.innerHTML = '<div style="font-size:0.65rem;color:var(--text-secondary);text-align:center;padding:10px;">No administrators found.</div>';
+                return;
+            }
+            list.innerHTML = admins.map(a => `
+                <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border-color);border-radius:8px;cursor:pointer;background:var(--bg-card);">
+                    <input type="radio" name="attendAdmin" value="${escapeHtml(a.name)}" ${a.current ? 'checked' : ''} style="accent-color:#25D366;width:15px;height:15px;">
+                    <span style="flex:1;font-size:0.72rem;font-weight:600;color:var(--text-primary);">${escapeHtml(a.name)}</span>
+                    <span style="font-size:0.6rem;color:var(--text-secondary);">${escapeHtml(a.username || '')}</span>
+                    ${a.current ? '<span style="font-size:0.58rem;color:#25D366;font-weight:600;">(you)</span>' : ''}
+                </label>`).join('');
+        })
+        .catch(() => { list.innerHTML = '<div style="font-size:0.65rem;color:#c62828;text-align:center;padding:10px;">Failed to load administrators</div>'; });
+}
+function closeAttendModal() {
+    document.getElementById('attendModal').classList.remove('active');
+    _attendId = null;
+}
+function confirmAttend() {
+    if (!_attendId) return;
+    const sel = document.querySelector('input[name="attendAdmin"]:checked');
+    const attendedBy = sel ? sel.value : '';
+    const url = _attendMode === 'change' ? '/api/enquiries/' + _attendId + '/attendee' : '/api/enquiries/' + _attendId + '/attend';
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attended_by: attendedBy })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === 'success' || res.success) {
+            showToast(_attendMode === 'change' ? ('Attendant changed to ' + (attendedBy || 'you')) : ('Enquiry #' + _attendId + ' attended to by ' + (attendedBy || 'you')), 'success', _attendMode === 'change' ? 'Updated' : 'Attended to');
+            closeAttendModal();
+            loadEnquiries();
+            updateEnquiryBadge();
+        } else {
+            showToast(res.message || 'Could not update', 'error', 'Error');
+            closeAttendModal();
+            loadEnquiries();
+        }
+    })
+    .catch(err => { console.error('Attend error:', err); showToast('Connection error', 'error', 'Error'); });
 }
 
 // ==================== ENQUIRY CHAT CHOOSER ====================

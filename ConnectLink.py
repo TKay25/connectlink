@@ -1023,6 +1023,12 @@ def initialize_database_tables():
 
             payment_alters = [
                 "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS status VARCHAR (100);",
+                "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS source VARCHAR (20) DEFAULT 'auto';",
+                "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS attended_by VARCHAR (100);",
+                "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS attended_at TIMESTAMP;",
+                "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS plan_mime VARCHAR (120);",
+                "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS attended_updated_by VARCHAR (100);",
+                "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS attended_updated_at TIMESTAMP;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS momid INT;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment7amount NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment7duedate date;",
@@ -1777,6 +1783,64 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add funding_source columns: {e}")
+
+            # Logistics & Expenses: asset/vehicle register (fuel & maintenance are logged per asset)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS assets (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(150) NOT NULL,
+                    asset_type VARCHAR(30) DEFAULT 'Vehicle',
+                    plate_no VARCHAR(30),
+                    notes TEXT,
+                    created_by VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            # Operational expense requests (fuel/maintenance/service/freight/customs/other)
+            # flow through the same requisition -> approve cycle, then feed Finance.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS expense_requests (
+                    id SERIAL PRIMARY KEY,
+                    exp_no VARCHAR(30) NOT NULL UNIQUE,
+                    title VARCHAR(200) NOT NULL,
+                    category VARCHAR(30) DEFAULT 'Other',
+                    asset_id INTEGER REFERENCES assets(id),
+                    description TEXT,
+                    amount DECIMAL(12,2) DEFAULT 0,
+                    expense_date DATE,
+                    vendor VARCHAR(150),
+                    funding_source VARCHAR(20) DEFAULT 'business',
+                    status VARCHAR(30) DEFAULT 'draft',
+                    requested_by VARCHAR(100),
+                    requested_by_user_id INTEGER,
+                    approved_by VARCHAR(100),
+                    approved_at TIMESTAMP,
+                    rejected_by VARCHAR(100),
+                    rejected_at TIMESTAMP,
+                    reject_reason TEXT,
+                    submitted_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            # Receipts/invoices supporting an expense request
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS expense_attachments (
+                    id SERIAL PRIMARY KEY,
+                    expense_id INTEGER REFERENCES expense_requests(id) ON DELETE CASCADE,
+                    original_name VARCHAR(255),
+                    stored_name VARCHAR(255),
+                    mime_type VARCHAR(120),
+                    file_size INTEGER DEFAULT 0,
+                    uploaded_by VARCHAR(100),
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
 
             print("✅ Procurement & requisitions tables initialized!")
 
@@ -25450,7 +25514,8 @@ def get_enquiries_data():
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
-                       plan IS NOT NULL as has_plan, status, username
+                       plan IS NOT NULL as has_plan, status, username, source,
+                       attended_by, attended_at, attended_updated_by, attended_updated_at
                 FROM connectlinkenquiries 
                 ORDER BY id DESC
                 LIMIT 200
@@ -25467,7 +25532,12 @@ def get_enquiries_data():
                     'category': enquiry[3] or 'General',
                     'message': enquiry[4] or 'No message',
                     'has_plan': enquiry[5],
-                    'status': enquiry[6] or 'pending'
+                    'status': enquiry[6] or 'pending',
+                    'source': enquiry[8] or 'auto',
+                    'attended_by': enquiry[9] or '',
+                    'attended_at': enquiry[10].strftime('%d/%m/%Y %H:%M') if enquiry[10] else '',
+                    'attended_updated_by': enquiry[11] or '',
+                    'attended_updated_at': enquiry[12].strftime('%d/%m/%Y %H:%M') if enquiry[12] else ''
                 })
             
             return enquiries_list
@@ -27386,7 +27456,7 @@ def download_enquiry_plan(enquiry_id):
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT plan, timestamp, clientwhatsapp
+                SELECT plan, timestamp, clientwhatsapp, plan_mime
                 FROM connectlinkenquiries 
                 WHERE id = %s AND plan IS NOT NULL;
             """, (enquiry_id,))
@@ -27398,12 +27468,19 @@ def download_enquiry_plan(enquiry_id):
             plan_data = row[0]  # BYTEA data
             timestamp = row[1]
             client_whatsapp = row[2]
+            plan_mime = row[3] or 'application/pdf'
             
             if not plan_data:
                 return jsonify({'status': 'error', 'message': 'Plan data is empty'}), 404
             
+            # Derive extension from the stored mime so images/PDFs open correctly
+            mime_ext = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp',
+                        'image/gif': '.gif', 'application/pdf': '.pdf'}.get(plan_mime, '')
+            if not mime_ext:
+                mime_ext = '.pdf' if plan_mime == 'application/pdf' else ''
+            ext = mime_ext or '.bin'
             # Create filename
-            filename = f"enquiry_plan_{enquiry_id}_{client_whatsapp}_{timestamp.strftime('%Y%m%d')}.pdf"
+            filename = f"enquiry_plan_{enquiry_id}_{client_whatsapp}_{timestamp.strftime('%Y%m%d')}{ext}"
             
             # Log the plan download
             log_activity(
@@ -27414,12 +27491,12 @@ def download_enquiry_plan(enquiry_id):
                 {'client_whatsapp': str(client_whatsapp) if client_whatsapp else '', 'filename': filename, 'downloaded_by': session.get('user_name', 'Unknown')}
             )
             
-            # Return PDF file
+            # Return file with its real content type (inline so images preview)
             return send_file(
                 io.BytesIO(plan_data),
-                as_attachment=True,
+                as_attachment=False,
                 download_name=filename,
-                mimetype='application/pdf'
+                mimetype=plan_mime
             )
             
     except Exception as e:
@@ -27527,6 +27604,193 @@ def delete_main_enquiry(enquiry_id):
 
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Failed to delete enquiry: {str(e)}'}), 500
+
+
+# ============================================================
+# MANUAL ENQUIRY ENTRY + ATTEND-TO FLOW
+# For WhatsApp chats that never filled the meta form: a staff
+# member enters the details (+ optional plan/image), it posts to
+# the system and shows on every user screen (mainindex banner)
+# until someone clicks "attended to" — that user is logged as the
+# attendant. Fully additive.
+# ============================================================
+
+@app.route('/api/enquiries/manual', methods=['POST'])
+def create_manual_enquiry():
+    """Create an enquiry manually. Fields: username (customer name),
+    clientwhatsapp, enqcategory, enq (details), optional plan file
+    (image or PDF). New rows are status='pending' + source='manual'
+    and appear on every user's screen until marked attended."""
+    try:
+        username = (request.form.get('username') or '').strip()
+        clientwhatsapp = (request.form.get('clientwhatsapp') or '').strip()
+        enqcategory = (request.form.get('enqcategory') or 'General').strip()
+        enq = (request.form.get('enq') or '').strip()
+        if not username and not clientwhatsapp:
+            return jsonify({'status': 'error', 'message': 'Enter at least a customer name or WhatsApp number.'}), 400
+        if not enq:
+            return jsonify({'status': 'error', 'message': 'Enter the enquiry details.'}), 400
+
+        plan_data = None
+        plan_mime = None
+        file = request.files.get('plan')
+        if file and file.filename:
+            plan_data = file.read()
+            plan_mime = file.content_type or 'application/octet-stream'
+            if len(plan_data) > 15 * 1024 * 1024:
+                return jsonify({'status': 'error', 'message': 'Attachment too large (max 15MB).'}), 400
+
+        created_by = session.get('user_name') or session.get('full_name') or 'Unknown'
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO connectlinkenquiries
+                    (timestamp, clientwhatsapp, enqcategory, enq, plan, plan_mime, username, status, source)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', 'manual')
+                RETURNING id
+            """, (datetime.now(), clientwhatsapp or None, enqcategory, enq, plan_data, plan_mime, username or 'Unknown'))
+            enquiry_id = cursor.fetchone()[0]
+            connection.commit()
+        log_activity('enquiry_manual', f'Manual enquiry #{enquiry_id} created by {created_by} ({enqcategory})', 'enquiry', enquiry_id)
+        return jsonify({
+            'status': 'success',
+            'message': f'Enquiry #{enquiry_id} posted — it now shows on every user screen until attended.',
+            'enquiry_id': enquiry_id
+        })
+    except Exception as e:
+        print(f"Manual enquiry error: {e}")
+        return jsonify({'status': 'error', 'message': f'Failed to create enquiry: {str(e)}'}), 500
+
+
+@app.route('/api/enquiries/unattended', methods=['GET'])
+def get_unattended_enquiries():
+    """Enquiries still awaiting someone to attend to them (banner on every user screen).
+    Returns empty for visitors who aren't logged in."""
+    if not (session.get('user_id') or session.get('userid')):
+        return jsonify({'status': 'success', 'data': [], 'total': 0})
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
+                       plan IS NOT NULL as has_plan, plan_mime, status, username, source,
+                       attended_by, attended_at, attended_updated_by, attended_updated_at
+                FROM connectlinkenquiries
+                WHERE COALESCE(status, 'pending') = 'pending'
+                ORDER BY id DESC
+                LIMIT 50
+            """)
+            rows = cursor.fetchall()
+        return jsonify({'status': 'success', 'data': [
+            {
+                'id': r[0],
+                'timestamp': r[1].strftime('%d/%m/%Y %H:%M') if r[1] else '',
+                'clientwhatsapp': r[2] or '',
+                'enqcategory': r[3] or '',
+                'enq': r[4] or '',
+                'has_plan': r[5],
+                'plan_mime': r[6] or '',
+                'status': r[7] or 'pending',
+                'username': r[8] or 'Unknown',
+                'source': r[9] or 'auto',
+                'attended_by': r[10] or '',
+                'attended_at': r[11].strftime('%d/%m/%Y %H:%M') if r[11] else '',
+                'attended_updated_by': r[12] or '',
+                'attended_updated_at': r[13].strftime('%d/%m/%Y %H:%M') if r[13] else ''
+            }
+            for r in rows], 'total': len(rows)})
+    except Exception as e:
+        print(f"Unattended enquiries error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/enquiries/admins', methods=['GET'])
+def get_enquiry_admins():
+    """Active admin_users for the 'who attended to this?' picker."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, full_name, username, whatsapp FROM admin_users
+                WHERE is_active = TRUE ORDER BY full_name
+            """)
+            rows = cursor.fetchall()
+        cur_id = session.get('user_id') or session.get('userid')
+        cur_name = session.get('user_name') or session.get('full_name')
+        return jsonify({'status': 'success', 'data': [
+            {'id': r[0], 'name': r[1] or r[2], 'username': r[2], 'whatsapp': r[3] or '',
+             'current': (cur_id is not None and r[0] == cur_id) or ((r[1] or r[2]) == cur_name)}
+            for r in rows]})
+    except Exception as e:
+        print(f"Enquiry admins error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/enquiries/<int:enquiry_id>/attend', methods=['POST'])
+def attend_enquiry(enquiry_id):
+    """Mark an enquiry as attended to. If attended_by is supplied it records that
+    admin (from the 'who attended?' picker), otherwise the current user."""
+    data = request.get_json(silent=True) or {}
+    attended_by = (data.get('attended_by') or '').strip()
+    user = session.get('user_name') or session.get('full_name') or 'Unknown'
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'Please log in first.'}), 401
+    final_attended = attended_by or user
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, enq, enqcategory, status, attended_by FROM connectlinkenquiries WHERE id = %s
+            """, (enquiry_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'status': 'error', 'message': 'Enquiry not found.'}), 404
+            if (row[3] or 'pending') != 'pending' or row[4]:
+                return jsonify({'status': 'error', 'message': 'This enquiry has already been attended to.'}), 400
+            cursor.execute("""
+                UPDATE connectlinkenquiries
+                SET status='completed', attended_by=%s, attended_at=CURRENT_TIMESTAMP,
+                    attended_updated_by=%s, attended_updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, (final_attended, user, enquiry_id))
+            connection.commit()
+        log_activity('enquiry_attended', f'Enquiry #{enquiry_id} attended to by {final_attended} (logged by {user})', 'enquiry', enquiry_id)
+        return jsonify({'status': 'success', 'message': 'Marked as attended — thank you.', 'attended_by': final_attended})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/enquiries/<int:enquiry_id>/attendee', methods=['POST'])
+def change_enquiry_attendee(enquiry_id):
+    """Change who is recorded as having attended to an enquiry, and log who made
+    the change (attended_updated_by). Works even after the enquiry is completed."""
+    data = request.get_json(silent=True) or {}
+    new_attended = (data.get('attended_by') or '').strip()
+    user = session.get('user_name') or session.get('full_name') or 'Unknown'
+    user_id = session.get('user_id') or session.get('userid')
+    if not user_id:
+        return jsonify({'status': 'error', 'message': 'Please log in first.'}), 401
+    if not new_attended:
+        return jsonify({'status': 'error', 'message': 'Select an administrator to record.'}), 400
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, enq, enqcategory, status, attended_by FROM connectlinkenquiries WHERE id = %s
+            """, (enquiry_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'status': 'error', 'message': 'Enquiry not found.'}), 404
+            old_attended = row[4] or ''
+            cursor.execute("""
+                UPDATE connectlinkenquiries
+                SET attended_by=%s, attended_updated_by=%s, attended_updated_at=CURRENT_TIMESTAMP,
+                    status=CASE WHEN COALESCE(status,'pending')='pending' THEN 'completed' ELSE status END
+                WHERE id=%s
+            """, (new_attended, user, enquiry_id))
+            connection.commit()
+        log_activity('enquiry_attendee_changed',
+                     f'Enquiry #{enquiry_id} attendant changed {("from " + old_attended + " " if old_attended else "")}to {new_attended} by {user}',
+                     'enquiry', enquiry_id)
+        return jsonify({'status': 'success', 'message': f'Attendant updated to {new_attended}.', 'attended_by': new_attended})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 # PWA: Web App Manifest
@@ -34851,7 +35115,9 @@ def get_enquiries_paginated():
             if search:
                 cursor.execute("""
                     SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
-                           plan IS NOT NULL as has_plan, status, username
+                           plan IS NOT NULL as has_plan, status, username, source,
+                           attended_by, attended_at, plan_mime,
+                           attended_updated_by, attended_updated_at
                     FROM connectlinkenquiries 
                     WHERE LOWER(clientwhatsapp) LIKE %s OR LOWER(enqcategory) LIKE %s OR LOWER(enq) LIKE %s OR LOWER(username) LIKE %s
                     ORDER BY id DESC
@@ -34860,7 +35126,9 @@ def get_enquiries_paginated():
             else:
                 cursor.execute("""
                     SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
-                           plan IS NOT NULL as has_plan, status, username
+                           plan IS NOT NULL as has_plan, status, username, source,
+                           attended_by, attended_at, plan_mime,
+                           attended_updated_by, attended_updated_at
                     FROM connectlinkenquiries 
                     ORDER BY id DESC
                     LIMIT %s OFFSET %s
@@ -34877,7 +35145,13 @@ def get_enquiries_paginated():
                     'enq': row[4] or '',
                     'has_plan': row[5],
                     'status': row[6] or '',
-                    'username': row[7] or ''
+                    'username': row[7] or '',
+                    'source': row[8] or 'auto',
+                    'attended_by': row[9] or '',
+                    'attended_at': row[10].strftime('%d/%m/%Y %H:%M') if row[10] else '',
+                    'plan_mime': row[11] or '',
+                    'attended_updated_by': row[12] or '',
+                    'attended_updated_at': row[13].strftime('%d/%m/%Y %H:%M') if row[13] else ''
                 })
             
             return jsonify({
@@ -37771,6 +38045,475 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
 
 
 # ============================================================
+# LOGISTICS & EXPENSES — fuel / maintenance / service / freight
+# Operational expenses enter through a requisition-like approval
+# cycle and feed the Finance statements (income, cash flow, BS).
+# Fully additive: existing requisition/PO/payment flow untouched.
+# ============================================================
+
+EXPENSE_CATEGORIES = ['Fuel', 'Maintenance', 'Service', 'Freight & Transport', 'Customs', 'Other']
+
+
+def _expense_notify_approvers(exp_id):
+    """Best-effort WhatsApp text to approvers about a submitted expense request."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT exp_no, title, requested_by FROM expense_requests WHERE id = %s", (exp_id,))
+            row = cursor.fetchone()
+            if not row:
+                return
+            exp_no, exp_title, req_by = row[0], row[1], (row[2] or 'Staff')
+        for ap in _procurement_approvers():
+            try:
+                _procurement_send_text(ap['whatsapp'],
+                    f"ConnectLink: {req_by} submitted expense {exp_no} ({exp_title}) — awaiting your approval.")
+                print(f"Expense approval request -> {ap['name']}")
+            except Exception as e:
+                print(f"Expense approver notify error: {e}")
+    except Exception as e:
+        print(f"Expense notify approvers error: {e}")
+
+
+def _expense_notify_requester(exp_id, new_status):
+    """Best-effort WhatsApp text to the requester about their expense status change."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT exp_no, title, requested_by, requested_by_user_id FROM expense_requests WHERE id = %s", (exp_id,))
+            row = cursor.fetchone()
+            if not row:
+                return
+            exp_no, exp_title, req_by, req_user_id = row
+        phone = _procurement_user_whatsapp(req_user_id) if req_user_id else None
+        if phone:
+            _procurement_send_text(phone,
+                f"ConnectLink: expense {exp_no} ({exp_title}) is now {new_status}.")
+    except Exception as e:
+        print(f"Expense notify requester error: {e}")
+
+
+@app.route('/api/procurement/expenses/assets', methods=['GET'])
+@login_required
+def procurement_api_expense_assets():
+    """Asset / vehicle register (fuel & maintenance are logged per asset)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT a.id, a.name, a.asset_type, a.plate_no, a.notes, a.created_by, a.created_at,
+                       (SELECT COUNT(*) FROM expense_requests er WHERE er.asset_id = a.id) AS linked
+                FROM assets a ORDER BY a.name
+            """)
+            rows = cursor.fetchall()
+        return jsonify({'success': True, 'data': [
+            {'id': r[0], 'name': r[1], 'asset_type': r[2], 'plate_no': r[3], 'notes': r[4],
+             'created_by': r[5], 'created_at': str(r[6]) if r[6] else None, 'linked': r[7]}
+            for r in rows]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/assets', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_suppliers')
+def procurement_api_create_expense_asset():
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'Asset/vehicle name is required.'}), 400
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO assets (name, asset_type, plate_no, notes, created_by)
+                VALUES (%s, %s, %s, %s, %s) RETURNING id
+            """, (name, (data.get('asset_type') or 'Vehicle'), (data.get('plate_no') or '').strip(),
+                  (data.get('notes') or '').strip(), user['name']))
+            aid = cursor.fetchone()[0]
+            connection.commit()
+            log_activity('asset_add', f'Added asset/vehicle: {name}', 'asset', aid)
+        return jsonify({'success': True, 'data': {'id': aid}, 'message': 'Asset added.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/assets/<int:aid>', methods=['DELETE'])
+@login_required
+@_procurement_perm_required('can_manage_suppliers')
+def procurement_api_delete_expense_asset(aid):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT name FROM assets WHERE id = %s", (aid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Asset not found.'}), 404
+            cursor.execute("UPDATE expense_requests SET asset_id = NULL WHERE asset_id = %s", (aid,))
+            cursor.execute("DELETE FROM assets WHERE id = %s", (aid,))
+            connection.commit()
+            log_activity('asset_delete', f'Deleted asset/vehicle: {row[0]}', 'asset', aid)
+        return jsonify({'success': True, 'message': 'Asset deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests', methods=['GET'])
+@login_required
+def procurement_api_expense_requests():
+    status = (request.args.get('status') or '').strip()
+    try:
+        with get_db() as (cursor, connection):
+            q = """
+                SELECT er.id, er.exp_no, er.title, er.category, er.asset_id, a.name AS asset_name,
+                       er.description, er.amount, er.expense_date, er.vendor, er.funding_source,
+                       er.status, er.requested_by, er.created_at, er.approved_at,
+                       (SELECT COUNT(*) FROM expense_attachments ea WHERE ea.expense_id = er.id) AS attach_count
+                FROM expense_requests er LEFT JOIN assets a ON a.id = er.asset_id
+            """
+            if status:
+                q += " WHERE er.status = %s ORDER BY er.created_at DESC"
+                cursor.execute(q, (status,))
+            else:
+                q += " ORDER BY er.created_at DESC"
+                cursor.execute(q)
+            rows = cursor.fetchall()
+        return jsonify({'success': True, 'data': [
+            {'id': r[0], 'exp_no': r[1], 'title': r[2], 'category': r[3], 'asset_id': r[4],
+             'asset_name': r[5], 'description': r[6], 'amount': float(r[7] or 0),
+             'expense_date': str(r[8]) if r[8] else None, 'vendor': r[9],
+             'funding_source': r[10] or 'business', 'status': r[11], 'requested_by': r[12],
+             'created_at': str(r[13]) if r[13] else None, 'approved_at': str(r[14]) if r[14] else None,
+             'attach_count': r[15]}
+            for r in rows]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_create_requisitions')
+def procurement_api_create_expense_request():
+    data = request.get_json() or {}
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({'success': False, 'error': 'Title is required.'}), 400
+    if not (data.get('amount') is not None and float(data.get('amount') or 0) > 0):
+        return jsonify({'success': False, 'error': 'Amount must be greater than 0.'}), 400
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM expense_requests")
+            next_id = cursor.fetchone()[0]
+            exp_no = f'EXP-{int(next_id):04d}'
+            cursor.execute("""
+                INSERT INTO expense_requests
+                    (exp_no, title, category, asset_id, description, amount, expense_date, vendor, funding_source,
+                     status, requested_by, requested_by_user_id, created_at, updated_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,'draft',%s,%s,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+                RETURNING id
+            """, (exp_no, title, (data.get('category') or 'Other'),
+                  data.get('asset_id'), (data.get('description') or '').strip(),
+                  float(data.get('amount') or 0), data.get('expense_date'),
+                  (data.get('vendor') or '').strip(),
+                  (data.get('funding_source') or 'business'), user['name'], user['id']))
+            eid = cursor.fetchone()[0]
+            connection.commit()
+            log_activity('expense_create', f'Created expense request {exp_no}: {title}', 'expense_request', eid)
+        return jsonify({'success': True, 'data': {'id': eid, 'exp_no': exp_no}, 'message': f'Expense {exp_no} saved (draft).'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests/<int:eid>', methods=['GET'])
+@login_required
+def procurement_api_expense_request_detail(eid):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT er.id, er.exp_no, er.title, er.category, er.asset_id, a.name AS asset_name,
+                       a.asset_type, a.plate_no, er.description, er.amount, er.expense_date,
+                       er.vendor, er.funding_source, er.status, er.requested_by, er.created_at,
+                       er.approved_by, er.approved_at, er.rejected_by, er.rejected_at, er.reject_reason,
+                       er.submitted_at
+                FROM expense_requests er LEFT JOIN assets a ON a.id = er.asset_id
+                WHERE er.id = %s
+            """, (eid,))
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({'success': False, 'error': 'Expense request not found.'}), 404
+            cursor.execute("""
+                SELECT id, original_name, stored_name, mime_type, file_size, uploaded_by, uploaded_at
+                FROM expense_attachments WHERE expense_id = %s ORDER BY uploaded_at
+            """, (eid,))
+            atts = cursor.fetchall()
+        return jsonify({'success': True, 'data': {
+            'id': r[0], 'exp_no': r[1], 'title': r[2], 'category': r[3], 'asset_id': r[4],
+            'asset_name': r[5], 'asset_type': r[6], 'asset_plate': r[7], 'description': r[8],
+            'amount': float(r[9] or 0), 'expense_date': str(r[10]) if r[10] else None,
+            'vendor': r[11], 'funding_source': r[12] or 'business', 'status': r[13],
+            'requested_by': r[14], 'created_at': str(r[15]) if r[15] else None,
+            'approved_by': r[16], 'approved_at': str(r[17]) if r[17] else None,
+            'rejected_by': r[18], 'rejected_at': str(r[19]) if r[19] else None,
+            'reject_reason': r[20], 'submitted_at': str(r[21]) if r[21] else None,
+            'attachments': [{'id': a[0], 'original_name': a[1], 'mime_type': a[3], 'file_size': a[4],
+                             'uploaded_by': a[5], 'uploaded_at': str(a[6]) if a[6] else None} for a in atts]
+        }})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests/<int:eid>', methods=['PUT'])
+@login_required
+@_procurement_perm_required('can_create_requisitions')
+def procurement_api_update_expense_request(eid):
+    data = request.get_json() or {}
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, exp_no, status, requested_by_user_id FROM expense_requests WHERE id = %s", (eid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Expense request not found.'}), 404
+            if row[2] != 'draft':
+                return jsonify({'success': False, 'error': 'Only drafts can be edited.'}), 400
+            is_owner = (row[3] == user['id'])
+            if not _procurement_perms().get('is_super_admin', False) and not _procurement_perms().get('can_create_requisitions', False) and not is_owner:
+                return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            cursor.execute("""
+                UPDATE expense_requests SET title=%s, category=%s, asset_id=%s, description=%s,
+                    amount=%s, expense_date=%s, vendor=%s, funding_source=%s, updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, ((data.get('title') or '').strip(), data.get('category') or 'Other',
+                  data.get('asset_id'), (data.get('description') or '').strip(),
+                  float(data.get('amount') or 0), data.get('expense_date'),
+                  (data.get('vendor') or '').strip(), data.get('funding_source') or 'business', eid))
+            connection.commit()
+            log_activity('expense_update', f'Updated expense request {row[1]}', 'expense_request', eid)
+        return jsonify({'success': True, 'message': 'Expense request updated.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests/<int:eid>/submit', methods=['POST'])
+@login_required
+def procurement_api_submit_expense_request(eid):
+    user = _procurement_user()
+    perms = _procurement_perms()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, exp_no, status, requested_by_user_id FROM expense_requests WHERE id = %s", (eid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Expense request not found.'}), 404
+            if row[2] != 'draft':
+                return jsonify({'success': False, 'error': 'Only drafts can be submitted.'}), 400
+            is_owner = (row[3] == user['id'])
+            if not perms.get('is_super_admin', False) and not perms.get('can_create_requisitions', False) and not is_owner:
+                return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            cursor.execute("""
+                UPDATE expense_requests SET status='submitted', submitted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, (eid,))
+            connection.commit()
+            log_activity('expense_submit', f'Submitted expense request {row[1]} for approval', 'expense_request', eid)
+            _expense_notify_approvers(eid)  # best-effort WhatsApp, never blocks
+        return jsonify({'success': True, 'message': 'Expense request submitted for approval.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests/<int:eid>/approve', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_approve_requisitions')
+def procurement_api_approve_expense_request(eid):
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, exp_no, status FROM expense_requests WHERE id = %s", (eid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Expense request not found.'}), 404
+            if row[2] not in ('submitted', 'draft'):
+                return jsonify({'success': False, 'error': f'Expense is already {row[2]}.'}), 400
+            cursor.execute("""
+                UPDATE expense_requests SET status='approved', approved_by=%s, approved_at=CURRENT_TIMESTAMP,
+                    reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, (user['name'], eid))
+            connection.commit()
+            log_activity('expense_approve', f'Approved expense request {row[1]}', 'expense_request', eid)
+            _expense_notify_requester(eid, 'approved')  # best-effort WhatsApp, never blocks
+        return jsonify({'success': True, 'message': 'Expense request approved.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests/<int:eid>/reject', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_approve_requisitions')
+def procurement_api_reject_expense_request(eid):
+    data = request.get_json() or {}
+    reason = (data.get('reason') or '').strip()
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, exp_no, status FROM expense_requests WHERE id = %s", (eid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Expense request not found.'}), 404
+            if row[2] not in ('submitted', 'draft'):
+                return jsonify({'success': False, 'error': f'Expense is already {row[2]}.'}), 400
+            cursor.execute("""
+                UPDATE expense_requests SET status='rejected', rejected_by=%s, rejected_at=CURRENT_TIMESTAMP,
+                    reject_reason=%s, approved_by=NULL, approved_at=NULL, updated_at=CURRENT_TIMESTAMP
+                WHERE id=%s
+            """, (user['name'], reason, eid))
+            connection.commit()
+            log_activity('expense_reject', f'Rejected expense request {row[1]}{": " + reason if reason else ""}', 'expense_request', eid)
+            _expense_notify_requester(eid, 'rejected')  # best-effort WhatsApp, never blocks
+        return jsonify({'success': True, 'message': 'Expense request rejected.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests/<int:eid>/cancel', methods=['POST'])
+@login_required
+def procurement_api_cancel_expense_request(eid):
+    user = _procurement_user()
+    perms = _procurement_perms()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, exp_no, status, requested_by_user_id FROM expense_requests WHERE id = %s", (eid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Expense request not found.'}), 404
+            if row[2] not in ('draft', 'submitted', 'approved'):
+                return jsonify({'success': False, 'error': f'Expense cannot be cancelled in status {row[2]}.'}), 400
+            is_owner = (row[3] == user['id'])
+            if not perms.get('is_super_admin', False) and not is_owner and not perms.get('can_approve_requisitions', False):
+                return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            cursor.execute("UPDATE expense_requests SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE id=%s", (eid,))
+            connection.commit()
+            log_activity('expense_cancel', f'Cancelled expense request {row[1]}', 'expense_request', eid)
+        return jsonify({'success': True, 'message': 'Expense request cancelled.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests/<int:eid>/delete', methods=['POST'])
+@login_required
+def procurement_api_delete_expense_request(eid):
+    user = _procurement_user()
+    perms = _procurement_perms()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, exp_no, status, requested_by_user_id FROM expense_requests WHERE id = %s", (eid,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Expense request not found.'}), 404
+            if row[2] not in ('draft', 'cancelled', 'rejected'):
+                return jsonify({'success': False, 'error': 'Only draft, cancelled or rejected expenses can be deleted.'}), 400
+            is_owner = (row[3] == user['id'])
+            if not perms.get('is_super_admin', False) and not perms.get('can_manage_purchase_orders', False) and not is_owner:
+                return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            # remove files from disk before deleting rows
+            folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+            cursor.execute("SELECT stored_name FROM expense_attachments WHERE expense_id = %s", (eid,))
+            for (stored,) in cursor.fetchall():
+                p = os.path.join(folder, stored)
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except Exception:
+                        pass
+            cursor.execute("DELETE FROM expense_attachments WHERE expense_id = %s", (eid,))
+            cursor.execute("DELETE FROM expense_requests WHERE id = %s", (eid,))
+            connection.commit()
+            log_activity('expense_delete', f'Deleted expense request {row[1]}', 'expense_request', eid)
+        return jsonify({'success': True, 'message': 'Expense request deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expenses/requests/<int:eid>/attachment', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_create_requisitions')
+def procurement_api_expense_attachment_upload(eid):
+    """Attach a receipt / invoice to an expense request."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, exp_no FROM expense_requests WHERE id = %s", (eid,))
+            exp = cursor.fetchone()
+        if not exp:
+            return jsonify({'success': False, 'error': 'Expense request not found.'}), 404
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file selected.'}), 400
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'Empty file.'}), 400
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        os.makedirs(folder, exist_ok=True)
+        safe = secure_filename(file.filename) or 'file'
+        ext = os.path.splitext(safe)[1].lower()
+        stored = f"exp_{eid}_{uuid.uuid4().hex[:10]}{ext}"
+        file.save(os.path.join(folder, stored))
+        user = _procurement_user()
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO expense_attachments (expense_id, original_name, stored_name, mime_type, file_size, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (eid, file.filename, stored, file.content_type or 'application/octet-stream',
+                  os.path.getsize(os.path.join(folder, stored)), user['name']))
+            connection.commit()
+        log_activity('expense_attachment', f'Attached receipt/invoice "{file.filename}" to {exp[1]}', 'expense_request', eid)
+        return jsonify({'success': True, 'message': 'Receipt/invoice attached.'})
+    except Exception as e:
+        print(f"Upload expense attachment error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expense-attachment/<int:att_id>', methods=['GET'])
+@login_required
+def procurement_api_expense_attachment_view(att_id):
+    """Open/view a stored expense receipt or invoice."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT original_name, stored_name, mime_type FROM expense_attachments WHERE id = %s", (att_id,))
+            r = cursor.fetchone()
+        if not r:
+            return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        path = os.path.join(folder, r[1])
+        if not os.path.exists(path):
+            return jsonify({'success': False, 'error': 'File missing on disk.'}), 404
+        return send_file(path, mimetype=r[2] or 'application/octet-stream')
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/expense-attachment/<int:att_id>', methods=['DELETE'])
+@login_required
+@_procurement_perm_required('can_create_requisitions')
+def procurement_api_expense_attachment_delete(att_id):
+    """Delete an expense attachment and remove its file from disk."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT stored_name FROM expense_attachments WHERE id = %s", (att_id,))
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
+            cursor.execute("DELETE FROM expense_attachments WHERE id = %s", (att_id,))
+            connection.commit()
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        path = os.path.join(folder, r[0])
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+        return jsonify({'success': True, 'message': 'Attachment deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================
 # FINANCE PORTAL — Income Statement (P&L) & Cash Flow
 # Fully additive: reads from existing tables only, changes nothing.
 # ============================================================
@@ -37877,6 +38620,24 @@ def api_finance_statements():
             """, (start, end))
             supplier_inj, supplier_biz = cursor.fetchone()
 
+            # Approved operational expenses (fuel/maintenance/service/etc.) in range split by funding source
+            cursor.execute("""
+                SELECT COALESCE(SUM(CASE WHEN COALESCE(er.funding_source,'business') = 'injection' THEN er.amount ELSE 0 END), 0),
+                       COALESCE(SUM(CASE WHEN COALESCE(er.funding_source,'business') = 'business' THEN er.amount ELSE 0 END), 0)
+                FROM expense_requests er
+                WHERE er.status = 'approved' AND COALESCE(er.expense_date, er.created_at::date) BETWEEN %s AND %s
+            """, (start, end))
+            expenses_inj, expenses_biz = cursor.fetchone()
+
+            # Per-category breakdown of approved expenses in range (for the P&L)
+            cursor.execute("""
+                SELECT COALESCE(er.category, 'Other'), COALESCE(SUM(er.amount), 0)
+                FROM expense_requests er
+                WHERE er.status = 'approved' AND COALESCE(er.expense_date, er.created_at::date) BETWEEN %s AND %s
+                GROUP BY COALESCE(er.category, 'Other') ORDER BY 2 DESC
+            """, (start, end))
+            expense_breakdown_rows = cursor.fetchall()
+
         pos_cash = float(pos_cash or 0)
         pos_noncash = float(pos_noncash or 0)
         pos_revenue = pos_cash + pos_noncash
@@ -37889,20 +38650,23 @@ def api_finance_statements():
         purchases_biz = float(purchases_biz or 0)
         supplier_inj = float(supplier_inj or 0)
         supplier_biz = float(supplier_biz or 0)
+        expenses_inj = float(expenses_inj or 0)
+        expenses_biz = float(expenses_biz or 0)
+        expense_breakdown = {str(cat or 'Other'): float(amt or 0) for cat, amt in expense_breakdown_rows}
         purchases = purchases_biz + purchases_inj
         supplier_paid = supplier_biz + supplier_inj
 
         total_revenue = pos_revenue + project_received
         gross_profit = total_revenue - cogs
-        total_expenses = payroll_gross + commissions
+        total_expenses = payroll_gross + commissions + expenses_biz + expenses_inj
         net_profit = gross_profit - total_expenses
 
         # ---- Cash flow: operating vs financing (capital injections) ----
         op_inflows = pos_cash + pos_noncash + project_received
-        op_outflows = supplier_biz + purchases_biz + payroll_net + commissions
+        op_outflows = supplier_biz + purchases_biz + expenses_biz + payroll_net + commissions
         net_operating = op_inflows - op_outflows
-        injections_in = supplier_inj + purchases_inj   # capital injected into the business to fund this spend
-        injections_out = supplier_inj + purchases_inj  # the injection-funded spend itself
+        injections_in = supplier_inj + purchases_inj + expenses_inj  # capital injected into the business to fund this spend
+        injections_out = supplier_inj + purchases_inj + expenses_inj  # the injection-funded spend itself
         net_financing = injections_in - injections_out
         net_cashflow = net_operating + net_financing
 
@@ -37960,9 +38724,16 @@ def api_finance_statements():
             at_payroll = float(cursor.fetchone()[0] or 0)
             cursor.execute("SELECT COALESCE(SUM(amount),0) FROM hr_commissions")
             at_comm = float(cursor.fetchone()[0] or 0)
-            retained_earnings = at_pos_rev - at_cogs - at_payroll - at_comm
+            cursor.execute("SELECT COALESCE(SUM(amount),0) FROM expense_requests WHERE status='approved'")
+            at_expenses = float(cursor.fetchone()[0] or 0)
+            cursor.execute("""
+                SELECT COALESCE(SUM(amount),0) FROM expense_requests
+                WHERE status='approved' AND COALESCE(funding_source,'business')='injection'
+            """)
+            at_exp_inj = float(cursor.fetchone()[0] or 0)
+            retained_earnings = at_pos_rev - at_cogs - at_payroll - at_comm - at_expenses
 
-        injections_total = inj_po + inj_pay
+        injections_total = inj_po + inj_pay + at_exp_inj
         supplier_payables = max(0.0, received_po - paid_all)
         equity = injections_total + retained_earnings
         assets_no_cash = inventory_value + receivables
@@ -37976,13 +38747,16 @@ def api_finance_statements():
                 'project_received': project_received, 'total_revenue': total_revenue,
                 'cogs': cogs, 'gross_profit': gross_profit,
                 'payroll': payroll_gross, 'commissions': commissions,
+                'expenses': expenses_biz + expenses_inj, 'expense_breakdown': expense_breakdown,
                 'total_expenses': total_expenses, 'net_profit': net_profit
             },
             'cashflow': {
                 'in_cash': pos_cash, 'in_bank': pos_noncash, 'in_projects': project_received,
                 'total_inflows': op_inflows,
                 'out_suppliers_biz': supplier_biz, 'out_purchases_biz': purchases_biz,
+                'out_expenses_biz': expenses_biz,
                 'out_suppliers_inj': supplier_inj, 'out_purchases_inj': purchases_inj,
+                'out_expenses_inj': expenses_inj,
                 'out_payroll': payroll_net, 'out_commissions': commissions,
                 'total_operating_outflows': op_outflows, 'net_operating': net_operating,
                 'injections_in': injections_in, 'injections_out': injections_out,
@@ -37993,8 +38767,9 @@ def api_finance_statements():
             'funding': {
                 'purchases_biz': purchases_biz, 'purchases_inj': purchases_inj,
                 'supplier_biz': supplier_biz, 'supplier_inj': supplier_inj,
-                'total_biz': supplier_biz + purchases_biz,
-                'total_inj': supplier_inj + purchases_inj
+                'expenses_biz': expenses_biz, 'expenses_inj': expenses_inj,
+                'total_biz': supplier_biz + purchases_biz + expenses_biz,
+                'total_inj': supplier_inj + purchases_inj + expenses_inj
             },
             'balance_sheet': {
                 'inventory_value': inventory_value,

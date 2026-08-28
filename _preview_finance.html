@@ -195,6 +195,8 @@
                         <tr class="section"><td colspan="2">Operating Expenses</td></tr>
                         <tr><td>Payroll (gross)</td><td class="num neg" id="inPayroll">$0.00</td></tr>
                         <tr><td>Commissions</td><td class="num neg" id="inCommissions">$0.00</td></tr>
+                        <tr><td>Operational Expenses (Fuel · Maintenance · Service · Freight)</td><td class="num neg" id="inOpExp">$0.00</td></tr>
+                        <tbody id="inExpenseRows"></tbody>
                         <tr class="total"><td>Total Operating Expenses</td><td class="num neg" id="inExpenses">$0.00</td></tr>
                         <tr class="total"><td>NET PROFIT</td><td class="num" id="inNet">$0.00</td></tr>
                     </table>
@@ -218,11 +220,12 @@
                         <tr><td>Purchases (Purchase Orders)</td><td class="num neg" id="cfOutPurchasesBiz">$0.00</td></tr>
                         <tr><td>Payroll (net paid)</td><td class="num neg" id="cfOutPayroll">$0.00</td></tr>
                         <tr><td>Commissions</td><td class="num neg" id="cfOutCommissions">$0.00</td></tr>
+                        <tr><td>Operational Expenses (fuel, maintenance, service)</td><td class="num neg" id="cfOutExpensesBiz">$0.00</td></tr>
                         <tr class="total"><td>Total Operating Outflows</td><td class="num neg" id="cfTotalOpOut">$0.00</td></tr>
                         <tr class="total"><td>NET OPERATING CASH FLOW</td><td class="num" id="cfNetOperating">$0.00</td></tr>
                         <tr class="section"><td colspan="2">Financing — Capital Injections</td></tr>
                         <tr><td>Capital injections into business</td><td class="num" id="cfInjectionsIn">$0.00</td></tr>
-                        <tr><td>Injection-funded purchases / payments</td><td class="num neg" id="cfInjectionsOut">$0.00</td></tr>
+                        <tr><td>Injection-funded purchases / payments / expenses</td><td class="num neg" id="cfInjectionsOut">$0.00</td></tr>
                         <tr class="total"><td>Net Financing</td><td class="num" id="cfNetFinancing">$0.00</td></tr>
                         <tr class="total"><td>NET CASH FLOW (change in cash)</td><td class="num" id="cfNet">$0.00</td></tr>
                     </table>
@@ -239,6 +242,8 @@
                         <tr><td>Purchases — from capital injection</td><td class="num" id="fuPurchasesInj">$0.00</td></tr>
                         <tr><td>Supplier payments — from business cash flows</td><td class="num" id="fuSupplierBiz">$0.00</td></tr>
                         <tr><td>Supplier payments — from capital injection</td><td class="num" id="fuSupplierInj">$0.00</td></tr>
+                        <tr><td>Operational expenses — from business cash flows</td><td class="num" id="fuExpensesBiz">$0.00</td></tr>
+                        <tr><td>Operational expenses — from capital injection</td><td class="num" id="fuExpensesInj">$0.00</td></tr>
                         <tr class="total"><td>Total funded from business</td><td class="num" id="fuTotalBiz">$0.00</td></tr>
                         <tr class="total"><td>Total funded by capital injection</td><td class="num" id="fuTotalInj">$0.00</td></tr>
                     </table>
@@ -340,7 +345,7 @@ async function loadStatements() {
     const start = document.getElementById('finStart').value;
     const end = document.getElementById('finEnd').value;
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"range": {"start_date": "2026-08-01", "end_date": "2026-08-28"}, "income": {"pos_revenue": 3650.0, "pos_cash": 2000.0, "pos_noncash": 1650.0, "project_received": 5200.0, "total_revenue": 8850.0, "cogs": 2180.0, "gross_profit": 6670.0, "payroll": 3100.0, "commissions": 450.0, "total_expenses": 3550.0, "net_profit": 3120.0}, "cashflow": {"in_cash": 2000.0, "in_bank": 1650.0, "in_projects": 5200.0, "total_inflows": 8850.0, "out_suppliers_biz": 800.0, "out_purchases_biz": 1450.0, "out_suppliers_inj": 400.0, "out_purchases_inj": 1000.0, "out_payroll": 2950.0, "out_commissions": 450.0, "total_operating_outflows": 5650.0, "net_operating": 3200.0, "injections_in": 1400.0, "injections_out": 1400.0, "net_financing": 0.0, "total_outflows": 7050.0, "net_cashflow": 1800.0}, "funding": {"purchases_biz": 1450.0, "purchases_inj": 1000.0, "supplier_biz": 800.0, "supplier_inj": 400.0, "total_biz": 2250.0, "total_inj": 1400.0}, "balance_sheet": {"inventory_value": 8700.0, "receivables": 15600.0, "derived_cash": 2300.0, "total_assets": 26600.0, "supplier_payables": 1200.0, "injections_total": 14000.0, "retained_earnings": 11400.0, "total_equity_liabilities": 26600.0}}})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"range": {"start_date": "2026-08-01", "end_date": "2026-08-28"}, "income": {"pos_revenue": 3650.0, "pos_cash": 2000.0, "pos_noncash": 1650.0, "project_received": 5200.0, "total_revenue": 8850.0, "cogs": 2180.0, "gross_profit": 6670.0, "payroll": 3100.0, "commissions": 450.0, "expenses": 600.0, "expense_breakdown": {"Fuel": 200.0, "Maintenance": 150.0, "Service": 70.0, "Freight & Transport": 180.0}, "total_expenses": 4150.0, "net_profit": 2520.0}, "cashflow": {"in_cash": 2000.0, "in_bank": 1650.0, "in_projects": 5200.0, "total_inflows": 8850.0, "out_suppliers_biz": 800.0, "out_purchases_biz": 1450.0, "out_expenses_biz": 420.0, "out_suppliers_inj": 400.0, "out_purchases_inj": 1000.0, "out_expenses_inj": 180.0, "out_payroll": 2950.0, "out_commissions": 450.0, "total_operating_outflows": 6070.0, "net_operating": 2780.0, "injections_in": 1580.0, "injections_out": 1580.0, "net_financing": 0.0, "total_outflows": 7650.0, "net_cashflow": 2780.0}, "funding": {"purchases_biz": 1450.0, "purchases_inj": 1000.0, "supplier_biz": 800.0, "supplier_inj": 400.0, "expenses_biz": 420.0, "expenses_inj": 180.0, "total_biz": 2670.0, "total_inj": 1580.0}, "balance_sheet": {"inventory_value": 8700.0, "receivables": 15600.0, "derived_cash": 1700.0, "total_assets": 26000.0, "supplier_payables": 1200.0, "injections_total": 14180.0, "retained_earnings": 10620.0, "total_equity_liabilities": 26000.0}}})));
         const data = await res.json();
         if (!data.success) { toast(data.error || 'Failed to load statements', 'error'); return; }
         FIN = data.data;
@@ -371,6 +376,12 @@ function renderStatements() {
     setText('inTotalRev', inc.total_revenue);
     setText('inCogs', inc.cogs, 'neg'); setText('inGross', inc.gross_profit);
     setText('inPayroll', inc.payroll, 'neg'); setText('inCommissions', inc.commissions, 'neg');
+    setText('inOpExp', inc.expenses, 'neg');
+    const breakdown = inc.expense_breakdown || {};
+    const expRows = document.getElementById('inExpenseRows');
+    if (expRows) expRows.innerHTML = Object.keys(breakdown).length
+        ? Object.keys(breakdown).map(c => `<tr><td style="padding-left:22px;">— ${esc(c)}</td><td class="num neg">$${money(breakdown[c])}</td></tr>`).join('')
+        : '';
     setText('inExpenses', inc.total_expenses, 'neg');
     setText('inNet', inc.net_profit, inc.net_profit >= 0 ? 'pos' : 'neg');
 
@@ -379,6 +390,7 @@ function renderStatements() {
     setText('cfTotalIn', cf.total_inflows);
     setText('cfOutSuppliersBiz', cf.out_suppliers_biz, 'neg'); setText('cfOutPurchasesBiz', cf.out_purchases_biz, 'neg');
     setText('cfOutPayroll', cf.out_payroll, 'neg'); setText('cfOutCommissions', cf.out_commissions, 'neg');
+    setText('cfOutExpensesBiz', cf.out_expenses_biz, 'neg');
     setText('cfTotalOpOut', cf.total_operating_outflows, 'neg');
     setText('cfNetOperating', cf.net_operating, cf.net_operating >= 0 ? 'pos' : 'neg');
     setText('cfInjectionsIn', cf.injections_in); setText('cfInjectionsOut', cf.injections_out, 'neg');
@@ -389,6 +401,7 @@ function renderStatements() {
     const fu = FIN.funding || {};
     setText('fuPurchasesBiz', fu.purchases_biz); setText('fuPurchasesInj', fu.purchases_inj);
     setText('fuSupplierBiz', fu.supplier_biz); setText('fuSupplierInj', fu.supplier_inj);
+    setText('fuExpensesBiz', fu.expenses_biz); setText('fuExpensesInj', fu.expenses_inj);
     setText('fuTotalBiz', fu.total_biz); setText('fuTotalInj', fu.total_inj);
 
     // Balance sheet
@@ -417,6 +430,8 @@ function exportStatements() {
         ['Gross Profit', inc.gross_profit],
         ['Payroll (gross)', inc.payroll],
         ['Commissions', inc.commissions],
+        ['Operational Expenses', inc.expenses],
+        ...Object.keys(inc.expense_breakdown || {}).map(c => ['  ' + c, (inc.expense_breakdown || {})[c]]),
         ['Total Operating Expenses', inc.total_expenses],
         ['NET PROFIT', inc.net_profit],
         [],
@@ -425,8 +440,9 @@ function exportStatements() {
         ['POS — Bank / Mobile', cf.in_bank],
         ['Project Payments Received', cf.in_projects],
         ['Total Inflows', cf.total_inflows],
-        ['Supplier Payments', cf.out_suppliers],
-        ['Purchases (Purchase Orders)', cf.out_purchases],
+        ['Supplier Payments', (cf.out_suppliers_biz||0) + (cf.out_suppliers_inj||0)],
+        ['Purchases (Purchase Orders)', (cf.out_purchases_biz||0) + (cf.out_purchases_inj||0)],
+        ['Operational Expenses', (cf.out_expenses_biz||0) + (cf.out_expenses_inj||0)],
         ['Payroll (net paid)', cf.out_payroll],
         ['Commissions', cf.out_commissions],
         ['Total Operating Outflows', cf.total_operating_outflows],
@@ -440,6 +456,8 @@ function exportStatements() {
         ['Purchases — injection', fu.purchases_inj],
         ['Supplier payments — business', fu.supplier_biz],
         ['Supplier payments — injection', fu.supplier_inj],
+        ['Operational expenses — business', fu.expenses_biz],
+        ['Operational expenses — injection', fu.expenses_inj],
         [],
         ['BALANCE SHEET (management estimate)'],
         ['Inventory (stock at cost)', bs.inventory_value],

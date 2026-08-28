@@ -654,6 +654,7 @@
         <button class="pc-nav-btn" data-module="suppliers" onclick="showModule('suppliers')"><i class="bi bi-truck"></i> <span>Suppliers</span></button>
         <button class="pc-nav-btn" data-module="payments" onclick="showModule('payments')"><i class="bi bi-cash-stack"></i> <span>Payments</span></button>
         <button class="pc-nav-btn" data-module="analytics" onclick="showModule('analytics')"><i class="bi bi-graph-up-arrow"></i> <span>Analytics</span></button>
+        <button class="pc-nav-btn" data-module="expenses" onclick="showModule('expenses')"><i class="bi bi-fuel-pump"></i> <span>Logistics &amp; Expenses</span></button>
         <div class="pc-sup"><i class="bi bi-info-circle"></i> Requisitions → Approvals → POs → Stock-in</div>
     </aside>
 
@@ -821,6 +822,50 @@
                     <table class="pc-table">
                         <thead><tr><th>Supplier</th><th class="num">Rating</th><th class="num">POs</th><th class="num">Received</th><th class="num">On-time %</th><th class="num">Avg Lead (days)</th></tr></thead>
                         <tbody id="anPerfBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ LOGISTICS & EXPENSES ============ -->
+        <section class="pc-module" id="module-expenses">
+            <div class="pc-kpi-grid">
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="expKpiPending">0</div><div class="kpi-label">Awaiting Approval</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div class="kpi-value" id="expKpiApproved">0</div><div class="kpi-label">Approved</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-truck"></i></div><div class="kpi-value" id="expKpiAssets">0</div><div class="kpi-label">Vehicles / Assets</div></div>
+            </div>
+            <div class="pc-panel">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-fuel-pump"></i> Expense Requests — Fuel · Maintenance · Service · Freight</div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select class="pc-select" id="expStatusFilter" style="width:150px;" onchange="loadExpenses()">
+                            <option value="">All Statuses</option>
+                            <option value="draft">Draft</option>
+                            <option value="submitted">Submitted</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="openAssetModal()" data-perm-action="can_manage_suppliers"><i class="bi bi-truck"></i> Add Vehicle/Asset</button>
+                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openExpenseModal()" data-perm-action="can_create_requisitions"><i class="bi bi-plus-lg"></i> New Expense Request</button>
+                    </div>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Exp No</th><th>Category</th><th>Vehicle/Asset</th><th>Title</th><th class="num">Amount (USD)</th><th>Funding</th><th>Status</th><th>Requested By</th><th>Date</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="expBody"><tr><td colspan="10" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="pc-panel mt-3">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-truck"></i> Vehicles &amp; Assets Register</div>
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="openAssetModal()" data-perm-action="can_manage_suppliers"><i class="bi bi-plus-lg"></i> Add Vehicle/Asset</button>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Name</th><th>Type</th><th>Plate No</th><th>Notes</th><th class="num">Expenses</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="assetBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -997,6 +1042,142 @@
     </div>
 </div>
 
+<!-- ==================== EXPENSE REQUEST MODAL (create/edit) ==================== -->
+<div class="modal fade" id="expenseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-fuel-pump me-2"></i><span id="expenseModalTitle">New Expense Request</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <input type="hidden" id="expId" value="">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Title *</label>
+                        <input type="text" class="pc-input" id="expTitle" placeholder="e.g. Diesel — Toyota Hilux">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pc-form-label">Category *</label>
+                        <select class="pc-select" id="expCategory">
+                            <option>Fuel</option>
+                            <option>Maintenance</option>
+                            <option>Service</option>
+                            <option>Freight &amp; Transport</option>
+                            <option>Customs</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pc-form-label">Amount (USD) *</label>
+                        <input type="number" class="pc-input" id="expAmount" min="0" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Vehicle / Asset</label>
+                        <select class="pc-select" id="expAsset"><option value="">— None —</option></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pc-form-label">Expense Date</label>
+                        <input type="date" class="pc-input" id="expDate">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pc-form-label">Funding Source</label>
+                        <select class="pc-select" id="expFunding">
+                            <option value="business" selected>From business cash flows</option>
+                            <option value="injection">Capital injection into business</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Vendor / Supplier</label>
+                        <input type="text" class="pc-input" id="expVendor" placeholder="e.g. Total Energies">
+                    </div>
+                    <div class="col-12">
+                        <label class="pc-form-label">Description / Notes</label>
+                        <textarea class="pc-textarea" id="expDescription" rows="2" placeholder="Details — e.g. odometer, type of service, reason"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-outline" onclick="saveExpense(false)"><i class="bi bi-save"></i> Save Draft</button>
+                <button class="pc-btn pc-btn-primary" onclick="saveExpense(true)"><i class="bi bi-send"></i> Submit for Approval</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== VIEW EXPENSE MODAL ==================== -->
+<div class="modal fade" id="viewExpenseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-fuel-pump me-2"></i><span id="viewExpTitle">Expense Request</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div id="viewExpMeta" class="mb-3"></div>
+                <div class="pc-attach-box mt-3" id="expAttachPanel">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <label class="pc-form-label mb-0"><i class="bi bi-paperclip me-1"></i>Attachments — Receipt / Invoice</label>
+                        <label class="pc-btn pc-btn-outline pc-btn-sm mb-0" data-perm-action="can_create_requisitions" style="cursor:pointer;">
+                            <i class="bi bi-upload"></i> Attach Receipt
+                            <input type="file" id="expAttachFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" hidden onchange="uploadExpAttachment()">
+                        </label>
+                    </div>
+                    <div id="expAttachList"><div class="pc-quote-empty">No attachments yet.</div></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="d-flex gap-2 flex-wrap w-100" id="viewExpActions"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== REJECT EXPENSE MODAL ==================== -->
+<div class="modal fade" id="rejectExpModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-x-circle me-2 text-danger"></i>Reject Expense Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="pc-form-label">Reason for rejection *</label>
+                <textarea class="pc-textarea" id="rejectExpReason"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-danger" onclick="confirmRejectExpense()"><i class="bi bi-x-lg"></i> Reject</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== ASSET / VEHICLE MODAL ==================== -->
+<div class="modal fade" id="assetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-truck me-2"></i>Add Vehicle / Asset</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div class="row g-3">
+                    <div class="col-12"><label class="pc-form-label">Name *</label><input type="text" class="pc-input" id="assetName" placeholder="e.g. Toyota Hilux"></div>
+                    <div class="col-md-6"><label class="pc-form-label">Type</label><select class="pc-select" id="assetType"><option>Vehicle</option><option>Equipment</option><option>Machine</option><option>Other</option></select></div>
+                    <div class="col-md-6"><label class="pc-form-label">Plate No</label><input type="text" class="pc-input" id="assetPlate" placeholder="e.g. AEF 1234"></div>
+                    <div class="col-12"><label class="pc-form-label">Notes</label><input type="text" class="pc-input" id="assetNotes" placeholder="Make, model, capacity…"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-primary" onclick="saveAsset()"><i class="bi bi-check-lg"></i> Add Asset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ==================== PURCHASE ORDER MODAL (create) ==================== -->
 <div class="modal fade" id="poModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
@@ -1151,6 +1332,45 @@ const USER_NAME = 'Preview User';
 const SERVER_PERMS = {} || {};
 let PERMS = {};
 
+// ===== PREVIEW: fetch override for Logistics & Expenses endpoints =====
+(function () {
+    const _nativeFetch = window.fetch.bind(window);
+    const json = (obj) => new Response(JSON.stringify(obj), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    const ok = () => json({ success: true, message: 'OK (preview)' });
+    const ASSETS_SAMPLE = [
+        { id: 1, name: 'Toyota Hilux', asset_type: 'Vehicle', plate_no: 'AEF 1234', notes: 'Crew cab — site work', linked: 2, created_by: 'T. Chikerema', created_at: '2026-08-01 08:00:00' },
+        { id: 2, name: 'Backhoe Loader', asset_type: 'Machine', plate_no: '', notes: 'Site 2', linked: 1, created_by: 'T. Chikerema', created_at: '2026-08-03 08:00:00' },
+        { id: 3, name: 'Isuzu Truck', asset_type: 'Vehicle', plate_no: 'ABE 7788', notes: 'Deliveries', linked: 0, created_by: 'T. Chikerema', created_at: '2026-08-05 08:00:00' }
+    ];
+    const EXP_DETAIL = {
+        id: 1, exp_no: 'EXP-0001', title: 'Diesel — Toyota Hilux', category: 'Fuel', asset_id: 1,
+        asset_name: 'Toyota Hilux', asset_type: 'Vehicle', asset_plate: 'AEF 1234',
+        description: '80 litres diesel for site deliveries.', amount: 96.0, expense_date: '2026-08-25',
+        vendor: 'Total Energies', funding_source: 'business', status: 'submitted', requested_by: 'T. Chikerema',
+        created_at: '2026-08-25 09:00:00', approved_by: null, approved_at: null, rejected_by: null,
+        rejected_at: null, reject_reason: null, submitted_at: '2026-08-25 09:05:00',
+        attachments: [{ id: 1, original_name: 'fuel-receipt.jpg', mime_type: 'image/jpeg', file_size: 204800, uploaded_by: 'T. Chikerema', uploaded_at: '2026-08-25 09:06:00' }]
+    };
+    const EXP_LIST = [
+        { id: 1, exp_no: 'EXP-0001', title: 'Diesel — Toyota Hilux', category: 'Fuel', asset_id: 1, asset_name: 'Toyota Hilux', description: '80 litres diesel', amount: 96.0, expense_date: '2026-08-25', vendor: 'Total Energies', funding_source: 'business', status: 'submitted', requested_by: 'T. Chikerema', created_at: '2026-08-25 09:00:00', approved_at: null, attach_count: 1 },
+        { id: 2, exp_no: 'EXP-0002', title: 'Brake service & pads', category: 'Maintenance', asset_id: 1, asset_name: 'Toyota Hilux', description: '', amount: 150.0, expense_date: '2026-08-20', vendor: 'Bearing Man', funding_source: 'business', status: 'approved', requested_by: 'T. Chikerema', created_at: '2026-08-20 10:00:00', approved_at: '2026-08-21 09:00:00', attach_count: 0 },
+        { id: 3, exp_no: 'EXP-0003', title: 'Site labour — electricians', category: 'Service', asset_id: null, asset_name: null, description: '', amount: 320.0, expense_date: '2026-08-18', vendor: '', funding_source: 'injection', status: 'draft', requested_by: 'T. Chikerema', created_at: '2026-08-18 11:00:00', approved_at: null, attach_count: 0 }
+    ];
+    window.fetch = async function (url, opts) {
+        const u = String(url);
+        if (u.startsWith('data:')) return _nativeFetch(url, opts);
+        if (u.indexOf('/api/procurement/expenses/requests/') > -1) {
+            const tail = u.split('/api/procurement/expenses/requests/')[1];
+            if (/submit$|approve$|reject$|cancel$|delete$/.test(tail)) return ok();
+            if (/attachment$/.test(tail)) return ok();
+            return json({ success: true, data: EXP_DETAIL });
+        }
+        if (u.indexOf('/api/procurement/expenses/requests') > -1) return json({ success: true, data: EXP_LIST });
+        if (u.indexOf('/api/procurement/expenses/assets') > -1) return json({ success: true, data: ASSETS_SAMPLE });
+        return _nativeFetch(url, opts);
+    };
+})();
+
 // ===== STATE =====
 let REQUISITIONS = [];
 let PURCHASE_ORDERS = [];
@@ -1196,7 +1416,8 @@ const PAGE_META = {
     pos: { title: 'Purchase Orders', sub: 'Convert approved requisitions into orders and receive goods into stock.' },
     suppliers: { title: 'Suppliers', sub: 'Manage your supplier register, lead times, terms and ratings.' },
     payments: { title: 'Payments', sub: 'Track what you owe suppliers and record payments.' },
-    analytics: { title: 'Analytics', sub: 'Procurement spend, trends and supplier performance.' }
+    analytics: { title: 'Analytics', sub: 'Procurement spend, trends and supplier performance.' },
+    expenses: { title: 'Logistics & Expenses', sub: 'Fuel, maintenance, service and freight — request, approve and track operational spend.' }
 };
 
 // ===== HELPERS =====
@@ -1287,6 +1508,7 @@ function showModule(name) {
     if (name === 'suppliers') loadSuppliers();
     if (name === 'payments') loadPayables();
     if (name === 'analytics') loadAnalytics();
+    if (name === 'expenses') loadExpenses();
 }
 
 // ===== NAVBAR =====
@@ -2614,6 +2836,334 @@ window.exportData = async function(scope) {
         URL.revokeObjectURL(url);
         toast('Export downloaded', 'success');
     } catch (e) { toast('Export failed', 'error'); }
+};
+
+// ===================== LOGISTICS & EXPENSES =====================
+let ASSETS = [];
+let CUR_EXP = null;
+
+function expBadge(status) {
+    const map = { draft:'pc-badge-draft', submitted:'pc-badge-submitted', approved:'pc-badge-approved', rejected:'pc-badge-rejected', cancelled:'pc-badge-cancelled' };
+    return `<span class="pc-badge ${map[status] || 'pc-badge-draft'}">${esc(status.replace(/_/g,' '))}</span>`;
+}
+function fundTag(f) {
+    return f === 'injection'
+        ? '<span style="color:#B45309;font-size:0.56rem;font-weight:700;">◈ Capital injection</span>'
+        : '<span style="color:#0891B2;font-size:0.56rem;font-weight:700;">Business</span>';
+}
+
+async function loadExpenses() {
+    const tbody = document.getElementById('expBody');
+    showSkeleton(tbody, 10);
+    const status = document.getElementById('expStatusFilter').value;
+    try {
+        const res = await fetch('/api/procurement/expenses/requests', { credentials: 'include' });
+        const data = await res.json();
+        const all = data.data || [];
+        const list = status ? all.filter(x => x.status === status) : all;
+        tbody.innerHTML = list.map(e => `
+            <tr style="cursor:pointer;" onclick="viewExpense(${e.id})">
+                <td>${esc(e.exp_no)}</td>
+                <td>${esc(e.category)}</td>
+                <td>${esc(e.asset_name || '—')}</td>
+                <td><strong>${esc(e.title)}</strong></td>
+                <td class="num">${fmtMoney(e.amount)}</td>
+                <td>${fundTag(e.funding_source)}</td>
+                <td>${expBadge(e.status)}</td>
+                <td>${esc(e.requested_by || '—')}</td>
+                <td>${esc((e.expense_date || (e.created_at || '').slice(0,10)) || '—')}</td>
+                <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewExpense(${e.id})"><i class="bi bi-eye"></i></button>
+                    ${['draft'].includes(e.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="editExpense(${e.id})" data-perm-action="can_create_requisitions"><i class="bi bi-pencil"></i></button>` : ''}
+                    ${['draft','submitted'].includes(e.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="submitExpense(${e.id})" data-perm-action="can_create_requisitions"><i class="bi bi-send"></i></button>` : ''}
+                    ${['draft','cancelled','rejected'].includes(e.status) ? `<button class="pc-btn pc-btn-danger pc-btn-sm" onclick="deleteExpense(${e.id})" data-perm-action="can_create_requisitions"><i class="bi bi-trash"></i></button>` : ''}
+                </td>
+            </tr>`).join('') || '<tr><td colspan="10" class="pc-empty"><i class="bi bi-inbox"></i> No expense requests yet — add fuel, maintenance, service or freight spend.</td></tr>';
+        document.getElementById('expKpiPending').textContent = all.filter(x => x.status === 'submitted').length;
+        document.getElementById('expKpiApproved').textContent = all.filter(x => x.status === 'approved').length;
+        applyProcurementPermissions();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="10" class="pc-empty text-danger">Failed to load: ' + esc(e.message) + '</td></tr>';
+    }
+    loadAssets();
+}
+
+async function loadAssets() {
+    const tbody = document.getElementById('assetBody');
+    try {
+        const res = await fetch('/api/procurement/expenses/assets', { credentials: 'include' });
+        const data = await res.json();
+        ASSETS = data.data || [];
+        document.getElementById('expKpiAssets').textContent = ASSETS.length;
+        document.getElementById('expAsset').innerHTML = '<option value="">— None —</option>' + ASSETS.map(a => `<option value="${a.id}">${esc(a.name)}${a.plate_no ? ' (' + esc(a.plate_no) + ')' : ''}</option>`).join('');
+        tbody.innerHTML = ASSETS.map(a => `
+            <tr>
+                <td><strong>${esc(a.name)}</strong></td>
+                <td>${esc(a.asset_type)}</td>
+                <td>${esc(a.plate_no || '—')}</td>
+                <td>${esc(a.notes || '—')}</td>
+                <td class="num">${a.linked != null ? a.linked : '—'}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                    <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="deleteAsset(${a.id})" data-perm-action="can_manage_suppliers"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>`).join('') || '<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> No vehicles/assets yet — add one to log fuel &amp; maintenance per asset.</td></tr>';
+        applyProcurementPermissions();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" class="pc-empty text-danger">Failed to load</td></tr>';
+    }
+}
+
+window.openExpenseModal = function() {
+    document.getElementById('expenseModalTitle').textContent = 'New Expense Request';
+    document.getElementById('expId').value = '';
+    document.getElementById('expTitle').value = '';
+    document.getElementById('expCategory').value = 'Fuel';
+    document.getElementById('expAmount').value = '';
+    document.getElementById('expAsset').value = '';
+    document.getElementById('expDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('expFunding').value = 'business';
+    document.getElementById('expVendor').value = '';
+    document.getElementById('expDescription').value = '';
+    if (!ASSETS.length) loadAssets();
+    showModal('expenseModal');
+};
+
+window.editExpense = async function(id) {
+    try {
+        const res = await fetch('/api/procurement/expenses/requests/' + id, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
+        const e = data.data;
+        document.getElementById('expenseModalTitle').textContent = 'Edit ' + e.exp_no;
+        document.getElementById('expId').value = e.id;
+        document.getElementById('expTitle').value = e.title || '';
+        document.getElementById('expCategory').value = e.category || 'Other';
+        document.getElementById('expAmount').value = e.amount || '';
+        if (!ASSETS.length) await loadAssets();
+        document.getElementById('expAsset').value = e.asset_id || '';
+        document.getElementById('expDate').value = e.expense_date || '';
+        document.getElementById('expFunding').value = e.funding_source || 'business';
+        document.getElementById('expVendor').value = e.vendor || '';
+        document.getElementById('expDescription').value = e.description || '';
+        showModal('expenseModal');
+    } catch (err) { toast('Connection error', 'error'); }
+};
+
+window.saveExpense = async function(submit) {
+    const id = document.getElementById('expId').value;
+    const title = document.getElementById('expTitle').value.trim();
+    const amount = parseFloat(document.getElementById('expAmount').value);
+    if (!title) { toast('Title is required', 'error'); return; }
+    if (!(amount > 0)) { toast('Amount must be greater than 0', 'error'); return; }
+    const payload = {
+        title,
+        category: document.getElementById('expCategory').value,
+        asset_id: document.getElementById('expAsset').value ? parseInt(document.getElementById('expAsset').value, 10) : null,
+        amount,
+        expense_date: document.getElementById('expDate').value || null,
+        funding_source: document.getElementById('expFunding').value,
+        vendor: document.getElementById('expVendor').value.trim(),
+        description: document.getElementById('expDescription').value.trim()
+    };
+    try {
+        const url = id ? '/api/procurement/expenses/requests/' + id : '/api/procurement/expenses/requests';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!data.success) { toast(data.error || 'Save failed', 'error'); return; }
+        const eid = (data.data && data.data.id) || id;
+        if (submit) {
+            const r2 = await fetch('/api/procurement/expenses/requests/' + eid + '/submit', { method: 'POST', credentials: 'include' });
+            const d2 = await r2.json();
+            toast(d2.message || (d2.error || 'Submitted'), d2.success ? 'success' : 'error');
+        } else {
+            toast(data.message || 'Saved', 'success');
+        }
+        hideModal('expenseModal');
+        loadExpenses();
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+window.viewExpense = async function(id) {
+    try {
+        const res = await fetch('/api/procurement/expenses/requests/' + id, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
+        CUR_EXP = data.data;
+        const e = data.data;
+        document.getElementById('viewExpTitle').textContent = e.exp_no + ' — ' + e.title;
+        const assetLine = e.asset_name ? `${esc(e.asset_name)}${e.asset_plate ? ' (' + esc(e.asset_plate) + ')' : ''}` : '—';
+        document.getElementById('viewExpMeta').innerHTML = `
+            <div class="row g-2" style="font-size:0.64rem;">
+                <div class="col-md-3"><strong>Expense No:</strong> ${esc(e.exp_no)}</div>
+                <div class="col-md-2"><strong>Category:</strong> ${esc(e.category)}</div>
+                <div class="col-md-3"><strong>Vehicle/Asset:</strong> ${assetLine}</div>
+                <div class="col-md-2"><strong>Amount:</strong> $${fmtMoney(e.amount)}</div>
+                <div class="col-md-2"><strong>Date:</strong> ${esc(e.expense_date || '—')}</div>
+                <div class="col-md-3"><strong>Vendor:</strong> ${esc(e.vendor || '—')}</div>
+                <div class="col-md-3"><strong>Funding:</strong> ${fundTag(e.funding_source)}</div>
+                <div class="col-md-2"><strong>Status:</strong> ${expBadge(e.status)}</div>
+                <div class="col-md-4"><strong>Requested By:</strong> ${esc(e.requested_by || '—')}</div>
+                <div class="col-md-4"><strong>Created:</strong> ${esc(e.created_at || '—')}</div>
+                ${e.approved_by ? `<div class="col-md-4"><strong>Approved By:</strong> ${esc(e.approved_by)}${e.approved_at ? ' · ' + esc(e.approved_at) : ''}</div>` : ''}
+                ${e.reject_reason ? `<div class="col-12" style="color:#dc2626;"><strong>Rejection Reason:</strong> ${esc(e.reject_reason)}</div>` : ''}
+                ${e.description ? `<div class="col-12"><strong>Details:</strong> ${esc(e.description)}</div>` : ''}
+            </div>`;
+        renderExpAttachments(e.attachments || []);
+        let actions = '';
+        if (e.status === 'draft') {
+            if (can('can_create_requisitions')) {
+                actions += `<button class="pc-btn pc-btn-outline" onclick="editExpense(${e.id})"><i class="bi bi-pencil"></i> Edit</button>`;
+                actions += `<button class="pc-btn pc-btn-primary" onclick="submitExpense(${e.id})"><i class="bi bi-send"></i> Submit</button>`;
+                actions += `<button class="pc-btn pc-btn-danger" onclick="deleteExpense(${e.id})"><i class="bi bi-trash"></i> Delete</button>`;
+            }
+        }
+        if (e.status === 'submitted') {
+            if (can('can_approve_requisitions')) {
+                actions += `<button class="pc-btn pc-btn-success" onclick="approveExpense(${e.id})"><i class="bi bi-check-lg"></i> Approve</button>`;
+                actions += `<button class="pc-btn pc-btn-danger" onclick="openRejectExpense(${e.id})"><i class="bi bi-x-lg"></i> Reject</button>`;
+            }
+            if (can('can_create_requisitions') || can('can_approve_requisitions')) {
+                actions += `<button class="pc-btn pc-btn-outline" onclick="cancelExpense(${e.id})"><i class="bi bi-slash-circle"></i> Cancel</button>`;
+            }
+        }
+        if (e.status === 'approved') {
+            if (can('can_approve_requisitions') || can('can_create_requisitions')) {
+                actions += `<button class="pc-btn pc-btn-outline" onclick="cancelExpense(${e.id})"><i class="bi bi-slash-circle"></i> Cancel</button>`;
+            }
+        }
+        if (actions === '') actions = '<span style="color:#94A3B8;font-size:0.62rem;">No actions available for this status.</span>';
+        document.getElementById('viewExpActions').innerHTML = actions;
+        applyProcurementPermissions();
+        showModal('viewExpenseModal');
+    } catch (err) { toast('Connection error', 'error'); }
+};
+
+function renderExpAttachments(atts) {
+    document.getElementById('expAttachList').innerHTML = atts.length ? atts.map(a => `
+        <div class="pc-attach-item">
+            <i class="bi bi-receipt"></i>
+            <span class="flex-grow-1">${esc(a.original_name)} <span class="pc-attach-tag pc-attach-receipt">receipt</span></span>
+            <span style="color:#94A3B8;font-size:0.6rem;white-space:nowrap;">${esc(a.uploaded_by || '')} · ${esc((a.uploaded_at || '').slice(0,10))}</span>
+            <button class="pc-btn pc-btn-outline pc-btn-sm" title="View" onclick="viewExpAttachment(${a.id})"><i class="bi bi-eye"></i></button>
+            <button class="pc-btn pc-btn-danger pc-btn-sm" title="Delete" data-perm-action="can_create_requisitions" onclick="deleteExpAttachment(${a.id})"><i class="bi bi-trash"></i></button>
+        </div>`).join('')
+        : '<div class="pc-quote-empty">No receipts/invoices attached yet — attach one above.</div>';
+    applyProcurementPermissions();
+}
+
+window.uploadExpAttachment = async function() {
+    if (!CUR_EXP) return;
+    const input = document.getElementById('expAttachFile');
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast('Max file size is 10MB', 'error'); input.value = ''; return; }
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+        const res = await fetch('/api/procurement/expenses/requests/' + CUR_EXP.id + '/attachment', { method: 'POST', credentials: 'include', body: fd });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        input.value = '';
+        if (data.success) viewExpense(CUR_EXP.id);
+    } catch (e) { toast('Connection error', 'error'); input.value = ''; }
+};
+window.viewExpAttachment = function(id) {
+    window.open('/api/procurement/expense-attachment/' + id, '_blank');
+};
+window.deleteExpAttachment = async function(id) {
+    if (!confirm('Delete this attachment?')) return;
+    try {
+        const res = await fetch('/api/procurement/expense-attachment/' + id, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success && CUR_EXP) viewExpense(CUR_EXP.id);
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+window.submitExpense = async function(id) {
+    if (!confirm('Submit this expense request for approval?')) return;
+    try {
+        const res = await fetch('/api/procurement/expenses/requests/' + id + '/submit', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewExpenseModal'); loadExpenses(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.approveExpense = async function(id) {
+    if (!confirm('Approve this expense request?')) return;
+    try {
+        const res = await fetch('/api/procurement/expenses/requests/' + id + '/approve', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewExpenseModal'); loadExpenses(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.openRejectExpense = function(id) {
+    document.getElementById('rejectExpReason').value = '';
+    document.getElementById('rejectExpModal').dataset.expId = id;
+    showModal('rejectExpModal');
+};
+window.confirmRejectExpense = async function() {
+    const id = document.getElementById('rejectExpModal').dataset.expId;
+    const reason = document.getElementById('rejectExpReason').value.trim();
+    if (!reason) { toast('Please enter a rejection reason', 'error'); return; }
+    try {
+        const res = await fetch('/api/procurement/expenses/requests/' + id + '/reject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ reason }) });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('rejectExpModal'); hideModal('viewExpenseModal'); loadExpenses(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.cancelExpense = async function(id) {
+    if (!confirm('Cancel this expense request?')) return;
+    try {
+        const res = await fetch('/api/procurement/expenses/requests/' + id + '/cancel', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewExpenseModal'); loadExpenses(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.deleteExpense = async function(id) {
+    if (!confirm('Delete this expense request permanently?')) return;
+    try {
+        const res = await fetch('/api/procurement/expenses/requests/' + id + '/delete', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewExpenseModal'); loadExpenses(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+window.openAssetModal = function() {
+    document.getElementById('assetName').value = '';
+    document.getElementById('assetType').value = 'Vehicle';
+    document.getElementById('assetPlate').value = '';
+    document.getElementById('assetNotes').value = '';
+    showModal('assetModal');
+};
+window.saveAsset = async function() {
+    const name = document.getElementById('assetName').value.trim();
+    if (!name) { toast('Asset/vehicle name is required', 'error'); return; }
+    try {
+        const res = await fetch('/api/procurement/expenses/assets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({
+            name,
+            asset_type: document.getElementById('assetType').value,
+            plate_no: document.getElementById('assetPlate').value.trim(),
+            notes: document.getElementById('assetNotes').value.trim()
+        }) });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('assetModal'); loadAssets(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.deleteAsset = async function(id) {
+    if (!confirm('Delete this vehicle/asset? Existing expense requests keep their history.')) return;
+    try {
+        const res = await fetch('/api/procurement/expenses/assets/' + id, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) loadAssets();
+    } catch (e) { toast('Connection error', 'error'); }
 };
 
 init();

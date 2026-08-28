@@ -1820,6 +1820,54 @@
         .portal-section .card-actions .btn-explore { padding: 4px 10px; font-size: 0.5rem; }
         .portal-section .card-index { top: 6px; right: 10px; font-size: 0.5rem; }
 
+        /* ---------- Unattended enquiries banner (every user screen) ---------- */
+        .unattended-bar {
+            display: none;
+            margin: 0 auto 10px;
+            max-width: 1060px;
+            padding: 8px 14px;
+            background: linear-gradient(135deg, rgba(193,43,62,.06), rgba(8,145,178,.07));
+            border: 1px solid rgba(193,43,62,.25);
+            border-radius: 14px;
+        }
+        .unattended-bar.show { display: block; }
+        .unattended-bar .ub-head {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.72rem; font-weight: 800; color: #C12B3E;
+            margin-bottom: 6px;
+        }
+        .unattended-bar .ub-head .ub-count {
+            background: #C12B3E; color: #fff; border-radius: 999px;
+            padding: 0 8px; font-size: 0.58rem;
+        }
+        .unattended-bar .ub-list { display: flex; flex-direction: column; gap: 6px; }
+        .unattended-bar .ub-item {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            padding: 6px 10px;
+            background: rgba(255,255,255,.75);
+            border: 1px solid #eef2f7;
+            border-radius: 10px;
+        }
+        body.dark-theme .unattended-bar .ub-item { background: rgba(15,23,42,.5); border-color: #334155; }
+        .unattended-bar .ub-item .ub-name { font-weight: 700; font-size: 0.7rem; }
+        .unattended-bar .ub-item .ub-cat {
+            font-size: 0.58rem; color: #64748B; background: #f1f5f9;
+            padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+        }
+        body.dark-theme .unattended-bar .ub-item .ub-cat { background: #1e293b; color: #94a3b8; }
+        .unattended-bar .ub-item .ub-msg {
+            font-size: 0.62rem; color: #64748B; flex: 1; min-width: 160px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .unattended-bar .ub-item .ub-plan { font-size: 0.6rem; color: #0891B2; text-decoration: none; font-weight: 600; white-space: nowrap; }
+        .unattended-bar .ub-item .ub-attend {
+            font-size: 0.6rem; font-weight: 700; padding: 3px 10px;
+            border: none; border-radius: 8px; background: #059669; color: #fff;
+            cursor: pointer; white-space: nowrap;
+        }
+        .unattended-bar .ub-item .ub-attend:hover { filter: brightness(1.1); }
+        .unattended-bar .ub-item .ub-attend:disabled { opacity: .55; cursor: wait; }
+
         /* ---------- Reduced motion ---------- */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -1859,6 +1907,11 @@
 <!-- Main Content -->
 <div class="main-content">
     <div class="container-fluid">
+        <!-- Unattended Enquiries Banner (visible to every logged-in user until attended) -->
+        <div class="unattended-bar" id="unattendedBar">
+            <div class="ub-head" id="ubHead"><i class="fas fa-bell"></i> Unattended Enquiries</div>
+            <div class="ub-list" id="ubList"></div>
+        </div>
         <div class="row align-items-center g-4">
             <!-- Left Column - Hero -->
             <div class="col-lg-6 hero-section">
@@ -3631,6 +3684,64 @@
         });
 
     })();
+</script>
+<!-- Unattended Enquiries (every user screen) — additive, isolated -->
+<script>
+(function () {
+    const _nf = window.fetch.bind(window);
+    window.fetch = async function(u, o) {
+        const s = String(u);
+        if (s.indexOf('/api/enquiries/unattended') > -1) {
+            return new Response(JSON.stringify({status:'success', data:[
+                {id:101, username:'T. Ncube', clientwhatsapp:'263771112233', enqcategory:'Kitchen & Fittings', enq:'Custom kitchen plan — 4m L-shape, granite top, wants quote', has_plan:true, plan_mime:'image/jpeg', status:'pending', source:'manual'},
+                {id:102, username:'S. Mpofu', clientwhatsapp:'263775556677', enqcategory:'Building & Construction', enq:'House plan for 3-bedroom in Norton — request from WhatsApp chat', has_plan:false, plan_mime:'', status:'pending', source:'manual'}
+            ]}), {status:200, headers:{'Content-Type':'application/json'}});
+        }
+        if (s.indexOf('/api/enquiries/') > -1 && s.indexOf('/attend') > -1) {
+            return new Response(JSON.stringify({status:'success', message:'OK'}), {status:200, headers:{'Content-Type':'application/json'}});
+        }
+        return _nf(u, o);
+    };
+    function escH(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function renderUnattended(list) {
+        const bar = document.getElementById('unattendedBar');
+        if (!bar) return;
+        if (!list || !list.length) { bar.classList.remove('show'); return; }
+        document.getElementById('ubHead').innerHTML = '<i class="fas fa-bell"></i> Unattended Enquiries <span class="ub-count">' + list.length + '</span>';
+        document.getElementById('ubList').innerHTML = list.map(function (e) {
+            return '<div class="ub-item">'
+                + '<span class="ub-name">' + escH(e.username || e.clientwhatsapp || 'Unknown') + '</span>'
+                + '<span class="ub-cat">' + escH(e.enqcategory || 'General') + '</span>'
+                + '<span class="ub-msg">' + escH(e.enq || '') + '</span>'
+                + (e.has_plan ? '<a class="ub-plan" href="/api/enquiries/' + e.id + '/plan" target="_blank"><i class="fas fa-paperclip"></i> Plan</a>' : '')
+                + '<button class="ub-attend" onclick="attendEnquiryMain(' + e.id + ', this)"><i class="fas fa-check"></i> Attended to</button>'
+                + '</div>';
+        }).join('');
+        bar.classList.add('show');
+    }
+    window.loadUnattendedEnquiries = function () {
+        fetch('/api/enquiries/unattended', { credentials: 'include' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { renderUnattended((d && d.data) || []); })
+            .catch(function () { /* not logged in or offline — ignore */ });
+    };
+    window.attendEnquiryMain = function (id, btn) {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-check"></i> Attending…'; }
+        fetch('/api/enquiries/' + id + '/attend', { method: 'POST', credentials: 'include' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                window.loadUnattendedEnquiries();
+                if (!(d && (d.status === 'success' || d.success))) {
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Attended to'; }
+                }
+            })
+            .catch(function () { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Attended to'; } });
+    };
+    window.loadUnattendedEnquiries();
+    setInterval(window.loadUnattendedEnquiries, 30000);
+})();
 </script>
 <!-- Component Library -->
 <script src="{{ url_for('static', filename='js/components.js') }}"></script>
