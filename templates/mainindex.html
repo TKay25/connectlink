@@ -3802,11 +3802,16 @@
     window.confirmUbAttendModal = function () {
         if (!_attendBannerId) return;
         var sel = document.querySelector('input[name="ubAttendAdmin"]:checked');
-        var attendedBy = sel ? sel.value : '';
+        if (!sel) { alert('Please select who attended to this enquiry (wait for the admin list to load first).'); return; }
+        var attendedBy = sel.value;
         fetch('/api/enquiries/' + _attendBannerId + '/attend', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ attended_by: attendedBy }) })
             .then(function (r) { return r.json(); })
-            .then(function () { closeUbAttendModal(); window.loadUnattendedEnquiries(); })
-            .catch(function () { closeUbAttendModal(); });
+            .then(function (res) {
+                closeUbAttendModal();
+                if (res && (res.status === 'success' || res.success)) { window.loadUnattendedEnquiries(); }
+                else { alert((res && res.message) || 'Could not mark as attended.'); }
+            })
+            .catch(function () { closeUbAttendModal(); alert('Connection error.'); });
     };
     window.minUnattended = function () {
         const bar = document.getElementById('unattendedBar');

@@ -40622,8 +40622,13 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
   window.confirmAttendModal=function(){
     if(!_attendId)return;
     var sel=document.querySelector('input[name="attendAdminBanner"]:checked');
-    var attendedBy=sel?sel.value:'';
-    fetch('/api/enquiries/'+_attendId+'/attend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attended_by:attendedBy})}).then(function(r){return r.json();}).then(function(){closeAttendModal();window.loadUnattendedEnqs();}).catch(function(){closeAttendModal();});
+    if(!sel){alert('Please select who attended to this enquiry (wait for the admin list to load first).');return;}
+    var attendedBy=sel.value;
+    fetch('/api/enquiries/'+_attendId+'/attend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attended_by:attendedBy})}).then(function(r){return r.json();}).then(function(res){
+      closeAttendModal();
+      if(res&&(res.status==='success'||res.success)){window.loadUnattendedEnqs();}
+      else{alert((res&&res.message)||'Could not mark as attended.');}
+    }).catch(function(){closeAttendModal();alert('Connection error.');});
   };
   window.openManualEnqModal=function(){document.getElementById('manualEnqModal').style.display='flex';};
   window.closeManualEnqModal=function(){document.getElementById('manualEnqModal').style.display='none';};

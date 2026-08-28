@@ -2613,7 +2613,8 @@ function closeAttendModal() {
 function confirmAttend() {
     if (!_attendId) return;
     const sel = document.querySelector('input[name="attendAdmin"]:checked');
-    const attendedBy = sel ? sel.value : '';
+    if (!sel) { showToast('Please select who attended to this enquiry', 'error', 'Select attendant'); return; }
+    const attendedBy = sel.value;
     const url = _attendMode === 'change' ? '/api/enquiries/' + _attendId + '/attendee' : '/api/enquiries/' + _attendId + '/attend';
     fetch(url, {
         method: 'POST',
