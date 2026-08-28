@@ -4809,6 +4809,20 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
     <div id="enqFloatList" style="display:flex;flex-direction:column;gap:5px;padding:8px 12px;max-height:300px;overflow-y:auto;"></div>
 </div>
 
+<!-- Who Attended Picker (from the status dropdown) -->
+<div id="attendModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9995;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;width:360px;max-width:92vw;overflow:hidden;box-shadow:0 16px 48px rgba(10,26,58,.25);">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:0.72rem;font-weight:800;color:#C12B3E;border-bottom:1px solid var(--gray-200);"><i class="bi bi-person-check"></i> Who attended to this?</div>
+        <div style="padding:12px 14px;">
+            <div id="attendAdminList" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;"></div>
+            <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:12px;">
+                <button onclick="closeAttendModal()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:6px 12px;font-size:0.7rem;cursor:pointer;">Cancel</button>
+                <button onclick="confirmAttendModal()" style="border:none;background:#25D366;color:#fff;border-radius:6px;padding:6px 12px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-check-lg"></i> Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
     <!-- Modern Main Content -->
     <div class="main-content" id="main-content">
             <!-- Dashboard Page -->
@@ -40512,7 +40526,8 @@ body.dark-theme .enq-item .enq-status-tag{background:#3e2c16;color:#fbbf24;}
 (function(){
   function escH(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
   function itemHtml(e){
-    return '<div class="enq-item"><span class="enq-name">'+escH(e.username||e.clientwhatsapp||'Unknown')+'</span><span class="enq-cat">'+escH(e.enqcategory||'General')+'</span><span class="enq-msg">'+escH(e.enq||'')+'</span><span class="enq-status-tag">Pending</span>'+(e.has_plan?'<a class="enq-plan" href="/api/enquiries/'+e.id+'/plan" target="_blank"><i class="bi bi-paperclip"></i> Plan</a>':'')+'<button class="enq-attend" onclick="attendEnq('+e.id+',this)"><i class="bi bi-check2-circle"></i> Mark attended</button></div>';
+    var cur=(e.status||'pending')==='completed'?'attended':((e.status||'pending')==='in_progress'?'in_progress':'pending');
+    return '<div class="enq-item"><span class="enq-name">'+escH(e.username||e.clientwhatsapp||'Unknown')+'</span><span class="enq-cat">'+escH(e.enqcategory||'General')+'</span><span class="enq-msg">'+escH(e.enq||'')+'</span>'+(e.has_plan?'<a class="enq-plan" href="/api/enquiries/'+e.id+'/plan" target="_blank"><i class="bi bi-paperclip"></i> Plan</a>':'')+'<select onchange="changeEnqStatusFromPanel('+e.id+',this)" style="font-size:0.6rem;font-weight:700;padding:3px 6px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;color:#334155;cursor:pointer;white-space:nowrap;"><option value="pending"'+(cur==='pending'?' selected':'')+'>Pending</option><option value="in_progress"'+(cur==='in_progress'?' selected':'')+'>In Progress</option><option value="attended"'+(cur==='attended'?' selected':'')+'>Attended to</option></select></div>';
   }
   var _enqClosed = false; // user explicitly closed this session — don't auto-reopen
   function renderEnqs(list){
@@ -40543,6 +40558,32 @@ body.dark-theme .enq-item .enq-status-tag{background:#3e2c16;color:#fbbf24;}
   window.attendEnq=function(id,btn){
     if(btn){btn.disabled=true;btn.innerHTML='<i class="bi bi-check2-circle"></i> Marking…';}
     fetch('/api/enquiries/'+id+'/attend',{method:'POST',credentials:'include'}).then(function(r){return r.json();}).then(function(){window.loadUnattendedEnqs();}).catch(function(){if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-check2-circle"></i> Mark attended';}});
+  };
+  var _attendId=null;
+  window.changeEnqStatusFromPanel=function(id,sel){
+    var v=sel.value;
+    if(v==='attended'){ openAttendModal(id); sel.value='pending'; return; }
+    fetch('/api/enquiries/'+id+'/status',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:v})}).then(function(r){return r.json();}).then(function(){window.loadUnattendedEnqs();}).catch(function(){});
+  };
+  window.openAttendModal=function(id){
+    _attendId=id;
+    var list=document.getElementById('attendAdminList');
+    list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:10px;">Loading…</div>';
+    document.getElementById('attendModal').style.display='flex';
+    fetch('/api/enquiries/admins').then(function(r){return r.json();}).then(function(res){
+      var admins=(res&&res.data)||[];
+      if(!admins.length){list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:10px;">No administrators found</div>';return;}
+      list.innerHTML=admins.map(function(a){
+        return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;background:#fff;"><input type="radio" name="attendAdminBanner" value="'+escH(a.name)+'"'+(a.current?' checked':'')+' style="accent-color:#25D366;width:15px;height:15px;"><span style="flex:1;font-size:0.72rem;font-weight:600;">'+escH(a.name)+'</span>'+(a.current?'<span style="font-size:0.58rem;color:#25D366;font-weight:600;">(you)</span>':'')+'</label>';
+      }).join('');
+    }).catch(function(){list.innerHTML='<div style="font-size:0.65rem;color:#c62828;text-align:center;padding:10px;">Failed to load</div>';});
+  };
+  window.closeAttendModal=function(){document.getElementById('attendModal').style.display='none';_attendId=null;};
+  window.confirmAttendModal=function(){
+    if(!_attendId)return;
+    var sel=document.querySelector('input[name="attendAdminBanner"]:checked');
+    var attendedBy=sel?sel.value:'';
+    fetch('/api/enquiries/'+_attendId+'/attend',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({attended_by:attendedBy})}).then(function(r){return r.json();}).then(function(){closeAttendModal();window.loadUnattendedEnqs();}).catch(function(){closeAttendModal();});
   };
   window.minEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='none';try{localStorage.setItem('cl_enqStripMin','1');}catch(e){}};
   window.maxEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='';try{localStorage.setItem('cl_enqStripMin','0');}catch(e){}};
