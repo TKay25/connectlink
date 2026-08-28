@@ -4799,7 +4799,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
 </nav>
 
 <!-- Unattended Enquiries Floating Panel (top-right overlay — never pushes the dashboard) -->
-<div id="enqFloat" style="display:none;position:fixed;top:54px;right:12px;z-index:9990;width:540px;max-width:96vw;background:#fff;border:1px solid rgba(193,43,62,.25);border-radius:12px;box-shadow:0 12px 40px rgba(10,26,58,.18);overflow:hidden;">
+<div id="enqFloat" style="display:none;position:fixed;top:54px;right:12px;z-index:9990;width:660px;max-width:96vw;background:#fff;border:1px solid rgba(193,43,62,.25);border-radius:12px;box-shadow:0 12px 40px rgba(10,26,58,.18);overflow:hidden;">
     <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:0.72rem;font-weight:800;color:#C12B3E;background:linear-gradient(135deg, rgba(193,43,62,.06), rgba(8,145,178,.07));border-bottom:1px solid rgba(193,43,62,.15);"><i class="bi bi-bell"></i> Unattended Enquiries <span id="enqFloatCount" style="background:#C12B3E;color:#fff;border-radius:999px;padding:0 8px;font-size:0.58rem;">0</span>
         <span style="flex:1;"></span>
         <button onclick="openManualEnqModal()" title="New Enquiry" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.66rem;cursor:pointer;line-height:1.4;">＋</button>
@@ -4809,7 +4809,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
     </div>
     <div style="max-height:320px;overflow-y:auto;">
         <table class="enq-table">
-            <thead><tr><th>Customer</th><th>WhatsApp</th><th>Message</th><th>Doc</th><th>Status</th></tr></thead>
+            <thead><tr><th>Customer</th><th>WhatsApp</th><th>Category</th><th>Message</th><th>Doc</th><th>Status</th></tr></thead>
             <tbody id="enqFloatList"></tbody>
         </table>
     </div>
@@ -4827,7 +4827,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
             <input id="menqPhone" placeholder="e.g. 263771234567" style="width:100%;padding:7px 10px;font-size:0.72rem;margin:3px 0 9px;border:1px solid var(--gray-200);border-radius:6px;box-sizing:border-box;">
             <label style="font-size:0.66rem;font-weight:700;">Category</label>
             <select id="menqCategory" style="width:100%;padding:7px 10px;font-size:0.72rem;margin:3px 0 9px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;">
-                <option>General</option><option>Building &amp; Construction</option><option>Kitchen &amp; Fittings</option><option>Hardware / Materials</option><option>Electrical</option><option>Plumbing</option><option>Finance / Payment</option><option>Other</option>
+                <option>Kitchen &amp; Cabinets</option><option>Building</option><option>Renovation</option><option>Other</option>
             </select>
             <label style="font-size:0.66rem;font-weight:700;">Enquiry Details *</label>
             <textarea id="menqDetails" rows="3" placeholder="What does the customer want?" style="width:100%;padding:7px 10px;font-size:0.72rem;margin:3px 0 9px;border:1px solid var(--gray-200);border-radius:6px;box-sizing:border-box;resize:vertical;"></textarea>
@@ -40557,7 +40557,7 @@ body.dark-theme .enq-item .enq-status-tag{background:#3e2c16;color:#fbbf24;}
 .enq-table{width:100%;border-collapse:collapse;}
 .enq-table th{text-align:left;font-size:0.52rem;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.4px;padding:5px 8px;border:1px solid #e2e8f0;background:#f8fafc;white-space:nowrap;}
 .enq-table td{font-size:0.62rem;padding:5px 8px;border:1px solid #e2e8f0;vertical-align:top;}
-.enq-table .enq-msg{color:#475569;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.enq-table .enq-msg{color:#475569;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 body.dark-theme .enq-table th{border-color:#2b3a5a;background:#0f1729;color:#e2e8f0;}
 body.dark-theme .enq-table td{border-color:#2b3a5a;}
 </style>
@@ -40567,7 +40567,7 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
   function itemHtml(e){
     var cur=(e.status||'pending')==='completed'?'attended':((e.status||'pending')==='in_progress'?'in_progress':'pending');
     var wa=e.clientwhatsapp?String(e.clientwhatsapp).replace(/[^0-9]/g,''):'';
-    return '<tr><td><span class="enq-name">'+escH(e.username||'Unknown')+'</span></td><td>'+(wa?'<a href="https://wa.me/'+wa+'" target="_blank" style="color:#0891B2;text-decoration:none;font-weight:600;white-space:nowrap;">'+escH(e.clientwhatsapp)+'</a>':'—')+'</td><td class="enq-msg" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</td><td>'+(e.has_plan?'<a class="enq-plan" href="/api/enquiries/'+e.id+'/plan" target="_blank" title="Attachment"><i class="bi bi-paperclip"></i> Plan</a>':'—')+'</td><td><select onchange="changeEnqStatusFromPanel('+e.id+',this)" style="font-size:0.58rem;font-weight:700;padding:2px 4px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;color:#334155;cursor:pointer;max-width:100px;"><option value="pending"'+(cur==='pending'?' selected':'')+'>Pending</option><option value="in_progress"'+(cur==='in_progress'?' selected':'')+'>In Progress</option><option value="attended"'+(cur==='attended'?' selected':'')+'>Attended to</option></select></td></tr>';
+    return '<tr><td><span class="enq-name">'+escH(e.username||'Unknown')+'</span></td><td>'+(wa?'<a href="https://wa.me/'+wa+'" target="_blank" style="color:#0891B2;text-decoration:none;font-weight:600;white-space:nowrap;">'+escH(e.clientwhatsapp)+'</a>':'—')+'</td><td><span style="color:#475569;white-space:nowrap;">'+escH(e.enqcategory||'General')+'</span></td><td class="enq-msg" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</td><td>'+(e.has_plan?'<a class="enq-plan" href="/api/enquiries/'+e.id+'/plan" target="_blank" title="Attachment"><i class="bi bi-paperclip"></i> Plan</a>':'—')+'</td><td><select onchange="changeEnqStatusFromPanel('+e.id+',this)" style="font-size:0.58rem;font-weight:700;padding:2px 4px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;color:#334155;cursor:pointer;max-width:100px;"><option value="pending"'+(cur==='pending'?' selected':'')+'>Pending</option><option value="in_progress"'+(cur==='in_progress'?' selected':'')+'>In Progress</option><option value="attended"'+(cur==='attended'?' selected':'')+'>Attended to</option></select></td></tr>';
   }
   var _enqClosed = false; // user explicitly closed this session — don't auto-reopen
   function renderEnqs(list){
