@@ -1846,12 +1846,18 @@
             border-radius: 6px; padding: 1px 7px; font-size: 0.62rem; cursor: pointer; line-height: 1.4;
         }
         .unattended-bar .ub-ctl:hover { background: rgba(193,43,62,.08); }
-        .unattended-bar.minimised .ub-list { display: none; }
+        .unattended-bar.minimised .ub-table-wrap { display: none; }
         .unattended-bar.minimised .ub-head { margin-bottom: 0; }
-        .unattended-bar .ub-list { display: flex; flex-direction: column; gap: 5px; max-height: 140px; overflow-y: auto; padding-right: 2px; }
-        .unattended-bar .ub-list::-webkit-scrollbar { width: 4px; }
-        .unattended-bar .ub-list::-webkit-scrollbar-thumb { background: rgba(193,43,62,.35); border-radius: 4px; }
-        .unattended-bar .ub-item { padding: 4px 10px; }
+        .unattended-bar .ub-table-wrap { max-height: 150px; overflow-y: auto; padding-right: 2px; }
+        .unattended-bar .ub-table-wrap::-webkit-scrollbar { width: 4px; }
+        .unattended-bar .ub-table-wrap::-webkit-scrollbar-thumb { background: rgba(193,43,62,.35); border-radius: 4px; }
+        .unattended-bar .ub-table { width: 100%; border-collapse: collapse; }
+        .unattended-bar .ub-table th { text-align: left; font-size: 0.52rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; padding: 3px 6px; border-bottom: 1px solid #eef2f7; white-space: nowrap; }
+        .unattended-bar .ub-table td { font-size: 0.6rem; padding: 4px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        .unattended-bar .ub-table tr:last-child td { border-bottom: none; }
+        .unattended-bar .ub-table .ub-msg { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        body.dark-theme .unattended-bar .ub-table th { border-color: #334155; }
+        body.dark-theme .unattended-bar .ub-table td { border-color: #1e293b; }
         .unattended-bar .ub-item {
             display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
             padding: 6px 10px;
@@ -1931,7 +1937,12 @@
                 <button class="ub-ctl" id="ubMaxBtn" onclick="maxUnattended()" title="Maximise"><i class="fas fa-window-maximize"></i></button>
                 <button class="ub-ctl" id="ubMinBtn" onclick="minUnattended()" title="Minimise"><i class="fas fa-window-minimize"></i></button>
             </div>
-            <div class="ub-list" id="ubList"></div>
+            <div class="ub-table-wrap">
+                <table class="ub-table">
+                    <thead><tr><th>Customer</th><th>Category</th><th>Message</th><th>Plan</th><th>Status</th></tr></thead>
+                    <tbody id="ubList"></tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Who Attended Picker (from the banner status dropdown) -->
@@ -3727,15 +3738,7 @@
     window.fetch = async function(u, o) {
         const s = String(u);
         if (s.indexOf('/api/enquiries/unattended') > -1) {
-            return new Response(JSON.stringify({status:'success', data:[{id:1, username:'AutoClient', source:'auto', enqcategory:'Building', enq:'auto enquiry', has_plan:false, status:'pending'},{id:2, username:'ManualClient', source:'manual', enqcategory:'Kitchen & Fittings', enq:'manual enquiry', has_plan:true, status:'pending'},{id:3, username:'AutoClient2', source:'auto', enqcategory:'Other', enq:'auto enquiry 2', has_plan:false, status:'pending'}]}), {status:200, headers:{'Content-Type':'application/json'}});
-        }
-        if (s.indexOf('/api/enquiries/admins') > -1) {
-            return new Response(JSON.stringify({status:'success', data:[{id:1,name:'T. Chikerema',username:'admin',current:true},{id:2,name:'S. Mpofu',username:'smpofu',current:false}]}), {status:200, headers:{'Content-Type':'application/json'}});
-        }
-        if (s.indexOf('/api/enquiries/') > -1 && (s.indexOf('/attend') > -1 || s.indexOf('/status') > -1)) {
-            const body = o && o.body ? JSON.parse(o.body) : {};
-            window.__lastEnqPost = {url: s, body: body};
-            return new Response(JSON.stringify({status:'success', message:'OK'}), {status:200, headers:{'Content-Type':'application/json'}});
+            return new Response(JSON.stringify({status:'success', data:[{id:1, username:'AutoClient', source:'auto', enqcategory:'Building', enq:'auto enquiry text here', has_plan:false, status:'pending'},{id:2, username:'ManualClient', source:'manual', enqcategory:'Kitchen & Fittings', enq:'manual enquiry with plan', has_plan:true, status:'pending'},{id:3, username:'AutoClient2', source:'auto', enqcategory:'Other', enq:'auto enquiry 2', has_plan:false, status:'pending'}]}), {status:200, headers:{'Content-Type':'application/json'}});
         }
         return _nf(u, o);
     };
@@ -3749,13 +3752,13 @@
         list = list.slice().sort(function (a, b) { var pa = (a.source === 'manual') ? 0 : 1, pb = (b.source === 'manual') ? 0 : 1; return pa - pb; });
         document.getElementById('ubCount').textContent = list.length;
         document.getElementById('ubList').innerHTML = list.map(function (e) {
-            return '<div class="ub-item">'
-                + '<span class="ub-name">' + escH(e.username || e.clientwhatsapp || 'Unknown') + '</span>'
-                + '<span class="ub-cat">' + escH(e.enqcategory || 'General') + '</span>'
-                + '<span class="ub-msg">' + escH(e.enq || '') + '</span>'
-                + (e.has_plan ? '<a class="ub-plan" href="/api/enquiries/' + e.id + '/plan" target="_blank"><i class="fas fa-paperclip"></i> Plan</a>' : '')
-                + '<select onchange="changeEnqStatusBanner(' + e.id + ', this)" style="font-size:0.56rem;font-weight:700;padding:2px 5px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#334155;cursor:pointer;white-space:nowrap;"><option value="pending" selected>Pending</option><option value="in_progress">In Progress</option><option value="attended">Attended to</option></select>'
-                + '</div>';
+            return '<tr>'
+                + '<td>' + escH(e.username || e.clientwhatsapp || 'Unknown') + '</td>'
+                + '<td>' + escH(e.enqcategory || 'General') + '</td>'
+                + '<td class="ub-msg">' + escH(e.enq || '') + '</td>'
+                + '<td>' + (e.has_plan ? '<a class="ub-plan" href="/api/enquiries/' + e.id + '/plan" target="_blank"><i class="fas fa-paperclip"></i> Plan</a>' : '—') + '</td>'
+                + '<td><select onchange="changeEnqStatusBanner(' + e.id + ', this)" style="font-size:0.56rem;font-weight:700;padding:2px 5px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#334155;cursor:pointer;white-space:nowrap;"><option value="pending" selected>Pending</option><option value="in_progress">In Progress</option><option value="attended">Attended to</option></select></td>'
+                + '</tr>';
         }).join('');
         bar.classList.add('show');
     }
