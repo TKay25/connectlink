@@ -708,6 +708,11 @@
             margin-left: 4px;
         }
         body.dark-theme .enquiry-card .eq-attended { background: #1b5e20; color: #81c784; }
+        .enquiry-card .eq-source { font-size:0.58rem; font-weight:600; padding:2px 8px; border-radius:10px; display:inline-block; margin-left:4px; }
+        .enquiry-card .eq-source.manual { background:#fff3e0; color:#b45309; }
+        .enquiry-card .eq-source.auto { background:#e0f2fe; color:#0369a1; }
+        body.dark-theme .enquiry-card .eq-source.manual { background:#3e2c16; color:#fbbf24; }
+        body.dark-theme .enquiry-card .eq-source.auto { background:#0c2f44; color:#38bdf8; }
         .enquiry-card .btn-attend {
             font-size: 0.65rem;
             font-weight: 600;
@@ -1125,7 +1130,7 @@
             <button onclick="closeManualEnquiryModal()">&times;</button>
         </div>
         <div class="modal-body">
-            <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.4;">Customer didn't fill the WhatsApp form? Enter their details here — it posts to the system and shows on <b>every user screen</b> until someone clicks <b>Attended</b>.</div>
+            <div style="font-size:0.7rem;color:var(--text-secondary);margin-bottom:10px;line-height:1.4;">Customer didn't fill the WhatsApp form? Enter their details here — it posts to the system and shows on <b>every user screen</b> until someone clicks <b>Attended to</b>.</div>
             <label style="font-size:0.68rem;font-weight:600;color:var(--text-primary);">Customer Name</label>
             <input type="text" id="meqName" placeholder="e.g. T. Ncube" style="width:100%;padding:7px 10px;font-size:0.72rem;margin:3px 0 9px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-input);color:var(--text-primary);outline:none;">
             <label style="font-size:0.68rem;font-weight:600;color:var(--text-primary);">WhatsApp Number</label>
@@ -2443,6 +2448,7 @@ function renderEnquiries(enquiries) {
                     <span class="eq-category">${escapeHtml(eq.enqcategory || eq.category || 'General')}</span>
                     <span class="eq-status ${statusClass}">${statusLabel}</span>
                     ${eq.attended_by ? `<span class="eq-attended" title="Click to change who attended" style="cursor:pointer;" onclick="event.stopPropagation();openAttendModal(${eq.id},'change')">✓ ${escapeHtml(eq.attended_by)} <i class="bi bi-pencil-square" style="font-size:0.55rem;"></i></span>` : ''}
+                    <span class="eq-source ${eq.source === 'manual' ? 'manual' : 'auto'}">${eq.source === 'manual' ? '✍ Manual' : 'WhatsApp'}</span>
                 </div>
                 <div class="eq-message">${escapeHtml(shortMsg)}${hasMore ? '...' : ''}</div>
                 <div class="eq-actions">
@@ -2464,7 +2470,7 @@ function renderEnquiries(enquiries) {
                     <span><strong>Status:</strong> ${statusLabel}</span>
                     <span><strong>Category:</strong> ${escapeHtml(eq.enqcategory || eq.category || 'General')}</span>
                     ${eq.attended_by ? `<span><strong>Attended by:</strong> ${escapeHtml(eq.attended_by)}${eq.attended_at ? ' · ' + escapeHtml(eq.attended_at) : ''}${eq.attended_updated_by ? ' · Updated by ' + escapeHtml(eq.attended_updated_by) + (eq.attended_updated_at ? ' ' + escapeHtml(eq.attended_updated_at) : '') : ''}</span>` : ''}
-                    ${eq.source === 'manual' ? '<span class="eq-attended">✍ Manual entry</span>' : ''}
+                    ${eq.source === 'manual' ? '<span class="eq-source manual">✍ Manual entry</span>' : ''}
                 </div>
             </div>`;
     });

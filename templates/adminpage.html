@@ -5069,7 +5069,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                 </div>
                                 <div class="container2" style="overflow-y:auto;">
                                     <table class="table-theme" id="enquiriesTabTable">
-                                        <thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Username</th><th>Category</th><th>Message</th><th>Status</th><th>Document</th><th>Action</th></tr></thead>
+                                        <thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Username</th><th>Category</th><th>Source</th><th>Message</th><th>Status</th><th>Attended By</th><th>Document</th><th>Action</th></tr></thead>
                                         <tbody>
                                             {% for enquiry in enquiries_data %}
                                             <tr class="enquiry-row" id="enquiry-row-{{ enquiry.id }}">
@@ -5078,6 +5078,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                                 <td><a href="https://wa.me/{{ enquiry.clientwhatsapp }}" target="_blank">+{{ enquiry.clientwhatsapp }}</a></td>
                                                 <td>{{ enquiry.username }}</td>
                                                 <td><span class="badge bg-secondary">{{ enquiry.category }}</span></td>
+                                                <td>{% if enquiry.source == 'manual' %}<span class="badge" style="background:#B45309;color:#fff;">✍ Manual</span>{% else %}<span class="badge" style="background:#0891B2;color:#fff;">WhatsApp</span>{% endif %}</td>
                                                 <td>
                                                     <div class="message-container">
                                                         {% if enquiry.message and enquiry.message|length > 20 %}
@@ -5099,6 +5100,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                                         <option value="completed" {% if enquiry.status == 'completed' %}selected{% endif %}>Completed</option>
                                                     </select>
                                                 </td>
+                                                <td>{% if enquiry.attended_by %}<span style="color:#059669;font-weight:600;"><i class="bi bi-check-circle-fill" style="font-size:0.7rem;"></i> {{ enquiry.attended_by }}</span>{% else %}<span style="color:#94a3b8;">—</span>{% endif %}</td>
                                                 <td>{% if enquiry.has_plan %}<a href="/api/enquiries/{{ enquiry.id }}/plan" target="_blank" class="btn btn-sm btn-success">PDF</a>{% endif %}</td>
                                                 <td><button class="btn btn-sm btn-danger delete-enquiry-btn" type="button" data-id="{{ enquiry.id }}">Delete</button></td>
                                             </tr>
