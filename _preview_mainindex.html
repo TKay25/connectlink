@@ -1792,24 +1792,33 @@
         .system-card h3 { margin-bottom: 2px; }
         .system-card p { line-height: 1.25; }
 
-        /* ---------- Portal cards: 2 columns x 3 rows (v9) ---------- */
+        /* ---------- Portal cards: compact single column (v10) ---------- */
         .portal-section .cards-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-auto-rows: auto;
-            gap: 12px 14px;
-            align-items: stretch;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
         .portal-section .system-card {
             width: 100%;
-            height: 100%;
-            min-height: 92px;
-            padding: 14px 16px;
+            min-height: 0;
+            padding: 8px 14px;
+        }
+        .portal-section .card-icon-wrapper { width: 36px; height: 36px; border-radius: 10px; }
+        .portal-section .system-card h3 { font-size: 0.76rem; margin-bottom: 1px; }
+        .portal-section .system-card p {
+            font-size: 0.58rem;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
         .portal-section .card-content { min-width: 0; }
-        @media (max-width: 560px) {
-            .portal-section .cards-container { grid-template-columns: 1fr; }
-        }
+        .portal-section .card-tags { margin-top: 2px; gap: 4px; }
+        .portal-section .card-tags span { font-size: 0.48rem; padding: 1px 6px; }
+        .portal-section .card-actions .card-badge { font-size: 0.5rem; padding: 2px 7px; }
+        .portal-section .card-actions .btn-explore { padding: 4px 10px; font-size: 0.5rem; }
+        .portal-section .card-index { top: 6px; right: 10px; font-size: 0.5rem; }
 
         /* ---------- Reduced motion ---------- */
         @media (prefers-reduced-motion: reduce) {
