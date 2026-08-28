@@ -40501,6 +40501,8 @@ body.dark-theme .enq-item{background:#0f1729;border-color:#2b3a5a;}
 .enq-item .enq-cat{font-size:0.58rem;color:var(--text-muted);background:var(--gray-100);padding:1px 7px;border-radius:999px;white-space:nowrap;}
 body.dark-theme .enq-item .enq-cat{background:#1e293b;color:#94a3b8;}
 .enq-item .enq-msg{font-size:0.62rem;color:var(--text-muted);flex:1;min-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.enq-item .enq-status-tag{font-size:0.55rem;font-weight:700;padding:1px 7px;border-radius:999px;background:#fff3e0;color:#b45309;white-space:nowrap;}
+body.dark-theme .enq-item .enq-status-tag{background:#3e2c16;color:#fbbf24;}
 .enq-item .enq-plan{font-size:0.6rem;color:#0891B2;text-decoration:none;font-weight:600;white-space:nowrap;}
 .enq-item .enq-attend{font-size:0.6rem;font-weight:700;padding:3px 10px;border:none;border-radius:7px;background:#059669;color:#fff;cursor:pointer;white-space:nowrap;}
 .enq-item .enq-attend:hover{filter:brightness(1.1);}
@@ -40510,22 +40512,27 @@ body.dark-theme .enq-item .enq-cat{background:#1e293b;color:#94a3b8;}
 (function(){
   function escH(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
   function itemHtml(e){
-    return '<div class="enq-item"><span class="enq-name">'+escH(e.username||e.clientwhatsapp||'Unknown')+'</span><span class="enq-cat">'+escH(e.enqcategory||'General')+'</span><span class="enq-msg">'+escH(e.enq||'')+'</span>'+(e.has_plan?'<a class="enq-plan" href="/api/enquiries/'+e.id+'/plan" target="_blank"><i class="bi bi-paperclip"></i> Plan</a>':'')+'<button class="enq-attend" onclick="attendEnq('+e.id+',this)"><i class="bi bi-check2-circle"></i> Attended to</button></div>';
+    return '<div class="enq-item"><span class="enq-name">'+escH(e.username||e.clientwhatsapp||'Unknown')+'</span><span class="enq-cat">'+escH(e.enqcategory||'General')+'</span><span class="enq-msg">'+escH(e.enq||'')+'</span><span class="enq-status-tag">Pending</span>'+(e.has_plan?'<a class="enq-plan" href="/api/enquiries/'+e.id+'/plan" target="_blank"><i class="bi bi-paperclip"></i> Plan</a>':'')+'<button class="enq-attend" onclick="attendEnq('+e.id+',this)"><i class="bi bi-check2-circle"></i> Mark attended</button></div>';
   }
+  var _enqClosed = false; // user explicitly closed this session — don't auto-reopen
   function renderEnqs(list){
     list = (list||[]).slice().sort(function(a,b){var pa=(a.source==='manual')?0:1,pb=(b.source==='manual')?0:1;return pa-pb;});
     var bellCount=document.getElementById('enqBellCount');
     var floatList=document.getElementById('enqFloatList');
     var floatCount=document.getElementById('enqFloatCount');
+    var f=document.getElementById('enqFloat');
     if(!list||!list.length){
       if(bellCount) bellCount.style.display='none';
       if(floatCount) floatCount.textContent='0';
       if(floatList) floatList.innerHTML='<div style="padding:12px;font-size:0.65rem;color:var(--text-muted);text-align:center;">No unattended enquiries</div>';
+      if(f && !_enqClosed) f.style.display='none';
       return;
     }
     if(bellCount){bellCount.style.display='inline-block';bellCount.textContent=list.length;}
     if(floatCount) floatCount.textContent=list.length;
     if(floatList) floatList.innerHTML=list.map(itemHtml).join('');
+    // auto-show on page load (unless user closed it this session)
+    if(f && !_enqClosed && f.style.display==='none'){ f.style.display='block'; }
   }
   window.loadUnattendedEnqs=function(){
     fetch('/api/enquiries/unattended',{credentials:'include'}).then(function(r){return r.json();}).then(function(d){renderEnqs((d&&d.data)||[]);}).catch(function(){});
@@ -40534,8 +40541,8 @@ body.dark-theme .enq-item .enq-cat{background:#1e293b;color:#94a3b8;}
   window.closeEnqFloat=function(){var f=document.getElementById('enqFloat');if(f)f.style.display='none';};
   document.addEventListener('click',function(ev){var f=document.getElementById('enqFloat');var t=ev.target;if(f&&f.style.display==='block'&&(!t||!t.closest||(!t.closest('#enqFloat')&&!t.closest('#enqBellBtn')))){f.style.display='none';}});
   window.attendEnq=function(id,btn){
-    if(btn){btn.disabled=true;btn.innerHTML='<i class="bi bi-check2-circle"></i> Attending…';}
-    fetch('/api/enquiries/'+id+'/attend',{method:'POST',credentials:'include'}).then(function(r){return r.json();}).then(function(){window.loadUnattendedEnqs();}).catch(function(){if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-check2-circle"></i> Attended to';}});
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="bi bi-check2-circle"></i> Marking…';}
+    fetch('/api/enquiries/'+id+'/attend',{method:'POST',credentials:'include'}).then(function(r){return r.json();}).then(function(){window.loadUnattendedEnqs();}).catch(function(){if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-check2-circle"></i> Mark attended';}});
   };
   window.minEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='none';try{localStorage.setItem('cl_enqStripMin','1');}catch(e){}};
   window.maxEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='';try{localStorage.setItem('cl_enqStripMin','0');}catch(e){}};

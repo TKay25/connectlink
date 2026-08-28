@@ -1866,6 +1866,11 @@
             padding: 1px 7px; border-radius: 999px; white-space: nowrap;
         }
         body.dark-theme .unattended-bar .ub-item .ub-cat { background: #1e293b; color: #94a3b8; }
+        .unattended-bar .ub-item .ub-status {
+            font-size: 0.55rem; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+            background: #fff3e0; color: #b45309; white-space: nowrap;
+        }
+        body.dark-theme .unattended-bar .ub-item .ub-status { background: #3e2c16; color: #fbbf24; }
         .unattended-bar .ub-item .ub-msg {
             font-size: 0.62rem; color: #64748B; flex: 1; min-width: 160px;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -3708,7 +3713,7 @@
     window.fetch = async function(u, o) {
         const s = String(u);
         if (s.indexOf('/api/enquiries/unattended') > -1) {
-            return new Response(JSON.stringify({status:'success', data:[{id:1, username:'AutoClient', source:'auto', enqcategory:'Building', enq:'auto enquiry', has_plan:false, status:'pending'},{id:2, username:'ManualClient', source:'manual', enqcategory:'Kitchen & Fittings', enq:'manual enquiry', has_plan:false, status:'pending'},{id:3, username:'AutoClient2', source:'auto', enqcategory:'Other', enq:'auto enquiry 2', has_plan:false, status:'pending'}]}), {status:200, headers:{'Content-Type':'application/json'}});
+            return new Response(JSON.stringify({status:'success', data:[{id:1, username:'AutoClient', source:'auto', enqcategory:'Building', enq:'auto enquiry', has_plan:false, status:'pending'},{id:2, username:'ManualClient', source:'manual', enqcategory:'Kitchen & Fittings', enq:'manual enquiry', has_plan:true, status:'pending'},{id:3, username:'AutoClient2', source:'auto', enqcategory:'Other', enq:'auto enquiry 2', has_plan:false, status:'pending'}]}), {status:200, headers:{'Content-Type':'application/json'}});
         }
         return _nf(u, o);
     };
@@ -3726,8 +3731,9 @@
                 + '<span class="ub-name">' + escH(e.username || e.clientwhatsapp || 'Unknown') + '</span>'
                 + '<span class="ub-cat">' + escH(e.enqcategory || 'General') + '</span>'
                 + '<span class="ub-msg">' + escH(e.enq || '') + '</span>'
+                + '<span class="ub-status">Pending</span>'
                 + (e.has_plan ? '<a class="ub-plan" href="/api/enquiries/' + e.id + '/plan" target="_blank"><i class="fas fa-paperclip"></i> Plan</a>' : '')
-                + '<button class="ub-attend" onclick="attendEnquiryMain(' + e.id + ', this)"><i class="fas fa-check"></i> Attended to</button>'
+                + '<button class="ub-attend" onclick="attendEnquiryMain(' + e.id + ', this)"><i class="fas fa-check"></i> Mark attended</button>'
                 + '</div>';
         }).join('');
         bar.classList.add('show');
@@ -3739,16 +3745,16 @@
             .catch(function () { /* not logged in or offline — ignore */ });
     };
     window.attendEnquiryMain = function (id, btn) {
-        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-check"></i> Attending…'; }
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-check"></i> Marking…'; }
         fetch('/api/enquiries/' + id + '/attend', { method: 'POST', credentials: 'include' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 window.loadUnattendedEnquiries();
                 if (!(d && (d.status === 'success' || d.success))) {
-                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Attended to'; }
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Mark attended'; }
                 }
             })
-            .catch(function () { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Attended to'; } });
+            .catch(function () { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Mark attended'; } });
     };
     window.minUnattended = function () {
         const bar = document.getElementById('unattendedBar');

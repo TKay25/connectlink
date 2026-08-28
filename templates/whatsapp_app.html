@@ -2432,7 +2432,7 @@ function renderEnquiries(enquiries) {
     let html = '';
     enquiries.forEach(eq => {
         const statusClass = (eq.status || 'pending').toLowerCase();
-        const statusLabel = statusClass === 'in_progress' ? 'In Progress' : statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+        const statusLabel = statusClass === 'pending' ? 'Pending' : 'Attended to';
         const shortMsg = (eq.enq || eq.message || 'No message').substring(0, 80);
         const hasMore = (eq.enq || eq.message || '').length > 80;
         const waPhone = String(eq.clientwhatsapp || '');
@@ -2452,7 +2452,7 @@ function renderEnquiries(enquiries) {
                 </div>
                 <div class="eq-message">${escapeHtml(shortMsg)}${hasMore ? '...' : ''}</div>
                 <div class="eq-actions">
-                    ${statusClass === 'pending' && !eq.attended_by ? `<button class="btn-attend" onclick="event.stopPropagation();openAttendModal(${eq.id})"><i class="bi bi-check2-circle"></i> Attended to</button>` : ''}
+                    ${statusClass === 'pending' && !eq.attended_by ? `<button class="btn-attend" onclick="event.stopPropagation();openAttendModal(${eq.id})"><i class="bi bi-check2-circle"></i> Mark attended</button>` : ''}
                     <button class="btn-status" onclick="event.stopPropagation();updateEnquiryStatus(${eq.id},'${statusClass}')">
                         <i class="bi bi-arrow-repeat"></i> ${statusClass === 'pending' && !eq.attended_by ? 'Start' : statusClass === 'in_progress' ? 'Complete' : 'Reopen'}
                     </button>
