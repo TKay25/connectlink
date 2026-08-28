@@ -1719,6 +1719,57 @@ def initialize_database_tables():
             """)
             connection.commit()
 
+            # Supplier quotes per requisition line item (multiple suppliers, different unit costs)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS requisition_item_suppliers (
+                    id SERIAL PRIMARY KEY,
+                    item_id INTEGER REFERENCES requisition_items(id) ON DELETE CASCADE,
+                    supplier_id INTEGER REFERENCES suppliers(id),
+                    supplier_name VARCHAR(150),
+                    supplier_phone VARCHAR(50),
+                    unit_cost DECIMAL(12,2) DEFAULT 0,
+                    delivery_days INTEGER DEFAULT 0,
+                    is_preferred BOOLEAN DEFAULT FALSE,
+                    justification VARCHAR(40),
+                    notes TEXT,
+                    approved BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            # Invoices supporting a requisition item supplier quote
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS requisition_item_attachments (
+                    id SERIAL PRIMARY KEY,
+                    item_supplier_id INTEGER REFERENCES requisition_item_suppliers(id) ON DELETE CASCADE,
+                    original_name VARCHAR(255),
+                    stored_name VARCHAR(255),
+                    mime_type VARCHAR(120),
+                    file_size INTEGER DEFAULT 0,
+                    uploaded_by VARCHAR(100),
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            # Supplier payments ledger (payables tracking)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS supplier_payments (
+                    id SERIAL PRIMARY KEY,
+                    supplier_id INTEGER REFERENCES suppliers(id),
+                    supplier_name VARCHAR(150),
+                    amount DECIMAL(12,2) DEFAULT 0,
+                    payment_date DATE,
+                    payment_method VARCHAR(50),
+                    reference VARCHAR(100),
+                    notes TEXT,
+                    created_by VARCHAR(100),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
             print("✅ Procurement & requisitions tables initialized!")
 
             # ========== HR MODULE TABLES ==========
@@ -36005,23 +36056,39 @@ def procurement_api_products():
     q = (request.args.get('q') or '').strip()
     try:
         with get_db() as (cursor, connection):
+            base = """
+                SELECT p.id, p.name, p.category, p.stock, p.buy_price, p.sell_price, p.unit_type,
+                       (SELECT COALESCE(SUM(gl.quantity_ordered - gl.quantity_received), 0)
+                        FROM grn_lines gl
+                        JOIN purchase_orders po ON po.id = gl.purchase_order_id
+                        WHERE gl.product_id = p.id AND po.status IN ('ordered','partial')) AS on_order
+                FROM products p
+            """
             if q:
-                cursor.execute("""
-                    SELECT id, name, category, stock, buy_price, sell_price, unit_type
-                    FROM products WHERE name ILIKE %s OR category ILIKE %s
-                    ORDER BY name LIMIT 25
-                """, (f'%{q}%', f'%{q}%'))
+                cursor.execute(base + " WHERE p.name ILIKE %s OR p.category ILIKE %s ORDER BY p.name LIMIT 25",
+                               (f'%{q}%', f'%{q}%'))
             else:
-                cursor.execute("""
-                    SELECT id, name, category, stock, buy_price, sell_price, unit_type
-                    FROM products ORDER BY name LIMIT 25
-                """)
+                cursor.execute(base + " ORDER BY p.name LIMIT 25")
             rows = cursor.fetchall()
             products = [{
                 'id': r[0], 'name': r[1], 'category': r[2], 'stock': r[3],
-                'buy_price': float(r[4] or 0), 'sell_price': float(r[5] or 0), 'unit_type': r[6]
+                'buy_price': float(r[4] or 0), 'sell_price': float(r[5] or 0), 'unit_type': r[6],
+                'on_order': int(r[7] or 0)
             } for r in rows]
             return jsonify({'success': True, 'data': products})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/categories', methods=['GET'])
+@login_required
+def procurement_api_categories():
+    """Distinct product categories (for the requisition line-item category dropdown)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category <> '' ORDER BY category")
+            rows = cursor.fetchall()
+            return jsonify({'success': True, 'data': [r[0] for r in rows]})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -36092,6 +36159,7 @@ def procurement_api_create_requisition():
                   data.get('project_ref'), data.get('priority', 'Medium'), data.get('notes'),
                   data.get('needed_by') or None))
             req_id = cursor.fetchone()[0]
+            created_items = []
             for it in items:
                 pname = (it.get('product_name') or '').strip()
                 if not pname:
@@ -36104,11 +36172,34 @@ def procurement_api_create_requisition():
                     INSERT INTO requisition_items (requisition_id, product_id, product_name, category,
                                                    quantity, unit_cost, total_cost, notes)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
                 """, (req_id, it.get('product_id'), pname, it.get('category'), qty, unit,
                       round(unit * qty, 2), it.get('notes')))
+                item_id = cursor.fetchone()[0]
+                sup_ids = []
+                for sup in (it.get('suppliers') or []):
+                    if not (sup.get('supplier_name') or '').strip():
+                        continue
+                    cursor.execute("""
+                        INSERT INTO requisition_item_suppliers
+                            (item_id, supplier_id, supplier_name, supplier_phone, unit_cost,
+                             delivery_days, is_preferred, justification, notes, approved)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,FALSE)
+                        RETURNING id
+                    """, (item_id,
+                          sup.get('supplier_id'),
+                          (sup.get('supplier_name') or '').strip(),
+                          sup.get('supplier_phone'),
+                          float(sup.get('unit_cost') or 0),
+                          int(sup.get('delivery_days') or 0),
+                          bool(sup.get('is_preferred')),
+                          sup.get('justification'),
+                          (sup.get('notes') or '')[:500]))
+                    sup_ids.append(cursor.fetchone()[0])
+                created_items.append({'item_id': item_id, 'supplier_ids': sup_ids})
             connection.commit()
             log_activity('requisition_create', f'Created requisition {req_no} "{title}"', 'requisition', req_id)
-            return jsonify({'success': True, 'message': f'Requisition {req_no} created (draft).'})
+            return jsonify({'success': True, 'message': f'Requisition {req_no} created (draft).', 'items': created_items})
     except Exception as e:
         print(f"Create requisition error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -36133,10 +36224,37 @@ def procurement_api_requisition_detail(rid):
                 FROM requisition_items WHERE requisition_id = %s ORDER BY id
             """, (rid,))
             items = cursor.fetchall()
-            req['items'] = [{
-                'id': i[0], 'product_id': i[1], 'product_name': i[2], 'category': i[3],
-                'quantity': i[4], 'unit_cost': float(i[5] or 0), 'total_cost': float(i[6] or 0), 'notes': i[7]
-            } for i in items]
+            req['items'] = []
+            for i in items:
+                item_dict = {
+                    'id': i[0], 'product_id': i[1], 'product_name': i[2], 'category': i[3],
+                    'quantity': i[4], 'unit_cost': float(i[5] or 0), 'total_cost': float(i[6] or 0), 'notes': i[7]
+                }
+                cursor.execute("""
+                    SELECT id, supplier_id, supplier_name, supplier_phone, unit_cost, delivery_days,
+                           is_preferred, justification, notes, approved
+                    FROM requisition_item_suppliers WHERE item_id = %s
+                    ORDER BY is_preferred DESC, id
+                """, (i[0],))
+                sups = cursor.fetchall()
+                item_dict['suppliers'] = []
+                for s in sups:
+                    q = {
+                        'id': s[0], 'supplier_id': s[1], 'supplier_name': s[2], 'supplier_phone': s[3],
+                        'unit_cost': float(s[4] or 0), 'delivery_days': s[5], 'is_preferred': s[6],
+                        'justification': s[7], 'notes': s[8], 'approved': s[9], 'attachments': []
+                    }
+                    cursor.execute("""
+                        SELECT id, original_name, stored_name, mime_type, file_size, uploaded_by, uploaded_at
+                        FROM requisition_item_attachments WHERE item_supplier_id = %s ORDER BY uploaded_at DESC
+                    """, (s[0],))
+                    q['attachments'] = [{
+                        'id': a[0], 'original_name': a[1], 'stored_name': a[2], 'mime_type': a[3],
+                        'file_size': a[4], 'uploaded_by': a[5],
+                        'uploaded_at': str(a[6]) if a[6] else None
+                    } for a in cursor.fetchall()]
+                    item_dict['suppliers'].append(q)
+                req['items'].append(item_dict)
             return jsonify({'success': True, 'data': req})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -36172,6 +36290,7 @@ def procurement_api_update_requisition(rid):
             """, (title, data.get('department'), data.get('project_ref'), data.get('priority', 'Medium'),
                   data.get('notes'), data.get('needed_by') or None, rid))
             cursor.execute("DELETE FROM requisition_items WHERE requisition_id = %s", (rid,))
+            created_items = []
             for it in items or []:
                 pname = (it.get('product_name') or '').strip()
                 if not pname:
@@ -36184,11 +36303,34 @@ def procurement_api_update_requisition(rid):
                     INSERT INTO requisition_items (requisition_id, product_id, product_name, category,
                                                    quantity, unit_cost, total_cost, notes)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
                 """, (rid, it.get('product_id'), pname, it.get('category'), qty, unit,
                       round(unit * qty, 2), it.get('notes')))
+                item_id = cursor.fetchone()[0]
+                sup_ids = []
+                for sup in (it.get('suppliers') or []):
+                    if not (sup.get('supplier_name') or '').strip():
+                        continue
+                    cursor.execute("""
+                        INSERT INTO requisition_item_suppliers
+                            (item_id, supplier_id, supplier_name, supplier_phone, unit_cost,
+                             delivery_days, is_preferred, justification, notes, approved)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,FALSE)
+                        RETURNING id
+                    """, (item_id,
+                          sup.get('supplier_id'),
+                          (sup.get('supplier_name') or '').strip(),
+                          sup.get('supplier_phone'),
+                          float(sup.get('unit_cost') or 0),
+                          int(sup.get('delivery_days') or 0),
+                          bool(sup.get('is_preferred')),
+                          sup.get('justification'),
+                          (sup.get('notes') or '')[:500]))
+                    sup_ids.append(cursor.fetchone()[0])
+                created_items.append({'item_id': item_id, 'supplier_ids': sup_ids})
             connection.commit()
             log_activity('requisition_edit', f'Edited requisition {row[1]}', 'requisition', rid)
-            return jsonify({'success': True, 'message': 'Requisition updated.'})
+            return jsonify({'success': True, 'message': 'Requisition updated.', 'items': created_items})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -36225,6 +36367,8 @@ def procurement_api_submit_requisition(rid):
 @login_required
 @_procurement_perm_required('can_approve_requisitions')
 def procurement_api_approve_requisition(rid):
+    data = request.get_json() or {}
+    choices = data.get('choices') or {}   # {item_id: chosen supplier_quote_id} — approver may override preferred
     user = _procurement_user()
     try:
         with get_db() as (cursor, connection):
@@ -36234,6 +36378,26 @@ def procurement_api_approve_requisition(rid):
                 return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
             if row[2] not in ('submitted', 'draft'):
                 return jsonify({'success': False, 'error': f'Requisition is already {row[2]}.'}), 400
+            # Approver may pick a specific supplier quote per item (default = requester's preferred)
+            for item_id_str, quote_id_val in choices.items():
+                try:
+                    item_id = int(item_id_str)
+                    quote_id = int(quote_id_val)
+                except (TypeError, ValueError):
+                    continue
+                cursor.execute("""
+                    SELECT q.id, q.unit_cost, q.supplier_name, i.quantity
+                    FROM requisition_item_suppliers q
+                    JOIN requisition_items i ON i.id = q.item_id
+                    WHERE q.id = %s AND q.item_id = %s
+                """, (quote_id, item_id))
+                q = cursor.fetchone()
+                if not q:
+                    continue
+                cursor.execute("UPDATE requisition_item_suppliers SET approved=TRUE WHERE id=%s", (quote_id,))
+                cursor.execute("""
+                    UPDATE requisition_items SET unit_cost=%s, total_cost=%s WHERE id=%s
+                """, (q[1], round(float(q[1] or 0) * int(q[3] or 0), 2), item_id))
             cursor.execute("""
                 UPDATE requisitions SET status='approved', approved_by=%s, approved_at=CURRENT_TIMESTAMP,
                     reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
@@ -36428,13 +36592,18 @@ def procurement_api_po_detail(po_id):
                 if po.get(k):
                     po[k] = str(po[k])
             cursor.execute("""
-                SELECT id, product_id, product_name, quantity_ordered, quantity_received, unit_cost
-                FROM grn_lines WHERE purchase_order_id = %s ORDER BY id
+                SELECT gl.id, gl.product_id, gl.product_name, gl.quantity_ordered, gl.quantity_received, gl.unit_cost,
+                       COALESCE(p.stock, 0) AS current_stock
+                FROM grn_lines gl
+                LEFT JOIN products p ON p.id = gl.product_id
+                WHERE gl.purchase_order_id = %s ORDER BY gl.id
             """, (po_id,))
             lines = cursor.fetchall()
             po['lines'] = [{
                 'id': l[0], 'product_id': l[1], 'product_name': l[2],
-                'quantity_ordered': l[3], 'quantity_received': l[4], 'unit_cost': float(l[5] or 0)
+                'quantity_ordered': l[3], 'quantity_received': l[4], 'unit_cost': float(l[5] or 0),
+                'current_stock': int(l[6] or 0),
+                'on_order': int(l[3] or 0) - int(l[4] or 0)
             } for l in lines]
             cursor.execute("""
                 SELECT id, attachment_type, original_name, stored_name, mime_type, file_size, uploaded_by, uploaded_at
@@ -36598,6 +36767,255 @@ def procurement_api_attachment_delete(att_id):
             except Exception:
                 pass
         return jsonify({'success': True, 'message': 'Attachment deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ----------------- REQ ITEM SUPPLIER INVOICES -----------------
+
+@app.route('/api/procurement/requisition-item-suppliers/<int:sid>/attachment', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_create_requisitions')
+def procurement_api_item_supplier_attachment_upload(sid):
+    """Attach an invoice supporting a requisition item's supplier quote."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id FROM requisition_item_suppliers WHERE id = %s", (sid,))
+            if not cursor.fetchone():
+                return jsonify({'success': False, 'error': 'Supplier quote not found.'}), 404
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file selected.'}), 400
+        file = request.files['file']
+        if not file.filename:
+            return jsonify({'success': False, 'error': 'Empty file.'}), 400
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        os.makedirs(folder, exist_ok=True)
+        safe = secure_filename(file.filename) or 'file'
+        ext = os.path.splitext(safe)[1].lower()
+        stored = f"reqsup_{sid}_{uuid.uuid4().hex[:10]}{ext}"
+        file.save(os.path.join(folder, stored))
+        user = _procurement_user()
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO requisition_item_attachments (item_supplier_id, original_name, stored_name, mime_type, file_size, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (sid, file.filename, stored, file.content_type or 'application/octet-stream',
+                  os.path.getsize(os.path.join(folder, stored)), user['name']))
+            connection.commit()
+        return jsonify({'success': True, 'message': 'Invoice attached.'})
+    except Exception as e:
+        print(f"Upload req invoice error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisition-attachment/<int:att_id>', methods=['GET'])
+@login_required
+def procurement_api_requisition_attachment_view(att_id):
+    """View an invoice attached to a requisition item supplier quote."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT original_name, stored_name, mime_type FROM requisition_item_attachments WHERE id = %s", (att_id,))
+            r = cursor.fetchone()
+        if not r:
+            return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        path = os.path.join(folder, r[1])
+        if not os.path.exists(path):
+            return jsonify({'success': False, 'error': 'File missing on disk.'}), 404
+        return send_file(path, mimetype=r[2] or 'application/octet-stream')
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requisition-attachment/<int:att_id>', methods=['DELETE'])
+@login_required
+@_procurement_perm_required('can_create_requisitions')
+def procurement_api_requisition_attachment_delete(att_id):
+    """Delete an invoice attached to a requisition item supplier quote."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT stored_name FROM requisition_item_attachments WHERE id = %s", (att_id,))
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
+            cursor.execute("DELETE FROM requisition_item_attachments WHERE id = %s", (att_id,))
+            connection.commit()
+        folder = os.path.join(os.path.dirname(__file__), 'procurement_attachments')
+        path = os.path.join(folder, r[0])
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+        return jsonify({'success': True, 'message': 'Attachment deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ------------------------------- PAYABLES / PAYMENTS -------------------------------
+
+@app.route('/api/procurement/payables', methods=['GET'])
+@login_required
+def procurement_api_payables():
+    """Per-supplier payables summary + payment ledger."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT COALESCE(s.id, 0) AS supplier_id,
+                       COALESCE(s.name, po.supplier_name, '—') AS supplier_name,
+                       COALESCE(SUM(po.total_amount), 0) AS total_po,
+                       COALESCE(SUM(CASE WHEN po.status IN ('received','partial') THEN po.total_amount ELSE 0 END), 0) AS received_value,
+                       COALESCE((SELECT SUM(p.amount) FROM supplier_payments p WHERE p.supplier_id = s.id), 0) AS paid
+                FROM purchase_orders po
+                LEFT JOIN suppliers s ON s.id = po.supplier_id
+                GROUP BY s.id, s.name, po.supplier_name
+                ORDER BY total_po DESC
+            """)
+            rows = cursor.fetchall()
+            payables = [{
+                'supplier_id': r[0], 'supplier_name': r[1],
+                'total_po': float(r[2] or 0), 'received_value': float(r[3] or 0),
+                'paid': float(r[4] or 0),
+                'outstanding': max(0.0, float(r[3] or 0) - float(r[4] or 0))
+            } for r in rows]
+            cursor.execute("""
+                SELECT id, supplier_id, supplier_name, amount, payment_date, payment_method, reference, notes, created_by, created_at
+                FROM supplier_payments ORDER BY payment_date DESC, id DESC LIMIT 100
+            """)
+            pays = cursor.fetchall()
+            payments = [{
+                'id': p[0], 'supplier_id': p[1], 'supplier_name': p[2], 'amount': float(p[3] or 0),
+                'payment_date': str(p[4]) if p[4] else None, 'payment_method': p[5], 'reference': p[6],
+                'notes': p[7], 'created_by': p[8], 'created_at': str(p[9]) if p[9] else None
+            } for p in pays]
+            return jsonify({'success': True, 'data': {'payables': payables, 'payments': payments}})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/payments', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_add_payment():
+    data = request.get_json() or {}
+    supplier_id = data.get('supplier_id')
+    amount = float(data.get('amount') or 0)
+    if not supplier_id or amount <= 0:
+        return jsonify({'success': False, 'error': 'Supplier and a positive amount are required.'}), 400
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT name FROM suppliers WHERE id = %s", (supplier_id,))
+            s = cursor.fetchone()
+            supplier_name = s[0] if s else 'Supplier'
+            cursor.execute("""
+                INSERT INTO supplier_payments (supplier_id, supplier_name, amount, payment_date, payment_method, reference, notes, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (supplier_id, supplier_name, round(amount, 2), data.get('payment_date') or None,
+                  data.get('payment_method'), data.get('reference'), data.get('notes'), user['name']))
+            connection.commit()
+            log_activity('supplier_payment', f'Recorded payment ${amount:,.2f} to {supplier_name}', 'supplier', supplier_id)
+            return jsonify({'success': True, 'message': f'Payment of ${amount:,.2f} recorded.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/payments/<int:pid>', methods=['DELETE'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_delete_payment(pid):
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT supplier_name FROM supplier_payments WHERE id = %s", (pid,))
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({'success': False, 'error': 'Payment not found.'}), 404
+            cursor.execute("DELETE FROM supplier_payments WHERE id = %s", (pid,))
+            connection.commit()
+            log_activity('supplier_payment', f'Deleted payment to {r[0]}', 'supplier')
+            return jsonify({'success': True, 'message': 'Payment deleted.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ------------------------------- ANALYTICS -------------------------------
+
+@app.route('/api/procurement/analytics', methods=['GET'])
+@login_required
+def procurement_api_analytics():
+    """Spend analytics + supplier performance for the Analytics module."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT COUNT(*) FROM purchase_orders WHERE status IN ('ordered','partial')")
+            open_pos = cursor.fetchone()[0]
+            cursor.execute("SELECT COALESCE(SUM(total_amount),0) FROM purchase_orders WHERE status IN ('ordered','partial')")
+            open_value = float(cursor.fetchone()[0] or 0)
+            cursor.execute("SELECT COALESCE(SUM(total_amount),0) FROM purchase_orders")
+            total_po = float(cursor.fetchone()[0] or 0)
+            cursor.execute("SELECT COALESCE(SUM(p.amount),0) FROM supplier_payments p")
+            total_paid = float(cursor.fetchone()[0] or 0)
+
+            cursor.execute("""
+                SELECT COALESCE(supplier_name, '—') AS name, COALESCE(SUM(total_amount),0) AS total
+                FROM purchase_orders GROUP BY supplier_name ORDER BY total DESC LIMIT 8
+            """)
+            by_supplier = [{'name': r[0], 'total': float(r[1] or 0)} for r in cursor.fetchall()]
+
+            cursor.execute("""
+                SELECT COALESCE(r.department, '—') AS name, COALESCE(SUM(ri.quantity * ri.unit_cost),0) AS total
+                FROM requisition_items ri
+                JOIN requisitions r ON r.id = ri.requisition_id
+                WHERE r.status IN ('approved','po_created')
+                GROUP BY r.department ORDER BY total DESC LIMIT 8
+            """)
+            by_department = [{'name': r[0], 'total': float(r[1] or 0)} for r in cursor.fetchall()]
+
+            cursor.execute("""
+                SELECT COALESCE(ri.category, '—') AS name, COALESCE(SUM(ri.quantity * ri.unit_cost),0) AS total
+                FROM requisition_items ri
+                JOIN requisitions r ON r.id = ri.requisition_id
+                WHERE r.status IN ('approved','po_created')
+                GROUP BY ri.category ORDER BY total DESC LIMIT 8
+            """)
+            by_category = [{'name': r[0], 'total': float(r[1] or 0)} for r in cursor.fetchall()]
+
+            cursor.execute("""
+                SELECT to_char(date_trunc('month', created_at), 'YYYY-MM') AS ym, COALESCE(SUM(total_amount),0) AS total
+                FROM purchase_orders
+                WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '5 months'
+                GROUP BY ym ORDER BY ym
+            """)
+            monthly = [{'month': r[0], 'total': float(r[1] or 0)} for r in cursor.fetchall()]
+
+            cursor.execute("""
+                SELECT COALESCE(s.id, 0) AS sid,
+                       COALESCE(s.name, po.supplier_name, '—') AS sname,
+                       COALESCE(s.rating, 0) AS rating,
+                       COUNT(po.id) AS po_count,
+                       COALESCE(SUM(CASE WHEN po.status IN ('received','partial') THEN 1 ELSE 0 END), 0) AS received_count,
+                       COALESCE(SUM(CASE WHEN po.received_at IS NOT NULL AND (po.expected_delivery IS NULL OR po.received_at::date <= po.expected_delivery) THEN 1 ELSE 0 END), 0) AS on_time_count,
+                       COALESCE(AVG(CASE WHEN po.expected_delivery IS NOT NULL THEN (po.expected_delivery - po.created_at::date) END), 0) AS avg_lead_days
+                FROM purchase_orders po
+                LEFT JOIN suppliers s ON s.id = po.supplier_id
+                GROUP BY s.id, s.name, po.supplier_name, s.rating
+                ORDER BY po_count DESC, received_count DESC LIMIT 10
+            """)
+            perf = []
+            for r in cursor.fetchall():
+                rec = int(r[4] or 0)
+                on_time = int(r[5] or 0)
+                perf.append({
+                    'supplier_id': r[0], 'supplier_name': r[1], 'rating': int(r[2] or 0),
+                    'po_count': int(r[3] or 0), 'received_count': rec,
+                    'on_time_pct': round((on_time / rec * 100) if rec else 0, 1),
+                    'avg_lead_days': round(float(r[6] or 0), 1)
+                })
+
+            return jsonify({'success': True, 'data': {
+                'kpis': {'open_pos': open_pos, 'open_value': open_value, 'total_po': total_po, 'total_paid': total_paid},
+                'by_supplier': by_supplier, 'by_department': by_department, 'by_category': by_category,
+                'monthly': monthly, 'supplier_performance': perf
+            }})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -36845,6 +37263,160 @@ def procurement_api_po_pdf_send(po_id):
     except Exception as e:
         print(f"Send PO PDF error: {e}")
         return jsonify({'success': False, 'error': f'Could not send: {e}'}), 500
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/grn', methods=['GET'])
+@login_required
+def procurement_api_po_grn_pdf(po_id):
+    """Download a tidy Goods Received Note (GRN) PDF."""
+    pdf_bytes, po_no = _render_grn_pdf(po_id)
+    if pdf_bytes is None:
+        return jsonify({'success': False, 'error': 'Could not generate GRN (PO not found or PDF library unavailable).'}), 404
+    return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf',
+                     as_attachment=True, download_name=f'{po_no}_GRN.pdf')
+
+
+def _render_grn_pdf(po_id):
+    """Render a Goods Received Note PDF (reportlab)."""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
+    except Exception as e:
+        print(f"reportlab import error: {e}")
+        return None, None
+
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            SELECT po.po_no, po.supplier_name, po.supplier_phone, po.requisition_ids,
+                   po.status, po.received_at, po.created_by, s.email, s.address
+            FROM purchase_orders po
+            LEFT JOIN suppliers s ON s.id = po.supplier_id
+            WHERE po.id = %s
+        """, (po_id,))
+        r = cursor.fetchone()
+        if not r:
+            return None, None
+        cursor.execute("""
+            SELECT product_name, quantity_ordered, quantity_received, unit_cost
+            FROM grn_lines WHERE purchase_order_id = %s AND quantity_received > 0 ORDER BY id
+        """, (po_id,))
+        lines = cursor.fetchall()
+
+    (po_no, supplier_name, supplier_phone, requisition_ids, status,
+     received_at, created_by, email, address) = r
+
+    def _s(v):
+        return (v if v is not None else '')
+
+    navy = colors.HexColor('#0F172A')
+    slate = colors.HexColor('#64748B')
+    line_col = colors.HexColor('#E2E8F0')
+    soft = colors.HexColor('#F8FAFC')
+    green = colors.HexColor('#15803D')
+
+    base = ParagraphStyle('base', fontName='Helvetica', fontSize=9, leading=12, textColor=colors.HexColor('#0F172A'))
+    small = ParagraphStyle('small', parent=base, fontSize=8, leading=11, textColor=slate)
+    label = ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=7, leading=9, textColor=slate)
+    val = ParagraphStyle('val', fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.HexColor('#0F172A'))
+    brand = ParagraphStyle('brand', fontName='Helvetica-Bold', fontSize=18, leading=20, textColor=colors.white)
+    brandsub = ParagraphStyle('brandsub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#CBD5E1'))
+    doctitle = ParagraphStyle('doctitle', fontName='Helvetica-Bold', fontSize=15, leading=18, textColor=green)
+    docsub = ParagraphStyle('docsub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#CBD5E1'))
+    cellc = ParagraphStyle('cellc', parent=base, alignment=TA_CENTER)
+    cellr = ParagraphStyle('cellr', parent=base, alignment=TA_RIGHT)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
+                            topMargin=14 * mm, bottomMargin=14 * mm,
+                            title=f'{po_no} — Goods Received Note', author='ConnectLink')
+    story = []
+
+    header = Table(
+        [[Paragraph('CONNECTLINK', brand), Paragraph('GOODS RECEIVED NOTE', doctitle)],
+         [Paragraph('Hardware &amp; Building Projects • Procurement Suite', brandsub),
+          Paragraph(f'<b>{po_no}</b>', docsub)]],
+        colWidths=[115 * mm, 67 * mm]
+    )
+    header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), navy),
+        ('LEFTPADDING', (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+        ('TOPPADDING', (0, 0), (-1, 0), 13),
+        ('BOTTOMPADDING', (-1, 1), (-1, 1), 13),
+        ('BOTTOMPADDING', (0, 1), (0, 1), 3),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('ALIGN', (1, 1), (1, 1), 'RIGHT'),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 5 * mm))
+
+    received_date = str(received_at)[:10] if received_at else '—'
+    meta = Table([
+        [Paragraph('SUPPLIER', label), Paragraph('RECEIPT', label), Paragraph('INFORMATION', label)],
+        [Paragraph(f'<b>{_s(supplier_name) or "—"}</b>{("<br/>Phone: " + _s(supplier_phone)) if supplier_phone else ""}{("<br/>Email: " + _s(email)) if email else ""}', base),
+         Paragraph(f'<b>{_s(po_no)}</b><br/><font color="#15803D"><b>{_s(status) or "—"}</b></font>', val),
+         Paragraph(f'<b>Received:</b> {received_date}<br/><b>Requisitions:</b> {_s(requisition_ids) or "—"}<br/><b>Received By:</b> {_s(created_by) or "—"}', small)]],
+        colWidths=[82 * mm, 50 * mm, 50 * mm]
+    )
+    meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), soft),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(meta)
+    story.append(Spacer(1, 4 * mm))
+
+    data = [['#', 'Item', 'Qty Ordered', 'Qty Received', 'Unit Cost (USD)', 'Total (USD)']]
+    total_received = 0.0
+    for i, ln in enumerate(lines, 1):
+        name, qty_o, qty_r, unit = ln
+        unit = float(unit or 0)
+        qty_o = int(qty_o or 0)
+        qty_r = int(qty_r or 0)
+        total = unit * qty_r
+        total_received += total
+        data.append([
+            Paragraph(str(i), cellc), Paragraph(_s(name), base),
+            Paragraph(str(qty_o), cellc), Paragraph(str(qty_r), cellc),
+            Paragraph(f'{unit:,.2f}', cellr), Paragraph(f'{total:,.2f}', cellr),
+        ])
+    data.append([
+        Paragraph('', base), Paragraph('<b>TOTAL RECEIVED</b>', ParagraphStyle('gt', parent=base, fontName='Helvetica-Bold', fontSize=10)),
+        Paragraph('', base), Paragraph('', base), Paragraph('', base),
+        Paragraph(f'<b>{total_received:,.2f}</b>', ParagraphStyle('gtn', parent=cellr, fontName='Helvetica-Bold', fontSize=11)),
+    ])
+    items = Table(data, colWidths=[16 * mm, 78 * mm, 22 * mm, 26 * mm, 26 * mm, 26 * mm])
+    items.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#334155')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('BACKGROUND', (0, -1), (-1, -1), soft),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(items)
+    story.append(Spacer(1, 6 * mm))
+    story.append(Paragraph(
+        f'Generated by ConnectLink Procurement on {datetime.now().strftime("%d %b %Y, %H:%M")} • Goods received against {_s(po_no)}.',
+        small
+    ))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.getvalue(), po_no
 
 
 # ------------------------------- EXPORTS -------------------------------

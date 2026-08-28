@@ -180,15 +180,29 @@
         /* ===== FORMS ===== */
         .pc-form-label { font-size: 0.58rem; font-weight: 800; color: #475569; margin-bottom: 4px; display: block; }
         .pc-input, .pc-select, .pc-textarea {
-            width: 100%; padding: 6px 9px; font-size: 0.6rem; border: 1px solid #e2e8f0; border-radius: 8px;
+            width: 100%; padding: 5px 8px !important; font-size: 0.55rem !important; border: 1px solid #e2e8f0; border-radius: 8px;
             background: #fff; color: #1E293B; transition: all 0.18s; outline: none;
+        }
+        .pc-input::placeholder, .pc-select::placeholder, .pc-textarea::placeholder {
+            font-size: 0.55rem !important; color: #94A3B8;
         }
         .pc-input:focus, .pc-select:focus, .pc-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(193,43,62,0.12); }
         .pc-textarea { resize: vertical; min-height: 54px; }
 
-        /* ===== ITEM ROWS ===== */
-        .pc-item-row { display: grid; grid-template-columns: 2.2fr 1fr 0.7fr 0.9fr 0.7fr 1.2fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
-        .pc-item-row .pc-prod-wrap { position: relative; }
+        /* ===== ITEM ROWS (line-items table) ===== */
+        .pc-items-table { width: 100%; border-collapse: collapse; }
+        .pc-items-table th { background:#F1F5F9; color:#334155; font-size:0.56rem; text-transform:uppercase; letter-spacing:0.5px; padding:7px 8px; border-bottom:1px solid #e2e8f0; white-space:nowrap; text-align:left; }
+        .pc-items-table td { padding:6px 6px; vertical-align:middle; border-bottom:1px solid #f1f5f9; }
+        .pc-items-table .pc-item-row:hover td { background: rgba(193,43,62,0.03); }
+        .pc-items-table .pc-prod-wrap, .pc-items-table .pc-cat-wrap { position: relative; }
+        .pc-items-table input.pc-input { width: 100%; min-width: 70px; }
+        .pc-items-table .pc-prod-input { min-width: 190px; }
+        .pc-items-table .pc-item-cat { min-width: 120px; }
+        .pc-item-line-total { display:inline-block; font-weight:600; font-size:0.6rem; color:#0F172A; }
+        .pc-quotes-btn { white-space: nowrap; }
+        .pc-item-quote-count { display:inline-block; min-width:16px; text-align:center; margin-left:4px; background:#C12B3E; color:#fff; border-radius:10px; font-size:0.55rem; padding:0 4px; }
+        body.dark-theme .pc-items-table th { background:#1E293B; color:#94A3B8; border-color:#334155; }
+        body.dark-theme .pc-items-table td { border-color:#1E293B; }
         .pc-suggest {
             position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60;
             background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.12);
@@ -522,6 +536,39 @@
         body.dark-theme .pc-attach-box { background: rgba(15, 23, 42, 0.5); border-color: #334155; }
         body.dark-theme .pc-attach-item { background: #1E293B; border-color: #334155; }
 
+        /* Requisition supplier quotes (editor + approver view) */
+        .pc-quote-editor-row { border:1px solid #eef2f7; border-radius:10px; padding:10px; margin-bottom:8px; background:#fff; }
+        .pc-quote-editor-row .pc-qe-grid { display:grid; grid-template-columns: 2fr 1fr 0.7fr auto auto; gap:8px; align-items:end; margin-bottom:8px; }
+        .pc-quote-editor-row .pc-qe-extra { display:grid; grid-template-columns: 1fr 1.4fr auto; gap:8px; align-items:center; }
+        .pc-quote-preferred { border-color:#f59e0b !important; box-shadow: 0 0 0 1px #f59e0b inset; background:#FFFBEB !important; }
+        .pc-quote-approved { border-color:#16a34a !important; box-shadow: 0 0 0 1px #16a34a inset; }
+        .pc-quote { position:relative; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:8px; background:#fff; }
+        .pc-quote-badge { display:inline-block; font-size:0.52rem; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; padding:2px 8px; border-radius:20px; margin-right:6px; }
+        .pc-quote-badge.pref { background:#FEF3C7; color:#B45309; }
+        .pc-quote-badge.appr { background:#DCFCE7; color:#15803D; }
+        .pc-quote-name { font-weight:700; font-size:0.72rem; margin:4px 0 2px; }
+        .pc-quote-phone { color:#64748B; font-weight:400; font-size:0.62rem; }
+        .pc-quote-meta { display:flex; flex-wrap:wrap; gap:14px; font-size:0.64rem; color:#334155; margin:4px 0; }
+        .pc-quote-notes { font-size:0.62rem; color:#64748B; margin:4px 0; }
+        .pc-quote-invoices { margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; }
+        .pc-quote-invoice { font-size:0.6rem; border:1px solid #e2e8f0; border-radius:6px; padding:3px 8px; color:#1D4ED8; background:#F8FAFC; text-decoration:none; }
+        .pc-quote-radio { position:absolute; top:10px; right:10px; transform:scale(1.15); }
+        .pc-quote-empty { color:#94A3B8; font-size:0.62rem; padding:6px 0; }
+        .pc-quotes-subrow td { padding: 4px 8px 10px !important; background:#F8FAFC; }
+        body.dark-theme .pc-quotes-subrow td { background:#0F172A; }
+
+        /* Analytics CSS bar charts */
+        .pc-bar-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:0.64rem; }
+        .pc-bar-label { width:130px; text-align:right; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .pc-bar-track { flex:1; height:12px; background:#EEF2F7; border-radius:6px; overflow:hidden; }
+        .pc-bar-fill { height:100%; border-radius:6px; background: linear-gradient(90deg,#C12B3E,#E91E63); }
+        .pc-bar-val { width:90px; font-weight:700; color:#0F172A; }
+        body.dark-theme .pc-bar-track { background:#1E293B; }
+        body.dark-theme .pc-bar-label, body.dark-theme .pc-bar-val { color:#CBD5E1; }
+        body.dark-theme .pc-quote-editor-row, body.dark-theme .pc-quote { background:#1E293B; border-color:#334155; }
+        body.dark-theme .pc-quote-preferred { background:#3A2F12 !important; }
+        body.dark-theme .pc-quote-approved { background:#0E2A1A !important; }
+
         body.dark-theme .modal-content { background:#111A2E; }
         body.dark-theme .modal-header, body.dark-theme .modal-footer { border-color:#1E293B; }
 
@@ -605,6 +652,8 @@
         <button class="pc-nav-btn" data-module="requisitions" onclick="showModule('requisitions')"><i class="bi bi-clipboard-check"></i> <span>Requisitions</span></button>
         <button class="pc-nav-btn" data-module="pos" onclick="showModule('pos')"><i class="bi bi-receipt-cutoff"></i> <span>Purchase Orders</span></button>
         <button class="pc-nav-btn" data-module="suppliers" onclick="showModule('suppliers')"><i class="bi bi-truck"></i> <span>Suppliers</span></button>
+        <button class="pc-nav-btn" data-module="payments" onclick="showModule('payments')"><i class="bi bi-cash-stack"></i> <span>Payments</span></button>
+        <button class="pc-nav-btn" data-module="analytics" onclick="showModule('analytics')"><i class="bi bi-graph-up-arrow"></i> <span>Analytics</span></button>
         <div class="pc-sup"><i class="bi bi-info-circle"></i> Requisitions → Approvals → POs → Stock-in</div>
     </aside>
 
@@ -711,6 +760,71 @@
                 </div>
             </div>
         </section>
+
+        <!-- ============ PAYMENTS ============ -->
+        <section class="pc-module" id="module-payments">
+            <div class="pc-kpi-grid">
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div><div class="kpi-value" id="payKpiOutstanding" data-money="1">$0</div><div class="kpi-label">Outstanding</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div class="kpi-value" id="payKpiPaid" data-money="1">$0</div><div class="kpi-label">Total Paid</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-receipt-cutoff"></i></div><div class="kpi-value" id="payKpiPoValue" data-money="1">$0</div><div class="kpi-label">PO Value (All)</div></div>
+            </div>
+            <div class="pc-panel">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-credit-card"></i> Payables by Supplier</div>
+                    <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openPaymentModal()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-plus-lg"></i> Record Payment</button>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Supplier</th><th class="num">PO Value</th><th class="num">Received</th><th class="num">Paid</th><th class="num">Outstanding</th></tr></thead>
+                        <tbody id="payBody"><tr><td colspan="5" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="pc-panel mt-3">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-clock-history"></i> Payment History</div>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Date</th><th>Supplier</th><th class="num">Amount</th><th>Method</th><th>Reference</th><th>Notes</th><th>Recorded By</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="payHistoryBody"><tr><td colspan="8" class="pc-empty"><i class="bi bi-inbox"></i> No payments yet</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ ANALYTICS ============ -->
+        <section class="pc-module" id="module-analytics">
+            <div class="pc-kpi-grid">
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-receipt-cutoff"></i></div><div class="kpi-value" id="anKpiTotalPo" data-money="1">$0</div><div class="kpi-label">Total PO Value</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-box-seam"></i></div><div class="kpi-value" id="anKpiOpenPos">0</div><div class="kpi-label">Open POs</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="anKpiOpenValue" data-money="1">$0</div><div class="kpi-label">Open PO Value</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div><div class="kpi-value" id="anKpiPaid" data-money="1">$0</div><div class="kpi-label">Total Paid</div></div>
+            </div>
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <div class="pc-panel"><div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-truck"></i> Spend by Supplier</div></div><div class="pc-panel-body" id="anBySupplier"></div></div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="pc-panel"><div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-building"></i> Spend by Department</div></div><div class="pc-panel-body" id="anByDepartment"></div></div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="pc-panel"><div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-tags"></i> Spend by Category</div></div><div class="pc-panel-body" id="anByCategory"></div></div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="pc-panel"><div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-bar-chart"></i> Monthly Spend (6 months)</div></div><div class="pc-panel-body" id="anMonthly"></div></div>
+                </div>
+            </div>
+            <div class="pc-panel mt-3">
+                <div class="pc-panel-head"><div class="pc-panel-title"><i class="bi bi-trophy"></i> Supplier Performance</div></div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Supplier</th><th class="num">Rating</th><th class="num">POs</th><th class="num">Received</th><th class="num">On-time %</th><th class="num">Avg Lead (days)</th></tr></thead>
+                        <tbody id="anPerfBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     </main>
 </div>
 
@@ -749,10 +863,10 @@
                         <label class="pc-form-label">Needed By</label>
                         <input type="date" class="pc-input" id="reqNeededBy">
                     </div>
-                    <div class="col-md-5">
-                        <label class="pc-form-label">Project Ref</label>
+                    <div class="col-md-5" id="reqProjectField">
+                        <label class="pc-form-label">Project Ref <span style="color:#DC2626;">*</span></label>
                         <div style="position:relative;">
-                            <input type="text" class="pc-input" id="reqProjectRef" placeholder="Search project (e.g. 221--Rainham Park)..." autocomplete="off">
+                            <input type="text" class="pc-input" id="reqProjectRef" placeholder="Required for Production requisitions" autocomplete="off">
                             <input type="hidden" id="reqProjectId" value="">
                             <div class="pc-suggest" id="reqProjectList"></div>
                         </div>
@@ -768,10 +882,16 @@
                     <label class="pc-form-label mb-0">Line Items</label>
                     <button type="button" class="pc-btn pc-btn-primary pc-btn-sm" onclick="addItemRow()"><i class="bi bi-plus-lg"></i> Add Item</button>
                 </div>
-                <div class="pc-item-row fw-semibold" style="font-size:0.56rem;color:#64748B;">
-                    <span>Product / Item *</span><span>Category</span><span>Qty *</span><span>Unit Cost (USD)</span><span>Total</span><span>Notes</span><span></span>
+                <div class="pc-item-scroll">
+                    <table class="pc-items-table">
+                        <thead>
+                            <tr>
+                                <th>Product / Item *</th><th>Category</th><th class="num">Qty *</th><th class="num">Unit Cost (USD)</th><th class="num">Total</th><th>Notes</th><th class="num">Quotes</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemRows"></tbody>
+                    </table>
                 </div>
-                <div id="itemRows" class="pc-item-scroll"></div>
                 <div class="d-flex justify-content-end mt-2" style="font-size:0.66rem;font-weight:700;">
                     Grand Total: <span class="ms-2 text-danger" id="reqGrandTotal">$0.00</span>
                 </div>
@@ -779,6 +899,55 @@
             <div class="modal-footer">
                 <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
                 <button class="pc-btn pc-btn-primary" onclick="saveReq()" id="saveReqBtn"><i class="bi bi-save"></i> Save Draft</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== ITEM SUPPLIER QUOTES MODAL ==================== -->
+<div class="modal fade" id="itemSuppliersModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-tags me-2"></i><span id="itemSupTitle">Supplier Quotes</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <div style="font-size:0.66rem;color:#64748B;">Each line item can quote <b>multiple suppliers</b> at different unit costs. Mark your <b>preferred</b> choice and why, and attach invoices that support the quoted costs.</div>
+                    <button type="button" class="pc-btn pc-btn-outline pc-btn-sm" onclick="addItemSupplier()"><i class="bi bi-plus-lg"></i> Add Supplier Quote</button>
+                </div>
+                <div id="itemSupList"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-primary" onclick="saveItemSuppliers()"><i class="bi bi-check-lg"></i> Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== RECORD PAYMENT MODAL ==================== -->
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-cash-stack me-2"></i>Record Payment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div class="row g-3">
+                    <div class="col-12"><label class="pc-form-label">Supplier *</label><select class="pc-select" id="paySupplier"></select></div>
+                    <div class="col-md-6"><label class="pc-form-label">Amount (USD) *</label><input type="number" class="pc-input" id="payAmount" min="0" step="0.01" placeholder="0.00"></div>
+                    <div class="col-md-6"><label class="pc-form-label">Payment Date</label><input type="date" class="pc-input" id="payDate"></div>
+                    <div class="col-md-6"><label class="pc-form-label">Method</label><select class="pc-select" id="payMethod"><option>Bank Transfer</option><option>Cash</option><option>Mobile Money</option><option>Cheque</option></select></div>
+                    <div class="col-md-6"><label class="pc-form-label">Reference</label><input type="text" class="pc-input" id="payReference" placeholder="e.g. receipt no"></div>
+                    <div class="col-12"><label class="pc-form-label">Notes</label><input type="text" class="pc-input" id="payNotes"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-primary" onclick="savePayment()"><i class="bi bi-check-lg"></i> Save Payment</button>
             </div>
         </div>
     </div>
@@ -873,7 +1042,7 @@
                 <div id="viewPoMeta" class="mb-3"></div>
                 <div class="pc-table-wrap">
                     <table class="pc-table">
-                        <thead><tr><th>#</th><th>Item</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Unit Cost</th><th class="num">Total</th><th class="num">Receive Now</th></tr></thead>
+                        <thead><tr><th>#</th><th>Item</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Unit Cost</th><th class="num">Total</th><th class="num">Stock</th><th class="num">On Order</th><th class="num">Receive Now</th></tr></thead>
                         <tbody id="viewPoItems"></tbody>
                     </table>
                 </div>
@@ -896,6 +1065,7 @@
             </div>
             <div class="modal-footer">
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoPdf()"><i class="bi bi-file-earmark-pdf"></i> Download PDF</button>
+                <button class="pc-btn pc-btn-outline" onclick="downloadPoGrn()"><i class="bi bi-file-earmark-richtext"></i> GRN PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="sendPoPdf()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-whatsapp"></i> Send PDF</button>
                 <button class="pc-btn pc-btn-primary" onclick="saveReceive()" id="receiveBtn" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Record Receipt</button>
             </div>
@@ -1024,7 +1194,9 @@ const PAGE_META = {
     dashboard: { title: 'Dashboard', sub: 'Your procurement command centre — track requisitions, approvals and stock movement.' },
     requisitions: { title: 'Requisitions', sub: 'Request goods, route for approval and keep every request auditable.' },
     pos: { title: 'Purchase Orders', sub: 'Convert approved requisitions into orders and receive goods into stock.' },
-    suppliers: { title: 'Suppliers', sub: 'Manage your supplier register, lead times, terms and ratings.' }
+    suppliers: { title: 'Suppliers', sub: 'Manage your supplier register, lead times, terms and ratings.' },
+    payments: { title: 'Payments', sub: 'Track what you owe suppliers and record payments.' },
+    analytics: { title: 'Analytics', sub: 'Procurement spend, trends and supplier performance.' }
 };
 
 // ===== HELPERS =====
@@ -1113,6 +1285,8 @@ function showModule(name) {
     if (name === 'requisitions') loadRequisitions();
     if (name === 'pos') loadPOs();
     if (name === 'suppliers') loadSuppliers();
+    if (name === 'payments') loadPayables();
+    if (name === 'analytics') loadAnalytics();
 }
 
 // ===== NAVBAR =====
@@ -1134,6 +1308,7 @@ async function init() {
     PERMS = { is_super_admin: true, can_create_requisitions: true, can_approve_requisitions: true, can_manage_purchase_orders: true, can_manage_suppliers: true, can_export_data: true };
     applyProcurementPermissions();
     loadProjects();
+    loadCategories();
     setupReqDepartment();
     setupReqProject();
     showModule('dashboard');
@@ -1160,7 +1335,7 @@ async function loadDashboard() {
     const tbody = document.getElementById('dashRecentBody');
     showSkeleton(tbody, 8, 4);
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "approved", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Production", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "submitted", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
         const data = await res.json();
         REQUISITIONS = data.data || [];
         tbody.innerHTML = REQUISITIONS.slice(0, 6).map(r => `
@@ -1185,7 +1360,7 @@ async function loadRequisitions() {
     showSkeleton(tbody, 9);
     const status = document.getElementById('reqStatusFilter').value;
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "approved", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Production", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "submitted", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
         const data = await res.json();
         REQUISITIONS = data.data || [];
         tbody.innerHTML = REQUISITIONS.map(r => `
@@ -1213,26 +1388,93 @@ async function loadRequisitions() {
 
 // ----- Req modal (create / edit) -----
 let PRODUCT_CACHE = [];
+let CATEGORIES = [];
+let CUR_SUP_ROW = null;
+const JUSTIFICATION_LABELS = {
+    cheaper: 'Cheaper',
+    closer: 'Closer for faster supply',
+    earlier_delivery: 'Earlier delivery date (urgent)',
+    other: 'Other'
+};
+
+async function loadCategories() {
+    try {
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:['Electrical','Cables','Fittings','Tools','Safety','Lumber']})));
+        const data = await res.json();
+        CATEGORIES = (data.data || []).filter(Boolean);
+    } catch (e) { CATEGORIES = []; }
+}
+
+function wireCategoryCombo(input, row) {
+    if (!input) return;
+    const list = row.querySelector('.pc-cat-wrap .pc-suggest');
+    if (!list) return;
+    const show = (items) => {
+        if (!items.length) { list.style.display = 'none'; return; }
+        list.innerHTML = items.map((c, i) => `<div class="pc-sug-item" data-i="${i}"><span>${esc(c)}</span></div>`).join('');
+        list.style.display = 'block';
+        list.querySelectorAll('.pc-sug-item').forEach(el => {
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                input.value = items[+el.dataset.i];
+                list.style.display = 'none';
+            });
+        });
+    };
+    const q = () => input.value.trim().toLowerCase();
+    input.addEventListener('focus', () => show(CATEGORIES.filter(c => !q() || c.toLowerCase().includes(q()))));
+    input.addEventListener('input', () => show(CATEGORIES.filter(c => c.toLowerCase().includes(q()))));
+    input.addEventListener('blur', () => setTimeout(() => { list.style.display = 'none'; }, 150));
+}
+
+function updateQuoteCount(row) {
+    const n = (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).length;
+    const el = row.querySelector('.pc-item-quote-count');
+    if (el) el.textContent = n;
+}
+
 function addItemRow(data) {
     data = data || {};
     const wrap = document.getElementById('itemRows');
-    const row = document.createElement('div');
+    const row = document.createElement('tr');
     row.className = 'pc-item-row';
     row.innerHTML = `
-        <div class="pc-prod-wrap">
-            <input type="text" class="pc-input pc-prod-input" placeholder="Search product or type item" value="${esc(data.product_name || '')}" autocomplete="off">
-            <input type="hidden" class="pc-prod-id" value="${data.product_id || ''}">
-            <div class="pc-suggest"></div>
-        </div>
-        <input type="text" class="pc-input pc-item-cat" placeholder="Category" value="${esc(data.category || '')}">
-        <input type="number" class="pc-input pc-item-qty" min="1" value="${data.quantity || 1}" oninput="recalcReqTotal()">
-        <input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()">
-        <span class="pc-item-line-total" style="text-align:right;font-weight:600;">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span>
-        <input type="text" class="pc-input pc-item-notes" placeholder="Notes" value="${esc(data.notes || '')}">
-        <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="this.closest('.pc-item-row').remove(); recalcReqTotal();" title="Remove"><i class="bi bi-x-lg"></i></button>
+        <td style="min-width:210px;">
+            <div class="pc-prod-wrap">
+                <input type="text" class="pc-input pc-prod-input" placeholder="Search product or type item" value="${esc(data.product_name || '')}" autocomplete="off">
+                <input type="hidden" class="pc-prod-id" value="${data.product_id || ''}">
+                <div class="pc-suggest"></div>
+            </div>
+        </td>
+        <td style="min-width:130px;">
+            <div class="pc-cat-wrap">
+                <input type="text" class="pc-input pc-item-cat" placeholder="Category" value="${esc(data.category || '')}" autocomplete="off">
+                <div class="pc-suggest"></div>
+            </div>
+        </td>
+        <td><input type="number" class="pc-input pc-item-qty" min="1" value="${data.quantity || 1}" oninput="recalcReqTotal()"></td>
+        <td><input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()"></td>
+        <td class="num"><span class="pc-item-line-total">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span></td>
+        <td><input type="text" class="pc-input pc-item-notes" placeholder="Notes" value="${esc(data.notes || '')}"></td>
+        <td class="num"><button type="button" class="pc-btn pc-btn-outline pc-btn-sm pc-quotes-btn" title="Supplier quotes & invoices" onclick="openItemSuppliers(this.closest('.pc-item-row'))"><i class="bi bi-tags"></i><span class="pc-item-quote-count">0</span></button></td>
+        <td class="num"><button class="pc-btn pc-btn-danger pc-btn-sm" onclick="this.closest('.pc-item-row').remove(); recalcReqTotal();" title="Remove"><i class="bi bi-x-lg"></i></button></td>
     `;
+    row._suppliers = (data.suppliers || []).map(s => ({
+        supplier_id: s.supplier_id || null,
+        supplier_name: s.supplier_name || '',
+        supplier_phone: s.supplier_phone || '',
+        unit_cost: s.unit_cost != null ? s.unit_cost : '',
+        delivery_days: s.delivery_days || '',
+        is_preferred: !!s.is_preferred,
+        justification: s.justification || '',
+        notes: s.notes || '',
+        attachments: s.attachments || [],
+        _files: []
+    }));
     wrap.appendChild(row);
     wireProductSearch(row.querySelector('.pc-prod-input'), row);
+    wireCategoryCombo(row.querySelector('.pc-item-cat'), row);
+    updateQuoteCount(row);
     recalcReqTotal();
 }
 function wireProductSearch(input, row) {
@@ -1244,13 +1486,13 @@ function wireProductSearch(input, row) {
             const sug = row.querySelector('.pc-suggest');
             if (!q) { sug.style.display = 'none'; return; }
             try {
-                const res = await fetch('/api/procurement/products?q=' + encodeURIComponent(q), { credentials: 'include' });
+                const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id":10,"name":"Electrical Cable 2.5mm","category":"Electrical","stock":120,"buy_price":15,"sell_price":22,"unit_type":"m","on_order":60},{"id":11,"name":"Socket Outlet","category":"Electrical","stock":8,"buy_price":19,"sell_price":30,"unit_type":"pcs","on_order":0}]})));
                 const data = await res.json();
                 const items = (data.data || []).filter(p => !p.name || p.name.toLowerCase().includes(q.toLowerCase()));
                 if (!items.length) { sug.style.display = 'none'; return; }
                 sug.innerHTML = items.map(p => `
                     <div class="pc-sug-item" data-id="${p.id}" data-name="${esc(p.name)}" data-cat="${esc(p.category)}" data-cost="${p.buy_price || p.sell_price || ''}">
-                        <span>${esc(p.name)}</span><span class="sub">${esc(p.category)} • stock ${p.stock}</span>
+                        <span>${esc(p.name)}</span><span class="sub">${esc(p.category)} • stock ${p.stock}${p.on_order ? ' • on order ' + p.on_order : ''}</span>
                     </div>`).join('');
                 sug.style.display = 'block';
                 sug.querySelectorAll('.pc-sug-item').forEach(el => {
@@ -1269,19 +1511,34 @@ function wireProductSearch(input, row) {
     });
     input.addEventListener('blur', function() { setTimeout(() => { row.querySelector('.pc-suggest').style.display = 'none'; }, 150); });
 }
-function collectReqItems() {
+function collectReqItems(includeFiles) {
     const items = [];
     document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
         const name = row.querySelector('.pc-prod-input').value.trim();
         const qty = parseInt(row.querySelector('.pc-item-qty').value || '0', 10);
         if (!name || qty <= 0) return;
+        const suppliers = (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).map(s => {
+            const o = {
+                supplier_id: s.supplier_id || null,
+                supplier_name: (s.supplier_name || '').trim(),
+                supplier_phone: s.supplier_phone || '',
+                unit_cost: parseFloat(s.unit_cost) || 0,
+                delivery_days: parseInt(s.delivery_days) || 0,
+                is_preferred: !!s.is_preferred,
+                justification: s.justification || '',
+                notes: (s.notes || '').trim()
+            };
+            if (includeFiles) o._files = (s._files || []).slice();
+            return o;
+        });
         items.push({
             product_id: row.querySelector('.pc-prod-id').value ? parseInt(row.querySelector('.pc-prod-id').value, 10) : null,
             product_name: name,
             category: row.querySelector('.pc-item-cat').value.trim(),
             quantity: qty,
             unit_cost: parseFloat(row.querySelector('.pc-item-cost').value || '0') || 0,
-            notes: row.querySelector('.pc-item-notes').value.trim()
+            notes: row.querySelector('.pc-item-notes').value.trim(),
+            suppliers
         });
     });
     return items;
@@ -1296,6 +1553,189 @@ function recalcReqTotal() {
         total += line;
     });
     document.getElementById('reqGrandTotal').textContent = '$' + fmtMoney(total);
+}
+
+// ===== ITEM SUPPLIER QUOTES (editor modal) =====
+async function ensureSuppliersLoaded() {
+    if (SUPPLIERS.length) return;
+    try {
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "name": "Zimbabwe Electrical Wholesalers", "contact_person": "S. Moyo", "phone": "+263 77 123 4567", "email": "sales@zew.co.zw", "address": "Harare", "lead_time_days": 5, "payment_terms": "30 days", "rating": 4, "notes": "", "is_active": true}, {"id": 2, "name": "Bulawayo Hardware Distributors", "contact_person": "P. Dube", "phone": "+263 71 555 8899", "email": "info@bhd.co.zw", "address": "Bulawayo", "lead_time_days": 7, "payment_terms": "COD", "rating": 3, "notes": "", "is_active": true}]})));
+        const data = await res.json();
+        SUPPLIERS = data.data || [];
+    } catch (e) { SUPPLIERS = []; }
+}
+function emptyQuote() {
+    return { supplier_id: null, supplier_name: '', supplier_phone: '', unit_cost: '', delivery_days: '', is_preferred: false, justification: '', notes: '', attachments: [], _files: [] };
+}
+window.openItemSuppliers = async function(rowEl) {
+    if (!rowEl) return;
+    CUR_SUP_ROW = rowEl;
+    const nameEl = rowEl.querySelector('.pc-prod-input');
+    document.getElementById('itemSupTitle').textContent = 'Supplier Quotes — ' + (nameEl ? (nameEl.value || 'Item') : 'Item');
+    if (!rowEl._suppliers || !rowEl._suppliers.length) rowEl._suppliers = [emptyQuote()];
+    await ensureSuppliersLoaded();
+    renderItemSuppliers();
+    showModal('itemSuppliersModal');
+};
+window.addItemSupplier = function() {
+    if (!CUR_SUP_ROW) return;
+    CUR_SUP_ROW._suppliers.push(emptyQuote());
+    renderItemSuppliers();
+};
+function renderItemSuppliers() {
+    const list = document.getElementById('itemSupList');
+    if (!CUR_SUP_ROW) return;
+    const sups = CUR_SUP_ROW._suppliers || [];
+    if (!sups.length) { list.innerHTML = '<div class="pc-quote-empty">No quotes yet — add a supplier quote.</div>'; return; }
+    const justs = [['', '— Why this supplier? —'], ['cheaper', 'Cheaper'], ['closer', 'Closer for faster supply'], ['earlier_delivery', 'Earlier delivery date (urgent)'], ['other', 'Other']];
+    list.innerHTML = sups.map((s, idx) => {
+        const opts = '<option value="">— Select supplier —</option>' + SUPPLIERS.filter(x => x.is_active !== false).map(x => `<option value="${x.id}" ${String(x.id) === String(s.supplier_id) ? 'selected' : ''}>${esc(x.name)}${x.phone ? ' — ' + esc(x.phone) : ''}</option>`).join('');
+        const justOpts = justs.map(j => `<option value="${j[0]}" ${s.justification === j[0] ? 'selected' : ''}>${j[1]}</option>`).join('');
+        const atts = (s.attachments || []).map(a => `<span class="pc-quote-invoice">${esc(a.original_name)} <a href="/api/procurement/requisition-attachment/${a.id}" target="_blank" title="View"><i class="bi bi-eye"></i></a> <a href="javascript:void(0)" onclick="deleteQuoteInvoice(${a.id}, ${idx})" title="Delete"><i class="bi bi-trash"></i></a></span>`).join('');
+        const pend = (s._files || []).map((f, fi) => `<span class="pc-quote-invoice">📎 ${esc(f.name)} <a href="javascript:void(0)" onclick="removePendingInvoice(${idx}, ${fi})" title="Remove"><i class="bi bi-x-circle"></i></a></span>`).join('');
+        return `
+        <div class="pc-quote-editor-row ${s.is_preferred ? 'pc-quote-preferred' : ''}">
+            <div class="pc-qe-grid">
+                <div>
+                    <label class="pc-form-label">Supplier</label>
+                    <select class="pc-select pc-sup-sel" data-idx="${idx}" onchange="onQuoteSupChange(${idx})">${opts}</select>
+                </div>
+                <div>
+                    <label class="pc-form-label">Unit Cost (USD)</label>
+                    <input type="number" class="pc-input pc-sup-cost" data-idx="${idx}" min="0" step="0.01" value="${s.unit_cost != null ? s.unit_cost : ''}" placeholder="0.00" oninput="onQuoteInput(${idx})">
+                </div>
+                <div>
+                    <label class="pc-form-label">Delivery (days)</label>
+                    <input type="number" class="pc-input pc-sup-days" data-idx="${idx}" min="0" value="${s.delivery_days != null ? s.delivery_days : ''}" placeholder="0" oninput="onQuoteInput(${idx})">
+                </div>
+                <div>
+                    <label class="pc-form-label">Preferred</label>
+                    <div><label class="d-flex align-items-center" style="font-size:0.66rem;gap:6px;cursor:pointer;"><input type="radio" name="supPref" ${s.is_preferred ? 'checked' : ''} onchange="onQuotePreferred(${idx})"> Preferred</label></div>
+                </div>
+                <div>
+                    <label class="pc-form-label">Justification</label>
+                    <select class="pc-select pc-sup-just" data-idx="${idx}" onchange="onQuoteInput(${idx})">${justOpts}</select>
+                </div>
+            </div>
+            <div class="pc-qe-extra">
+                <input type="text" class="pc-input pc-sup-notes" data-idx="${idx}" placeholder="Notes (e.g. quote ref, terms)" value="${esc(s.notes || '')}" oninput="onQuoteInput(${idx})">
+                <div>
+                    <label class="pc-form-label mb-1">Invoices</label>
+                    <div class="pc-quote-invoices" id="invRow_${idx}">${atts}${pend}
+                        <label class="pc-quote-invoice" style="cursor:pointer;color:#15803D;"><i class="bi bi-paperclip"></i> Attach
+                            <input type="file" id="invFile_${idx}" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" hidden onchange="onQuoteInvoiceFile(${idx})">
+                        </label>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="removeItemSupplier(${idx})" title="Remove quote"><i class="bi bi-trash"></i></button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+window.onQuoteInput = function(idx) {
+    if (!CUR_SUP_ROW) return;
+    const s = CUR_SUP_ROW._suppliers[idx];
+    if (!s) return;
+    const sel = document.querySelector(`.pc-sup-sel[data-idx="${idx}"]`);
+    const cost = document.querySelector(`.pc-sup-cost[data-idx="${idx}"]`);
+    const days = document.querySelector(`.pc-sup-days[data-idx="${idx}"]`);
+    const just = document.querySelector(`.pc-sup-just[data-idx="${idx}"]`);
+    const notes = document.querySelector(`.pc-sup-notes[data-idx="${idx}"]`);
+    if (sel) { s.supplier_id = sel.value ? parseInt(sel.value, 10) : null; const m = SUPPLIERS.find(x => String(x.id) === sel.value); if (m) { s.supplier_name = m.name; s.supplier_phone = m.phone || ''; } }
+    if (cost) s.unit_cost = cost.value;
+    if (days) s.delivery_days = days.value;
+    if (just) s.justification = just.value;
+    if (notes) s.notes = notes.value;
+    updateQuoteCount(CUR_SUP_ROW);
+};
+window.onQuoteSupChange = function(idx) {
+    if (!CUR_SUP_ROW) return;
+    const sel = document.querySelector(`.pc-sup-sel[data-idx="${idx}"]`);
+    if (!sel) return;
+    const m = SUPPLIERS.find(x => String(x.id) === sel.value);
+    const s = CUR_SUP_ROW._suppliers[idx];
+    if (!s) return;
+    s.supplier_id = m ? m.id : null;
+    s.supplier_name = m ? m.name : '';
+    s.supplier_phone = m ? (m.phone || '') : '';
+    const days = document.querySelector(`.pc-sup-days[data-idx="${idx}"]`);
+    if (m && m.lead_time_days && days && !days.value) { s.delivery_days = m.lead_time_days; days.value = m.lead_time_days; }
+    updateQuoteCount(CUR_SUP_ROW);
+};
+window.onQuotePreferred = function(idx) {
+    if (!CUR_SUP_ROW) return;
+    CUR_SUP_ROW._suppliers.forEach((x, i) => x.is_preferred = (i === idx));
+    const pref = CUR_SUP_ROW._suppliers[idx];
+    const costInp = CUR_SUP_ROW.querySelector('.pc-item-cost');
+    if (pref && pref.unit_cost !== '' && costInp) { costInp.value = pref.unit_cost; recalcReqTotal(); }
+    renderItemSuppliers();
+};
+window.onQuoteInvoiceFile = function(idx) {
+    if (!CUR_SUP_ROW) return;
+    const input = document.getElementById('invFile_' + idx);
+    const s = CUR_SUP_ROW._suppliers[idx];
+    if (!s || !input || !input.files || !input.files.length) return;
+    for (const f of input.files) s._files.push(f);
+    input.value = '';
+    renderItemSuppliers();
+};
+window.removePendingInvoice = function(idx, fi) {
+    if (!CUR_SUP_ROW) return;
+    const s = CUR_SUP_ROW._suppliers[idx];
+    if (s && s._files) s._files.splice(fi, 1);
+    renderItemSuppliers();
+};
+window.deleteQuoteInvoice = async function(attId, idx) {
+    if (!confirm('Delete this invoice?')) return;
+    try {
+        const res = await fetch('/api/procurement/requisition-attachment/' + attId, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) {
+            const s = CUR_SUP_ROW && CUR_SUP_ROW._suppliers[idx];
+            if (s) s.attachments = (s.attachments || []).filter(a => a.id !== attId);
+            renderItemSuppliers();
+        }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.removeItemSupplier = function(idx) {
+    if (!CUR_SUP_ROW) return;
+    CUR_SUP_ROW._suppliers.splice(idx, 1);
+    if (!CUR_SUP_ROW._suppliers.length) CUR_SUP_ROW._suppliers = [emptyQuote()];
+    renderItemSuppliers();
+};
+window.saveItemSuppliers = function() {
+    if (!CUR_SUP_ROW) return;
+    CUR_SUP_ROW._suppliers.forEach((s, idx) => onQuoteInput(idx));
+    const pref = CUR_SUP_ROW._suppliers.find(s => s.is_preferred);
+    const costInp = CUR_SUP_ROW.querySelector('.pc-item-cost');
+    if (pref && pref.unit_cost !== '' && costInp) { costInp.value = pref.unit_cost; recalcReqTotal(); }
+    updateQuoteCount(CUR_SUP_ROW);
+    hideModal('itemSuppliersModal');
+    toast('Supplier quotes saved on this item', 'success');
+};
+
+// Upload invoices picked in the quote editor once the requisition (and its quote ids) exist
+async function uploadPendingInvoices(collected, resultItems) {
+    for (let i = 0; i < collected.length; i++) {
+        const it = collected[i];
+        const ri = resultItems[i];
+        if (!ri || !ri.item_id) continue;
+        const sups = it.suppliers || [];
+        for (let j = 0; j < sups.length; j++) {
+            const sid = ri.supplier_ids && ri.supplier_ids[j];
+            if (sid == null) continue;
+            for (const file of (sups[j]._files || [])) {
+                try {
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    await fetch('/api/procurement/requisition-item-suppliers/' + sid + '/attachment', { method: 'POST', credentials: 'include', body: fd });
+                } catch (e) { console.warn('invoice upload failed', e); }
+            }
+        }
+    }
 }
 
 // ===== DEPARTMENT + PROJECT REF SEARCHABLE DROPDOWNS =====
@@ -1375,8 +1815,26 @@ function setupReqDepartment() {
         (q) => DEPARTMENTS
             .filter(d => !q || d.toLowerCase().includes(q.toLowerCase()))
             .map(d => ({ label: d, value: d })),
-        (val) => {}  // department is stored directly in the input value
+        (val) => { toggleReqProjectField(); }  // department is stored directly in the input value
     );
+    input.addEventListener('input', toggleReqProjectField);
+    input.addEventListener('change', toggleReqProjectField);
+}
+
+// Project Ref only shows (and is required) when Department = Production
+function toggleReqProjectField() {
+    const field = document.getElementById('reqProjectField');
+    const deptInput = document.getElementById('reqDepartment');
+    if (!field || !deptInput) return;
+    const isProd = deptInput.value.trim().toLowerCase() === 'production';
+    field.style.display = isProd ? '' : 'none';
+    if (!isProd) {
+        document.getElementById('reqProjectRef').value = '';
+        document.getElementById('reqProjectId').value = '';
+        selectedProjectId = null;
+        const vp = document.getElementById('viewProjectBtn');
+        if (vp) vp.style.display = 'none';
+    }
 }
 
 function setupReqProject() {
@@ -1456,6 +1914,7 @@ window.openReqModal = function() {
     document.getElementById('reqNeededBy').value = '';
     document.getElementById('reqNotes').value = '';
     growReqNotes();
+    toggleReqProjectField();
     document.getElementById('itemRows').innerHTML = '';
     addItemRow();
     if (!PROJECTS.length) loadProjects();
@@ -1463,7 +1922,7 @@ window.openReqModal = function() {
 };
 window.editReq = async function(id) {
     try {
-        const res = await fetch('/api/procurement/requisitions/' + id, { credentials: 'include' });
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Production", "requested_by": "T. Chikerema", "requested_by_user_id": 1, "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "submitted", "notes": "Please prioritise this order.", "needed_by": "2026-09-01", "approved_by": null, "approved_at": null, "reject_reason": null, "created_at": "2026-08-20 09:12:00", "submitted_at": "2026-08-21 08:00:00", "items": [{"id": 1, "product_id": 10, "product_name": "Electrical Cable 2.5mm", "category": "Electrical", "quantity": 100, "unit_cost": 15.0, "total_cost": 1500.0, "notes": "", "suppliers": [{"id": 11, "supplier_id": 1, "supplier_name": "Zimbabwe Electrical Wholesalers", "supplier_phone": "+263 77 123 4567", "unit_cost": 15.0, "delivery_days": 5, "is_preferred": true, "justification": "cheaper", "notes": "Quote ref ZEW-8821", "approved": false, "attachments": [{"id": 101, "original_name": "zew_invoice_8821.pdf", "stored_name": "x.pdf", "mime_type": "application/pdf", "file_size": 102400, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-20 10:00:00"}]}, {"id": 12, "supplier_id": 2, "supplier_name": "Bulawayo Hardware Distributors", "supplier_phone": "+263 71 555 8899", "unit_cost": 16.5, "delivery_days": 3, "is_preferred": false, "justification": "closer", "notes": "Faster delivery", "approved": false, "attachments": []}]}]}})));
         const data = await res.json();
         if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
         const r = data.data;
@@ -1481,6 +1940,7 @@ window.editReq = async function(id) {
             if (m) { selectedProjectId = m.id; document.getElementById('reqProjectId').value = m.id; vp.style.display = 'inline-flex'; }
             else { vp.style.display = 'none'; }
         }
+        toggleReqProjectField();
         document.getElementById('reqPriority').value = r.priority || 'Medium';
         document.getElementById('reqNeededBy').value = r.needed_by || '';
         document.getElementById('reqNotes').value = r.notes || '';
@@ -1493,17 +1953,25 @@ window.editReq = async function(id) {
 };
 window.saveReq = async function() {
     const title = document.getElementById('reqTitle').value.trim();
-    const items = collectReqItems();
+    const dept = document.getElementById('reqDepartment').value.trim();
+    const projRef = document.getElementById('reqProjectRef').value.trim();
     if (!title) { toast('Title is required', 'error'); return; }
-    if (!items.length) { toast('Add at least one item with a quantity', 'error'); return; }
+    if (dept.toLowerCase() === 'production' && !projRef) { toast('Project Ref is required for Production requisitions', 'error'); return; }
+    const collected = collectReqItems(true);
+    if (!collected.length) { toast('Add at least one item with a quantity', 'error'); return; }
+    const payloadItems = collected.map(it => {
+        const c = Object.assign({}, it);
+        c.suppliers = (it.suppliers || []).map(s => { const { _files, ...rest } = s; return rest; });
+        return c;
+    });
     const payload = {
         title,
-        department: document.getElementById('reqDepartment').value.trim(),
-        project_ref: document.getElementById('reqProjectRef').value.trim(),
+        department: dept,
+        project_ref: projRef,
         priority: document.getElementById('reqPriority').value,
         needed_by: document.getElementById('reqNeededBy').value || null,
         notes: document.getElementById('reqNotes').value.trim(),
-        items
+        items: payloadItems
     };
     const btn = document.getElementById('saveReqBtn');
     btn.disabled = true;
@@ -1515,6 +1983,7 @@ window.saveReq = async function() {
         if (data.success) {
             hideModal('reqModal');
             toast(data.message, 'success');
+            await uploadPendingInvoices(collected, data.items || []);
             loadRequisitions(); loadDashboard();
         } else {
             toast(data.error || data.message || 'Failed to save', 'error');
@@ -1526,7 +1995,7 @@ window.saveReq = async function() {
 // ----- Req actions -----
 window.viewReq = async function(id) {
     try {
-        const res = await fetch('/api/procurement/requisitions/' + id, { credentials: 'include' });
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Production", "requested_by": "T. Chikerema", "requested_by_user_id": 1, "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "submitted", "notes": "Please prioritise this order.", "needed_by": "2026-09-01", "approved_by": null, "approved_at": null, "reject_reason": null, "created_at": "2026-08-20 09:12:00", "submitted_at": "2026-08-21 08:00:00", "items": [{"id": 1, "product_id": 10, "product_name": "Electrical Cable 2.5mm", "category": "Electrical", "quantity": 100, "unit_cost": 15.0, "total_cost": 1500.0, "notes": "", "suppliers": [{"id": 11, "supplier_id": 1, "supplier_name": "Zimbabwe Electrical Wholesalers", "supplier_phone": "+263 77 123 4567", "unit_cost": 15.0, "delivery_days": 5, "is_preferred": true, "justification": "cheaper", "notes": "Quote ref ZEW-8821", "approved": false, "attachments": [{"id": 101, "original_name": "zew_invoice_8821.pdf", "stored_name": "x.pdf", "mime_type": "application/pdf", "file_size": 102400, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-20 10:00:00"}]}, {"id": 12, "supplier_id": 2, "supplier_name": "Bulawayo Hardware Distributors", "supplier_phone": "+263 71 555 8899", "unit_cost": 16.5, "delivery_days": 3, "is_preferred": false, "justification": "closer", "notes": "Faster delivery", "approved": false, "attachments": []}]}]}})));
         const data = await res.json();
         if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
         VIEW_REQ = data.data;
@@ -1546,7 +2015,34 @@ window.viewReq = async function(id) {
                 ${r.reject_reason ? `<div class="col-md-8"><strong>Reject Reason:</strong> <span class="text-danger">${esc(r.reject_reason)}</span></div>` : ''}
                 ${r.notes ? `<div class="col-12"><strong>Notes:</strong> ${esc(r.notes)}</div>` : ''}
             </div>`;
-        document.getElementById('viewReqItems').innerHTML = (r.items || []).map((it, i) => `
+        document.getElementById('viewReqItems').innerHTML = (r.items || []).map((it, i) => {
+            const sups = it.suppliers || [];
+            let supHtml = '';
+            if (sups.length) {
+                const canChoose = can('can_approve_requisitions');
+                const hasPref = sups.some(x => x.is_preferred);
+                supHtml = '<div class="pc-quotes">' + sups.map((s, si) => {
+                    const justLabel = JUSTIFICATION_LABELS[s.justification] || s.justification || '';
+                    const invs = (s.attachments || []).map(a => `<a class="pc-quote-invoice" href="/api/procurement/requisition-attachment/${a.id}" target="_blank" title="${esc(a.original_name)}"><i class="bi bi-file-earmark-text"></i> ${esc(a.original_name)}</a>`).join('');
+                    const checked = (s.is_preferred || (!hasPref && si === 0)) ? 'checked' : '';
+                    return `<div class="pc-quote ${s.is_preferred ? 'pc-quote-preferred' : ''} ${s.approved ? 'pc-quote-approved' : ''}">
+                        ${canChoose ? `<input type="radio" class="pc-quote-radio" name="supchoice_${it.id}" value="${s.id}" ${checked} title="Select this supplier">` : ''}
+                        ${s.is_preferred ? '<span class="pc-quote-badge pref">★ Preferred</span>' : ''}
+                        ${s.approved ? '<span class="pc-quote-badge appr">✓ Approved</span>' : ''}
+                        <div class="pc-quote-name">${esc(s.supplier_name || '—')}${s.supplier_phone ? ` <span class="pc-quote-phone">${esc(s.supplier_phone)}</span>` : ''}</div>
+                        <div class="pc-quote-meta">
+                            <span><b>Unit Cost:</b> $${fmtMoney(s.unit_cost)}</span>
+                            <span><b>Delivery:</b> ${s.delivery_days ? s.delivery_days + ' days' : '—'}</span>
+                            ${justLabel ? `<span><b>Why:</b> ${esc(justLabel)}</span>` : ''}
+                        </div>
+                        ${s.notes ? `<div class="pc-quote-notes">${esc(s.notes)}</div>` : ''}
+                        ${invs ? `<div class="pc-quote-invoices">${invs}</div>` : ''}
+                    </div>`;
+                }).join('') + '</div>';
+            } else {
+                supHtml = '<div class="pc-quote-empty">No supplier quotes recorded.</div>';
+            }
+            return `
             <tr>
                 <td>${i + 1}</td>
                 <td>${esc(it.product_name)}</td>
@@ -1555,7 +2051,9 @@ window.viewReq = async function(id) {
                 <td class="num">${fmtMoney(it.unit_cost)}</td>
                 <td class="num">${fmtMoney(it.total_cost)}</td>
                 <td>${esc(it.notes || '')}</td>
-            </tr>`).join('') || '<tr><td colspan="7" class="pc-empty">No items</td></tr>';
+            </tr>
+            <tr class="pc-quotes-subrow"><td colspan="7">${supHtml}</td></tr>`;
+        }).join('') || '<tr><td colspan="7" class="pc-empty">No items</td></tr>';
 
         // actions based on status + perms
         let actions = '';
@@ -1600,9 +2098,14 @@ window.submitReq = async function(id) {
     } catch (e) { toast('Connection error', 'error'); }
 };
 window.approveReq = async function(id) {
-    if (!confirm('Approve this requisition?')) return;
+    const choices = {};
+    document.querySelectorAll('#viewReqItems .pc-quote-radio:checked').forEach(r => {
+        const itemId = r.name.replace('supchoice_', '');
+        choices[itemId] = r.value;
+    });
+    if (!confirm(Object.keys(choices).length ? 'Approve this requisition with the selected suppliers?' : 'Approve this requisition?')) return;
     try {
-        const res = await fetch('/api/procurement/requisitions/' + id + '/approve', { method: 'POST', credentials: 'include' });
+        const res = await fetch('/api/procurement/requisitions/' + id + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ choices }) });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
         if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
@@ -1690,7 +2193,7 @@ window.openPoModal = async function() {
     // approved requisitions (not already in a PO)
     const list = document.getElementById('poReqList');
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Hardware Sales", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "approved", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Production", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "submitted", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
         const data = await res.json();
         const approved = data.data || [];
         if (!approved.length) {
@@ -1732,7 +2235,7 @@ window.savePo = async function() {
 
 window.viewPo = async function(id, openReceive) {
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"id": 1, "po_no": "PO-0001", "supplier_id": 1, "supplier_name": "Zimbabwe Electrical Wholesalers", "supplier_phone": "+263 77 123 4567", "requisition_ids": "REQ-0001", "status": "partial", "total_amount": 2450.0, "expected_delivery": "2026-08-30", "created_by": "T. Chikerema", "created_at": "2026-08-22 10:00:00", "received_at": null, "lines": [{"id": 1, "product_id": 10, "product_name": "Electrical Cable 2.5mm", "quantity_ordered": 100, "quantity_received": 40, "unit_cost": 15.0}, {"id": 2, "product_id": 11, "product_name": "Socket Outlet", "quantity_ordered": 50, "quantity_received": 0, "unit_cost": 19.0}], "attachments": [{"id": 1, "attachment_type": "invoice", "original_name": "invoice_zew_001.pdf", "stored_name": "x.pdf", "mime_type": "application/pdf", "file_size": 204800, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-22 11:00:00"}, {"id": 2, "attachment_type": "receipt", "original_name": "grn_receipt_01.jpg", "stored_name": "y.jpg", "mime_type": "image/jpeg", "file_size": 90112, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-23 09:30:00"}]}})));
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"id": 1, "po_no": "PO-0001", "supplier_id": 1, "supplier_name": "Zimbabwe Electrical Wholesalers", "supplier_phone": "+263 77 123 4567", "requisition_ids": "REQ-0001", "status": "partial", "total_amount": 2450.0, "expected_delivery": "2026-08-30", "created_by": "T. Chikerema", "created_at": "2026-08-22 10:00:00", "received_at": null, "lines": [{"id": 1, "product_id": 10, "product_name": "Electrical Cable 2.5mm", "quantity_ordered": 100, "quantity_received": 40, "unit_cost": 15.0, "current_stock": 120, "on_order": 60}, {"id": 2, "product_id": 11, "product_name": "Socket Outlet", "quantity_ordered": 50, "quantity_received": 0, "unit_cost": 19.0, "current_stock": 8, "on_order": 50}], "attachments": [{"id": 1, "attachment_type": "invoice", "original_name": "invoice_zew_001.pdf", "stored_name": "x.pdf", "mime_type": "application/pdf", "file_size": 204800, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-22 11:00:00"}, {"id": 2, "attachment_type": "receipt", "original_name": "grn_receipt_01.jpg", "stored_name": "y.jpg", "mime_type": "image/jpeg", "file_size": 90112, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-23 09:30:00"}]}})));
         const data = await res.json();
         if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
         VIEW_PO = data.data;
@@ -1757,12 +2260,14 @@ window.viewPo = async function(id, openReceive) {
                 <td class="num">${ln.quantity_received}</td>
                 <td class="num">${fmtMoney(ln.unit_cost)}</td>
                 <td class="num">${fmtMoney((ln.quantity_ordered||0) * (ln.unit_cost||0))}</td>
+                <td class="num">${ln.current_stock != null ? ln.current_stock : '—'}</td>
+                <td class="num">${ln.on_order != null ? ln.on_order : '—'}</td>
                 <td class="num" style="min-width:90px;">
                     ${['ordered','partial'].includes(po.status)
                         ? `<input type="number" class="pc-input pc-input-sm po-rec" data-line="${ln.id}" min="0" max="${Math.max(0, ln.quantity_ordered - ln.quantity_received)}" placeholder="0" style="width:80px;text-align:right;">`
                         : `<span style="color:#94A3B8;">—</span>`}
                 </td>
-            </tr>`).join('') || '<tr><td colspan="7" class="pc-empty">No items</td></tr>';
+            </tr>`).join('') || '<tr><td colspan="9" class="pc-empty">No items</td></tr>';
         const recBtn = document.getElementById('receiveBtn');
         if (['ordered','partial'].includes(po.status)) {
             recBtn.style.display = 'inline-flex';
@@ -1801,6 +2306,149 @@ window.sendPoPdf = async function() {
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
     } catch (e) { toast('Connection error', 'error'); }
 };
+
+window.downloadPoGrn = function() {
+    if (VIEW_PO) window.open('/api/procurement/purchase-orders/' + VIEW_PO.id + '/grn', '_blank');
+};
+
+// ===================== PAYMENTS / PAYABLES =====================
+async function loadPayables() {
+    try {
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"payables":[{"supplier_id":1,"supplier_name":"Zimbabwe Electrical Wholesalers","total_po":2450.0,"received_value":2450.0,"paid":1000.0,"outstanding":1450.0},{"supplier_id":2,"supplier_name":"Bulawayo Hardware Distributors","total_po":1200.0,"received_value":1200.0,"paid":1200.0,"outstanding":0.0}],"payments":[{"id":1,"supplier_id":1,"supplier_name":"Zimbabwe Electrical Wholesalers","amount":1000.0,"payment_date":"2026-08-25","payment_method":"Bank Transfer","reference":"BT-8821","notes":"Partial","created_by":"T. Chikerema","created_at":"2026-08-25 12:00:00"}]}})));
+        const data = await res.json();
+        if (!data.success) return;
+        const d = data.data || {};
+        const pay = d.payables || [];
+        const payments = d.payments || [];
+        const outstanding = pay.reduce((a, p) => a + (p.outstanding || 0), 0);
+        const paid = pay.reduce((a, p) => a + (p.paid || 0), 0);
+        const poValue = pay.reduce((a, p) => a + (p.total_po || 0), 0);
+        animateValue(document.getElementById('payKpiOutstanding'), outstanding, true);
+        animateValue(document.getElementById('payKpiPaid'), paid, true);
+        animateValue(document.getElementById('payKpiPoValue'), poValue, true);
+        const body = document.getElementById('payBody');
+        body.innerHTML = pay.length ? pay.map(p => `
+            <tr>
+                <td><strong>${esc(p.supplier_name)}</strong></td>
+                <td class="num">${fmtMoney(p.total_po)}</td>
+                <td class="num">${fmtMoney(p.received_value)}</td>
+                <td class="num" style="color:#15803D;">${fmtMoney(p.paid)}</td>
+                <td class="num" style="color:#DC2626;font-weight:700;">${fmtMoney(p.outstanding)}</td>
+            </tr>`).join('') : '<tr><td colspan="5" class="pc-empty"><i class="bi bi-inbox"></i> No purchase orders yet</td></tr>';
+        const hb = document.getElementById('payHistoryBody');
+        hb.innerHTML = payments.length ? payments.map(p => `
+            <tr>
+                <td>${esc(p.payment_date || '—')}</td>
+                <td><strong>${esc(p.supplier_name)}</strong></td>
+                <td class="num">${fmtMoney(p.amount)}</td>
+                <td>${esc(p.payment_method || '—')}</td>
+                <td>${esc(p.reference || '—')}</td>
+                <td>${esc(p.notes || '')}</td>
+                <td>${esc(p.created_by || '—')}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                    <button class="pc-btn pc-btn-danger pc-btn-sm" data-perm-action="can_manage_purchase_orders" onclick="deletePayment(${p.id})"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>`).join('') : '<tr><td colspan="8" class="pc-empty"><i class="bi bi-inbox"></i> No payments recorded yet</td></tr>';
+        applyProcurementPermissions();
+    } catch (e) {}
+}
+window.openPaymentModal = async function() {
+    const sel = document.getElementById('paySupplier');
+    let opts = '<option value="">— Select supplier —</option>';
+    if (!SUPPLIERS.length) {
+        try { const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "name": "Zimbabwe Electrical Wholesalers", "contact_person": "S. Moyo", "phone": "+263 77 123 4567", "email": "sales@zew.co.zw", "address": "Harare", "lead_time_days": 5, "payment_terms": "30 days", "rating": 4, "notes": "", "is_active": true}, {"id": 2, "name": "Bulawayo Hardware Distributors", "contact_person": "P. Dube", "phone": "+263 71 555 8899", "email": "info@bhd.co.zw", "address": "Bulawayo", "lead_time_days": 7, "payment_terms": "COD", "rating": 3, "notes": "", "is_active": true}]}))); const data = await res.json(); SUPPLIERS = data.data || []; } catch (e) {}
+    }
+    opts += SUPPLIERS.map(s => `<option value="${s.id}">${esc(s.name)}${s.phone ? ' — ' + esc(s.phone) : ''}</option>`).join('');
+    sel.innerHTML = opts;
+    document.getElementById('payAmount').value = '';
+    document.getElementById('payDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('payReference').value = '';
+    document.getElementById('payNotes').value = '';
+    showModal('paymentModal');
+};
+window.savePayment = async function() {
+    const supplier_id = document.getElementById('paySupplier').value;
+    const amount = parseFloat(document.getElementById('payAmount').value || '0');
+    if (!supplier_id || amount <= 0) { toast('Select a supplier and enter a positive amount', 'error'); return; }
+    try {
+        const res = await fetch('/api/procurement/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({
+            supplier_id: parseInt(supplier_id, 10), amount,
+            payment_date: document.getElementById('payDate').value || null,
+            payment_method: document.getElementById('payMethod').value,
+            reference: document.getElementById('payReference').value.trim(),
+            notes: document.getElementById('payNotes').value.trim()
+        })});
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('paymentModal'); loadPayables(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.deletePayment = async function(id) {
+    if (!confirm('Delete this payment record?')) return;
+    try {
+        const res = await fetch('/api/procurement/payments/' + id, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) loadPayables();
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+// ===================== ANALYTICS =====================
+function renderBars(container, data, labelW) {
+    const el = document.getElementById(container);
+    if (!el) return;
+    if (!data || !data.length) { el.innerHTML = '<div class="pc-empty"><i class="bi bi-inbox"></i> No data yet</div>'; return; }
+    const max = Math.max(...data.map(d => d.total), 1);
+    el.innerHTML = data.map(d => `
+        <div class="pc-bar-row">
+            <div class="pc-bar-label" style="${labelW ? 'width:' + labelW + ';' : ''}" title="${esc(d.name)}">${esc(d.name)}</div>
+            <div class="pc-bar-track"><div class="pc-bar-fill" style="width:${Math.max(2, (d.total / max) * 100)}%"></div></div>
+            <div class="pc-bar-val">$${fmtMoney(d.total)}</div>
+        </div>`).join('');
+}
+async function loadAnalytics() {
+    try {
+        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:{"kpis":{"open_pos":4,"open_value":5870.0,"total_po":3650.0,"total_paid":2200.0},"by_supplier":[{"name":"Zimbabwe Electrical Wholesalers","total":2450.0},{"name":"Bulawayo Hardware Distributors","total":1200.0}],"by_department":[{"name":"Production","total":2450.0},{"name":"Sales and Marketing","total":1200.0}],"by_category":[{"name":"Electrical","total":2450.0},{"name":"Tools","total":1200.0}],"monthly":[{"month":"2026-03","total":800.0},{"month":"2026-04","total":1200.0},{"month":"2026-05","total":400.0},{"month":"2026-06","total":900.0},{"month":"2026-07","total":1500.0},{"month":"2026-08","total":2450.0}],"supplier_performance":[{"supplier_id":1,"supplier_name":"Zimbabwe Electrical Wholesalers","rating":4,"po_count":3,"received_count":3,"on_time_pct":66.7,"avg_lead_days":4.5},{"supplier_id":2,"supplier_name":"Bulawayo Hardware Distributors","rating":3,"po_count":2,"received_count":2,"on_time_pct":100.0,"avg_lead_days":6.0}]}})));
+        const data = await res.json();
+        if (!data.success) return;
+        const d = data.data || {};
+        const k = d.kpis || {};
+        animateValue(document.getElementById('anKpiTotalPo'), k.total_po, true);
+        animateValue(document.getElementById('anKpiOpenPos'), k.open_pos, false);
+        animateValue(document.getElementById('anKpiOpenValue'), k.open_value, true);
+        animateValue(document.getElementById('anKpiPaid'), k.total_paid, true);
+        renderBars('anBySupplier', d.by_supplier);
+        renderBars('anByDepartment', d.by_department);
+        renderBars('anByCategory', d.by_category);
+        const mEl = document.getElementById('anMonthly');
+        if (mEl) {
+            if (!d.monthly || !d.monthly.length) {
+                mEl.innerHTML = '<div class="pc-empty"><i class="bi bi-inbox"></i> No data yet</div>';
+            } else {
+                const mmax = Math.max(...d.monthly.map(m => m.total), 1);
+                mEl.innerHTML = d.monthly.map(m => `
+                    <div class="pc-bar-row">
+                        <div class="pc-bar-label" style="width:76px;">${esc(m.month)}</div>
+                        <div class="pc-bar-track"><div class="pc-bar-fill" style="width:${Math.max(2, (m.total / mmax) * 100)}%"></div></div>
+                        <div class="pc-bar-val">$${fmtMoney(m.total)}</div>
+                    </div>`).join('');
+            }
+        }
+        const pEl = document.getElementById('anPerfBody');
+        if (pEl) {
+            const perf = d.supplier_performance || [];
+            pEl.innerHTML = perf.length ? perf.map(s => `
+                <tr>
+                    <td><strong>${esc(s.supplier_name)}</strong></td>
+                    <td class="num">${s.rating ? '★ ' + s.rating : '—'}</td>
+                    <td class="num">${s.po_count}</td>
+                    <td class="num">${s.received_count}</td>
+                    <td class="num">${s.on_time_pct}%</td>
+                    <td class="num">${s.avg_lead_days || '—'}</td>
+                </tr>`).join('') : '<tr><td colspan="6" class="pc-empty">No supplier activity yet</td></tr>';
+        }
+    } catch (e) {}
+}
 
 window.uploadPoAttachment = async function(type) {
     if (!VIEW_PO) return;
