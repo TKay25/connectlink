@@ -27529,13 +27529,27 @@ def update_enquiry_status(enquiry_id):
             enq_text = (enquiry[1] or '')[:60]
             enq_category = enquiry[2] or 'General'
             client_number = str(enquiry[3]) if enquiry[3] else ''
-            
-            cursor.execute("""
-                UPDATE connectlinkenquiries 
-                SET status = %s
-                WHERE id = %s
-                RETURNING id;
-            """, (new_status, enquiry_id))
+
+            # If reverted to pending/in_progress, clear the attendant (it only
+            # applies once an enquiry is actually completed).
+            if new_status in ('pending', 'in_progress'):
+                cursor.execute("""
+                    UPDATE connectlinkenquiries
+                    SET status = %s,
+                        attended_by = NULL,
+                        attended_at = NULL,
+                        attended_updated_by = NULL,
+                        attended_updated_at = NULL
+                    WHERE id = %s
+                    RETURNING id;
+                """, (new_status, enquiry_id))
+            else:
+                cursor.execute("""
+                    UPDATE connectlinkenquiries 
+                    SET status = %s
+                    WHERE id = %s
+                    RETURNING id;
+                """, (new_status, enquiry_id))
             
             connection.commit()
             

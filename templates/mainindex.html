@@ -1939,7 +1939,7 @@
             </div>
             <div class="ub-table-wrap">
                 <table class="ub-table">
-                    <thead><tr><th>Customer</th><th>Category</th><th>Message</th><th>Plan</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Customer</th><th>Category</th><th>WhatsApp</th><th>Message</th><th>Doc</th><th>Status</th></tr></thead>
                     <tbody id="ubList"></tbody>
                 </table>
             </div>
@@ -3745,8 +3745,9 @@
         document.getElementById('ubCount').textContent = list.length;
         document.getElementById('ubList').innerHTML = list.map(function (e) {
             return '<tr>'
-                + '<td>' + escH(e.username || e.clientwhatsapp || 'Unknown') + '</td>'
+                + '<td>' + escH(e.username || 'Unknown') + '</td>'
                 + '<td>' + escH(e.enqcategory || 'General') + '</td>'
+                + '<td>' + (e.clientwhatsapp ? '<a href="https://wa.me/' + String(e.clientwhatsapp).replace(/[^0-9]/g, '') + '" target="_blank" style="color:#0891B2;text-decoration:none;font-weight:600;white-space:nowrap;">' + escH(e.clientwhatsapp) + '</a>' : '—') + '</td>'
                 + '<td class="ub-msg">' + escH(e.enq || '') + '</td>'
                 + '<td>' + (e.has_plan ? '<a class="ub-plan" href="/api/enquiries/' + e.id + '/plan" target="_blank"><i class="fas fa-paperclip"></i> Plan</a>' : '—') + '</td>'
                 + '<td><select onchange="changeEnqStatusBanner(' + e.id + ', this)" style="font-size:0.56rem;font-weight:700;padding:2px 5px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;color:#334155;cursor:pointer;white-space:nowrap;"><option value="pending" selected>Pending</option><option value="in_progress">In Progress</option><option value="attended">Attended to</option></select></td>'
@@ -3810,14 +3811,11 @@
     window.minUnattended = function () {
         const bar = document.getElementById('unattendedBar');
         if (bar) bar.classList.add('minimised');
-        try { localStorage.setItem('cl_ubMin', '1'); } catch (e) {}
     };
     window.maxUnattended = function () {
         const bar = document.getElementById('unattendedBar');
         if (bar) bar.classList.remove('minimised');
-        try { localStorage.setItem('cl_ubMin', '0'); } catch (e) {}
     };
-    try { if (localStorage.getItem('cl_ubMin') === '1') window.minUnattended(); } catch (e) {}
     window.loadUnattendedEnquiries();
     setInterval(window.loadUnattendedEnquiries, 30000);
 })();

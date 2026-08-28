@@ -4799,7 +4799,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
 </nav>
 
 <!-- Unattended Enquiries Floating Panel (top-right overlay — never pushes the dashboard) -->
-<div id="enqFloat" style="display:none;position:fixed;top:54px;right:12px;z-index:9990;width:400px;max-width:94vw;background:#fff;border:1px solid rgba(193,43,62,.25);border-radius:12px;box-shadow:0 12px 40px rgba(10,26,58,.18);overflow:hidden;">
+<div id="enqFloat" style="display:none;position:fixed;top:54px;right:12px;z-index:9990;width:540px;max-width:96vw;background:#fff;border:1px solid rgba(193,43,62,.25);border-radius:12px;box-shadow:0 12px 40px rgba(10,26,58,.18);overflow:hidden;">
     <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:0.72rem;font-weight:800;color:#C12B3E;background:linear-gradient(135deg, rgba(193,43,62,.06), rgba(8,145,178,.07));border-bottom:1px solid rgba(193,43,62,.15);"><i class="bi bi-bell"></i> Unattended Enquiries <span id="enqFloatCount" style="background:#C12B3E;color:#fff;border-radius:999px;padding:0 8px;font-size:0.58rem;">0</span>
         <span style="flex:1;"></span>
         <button onclick="openManualEnqModal()" title="New Enquiry" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.66rem;cursor:pointer;line-height:1.4;">＋</button>
@@ -4807,9 +4807,9 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         <button onclick="minEnqStrip()" title="Minimise" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.62rem;cursor:pointer;line-height:1.4;">–</button>
         <button onclick="closeEnqFloat()" title="Close" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;cursor:pointer;line-height:1;">&times;</button>
     </div>
-    <div style="max-height:300px;overflow-y:auto;">
+    <div style="max-height:320px;overflow-y:auto;">
         <table class="enq-table">
-            <thead><tr><th>Customer</th><th>Message</th><th>Status</th></tr></thead>
+            <thead><tr><th>Customer</th><th>WhatsApp</th><th>Message</th><th>Doc</th><th>Status</th></tr></thead>
             <tbody id="enqFloatList"></tbody>
         </table>
     </div>
@@ -40555,19 +40555,19 @@ body.dark-theme .enq-item .enq-status-tag{background:#3e2c16;color:#fbbf24;}
 .enq-item .enq-attend:hover{filter:brightness(1.1);}
 .enq-item .enq-attend:disabled{opacity:.55;cursor:wait;}
 .enq-table{width:100%;border-collapse:collapse;}
-.enq-table th{text-align:left;font-size:0.52rem;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;padding:5px 8px;border-bottom:1px solid var(--gray-200);white-space:nowrap;}
-.enq-table td{font-size:0.62rem;padding:5px 8px;border-bottom:1px solid var(--gray-100);vertical-align:top;}
-.enq-table tr:last-child td{border-bottom:none;}
-.enq-table .enq-msg{color:var(--text-muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-body.dark-theme .enq-table th{border-color:#2b3a5a;}
-body.dark-theme .enq-table td{border-color:#1f2a44;}
+.enq-table th{text-align:left;font-size:0.52rem;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.4px;padding:5px 8px;border:1px solid #e2e8f0;background:#f8fafc;white-space:nowrap;}
+.enq-table td{font-size:0.62rem;padding:5px 8px;border:1px solid #e2e8f0;vertical-align:top;}
+.enq-table .enq-msg{color:#475569;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+body.dark-theme .enq-table th{border-color:#2b3a5a;background:#0f1729;color:#e2e8f0;}
+body.dark-theme .enq-table td{border-color:#2b3a5a;}
 </style>
 <script>
 (function(){
   function escH(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
   function itemHtml(e){
     var cur=(e.status||'pending')==='completed'?'attended':((e.status||'pending')==='in_progress'?'in_progress':'pending');
-    return '<tr><td><span class="enq-name">'+escH(e.username||e.clientwhatsapp||'Unknown')+'</span>'+(e.has_plan?'<div style="margin-top:2px;"><a class="enq-plan" href="/api/enquiries/'+e.id+'/plan" target="_blank"><i class="bi bi-paperclip"></i> Plan</a></div>':'')+'</td><td class="enq-msg" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</td><td><select onchange="changeEnqStatusFromPanel('+e.id+',this)" style="font-size:0.58rem;font-weight:700;padding:2px 4px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;color:#334155;cursor:pointer;max-width:96px;"><option value="pending"'+(cur==='pending'?' selected':'')+'>Pending</option><option value="in_progress"'+(cur==='in_progress'?' selected':'')+'>In Progress</option><option value="attended"'+(cur==='attended'?' selected':'')+'>Attended to</option></select></td></tr>';
+    var wa=e.clientwhatsapp?String(e.clientwhatsapp).replace(/[^0-9]/g,''):'';
+    return '<tr><td><span class="enq-name">'+escH(e.username||'Unknown')+'</span></td><td>'+(wa?'<a href="https://wa.me/'+wa+'" target="_blank" style="color:#0891B2;text-decoration:none;font-weight:600;white-space:nowrap;">'+escH(e.clientwhatsapp)+'</a>':'—')+'</td><td class="enq-msg" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</td><td>'+(e.has_plan?'<a class="enq-plan" href="/api/enquiries/'+e.id+'/plan" target="_blank" title="Attachment"><i class="bi bi-paperclip"></i> Plan</a>':'—')+'</td><td><select onchange="changeEnqStatusFromPanel('+e.id+',this)" style="font-size:0.58rem;font-weight:700;padding:2px 4px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;color:#334155;cursor:pointer;max-width:100px;"><option value="pending"'+(cur==='pending'?' selected':'')+'>Pending</option><option value="in_progress"'+(cur==='in_progress'?' selected':'')+'>In Progress</option><option value="attended"'+(cur==='attended'?' selected':'')+'>Attended to</option></select></td></tr>';
   }
   var _enqClosed = false; // user explicitly closed this session — don't auto-reopen
   function renderEnqs(list){
@@ -40579,7 +40579,7 @@ body.dark-theme .enq-table td{border-color:#1f2a44;}
     if(!list||!list.length){
       if(bellCount) bellCount.style.display='none';
       if(floatCount) floatCount.textContent='0';
-      if(floatList) floatList.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--text-muted);font-size:0.62rem;padding:10px;">No unattended enquiries</td></tr>';
+      if(floatList) floatList.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text-muted);font-size:0.62rem;padding:10px;">No unattended enquiries</td></tr>';
       if(f && !_enqClosed) f.style.display='none';
       return;
     }
@@ -40644,7 +40644,6 @@ body.dark-theme .enq-table td{border-color:#1f2a44;}
   };
   window.minEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='none';try{localStorage.setItem('cl_enqStripMin','1');}catch(e){}};
   window.maxEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='';try{localStorage.setItem('cl_enqStripMin','0');}catch(e){}};
-  try{ if(localStorage.getItem('cl_enqStripMin')==='1'){ window.minEnqStrip(); } }catch(e){}
   window.loadUnattendedEnqs();
   setInterval(window.loadUnattendedEnqs,30000);
 })();
