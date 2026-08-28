@@ -27675,7 +27675,7 @@ def get_unattended_enquiries():
                        attended_by, attended_at, attended_updated_by, attended_updated_at
                 FROM connectlinkenquiries
                 WHERE COALESCE(status, 'pending') = 'pending'
-                ORDER BY id DESC
+                ORDER BY CASE WHEN COALESCE(source,'auto') = 'manual' THEN 0 ELSE 1 END, id DESC
                 LIMIT 50
             """)
             rows = cursor.fetchall()

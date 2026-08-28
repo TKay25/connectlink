@@ -1840,7 +1840,18 @@
             background: #C12B3E; color: #fff; border-radius: 999px;
             padding: 0 8px; font-size: 0.58rem;
         }
-        .unattended-bar .ub-list { display: flex; flex-direction: column; gap: 6px; }
+        .unattended-bar .ub-head .ub-spacer { flex: 1; }
+        .unattended-bar .ub-ctl {
+            background: none; border: 1px solid rgba(193,43,62,.3); color: #C12B3E;
+            border-radius: 6px; padding: 1px 7px; font-size: 0.62rem; cursor: pointer; line-height: 1.4;
+        }
+        .unattended-bar .ub-ctl:hover { background: rgba(193,43,62,.08); }
+        .unattended-bar.minimised .ub-list { display: none; }
+        .unattended-bar.minimised .ub-head { margin-bottom: 0; }
+        .unattended-bar .ub-list { display: flex; flex-direction: column; gap: 5px; max-height: 140px; overflow-y: auto; padding-right: 2px; }
+        .unattended-bar .ub-list::-webkit-scrollbar { width: 4px; }
+        .unattended-bar .ub-list::-webkit-scrollbar-thumb { background: rgba(193,43,62,.35); border-radius: 4px; }
+        .unattended-bar .ub-item { padding: 4px 10px; }
         .unattended-bar .ub-item {
             display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
             padding: 6px 10px;
@@ -1909,7 +1920,12 @@
     <div class="container-fluid">
         <!-- Unattended Enquiries Banner (visible to every logged-in user until attended) -->
         <div class="unattended-bar" id="unattendedBar">
-            <div class="ub-head" id="ubHead"><i class="fas fa-bell"></i> Unattended Enquiries</div>
+            <div class="ub-head">
+                <i class="fas fa-bell"></i> Unattended Enquiries <span class="ub-count" id="ubCount">0</span>
+                <span class="ub-spacer"></span>
+                <button class="ub-ctl" id="ubMaxBtn" onclick="maxUnattended()" title="Maximise"><i class="fas fa-window-maximize"></i></button>
+                <button class="ub-ctl" id="ubMinBtn" onclick="minUnattended()" title="Minimise"><i class="fas fa-window-minimize"></i></button>
+            </div>
             <div class="ub-list" id="ubList"></div>
         </div>
         <div class="row align-items-center g-4">
@@ -3695,7 +3711,8 @@
         const bar = document.getElementById('unattendedBar');
         if (!bar) return;
         if (!list || !list.length) { bar.classList.remove('show'); return; }
-        document.getElementById('ubHead').innerHTML = '<i class="fas fa-bell"></i> Unattended Enquiries <span class="ub-count">' + list.length + '</span>';
+        list = list.slice().sort(function (a, b) { var pa = (a.source === 'manual') ? 0 : 1, pb = (b.source === 'manual') ? 0 : 1; return pa - pb; });
+        document.getElementById('ubCount').textContent = list.length;
         document.getElementById('ubList').innerHTML = list.map(function (e) {
             return '<div class="ub-item">'
                 + '<span class="ub-name">' + escH(e.username || e.clientwhatsapp || 'Unknown') + '</span>'
@@ -3725,6 +3742,17 @@
             })
             .catch(function () { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Attended to'; } });
     };
+    window.minUnattended = function () {
+        const bar = document.getElementById('unattendedBar');
+        if (bar) bar.classList.add('minimised');
+        try { localStorage.setItem('cl_ubMin', '1'); } catch (e) {}
+    };
+    window.maxUnattended = function () {
+        const bar = document.getElementById('unattendedBar');
+        if (bar) bar.classList.remove('minimised');
+        try { localStorage.setItem('cl_ubMin', '0'); } catch (e) {}
+    };
+    try { if (localStorage.getItem('cl_ubMin') === '1') window.minUnattended(); } catch (e) {}
     window.loadUnattendedEnquiries();
     setInterval(window.loadUnattendedEnquiries, 30000);
 })();
