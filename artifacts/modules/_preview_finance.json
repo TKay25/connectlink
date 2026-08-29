@@ -1,13 +1,11 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "FixEnquiriesTable",
-  "file": "fix_enquiries_table.py",
-  "purpose": "Fix enquiries table styling to match other tables",
+  "module": "PreviewFinance",
+  "file": "_preview_finance.html",
+  "purpose": "<!-- Describe what PreviewFinance does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [
-    "fix_enquiries_table → f.read"
-  ],
+  "entry_flows": [],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
@@ -27,10 +25,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "0583a0122bdb64b4",
-  "file_mtime": 1776794366000,
-  "file_size": 6231,
-  "file_birthtime": 1776794366274.5469,
-  "generated_at": "2026-08-29T15:51:07.064886Z",
+  "file_hash": "187209d84d46b3e5",
+  "file_mtime": 1787914235313.1873,
+  "file_size": 33399,
+  "file_birthtime": 1787910847561.7249,
+  "generated_at": "2026-08-29T15:50:44.224Z",
   "stale": false
 }

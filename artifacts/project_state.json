@@ -1,6 +1,6 @@
 {
-  "last_sync": "2026-08-27T10:17:41.978Z",
-  "module_count": 59,
+  "last_sync": "2026-08-29T15:50:44.290Z",
+  "module_count": 63,
   "empty_project": false,
   "planning_ready": true,
   "orphaned_count": 50,
@@ -206,54 +206,5 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": [
-    {
-      "rel": "_diag_hr_link.py",
-      "ts": "2026-08-25T18:50:47.879Z"
-    },
-    {
-      "rel": "hrlink_out.txt",
-      "ts": "2026-08-25T18:50:47.874Z"
-    },
-    {
-      "rel": "hrlink_err.txt",
-      "ts": "2026-08-25T18:50:47.868Z"
-    },
-    {
-      "rel": "_verify_payslip.py",
-      "ts": "2026-08-25T18:28:06.508Z"
-    },
-    {
-      "rel": "payslip_out.txt",
-      "ts": "2026-08-25T18:28:06.504Z"
-    },
-    {
-      "rel": "payslip_err.txt",
-      "ts": "2026-08-25T18:28:06.499Z"
-    },
-    {
-      "rel": "_zero_allowances.py",
-      "ts": "2026-08-25T18:26:22.305Z"
-    },
-    {
-      "rel": "zero_out.txt",
-      "ts": "2026-08-25T18:26:22.302Z"
-    },
-    {
-      "rel": "zero_err.txt",
-      "ts": "2026-08-25T18:26:22.298Z"
-    },
-    {
-      "rel": "_verify_aug_payroll.py",
-      "ts": "2026-08-25T18:24:36.937Z"
-    },
-    {
-      "rel": "_rerun_aug_payroll.py",
-      "ts": "2026-08-25T18:24:36.932Z"
-    },
-    {
-      "rel": "_verify_final_aug.py",
-      "ts": "2026-08-25T18:24:36.927Z"
-    }
-  ]
+  "recent_deletions": []
 }

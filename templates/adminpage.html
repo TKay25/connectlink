@@ -4802,6 +4802,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
 <div id="enqFloat" style="display:none;position:fixed;top:54px;right:12px;z-index:9990;width:660px;max-width:96vw;background:#fff;border:1px solid rgba(193,43,62,.25);border-radius:12px;box-shadow:0 12px 40px rgba(10,26,58,.18);overflow:hidden;">
     <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:0.72rem;font-weight:800;color:#C12B3E;background:linear-gradient(135deg, rgba(193,43,62,.06), rgba(8,145,178,.07));border-bottom:1px solid rgba(193,43,62,.15);"><i class="bi bi-bell"></i> Unattended Enquiries <span id="enqFloatCount" style="background:#C12B3E;color:#fff;border-radius:999px;padding:0 8px;font-size:0.58rem;">0</span>
         <span style="flex:1;"></span>
+        <button onclick="openBulkEnqModal()" title="Bulk status update" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:1px 8px;font-size:0.62rem;font-weight:700;cursor:pointer;line-height:1.4;"><i class="bi bi-check2-square"></i> Bulk Update</button>
         <button onclick="openManualEnqModal()" title="New Enquiry" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.66rem;cursor:pointer;line-height:1.4;">＋</button>
         <button onclick="maxEnqStrip()" title="Maximise" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.62rem;cursor:pointer;line-height:1.4;">▢</button>
         <button onclick="minEnqStrip()" title="Minimise" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.62rem;cursor:pointer;line-height:1.4;">–</button>
@@ -4851,6 +4852,57 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                 <button onclick="closeAttendModal()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:6px 12px;font-size:0.7rem;cursor:pointer;">Cancel</button>
                 <button onclick="confirmAttendModal()" style="border:none;background:#25D366;color:#fff;border-radius:6px;padding:6px 12px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-check-lg"></i> Confirm</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Status Update for Unattended Enquiries -->
+<div id="bulkEnqModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9997;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;width:660px;max-width:94vw;overflow:hidden;box-shadow:0 16px 48px rgba(10,26,58,.25);display:flex;flex-direction:column;max-height:86vh;">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:0.74rem;font-weight:800;color:#C12B3E;border-bottom:1px solid var(--gray-200);background:linear-gradient(135deg, rgba(193,43,62,.06), rgba(8,145,178,.07));">
+            <i class="bi bi-check2-square"></i> Bulk Update Enquiries
+            <span style="flex:1;"></span>
+            <button onclick="closeBulkEnqModal()" title="Close" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;cursor:pointer;line-height:1;">&times;</button>
+        </div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
+            <!-- Status radio selection -->
+            <div>
+                <div style="font-size:0.64rem;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">Set status for selected enquiries</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;background:#fff;">
+                        <input type="radio" name="bulkEnqStatus" value="pending" checked onchange="bulkEnqToggleAttendee()" style="accent-color:#C12B3E;width:15px;height:15px;">
+                        <span style="font-size:0.72rem;font-weight:600;color:#475569;">Pending</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;background:#fff;">
+                        <input type="radio" name="bulkEnqStatus" value="in_progress" onchange="bulkEnqToggleAttendee()" style="accent-color:#0891B2;width:15px;height:15px;">
+                        <span style="font-size:0.72rem;font-weight:600;color:#475569;">In Progress</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:8px;cursor:pointer;background:#fff;">
+                        <input type="radio" name="bulkEnqStatus" value="completed" onchange="bulkEnqToggleAttendee()" style="accent-color:#25D366;width:15px;height:15px;">
+                        <span style="font-size:0.72rem;font-weight:600;color:#475569;">Attended to</span>
+                    </label>
+                </div>
+            </div>
+            <!-- Admin attendee picker (shown only when "Attended to" is selected) -->
+            <div id="bulkAttendeeWrap" style="display:none;">
+                <div style="font-size:0.64rem;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">Who attended to these?</div>
+                <div id="bulkAttendAdminList" style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;padding:6px;"></div>
+            </div>
+            <!-- Select / unselect + list -->
+            <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                    <span style="font-size:0.64rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.4px;">Select enquiries</span>
+                    <span style="flex:1;"></span>
+                    <button onclick="bulkEnqSelectAll()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:3px 10px;font-size:0.64rem;font-weight:600;cursor:pointer;"><i class="bi bi-check-all"></i> Select all</button>
+                    <button onclick="bulkEnqUnselectAll()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:3px 10px;font-size:0.64rem;font-weight:600;cursor:pointer;"><i class="bi bi-x"></i> Unselect all</button>
+                    <span id="bulkEnqSelectedCount" style="font-size:0.64rem;color:var(--text-muted);font-weight:600;">0 selected</span>
+                </div>
+                <div id="bulkEnqList" style="max-height:280px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;"></div>
+            </div>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid var(--gray-200);display:flex;gap:6px;justify-content:flex-end;background:#f8fafc;">
+            <button onclick="closeBulkEnqModal()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:6px 12px;font-size:0.7rem;cursor:pointer;">Cancel</button>
+            <button onclick="saveBulkEnq()" style="border:none;background:#C12B3E;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-check-lg"></i> Save changes</button>
         </div>
     </div>
 </div>
@@ -40629,6 +40681,95 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
       if(res&&(res.status==='success'||res.success)){window.loadUnattendedEnqs();}
       else{alert((res&&res.message)||'Could not mark as attended.');}
     }).catch(function(){closeAttendModal();alert('Connection error.');});
+  };
+  // ---- Bulk status update for unattended enquiries ----
+  var _bulkEnqs = [];
+  function bulkEnqCount(){
+    var n=document.querySelectorAll('#bulkEnqList .bulk-enq-cb:checked').length;
+    var el=document.getElementById('bulkEnqSelectedCount');
+    if(el) el.textContent=n+' selected';
+  }
+  window.bulkEnqCount=bulkEnqCount;
+  function renderBulkEnqList(){
+    var list=document.getElementById('bulkEnqList');
+    if(!_bulkEnqs.length){list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:14px;">No unattended enquiries to bulk update.</div>';bulkEnqCount();return;}
+    list.innerHTML=_bulkEnqs.map(function(e){
+      var wa=e.clientwhatsapp?String(e.clientwhatsapp).replace(/[^0-9]/g,''):'';
+      return '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--gray-200);cursor:pointer;background:#fff;">'
+        +'<input type="checkbox" class="bulk-enq-cb" value="'+e.id+'" checked onchange="bulkEnqCount()" style="accent-color:#C12B3E;width:15px;height:15px;flex-shrink:0;">'
+        +'<span style="flex:1;min-width:0;font-size:0.7rem;">'
+        +'<span style="font-weight:700;color:#0f172a;">#'+e.id+'</span> '
+        +'<span style="font-weight:600;color:#334155;">'+escH(e.username||'Unknown')+'</span>'
+        +(wa?' <a href="https://wa.me/'+wa+'" target="_blank" style="color:#0891B2;text-decoration:none;font-weight:600;">'+escH(e.clientwhatsapp)+'</a>':'')
+        +' <span style="color:#94a3b8;">• '+escH(e.enqcategory||'General')+'</span>'
+        +'<div style="color:#64748b;font-size:0.62rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</div>'
+        +'</span>'
+        +(e.has_plan?'<span style="font-size:0.6rem;color:#C12B3E;flex-shrink:0;"><i class="bi bi-paperclip"></i> Plan</span>':'')
+        +'</label>';
+    }).join('');
+    bulkEnqCount();
+  }
+  window.openBulkEnqModal=function(){
+    document.getElementById('bulkEnqModal').style.display='flex';
+    document.getElementById('bulkAttendeeWrap').style.display='none';
+    var aList=document.getElementById('bulkAttendAdminList');
+    aList.innerHTML='<div style="font-size:0.62rem;color:var(--text-muted);text-align:center;padding:8px;">Loading…</div>';
+    var list=document.getElementById('bulkEnqList');
+    list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:14px;">Loading enquiries…</div>';
+    // Load admins for the "who attended?" picker
+    fetch('/api/enquiries/admins').then(function(r){return r.json();}).then(function(res){
+      var admins=(res&&res.data)||[];
+      if(!admins.length){aList.innerHTML='<div style="font-size:0.62rem;color:var(--text-muted);text-align:center;padding:8px;">No administrators found</div>';return;}
+      aList.innerHTML=admins.map(function(a){
+        return '<label style="display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--gray-200);border-radius:6px;cursor:pointer;background:#fff;">'
+          +'<input type="radio" name="bulkAttendAdmin" value="'+escH(a.name)+'"'+(a.current?' checked':'')+' style="accent-color:#25D366;width:14px;height:14px;">'
+          +'<span style="flex:1;font-size:0.7rem;font-weight:600;">'+escH(a.name)+'</span>'
+          +(a.current?'<span style="font-size:0.56rem;color:#25D366;font-weight:600;">(you)</span>':'')
+          +'</label>';
+      }).join('');
+    }).catch(function(){aList.innerHTML='<div style="font-size:0.62rem;color:#c62828;text-align:center;padding:8px;">Failed to load admins</div>';});
+    // Load the unattended enquiries to select from
+    fetch('/api/enquiries/unattended',{credentials:'include'}).then(function(r){return r.json();}).then(function(d){
+      _bulkEnqs=(d&&d.data)||[];
+      renderBulkEnqList();
+    }).catch(function(){list.innerHTML='<div style="font-size:0.65rem;color:#c62828;text-align:center;padding:14px;">Failed to load enquiries</div>';});
+  };
+  window.bulkEnqSelectAll=function(){document.querySelectorAll('#bulkEnqList .bulk-enq-cb').forEach(function(c){c.checked=true;});bulkEnqCount();};
+  window.bulkEnqUnselectAll=function(){document.querySelectorAll('#bulkEnqList .bulk-enq-cb').forEach(function(c){c.checked=false;});bulkEnqCount();};
+  window.bulkEnqToggleAttendee=function(){
+    var v=(document.querySelector('input[name="bulkEnqStatus"]:checked')||{}).value;
+    document.getElementById('bulkAttendeeWrap').style.display=(v==='completed')?'block':'none';
+  };
+  window.closeBulkEnqModal=function(){document.getElementById('bulkEnqModal').style.display='none';_bulkEnqs=[];};
+  window.saveBulkEnq=function(){
+    var status=(document.querySelector('input[name="bulkEnqStatus"]:checked')||{}).value||'pending';
+    var ids=[];
+    document.querySelectorAll('#bulkEnqList .bulk-enq-cb:checked').forEach(function(c){ids.push(parseInt(c.value,10));});
+    if(!ids.length){alert('Select at least one enquiry to update.');return;}
+    var attendedBy='';
+    if(status==='completed'){
+      var sel=document.querySelector('input[name="bulkAttendAdmin"]:checked');
+      if(sel){attendedBy=sel.value;}
+      else{alert('Please select who attended to these enquiries (or choose a different status).');return;}
+    }
+    var btn=document.querySelector('#bulkEnqModal [onclick="saveBulkEnq()"]');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm" style="width:0.7rem;height:0.7rem;"></span> Saving…';}
+    fetch('/api/enquiries/bulk-update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:ids,status:status,attended_by:attendedBy})})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Save changes';}
+        if(res.status==='success'||res.success){
+          closeBulkEnqModal();
+          window.loadUnattendedEnqs();
+          alert('✅ '+(res.message||'Enquiries updated.'));
+        } else {
+          alert('❌ '+(res.message||'Update failed.'));
+        }
+      })
+      .catch(function(){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-check-lg"></i> Save changes';}
+        alert('Connection error — please try again.');
+      });
   };
   window.openManualEnqModal=function(){document.getElementById('manualEnqModal').style.display='flex';};
   window.closeManualEnqModal=function(){document.getElementById('manualEnqModal').style.display='none';};

@@ -27579,6 +27579,104 @@ def update_enquiry_status(enquiry_id):
         return jsonify({'status': 'error', 'message': f'Failed to update status: {str(e)}'}), 500
 
 
+@app.route('/api/enquiries/bulk-update', methods=['POST'])
+def bulk_update_enquiries():
+    """Bulk-update status (and optionally attendance) for multiple enquiries at once.
+    Body: {ids: [int, ...], status: 'pending'|'in_progress'|'completed'|..., attended_by: 'Name'}.
+    Setting pending/in_progress clears the attendant; any other status records the
+    attendant (attended_by, falling back to the current user)."""
+    data = request.get_json(silent=True) or {}
+    ids = data.get('ids') or []
+    new_status = (data.get('status') or '').strip()
+    attended_by = (data.get('attended_by') or '').strip()
+    user = session.get('user_name') or session.get('full_name') or 'Unknown'
+
+    if not ids:
+        return jsonify({'status': 'error', 'message': 'No enquiries selected.'}), 400
+    if not new_status:
+        return jsonify({'status': 'error', 'message': 'Status is required.'}), 400
+
+    try:
+        ids = [int(i) for i in ids]
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error', 'message': 'Invalid enquiry selection.'}), 400
+
+    if new_status == 'completed' and not attended_by:
+        # Enforce an attendant when completing so the "who attended?" is recorded.
+        attended_by = user
+
+    try:
+        with get_db() as (cursor, connection):
+            placeholders = ','.join(['%s'] * len(ids))
+            cursor.execute(f"""
+                SELECT id, enq, enqcategory, clientwhatsapp, status
+                FROM connectlinkenquiries WHERE id IN ({placeholders})
+            """, tuple(ids))
+            rows = cursor.fetchall()
+            found = {r[0]: r for r in rows}
+            found_ids = list(found.keys())
+            if not found_ids:
+                return jsonify({'status': 'error', 'message': 'No matching enquiries found.'}), 404
+
+            ph = ','.join(['%s'] * len(found_ids))
+            if new_status in ('pending', 'in_progress'):
+                # Reverted to open — clear the attendant (it only applies once completed).
+                cursor.execute(f"""
+                    UPDATE connectlinkenquiries
+                    SET status = %s,
+                        attended_by = NULL,
+                        attended_at = NULL,
+                        attended_updated_by = NULL,
+                        attended_updated_at = NULL
+                    WHERE id IN ({ph})
+                    RETURNING id;
+                """, (new_status, *found_ids))
+            else:
+                cursor.execute(f"""
+                    UPDATE connectlinkenquiries
+                    SET status = %s,
+                        attended_by = %s,
+                        attended_at = CURRENT_TIMESTAMP,
+                        attended_updated_by = %s,
+                        attended_updated_at = CURRENT_TIMESTAMP
+                    WHERE id IN ({ph})
+                    RETURNING id;
+                """, (new_status, attended_by, user, *found_ids))
+            updated = cursor.fetchall()
+            connection.commit()
+
+            updated_ids = [r[0] for r in updated]
+            # Log one aggregate entry + one per enquiry for a readable trail
+            log_activity(
+                'enquiry_bulk_status',
+                f'Bulk updated {len(updated_ids)} enquiries to "{new_status}"'
+                + (f' — attended by {attended_by}' if new_status not in ('pending', 'in_progress') else '')
+                + f' by {user}',
+                'enquiry',
+                None,
+                {'status': new_status, 'attended_by': attended_by, 'ids': updated_ids, 'updated_by': user}
+            )
+            for eid in updated_ids:
+                row = found[eid]
+                log_activity(
+                    'enquiry_status_changed',
+                    f'Enquiry #{eid} status changed (bulk) to {new_status} - "{(row[1] or "")[:60]}" ({row[2] or "General"})',
+                    'enquiry',
+                    eid,
+                    {'old_status': row[4] or 'pending', 'new_status': new_status,
+                     'client_whatsapp': str(row[3]) if row[3] else '', 'updated_by': user}
+                )
+
+            return jsonify({
+                'status': 'success',
+                'message': f'Updated {len(updated_ids)} enquiries to "{new_status}".',
+                'count': len(updated_ids),
+                'ids': updated_ids
+            })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Failed to bulk update enquiries: {str(e)}'}), 500
+
+
 @app.route('/api/enquiries/<int:enquiry_id>/delete', methods=['POST'])
 def delete_main_enquiry(enquiry_id):
     """Delete an enquiry from the main enquiries portal after admin passcode validation."""
