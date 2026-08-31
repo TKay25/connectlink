@@ -4907,6 +4907,48 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
     </div>
 </div>
 
+<!-- Enquiry Follow-Up Portal (Meta 'enquiriesfollowup' template) -->
+<div id="enquiryFollowUpModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9998;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;width:860px;max-width:95vw;overflow:hidden;box-shadow:0 16px 48px rgba(10,26,58,.25);display:flex;flex-direction:column;max-height:88vh;">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:0.74rem;font-weight:800;color:#C12B3E;border-bottom:1px solid var(--gray-200);background:linear-gradient(135deg, rgba(193,43,62,.06), rgba(8,145,178,.07));">
+            <i class="bi bi-send"></i> Enquiries Follow Up
+            <span style="flex:1;"></span>
+            <button onclick="closeEnquiryFollowUpModal()" title="Close" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;cursor:pointer;line-height:1;">&times;</button>
+        </div>
+        <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <label style="font-size:0.64rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.4px;">Filter</label>
+                <select id="enqFollowStatusFilter" onchange="loadEnquiryFollowUps()" style="font-size:0.72rem;padding:4px 8px;border:1px solid var(--gray-200);border-radius:6px;background:#fff;color:#334155;font-weight:600;">
+                    <option value="all">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Attended to</option>
+                </select>
+                <span style="flex:1;"></span>
+                <span id="enqFollowSummary" style="font-size:0.64rem;color:var(--text-muted);font-weight:600;">Loading…</span>
+            </div>
+            <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                    <span style="font-size:0.64rem;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.4px;">Enquiries (send follow-up)</span>
+                    <span style="flex:1;"></span>
+                    <button onclick="enqFollowSelectAll(true)" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:3px 10px;font-size:0.64rem;font-weight:600;cursor:pointer;"><i class="bi bi-check-all"></i> Select all</button>
+                    <button onclick="enqFollowSelectAll(false)" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:3px 10px;font-size:0.64rem;font-weight:600;cursor:pointer;"><i class="bi bi-x"></i> Unselect all</button>
+                    <span id="enqFollowSelectedCount" style="font-size:0.64rem;color:var(--text-muted);font-weight:600;">0 selected</span>
+                </div>
+                <div id="enqFollowList" style="max-height:250px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;"></div>
+            </div>
+            <div>
+                <div style="font-size:0.64rem;font-weight:700;color:#334155;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">Follow-ups sent &amp; client responses</div>
+                <div id="enqFollowLog" style="max-height:180px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;"></div>
+            </div>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid var(--gray-200);display:flex;gap:6px;justify-content:flex-end;background:#f8fafc;">
+            <button onclick="closeEnquiryFollowUpModal()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:6px 12px;font-size:0.7rem;cursor:pointer;">Close</button>
+            <button onclick="sendEnquiryFollowUp()" id="enqFollowSendBtn" style="border:none;background:#25D366;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-send"></i> Send Follow Up</button>
+        </div>
+    </div>
+</div>
+
     <!-- Modern Main Content -->
     <div class="main-content" id="main-content">
             <!-- Dashboard Page -->
@@ -5159,6 +5201,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                 <button class="btn btn-primary" style="padding:4px 12px;" onclick="openManualEnqModal()"><i class="bi bi-plus-lg"></i> New Enquiry</button>
                                 <button class="btn btn-primary" style="padding:4px 12px;" onclick="downloadenquiries()"><i class="bi bi-download"></i> Enquiries</button>
                                 <button class="btn btn-primary" style="padding:4px 12px;" onclick="openModal('viewEnquiriesModal')"><i class="bi bi-search"></i> View Interim</button>
+                                <button class="btn btn-primary" style="padding:4px 12px;" onclick="openEnquiryFollowUpModal()"><i class="bi bi-send"></i> Enquiries Follow Up</button>
                             </div>
                             <div class="container" style="padding:4px; background:#fafafa; border-radius:4px;">
                                 <div class="row mb-2">
@@ -40790,6 +40833,97 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
   };
   window.minEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='none';try{localStorage.setItem('cl_enqStripMin','1');}catch(e){}};
   window.maxEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='';try{localStorage.setItem('cl_enqStripMin','0');}catch(e){}};
+  // ---- Enquiries Follow Up (Meta 'enquiriesfollowup' template) ----
+  var _enqFollowData = {enquiries:[], followups:[]};
+  function enqFollowCount(){
+    var n=document.querySelectorAll('#enqFollowList .enq-fu-cb:checked').length;
+    var el=document.getElementById('enqFollowSelectedCount');
+    if(el) el.textContent=n+' selected';
+  }
+  function renderEnquiryFollowUp(){
+    var list=document.getElementById('enqFollowList');
+    var log=document.getElementById('enqFollowLog');
+    var enqs=_enqFollowData.enquiries||[];
+    var fups=_enqFollowData.followups||[];
+    var summary=document.getElementById('enqFollowSummary');
+    if(summary) summary.textContent=enqs.length+' enquiries \u00b7 '+fups.length+' follow-up(s)';
+    if(!enqs.length){list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:14px;">No enquiries match this filter.</div>';}
+    else{
+      list.innerHTML=enqs.map(function(e){
+        var wa=e.clientwhatsapp?String(e.clientwhatsapp).replace(/[^0-9]/g,''):'';
+        var resp=e.customer_response?escH(e.customer_response==='resolved'?'\u2713 Resolved':'\u270b Still needs help'):'\u2014';
+        var st=e.status==='completed'?'Attended to':(e.status==='in_progress'?'In Progress':'Pending');
+        var stColor=e.status==='completed'?'#16a34a':(e.status==='in_progress'?'#0891b2':'#d97706');
+        return '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--gray-200);cursor:pointer;background:#fff;">'
+          +'<input type="checkbox" class="enq-fu-cb" value="'+e.id+'" checked onchange="enqFollowCount()" style="accent-color:#25D366;width:15px;height:15px;flex-shrink:0;">'
+          +'<span style="flex:1;min-width:0;font-size:0.7rem;">'
+          +'<span style="font-weight:700;color:#0f172a;">#'+e.id+'</span> '
+          +'<span style="font-weight:600;color:#334155;">'+escH(e.username||'Unknown')+'</span>'
+          +(wa?' <a href="https://wa.me/'+wa+'" target="_blank" style="color:#0891B2;text-decoration:none;font-weight:600;">'+escH(e.clientwhatsapp)+'</a>':'')
+          +' <span style="color:#94a3b8;">\u2022 '+escH(e.enqcategory||'General')+'</span>'
+          +' <span style="color:'+stColor+';font-weight:700;">'+st+'</span>'
+          +' <span style="color:#64748b;font-size:0.62rem;">('+(e.followup_count||0)+'\u00d7)</span>'
+          +' <span style="color:'+(e.customer_response?'#16a34a':'#94a3b8')+';font-size:0.62rem;">'+resp+'</span>'
+          +'<div style="color:#64748b;font-size:0.62rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</div>'
+          +'</span></label>';
+      }).join('');
+    }
+    if(!fups.length){log.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:14px;">No follow-ups sent yet.</div>';}
+    else{
+      log.innerHTML='<table style="width:100%;border-collapse:collapse;"><thead><tr style="font-size:0.56rem;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:.4px;background:#f8fafc;"><th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Sent</th><th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Enquiry</th><th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">By</th><th style="padding:5px 8px;border:1px solid #e2e8f0;text-align:left;">Response</th></tr></thead><tbody>'
+        +fups.map(function(f){
+          var r=f.response==='resolved'?'<span style="color:#16a34a;font-weight:700;">\u2713 Resolved</span>':(f.response==='still_need_help'?'<span style="color:#d97706;font-weight:700;">\u270b Still needs help</span>':'<span style="color:#94a3b8;">Awaiting</span>');
+          return '<tr style="font-size:0.62rem;"><td style="padding:5px 8px;border:1px solid #e2e8f0;white-space:nowrap;">'+escH(f.sent_at)+'</td>'
+            +'<td style="padding:5px 8px;border:1px solid #e2e8f0;">#'+f.enquiry_id+'</td>'
+            +'<td style="padding:5px 8px;border:1px solid #e2e8f0;">'+escH(f.sent_by||'System')+'</td>'
+            +'<td style="padding:5px 8px;border:1px solid #e2e8f0;">'+r+(f.response_at?' <span style="color:#94a3b8;">\u00b7 '+escH(f.response_at)+'</span>':'')+'</td></tr>';
+        }).join('')+'</tbody></table>';
+    }
+    enqFollowCount();
+  }
+  window.loadEnquiryFollowUps=function(){
+    var f=document.getElementById('enqFollowStatusFilter');
+    var status=f?f.value:'all';
+    var list=document.getElementById('enqFollowList');
+    if(list) list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:14px;">Loading\u2026</div>';
+    fetch('/api/enquiries/followups?status='+encodeURIComponent(status),{credentials:'include'})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(res.status==='success'||res.success){
+          _enqFollowData={enquiries:res.enquiries||[],followups:res.followups||[]};
+          renderEnquiryFollowUp();
+        } else {
+          if(list) list.innerHTML='<div style="font-size:0.65rem;color:#c62828;text-align:center;padding:14px;">'+escH(res.message||'Failed to load')+'</div>';
+        }
+      })
+      .catch(function(){if(list) list.innerHTML='<div style="font-size:0.65rem;color:#c62828;text-align:center;padding:14px;">Failed to load follow-ups</div>';});
+  };
+  window.openEnquiryFollowUpModal=function(){document.getElementById('enquiryFollowUpModal').style.display='flex';loadEnquiryFollowUps();};
+  window.closeEnquiryFollowUpModal=function(){document.getElementById('enquiryFollowUpModal').style.display='none';};
+  window.enqFollowSelectAll=function(on){document.querySelectorAll('#enqFollowList .enq-fu-cb').forEach(function(c){c.checked=!!on;});enqFollowCount();};
+  window.sendEnquiryFollowUp=function(){
+    var ids=[];
+    document.querySelectorAll('#enqFollowList .enq-fu-cb:checked').forEach(function(c){ids.push(parseInt(c.value,10));});
+    if(!ids.length){alert('Select at least one enquiry to send a follow-up to.');return;}
+    var btn=document.getElementById('enqFollowSendBtn');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm" style="width:0.7rem;height:0.7rem;"></span> Sending\u2026';}
+    fetch('/api/enquiries/send-followup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enquiry_ids:ids})})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-send"></i> Send Follow Up';}
+        if(res.status==='success'||res.success){
+          alert('\u2705 '+(res.message||'Follow-up sent.'));
+          loadEnquiryFollowUps();
+          window.loadUnattendedEnqs();
+        } else {
+          alert('\u274c '+(res.message||'Send failed.'));
+        }
+      })
+      .catch(function(){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-send"></i> Send Follow Up';}
+        alert('Connection error \u2014 please try again.');
+      });
+  };
   window.loadUnattendedEnqs();
   setInterval(window.loadUnattendedEnqs,30000);
 })();
