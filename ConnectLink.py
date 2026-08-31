@@ -27815,18 +27815,19 @@ def create_manual_enquiry():
 @app.route('/api/enquiries/unattended', methods=['GET'])
 def get_unattended_enquiries():
     """Enquiries still awaiting someone to attend to them (banner on every user screen).
-    ?need_help=1 restricts to enquiries where the client tapped "I Still Need Help" on the
-    follow-up template (customer_response = 'still_need_help'), so staff see the ones the
-    client explicitly asked for help on. Returns empty for visitors who aren't logged in."""
+    ?priority=1 restricts to enquiries that need attention: the client tapped
+    "I Still Need Help" on the follow-up template (customer_response='still_need_help')
+    OR the enquiry was manually entered (source='manual'). Returns empty for visitors
+    who aren't logged in."""
     if not (session.get('user_id') or session.get('userid')):
         return jsonify({'status': 'success', 'data': [], 'total': 0})
-    need_help = (request.args.get('need_help') or '').strip().lower() in ('1', 'true', 'yes')
+    priority = (request.args.get('priority') or request.args.get('need_help') or '').strip().lower() in ('1', 'true', 'yes')
     try:
         with get_db() as (cursor, connection):
             where = "COALESCE(status, 'pending') = 'pending'"
             params = []
-            if need_help:
-                where += " AND COALESCE(customer_response,'') = 'still_need_help'"
+            if priority:
+                where += " AND (COALESCE(customer_response,'') = 'still_need_help' OR COALESCE(source,'auto') = 'manual')"
             cursor.execute(f"""
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
                        plan IS NOT NULL as has_plan, plan_mime, status, username, source,
