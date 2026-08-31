@@ -3215,6 +3215,32 @@ body {
 .modal-body { padding: 20px; }
 .modal-footer { background: #F8FAFC; border-top: 1px solid #EEF1F6; padding: 14px 20px; }
 
+/* ---- Subtract Stock: keep footer always visible, body scrollable ---- */
+#subtractStockModal .modal-dialog {
+    height: auto;
+    max-height: calc(100vh - 40px);
+    margin: 20px auto;
+    display: flex;
+    flex-direction: column;
+}
+#subtractStockModal .modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 40px);
+    overflow: hidden;
+}
+#subtractStockModal .modal-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+}
+#subtractStockModal .modal-footer {
+    flex-shrink: 0;
+    background: #F8FAFC;
+    border-top: 1px solid #EEF1F6;
+}
+body.dark-theme #subtractStockModal .modal-footer { background: #101623; border-top-color: rgba(255,255,255,0.07); }
+
 /* ---------- Alerts & badges ---------- */
 .alert { border-radius: 12px; border: 1px solid transparent; }
 .badge-low-stock { background: rgba(193,43,62,0.1); color: var(--crimson-bright); }
