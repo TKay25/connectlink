@@ -27815,20 +27815,28 @@ def create_manual_enquiry():
 @app.route('/api/enquiries/unattended', methods=['GET'])
 def get_unattended_enquiries():
     """Enquiries still awaiting someone to attend to them (banner on every user screen).
-    Returns empty for visitors who aren't logged in."""
+    ?need_help=1 restricts to enquiries where the client tapped "I Still Need Help" on the
+    follow-up template (customer_response = 'still_need_help'), so staff see the ones the
+    client explicitly asked for help on. Returns empty for visitors who aren't logged in."""
     if not (session.get('user_id') or session.get('userid')):
         return jsonify({'status': 'success', 'data': [], 'total': 0})
+    need_help = (request.args.get('need_help') or '').strip().lower() in ('1', 'true', 'yes')
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("""
+            where = "COALESCE(status, 'pending') = 'pending'"
+            params = []
+            if need_help:
+                where += " AND COALESCE(customer_response,'') = 'still_need_help'"
+            cursor.execute(f"""
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
                        plan IS NOT NULL as has_plan, plan_mime, status, username, source,
-                       attended_by, attended_at, attended_updated_by, attended_updated_at
+                       attended_by, attended_at, attended_updated_by, attended_updated_at,
+                       customer_response, customer_response_at
                 FROM connectlinkenquiries
-                WHERE COALESCE(status, 'pending') = 'pending'
+                WHERE {where}
                 ORDER BY CASE WHEN COALESCE(source,'auto') = 'manual' THEN 0 ELSE 1 END, id DESC
                 LIMIT 50
-            """)
+            """, params)
             rows = cursor.fetchall()
         return jsonify({'status': 'success', 'data': [
             {
@@ -27845,7 +27853,9 @@ def get_unattended_enquiries():
                 'attended_by': r[10] or '',
                 'attended_at': r[11].strftime('%d/%m/%Y %H:%M') if r[11] else '',
                 'attended_updated_by': r[12] or '',
-                'attended_updated_at': r[13].strftime('%d/%m/%Y %H:%M') if r[13] else ''
+                'attended_updated_at': r[13].strftime('%d/%m/%Y %H:%M') if r[13] else '',
+                'customer_response': r[14] or '',
+                'customer_response_at': r[15].strftime('%d/%m/%Y %H:%M') if r[15] else ''
             }
             for r in rows], 'total': len(rows)})
     except Exception as e:
