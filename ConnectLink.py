@@ -38384,8 +38384,18 @@ def send_enquiry_followup(enquiry_id, sent_by='System'):
         }
         resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers_wa, timeout=20)
         sent_ok = resp.status_code == 200
+        # Persist the follow-up to whatsapp_messages so it shows in the chat portal
+        # under the client's conversation (same pattern as quotation/contract templates).
         try:
+            display_text = (f"[Template: {ENQUIRY_FOLLOWUP_TEMPLATE_NAME}] {name} — {category} ({date_str}): "
+                            + (enq_body or 'No message'))[:500]
             with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO whatsapp_messages
+                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                    VALUES (%s, %s, %s, 'template', 'outgoing', %s)
+                """, (str(phone), 'ConnectLink Bot', display_text,
+                      'sent' if sent_ok else 'failed'))
                 cursor.execute("""
                     INSERT INTO enquiry_followups (enquiry_id, sent_by, template_name)
                     VALUES (%s, %s, %s)
@@ -38462,16 +38472,38 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
             """, ('resolved' if action == 'done' else 'still_need_help', str(sender_id), enq_id))
             connection.commit()
 
+        # Persist the client's button reply + confirmation into whatsapp_messages so the
+        # whole follow-up conversation shows in the WhatsApp chat portal.
+        button_label = 'I Was Assisted, Thank You' if action == 'done' else 'I Still Need Help'
+        confirm_msg = ("That's great to hear! Thank you for choosing ConnectLink Properties. Feel free to reach out anytime."
+                       if action == 'done'
+                       else "Thanks for letting us know — a member of our team will attend to your enquiry shortly. Please bear with us.")
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO whatsapp_messages
+                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                    VALUES (%s, %s, %s, 'button', 'incoming', 'received')
+                """, (str(sender_id), client_name or 'Unknown', button_label))
+                cursor.execute("""
+                    INSERT INTO whatsapp_messages
+                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                    VALUES (%s, %s, %s, 'text', 'outgoing', 'sent')
+                """, (str(sender_id), 'ConnectLink Bot', confirm_msg))
+                connection.commit()
+        except Exception as ce:
+            print(f"⚠️ Could not save enquiry follow-up reply to chat: {ce}")
+
         if action == 'done':
             log_activity('enquiry_followup_response',
                          f'Enquiry #{enq_id} ({client_name or "Unknown"}) responded "I Was Assisted" via WhatsApp follow-up',
                          'enquiry', enq_id)
-            _enquiry_send_text(sender_id, "That's great to hear! Thank you for choosing ConnectLink Properties. Feel free to reach out anytime.")
+            _enquiry_send_text(sender_id, confirm_msg)
         else:
             log_activity('enquiry_followup_response',
                          f'Enquiry #{enq_id} ({client_name or "Unknown"}) responded "I Still Need Help" via WhatsApp follow-up',
                          'enquiry', enq_id)
-            _enquiry_send_text(sender_id, "Thanks for letting us know — a member of our team will attend to your enquiry shortly. Please bear with us.")
+            _enquiry_send_text(sender_id, confirm_msg)
         return True
     except Exception as e:
         print(f"Enquiry follow-up button payload error: {e}")
