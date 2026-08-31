@@ -1034,6 +1034,7 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS customer_response VARCHAR (30);",
                 "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS customer_response_at TIMESTAMP;",
                 "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS customer_responded_by VARCHAR (20);",
+                "ALTER TABLE connectlinkenquiries ADD COLUMN IF NOT EXISTS banner_flagged BOOLEAN DEFAULT FALSE;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS momid INT;",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment7amount NUMERIC(12,2);",
                 "ALTER TABLE connectlinkdatabasedeletedprojects ADD COLUMN IF NOT EXISTS installment7duedate date;",
@@ -27827,12 +27828,12 @@ def get_unattended_enquiries():
             where = "COALESCE(status, 'pending') = 'pending'"
             params = []
             if priority:
-                where += " AND (COALESCE(customer_response,'') = 'still_need_help' OR COALESCE(source,'auto') = 'manual')"
+                where += " AND (COALESCE(customer_response,'') = 'still_need_help' OR COALESCE(source,'auto') = 'manual' OR COALESCE(banner_flagged, FALSE) = TRUE)"
             cursor.execute(f"""
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
                        plan IS NOT NULL as has_plan, plan_mime, status, username, source,
                        attended_by, attended_at, attended_updated_by, attended_updated_at,
-                       customer_response, customer_response_at
+                       customer_response, customer_response_at, COALESCE(banner_flagged, FALSE)
                 FROM connectlinkenquiries
                 WHERE {where}
                 ORDER BY CASE WHEN COALESCE(source,'auto') = 'manual' THEN 0 ELSE 1 END, id DESC
@@ -27856,7 +27857,8 @@ def get_unattended_enquiries():
                 'attended_updated_by': r[12] or '',
                 'attended_updated_at': r[13].strftime('%d/%m/%Y %H:%M') if r[13] else '',
                 'customer_response': r[14] or '',
-                'customer_response_at': r[15].strftime('%d/%m/%Y %H:%M') if r[15] else ''
+                'customer_response_at': r[15].strftime('%d/%m/%Y %H:%M') if r[15] else '',
+                'banner_flagged': bool(r[16])
             }
             for r in rows], 'total': len(rows)})
     except Exception as e:
@@ -27980,7 +27982,8 @@ def get_enquiry_followups():
                 SELECT e.id, e.username, e.clientwhatsapp, e.enqcategory, e.enq,
                        COALESCE(e.status,'pending'), e.timestamp, e.attended_by,
                        COALESCE(e.source,'auto'), e.customer_response, e.customer_response_at,
-                       (SELECT COUNT(*) FROM enquiry_followups f WHERE f.enquiry_id = e.id) AS followup_count
+                       (SELECT COUNT(*) FROM enquiry_followups f WHERE f.enquiry_id = e.id) AS followup_count,
+                       COALESCE(e.banner_flagged, FALSE)
                 FROM connectlinkenquiries e
                 {where}
                 ORDER BY e.id DESC
@@ -28003,7 +28006,8 @@ def get_enquiry_followups():
                 'attended_by': r[7] or '', 'source': r[8] or 'auto',
                 'customer_response': r[9] or '',
                 'customer_response_at': r[10].strftime('%d/%m/%Y %H:%M') if r[10] else '',
-                'followup_count': r[11] or 0
+                'followup_count': r[11] or 0,
+                'banner_flagged': bool(r[12])
             } for r in enq_rows],
             'followups': [
                 {
@@ -28054,6 +28058,38 @@ def send_enquiry_followups():
                         'errors': [r.get('error') or r.get('detail') for r in failed]})
     except Exception as e:
         print(f"Send enquiry followups error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/enquiries/flag-banner', methods=['POST'])
+def flag_enquiry_banner():
+    """Pin/unpin enquiries to the Unattended Enquiries banner.
+    Body: {ids: [int,...], flagged: bool}. Requires login."""
+    if not (session.get('user_id') or session.get('userid')):
+        return jsonify({'status': 'error', 'message': 'Please log in first.'}), 401
+    data = request.get_json(silent=True) or {}
+    ids = data.get('ids') or []
+    flagged = bool(data.get('flagged', True))
+    user = session.get('user_name') or session.get('full_name') or 'System'
+    if not ids:
+        return jsonify({'status': 'error', 'message': 'Select at least one enquiry.'}), 400
+    try:
+        ids = list(dict.fromkeys(int(x) for x in ids))
+        ph = ','.join(['%s'] * len(ids))
+        with get_db() as (cursor, connection):
+            cursor.execute(f"""
+                UPDATE connectlinkenquiries SET banner_flagged = %s
+                WHERE id IN ({ph})
+            """, (flagged, *ids))
+            connection.commit()
+        log_activity('enquiry_banner_flag',
+                     f'{len(ids)} enquiry(s) {"added to" if flagged else "removed from"} Unattended banner by {user}',
+                     'enquiry', None)
+        return jsonify({'status': 'success',
+                        'message': f'{len(ids)} enquiry(s) {"added to" if flagged else "removed from"} the banner.',
+                        'count': len(ids)})
+    except Exception as e:
+        print(f"Flag enquiry banner error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 

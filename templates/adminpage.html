@@ -4944,6 +4944,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         </div>
         <div style="padding:10px 14px;border-top:1px solid var(--gray-200);display:flex;gap:6px;justify-content:flex-end;background:#f8fafc;">
             <button onclick="closeEnquiryFollowUpModal()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:6px 12px;font-size:0.7rem;cursor:pointer;">Close</button>
+            <button onclick="flagEnquiryBanner(true)" id="enqBannerBtn" style="border:none;background:#7C3AED;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-pin-angle"></i> Add to Unattended</button>
             <button onclick="sendEnquiryFollowUp()" id="enqFollowSendBtn" style="border:none;background:#25D366;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-send"></i> Send Follow Up</button>
         </div>
     </div>
@@ -40883,6 +40884,7 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
           +' <span style="color:'+stColor+';font-weight:700;">'+st+'</span>'
           +' <span style="color:#64748b;font-size:0.62rem;">('+(e.followup_count||0)+'\u00d7)</span>'
           +' <span style="color:'+(e.customer_response?'#16a34a':'#94a3b8')+';font-size:0.62rem;">'+resp+'</span>'
+          +(e.banner_flagged?' <span style="color:#7c3aed;font-size:0.62rem;" title="In Unattended banner">📌</span>':'')
           +'<div style="color:#64748b;font-size:0.62rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</div>'
           +'</span></label>';
       }).join('');
@@ -40939,6 +40941,29 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
   window.openEnquiryFollowUpModal=function(){document.getElementById('enquiryFollowUpModal').style.display='flex';loadEnquiryFollowUps();};
   window.closeEnquiryFollowUpModal=function(){document.getElementById('enquiryFollowUpModal').style.display='none';};
   window.enqFollowSelectAll=function(on){document.querySelectorAll('#enqFollowList .enq-fu-cb').forEach(function(c){c.checked=!!on;});enqFollowCount();};
+  window.flagEnquiryBanner=function(flagged){
+    var ids=[];
+    document.querySelectorAll('#enqFollowList .enq-fu-cb:checked').forEach(function(c){ids.push(parseInt(c.value,10));});
+    if(!ids.length){alert('Select at least one enquiry first.');return;}
+    var btn=document.getElementById('enqBannerBtn');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm" style="width:0.7rem;height:0.7rem;"></span> Adding\u2026';}
+    fetch('/api/enquiries/flag-banner',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:ids,flagged:!!flagged})})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-pin-angle"></i> Add to Unattended';}
+        if(res.status==='success'||res.success){
+          alert('\u2705 '+(res.message||'Added to the banner.'));
+          loadEnquiryFollowUps();
+          window.loadUnattendedEnqs();
+        } else {
+          alert('\u274c '+(res.message||'Failed to add.'));
+        }
+      })
+      .catch(function(){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-pin-angle"></i> Add to Unattended';}
+        alert('Connection error \u2014 please try again.');
+      });
+  };
   window.sendEnquiryFollowUp=function(){
     var ids=[];
     document.querySelectorAll('#enqFollowList .enq-fu-cb:checked').forEach(function(c){ids.push(parseInt(c.value,10));});
