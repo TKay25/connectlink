@@ -27939,9 +27939,17 @@ def create_manual_enquiry():
 
 
 # Enquiries received at/after this point appear on the Unattended banner.
-# Auto-appearing on the banner started 15:57 on 1 Sep 2026 — older existing
-# enquiries are deliberately NOT shown on the banner (they remain in the table).
-ENQUIRY_BANNER_START_TS = datetime(2026, 9, 1, 15, 57, 0)
+# Auto-appearing on the banner started 15:57 (Africa/Harare) on 1 Sep 2026.
+# Stored enquiry timestamps come from Python datetime.now() (the server's local
+# clock, which is UTC on Render), so we convert 15:57 Harare into that same
+# clock (Harare = UTC+2, so 15:57 Harare = 13:57 UTC) — otherwise the cut-off
+# would wrongly exclude new enquiries.
+try:
+    _banner_local_tz = pytz.timezone(time.tzname[0] or 'UTC')
+except Exception:
+    _banner_local_tz = pytz.timezone('UTC')
+_banner_start_harare = pytz.timezone('Africa/Harare').localize(datetime(2026, 9, 1, 15, 57, 0))
+ENQUIRY_BANNER_START_TS = _banner_start_harare.astimezone(_banner_local_tz).replace(tzinfo=None)
 
 
 @app.route('/api/enquiries/unattended', methods=['GET'])
@@ -27965,13 +27973,23 @@ def get_unattended_enquiries():
                      " OR COALESCE(source,'auto') = 'manual'"
                      " OR COALESCE(customer_response,'') = 'still_need_help')")
             params = [ENQUIRY_BANNER_START_TS]
+            # De-duplicate: only ONE pending enquiry per WhatsApp number is shown on the
+            # banner (manual entries preferred, then newest). Enquiries with no number
+            # all show. The main table / follow-up modal still list every enquiry.
             cursor.execute(f"""
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
                        plan IS NOT NULL as has_plan, plan_mime, status, username, source,
                        attended_by, attended_at, attended_updated_by, attended_updated_at,
                        customer_response, customer_response_at, COALESCE(banner_flagged, FALSE)
-                FROM connectlinkenquiries
-                WHERE {where}
+                FROM (
+                    SELECT q.*, ROW_NUMBER() OVER (
+                        PARTITION BY CASE WHEN COALESCE(q.clientwhatsapp,'') = '' THEN q.id ELSE q.clientwhatsapp END
+                        ORDER BY CASE WHEN COALESCE(q.source,'auto') = 'manual' THEN 0 ELSE 1 END, q.id DESC
+                    ) AS _rn
+                    FROM connectlinkenquiries q
+                    WHERE {where}
+                ) t
+                WHERE _rn = 1
                 ORDER BY CASE WHEN COALESCE(source,'auto') = 'manual' THEN 0 ELSE 1 END, id DESC
                 LIMIT 50
             """, params)
