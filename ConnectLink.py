@@ -27983,7 +27983,7 @@ def get_unattended_enquiries():
                        customer_response, customer_response_at, COALESCE(banner_flagged, FALSE)
                 FROM (
                     SELECT q.*, ROW_NUMBER() OVER (
-                        PARTITION BY CASE WHEN COALESCE(q.clientwhatsapp,'') = '' THEN q.id ELSE q.clientwhatsapp END
+                        PARTITION BY CASE WHEN COALESCE(q.clientwhatsapp,'') = '' THEN q.id::text ELSE q.clientwhatsapp END
                         ORDER BY CASE WHEN COALESCE(q.source,'auto') = 'manual' THEN 0 ELSE 1 END, q.id DESC
                     ) AS _rn
                     FROM connectlinkenquiries q
