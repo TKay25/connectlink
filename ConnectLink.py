@@ -28317,11 +28317,11 @@ def retry_admin_notify():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
-@app.route('/api/enquiries/interim-with-main', methods=['GET'])
-def get_interim_with_main():
-    """Interim (appenqtemp) enquiries whose contact number ALSO exists in the main
-    enquiries table (connectlinkenquiries) — so the banner dropdown only offers
-    clients already known in the enquiries portal. Requires login."""
+@app.route('/api/enquiries/interim-not-in-main', methods=['GET'])
+def get_interim_not_in_main():
+    """Interim (appenqtemp) enquiries whose contact number is NOT in the main
+    enquiries table (connectlinkenquiries) — so the banner dropdown lets you pick
+    an interim enquiry that isn't already in the enquiries portal. Requires login."""
     if not (session.get('user_id') or session.get('userid')):
         return jsonify({'status': 'error', 'message': 'Not logged in'}), 401
     try:
@@ -28341,8 +28341,8 @@ def get_interim_with_main():
                         WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text
                         ORDER BY e.id DESC LIMIT 1) AS main_status
                 FROM appenqtemp t
-                WHERE EXISTS (SELECT 1 FROM connectlinkenquiries e
-                              WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text)
+                WHERE NOT EXISTS (SELECT 1 FROM connectlinkenquiries e
+                                  WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text)
                 ORDER BY t.created_at DESC NULLS LAST, t.id DESC
                 LIMIT 200
             """)
@@ -28352,13 +28352,11 @@ def get_interim_with_main():
                 'id': r[0],
                 'wanumber': str(r[1]) if r[1] is not None else '',
                 'enqtype': r[2] or '',
-                'created_at': r[3].isoformat() if r[3] else None,
-                'main_id': r[4], 'main_username': r[5] or '',
-                'main_category': r[6] or '', 'main_status': r[7] or ''
+                'created_at': r[3].isoformat() if r[3] else None
             } for r in rows
         ]})
     except Exception as e:
-        print(f"Interim-with-main error: {e}")
+        print(f"Interim-not-in-main error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
