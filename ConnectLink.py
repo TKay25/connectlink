@@ -27938,22 +27938,33 @@ def create_manual_enquiry():
         return jsonify({'status': 'error', 'message': f'Failed to create enquiry: {str(e)}'}), 500
 
 
+# Enquiries received at/after this point appear on the Unattended banner.
+# Auto-appearing on the banner started 15:57 on 1 Sep 2026 — older existing
+# enquiries are deliberately NOT shown on the banner (they remain in the table).
+ENQUIRY_BANNER_START_TS = datetime(2026, 9, 1, 15, 57, 0)
+
+
 @app.route('/api/enquiries/unattended', methods=['GET'])
 def get_unattended_enquiries():
     """Enquiries still awaiting someone to attend to them (banner on every user screen).
-    ?priority=1 restricts to enquiries that need attention: the client tapped
-    "I Still Need Help" on the follow-up template (customer_response='still_need_help')
-    OR the enquiry was manually entered (source='manual'). Returns empty for visitors
+    Shows pending enquiries received since ENQUIRY_BANNER_START_TS (auto WhatsApp,
+    manual, flagged and follow-up 'still need help' alike), newest first with manual
+    entries on top. Existing older enquiries are not shown. Returns empty for visitors
     who aren't logged in."""
     if not (session.get('user_id') or session.get('userid')):
         return jsonify({'status': 'success', 'data': [], 'total': 0})
-    priority = (request.args.get('priority') or request.args.get('need_help') or '').strip().lower() in ('1', 'true', 'yes')
     try:
         with get_db() as (cursor, connection):
-            where = "COALESCE(status, 'pending') = 'pending'"
-            params = []
-            if priority:
-                where += " AND (COALESCE(customer_response,'') = 'still_need_help' OR COALESCE(source,'auto') = 'manual' OR COALESCE(banner_flagged, FALSE) = TRUE)"
+            # New enquiries auto-appear from the banner-start cut-off onward. Enquiries
+            # already on the banner (pinned banner_flagged, manual source, or "I Still
+            # Need Help") keep showing regardless of age — nothing previously on the
+            # banner is removed and the "Add to Unattended" method still works.
+            where = ("COALESCE(status, 'pending') = 'pending' AND ("
+                     "timestamp >= %s"
+                     " OR COALESCE(banner_flagged, FALSE) = TRUE"
+                     " OR COALESCE(source,'auto') = 'manual'"
+                     " OR COALESCE(customer_response,'') = 'still_need_help')")
+            params = [ENQUIRY_BANNER_START_TS]
             cursor.execute(f"""
                 SELECT id, timestamp, clientwhatsapp, enqcategory, enq,
                        plan IS NOT NULL as has_plan, plan_mime, status, username, source,
