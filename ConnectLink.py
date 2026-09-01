@@ -1292,6 +1292,10 @@ def initialize_database_tables():
             """, commit=True)
 
             execute_query("""
+                ALTER TABLE enquiry_followups ADD COLUMN IF NOT EXISTS source VARCHAR (20) DEFAULT 'main'
+            """, commit=True)
+
+            execute_query("""
                 CREATE TABLE IF NOT EXISTS enquiry_admin_notify_log (
                     id SERIAL PRIMARY KEY,
                     enquiry_id INTEGER,
@@ -28085,13 +28089,29 @@ def get_enquiry_followups():
             enq_rows = cursor.fetchall()
             cursor.execute("""
                 SELECT id, enquiry_id, sent_at, sent_by, template_name, response, response_at,
-                       send_status, send_error
+                       send_status, send_error, COALESCE(source,'main')
                 FROM enquiry_followups
                 ORDER BY id DESC
                 LIMIT 1000
             """)
             fup_rows = cursor.fetchall()
-        return jsonify({'status': 'success', 'enquiries': [
+            # Interim enquiries NOT already in the main enquiries table (dedup rule)
+            cursor.execute("""
+                SELECT id, wanumber, enqtype, created_at
+                FROM appenqtemp t
+                WHERE NOT EXISTS (SELECT 1 FROM connectlinkenquiries e WHERE e.clientwhatsapp = t.wanumber)
+                ORDER BY created_at DESC NULLS LAST, id DESC
+                LIMIT 200
+            """)
+            interim_rows = cursor.fetchall()
+        return jsonify({'status': 'success', 'interim': [
+            {
+                'id': r[0],
+                'wanumber': str(r[1]) if r[1] is not None else '',
+                'enqtype': r[2] or '',
+                'created_at': r[3].isoformat() if r[3] else None
+            } for r in interim_rows
+        ], 'enquiries': [
             {
                 'id': r[0], 'username': r[1] or 'Unknown',
                 'clientwhatsapp': str(r[2] or ''), 'enqcategory': r[3] or '',
@@ -28112,7 +28132,8 @@ def get_enquiry_followups():
                     'response': r[5] or '',
                     'response_at': r[6].strftime('%d/%m/%Y %H:%M') if r[6] else '',
                     'send_status': r[7] or 'sent',
-                    'send_error': r[8] or ''
+                    'send_error': r[8] or '',
+                    'source': r[9] or 'main'
                 } for r in fup_rows
             ]})
     except Exception as e:
@@ -28129,6 +28150,7 @@ def send_enquiry_followups():
         return jsonify({'status': 'error', 'message': 'Please log in first.'}), 401
     data = request.get_json(silent=True) or {}
     ids = data.get('enquiry_ids') or []
+    interim_ids = data.get('interim_ids') or []
     status_filter = (data.get('status') or '').strip()
     user = session.get('user_name') or session.get('full_name') or 'System'
     try:
@@ -28138,11 +28160,13 @@ def send_enquiry_followups():
                 params = [] if status_filter == 'all' else [status_filter]
                 cursor.execute(f"SELECT id FROM connectlinkenquiries {where} ORDER BY id DESC LIMIT 500", params)
                 ids = [r[0] for r in cursor.fetchall()]
-        if not ids:
+        if not ids and not interim_ids:
             return jsonify({'status': 'error', 'message': 'No enquiries to follow up.'}), 400
         # De-dupe, keep ints
         ids = list(dict.fromkeys(int(x) for x in ids))
+        interim_ids = list(dict.fromkeys(int(x) for x in interim_ids))
         results = [send_enquiry_followup(eid, sent_by=user) for eid in ids]
+        results += [send_interim_followup(iid, sent_by=user) for iid in interim_ids]
         sent = [r for r in results if r.get('ok')]
         failed = [r for r in results if not r.get('ok')]
         log_activity('enquiry_followup_sent',
@@ -38838,8 +38862,8 @@ def send_enquiry_followup(enquiry_id, sent_by='System'):
                 """, (str(phone), 'ConnectLink Bot', display_text,
                       'sent' if sent_ok else 'failed'))
                 cursor.execute("""
-                    INSERT INTO enquiry_followups (enquiry_id, sent_by, template_name, send_status, send_error, whatsapp_message_id)
-                    VALUES (%s, %s, %s, %s, %s, %s)
+                    INSERT INTO enquiry_followups (enquiry_id, sent_by, template_name, send_status, send_error, whatsapp_message_id, source)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'main')
                 """, (e_id, str(sent_by or 'System'), ENQUIRY_FOLLOWUP_TEMPLATE_NAME,
                       'sent' if sent_ok else 'failed', send_error or None, message_id or None))
                 connection.commit()
@@ -38850,6 +38874,105 @@ def send_enquiry_followup(enquiry_id, sent_by='System'):
     except Exception as e:
         print(f"Enquiry follow-up send error: {e}")
         return {'ok': False, 'error': str(e), 'id': enquiry_id}
+
+
+def _map_enquiry_category(t):
+    """Map an interim enqtype to a friendly category for the follow-up template."""
+    s = str(t or '').lower().strip()
+    if 'kitchen' in s or 'cabinet' in s:
+        return 'Kitchen & Cabinets'
+    if 'building' in s:
+        return 'Building'
+    if 'renov' in s:
+        return 'Renovation'
+    return 'General'
+
+
+def send_interim_followup(interim_id, sent_by='System'):
+    """Send the 'enquiriesfollowup' template to an interim enquiry (appenqtemp).
+    Interim rows only carry a phone + type, so name/message fall back to
+    placeholders. Logs into enquiry_followups with source='interim'.
+    Returns {ok, id, ...}."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, wanumber, enqtype, created_at FROM appenqtemp WHERE id = %s
+            """, (interim_id,))
+            row = cursor.fetchone()
+            if not row:
+                return {'ok': False, 'error': 'interim_not_found', 'id': interim_id}
+            i_id, phone, etype, enq_ts = row
+        if not phone:
+            return {'ok': False, 'error': 'no_phone', 'id': interim_id}
+        phone_e164 = _wa_normalize_phone(str(phone))
+        if not phone_e164:
+            return {'ok': False, 'error': 'bad_phone', 'id': interim_id}
+
+        name = 'Valued Client'
+        category = _map_enquiry_category(etype)
+        date_str = _enquiry_date_str(enq_ts)
+        enq_body = f"Interim enquiry #{interim_id} — {etype or 'General'}"
+
+        headers_wa = {'Authorization': f'Bearer {ACCESS_TOKEN}', 'Content-Type': 'application/json'}
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": phone_e164,
+            "type": "template",
+            "template": {
+                "name": ENQUIRY_FOLLOWUP_TEMPLATE_NAME,
+                "language": {"code": "en"},
+                "components": [
+                    {"type": "body", "parameters": [
+                        {"type": "text", "text": name},
+                        {"type": "text", "text": category},
+                        {"type": "text", "text": date_str},
+                        {"type": "text", "text": enq_body}
+                    ]},
+                    {"type": "button", "sub_type": "quick_reply", "index": 0,
+                     "parameters": [{"type": "payload", "payload": f"enqhelp_{interim_id}"}]},
+                    {"type": "button", "sub_type": "quick_reply", "index": 1,
+                     "parameters": [{"type": "payload", "payload": f"enqdone_{interim_id}"}]}
+                ]
+            }
+        }
+        resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers_wa, timeout=20)
+        send_error = ''
+        try:
+            resp_json = resp.json()
+            if isinstance(resp_json, dict) and resp_json.get('error'):
+                err = resp_json.get('error', {})
+                send_error = str((err.get('error_data') or {}).get('details') or err.get('message') or resp_json.get('error'))[:255]
+        except Exception:
+            resp_json = {}
+        sent_ok = resp.status_code == 200 and not send_error
+        message_id = ''
+        if sent_ok:
+            try:
+                message_id = str(((resp_json.get('messages') or [{}])[0]).get('id') or '')
+            except Exception:
+                message_id = ''
+        try:
+            display_text = (f"[Template: {ENQUIRY_FOLLOWUP_TEMPLATE_NAME}] Interim #{interim_id} — {category} ({date_str})")[:500]
+            with get_db() as (cursor, connection):
+                cursor.execute("""
+                    INSERT INTO whatsapp_messages
+                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                    VALUES (%s, %s, %s, 'template', 'outgoing', %s)
+                """, (str(phone), 'ConnectLink Bot', display_text, 'sent' if sent_ok else 'failed'))
+                cursor.execute("""
+                    INSERT INTO enquiry_followups (enquiry_id, sent_by, template_name, send_status, send_error, whatsapp_message_id, source)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'interim')
+                """, (interim_id, str(sent_by or 'System'), ENQUIRY_FOLLOWUP_TEMPLATE_NAME,
+                      'sent' if sent_ok else 'failed', send_error or None, message_id or None))
+                connection.commit()
+        except Exception as le:
+            print(f"⚠️ Could not log interim follow-up: {le}")
+        return {'ok': sent_ok, 'id': interim_id, 'phone': phone_e164,
+                'detail': send_error or (resp.text[:200] if not sent_ok else 'sent')}
+    except Exception as e:
+        print(f"Interim follow-up send error: {e}")
+        return {'ok': False, 'error': str(e), 'id': interim_id}
 
 
 def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
@@ -38879,40 +39002,54 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
             """, (enq_id,))
             row = cursor.fetchone()
             if not row:
-                _enquiry_send_text(sender_id, "Sorry, we couldn't find that enquiry. Please contact ConnectLink directly.")
-                return True
-            client_name = row[0]
-            # Record the response on the enquiry (idempotent — keep the first response)
-            if action == 'done':
+                # Interim enquiry (appenqtemp) follow-up response
+                cursor.execute("SELECT wanumber, enqtype FROM appenqtemp WHERE id = %s", (enq_id,))
+                irow = cursor.fetchone()
+                if not irow:
+                    _enquiry_send_text(sender_id, "Sorry, we couldn't find that enquiry. Please contact ConnectLink directly.")
+                    return True
+                client_name = 'Interim #%d' % enq_id
                 cursor.execute("""
-                    UPDATE connectlinkenquiries
-                    SET status='completed',
-                        attended_by=COALESCE(attended_by, 'Client (follow-up)'),
-                        attended_at=CURRENT_TIMESTAMP,
-                        attended_updated_by='Client (follow-up)',
-                        attended_updated_at=CURRENT_TIMESTAMP,
-                        customer_response='resolved',
-                        customer_response_at=CURRENT_TIMESTAMP,
-                        customer_responded_by=%s
-                    WHERE id=%s AND COALESCE(customer_response,'')=''
-                """, (str(sender_id), enq_id))
+                    UPDATE enquiry_followups
+                    SET response=%s, response_at=CURRENT_TIMESTAMP, response_by=%s
+                    WHERE id = (SELECT id FROM enquiry_followups
+                                WHERE enquiry_id=%s AND COALESCE(source,'main')='interim' AND COALESCE(response,'')=''
+                                ORDER BY id DESC LIMIT 1)
+                """, ('resolved' if action == 'done' else 'still_need_help', str(sender_id), enq_id))
+                connection.commit()
             else:
+                client_name = row[0]
+                # Record the response on the enquiry (idempotent — keep the first response)
+                if action == 'done':
+                    cursor.execute("""
+                        UPDATE connectlinkenquiries
+                        SET status='completed',
+                            attended_by=COALESCE(attended_by, 'Client (follow-up)'),
+                            attended_at=CURRENT_TIMESTAMP,
+                            attended_updated_by='Client (follow-up)',
+                            attended_updated_at=CURRENT_TIMESTAMP,
+                            customer_response='resolved',
+                            customer_response_at=CURRENT_TIMESTAMP,
+                            customer_responded_by=%s
+                        WHERE id=%s AND COALESCE(customer_response,'')=''
+                    """, (str(sender_id), enq_id))
+                else:
+                    cursor.execute("""
+                        UPDATE connectlinkenquiries
+                        SET customer_response='still_need_help',
+                            customer_response_at=CURRENT_TIMESTAMP,
+                            customer_responded_by=%s
+                        WHERE id=%s AND COALESCE(customer_response,'')=''
+                    """, (str(sender_id), enq_id))
+                # Record the response on the latest open follow-up row for this enquiry
                 cursor.execute("""
-                    UPDATE connectlinkenquiries
-                    SET customer_response='still_need_help',
-                        customer_response_at=CURRENT_TIMESTAMP,
-                        customer_responded_by=%s
-                    WHERE id=%s AND COALESCE(customer_response,'')=''
-                """, (str(sender_id), enq_id))
-            # Record the response on the latest open follow-up row for this enquiry
-            cursor.execute("""
-                UPDATE enquiry_followups
-                SET response=%s, response_at=CURRENT_TIMESTAMP, response_by=%s
-                WHERE id = (SELECT id FROM enquiry_followups
-                            WHERE enquiry_id=%s AND COALESCE(response,'')=''
-                            ORDER BY id DESC LIMIT 1)
-            """, ('resolved' if action == 'done' else 'still_need_help', str(sender_id), enq_id))
-            connection.commit()
+                    UPDATE enquiry_followups
+                    SET response=%s, response_at=CURRENT_TIMESTAMP, response_by=%s
+                    WHERE id = (SELECT id FROM enquiry_followups
+                                WHERE enquiry_id=%s AND COALESCE(response,'')=''
+                                ORDER BY id DESC LIMIT 1)
+                """, ('resolved' if action == 'done' else 'still_need_help', str(sender_id), enq_id))
+                connection.commit()
 
         # Persist the client's button reply + confirmation into whatsapp_messages so the
         # whole follow-up conversation shows in the WhatsApp chat portal.
