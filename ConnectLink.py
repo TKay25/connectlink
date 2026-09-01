@@ -28374,19 +28374,54 @@ def flag_enquiry_banner():
         return jsonify({'status': 'error', 'message': 'Select at least one enquiry.'}), 400
     try:
         ids = list(dict.fromkeys(int(x) for x in ids))
-        ph = ','.join(['%s'] * len(ids))
+        updated = 0
+        promoted = 0
         with get_db() as (cursor, connection):
-            cursor.execute(f"""
-                UPDATE connectlinkenquiries SET banner_flagged = %s
-                WHERE id IN ({ph})
-            """, (flagged, *ids))
+            for eid in ids:
+                # Main enquiry? just toggle its banner flag
+                cursor.execute("SELECT id FROM connectlinkenquiries WHERE id = %s", (eid,))
+                if cursor.fetchone():
+                    cursor.execute("UPDATE connectlinkenquiries SET banner_flagged = %s WHERE id = %s", (flagged, eid))
+                    updated += 1
+                    continue
+                # Otherwise treat as an interim enquiry (appenqtemp)
+                cursor.execute("SELECT id, wanumber, enqtype FROM appenqtemp WHERE id = %s", (eid,))
+                irow = cursor.fetchone()
+                if not irow:
+                    continue
+                i_id, wanumber, etype = irow
+                if flagged:
+                    # Promote the interim enquiry into the MAIN enquiries table as a pending
+                    # manual entry (name/description are absent, so left blank). It then
+                    # appears on the Unattended banner and the normal status flow applies.
+                    cursor.execute("""
+                        INSERT INTO connectlinkenquiries
+                            (timestamp, clientwhatsapp, enqcategory, enq, username, status, source, banner_flagged)
+                        VALUES (%s, %s, %s, '', '', 'pending', 'manual', TRUE)
+                        RETURNING id
+                    """, (datetime.now(), wanumber, _map_enquiry_category(etype)))
+                    new_id = cursor.fetchone()[0]
+                    promoted += 1
+                    log_activity('enquiry_manual',
+                                 f'Interim enquiry #{i_id} promoted to main enquiry #{new_id} (Unattended banner)',
+                                 'enquiry', new_id)
+                    # The interim row is now a main enquiry — remove it from the interim list
+                    cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (i_id,))
+                else:
+                    # Unflag: clear the banner flag on any promoted main row for this phone
+                    cursor.execute("""
+                        UPDATE connectlinkenquiries SET banner_flagged = FALSE
+                        WHERE clientwhatsapp = %s AND source = 'manual' AND banner_flagged = TRUE
+                    """, (wanumber,))
+                    updated += 1
             connection.commit()
+        msg = f'{updated} enquiry(s) {"added to" if flagged else "removed from"} the banner.'
+        if promoted:
+            msg += f' Promoted {promoted} interim enquiry(s) to the main enquiries table.'
         log_activity('enquiry_banner_flag',
-                     f'{len(ids)} enquiry(s) {"added to" if flagged else "removed from"} Unattended banner by {user}',
+                     f'{len(ids)} enquiry(s) {"added to" if flagged else "removed from"} Unattended banner by {user} (interim promoted: {promoted})',
                      'enquiry', None)
-        return jsonify({'status': 'success',
-                        'message': f'{len(ids)} enquiry(s) {"added to" if flagged else "removed from"} the banner.',
-                        'count': len(ids)})
+        return jsonify({'status': 'success', 'message': msg, 'count': len(ids), 'promoted': promoted})
     except Exception as e:
         print(f"Flag enquiry banner error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
