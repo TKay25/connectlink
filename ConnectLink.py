@@ -36149,15 +36149,17 @@ def today_stats():
             """, (today_start, today_end))
             projects_captured_today = cursor.fetchone()[0]
 
-            # Projects completed today
+            # Projects completed today = those whose end date (project start date + duration)
+            # lands on today. No new column needed — computed from existing fields each day.
             cursor.execute("""
                 SELECT COUNT(*) FROM connectlinkdatabase 
-                WHERE projectcompletionstatus = 'Completed'
-            """)
-            total_completed = cursor.fetchone()[0]
-            
-            # Estimate completed today (simplified)
-            projects_completed_today = 0
+                WHERE projectstartdate IS NOT NULL
+                AND projectduration IS NOT NULL
+                AND projectduration > 0
+                AND (projectstartdate + projectduration * INTERVAL '1 day')::date = %s
+                AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR LOWER(projectcompletionstatus) != 'cancelled')
+            """, (today_start.date(),))
+            projects_completed_today = cursor.fetchone()[0]
             
             # Quotations created today
             cursor.execute("""
