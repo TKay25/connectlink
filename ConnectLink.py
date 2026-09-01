@@ -28156,7 +28156,15 @@ def get_enquiry_followups():
             fup_rows = cursor.fetchall()
             # Interim enquiries NOT already in the main enquiries table (dedup rule)
             cursor.execute("""
-                SELECT id, wanumber, enqtype, created_at
+                SELECT t.id, t.wanumber, t.enqtype, t.created_at,
+                       (SELECT f.response FROM enquiry_followups f
+                        WHERE f.enquiry_id = t.id AND COALESCE(f.source,'main') = 'interim'
+                          AND COALESCE(f.response,'') != ''
+                        ORDER BY f.id DESC LIMIT 1) AS customer_response,
+                       (SELECT f.response_at FROM enquiry_followups f
+                        WHERE f.enquiry_id = t.id AND COALESCE(f.source,'main') = 'interim'
+                          AND COALESCE(f.response,'') != ''
+                        ORDER BY f.id DESC LIMIT 1) AS customer_response_at
                 FROM appenqtemp t
                 WHERE NOT EXISTS (SELECT 1 FROM connectlinkenquiries e
                                   WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text)
@@ -28169,7 +28177,9 @@ def get_enquiry_followups():
                 'id': r[0],
                 'wanumber': str(r[1]) if r[1] is not None else '',
                 'enqtype': r[2] or '',
-                'created_at': r[3].isoformat() if r[3] else None
+                'created_at': r[3].isoformat() if r[3] else None,
+                'customer_response': r[4] or '',
+                'customer_response_at': r[5].strftime('%d/%m/%Y %H:%M') if r[5] else ''
             } for r in interim_rows
         ], 'enquiries': [
             {
