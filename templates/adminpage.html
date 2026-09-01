@@ -4945,6 +4945,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         <div style="padding:10px 14px;border-top:1px solid var(--gray-200);display:flex;gap:6px;justify-content:flex-end;background:#f8fafc;">
             <button onclick="closeEnquiryFollowUpModal()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:6px 12px;font-size:0.7rem;cursor:pointer;">Close</button>
             <button onclick="flagEnquiryBanner(true)" id="enqBannerBtn" style="border:none;background:#7C3AED;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-pin-angle"></i> Add to Unattended</button>
+            <button onclick="resendFailedFollowUps()" id="enqResendFailedBtn" style="border:none;background:#dc2626;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-arrow-repeat"></i> Resend Failed</button>
             <button onclick="sendEnquiryFollowUp()" id="enqFollowSendBtn" style="border:none;background:#25D366;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-send"></i> Send Follow Up</button>
         </div>
     </div>
@@ -40951,6 +40952,7 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
           +' <span style="color:#94a3b8;">\u2022 '+escH(e.enqcategory||'General')+'</span>'
           +' <span style="color:'+stColor+';font-weight:700;">'+st+'</span>'
           +' <span style="color:#64748b;font-size:0.62rem;">('+(e.followup_count||0)+'\u00d7)</span>'
+          +(e.followup_failed_count>0?' <span style="color:#dc2626;font-size:0.62rem;font-weight:700;" title="Follow-up failed to send">\u26a0 '+e.followup_failed_count+' failed</span>':'')
           +' <span style="color:'+(e.customer_response?'#16a34a':'#94a3b8')+';font-size:0.62rem;">'+resp+'</span>'
           +(e.banner_flagged?' <span style="color:#7c3aed;font-size:0.62rem;" title="In Unattended banner">📌</span>':'')
           +'<div style="color:#64748b;font-size:0.62rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</div>'
@@ -40965,7 +40967,7 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
         +fups.map(function(f){
           var en=byId[f.enquiry_id]||{};
           var wa=en.clientwhatsapp?String(en.clientwhatsapp).replace(/[^0-9]/g,''):'';
-          var r=f.response==='resolved'?'<span style="color:#16a34a;font-weight:700;">\u2713 Resolved</span>':(f.response==='still_need_help'?'<span style="color:#d97706;font-weight:700;">\u270b Still needs help</span>':'<span style="color:#94a3b8;">Awaiting</span>');
+          var r=(f.send_status==='failed')?'<span style="color:#dc2626;font-weight:700;" title="'+escH(f.send_error||'Template failed to send')+'">\u2717 Failed</span>':(f.response==='resolved'?'<span style="color:#16a34a;font-weight:700;">\u2713 Resolved</span>':(f.response==='still_need_help'?'<span style="color:#d97706;font-weight:700;">\u270b Still needs help</span>':'<span style="color:#94a3b8;">Awaiting</span>'));
           return '<tr style="font-size:0.62rem;vertical-align:top;">'
             +'<td style="padding:5px 8px;border:1px solid #e2e8f0;white-space:nowrap;">'+escH(f.sent_at)+'</td>'
             +'<td style="padding:5px 8px;border:1px solid #e2e8f0;white-space:nowrap;">#'+f.enquiry_id
@@ -41052,6 +41054,27 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
       })
       .catch(function(){
         if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-send"></i> Send Follow Up';}
+        alert('Connection error \u2014 please try again.');
+      });
+  };
+  window.resendFailedFollowUps=function(){
+    var ids=[];
+    (_enqFollowData.enquiries||[]).forEach(function(e){if((e.followup_failed_count||0)>0){ids.push(parseInt(e.id,10));}});
+    if(!ids.length){alert('No enquiries have failed follow-ups to resend.');return;}
+    if(!confirm('Resend follow-up to '+ids.length+' enquiry(s) with failed sends?')){return;}
+    var btn=document.getElementById('enqResendFailedBtn');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm" style="width:0.7rem;height:0.7rem;"></span> Sending\u2026';}
+    fetch('/api/enquiries/send-followup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enquiry_ids:ids})})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-arrow-repeat"></i> Resend Failed';}
+        if(res.status==='success'||res.success){alert('\u2705 '+(res.message||'Resent.'));}
+        else{alert('\u274c '+(res.message||'Resend failed.'));}
+        loadEnquiryFollowUps();
+        window.loadUnattendedEnqs();
+      })
+      .catch(function(){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-arrow-repeat"></i> Resend Failed';}
         alert('Connection error \u2014 please try again.');
       });
   };

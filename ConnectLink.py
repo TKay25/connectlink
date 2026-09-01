@@ -1279,6 +1279,18 @@ def initialize_database_tables():
                 ON enquiry_followups (enquiry_id)
             """, commit=True)
 
+            execute_query("""
+                ALTER TABLE enquiry_followups ADD COLUMN IF NOT EXISTS send_status VARCHAR (20) DEFAULT 'sent'
+            """, commit=True)
+
+            execute_query("""
+                ALTER TABLE enquiry_followups ADD COLUMN IF NOT EXISTS send_error VARCHAR (255)
+            """, commit=True)
+
+            execute_query("""
+                ALTER TABLE enquiry_followups ADD COLUMN IF NOT EXISTS whatsapp_message_id VARCHAR (100)
+            """, commit=True)
+
             # Remove legacy icon column
             execute_query("""
                 ALTER TABLE products 
@@ -2896,6 +2908,28 @@ def webhook():
 
                                         if not outbound_message_id:
                                             continue
+
+                                        # Enquiry follow-up (enquiriesfollowup template): mark failed on ANY
+                                        # failed status callback (incl. billing 131042, which is not a
+                                        # template-window error and would be skipped by the gate below).
+                                        try:
+                                            cursor.execute("""
+                                                SELECT id, enquiry_id FROM enquiry_followups
+                                                WHERE whatsapp_message_id = %s
+                                            """, (outbound_message_id,))
+                                            fup_row = cursor.fetchone()
+                                            if fup_row:
+                                                cursor.execute("""
+                                                    UPDATE enquiry_followups
+                                                    SET send_status = 'failed',
+                                                        send_error = LEFT(%s, 255)
+                                                    WHERE id = %s
+                                                """, (error_text, fup_row[0]))
+                                                connection.commit()
+                                                print(f"⚠️ Enquiry follow-up #{fup_row[1]} marked failed (async status) message_id={outbound_message_id}")
+                                        except Exception as fup_err:
+                                            connection.rollback()
+                                            print(f"⚠️ Error marking enquiry follow-up failed: {fup_err}")
 
                                         if not is_template_window_error(error_text):
                                             continue
@@ -28005,6 +28039,8 @@ def get_enquiry_followups():
                        COALESCE(e.status,'pending'), e.timestamp, e.attended_by,
                        COALESCE(e.source,'auto'), e.customer_response, e.customer_response_at,
                        (SELECT COUNT(*) FROM enquiry_followups f WHERE f.enquiry_id = e.id) AS followup_count,
+                       (SELECT COUNT(*) FROM enquiry_followups f WHERE f.enquiry_id = e.id
+                           AND COALESCE(f.send_status,'sent') = 'failed') AS followup_failed_count,
                        COALESCE(e.banner_flagged, FALSE)
                 FROM connectlinkenquiries e
                 {where}
@@ -28013,7 +28049,8 @@ def get_enquiry_followups():
             """, params)
             enq_rows = cursor.fetchall()
             cursor.execute("""
-                SELECT id, enquiry_id, sent_at, sent_by, template_name, response, response_at
+                SELECT id, enquiry_id, sent_at, sent_by, template_name, response, response_at,
+                       send_status, send_error
                 FROM enquiry_followups
                 ORDER BY id DESC
                 LIMIT 1000
@@ -28029,7 +28066,8 @@ def get_enquiry_followups():
                 'customer_response': r[9] or '',
                 'customer_response_at': r[10].strftime('%d/%m/%Y %H:%M') if r[10] else '',
                 'followup_count': r[11] or 0,
-                'banner_flagged': bool(r[12])
+                'followup_failed_count': r[12] or 0,
+                'banner_flagged': bool(r[13])
             } for r in enq_rows],
             'followups': [
                 {
@@ -28037,7 +28075,9 @@ def get_enquiry_followups():
                     'sent_at': r[2].strftime('%d/%m/%Y %H:%M') if r[2] else '',
                     'sent_by': r[3] or '', 'template_name': r[4] or '',
                     'response': r[5] or '',
-                    'response_at': r[6].strftime('%d/%m/%Y %H:%M') if r[6] else ''
+                    'response_at': r[6].strftime('%d/%m/%Y %H:%M') if r[6] else '',
+                    'send_status': r[7] or 'sent',
+                    'send_error': r[8] or ''
                 } for r in fup_rows
             ]})
     except Exception as e:
@@ -28073,11 +28113,19 @@ def send_enquiry_followups():
         log_activity('enquiry_followup_sent',
                      f'Enquiry follow-up sent to {len(sent)} enquiry(s) by {user} (failed: {len(failed)})',
                      'enquiry', None)
-        return jsonify({'status': 'success',
-                        'message': f'Follow-up sent to {len(sent)} enquiry(s).',
+        failed_ids = [r.get('id') for r in failed]
+        errors = [r.get('error') or r.get('detail') for r in failed]
+        if sent and failed:
+            msg = f'Follow-up sent to {len(sent)} enquiry(s); {len(failed)} failed to send.'
+        elif failed:
+            msg = f'Follow-up failed for all {len(failed)} enquiry(s). Check WhatsApp billing/account and try again.'
+        else:
+            msg = f'Follow-up sent to {len(sent)} enquiry(s).'
+        return jsonify({'status': 'success' if sent else 'error',
+                        'message': msg,
                         'sent': len(sent), 'failed': len(failed),
-                        'failed_ids': [r.get('id') for r in failed],
-                        'errors': [r.get('error') or r.get('detail') for r in failed]})
+                        'failed_ids': failed_ids,
+                        'errors': errors})
     except Exception as e:
         print(f"Send enquiry followups error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -38557,7 +38605,24 @@ def send_enquiry_followup(enquiry_id, sent_by='System'):
             }
         }
         resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers_wa, timeout=20)
-        sent_ok = resp.status_code == 200
+        # Meta returns HTTP 200 with an "error" object in the JSON body for many
+        # template failures (e.g. billing issue 131042) — check BOTH the HTTP status
+        # and the JSON body so a failed send is never recorded as sent.
+        send_error = ''
+        try:
+            resp_json = resp.json()
+            if isinstance(resp_json, dict) and resp_json.get('error'):
+                err = resp_json.get('error', {})
+                send_error = str((err.get('error_data') or {}).get('details') or err.get('message') or resp_json.get('error'))[:255]
+        except Exception:
+            resp_json = {}
+        sent_ok = resp.status_code == 200 and not send_error
+        message_id = ''
+        if sent_ok:
+            try:
+                message_id = str(((resp_json.get('messages') or [{}])[0]).get('id') or '')
+            except Exception:
+                message_id = ''
         # Persist the follow-up to whatsapp_messages so it shows in the chat portal
         # under the client's conversation (same pattern as quotation/contract templates).
         try:
@@ -38571,14 +38636,15 @@ def send_enquiry_followup(enquiry_id, sent_by='System'):
                 """, (str(phone), 'ConnectLink Bot', display_text,
                       'sent' if sent_ok else 'failed'))
                 cursor.execute("""
-                    INSERT INTO enquiry_followups (enquiry_id, sent_by, template_name)
-                    VALUES (%s, %s, %s)
-                """, (e_id, str(sent_by or 'System'), ENQUIRY_FOLLOWUP_TEMPLATE_NAME))
+                    INSERT INTO enquiry_followups (enquiry_id, sent_by, template_name, send_status, send_error, whatsapp_message_id)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (e_id, str(sent_by or 'System'), ENQUIRY_FOLLOWUP_TEMPLATE_NAME,
+                      'sent' if sent_ok else 'failed', send_error or None, message_id or None))
                 connection.commit()
         except Exception as le:
             print(f"⚠️ Could not log enquiry follow-up: {le}")
         return {'ok': sent_ok, 'id': e_id, 'phone': phone_e164,
-                'detail': resp.text[:200] if not sent_ok else 'sent'}
+                'detail': send_error or (resp.text[:200] if not sent_ok else 'sent')}
     except Exception as e:
         print(f"Enquiry follow-up send error: {e}")
         return {'ok': False, 'error': str(e), 'id': enquiry_id}
