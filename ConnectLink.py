@@ -1291,6 +1291,23 @@ def initialize_database_tables():
                 ALTER TABLE enquiry_followups ADD COLUMN IF NOT EXISTS whatsapp_message_id VARCHAR (100)
             """, commit=True)
 
+            execute_query("""
+                CREATE TABLE IF NOT EXISTS enquiry_admin_notify_log (
+                    id SERIAL PRIMARY KEY,
+                    enquiry_id INTEGER,
+                    admin_number VARCHAR (20),
+                    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    send_status VARCHAR (20) DEFAULT 'sent',
+                    send_error VARCHAR (255),
+                    message_id VARCHAR (100)
+                )
+            """, commit=True)
+
+            execute_query("""
+                CREATE INDEX IF NOT EXISTS idx_enquiry_admin_notify_enquiry
+                ON enquiry_admin_notify_log (enquiry_id)
+            """, commit=True)
+
             # Remove legacy icon column
             execute_query("""
                 ALTER TABLE products 
@@ -8553,8 +8570,17 @@ def webhook():
                                                                         
                                                                         result = send_admin_notification(admin_number, client_whatsapp, enquiry_data)
                                                                         print(f"Response: {result}")
-                                                                        
-                                                                    
+
+                                                                        try:
+                                                                            _rj = result if isinstance(result, dict) else {}
+                                                                            _err = _rj.get('error') or {}
+                                                                            _ed = str((_err.get('error_data') or {}).get('details') or _err.get('message') or '')[:255]
+                                                                            _ok = bool(_rj.get('messages')) and not _err
+                                                                            _mid = str(((_rj.get('messages') or [{}])[0]).get('id') or '') if _rj.get('messages') else ''
+                                                                            log_admin_notify_attempt(enquiry_id, admin_number, 'sent' if _ok else 'failed', _ed, _mid)
+                                                                        except Exception as _le:
+                                                                            print(f"⚠️ log_admin_notify_attempt error: {_le}")
+
                                                                     return jsonify({
                                                                         'status': 'success',
                                                                         'message': 'Enquiry saved successfully',
@@ -11395,6 +11421,15 @@ def webhook():
                                                                         result = send_admin_notification(admin_number, client_whatsapp, enquiry_data)
                                                                         print(f"Response: {result}")
 
+                                                                        try:
+                                                                            _rj = result if isinstance(result, dict) else {}
+                                                                            _err = _rj.get('error') or {}
+                                                                            _ed = str((_err.get('error_data') or {}).get('details') or _err.get('message') or '')[:255]
+                                                                            _ok = bool(_rj.get('messages')) and not _err
+                                                                            _mid = str(((_rj.get('messages') or [{}])[0]).get('id') or '') if _rj.get('messages') else ''
+                                                                            log_admin_notify_attempt(enquiry_id, admin_number, 'sent' if _ok else 'failed', _ed, _mid)
+                                                                        except Exception as _le:
+                                                                            print(f"⚠️ log_admin_notify_attempt error: {_le}")
 
                                                                     return jsonify({
                                                                         'status': 'success',
@@ -28131,6 +28166,102 @@ def send_enquiry_followups():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+@app.route('/api/enquiries/admin-notify-failed', methods=['GET'])
+def get_admin_notify_failed():
+    """Enquiries whose enqauto2 admin alert has failed to send (e.g. WABA billing
+    issue 131042). Returns per-enquiry: latest failure, failed attempt count, and
+    the client/category for the UI. Requires login."""
+    if not (session.get('user_id') or session.get('userid')):
+        return jsonify({'status': 'error', 'message': 'Not logged in'}), 401
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT n.enquiry_id,
+                       COALESCE(e.username, 'Unknown'),
+                       COALESCE(e.clientwhatsapp, ''),
+                       COALESCE(e.enqcategory, 'General'),
+                       COUNT(*) AS failed_count,
+                       (SELECT send_error FROM enquiry_admin_notify_log n2
+                        WHERE n2.enquiry_id = n.enquiry_id AND n2.send_status = 'failed'
+                        ORDER BY n2.id DESC LIMIT 1) AS last_error,
+                       MAX(n.sent_at) AS last_attempt
+                FROM enquiry_admin_notify_log n
+                LEFT JOIN connectlinkenquiries e ON e.id = n.enquiry_id
+                WHERE n.send_status = 'failed'
+                GROUP BY n.enquiry_id, e.username, e.clientwhatsapp, e.enqcategory
+                ORDER BY last_attempt DESC
+                LIMIT 200
+            """)
+            rows = cursor.fetchall()
+        return jsonify({'status': 'success', 'failed_enquiries': [
+            {
+                'enquiry_id': r[0], 'username': r[1],
+                'clientwhatsapp': str(r[2] or ''), 'enqcategory': r[3],
+                'failed_count': r[4], 'last_error': r[5] or '',
+                'last_attempt': r[6].strftime('%d/%m/%Y %H:%M') if r[6] else ''
+            } for r in rows
+        ]})
+    except Exception as e:
+        print(f"Admin notify failed error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/enquiries/retry-admin-notify', methods=['POST'])
+def retry_admin_notify():
+    """Resend the enqauto2 admin alert for enquiries whose previous alert failed.
+    Body: {enquiry_ids: [int,...]} or {all_failed: true}. Requires login.
+    New attempts are logged (so the failed indicator updates)."""
+    if not (session.get('user_id') or session.get('userid')):
+        return jsonify({'status': 'error', 'message': 'Please log in first.'}), 401
+    data = request.get_json(silent=True) or {}
+    ids = data.get('enquiry_ids') or []
+    all_failed = bool(data.get('all_failed', False))
+    user = session.get('user_name') or session.get('full_name') or 'System'
+    try:
+        if all_failed:
+            with get_db() as (cursor, _):
+                cursor.execute("""
+                    SELECT DISTINCT enquiry_id FROM enquiry_admin_notify_log
+                    WHERE send_status = 'failed'
+                """)
+                ids = [r[0] for r in cursor.fetchall() if r[0]]
+        ids = list(dict.fromkeys(int(x) for x in ids if x))
+        if not ids:
+            return jsonify({'status': 'error', 'message': 'No failed admin alerts to retry.'}), 400
+        results = []
+        for eid in ids:
+            try:
+                with get_db() as (cursor, _):
+                    cursor.execute("""
+                        SELECT clientwhatsapp, enqcategory, enq, (plan IS NOT NULL)
+                        FROM connectlinkenquiries WHERE id = %s
+                    """, (eid,))
+                    row = cursor.fetchone()
+                if not row:
+                    results.append({'enquiry_id': eid, 'ok': False, 'error': 'enquiry_not_found'})
+                    continue
+                send_admin_enquiry_notification(eid, row[0] or '', row[1] or 'General', row[2] or '',
+                                                has_attachment=bool(row[3]), timestamp=datetime.now())
+                results.append({'enquiry_id': eid, 'ok': True})
+            except Exception as exc:
+                results.append({'enquiry_id': eid, 'ok': False, 'error': str(exc)})
+        ok_count = sum(1 for r in results if r.get('ok'))
+        failed = [r for r in results if not r.get('ok')]
+        log_activity('enquiry_admin_notify_retry',
+                     f'Admin alert retry for {ok_count} enquiry(s) by {user} (failed: {len(failed)})',
+                     'enquiry', None)
+        msg = f'Admin alerts re-sent for {ok_count} enquiry(s).'
+        if failed:
+            msg += f' {len(failed)} could not be retried.'
+        return jsonify({'status': 'success' if ok_count else 'error', 'message': msg,
+                        'sent': ok_count, 'failed': len(failed),
+                        'failed_ids': [r.get('enquiry_id') for r in failed],
+                        'errors': [r.get('error') for r in failed]})
+    except Exception as e:
+        print(f"Retry admin notify error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 @app.route('/api/enquiries/flag-banner', methods=['POST'])
 def flag_enquiry_banner():
     """Pin/unpin enquiries to the Unattended Enquiries banner.
@@ -32021,6 +32152,25 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
 ENQUIRY_ADMIN_NOTIFY_NUMBERS = ["263774822568", "263773368558", "263777665277"]
 
 
+def log_admin_notify_attempt(enquiry_id, admin_number, send_status, send_error='', message_id=''):
+    """Record an enqauto2 admin-alert send attempt so failed alerts can be
+    surfaced and retried. Best-effort; never raises."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO enquiry_admin_notify_log
+                    (enquiry_id, admin_number, send_status, send_error, message_id)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (int(enquiry_id) if enquiry_id else None,
+                  str(admin_number or '')[:20],
+                  str(send_status or 'sent')[:20],
+                  str(send_error or '')[:255],
+                  str(message_id or '')[:100]))
+            connection.commit()
+    except Exception as exc:
+        print(f"⚠️ Could not log admin notify attempt: {exc}")
+
+
 def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_display,
                                     user_message, has_attachment=False, timestamp=None):
     """Send the 'enqauto2' admin WhatsApp alert for a new enquiry — the same
@@ -32107,6 +32257,7 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
                             fallback_data = fallback_response.json()
                             if isinstance(fallback_data, dict) and not fallback_data.get('error'):
                                 print("✅ enqauto2 sent after fallback with button component")
+                                response_data = fallback_data
                                 break
 
                 if use_attachment_template:
@@ -32116,6 +32267,17 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
                             log_enquiry_attachment_button_message(message_id, enquiry_id, admin_number)
                         except Exception as exc:
                             print(f"❌ Mapping log failed: {exc}")
+
+                # Log this admin alert attempt (drives the failed-alerts indicator + retry)
+                try:
+                    _rj = response_data if isinstance(response_data, dict) else {}
+                    _err = _rj.get('error') or {}
+                    _ed = str((_err.get('error_data') or {}).get('details') or _err.get('message') or '')[:255]
+                    _ok = bool(_rj.get('messages')) and not _err
+                    _mid = str(((_rj.get('messages') or [{}])[0]).get('id') or '') if _rj.get('messages') else ''
+                    log_admin_notify_attempt(enquiry_id, admin_number, 'sent' if _ok else 'failed', _ed, _mid)
+                except Exception as exc:
+                    print(f"❌ Admin notify log failed: {exc}")
             except Exception as exc:
                 print(f"❌ Admin notification failed for {admin_number}: {exc}")
     except Exception as exc:

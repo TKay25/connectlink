@@ -4924,6 +4924,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Attended to</option>
                 </select>
+                <span id="enqAlertsFailed" style="display:none;font-size:0.64rem;font-weight:700;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:999px;padding:2px 10px;" title="Enquiries whose admin WhatsApp alert failed to send">&#9888; <span id="enqAlertsFailedCount">0</span> admin alerts failed</span>
                 <span style="flex:1;"></span>
                 <span id="enqFollowSummary" style="font-size:0.64rem;color:var(--text-muted);font-weight:600;">Loading…</span>
             </div>
@@ -4945,6 +4946,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         <div style="padding:10px 14px;border-top:1px solid var(--gray-200);display:flex;gap:6px;justify-content:flex-end;background:#f8fafc;">
             <button onclick="closeEnquiryFollowUpModal()" style="border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;padding:6px 12px;font-size:0.7rem;cursor:pointer;">Close</button>
             <button onclick="flagEnquiryBanner(true)" id="enqBannerBtn" style="border:none;background:#7C3AED;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-pin-angle"></i> Add to Unattended</button>
+            <button onclick="retryFailedAdminAlerts()" id="enqRetryAlertsBtn" style="border:none;background:#b45309;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-bell"></i> Retry Failed Alerts</button>
             <button onclick="resendFailedFollowUps()" id="enqResendFailedBtn" style="border:none;background:#dc2626;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-arrow-repeat"></i> Resend Failed</button>
             <button onclick="sendEnquiryFollowUp()" id="enqFollowSendBtn" style="border:none;background:#25D366;color:#fff;border-radius:6px;padding:6px 14px;font-size:0.7rem;font-weight:600;cursor:pointer;"><i class="bi bi-send"></i> Send Follow Up</button>
         </div>
@@ -41002,6 +41004,7 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
         if(res.status==='success'||res.success){
           _enqFollowData={enquiries:res.enquiries||[],followups:res.followups||[]};
           renderEnquiryFollowUp();
+          loadAdminAlertFailures();
         } else {
           if(list) list.innerHTML='<div style="font-size:0.65rem;color:#c62828;text-align:center;padding:14px;">'+escH(res.message||'Failed to load')+'</div>';
         }
@@ -41075,6 +41078,39 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
       })
       .catch(function(){
         if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-arrow-repeat"></i> Resend Failed';}
+        alert('Connection error \u2014 please try again.');
+      });
+  };
+  function loadAdminAlertFailures(){
+    fetch('/api/enquiries/admin-notify-failed',{credentials:'include'})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        var chip=document.getElementById('enqAlertsFailed');
+        var cnt=document.getElementById('enqAlertsFailedCount');
+        var n=((res&&res.status==='success')?((res.failed_enquiries||[]).length):0);
+        if(chip&&cnt){cnt.textContent=n;chip.style.display=n>0?'inline-block':'none';}
+      })
+      .catch(function(){});
+  }
+  window.retryFailedAdminAlerts=function(){
+    var cntEl=document.getElementById('enqAlertsFailedCount');
+    var n=parseInt((cntEl?cntEl.textContent:'0')||'0',10)||0;
+    if(!n){alert('No failed admin alerts to retry.');return;}
+    if(!confirm('Resend admin WhatsApp alerts for '+n+' enquiry(s) with failed alerts?')){return;}
+    var btn=document.getElementById('enqRetryAlertsBtn');
+    if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner-border spinner-border-sm" style="width:0.7rem;height:0.7rem;"></span> Sending\u2026';}
+    fetch('/api/enquiries/retry-admin-notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({all_failed:true})})
+      .then(function(r){return r.json();})
+      .then(function(res){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-bell"></i> Retry Failed Alerts';}
+        if(res.status==='success'||res.success){alert('\u2705 '+(res.message||'Alerts re-sent.'));}
+        else{alert('\u274c '+(res.message||'Retry failed.'));}
+        loadAdminAlertFailures();
+        loadEnquiryFollowUps();
+        window.loadUnattendedEnqs();
+      })
+      .catch(function(){
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="bi bi-bell"></i> Retry Failed Alerts';}
         alert('Connection error \u2014 please try again.');
       });
   };
