@@ -12,7 +12,6 @@ import calendar
 import pandas as pd
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import seaborn as sns
 import psycopg2
 import psycopg2.extras
 from psycopg2 import sql
@@ -37,14 +36,12 @@ import random
 import logging
 from decimal import Decimal
 import gc
-import google.generativeai as genai
 from flask_cors import CORS
 import secrets
 import hashlib
 from functools import wraps
 from psycopg2.extras import RealDictCursor
 import pytz
-from ai_classifier import classify_product, get_category_suggestions
 
 
 
@@ -82,7 +79,6 @@ def add_no_cache_headers(response):
 database = 'connectlinkdata'
 
 GEMINI_API_KEY = "AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g"  # Replace with your actual key
-genai.configure(api_key=GEMINI_API_KEY)
 
 # Canonical default quotation rates used to seed the quotation_rates table on first run
 # and to restore defaults via /api/restore-default-quotation-rates.
@@ -13805,6 +13801,7 @@ def ai_classify_product():
             return jsonify({'error': 'Product name is required'}), 400
         
         # Get AI classification
+        from ai_classifier import classify_product  # lazy import (fuzzywuzzy) — only loaded when classifying
         result = classify_product(product_name, description)
         
         return jsonify({
@@ -13850,6 +13847,7 @@ def ai_category_suggestions():
         if len(partial_name) < 2:
             return jsonify({'suggestions': []})
         
+        from ai_classifier import get_category_suggestions  # lazy import (fuzzywuzzy)
         suggestions = get_category_suggestions(partial_name)
         
         return jsonify({
@@ -13880,6 +13878,7 @@ def test_ai_classifier():
         ]
         
         results = []
+        from ai_classifier import classify_product  # lazy import (fuzzywuzzy)
         for product_name, description in test_products:
             classification = classify_product(product_name, description)
             results.append({
@@ -14687,6 +14686,11 @@ def get_all_database_data():
 def call_gemini_ai(question, database_data):
     """Call Google Gemini AI with our database data"""
     try:
+        import google.generativeai as genai  # lazy import (heavy grpcio/protobuf) — only loaded when AI is used
+        try:
+            genai.configure(api_key=GEMINI_API_KEY)
+        except Exception:
+            pass
         # Initialize the CORRECT model name
         # Try different available models in order
         available_models = ['gemini-1.0-pro', 'gemini-pro', 'models/gemini-pro']
@@ -28125,7 +28129,8 @@ def get_enquiry_followups():
             cursor.execute("""
                 SELECT id, wanumber, enqtype, created_at
                 FROM appenqtemp t
-                WHERE NOT EXISTS (SELECT 1 FROM connectlinkenquiries e WHERE e.clientwhatsapp = t.wanumber)
+                WHERE NOT EXISTS (SELECT 1 FROM connectlinkenquiries e
+                                  WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text)
                 ORDER BY created_at DESC NULLS LAST, id DESC
                 LIMIT 200
             """)
@@ -28324,15 +28329,20 @@ def get_interim_with_main():
             cursor.execute("""
                 SELECT t.id, t.wanumber, t.enqtype, t.created_at,
                        (SELECT e.id FROM connectlinkenquiries e
-                        WHERE e.clientwhatsapp = t.wanumber ORDER BY e.id DESC LIMIT 1) AS main_id,
+                        WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text
+                        ORDER BY e.id DESC LIMIT 1) AS main_id,
                        (SELECT e.username FROM connectlinkenquiries e
-                        WHERE e.clientwhatsapp = t.wanumber ORDER BY e.id DESC LIMIT 1) AS main_username,
+                        WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text
+                        ORDER BY e.id DESC LIMIT 1) AS main_username,
                        (SELECT e.enqcategory FROM connectlinkenquiries e
-                        WHERE e.clientwhatsapp = t.wanumber ORDER BY e.id DESC LIMIT 1) AS main_category,
+                        WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text
+                        ORDER BY e.id DESC LIMIT 1) AS main_category,
                        (SELECT e.status FROM connectlinkenquiries e
-                        WHERE e.clientwhatsapp = t.wanumber ORDER BY e.id DESC LIMIT 1) AS main_status
+                        WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text
+                        ORDER BY e.id DESC LIMIT 1) AS main_status
                 FROM appenqtemp t
-                WHERE EXISTS (SELECT 1 FROM connectlinkenquiries e WHERE e.clientwhatsapp = t.wanumber)
+                WHERE EXISTS (SELECT 1 FROM connectlinkenquiries e
+                              WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text)
                 ORDER BY t.created_at DESC NULLS LAST, t.id DESC
                 LIMIT 200
             """)

@@ -856,6 +856,7 @@ sudo systemctl start connectlink
    If your Render service uses a dashboard "Start Command" instead of the Procfile, update it to the same command (Render uses the Procfile's `web` line when present).
 2. **Gunicorn default timeout is 30s** — too short for US Postgres latency + dashboard polling. `--timeout 180` fixes it.
 3. **DB schema init ran at module import** (before the worker bound the port) → Render's port scan timed out and every worker repeated the migration. Fixed in `ConnectLink.py`: schema init (`initialize_database_tables()` + `migrate_product_categories()`) now runs **lazily on the first request** (guarded by a lock), so the worker binds the port immediately and migration happens once.
+4. **Heavy imports at module load** still slow boot and eat memory even with 1 worker. Done in `ConnectLink.py`: removed the unused `import seaborn as sns`, and made `google.generativeai` (grpcio/protobuf) and `ai_classifier` (fuzzywuzzy) **lazy imports** — they only load when the AI features are actually used, not at every worker boot. (`weasyprint` is still imported at module level because PDF generation uses it widely.)
 
 ---
 
