@@ -844,6 +844,19 @@ sudo kill -9 <PID>
 sudo systemctl start connectlink
 ```
 
+### Render Worker Timeouts / OOM ("WORKER TIMEOUT ... SIGKILL ... out of memory")
+
+**Symptoms**: repeated `[CRITICAL] WORKER TIMEOUT` → `Worker ... was sent SIGKILL! Perhaps out of memory?`, workers cycling, and `No open ports detected` during deploys.
+
+**Causes & fixes**:
+1. **Too many gunicorn workers on a small (free 512MB) instance.** Every worker imports the whole app (pandas/numpy/seaborn/weasyprint/google-genai) and, previously, ran a full DB schema migration at import. Use 1 worker + threads. The repo now ships a `Procfile`:
+   ```
+   web: gunicorn ConnectLink:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180 --graceful-timeout 60 --max-requests 500 --max-requests-jitter 50
+   ```
+   If your Render service uses a dashboard "Start Command" instead of the Procfile, update it to the same command (Render uses the Procfile's `web` line when present).
+2. **Gunicorn default timeout is 30s** — too short for US Postgres latency + dashboard polling. `--timeout 180` fixes it.
+3. **DB schema init ran at module import** (before the worker bound the port) → Render's port scan timed out and every worker repeated the migration. Fixed in `ConnectLink.py`: schema init (`initialize_database_tables()` + `migrate_product_categories()`) now runs **lazily on the first request** (guarded by a lock), so the worker binds the port immediately and migration happens once.
+
 ---
 
 ## UPGRADE PROCEDURES

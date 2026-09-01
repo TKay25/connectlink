@@ -32,6 +32,7 @@ import traceback
 from collections import Counter
 #from paynow import Paynow
 import time
+import threading
 import random
 import logging
 from decimal import Decimal
@@ -2511,8 +2512,33 @@ def migrate_product_categories():
     except Exception as e:
         print(f"⚠️ Category migration error: {e}")
 
-initialize_database_tables()
-migrate_product_categories()
+# Lazy one-time DB schema init. Running this at module import made gunicorn
+# workers run the full migration BEFORE binding the port, so Render's health/
+# port scan timed out ("No open ports detected") and every worker repeated the
+# whole migration at boot (slow + memory heavy on 512MB free instances).
+_db_init_done = False
+_db_init_lock = threading.Lock()
+
+
+def _ensure_db_initialized():
+    global _db_init_done
+    if _db_init_done:
+        return
+    with _db_init_lock:
+        if _db_init_done:
+            return
+        try:
+            initialize_database_tables()
+            migrate_product_categories()
+            _db_init_done = True
+            print("✅ Database schema initialized (lazy, on first request)")
+        except Exception as e:
+            print(f"⚠️ DB init failed on first request (will retry on next request): {e}")
+
+
+@app.before_request
+def _db_init_before_request():
+    _ensure_db_initialized()
 
 
 
