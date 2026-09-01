@@ -27813,6 +27813,18 @@ def create_manual_enquiry():
             enquiry_id = cursor.fetchone()[0]
             connection.commit()
         log_activity('enquiry_manual', f'Manual enquiry #{enquiry_id} created by {created_by} ({enqcategory})', 'enquiry', enquiry_id)
+        # Alert admins on WhatsApp exactly like a normal enquiry (best-effort)
+        try:
+            send_admin_enquiry_notification(
+                enquiry_id,
+                clientwhatsapp,
+                enqcategory,
+                enq,
+                has_attachment=plan_data is not None,
+                timestamp=datetime.now()
+            )
+        except Exception as exc:
+            print(f"Manual enquiry admin notification error: {exc}")
         return jsonify({
             'status': 'success',
             'message': f'Enquiry #{enquiry_id} posted — it now shows on every user screen until attended.',
@@ -31956,6 +31968,111 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
         print(f"⚠️ Failed to save sent document message: {save_err}")
 
     return send_data
+
+# Admins notified on every new enquiry (same numbers the WhatsApp webhook flow uses)
+ENQUIRY_ADMIN_NOTIFY_NUMBERS = ["263774822568", "263773368558", "263777665277"]
+
+
+def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_display,
+                                    user_message, has_attachment=False, timestamp=None):
+    """Send the 'enqauto2' admin WhatsApp alert for a new enquiry — the same
+    notification a WhatsApp enquiry triggers. Used by the manual enquiry route so
+    staff get alerted there too. Best-effort; never raises."""
+    try:
+        url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+        headers_wa = {'Authorization': f'Bearer {ACCESS_TOKEN}', 'Content-Type': 'application/json'}
+        wa_link = f"https://wa.me/+{client_whatsapp or ''}"
+        if not timestamp:
+            timestamp = datetime.now()
+        timestamp_str = timestamp.strftime('%d %B %Y %H:%M') if isinstance(timestamp, datetime) else str(timestamp)
+        use_attachment_template = str(has_attachment).strip().lower() in ('yes', 'true', '1')
+
+        template_name = "enqauto2"
+        components = [
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": f"#{enquiry_id}"},
+                    {"type": "text", "text": f"+{client_whatsapp or 'Unknown'}"},
+                    {"type": "text", "text": timestamp_str},
+                    {"type": "text", "text": str(enquiry_type_display or 'General')},
+                    {"type": "text", "text": str(user_message or 'No additional details')},
+                    {"type": "text", "text": 'Yes' if use_attachment_template else 'No'}
+                ]
+            }
+        ]
+
+        for admin_number in ENQUIRY_ADMIN_NOTIFY_NUMBERS:
+            try:
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": admin_number,
+                    "type": "template",
+                    "template": {"name": template_name, "language": {"code": "en"}, "components": components}
+                }
+                response = requests.post(url, headers=headers_wa, json=payload)
+                response_data = response.json()
+
+                # If there's an attachment, ALSO send the enquiryattachment template
+                if use_attachment_template:
+                    attachment_payload = {
+                        "messaging_product": "whatsapp",
+                        "recipient_type": "individual",
+                        "to": admin_number,
+                        "type": "template",
+                        "template": {"name": "enquiryattachment", "language": {"code": "en"}}
+                    }
+                    try:
+                        requests.post(url, headers=headers_wa, json=attachment_payload)
+                    except Exception as exc:
+                        print(f"❌ enquiryattachment send failed for {admin_number}: {exc}")
+
+                if isinstance(response_data, dict) and response_data.get('error'):
+                    error_data = response_data.get('error', {})
+                    error_details = str((error_data.get('error_data') or {}).get('details', '')).lower()
+
+                    if use_attachment_template:
+                        print(f"❌ enquiryattachment template failed for admin {admin_number}: {response_data}")
+                        try:
+                            deliver_enquiry_attachment_pdf(enquiry_id, admin_number, send_text_message=None)
+                        except Exception as exc:
+                            print(f"❌ Direct attachment fallback failed: {exc}")
+                    elif error_data.get('code') == 132000 or 'button' in error_details:
+                        fallback_component_sets = [
+                            components + [{"type": "button", "sub_type": "quick_reply", "index": 0,
+                                           "parameters": [{"type": "payload", "payload": f"contact_client_{enquiry_id}"}]}],
+                            components + [{"type": "button", "sub_type": "url", "index": 0,
+                                           "parameters": [{"type": "text", "text": wa_link}]}],
+                            components + [{"type": "button", "sub_type": "quick_reply", "index": 0,
+                                           "parameters": [{"type": "text", "text": wa_link}]}]
+                        ]
+                        for fallback_components in fallback_component_sets:
+                            fallback_payload = {
+                                "messaging_product": "whatsapp",
+                                "recipient_type": "individual",
+                                "to": admin_number,
+                                "type": "template",
+                                "template": {"name": template_name, "language": {"code": "en"}, "components": fallback_components}
+                            }
+                            fallback_response = requests.post(url, headers=headers_wa, json=fallback_payload)
+                            fallback_data = fallback_response.json()
+                            if isinstance(fallback_data, dict) and not fallback_data.get('error'):
+                                print("✅ enqauto2 sent after fallback with button component")
+                                break
+
+                if use_attachment_template:
+                    message_id = ((response_data.get('messages') or [{}])[0]).get('id') if isinstance(response_data, dict) else None
+                    if message_id:
+                        try:
+                            log_enquiry_attachment_button_message(message_id, enquiry_id, admin_number)
+                        except Exception as exc:
+                            print(f"❌ Mapping log failed: {exc}")
+            except Exception as exc:
+                print(f"❌ Admin notification failed for {admin_number}: {exc}")
+    except Exception as exc:
+        print(f"❌ Admin enquiry notification error: {exc}")
+
 
 def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_message=None, send_whatsapp_message=None):
     """Fetch enquiry attachment from DB and send as WhatsApp PDF"""
