@@ -10059,6 +10059,11 @@ def webhook():
                                                                                     <p style="font-size:11px;">ConnectLink Properties reserves the right to use the videos and pictures of the finished properties or kitchen and cabinets projects for advertising and marketing purposes.</p>
                                                                                 </div>
 
+                                                                                <div class="section-header">PLAN APPROVALS AND STAGE INSPECTIONS</div>
+                                                                                <div class="terms-box">
+                                                                                    <p style="font-size:11px;">Before engaging Connectlink Properties, The client is responsible for paying for their plan approvals and all relevant stage inspections as required by the relevant Local Authority (City Council, Town Council or Rural District Council).</p>
+                                                                                </div>
+
                                                                                 <div class="section-header">ENTIRE AGREEMENT</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -22774,6 +22779,11 @@ def download_contract(project_id):
                     <div class="section-header">ADVERTISING AND MARKETING</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">ConnectLink Properties reserves the right to use the videos and pictures of the finished properties or kitchen and cabinets projects for advertising and marketing purposes.</p>
+                    </div>
+
+                    <div class="section-header">PLAN APPROVALS AND STAGE INSPECTIONS</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">Before engaging Connectlink Properties, The client is responsible for paying for their plan approvals and all relevant stage inspections as required by the relevant Local Authority (City Council, Town Council or Rural District Council).</p>
                     </div>
 
                     <div class="section-header">ENTIRE AGREEMENT</div>
