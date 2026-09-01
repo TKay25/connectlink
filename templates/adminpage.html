@@ -5215,7 +5215,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                         <thead><tr><th>ID</th><th>Date</th><th>Client</th><th>Username</th><th>Category</th><th>Source</th><th>Message</th><th>Status</th><th>Attended By</th><th>Document</th><th>Action</th></tr></thead>
                                         <tbody>
                                             {% for enquiry in enquiries_data %}
-                                            <tr class="enquiry-row" id="enquiry-row-{{ enquiry.id }}">
+                                            <tr class="enquiry-row" id="enquiry-row-{{ enquiry.id }}" data-category="{{ enquiry.category }}" data-status="{{ enquiry.status }}" data-client="{{ enquiry.clientwhatsapp }}" data-username="{{ enquiry.username }}" data-message="{{ enquiry.message }}">
                                                 <td>{{ enquiry.id }}</td>
                                                 <td>{{ enquiry.timestamp }}</td>
                                                 <td><a href="https://wa.me/{{ enquiry.clientwhatsapp }}" target="_blank">+{{ enquiry.clientwhatsapp }}</a></td>
@@ -29451,15 +29451,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusFilter = document.getElementById('statusFilter');
     const clearBtn = document.getElementById('clearFilters');
     const resultsCount = document.getElementById('resultsCount');
-    const enquiryRows = document.querySelectorAll('.enquiry-row');
-    
-    console.log('Enquiry rows found:', enquiryRows.length);
     
     function filterEnquiries() {
         console.log('Filtering...');
         const searchTerm = searchInput.value.toLowerCase();
         const categoryValue = categoryFilter.value;
         const statusValue = statusFilter.value;
+        const enquiryRows = document.querySelectorAll('.enquiry-row');
         
         let visibleCount = 0;
         
@@ -29498,6 +29496,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         console.log('Visible count:', visibleCount);
     }
+    window.filterEnquiries = filterEnquiries;
     
     // Event listeners
     if (searchInput) {
@@ -29610,6 +29609,8 @@ document.addEventListener('click', function(e) {
             if (data.status === 'success') {
                 const row = document.getElementById(`enquiry-row-${enquiryId}`);
                 if (row) row.remove();
+                if (window.refreshEnquiriesTab) window.refreshEnquiriesTab();
+                if (window.loadUnattendedEnqs) window.loadUnattendedEnqs();
                 alert('✅ ' + data.message);
             } else {
                 alert('❌ ' + data.message);
@@ -29620,6 +29621,73 @@ document.addEventListener('click', function(e) {
         });
     }
 });
+
+// Refresh the ENQUIRIES tab table client-side (shows manual enquiries immediately, keeps filters working)
+window.refreshEnquiriesTab = function() {
+    fetch('/api/enquiries/paginated?per_page=500', { credentials: 'include' })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (!res || res.status !== 'success' || !res.data) return;
+            var table = document.getElementById('enquiriesTabTable');
+            if (!table) return;
+            var tbody = table.querySelector('tbody');
+            if (!tbody) return;
+            var esc = function(s) {
+                return String(s == null ? '' : s)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            };
+            var rows = res.data.map(function(e) {
+                var msg = String(e.enq || 'No message');
+                var cat = esc(e.enqcategory || 'General');
+                var phone = esc(e.clientwhatsapp || '');
+                var user = esc(e.username || '');
+                var srcBadge = (e.source === 'manual')
+                    ? '<span class="badge" style="background:#B45309;color:#fff;">&#9998; Manual</span>'
+                    : '<span class="badge" style="background:#0891B2;color:#fff;">WhatsApp</span>';
+                var msgHtml;
+                if (msg.length > 20) {
+                    msgHtml = '<div class="message-container">'
+                        + '<span class="message-preview">' + esc(msg.slice(0, 20)) + '...</span>'
+                        + '<a class="expand-message" data-id="' + e.id + '" style="font-size:10px;cursor:pointer;color:#3498db;">[view more]</a>'
+                        + '<div id="message-full-' + e.id + '" class="message-full" style="display:none;font-size:10px;background:#f8f9fa;padding:4px;border-radius:4px;border:1px solid #dee2e6;margin-top:3px;word-wrap:break-word;white-space:pre-wrap;line-height:1.3;">'
+                        + esc(msg)
+                        + '<a class="collapse-message" data-id="' + e.id + '" style="display:block;font-size:10px;cursor:pointer;color:#3498db;margin-top:2px;">[show less]</a>'
+                        + '</div></div>';
+                } else {
+                    msgHtml = '<div class="message-container"><span class="message-preview">' + esc(msg) + '</span></div>';
+                }
+                var st = e.status || 'pending';
+                var statusOpts = '<option value="pending"' + (st === 'pending' ? ' selected' : '') + '>Pending</option>'
+                    + '<option value="in_progress"' + (st === 'in_progress' ? ' selected' : '') + '>In Progress</option>'
+                    + '<option value="completed"' + (st === 'completed' ? ' selected' : '') + '>Completed</option>';
+                var att = e.attended_by
+                    ? '<span style="color:#059669;font-weight:600;"><i class="bi bi-check-circle-fill" style="font-size:0.7rem;"></i> ' + esc(e.attended_by) + '</span>'
+                    : '<span style="color:#94a3b8;">&mdash;</span>';
+                var plan = e.has_plan ? '<a href="/api/enquiries/' + e.id + '/plan" target="_blank" class="btn btn-sm btn-success">PDF</a>' : '';
+                return '<tr class="enquiry-row" id="enquiry-row-' + e.id + '"'
+                    + ' data-category="' + cat + '" data-status="' + esc(st) + '"'
+                    + ' data-client="' + phone + '" data-username="' + user + '" data-message="' + esc(msg) + '">'
+                    + '<td>' + e.id + '</td>'
+                    + '<td>' + esc(e.timestamp || '') + '</td>'
+                    + '<td><a href="https://wa.me/' + phone + '" target="_blank">+' + phone + '</a></td>'
+                    + '<td>' + user + '</td>'
+                    + '<td><span class="badge bg-secondary">' + cat + '</span></td>'
+                    + '<td>' + srcBadge + '</td>'
+                    + '<td>' + msgHtml + '</td>'
+                    + '<td><select class="form-select status-select" style="font-size:0.85rem;" data-id="' + e.id + '">' + statusOpts + '</select></td>'
+                    + '<td>' + att + '</td>'
+                    + '<td>' + plan + '</td>'
+                    + '<td><button class="btn btn-sm btn-danger delete-enquiry-btn" type="button" data-id="' + e.id + '">Delete</button></td>'
+                    + '</tr>';
+            }).join('');
+            tbody.innerHTML = rows;
+            if (window.filterEnquiries) window.filterEnquiries();
+        })
+        .catch(function() {});
+};
 
 function viewEnquiry(id) {
     window.open(`/api/enquiries/${id}`, '_blank');
@@ -40847,7 +40915,7 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
     var fi=document.getElementById('menqFile');
     if(fi.files&&fi.files[0])fd.append('plan',fi.files[0]);
     fetch('/api/enquiries/manual',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(res){
-      if(res.status==='success'||res.success){closeManualEnqModal();window.loadUnattendedEnqs();}
+      if(res.status==='success'||res.success){closeManualEnqModal();window.loadUnattendedEnqs();if(window.refreshEnquiriesTab){window.refreshEnquiriesTab();}}
       else{alert(res.message||'Failed to post enquiry');}
     }).catch(function(){alert('Connection error');});
   };
