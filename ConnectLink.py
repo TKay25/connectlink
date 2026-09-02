@@ -27984,13 +27984,15 @@ def get_unattended_enquiries():
                 FROM (
                     SELECT q.*, ROW_NUMBER() OVER (
                         PARTITION BY CASE WHEN COALESCE(q.clientwhatsapp,'') = '' THEN q.id::text ELSE q.clientwhatsapp END
-                        ORDER BY CASE WHEN COALESCE(q.source,'auto') = 'manual' THEN 0 ELSE 1 END, q.id DESC
+                        ORDER BY CASE WHEN COALESCE(q.customer_response,'') = 'still_need_help' THEN 0
+                                      WHEN COALESCE(q.source,'auto') = 'manual' THEN 1 ELSE 2 END, q.id DESC
                     ) AS _rn
                     FROM connectlinkenquiries q
                     WHERE {where}
                 ) t
                 WHERE _rn = 1
-                ORDER BY CASE WHEN COALESCE(source,'auto') = 'manual' THEN 0 ELSE 1 END, id DESC
+                ORDER BY CASE WHEN COALESCE(customer_response,'') = 'still_need_help' THEN 0
+                              WHEN COALESCE(source,'auto') = 'manual' THEN 1 ELSE 2 END, id DESC
                 LIMIT 50
             """, params)
             rows = cursor.fetchall()
