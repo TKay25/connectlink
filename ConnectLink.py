@@ -39115,12 +39115,13 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
             row = cursor.fetchone()
             if not row:
                 # Interim enquiry (appenqtemp) follow-up response
-                cursor.execute("SELECT wanumber, enqtype FROM appenqtemp WHERE id = %s", (enq_id,))
+                cursor.execute("SELECT id, wanumber, enqtype FROM appenqtemp WHERE id = %s", (enq_id,))
                 irow = cursor.fetchone()
                 if not irow:
                     _enquiry_send_text(sender_id, "Sorry, we couldn't find that enquiry. Please contact ConnectLink directly.")
                     return True
-                client_name = 'Interim #%d' % enq_id
+                i_id, wanumber, enqtype = irow
+                client_name = 'Client'
                 cursor.execute("""
                     UPDATE enquiry_followups
                     SET response=%s, response_at=CURRENT_TIMESTAMP, response_by=%s
@@ -39128,6 +39129,47 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
                                 WHERE enquiry_id=%s AND COALESCE(source,'main')='interim' AND COALESCE(response,'')=''
                                 ORDER BY id DESC LIMIT 1)
                 """, ('resolved' if action == 'done' else 'still_need_help', str(sender_id), enq_id))
+                # If the client says they still need help, make sure they auto-appear on the
+                # Unattended banner with the "Still needs help" flag (from now going forward).
+                # Interim enquiries only carry a phone + type (no client name/message), so the
+                # promoted row shows Customer="Client" and Message="Enquiry".
+                if action == 'help':
+                    promo_category = _map_enquiry_category(enqtype)
+                    promo_phone = str(wanumber or '').strip()
+                    # If this number already has a pending MAIN enquiry, don't duplicate it —
+                    # just raise the flag on that one so it surfaces on the banner.
+                    cursor.execute("""
+                        SELECT id FROM connectlinkenquiries
+                        WHERE regexp_replace(COALESCE(clientwhatsapp, ''), '\\D', '', 'g') = %s
+                          AND COALESCE(status,'pending') = 'pending'
+                        ORDER BY id DESC LIMIT 1
+                    """, (promo_phone,))
+                    existing_main = cursor.fetchone()
+                    if existing_main:
+                        cursor.execute("""
+                            UPDATE connectlinkenquiries
+                            SET customer_response='still_need_help',
+                                customer_response_at=CURRENT_TIMESTAMP,
+                                banner_flagged=TRUE
+                            WHERE id=%s
+                        """, (existing_main[0],))
+                        promoted_id = existing_main[0]
+                    else:
+                        cursor.execute("""
+                            INSERT INTO connectlinkenquiries
+                                (timestamp, clientwhatsapp, enqcategory, enq, username, status,
+                                 source, banner_flagged, customer_response, customer_response_at)
+                            VALUES (%s, %s, %s, 'Enquiry', 'Client', 'pending', 'manual', TRUE,
+                                    'still_need_help', CURRENT_TIMESTAMP)
+                            RETURNING id
+                        """, (datetime.now(), promo_phone, promo_category))
+                        promoted_id = cursor.fetchone()[0]
+                    # This interim enquiry is now represented on the main enquiries table —
+                    # drop it from the interim list so it isn't followed up twice.
+                    cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (i_id,))
+                    log_activity('enquiry_manual',
+                                 f'Interim enquiry #{i_id} promoted to main enquiry #{promoted_id} — client responded "I Still Need Help"',
+                                 'enquiry', promoted_id)
                 connection.commit()
             else:
                 client_name = row[0]
