@@ -1,18 +1,16 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "FixDupEmployees",
-  "file": "fix_dup_employees.py",
-  "purpose": "Link duplicate employees between hr_employees and connectlinkusers by email.",
+  "module": "PatchErr",
+  "file": "_patch_err.txt",
+  "purpose": "<!-- Describe what PatchErr does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [
-    "fix_dup_employees → cursor.execute, cursor.fetchall, connection.commit"
-  ],
+  "entry_flows": [],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
   "dependencies": [
-    "db_helper"
+    "<!-- list module dependencies here -->"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -27,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "3c9993df1aafecaf",
-  "file_mtime": 1784039929567.0024,
-  "file_size": 2356,
-  "file_birthtime": 1784039929017.0955,
-  "generated_at": "2026-09-03T10:43:36.500931Z",
-  "stale": false,
+  "file_hash": "962b5560c2a1ba30",
+  "file_mtime": 1788433701730.5945,
+  "file_size": 52,
+  "file_birthtime": 1788433701487.2324,
+  "generated_at": "2026-09-03T11:08:23.353Z",
+  "stale": true,
   "stale_reason": "source file deleted"
 }

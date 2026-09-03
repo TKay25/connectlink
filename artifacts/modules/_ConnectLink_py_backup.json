@@ -1,18 +1,16 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "FixDupEmployees",
-  "file": "fix_dup_employees.py",
-  "purpose": "Link duplicate employees between hr_employees and connectlinkusers by email.",
+  "module": "ConnectLinkPyBackup",
+  "file": "_ConnectLink_py_backup.txt",
+  "purpose": "Game string table — 153 strings in 1 sections",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [
-    "fix_dup_employees → cursor.execute, cursor.fetchall, connection.commit"
-  ],
+  "entry_flows": [],
   "public_api": [
-    "<!-- list public functions/methods here -->"
+    "[general] (153 strings) — e.g. GEMINI_API_KEY, update_query, check_query"
   ],
   "dependencies": [
-    "db_helper"
+    "<!-- list module dependencies here -->"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -27,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "3c9993df1aafecaf",
-  "file_mtime": 1784039929567.0024,
-  "file_size": 2356,
-  "file_birthtime": 1784039929017.0955,
-  "generated_at": "2026-09-03T10:43:36.500931Z",
-  "stale": false,
+  "file_hash": "c5dc0dd00c1fad8b",
+  "file_mtime": 1788433701682.4116,
+  "file_size": 2364932,
+  "file_birthtime": 1788433701676.438,
+  "generated_at": "2026-09-03T11:08:24.272030Z",
+  "stale": true,
   "stale_reason": "source file deleted"
 }

@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PatchEnqNotify",
+  "file": "_patch_enq_notify.py",
+  "purpose": "Patch BOTH identical webhook send_admin_notification() copies so the",
+  "entry_function": "repl(m)",
+  "entry_flows": [
+    "_patch_enq_notify → io.open, f.read, f.write, m.group, out.append"
+  ],
+  "public_api": [
+    "repl(m)",
+    "line(level, text)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: PATH = 'ConnectLink.py', BACKUP = '_ConnectLink_py_backup.txt'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "31f83dc16458c605",
+  "file_mtime": 1788433685507.4531,
+  "file_size": 4893,
+  "file_birthtime": 1788433685345.3413,
+  "generated_at": "2026-09-03T11:09:27.417986Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
