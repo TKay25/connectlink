@@ -20853,6 +20853,10 @@ def whatsapp_media_download(media_id):
             return jsonify({'success': False, 'message': f'Failed to download file from WhatsApp ({file_resp.status_code}).'}), 400
         
         # Step 4: Stream the file back to the browser
+        # Sanitize: header values must not contain newline/control characters, and
+        # quotes would break the Content-Disposition value.
+        filename = ''.join(ch for ch in str(filename or 'download') if ord(ch) >= 32 and ch != '\x7f')
+        filename = filename.replace('"', "'").strip().strip('.') or 'download'
         response = make_response(file_resp.content)
         response.headers.set('Content-Type', mime_type)
         response.headers.set('Content-Disposition', f'attachment; filename="{filename}"')
@@ -27628,8 +27632,11 @@ def download_enquiry_plan(enquiry_id):
             # Resolve the real type: stored MIME when known, otherwise sniff the bytes so
             # WhatsApp-source rows (plan_mime NULL) aren't forced to PDF.
             plan_mime, ext, _ = _resolve_enquiry_media_type(plan_data, row[3])
+            # Sanitize the embedded phone in the filename (header values must not
+            # contain newline/control characters).
+            client_slug = ''.join(ch for ch in str(client_whatsapp or '') if ord(ch) >= 32 and ch != '\x7f').strip()[:20]
             # Create filename
-            filename = f"enquiry_plan_{enquiry_id}_{client_whatsapp}_{timestamp.strftime('%Y%m%d')}{ext}"
+            filename = f"enquiry_plan_{enquiry_id}_{client_slug}_{timestamp.strftime('%Y%m%d')}{ext}"
             
             # Log the plan download
             log_activity(
