@@ -10153,6 +10153,13 @@ def webhook():
                                                                                     <p style="font-size:11px;">Before engaging Connectlink Properties, The client is responsible for paying for their plan approvals and all relevant stage inspections as required by the relevant Local Authority (City Council, Town Council or Rural District Council).</p>
                                                                                 </div>
 
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 8 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                                                                                 <div class="section-header">ENTIRE AGREEMENT</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -22899,6 +22906,13 @@ def download_contract(project_id):
                     <div class="terms-box">
                         <p style="font-size:11px;">Before engaging Connectlink Properties, The client is responsible for paying for their plan approvals and all relevant stage inspections as required by the relevant Local Authority (City Council, Town Council or Rural District Council).</p>
                     </div>
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 8 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">ENTIRE AGREEMENT</div>
                     <div class="terms-box">

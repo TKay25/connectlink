@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-09-03T07:13:37.698Z",
+  "last_sync": "2026-09-03T12:59:38.929Z",
   "module_count": 63,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 50,
+  "orphaned_count": 57,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -78,6 +78,18 @@
       "source": "zero_out.txt"
     },
     {
+      "artifact": "artifacts/modules/_check_enquiry.json",
+      "source": "_check_enquiry.py"
+    },
+    {
+      "artifact": "artifacts/modules/_check_enquiry_err.json",
+      "source": "_check_enquiry_err.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_check_enquiry_out.json",
+      "source": "_check_enquiry_out.txt"
+    },
+    {
       "artifact": "artifacts/modules/_clean_leave.json",
       "source": "_clean_leave.py"
     },
@@ -88,6 +100,10 @@
     {
       "artifact": "artifacts/modules/_clean_leave3.json",
       "source": "_clean_leave3.py"
+    },
+    {
+      "artifact": "artifacts/modules/_ConnectLink_py_backup.json",
+      "source": "_ConnectLink_py_backup.txt"
     },
     {
       "artifact": "artifacts/modules/_diag_aug_commissions.json",
@@ -132,6 +148,18 @@
     {
       "artifact": "artifacts/modules/_fix_v3.json",
       "source": "_fix_v3.py"
+    },
+    {
+      "artifact": "artifacts/modules/_patch_enq_notify.json",
+      "source": "_patch_enq_notify.py"
+    },
+    {
+      "artifact": "artifacts/modules/_patch_err.json",
+      "source": "_patch_err.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_patch_out.json",
+      "source": "_patch_out.txt"
     },
     {
       "artifact": "artifacts/modules/_preview_cashier.json",
@@ -206,5 +234,38 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "_ConnectLink_py_backup.txt",
+      "ts": "2026-09-03T11:10:09.580Z"
+    },
+    {
+      "rel": "_patch_enq_notify.py",
+      "ts": "2026-09-03T11:10:09.573Z"
+    },
+    {
+      "rel": "_patch_out.txt",
+      "ts": "2026-09-03T11:10:09.568Z"
+    },
+    {
+      "rel": "_patch_err.txt",
+      "ts": "2026-09-03T11:10:09.562Z"
+    },
+    {
+      "rel": "_ConnectLink_py_backup.txt",
+      "ts": "2026-09-03T11:10:09.326Z"
+    },
+    {
+      "rel": "_patch_enq_notify.py",
+      "ts": "2026-09-03T11:10:09.317Z"
+    },
+    {
+      "rel": "_patch_out.txt",
+      "ts": "2026-09-03T11:10:09.306Z"
+    },
+    {
+      "rel": "_patch_err.txt",
+      "ts": "2026-09-03T11:10:09.297Z"
+    }
+  ]
 }
