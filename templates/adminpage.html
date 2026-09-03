@@ -15171,6 +15171,23 @@ body { font-family: Arial; margin: 20px; }
     </div>
 </div>
 
+<!-- Already in Enquiries bypass confirm (Log Enquiry from chat) — standalone overlay so
+     the page's .modal-overlay auto-close handlers never touch it -->
+<div id="enqDupConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:99998;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:14px;width:440px;max-width:92vw;overflow:hidden;box-shadow:0 16px 48px rgba(10,26,58,.3);">
+        <div style="display:flex;align-items:center;gap:8px;padding:11px 16px;font-size:0.76rem;font-weight:800;color:#C12B3E;background:linear-gradient(135deg, rgba(193,43,62,.08), rgba(8,145,178,.08));border-bottom:1px solid rgba(193,43,62,.18);">
+            <i class="bi bi-bell-fill"></i> Already in Enquiries
+        </div>
+        <div style="padding:16px 18px;">
+            <div id="enqDupText" style="font-size:0.74rem;color:#334155;line-height:1.55;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
+                <button id="enqDupNo" style="border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:8px;padding:7px 16px;font-size:0.72rem;font-weight:600;cursor:pointer;">Cancel</button>
+                <button id="enqDupYes" style="border:none;background:#C12B3E;color:#fff;border-radius:8px;padding:7px 16px;font-size:0.72rem;font-weight:700;cursor:pointer;"><i class="bi bi-plus-lg"></i> Log Enquiry Anyway</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Bot Mode Warning Modal - shown when trying to send to a bot-mode chat -->
 <div id="botModeWarningModal" class="modal-overlay">
     <div class="modal-container" style="max-width:440px;">
@@ -37937,15 +37954,8 @@ function openManualEnqFromChat() {
             if (res && res.status === 'success' && res.count > 0) {
                 var first = res.data[0];
                 var statusLabel = first.status === 'completed' ? 'Attended to' : (first.status === 'in_progress' ? 'In progress' : 'Pending');
-                var msg = (contactName || 'This contact') + ' (' + ph + ') is already in the main enquiries as #' + first.id + ' \u2014 ' + statusLabel + ' \u00b7 ' + (first.enqcategory || 'General') + (res.count > 1 ? ' (+' + (res.count - 1) + ' more)' : '') + '.';
-                if (typeof showConfirm === 'function') {
-                    // Offer a bypass: confirm dialog lets the user log it anyway
-                    showConfirm(msg + ' Log a new enquiry for this contact anyway?', 'Already in Enquiries', 'Log Enquiry Anyway', 'Cancel')
-                        .then(function(ok) { if (ok) { _openManualEnqPrefilled(ph, contactName); } });
-                } else {
-                    if (typeof showToast === 'function') { showToast(msg, 'warning', 'Already in Enquiries'); }
-                    else { alert(msg); }
-                }
+                var msg = (contactName || 'This contact') + ' (' + ph + ') is already in the main enquiries as #' + first.id + ' \u2014 ' + statusLabel + ' \u00b7 ' + (first.enqcategory || 'General') + (res.count > 1 ? ' (+' + (res.count - 1) + ' more)' : '');
+                _showEnqDupConfirm(msg, function() { _openManualEnqPrefilled(ph, contactName); });
                 return;
             }
             _openManualEnqPrefilled(ph, contactName);
@@ -37963,6 +37973,20 @@ function _openManualEnqPrefilled(ph, contactName) {
     if (dEl) dEl.value = '';
     if (fEl) fEl.value = '';
     openManualEnqModal();
+}
+
+// Show the 'Already in Enquiries' bypass confirm (standalone modal, stays open until user acts)
+function _showEnqDupConfirm(msg, onYes) {
+    var m = document.getElementById('enqDupConfirmModal');
+    if (!m) return;
+    var t = document.getElementById('enqDupText');
+    if (t) t.textContent = msg + '.\n\nLog a new enquiry for this contact anyway?';
+    var yes = document.getElementById('enqDupYes');
+    var no = document.getElementById('enqDupNo');
+    if (yes) { yes.onclick = function() { m.style.display = 'none'; if (onYes) onYes(); }; }
+    if (no) { no.onclick = function() { m.style.display = 'none'; }; }
+    m.onclick = function(e) { if (e.target === m) { m.style.display = 'none'; } };
+    m.style.display = 'flex';
 }
 
 function loadChatMessages(phone, area, appendOnly) {
