@@ -29385,6 +29385,14 @@ def update_project():
         old_inst_duedates = [ov(18+i) for i in range(10)]
         old_inst_dates = [ov(28+i) for i in range(10)]
 
+        # If the form didn't supply a completion status, preserve the current DB
+        # value instead of clearing it. Partial edits (and other screens that post
+        # here) must never wipe the status or log a phantom
+        # "Completion Status changed ... -> (empty)" activity entry.
+        if not completion_status and old_status not in (None, ''):
+            completion_status = old_status
+            values[2] = completion_status
+
         values.append(project_id)
         values = tuple(values)
 
