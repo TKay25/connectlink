@@ -4803,21 +4803,10 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
     <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:0.72rem;font-weight:800;color:#C12B3E;background:linear-gradient(135deg, rgba(193,43,62,.06), rgba(8,145,178,.07));border-bottom:1px solid rgba(193,43,62,.15);"><i class="bi bi-bell"></i> Unattended Enquiries <span id="enqFloatCount" style="background:#C12B3E;color:#fff;border-radius:999px;padding:0 8px;font-size:0.58rem;">0</span>
         <span style="flex:1;"></span>
         <button onclick="openBulkEnqModal()" title="Bulk status update" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:1px 8px;font-size:0.62rem;font-weight:700;cursor:pointer;line-height:1.4;"><i class="bi bi-check2-square"></i> Bulk Update</button>
-        <button onclick="toggleTempEnqDropdown()" title="New Enquiry (from interim)" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.66rem;cursor:pointer;line-height:1.4;">＋</button>
+        <button onclick="openManualEnqModal()" title="New Enquiry (manual)" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.66rem;cursor:pointer;line-height:1.4;">＋</button>
         <button onclick="maxEnqStrip()" title="Maximise" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.62rem;cursor:pointer;line-height:1.4;">▢</button>
         <button onclick="minEnqStrip()" title="Minimise" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:0 7px;font-size:0.62rem;cursor:pointer;line-height:1.4;">–</button>
         <button onclick="closeEnqFloat()" title="Close" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;cursor:pointer;line-height:1;">&times;</button>
-    </div>
-    <!-- Interim enquiries dropdown (only ones with a number that exists on the main enquiries portal) -->
-    <div id="tempEnqDropdown" style="display:none;position:absolute;top:44px;right:10px;z-index:9991;width:370px;max-width:92vw;background:#fff;border:1px solid rgba(193,43,62,.25);border-radius:10px;box-shadow:0 12px 40px rgba(10,26,58,.22);overflow:hidden;">
-        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;font-size:0.66rem;font-weight:800;color:#334155;background:#f8fafc;border-bottom:1px solid var(--gray-200);"><i class="bi bi-inbox"></i> Interim enquiries (not in main enquiries) <span id="tempEnqDropCount" style="color:#94a3b8;font-weight:600;"></span>
-            <span style="flex:1;"></span>
-            <button onclick="closeTempEnqDropdown()" style="background:none;border:none;color:#94a3b8;font-size:0.7rem;cursor:pointer;line-height:1;">&times;</button>
-        </div>
-        <div id="tempEnqDropList" style="max-height:280px;overflow-y:auto;"></div>
-        <div style="padding:7px 10px;border-top:1px solid var(--gray-200);background:#f8fafc;">
-            <button onclick="closeTempEnqDropdown();openManualEnqModal();" style="width:100%;border:1px dashed #cbd5e1;background:#fff;color:#334155;border-radius:6px;padding:5px 8px;font-size:0.66rem;font-weight:600;cursor:pointer;"><i class="bi bi-plus-lg"></i> Blank manual enquiry</button>
-        </div>
     </div>
     <div style="max-height:320px;overflow-y:auto;">
         <table class="enq-table">
@@ -15126,6 +15115,7 @@ body { font-family: Arial; margin: 20px; }
                 <button class="btn btn-sm btn-outline-success" id="chatCallBtn" onclick="callOnWhatsApp()" title="Call on WhatsApp" style="padding:2px 6px;font-size:0.7rem;display:none;">
                     <i class="bi bi-telephone"></i>
                 </button>
+                <button class="btn btn-sm btn-outline-warning" onclick="openManualEnqFromChat()" title="Log this chat as a manual enquiry (pre-fills name & WhatsApp number)" style="padding:2px 8px;font-size:0.7rem;"><i class="bi bi-person-plus"></i> Log Enquiry</button>
                 <span style="font-size:0.75rem;color:var(--text-muted);font-weight:500;">Bot</span>
                 <label class="switch" style="margin:0;">
                     <input type="checkbox" id="humanModeToggle" onchange="toggleHumanMode()">
@@ -20609,6 +20599,12 @@ function openModal(modalId) {
         // Quick View drill-down modal should appear above Quick View
         if (modalId === 'quickViewDetailsModal') {
             modal.style.zIndex = 1060;
+        }
+        
+        // WhatsApp chat modal should always appear in front of any stacked modals
+        // (e.g. the Quick View drill-down "Chat" action opens it on top of 1060-level modals)
+        if (modalId === 'whatsappChatModal') {
+            modal.style.zIndex = 1070;
         }
         
         // Load installments audit data when audit modal opens
@@ -37928,6 +37924,22 @@ function openChat(phone, name) {
     }, 10000);
 }
 
+// Open the manual enquiry form pre-filled from the current chat's contact,
+// so it can be logged as an enquiry (same downstream flow as the Unattended ＋ button)
+function openManualEnqFromChat() {
+    var ph = String(currentChatPhone || '').replace(/[^0-9]/g, '');
+    if (!ph) { alert('No WhatsApp number available for this chat.'); return; }
+    var nmEl = document.getElementById('menqName');
+    var pEl = document.getElementById('menqPhone');
+    var dEl = document.getElementById('menqDetails');
+    var fEl = document.getElementById('menqFile');
+    if (nmEl) nmEl.value = currentChatName || '';
+    if (pEl) pEl.value = ph;
+    if (dEl) dEl.value = '';
+    if (fEl) fEl.value = '';
+    openManualEnqModal();
+}
+
 function loadChatMessages(phone, area, appendOnly) {
     fetch('/api/whatsapp-messages/' + phone)
         .then(r => r.json())
@@ -40922,62 +40934,6 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
   };
   window.openManualEnqModal=function(){document.getElementById('manualEnqModal').style.display='flex';};
   window.closeManualEnqModal=function(){document.getElementById('manualEnqModal').style.display='none';};
-  var _tempEnqs=[];
-  window.toggleTempEnqDropdown=function(){
-    var d=document.getElementById('tempEnqDropdown');
-    if(!d)return;
-    if(d.style.display==='block'){d.style.display='none';return;}
-    d.style.display='block';
-    var list=document.getElementById('tempEnqDropList');
-    if(list) list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:12px;">Loading\u2026</div>';
-    fetch('/api/enquiries/interim-not-in-main',{credentials:'include'})
-      .then(function(r){return r.json();})
-      .then(function(res){
-        if(!res||res.status!=='success'||!Array.isArray(res.data)){if(list)list.innerHTML='<div style="font-size:0.65rem;color:#c62828;text-align:center;padding:12px;">Failed to load interim enquiries.</div>';return;}
-        _tempEnqs=res.data;
-        var cnt=document.getElementById('tempEnqDropCount');
-        if(cnt)cnt.textContent='('+_tempEnqs.length+')';
-        if(!_tempEnqs.length){if(list)list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:12px;">No interim enquiries outside the main enquiries table.</div>';return;}
-        list.innerHTML=_tempEnqs.map(function(t){
-          var wa=t.wanumber?String(t.wanumber).replace(/[^0-9]/g,''):'';
-          var type=escH(t.enqtype||'General');
-          var created=t.created_at?(''+t.created_at).slice(0,16).replace('T',' '):'';
-          return '<div onclick="useTempEnquiry('+t.id+')" style="display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--gray-200);cursor:pointer;background:#fff;font-size:0.68rem;" onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'#fff\'">'
-            +'<span style="font-weight:700;color:#0f172a;">#'+t.id+'</span>'
-            +(wa?'<a href="https://wa.me/'+escH(wa)+'" target="_blank" style="color:#0891B2;font-weight:600;text-decoration:none;" onclick="event.stopPropagation();">+'+escH(wa)+'</a>':'<span style="color:#94a3b8;">no number</span>')
-            +'<span class="badge bg-secondary">'+type+'</span>'
-            +(created?'<span style="color:#94a3b8;font-size:0.6rem;">'+escH(created)+'</span>':'')
-            +'<span style="flex:1;"></span><i class="bi bi-chevron-right" style="color:#cbd5e1;font-size:0.65rem;"></i>'
-            +'</div>';
-        }).join('');
-      })
-      .catch(function(){if(list)list.innerHTML='<div style="font-size:0.65rem;color:#c62828;text-align:center;padding:12px;">Failed to load interim enquiries.</div>';});
-  };
-  window.closeTempEnqDropdown=function(){var d=document.getElementById('tempEnqDropdown');if(d)d.style.display='none';};
-  function _mapEnqType(t){
-    var s=String(t||'').toLowerCase().trim();
-    if(s.indexOf('kitchen')>-1||s.indexOf('cabinet')>-1)return 'Kitchen & Cabinets';
-    if(s.indexOf('building')>-1)return 'Building';
-    if(s.indexOf('renov')>-1)return 'Renovation';
-    return 'Other';
-  }
-  window.useTempEnquiry=function(id){
-    var item=null;
-    _tempEnqs.forEach(function(t){if(t.id===id)item=t;});
-    closeTempEnqDropdown();
-    if(item){
-      var wa=item.wanumber?String(item.wanumber).replace(/[^0-9]/g,''):'';
-      var nm=document.getElementById('menqName');
-      var ph=document.getElementById('menqPhone');
-      var cat=document.getElementById('menqCategory');
-      var det=document.getElementById('menqDetails');
-      if(nm)nm.value='';
-      if(ph)ph.value=wa;
-      if(cat)cat.value=_mapEnqType(item.enqtype);
-      if(det)det.value='';
-    }
-    openManualEnqModal();
-  };
   window.saveManualEnq=function(){
     var details=document.getElementById('menqDetails').value.trim();
     if(!details){alert('Enter the enquiry details');return;}
