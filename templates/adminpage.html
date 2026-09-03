@@ -37937,9 +37937,15 @@ function openManualEnqFromChat() {
             if (res && res.status === 'success' && res.count > 0) {
                 var first = res.data[0];
                 var statusLabel = first.status === 'completed' ? 'Attended to' : (first.status === 'in_progress' ? 'In progress' : 'Pending');
-                var msg = (contactName || 'This contact') + ' (' + ph + ') is already in the main enquiries as #' + first.id + ' \u2014 ' + statusLabel + ' \u00b7 ' + (first.enqcategory || 'General') + (res.count > 1 ? ' (+' + (res.count - 1) + ' more)' : '');
-                if (typeof showToast === 'function') { showToast(msg, 'warning', 'Already in Enquiries'); }
-                else { alert(msg); }
+                var msg = (contactName || 'This contact') + ' (' + ph + ') is already in the main enquiries as #' + first.id + ' \u2014 ' + statusLabel + ' \u00b7 ' + (first.enqcategory || 'General') + (res.count > 1 ? ' (+' + (res.count - 1) + ' more)' : '') + '.';
+                if (typeof showConfirm === 'function') {
+                    // Offer a bypass: confirm dialog lets the user log it anyway
+                    showConfirm(msg + ' Log a new enquiry for this contact anyway?', 'Already in Enquiries', 'Log Enquiry Anyway', 'Cancel')
+                        .then(function(ok) { if (ok) { _openManualEnqPrefilled(ph, contactName); } });
+                } else {
+                    if (typeof showToast === 'function') { showToast(msg, 'warning', 'Already in Enquiries'); }
+                    else { alert(msg); }
+                }
                 return;
             }
             _openManualEnqPrefilled(ph, contactName);
