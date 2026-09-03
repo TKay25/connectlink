@@ -27621,17 +27621,13 @@ def download_enquiry_plan(enquiry_id):
             plan_data = row[0]  # BYTEA data
             timestamp = row[1]
             client_whatsapp = row[2]
-            plan_mime = row[3] or 'application/pdf'
             
             if not plan_data:
                 return jsonify({'status': 'error', 'message': 'Plan data is empty'}), 404
             
-            # Derive extension from the stored mime so images/PDFs open correctly
-            mime_ext = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp',
-                        'image/gif': '.gif', 'application/pdf': '.pdf'}.get(plan_mime, '')
-            if not mime_ext:
-                mime_ext = '.pdf' if plan_mime == 'application/pdf' else ''
-            ext = mime_ext or '.bin'
+            # Resolve the real type: stored MIME when known, otherwise sniff the bytes so
+            # WhatsApp-source rows (plan_mime NULL) aren't forced to PDF.
+            plan_mime, ext, _ = _resolve_enquiry_media_type(plan_data, row[3])
             # Create filename
             filename = f"enquiry_plan_{enquiry_id}_{client_whatsapp}_{timestamp.strftime('%Y%m%d')}{ext}"
             
@@ -32458,6 +32454,52 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
         print(f"❌ Admin enquiry notification error: {exc}")
 
 
+def _sniff_media_mime(data):
+    """Best-effort magic-byte sniff for enquiry attachments (PDF, images, docx zip)."""
+    if not data:
+        return None
+    head = bytes(data)[:16] if not isinstance(data, (bytes, bytearray)) else data[:16]
+    if head[:5] == b'%PDF-':
+        return 'application/pdf'
+    if head[:8] == b'\x89PNG\r\n\x1a\n':
+        return 'image/png'
+    if head[:3] == b'\xff\xd8\xff':
+        return 'image/jpeg'
+    if head[:6] in (b'GIF87a', b'GIF89a'):
+        return 'image/gif'
+    if head[:4] == b'RIFF' and head[8:12] == b'WEBP':
+        return 'image/webp'
+    if head[:2] == b'BM':
+        return 'image/bmp'
+    if head[:2] == b'PK':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    return None
+
+
+def _resolve_enquiry_media_type(data, stored_mime):
+    """Return (mime_type, file_extension, whatsapp_message_type) for an enquiry
+    attachment. Sniffs the bytes first (so legacy WhatsApp-source rows with NULL
+    plan_mime aren't forced to PDF), then falls back to the stored MIME."""
+    ext_map = {
+        'application/pdf': ('.pdf', 'document'),
+        'image/png': ('.png', 'image'),
+        'image/jpeg': ('.jpg', 'image'),
+        'image/jpg': ('.jpg', 'image'),
+        'image/webp': ('.webp', 'image'),
+        'image/gif': ('.gif', 'image'),
+        'image/bmp': ('.bmp', 'image'),
+        'application/msword': ('.doc', 'document'),
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ('.docx', 'document'),
+    }
+    mime = _sniff_media_mime(data) or (stored_mime or '').strip().lower()
+    hit = ext_map.get(mime)
+    if hit:
+        return mime, hit[0], hit[1]
+    if mime.startswith('image/'):
+        return mime, '.img', 'image'
+    return (mime or 'application/octet-stream'), '.bin', 'document'
+
+
 def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_message=None, send_whatsapp_message=None):
     """Fetch enquiry attachment from DB and send over WhatsApp honouring its stored
     MIME type (images go as image messages, PDFs/docs as documents)."""
@@ -32527,25 +32569,9 @@ File size: {file_size_mb:.1f} MB
         return True
 
     date_part = timestamp.strftime('%Y%m%d') if hasattr(timestamp, 'strftime') else datetime.now().strftime('%Y%m%d')
-    # Respect the stored MIME type so images/docs don't arrive forced as .pdf
-    mime_map = {
-        'image/png': ('.png', 'image'),
-        'image/jpeg': ('.jpg', 'image'),
-        'image/jpg': ('.jpg', 'image'),
-        'image/webp': ('.webp', 'image'),
-        'image/gif': ('.gif', 'image'),
-        'image/bmp': ('.bmp', 'image'),
-        'application/pdf': ('.pdf', 'document'),
-        'application/msword': ('.doc', 'document'),
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ('.docx', 'document'),
-    }
-    mime_hit = mime_map.get(plan_mime)
-    if mime_hit:
-        ext, msg_type = mime_hit
-    elif plan_mime.startswith('image/'):
-        ext, msg_type = '.img', 'image'
-    else:
-        ext, msg_type = '.bin', 'document'
+    # Resolve the real type: stored MIME when known, otherwise sniff the bytes so
+    # legacy WhatsApp-source rows (plan_mime NULL) aren't forced to PDF.
+    mime, ext, msg_type = _resolve_enquiry_media_type(plan_data, plan_mime)
     filename = f"Enquiry_Attachment_{enquiry_id}_{client_whatsapp}_{date_part}{ext}"
     caption = f"Enquiry Attachment\nReference: #{enquiry_id}"
     
@@ -32554,7 +32580,7 @@ File size: {file_size_mb:.1f} MB
     try:
         # MOBILE FIX: Use lower timeout and simpler payload
         result = send_pdf_mobile_optimized(recipient_number, plan_data, filename, caption,
-                                           mime_type=plan_mime, msg_type=msg_type)
+                                           mime_type=mime, msg_type=msg_type)
         print(f"✅ {msg_type} sent successfully to mobile: {result}")
         return True
     except Exception as exc:
