@@ -40937,6 +40937,7 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
   window.saveManualEnq=function(){
     var details=document.getElementById('menqDetails').value.trim();
     if(!details){alert('Enter the enquiry details');return;}
+    if(typeof showLoader==='function')showLoader('Posting Enquiry','Saving to the enquiries system...');
     var fd=new FormData();
     fd.append('username',document.getElementById('menqName').value.trim());
     fd.append('clientwhatsapp',document.getElementById('menqPhone').value.trim());
@@ -40945,9 +40946,10 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
     var fi=document.getElementById('menqFile');
     if(fi.files&&fi.files[0])fd.append('plan',fi.files[0]);
     fetch('/api/enquiries/manual',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(res){
+      if(typeof hideLoader==='function')hideLoader();
       if(res.status==='success'||res.success){closeManualEnqModal();window.loadUnattendedEnqs();if(window.refreshEnquiriesTab){window.refreshEnquiriesTab();}}
       else{alert(res.message||'Failed to post enquiry');}
-    }).catch(function(){alert('Connection error');});
+    }).catch(function(){if(typeof hideLoader==='function')hideLoader();alert('Connection error');});
   };
   window.minEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='none';try{localStorage.setItem('cl_enqStripMin','1');}catch(e){}};
   window.maxEnqStrip=function(){var l=document.getElementById('enqFloatList');if(l)l.style.display='';try{localStorage.setItem('cl_enqStripMin','0');}catch(e){}};
