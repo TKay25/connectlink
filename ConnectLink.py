@@ -28922,7 +28922,23 @@ def update_project():
             installment9_duedate = clean_date_update(request.form.get('Installment9DueDate'))
             installment10_duedate = clean_date_update(request.form.get('Installment10DueDate'))
 
-            monthlyinstallment = (float(contractamount) - float(depositpaid))/int(monthstopay)
+            # Contract amount and Deposit amount must NEVER be blank for an
+            # installment plan — return a clear popup error instead of silently
+            # treating them as 0 or crashing with a 500.
+            if contractamount in (None, '') or depositpaid in (None, ''):
+                return jsonify({
+                    'success': False,
+                    'error_message': 'Contract amount and Deposit amount must not be blank. Please fill them in before saving.'
+                }), 400
+            try:
+                contract_amount_f = float(contractamount)
+                deposit_amount_f = float(depositpaid)
+            except (TypeError, ValueError):
+                return jsonify({
+                    'success': False,
+                    'error_message': 'Contract amount and Deposit amount must be numbers. Please correct them before saving.'
+                }), 400
+            monthlyinstallment = (contract_amount_f - deposit_amount_f) / int(monthstopay)
 
             first_installment_due_date = request.form.get('Installment1DueDate')
             

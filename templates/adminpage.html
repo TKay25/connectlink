@@ -23840,6 +23840,30 @@ document.getElementById('updateProjectForm')?.addEventListener('submit', async f
         return;
     }
     
+    // === CLIENT-SIDE BLANK AMOUNT VALIDATION (blank = rejected; zero IS allowed) ===
+    const moneyFields = [
+        { el: form.querySelector('[name="TotalContractAmount"]'), label: 'Contract amount' },
+        { el: form.querySelector('[name="depositpaid"]'), label: 'Deposit amount' }
+    ];
+    const blankFields = [];
+    moneyFields.forEach(function(item) {
+        if (!item.el) return;
+        if (item.el.value === undefined || String(item.el.value).trim() === '') {
+            blankFields.push(item.label);
+            item.el.style.border = '2px solid red';
+            item.el.style.backgroundColor = '#fff0f0';
+        } else {
+            item.el.style.border = '';
+            item.el.style.backgroundColor = '';
+        }
+    });
+    if (blankFields.length > 0) {
+        alert('❌ ' + blankFields.join(' and ') + ' must not be blank. Please fill them in before saving.');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Save Changes';
+        return;
+    }
+    
     // Show loader
     if (loaderxyz) loaderxyz.style.display = "flex";
     submitBtn.disabled = true;
