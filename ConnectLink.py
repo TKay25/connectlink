@@ -32459,15 +32459,16 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
 
 
 def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_message=None, send_whatsapp_message=None):
-    """Fetch enquiry attachment from DB and send as WhatsApp PDF"""
-    
-    print(f"🔍 Starting PDF delivery for enquiry {enquiry_id} to {recipient_number}")
+    """Fetch enquiry attachment from DB and send over WhatsApp honouring its stored
+    MIME type (images go as image messages, PDFs/docs as documents)."""
+
+    print(f"🔍 Starting attachment delivery for enquiry {enquiry_id} to {recipient_number}")
     
     try:
         with get_db() as (cursor, _):
             cursor.execute(
                 """
-                SELECT plan, timestamp, clientwhatsapp
+                SELECT plan, timestamp, clientwhatsapp, plan_mime
                 FROM connectlinkenquiries
                 WHERE id = %s
                 """,
@@ -32491,6 +32492,7 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
     plan_data = row[0]
     timestamp = row[1]
     client_whatsapp = row[2]
+    plan_mime = (row[3] or '').strip().lower() or 'application/pdf'
 
     if isinstance(plan_data, memoryview):
         plan_data = plan_data.tobytes()
@@ -32525,19 +32527,39 @@ File size: {file_size_mb:.1f} MB
         return True
 
     date_part = timestamp.strftime('%Y%m%d') if hasattr(timestamp, 'strftime') else datetime.now().strftime('%Y%m%d')
-    filename = f"Enquiry_Attachment_{enquiry_id}_{client_whatsapp}_{date_part}.pdf"
+    # Respect the stored MIME type so images/docs don't arrive forced as .pdf
+    mime_map = {
+        'image/png': ('.png', 'image'),
+        'image/jpeg': ('.jpg', 'image'),
+        'image/jpg': ('.jpg', 'image'),
+        'image/webp': ('.webp', 'image'),
+        'image/gif': ('.gif', 'image'),
+        'image/bmp': ('.bmp', 'image'),
+        'application/pdf': ('.pdf', 'document'),
+        'application/msword': ('.doc', 'document'),
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ('.docx', 'document'),
+    }
+    mime_hit = mime_map.get(plan_mime)
+    if mime_hit:
+        ext, msg_type = mime_hit
+    elif plan_mime.startswith('image/'):
+        ext, msg_type = '.img', 'image'
+    else:
+        ext, msg_type = '.bin', 'document'
+    filename = f"Enquiry_Attachment_{enquiry_id}_{client_whatsapp}_{date_part}{ext}"
     caption = f"Enquiry Attachment\nReference: #{enquiry_id}"
     
-    print(f"📤 Attempting to send PDF ({file_size_mb:.2f}MB) to {recipient_number}")
+    print(f"📤 Attempting to send {msg_type} ({file_size_mb:.2f}MB) to {recipient_number}")
     
     try:
         # MOBILE FIX: Use lower timeout and simpler payload
-        result = send_pdf_mobile_optimized(recipient_number, plan_data, filename, caption)
-        print(f"✅ PDF sent successfully to mobile: {result}")
+        result = send_pdf_mobile_optimized(recipient_number, plan_data, filename, caption,
+                                           mime_type=plan_mime, msg_type=msg_type)
+        print(f"✅ {msg_type} sent successfully to mobile: {result}")
         return True
     except Exception as exc:
-        print(f"❌ Failed to send PDF to mobile: {exc}")
-        logging.exception(f"Mobile PDF send failed: {exc}")
+        print(f"❌ Failed to send {msg_type} to mobile: {exc}")
+        logging.exception(f"Mobile {msg_type} send failed: {exc}")
         
         # Fallback: Send download link
         download_link = f"https://connectlink-wbax.onrender.com/api/enquiries/{enquiry_id}/plan"
@@ -32549,8 +32571,8 @@ File size: {file_size_mb:.1f} MB
             send_whatsapp_message(recipient_number, link_message)
         return True
 
-def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption):
-    """Mobile-optimized PDF sender with lower timeouts and simpler payload"""
+def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption, mime_type='application/pdf', msg_type='document'):
+    """Mobile-optimized media sender (image/document) with lower timeouts and simpler payload"""
     # Ensure phone number is string (not int from DB)
     recipient_number = str(recipient_number) if recipient_number is not None else ''
     
@@ -32571,7 +32593,7 @@ def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption):
     file_obj = io.BytesIO(pdf_bytes)
     
     files = {
-        'file': (filename, file_obj, 'application/pdf'),
+        'file': (filename, file_obj, mime_type or 'application/octet-stream'),
         'messaging_product': (None, 'whatsapp')
     }
     
@@ -32605,17 +32627,28 @@ def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption):
             'Content-Type': 'application/json'
         }
         
-        # Simpler payload for mobile
-        payload = {
-            'messaging_product': 'whatsapp',
-            'to': recipient_number,
-            'type': 'document',
-            'document': {
-                'id': media_id,
-                'filename': filename,
-                'caption': caption
+        # Simpler payload for mobile — images as image messages, everything else as a document
+        if msg_type == 'image':
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_number,
+                'type': 'image',
+                'image': {
+                    'id': media_id,
+                    'caption': caption
+                }
             }
-        }
+        else:
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': recipient_number,
+                'type': 'document',
+                'document': {
+                    'id': media_id,
+                    'filename': filename,
+                    'caption': caption
+                }
+            }
         
         print(f"📨 Sending document message...")
         send_response = requests.post(send_url, headers=send_headers, 
