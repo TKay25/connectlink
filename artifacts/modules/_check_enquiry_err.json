@@ -1,18 +1,16 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "MergeUsers",
-  "file": "merge_users.py",
-  "purpose": "<!-- main function",
+  "module": "CheckEnquiryErr",
+  "file": "_check_enquiry_err.txt",
+  "purpose": "<!-- Describe what CheckEnquiryErr does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [
-    "merge_users → cursor.execute, cursor.fetchall"
-  ],
+  "entry_flows": [],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
   "dependencies": [
-    "db_helper"
+    "<!-- list module dependencies here -->"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -27,10 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "1c80fc90e2085272",
-  "file_mtime": 1782930204959.9922,
-  "file_size": 821,
-  "file_birthtime": 1782930204759.5293,
-  "generated_at": "2026-09-03T08:13:36.234749Z",
-  "stale": false
+  "file_hash": "e3b0c44298fc1c14",
+  "file_mtime": 1788423516183.0002,
+  "file_size": 0,
+  "file_birthtime": 1788423516183.0002,
+  "generated_at": "2026-09-03T08:18:39.141Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
 }

@@ -28018,6 +28018,55 @@ def get_unattended_enquiries():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+@app.route('/api/enquiries/existing-check', methods=['GET'])
+def check_existing_enquiry_contact():
+    """Return the latest main-enquiries rows already on file for a WhatsApp number
+    and/or customer name. The chat modal checks this before opening the manual enquiry
+    form, so a contact that's already logged isn't duplicated."""
+    wa_digits = re.sub(r'[^0-9]', '', request.args.get('whatsapp') or '')
+    name = (request.args.get('name') or '').strip()
+    if wa_digits.startswith('0'):
+        wa_digits = '263' + wa_digits[1:]
+    elif wa_digits and not wa_digits.startswith('263'):
+        wa_digits = '263' + wa_digits
+    if not wa_digits and not name:
+        return jsonify({'status': 'error', 'message': 'Provide a WhatsApp number or name.'}), 400
+    try:
+        conds, params = [], []
+        if wa_digits:
+            conds.append("""(regexp_replace(COALESCE(clientwhatsapp,''),'[^0-9]','','g') = %s
+                             OR right(regexp_replace(COALESCE(clientwhatsapp,''),'[^0-9]','','g'), 9) = %s)""")
+            params += [wa_digits, wa_digits[-9:]]
+        if name:
+            conds.append("COALESCE(username,'') ILIKE %s")
+            params.append('%' + name + '%')
+        with get_db() as (cursor, connection):
+            cursor.execute(f"""
+                SELECT id, timestamp, clientwhatsapp, enqcategory, status, username, source,
+                       COALESCE(attended_by,''), COALESCE(customer_response,'')
+                FROM connectlinkenquiries
+                WHERE {' OR '.join(conds)}
+                ORDER BY id DESC
+                LIMIT 5
+            """, tuple(params))
+            rows = cursor.fetchall()
+        return jsonify({'status': 'success', 'count': len(rows), 'data': [
+            {
+                'id': r[0],
+                'timestamp': r[1].strftime('%d/%m/%Y %H:%M') if r[1] else '',
+                'clientwhatsapp': r[2] or '',
+                'enqcategory': r[3] or '',
+                'status': r[4] or 'pending',
+                'username': r[5] or '',
+                'source': r[6] or 'auto',
+                'attended_by': r[7] or '',
+                'customer_response': r[8] or ''
+            } for r in rows]})
+    except Exception as e:
+        print(f"Existing enquiry check error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 @app.route('/api/enquiries/admins', methods=['GET'])
 def get_enquiry_admins():
     """Active admin_users for the 'who attended to this?' picker."""

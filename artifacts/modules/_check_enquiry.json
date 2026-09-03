@@ -1,18 +1,18 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "MergeUsers",
-  "file": "merge_users.py",
+  "module": "CheckEnquiry",
+  "file": "_check_enquiry.py",
   "purpose": "<!-- main function",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [
-    "merge_users → cursor.execute, cursor.fetchall"
+    "_check_enquiry → psycopg2.connect, conn.cursor, cur.execute, cur.fetchall, cur.close"
   ],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
   "dependencies": [
-    "db_helper"
+    "psycopg2"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -27,10 +27,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "1c80fc90e2085272",
-  "file_mtime": 1782930204959.9922,
-  "file_size": 821,
-  "file_birthtime": 1782930204759.5293,
-  "generated_at": "2026-09-03T08:13:36.234749Z",
-  "stale": false
+  "file_hash": "fcd031f9c9a99c2c",
+  "file_mtime": 1788423462291.3398,
+  "file_size": 1409,
+  "file_birthtime": 1788423462054.537,
+  "generated_at": "2026-09-03T08:17:44.666967Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
 }

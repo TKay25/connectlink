@@ -37929,11 +37929,30 @@ function openChat(phone, name) {
 function openManualEnqFromChat() {
     var ph = String(currentChatPhone || '').replace(/[^0-9]/g, '');
     if (!ph) { alert('No WhatsApp number available for this chat.'); return; }
+    var contactName = currentChatName || '';
+    // If this contact/number is already on the main enquiries, flag it and DON'T open the form
+    fetch('/api/enquiries/existing-check?whatsapp=' + encodeURIComponent(ph) + '&name=' + encodeURIComponent(contactName), { credentials: 'include' })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res && res.status === 'success' && res.count > 0) {
+                var first = res.data[0];
+                var statusLabel = first.status === 'completed' ? 'Attended to' : (first.status === 'in_progress' ? 'In progress' : 'Pending');
+                var msg = (contactName || 'This contact') + ' (' + ph + ') is already in the main enquiries as #' + first.id + ' \u2014 ' + statusLabel + ' \u00b7 ' + (first.enqcategory || 'General') + (res.count > 1 ? ' (+' + (res.count - 1) + ' more)' : '');
+                if (typeof showToast === 'function') { showToast(msg, 'warning', 'Already in Enquiries'); }
+                else { alert(msg); }
+                return;
+            }
+            _openManualEnqPrefilled(ph, contactName);
+        })
+        .catch(function() { _openManualEnqPrefilled(ph, contactName); });
+}
+
+function _openManualEnqPrefilled(ph, contactName) {
     var nmEl = document.getElementById('menqName');
     var pEl = document.getElementById('menqPhone');
     var dEl = document.getElementById('menqDetails');
     var fEl = document.getElementById('menqFile');
-    if (nmEl) nmEl.value = currentChatName || '';
+    if (nmEl) nmEl.value = contactName;
     if (pEl) pEl.value = ph;
     if (dEl) dEl.value = '';
     if (fEl) fEl.value = '';
