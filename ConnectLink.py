@@ -12447,11 +12447,12 @@ def get_user_by_id(user_id):
 
 # ==================== ACTIVITY LOG SYSTEM ====================
 
-def log_activity(action_type, description, reference_type=None, reference_id=None, details=None):
-    """Log an activity to the activity_log table"""
+def log_activity(action_type, description, reference_type=None, reference_id=None, details=None, username=None):
+    """Log an activity to the activity_log table. Pass username='System' (or any
+    actor) to override attribution; otherwise the logged-in session user is used."""
     try:
         # Prefer the full name (user_name) so logs read as a person, not a login handle
-        user_name = session.get('user_name') or session.get('username') or 'System'
+        user_name = username or session.get('user_name') or session.get('username') or 'System'
         with get_db() as (cursor, connection):
             cursor.execute("""
                 INSERT INTO activity_log (action_type, description, user_name, reference_type, reference_id, details)
@@ -27918,7 +27919,12 @@ def create_manual_enquiry():
             """, (datetime.now(), clientwhatsapp or None, enqcategory, enq, plan_data, plan_mime, username or 'Unknown'))
             enquiry_id = cursor.fetchone()[0]
             connection.commit()
-        log_activity('enquiry_manual', f'Manual enquiry #{enquiry_id} created by {created_by} ({enqcategory})', 'enquiry', enquiry_id)
+        # Manual enquiries are credited to the System in the activity log; the
+        # operator who entered it is kept in the details for reference.
+        log_activity('enquiry_manual', f'Manual enquiry #{enquiry_id} logged ({enqcategory})',
+                     'enquiry', enquiry_id,
+                     {'entered_by': created_by, 'clientwhatsapp': clientwhatsapp or ''},
+                     username='System')
         # Alert admins on WhatsApp exactly like a normal enquiry (best-effort)
         try:
             send_admin_enquiry_notification(
@@ -28497,7 +28503,8 @@ def flag_enquiry_banner():
                     promoted += 1
                     log_activity('enquiry_manual',
                                  f'Interim enquiry #{i_id} promoted to main enquiry #{new_id} (Unattended banner)',
-                                 'enquiry', new_id)
+                                 'enquiry', new_id,
+                                 {'promoted_by': user}, username='System')
                     # The interim row is now a main enquiry — remove it from the interim list
                     cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (i_id,))
                 else:
@@ -39284,7 +39291,8 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
                     cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (i_id,))
                     log_activity('enquiry_manual',
                                  f'Interim enquiry #{i_id} promoted to main enquiry #{promoted_id} — client responded "I Still Need Help"',
-                                 'enquiry', promoted_id)
+                                 'enquiry', promoted_id,
+                                 username='System')
                 connection.commit()
             else:
                 client_name = row[0]
