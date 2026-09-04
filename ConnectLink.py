@@ -33283,6 +33283,26 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
         ]
 
         for admin_number in ENQUIRY_ADMIN_NOTIFY_NUMBERS:
+            # Dedupe: if a recent attempt already failed because the number is outside
+            # the WhatsApp 24h window (131047 / re-engagement), don't hammer it again.
+            try:
+                with get_db() as (cursor, _):
+                    cursor.execute("""
+                        SELECT 1 FROM enquiry_admin_notify_log
+                        WHERE enquiry_id = %s AND admin_number = %s
+                          AND send_status = 'failed'
+                          AND (send_error LIKE '%131047%'
+                               OR send_error ILIKE '%24 hour%'
+                               OR send_error ILIKE '%re-engagement%')
+                          AND sent_at > NOW() - INTERVAL '23 hours'
+                        LIMIT 1
+                    """, (int(enquiry_id), admin_number))
+                    _recent_window_fail = cursor.fetchone() is not None
+            except Exception:
+                _recent_window_fail = False
+            if _recent_window_fail:
+                print(f"⏭ Skipping repeated admin alert for enquiry {enquiry_id} to {admin_number} (outside 24h window, recently failed)")
+                continue
             try:
                 payload = {
                     "messaging_product": "whatsapp",
@@ -33497,6 +33517,32 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
             send_text_message(recipient_number, "❌ The attachment file is empty.")
         return False
 
+    # ADMIN-NOTIFY GUARD: stop ghost re-deliveries of old enquiry plans to staff
+    # numbers. Client "Download attachment" requests (non-admin senders) are unaffected.
+    recipient_number_str = str(recipient_number or '')
+    if recipient_number_str in ENQUIRY_ADMIN_NOTIFY_NUMBERS:
+        _too_old = False
+        _already = False
+        try:
+            _enq_time = row[1]
+            if _enq_time:
+                _age_hrs = (datetime.now() - _enq_time).total_seconds() / 3600.0
+                _too_old = _age_hrs > 23
+            with get_db() as (cursor, _):
+                cursor.execute("""
+                    SELECT COUNT(*) FROM enquiry_admin_notify_log
+                    WHERE enquiry_id = %s AND admin_number = %s
+                      AND send_status = 'sent' AND message_id LIKE 'attachment_fallback%'
+                      AND sent_at > NOW() - INTERVAL '23 hours'
+                """, (int(enquiry_id), recipient_number_str))
+                _already = cursor.fetchone()[0] > 0
+        except Exception as _grd_err:
+            print(f"⚠️ Admin attachment guard check failed: {_grd_err}")
+        if _too_old or _already:
+            _reason = 'old enquiry (outside WhatsApp window)' if _too_old else 'already delivered recently'
+            print(f"⏭ Skipping admin attachment delivery for enquiry {enquiry_id} to {recipient_number_str} ({_reason})")
+            return True
+
     file_size_mb = len(plan_data) / (1024 * 1024)
     print(f"📊 Attachment size: {file_size_mb:.2f} MB")
     
@@ -33517,6 +33563,11 @@ File size: {file_size_mb:.1f} MB
             send_text_message(recipient_number, link_message)
         elif send_whatsapp_message:
             send_whatsapp_message(recipient_number, link_message)
+        if recipient_number_str in ENQUIRY_ADMIN_NOTIFY_NUMBERS:
+            try:
+                log_admin_notify_attempt(int(enquiry_id), recipient_number_str, 'sent', 'attachment_fallback', f'attachment_fallback_{enquiry_id}')
+            except Exception:
+                pass
         return True
 
     date_part = timestamp.strftime('%Y%m%d') if hasattr(timestamp, 'strftime') else datetime.now().strftime('%Y%m%d')
@@ -33533,6 +33584,11 @@ File size: {file_size_mb:.1f} MB
         result = send_pdf_mobile_optimized(recipient_number, plan_data, filename, caption,
                                            mime_type=mime, msg_type=msg_type)
         print(f"✅ {msg_type} sent successfully to mobile: {result}")
+        if recipient_number_str in ENQUIRY_ADMIN_NOTIFY_NUMBERS:
+            try:
+                log_admin_notify_attempt(int(enquiry_id), recipient_number_str, 'sent', 'attachment_fallback', f'attachment_fallback_{enquiry_id}')
+            except Exception:
+                pass
         return True
     except Exception as exc:
         print(f"❌ Failed to send {msg_type} to mobile: {exc}")
@@ -33546,6 +33602,11 @@ File size: {file_size_mb:.1f} MB
             send_text_message(recipient_number, link_message)
         elif send_whatsapp_message:
             send_whatsapp_message(recipient_number, link_message)
+        if recipient_number_str in ENQUIRY_ADMIN_NOTIFY_NUMBERS:
+            try:
+                log_admin_notify_attempt(int(enquiry_id), recipient_number_str, 'sent', 'attachment_fallback', f'attachment_fallback_{enquiry_id}')
+            except Exception:
+                pass
         return True
 
 def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption, mime_type='application/pdf', msg_type='document'):
