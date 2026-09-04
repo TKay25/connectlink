@@ -31745,6 +31745,18 @@ def _cl_build_invoice_html(data, company, logo_base64):
     tax_amt = _cl_money_str(data.get('tax_amt'))
     total = _cl_money_str(data.get('total'))
 
+    # Only show Discount / Tax rows when they are actually applied (> 0%)
+    try:
+        _disc_pct = float(data.get('discount_pct') or 0)
+    except (TypeError, ValueError):
+        _disc_pct = 0.0
+    try:
+        _tax_pct = float(data.get('tax_pct') or 0)
+    except (TypeError, ValueError):
+        _tax_pct = 0.0
+    discount_row = f'<div class="trow"><span class="k">Discount ({discount_pct}%)</span><span class="v">- {currency} {discount_amt}</span></div>' if _disc_pct else ''
+    tax_row = f'<div class="trow"><span class="k">Tax ({tax_pct}%)</span><span class="v">{currency} {tax_amt}</span></div>' if _tax_pct else ''
+
     notes = html.escape(str(data.get('notes') or '')).replace('\n', '<br>')
     notes_html = f'<div class="notes-box"><div class="nb-label">Notes</div><div class="nb-text">{notes}</div></div>' if notes else ''
 
@@ -31816,8 +31828,8 @@ def _cl_build_invoice_html(data, company, logo_base64):
     <div class="totals-wrap">
         <div class="totals">
             <div class="trow"><span class="k">Subtotal</span><span class="v">{currency} {subtotal}</span></div>
-            <div class="trow"><span class="k">Discount ({discount_pct}%)</span><span class="v">- {currency} {discount_amt}</span></div>
-            <div class="trow"><span class="k">Tax ({tax_pct}%)</span><span class="v">{currency} {tax_amt}</span></div>
+            {discount_row}
+            {tax_row}
             <div class="trow total"><span class="k">TOTAL DUE</span><span class="v">{currency} {total}</span></div>
         </div>
     </div>
