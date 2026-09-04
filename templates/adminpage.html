@@ -41289,6 +41289,30 @@ body.dark-theme .quick-action-card:nth-child(5) .action-icon { background:rgba(1
 body.dark-theme .inv-item-row .inv-line-total { color:var(--text-primary); }
 .gen-totals-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
 body.dark-theme .gen-totals-box { background:#1a1f35; border-color:#3a4058; }
+
+/* Slightly larger typed text in the generator + history forms */
+#docGenModal .form-control,
+#docGenModal .form-select,
+#docHistoryModal .form-control,
+#docHistoryModal .form-select { font-size:.95rem !important; }
+#docGenModal .form-control-sm,
+#docGenModal .form-select-sm,
+#docHistoryModal .form-control-sm,
+#docHistoryModal .form-select-sm { font-size:.95rem !important; padding-top:.42rem !important; padding-bottom:.42rem !important; }
+#docGenModal textarea.form-control,
+#docHistoryModal textarea.form-control { font-size:.95rem !important; }
+#docGenModal ::placeholder,
+#docHistoryModal ::placeholder { font-size:.85rem !important; }
+
+/* Type picker dropdown — crimson bordered with glow, bolder options */
+#docTypeSelect { max-width:360px; border:2px solid #C12B3E !important; border-radius:12px !important; font-weight:700 !important; font-size:.95rem !important; color:#7a1f2b !important; background:#fff !important; box-shadow:0 0 0 0 rgba(193,43,62,0); transition:box-shadow .2s ease, transform .2s ease, border-color .2s ease; padding:.5rem 2.2rem .5rem .9rem !important; }
+#docTypeSelect:hover { border-color:#a81f31 !important; box-shadow:0 6px 18px rgba(193,43,62,.28); transform:translateY(-1px); }
+#docTypeSelect:focus { border-color:#C12B3E !important; box-shadow:0 0 0 3px rgba(193,43,62,.20), 0 8px 20px rgba(193,43,62,.22) !important; outline:none; }
+#docTypeSelect option { font-weight:700 !important; color:#22314e !important; }
+#docTypeSelect option:disabled { color:#8a97ab !important; }
+body.dark-theme #docTypeSelect { background:#1a1f35 !important; color:#f8c9cf !important; border-color:#e05263 !important; }
+body.dark-theme #docTypeSelect option { background:#1a1f35; color:#f1f5f9; }
+body.dark-theme #docTypeSelect:hover, body.dark-theme #docTypeSelect:focus { border-color:#e05263 !important; }
 </style>
 
 <!-- Document generator modal (Invoice / Receipt with dropdown switch) -->
@@ -41307,9 +41331,7 @@ body.dark-theme .gen-totals-box { background:#1a1f35; border-color:#3a4058; }
             <div id="docCreateArea">
             <!-- Type dropdown (placeholder state) -->
             <div class="text-center py-3" style="border-bottom:1px solid var(--gray-200);">
-                <div style="font-size:1.5rem;color:#7c3aed;margin-bottom:8px;"><i class="bi bi-file-earmark-pdf"></i></div>
-                <div class="text-muted small mb-2" style="font-size:.78rem;">Generate a polished PDF — pick what you need to create.</div>
-                <select class="form-select form-select-sm mx-auto" id="docTypeSelect" style="max-width:340px;" onchange="clSetDocType(this.value)" aria-label="Document type">
+                <select class="form-select form-select-sm mx-auto cl-doc-type" id="docTypeSelect" onchange="clSetDocType(this.value)" aria-label="Document type">
                     <option value="" selected disabled>Generate invoice or receipt…</option>
                     <option value="invoice">Invoice — bill a client with line items, tax &amp; totals</option>
                     <option value="receipt">Receipt — record a payment received</option>
