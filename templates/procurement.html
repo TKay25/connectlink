@@ -149,6 +149,8 @@
         .pc-badge-ordered { background: #dbeafe; color: #1d4ed8; }
         .pc-badge-partial { background: #fef3c7; color: #b45309; }
         .pc-badge-received { background: #dcfce7; color: #15803d; }
+        .pc-badge-pending { background: #ede9fe; color: #6d28d9; }
+        .pc-badge-cancelled { background: #f3f4f6; color: #6b7280; }
         .pc-badge-high { background: #fee2e2; color: #b91c1c; }
         .pc-badge-medium { background: #fef3c7; color: #b45309; }
         .pc-badge-low { background: #dcfce7; color: #15803d; }
@@ -1255,12 +1257,26 @@
             <div class="modal-body pc-modal-body">
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label class="pc-form-label">Supplier *</label>
+                        <label class="pc-form-label">Supplier</label>
                         <select class="pc-select" id="poSupplier"></select>
                     </div>
                     <div class="col-md-6">
                         <label class="pc-form-label">Expected Delivery</label>
                         <input type="date" class="pc-input" id="poExpectedDelivery">
+                    </div>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Requested By <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(who in the department needs it)</span></label>
+                        <div style="position:relative;">
+                            <input type="text" class="pc-input" id="poRequestedBy" placeholder="Search HR names..." autocomplete="off">
+                            <input type="hidden" id="poRequestedPhone">
+                            <div class="pc-suggest" id="poRequestedList"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Requested Phone <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(auto-filled from HR)</span></label>
+                        <input type="text" class="pc-input" id="poRequestedPhoneShow" readonly placeholder="Pick a name — number auto-fills">
                     </div>
                     <div class="col-12">
                         <label class="pc-form-label">Funding Source</label>
@@ -1321,6 +1337,8 @@
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoPdf()"><i class="bi bi-file-earmark-pdf"></i> Download PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoGrn()"><i class="bi bi-file-earmark-richtext"></i> GRN PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="sendPoPdf()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-whatsapp"></i> Send PDF</button>
+                <button class="pc-btn pc-btn-success" onclick="approvePo(VIEW_PO.id)" id="poApproveBtn" data-perm-action="can_approve_requisitions" style="display:none;"><i class="bi bi-check-lg"></i> Approve</button>
+                <button class="pc-btn pc-btn-danger" onclick="openPoDecline()" id="poDeclineBtn" data-perm-action="can_approve_requisitions" style="display:none;"><i class="bi bi-x-lg"></i> Decline</button>
                 <button class="pc-btn pc-btn-primary" onclick="saveReceive()" id="receiveBtn" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Record Receipt</button>
             </div>
         </div>
@@ -1412,6 +1430,7 @@ let SUPPLIERS = [];
 let VIEW_REQ = null;
 let VIEW_PO = null;
 let EDIT_REQ_ID = null;
+let PO_HR_PEOPLE = []; // HR-portal names/phones for the PO requester picker
 
 // ===== LIGHTWEIGHT POLISH (no extra libraries) =====
 function animateValue(el, target, isMoney, dur) {
@@ -1492,8 +1511,15 @@ function prioBadge(p) {
     return `<span class="pc-badge ${map[p] || 'pc-badge-medium'}">${esc(p || 'Medium')}</span>`;
 }
 function poBadge(status) {
-    const map = { ordered:'pc-badge-ordered', partial:'pc-badge-partial', received:'pc-badge-received' };
-    return `<span class="pc-badge ${map[status] || 'pc-badge-ordered'}">${esc(status)}</span>`;
+    const map = {
+        pending_approval: ['pc-badge-pending', 'Pending Approval'],
+        ordered: ['pc-badge-ordered', 'Ordered'],
+        partial: ['pc-badge-partial', 'Partial'],
+        received: ['pc-badge-received', 'Received'],
+        cancelled: ['pc-badge-cancelled', 'Cancelled']
+    };
+    const [cls, label] = map[status] || ['pc-badge-ordered', status];
+    return `<span class="pc-badge ${cls}">${esc(label)}</span>`;
 }
 function ratingStars(r) {
     r = Number(r || 0);
@@ -1577,6 +1603,7 @@ async function init() {
     loadCategories();
     setupReqDepartment();
     setupReqProject();
+    setupPoRequestedCombo();
     showModule('dashboard');
 }
 
@@ -2137,6 +2164,55 @@ function setupReqDepartment() {
     input.addEventListener('change', toggleReqProjectField);
 }
 
+// ----- PO "Requested By" picker (names + WhatsApp from the HR portal) -----
+async function loadPoRequesters() {
+    try {
+        const res = await fetch('/api/hr/employees', { credentials: 'include' });
+        const data = await res.json();
+        const map = new Map();
+        (data.data || []).forEach(em => {
+            const name = ((em.first_name || '') + ' ' + (em.last_name || '')).replace(/\s+/g, ' ').trim();
+            if (!name) return;
+            const phone = (em.whatsapp || '').trim();
+            const cur = map.get(name);
+            if (!cur || (phone && !cur.phone)) map.set(name, { name, phone, dept: em.department || '' });
+        });
+        PO_HR_PEOPLE = Array.from(map.values());
+    } catch (e) { PO_HR_PEOPLE = []; }
+}
+
+function setupPoRequestedCombo() {
+    const input = document.getElementById('poRequestedBy');
+    const list = document.getElementById('poRequestedList');
+    if (!input || !list) return;
+    const fillPhone = (name) => {
+        const m = PO_HR_PEOPLE.find(p => p.name.toLowerCase() === String(name || '').trim().toLowerCase());
+        const phone = m ? (m.phone || '') : '';
+        document.getElementById('poRequestedPhone').value = phone;
+        const showEl = document.getElementById('poRequestedPhoneShow');
+        if (showEl) showEl.value = phone ? phone : (m ? 'No number saved in HR' : '');
+    };
+    const show = (items) => {
+        if (!items.length) { list.style.display = 'none'; return; }
+        list.innerHTML = items.map((p, i) => `<div class="pc-sug-item" data-i="${i}"><span>${esc(p.name)}</span><span class="sub">${esc(p.dept || '')}${p.phone ? ' · ' + esc(p.phone) : ''}</span></div>`).join('');
+        list.style.display = 'block';
+        list.querySelectorAll('.pc-sug-item').forEach(el => {
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const it = items[+el.dataset.i];
+                input.value = it.name;
+                fillPhone(it.name);
+                list.style.display = 'none';
+            });
+        });
+    };
+    const q = () => input.value.trim().toLowerCase();
+    input.addEventListener('focus', () => show(PO_HR_PEOPLE.filter(p => !q() || p.name.toLowerCase().includes(q())).slice(0, 30)));
+    input.addEventListener('input', () => show(PO_HR_PEOPLE.filter(p => p.name.toLowerCase().includes(q())).slice(0, 30)));
+    input.addEventListener('blur', () => setTimeout(() => { list.style.display = 'none'; }, 150));
+    input.addEventListener('change', () => fillPhone(input.value));
+}
+
 // Project Ref only shows (and is required) when Department = Production
 function toggleReqProjectField() {
     const field = document.getElementById('reqProjectField');
@@ -2485,6 +2561,9 @@ async function loadPOs() {
                     <button class="pc-btn pc-btn-outline pc-btn-sm" title="Download PDF" onclick="downloadPoPdfById(${po.id})"><i class="bi bi-file-earmark-pdf"></i></button>
                     <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewPo(${po.id})"><i class="bi bi-eye"></i></button>
                     ${['ordered','partial'].includes(po.status) ? `<button class="pc-btn pc-btn-success pc-btn-sm" onclick="viewPo(${po.id}, true)" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Receive</button>` : ''}
+                    ${po.status === 'pending_approval' ? `
+                    <button class="pc-btn pc-btn-success pc-btn-sm" onclick="approvePo(${po.id})" data-perm-action="can_approve_requisitions" title="Approve PO"><i class="bi bi-check-lg"></i> Approve</button>
+                    <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="disapprovePo(${po.id})" data-perm-action="can_approve_requisitions" title="Decline PO"><i class="bi bi-x-lg"></i> Decline</button>` : ''}
                 </td>
             </tr>`).join('') || '<tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> No purchase orders yet</td></tr>';
         applyProcurementPermissions();
@@ -2494,6 +2573,15 @@ async function loadPOs() {
 }
 
 window.openPoModal = async function() {
+    // reset the requester picker
+    const poReqIn = document.getElementById('poRequestedBy');
+    if (poReqIn) poReqIn.value = '';
+    const poReqPh = document.getElementById('poRequestedPhone');
+    if (poReqPh) poReqPh.value = '';
+    const poReqShow = document.getElementById('poRequestedPhoneShow');
+    if (poReqShow) poReqShow.value = '';
+    // HR names for the requester dropdown
+    await loadPoRequesters();
     // suppliers
     let supOpts = '<option value="">— No supplier —</option>';
     try {
@@ -2541,7 +2629,7 @@ window.savePo = async function() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ requisition_ids: reqIds, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null, funding_source: (document.getElementById('poFunding') ? document.getElementById('poFunding').value : 'business') })
+            body: JSON.stringify({ requisition_ids: reqIds, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null, requested_by: document.getElementById('poRequestedBy').value.trim(), requested_by_phone: document.getElementById('poRequestedPhone').value.trim(), funding_source: (document.getElementById('poFunding') ? document.getElementById('poFunding').value : 'business') })
         });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
@@ -2563,6 +2651,7 @@ window.viewPo = async function(id, openReceive) {
                 <div class="col-md-2"><strong>Status:</strong> ${poBadge(po.status)}</div>
                 <div class="col-md-2"><strong>Total:</strong> $${fmtMoney(po.total_amount)}</div>
                 <div class="col-md-2"><strong>Created By:</strong> ${esc(po.created_by || '—')}</div>
+                <div class="col-md-3"><strong>Requested By:</strong> ${esc(po.requested_by || '—')}${po.requested_by_phone ? `<br><span style="color:#64748B;">${esc(po.requested_by_phone)}</span>` : ''}</div>
                 <div class="col-md-3"><strong>Funding:</strong> ${po.funding_source === 'injection' ? '<span style="color:#B45309;font-weight:700;">Capital injection</span>' : '<span style="color:#15803D;font-weight:700;">Business cash flows</span>'}</div>
                 <div class="col-md-3"><strong>Expected Delivery:</strong> ${esc(po.expected_delivery || '—')}</div>
                 <div class="col-md-4"><strong>Requisitions:</strong> ${esc(po.requisition_ids || '—')}</div>
@@ -2606,6 +2695,13 @@ window.viewPo = async function(id, openReceive) {
             document.getElementById('viewPoItems').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         applyProcurementPermissions();
+        // Approve/Decline only while the PO is awaiting approval (and user may approve)
+        const isPending = po.status === 'pending_approval';
+        const canApprovePo = can('can_approve_requisitions');
+        const poApproveBtn = document.getElementById('poApproveBtn');
+        const poDeclineBtn = document.getElementById('poDeclineBtn');
+        if (poApproveBtn) poApproveBtn.style.display = (isPending && canApprovePo) ? '' : 'none';
+        if (poDeclineBtn) poDeclineBtn.style.display = (isPending && canApprovePo) ? '' : 'none';
     } catch (e) { toast('Failed to load PO', 'error'); }
 };
 window.downloadPoPdfById = function(id) {
@@ -2621,6 +2717,34 @@ window.sendPoPdf = async function() {
         const res = await fetch('/api/procurement/purchase-orders/' + VIEW_PO.id + '/pdf/send', { method: 'POST', credentials: 'include' });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+window.approvePo = async function(id) {
+    if (!confirm('Approve this purchase order? It will become Ordered and stock can be received.')) return;
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + id + '/approve', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewPoModal'); loadPOs(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.openPoDecline = function() {
+    if (!VIEW_PO) return;
+    const reason = window.prompt('Reason for declining ' + VIEW_PO.po_no + '? (optional)', '');
+    if (reason === null) return;
+    disapprovePo(VIEW_PO.id, reason);
+};
+window.disapprovePo = async function(id, reason) {
+    if (!confirm('Decline this purchase order? Its linked requisitions will be released for re-issue.')) return;
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + id + '/reject', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ reason: (reason || '').trim() })
+        });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewPoModal'); loadPOs(); loadDashboard(); }
     } catch (e) { toast('Connection error', 'error'); }
 };
 

@@ -1735,10 +1735,12 @@ def initialize_database_tables():
                     supplier_name VARCHAR(150),
                     supplier_phone VARCHAR(50),
                     requisition_ids TEXT,
-                    status VARCHAR(30) DEFAULT 'ordered',
+                    status VARCHAR(30) DEFAULT 'pending_approval',
                     total_amount DECIMAL(12,2) DEFAULT 0,
                     expected_delivery DATE,
                     created_by VARCHAR(100),
+                    requested_by VARCHAR(150),
+                    requested_by_phone VARCHAR(50),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     received_at TIMESTAMP
                 )
@@ -1765,6 +1767,15 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add supplier_phone column: {e}")
+
+            # Who in the department requested the PO + their WhatsApp number
+            # (used on the PO WhatsApp approval template). For existing databases.
+            try:
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS requested_by VARCHAR(150)")
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS requested_by_phone VARCHAR(50)")
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add requested_by columns: {e}")
 
             # Purchase order attachments (supplier invoices + goods-received receipts)
             cursor.execute("""
@@ -37796,7 +37807,8 @@ def procurement_api_purchase_orders():
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT po.id, po.po_no, po.supplier_id, po.supplier_name, po.supplier_phone, po.requisition_ids,
-                       po.status, po.total_amount, po.expected_delivery, po.created_by, po.created_at, po.received_at,
+                       po.status, po.total_amount, po.expected_delivery, po.created_by, po.requested_by,
+                       po.requested_by_phone, po.created_at, po.received_at,
                        (SELECT COUNT(*) FROM procurement_attachments pa WHERE pa.po_id = po.id) AS attach_count,
                        po.funding_source
                 FROM purchase_orders po ORDER BY po.created_at DESC
@@ -37809,10 +37821,13 @@ def procurement_api_purchase_orders():
                     'supplier_phone': r[4], 'requisition_ids': r[5], 'status': r[6],
                     'total_amount': float(r[7] or 0),
                     'expected_delivery': str(r[8]) if r[8] else None,
-                    'created_by': r[9], 'created_at': str(r[10]) if r[10] else None,
-                    'received_at': str(r[11]) if r[11] else None,
-                    'attachments_count': r[12] or 0,
-                    'funding_source': r[13] or 'business'
+                    'created_by': r[9],
+                    'requested_by': r[10] or '',
+                    'requested_by_phone': r[11] or '',
+                    'created_at': str(r[12]) if r[12] else None,
+                    'received_at': str(r[13]) if r[13] else None,
+                    'attachments_count': r[14] or 0,
+                    'funding_source': r[15] or 'business'
                 })
             return jsonify({'success': True, 'data': pos})
     except Exception as e:
@@ -37827,6 +37842,8 @@ def procurement_api_create_purchase_order():
     req_ids = data.get('requisition_ids') or []
     supplier_id = data.get('supplier_id')
     expected_delivery = data.get('expected_delivery')
+    requested_by = (data.get('requested_by') or '').strip()[:150]
+    requested_by_phone = (data.get('requested_by_phone') or '').strip()[:50]
     user = _procurement_user()
     if not req_ids or not isinstance(req_ids, list):
         return jsonify({'success': False, 'error': 'Select at least one approved requisition.'}), 400
@@ -37860,10 +37877,12 @@ def procurement_api_create_purchase_order():
                 funding_source = 'business'
             cursor.execute("""
                 INSERT INTO purchase_orders (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids,
-                                             status, total_amount, expected_delivery, created_by, funding_source)
-                VALUES (%s, %s, %s, %s, %s, 'ordered', %s, %s, %s, %s)
+                                             status, total_amount, expected_delivery, created_by, requested_by,
+                                             requested_by_phone, funding_source)
+                VALUES (%s, %s, %s, %s, %s, 'pending_approval', %s, %s, %s, %s, %s, %s)
             """, (po_no, supplier_id, supplier_name, supplier_phone, ','.join(str(x) for x in req_ids), total,
-                  expected_delivery or None, user['name'], funding_source))
+                  expected_delivery or None, user['name'], requested_by or None, requested_by_phone or None,
+                  funding_source))
             for it in items:
                 cursor.execute("""
                     INSERT INTO grn_lines (purchase_order_id, product_id, product_name,
@@ -37876,9 +37895,71 @@ def procurement_api_create_purchase_order():
             """, req_ids)
             connection.commit()
             log_activity('po_create', f'Created {po_no} ({supplier_name or "No supplier"}) from {len(req_ids)} requisition(s)', 'purchase_order', po_id)
-            return jsonify({'success': True, 'message': f'{po_no} created. Total: ${total:,.2f}'})
+            # Best-effort WhatsApp approval request to the approvers (Mrs G etc.)
+            try:
+                _procurement_notify_po_approvers(po_id)
+            except Exception as nfe:
+                print(f"PO approver notify error: {nfe}")
+            return jsonify({'success': True, 'message': f'{po_no} created (pending approval). Total: ${total:,.2f}'})
     except Exception as e:
         print(f"Create PO error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/approve', methods=['POST'])
+@login_required
+def procurement_api_approve_po(po_id):
+    """Approve a pending PO in-app (approve -> Ordered so stock can be received)."""
+    perms = _procurement_perms()
+    if not (perms.get('is_super_admin', False) or perms.get('can_approve_requisitions', False)
+            or perms.get('can_manage_purchase_orders', False)):
+        return jsonify({'success': False, 'error': 'Access denied: no PO approval permission.'}), 403
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, po_no, status FROM purchase_orders WHERE id = %s", (po_id,))
+            po = cursor.fetchone()
+            if not po:
+                return jsonify({'success': False, 'error': 'PO not found.'}), 404
+            if po[2] != 'pending_approval':
+                return jsonify({'success': False, 'error': f'PO is already {po[2].replace("_", " ")}.'}), 400
+            cursor.execute("UPDATE purchase_orders SET status='ordered', updated_at=CURRENT_TIMESTAMP WHERE id = %s", (po_id,))
+            connection.commit()
+            log_activity('po_approve', f'Approved {po[1]} by {user["name"]}', 'purchase_order', po_id)
+            return jsonify({'success': True, 'message': f'{po[1]} approved. You can now receive goods.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/reject', methods=['POST'])
+@login_required
+def procurement_api_reject_po(po_id):
+    """Decline a pending PO in-app (Cancelled). Linked requisitions are released
+    back to 'approved' so they can be re-issued on a corrected PO."""
+    perms = _procurement_perms()
+    if not (perms.get('is_super_admin', False) or perms.get('can_approve_requisitions', False)
+            or perms.get('can_manage_purchase_orders', False)):
+        return jsonify({'success': False, 'error': 'Access denied: no PO approval permission.'}), 403
+    data = request.get_json() or {}
+    reason = (data.get('reason') or '').strip()
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, po_no, status, requisition_ids FROM purchase_orders WHERE id = %s", (po_id,))
+            po = cursor.fetchone()
+            if not po:
+                return jsonify({'success': False, 'error': 'PO not found.'}), 404
+            if po[2] != 'pending_approval':
+                return jsonify({'success': False, 'error': f'PO is already {po[2].replace("_", " ")}.'}), 400
+            cursor.execute("UPDATE purchase_orders SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE id = %s", (po_id,))
+            reqs = [int(x) for x in (po[3] or '').split(',') if str(x).strip().isdigit()]
+            if reqs:
+                ph = ','.join(['%s'] * len(reqs))
+                cursor.execute(f"UPDATE requisitions SET status='approved', updated_at=CURRENT_TIMESTAMP WHERE id IN ({ph})", reqs)
+            connection.commit()
+            log_activity('po_reject', f'Declined {po[1]} by {user["name"]}{": " + reason if reason else ""}', 'purchase_order', po_id)
+            return jsonify({'success': True, 'message': f'{po[1]} declined{": " + reason if reason else ""}'})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -37941,6 +38022,8 @@ def procurement_api_receive_po(po_id):
                 return jsonify({'success': False, 'error': 'PO not found.'}), 404
             if po[2] == 'received':
                 return jsonify({'success': False, 'error': 'PO already fully received.'}), 400
+            if po[2] == 'pending_approval':
+                return jsonify({'success': False, 'error': 'PO is awaiting approval — it must be approved before goods can be received.'}), 400
 
             cursor.execute("""
                 SELECT id, product_id, product_name, quantity_ordered, quantity_received, unit_cost
@@ -38823,12 +38906,31 @@ def procurement_api_export():
 #                quick_reply "Decline" payload reqdecl_{{5}}
 #   - requisition_status_update
 #       Body: "Hello {{1}}, your requisition {{2}} ({{3}}) is now {{4}}."
+#   - purchase_order_approval_request  (new PO approval gate -> Mrs G)
+#       Body: "Hello {{1}}
+#              You have a new *{{2}}* Purchase Order *({{3}})* from *{{4}}*
+#              *({{5}})* totalling around *USD {{6}}* that is awaiting your
+#              approval.
+#              The items are required before *{{7}}*.
+#              The Purchase Order has *{{8}} items*: {{9}}.
+#              Proposed Supplier *{{10}}* *({{11}})*.
+#              Logged by {{12}} on {{13}}.
+#              Kindly click "Approve" below to approve and "Decline" to decline
+#              the purchase order."
+#       Variables: {{1}}=approver name, {{2}}=department, {{3}}=PO number,
+#                  {{4}}=requested by, {{5}}=requested-by phone,
+#                  {{6}}=total USD, {{7}}=items required before,
+#                  {{8}}=item count, {{9}}=item summary, {{10}}=supplier,
+#                  {{11}}=supplier phone, {{12}}=logged by, {{13}}=logged date
+#       Buttons: quick_reply "Approve" payload poappr_{{3}},
+#                quick_reply "Decline" payload podecl_{{3}}  ({{3}} = PO id)
 # All sends are best-effort: missing numbers / unapproved templates / API
 # errors only print a warning — the in-app action always succeeds.
 # ============================================================================
 
 PROC_REQ_APPROVAL_TEMPLATE = 'requisition_approval_request'
 PROC_REQ_STATUS_TEMPLATE = 'requisition_status_update'
+PROC_PO_APPROVAL_TEMPLATE = 'purchase_order_approval_request'
 
 
 def _wa_normalize_phone(phone):
@@ -38981,15 +39083,239 @@ def _procurement_notify_requester(req_id, new_status):
         print(f"Procurement notify requester error: {e}")
 
 
+def _procurement_can_approve(perms):
+    """Super admin or any PO/requisition approval permission."""
+    return bool(perms and (perms.get('is_super_admin', False)
+                           or perms.get('can_approve_requisitions', False)
+                           or perms.get('can_manage_purchase_orders', False)))
+
+
+def _procurement_po_item_summary(po_id):
+    """Return (item_count, one-line item summary) for a PO's GRN lines."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT product_name, quantity_ordered FROM grn_lines
+                WHERE purchase_order_id = %s ORDER BY id
+            """, (po_id,))
+            rows = cursor.fetchall()
+        count = len(rows)
+        parts = []
+        for name, qty in rows:
+            n = (name or '').strip()
+            if not n:
+                continue
+            parts.append(f"{n} (x{qty})" if qty else n)
+            if len(parts) >= 3:
+                break
+        if count > len(parts):
+            parts.append(f"+{count - len(parts)} more")
+        return count, ('; '.join(parts) if parts else '—')
+    except Exception as e:
+        print(f"PO item summary error: {e}")
+        return 0, '—'
+
+
+def _procurement_po_details(po_id):
+    """Gather the PO fields used to fill the PO approval WhatsApp template."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT po.po_no, po.supplier_name, po.supplier_phone, po.total_amount,
+                       po.expected_delivery, po.created_by, po.created_at, po.requested_by,
+                       po.requested_by_phone, po.requisition_ids
+                FROM purchase_orders po WHERE po.id = %s
+            """, (po_id,))
+            po = cursor.fetchone()
+            if not po:
+                return None
+            req_ids = [int(x) for x in (po[9] or '').split(',') if str(x).strip().isdigit()]
+            department = ''
+            needed = None
+            fallback_req = ''
+            fallback_req_user = None
+            if req_ids:
+                ph = ','.join(['%s'] * len(req_ids))
+                cursor.execute(f"""
+                    SELECT COALESCE(NULLIF(MAX(department), ''), ''),
+                           MIN(needed_by),
+                           (array_agg(requested_by ORDER BY id))[1],
+                           (array_agg(requested_by_user_id ORDER BY id))[1]
+                    FROM requisitions WHERE id IN ({ph})
+                """, req_ids)
+                row = cursor.fetchone()
+                department = row[0] or ''
+                needed = row[1]
+                fallback_req = row[2] or ''
+                fallback_req_user = row[3]
+            requested_by = (po[7] or '').strip() or fallback_req
+            requested_by_phone = (po[8] or '').strip()
+            if not requested_by_phone and fallback_req_user:
+                try:
+                    cursor.execute("SELECT whatsapp FROM admin_users WHERE id = %s", (fallback_req_user,))
+                    fr = cursor.fetchone()
+                    if fr and fr[0]:
+                        requested_by_phone = fr[0]
+                except Exception:
+                    pass
+            return {
+                'po_no': po[0],
+                'supplier_name': po[1] or '',
+                'supplier_phone': po[2] or '',
+                'total': float(po[3] or 0),
+                'expected_delivery': po[4],
+                'created_by': po[5] or '',
+                'created_at': po[6],
+                'requested_by': requested_by,
+                'requested_by_phone': requested_by_phone,
+                'department': department,
+                'required_by': needed or po[4],
+            }
+    except Exception as e:
+        print(f"PO details error: {e}")
+        return None
+
+
+def _procurement_notify_po_approvers(po_id):
+    """Notify every approver about a new PO awaiting approval via the
+    purchase_order_approval_request template (approve/decline buttons)."""
+    try:
+        d = _procurement_po_details(po_id)
+        if not d:
+            return
+        count, summary = _procurement_po_item_summary(po_id)
+
+        def fmt_date(v):
+            try:
+                if hasattr(v, 'strftime'):
+                    return f"{v.day} {v.strftime('%B %Y')}"
+                return str(v)[:10] if v else '—'
+            except Exception:
+                return '—'
+
+        def fmt_amount(v):
+            try:
+                f = float(v)
+                return f"{int(f):,}" if f == int(f) else f"{f:,.2f}"
+            except Exception:
+                return str(v)
+
+        for ap in _procurement_approvers():
+            try:
+                ok, txt = _procurement_send_template(
+                    ap['whatsapp'], PROC_PO_APPROVAL_TEMPLATE,
+                    [ap['name'],
+                     d['department'] or '—',
+                     d['po_no'],
+                     d['requested_by'] or '—',
+                     d['requested_by_phone'] or '',
+                     fmt_amount(d['total']),
+                     fmt_date(d['required_by']),
+                     count,
+                     summary,
+                     d['supplier_name'] or '—',
+                     d['supplier_phone'] or '',
+                     d['created_by'] or '—',
+                     fmt_date(d['created_at'])],
+                    button_payloads=[f"poappr_{po_id}", f"podecl_{po_id}"])
+                print(f"PO approval request -> {ap['name']}: ok={ok}")
+            except Exception as e:
+                print(f"PO approver notify error: {e}")
+    except Exception as e:
+        print(f"PO notify approvers error: {e}")
+
+
+def _handle_procurement_po_payload(payload, sender_id, sender_number):
+    """Handle poappr_<id> / podecl_<id> quick-reply payloads from the
+    purchase_order_approval_request WhatsApp template.
+    Approve -> Ordered (stock can be received). Decline -> Cancelled and the
+    linked requisitions are released back to 'approved'. Returns True if the
+    payload was a PO button (already handled), False otherwise."""
+    try:
+        if not payload:
+            return False
+        low = payload.lower()
+        if not (low.startswith('poappr_') or low.startswith('podecl_')):
+            return False
+        action = 'approve' if low.startswith('poappr_') else 'reject'
+        try:
+            po_id = int(payload.split('_', 1)[1])
+        except (IndexError, ValueError):
+            po_id = None
+        if not po_id:
+            _procurement_send_text(sender_id, "Invalid purchase order reference.")
+            return True
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, po_no, status, requisition_ids FROM purchase_orders WHERE id = %s
+            """, (po_id,))
+            row = cursor.fetchone()
+            if not row:
+                _procurement_send_text(sender_id, "Purchase order not found.")
+                return True
+            po_no, status, req_ids = row[1], row[2], row[3]
+            if status != 'pending_approval':
+                _procurement_send_text(sender_id, f"{po_no} is already {status.replace('_', ' ')} - no change made.")
+                return True
+            sender_name = 'Approver'
+            perms = {}
+            try:
+                cursor.execute("""
+                    SELECT full_name, source_system, source_id FROM admin_users
+                    WHERE REPLACE(whatsapp, ' ', '') LIKE %s LIMIT 1
+                """, (f"%{sender_number}%",))
+                au = cursor.fetchone()
+                if au:
+                    sender_name = au[0] or 'Approver'
+                    perms = get_user_permissions(au[1] or 'projects', au[2] or sender_id)
+            except Exception as pe:
+                print(f"PO sender lookup error: {pe}")
+            if not _procurement_can_approve(perms):
+                _procurement_send_text(sender_id, "You don't have permission to approve purchase orders. Contact an administrator.")
+                return True
+
+            if action == 'approve':
+                cursor.execute("""
+                    UPDATE purchase_orders SET status='ordered', updated_at=CURRENT_TIMESTAMP WHERE id=%s
+                """, (po_id,))
+                new_status = 'approved'
+            else:
+                cursor.execute("""
+                    UPDATE purchase_orders SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE id=%s
+                """, (po_id,))
+                reqs = [int(x) for x in (req_ids or '').split(',') if str(x).strip().isdigit()]
+                if reqs:
+                    ph = ','.join(['%s'] * len(reqs))
+                    cursor.execute(f"UPDATE requisitions SET status='approved', updated_at=CURRENT_TIMESTAMP WHERE id IN ({ph})", reqs)
+                new_status = 'declined'
+            connection.commit()
+            log_activity('po_approve' if action == 'approve' else 'po_reject',
+                         f'Purchase order {po_no} {new_status} via WhatsApp by {sender_name}',
+                         'purchase_order', po_id)
+
+        _procurement_send_text(sender_id, f"Purchase order {po_no} has been {new_status}.")
+        return True
+    except Exception as e:
+        print(f"PO button payload error: {e}")
+        try:
+            _procurement_send_text(sender_id, "An error occurred processing the purchase order.")
+        except Exception:
+            pass
+        return True
+
+
 def handle_procurement_button_payload(payload, sender_id, sender_number):
-    """Handle reqappr_<id> / reqdecl_<id> quick-reply payloads from the
-    requisition_approval_request WhatsApp template.
+    """Handle reqappr_/reqdecl_ (requisition) and poappr_/podecl_ (purchase
+    order) quick-reply payloads from the WhatsApp approval templates.
     Returns True if the payload was a procurement button (already handled),
     False otherwise (so other payloads keep flowing to existing handlers)."""
     try:
         if not payload:
             return False
         low = payload.lower()
+        if low.startswith('poappr_') or low.startswith('podecl_'):
+            return _handle_procurement_po_payload(payload, sender_id, sender_number)
         if not (low.startswith('reqappr_') or low.startswith('reqdecl_')):
             return False
         action = 'approve' if low.startswith('reqappr_') else 'reject'
