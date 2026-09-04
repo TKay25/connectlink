@@ -6849,6 +6849,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                             <button class="btn btn-sm btn-primary-dark" onclick="loadPosActivityLog()">
                                 <i class="fas fa-sync me-1"></i>Refresh
                             </button>
+                            <button class="btn btn-sm btn-danger" onclick="exportPosActivityLogPDF()">
+                                <i class="fas fa-file-pdf me-1"></i>Export PDF
+                            </button>
                         </div>
                     </div>
                     <div class="table-responsive" style="max-height:480px;overflow-y:auto;">
@@ -9217,6 +9220,7 @@ function toggleAuditReport() {
 
 // ==================== POS USER ACTIVITY LOG ====================
 const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','download'];
+let _posActivityRows = [];
 
 // Best-effort client-side activity logging (exports/downloads happen in the browser)
 async function logPosActivity(actionType, description, details) {
@@ -9295,6 +9299,7 @@ async function loadPosActivityLog() {
             return;
         }
         const rows = data.data || [];
+        _posActivityRows = rows || [];
         empty.style.display = rows.length ? 'none' : 'block';
         body.innerHTML = rows.map(function(a) {
             return '<tr>' +
@@ -9328,6 +9333,70 @@ function posActivityBadge(type) {
     const cls = map[type] || 'secondary';
     const label = String(type || 'action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
     return '<span class="badge bg-' + cls + '">' + label + '</span>';
+}
+
+// Export the currently displayed POS Activity Log to a PDF (html2pdf)
+function exportPosActivityLogPDF() {
+    if (!_posActivityRows || !_posActivityRows.length) {
+        showToast('No activity to export', 'error');
+        return;
+    }
+    const from = (document.getElementById('activityLogFrom') || {}).value || 'All';
+    const to = (document.getElementById('activityLogTo') || {}).value || 'All';
+    const user = (document.getElementById('activityLogUser') || {}).value || 'All Cashiers';
+    const rows = _posActivityRows;
+    const actionLabel = {
+        'sale': 'Sale', 'product_create': 'Product Create', 'stock_add': 'Stock Add',
+        'product_update': 'Product Update', 'price_change': 'Price Change', 'stock_remove': 'Stock Remove',
+        'product_delete': 'Product Delete', 'wipe_all': 'Wipe All', 'pos_login': 'POS Login',
+        'pos_logout': 'POS Logout', 'download': 'Download'
+    };
+    const content = document.createElement('div');
+    content.style.padding = '20px';
+    content.style.fontFamily = 'Arial, sans-serif';
+    const rowsHtml = rows.map(function(a) {
+        const label = actionLabel[a.action_type] || String(a.action_type || 'Action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+        return '<tr>' +
+            '<td style="padding:6px;border:1px solid #ddd;">' + escapeHtml(a.created_at || '') + '</td>' +
+            '<td style="padding:6px;border:1px solid #ddd;">' + escapeHtml(a.user_name || 'System') + '</td>' +
+            '<td style="padding:6px;border:1px solid #ddd;">' + escapeHtml(label) + '</td>' +
+            '<td style="padding:6px;border:1px solid #ddd;">' + escapeHtml(a.description || '') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    content.innerHTML = `
+        <div style="text-align:center;margin-bottom:20px;">
+            <h2 style="color:#16295c;margin:0;">ConnectLink Hardware</h2>
+            <h4 style="margin:4px 0 0;">POS Activity Log</h4>
+            <p style="margin:6px 0 0;"><small>Cashier: ${escapeHtml(user)} &nbsp;|&nbsp; From: ${escapeHtml(from)} &nbsp;|&nbsp; To: ${escapeHtml(to)}</small></p>
+            <p style="margin:2px 0;"><small>Generated: ${new Date().toLocaleString()}</small></p>
+            <hr>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background-color:#16295c;color:white;">
+                    <th style="padding:8px;border:1px solid #ddd;text-align:left;">Time</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:left;">User</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:left;">Action</th>
+                    <th style="padding:8px;border:1px solid #ddd;text-align:left;">Details</th>
+                </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+        <p style="margin-top:14px;font-size:10px;color:#666;">Showing ${rows.length} activity entr${rows.length === 1 ? 'y' : 'ies'}.</p>
+    `;
+    document.body.appendChild(content);
+    logPosActivity('download', 'Exported POS Activity Log to PDF (' + rows.length + ' entries)');
+    const opt = {
+        margin: [0.5, 0.5, 0.5, 0.5],
+        filename: 'POS_Activity_Log_' + new Date().toISOString().split('T')[0] + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 1.5 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+    };
+    html2pdf().set(opt).from(content).save()
+        .then(function() { document.body.removeChild(content); showToast('PDF export complete!', 'success'); })
+        .catch(function(err) { console.error('PDF generation error:', err); document.body.removeChild(content); showToast('Error generating PDF', 'error'); });
 }
 
 function generateAuditReport() {
