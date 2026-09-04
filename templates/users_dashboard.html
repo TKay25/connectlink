@@ -1322,9 +1322,10 @@ function buildSwitchPortals() {
         { perm: 'can_manage_projects', label: 'Switch to Projects', url: '/dashboard', icon: 'bi-building' },
         { perm: 'can_manage_hardware', label: 'Switch to Hardware POS', url: '/pos-system.html', icon: 'bi-cart' },
         { perm: 'can_manage_hr', label: 'Switch to HR', url: '/hr-dashboard', icon: 'bi-people', alt: 'hr_access' },
+        { any: ['can_create_requisitions', 'can_approve_requisitions', 'can_manage_purchase_orders', 'can_manage_suppliers'], label: 'Switch to Procurement', url: '/procurement', icon: 'bi-truck' },
     ];
     container.innerHTML = portals
-        .filter(p => PERMS && (PERMS.is_super_admin || PERMS[p.perm] || (p.alt && PERMS[p.alt])))
+        .filter(p => PERMS && (PERMS.is_super_admin || PERMS[p.perm] || (p.alt && PERMS[p.alt]) || (p.any && p.any.some(prm => PERMS[prm]))))
         .map(p => `<button class="dropdown-item" onclick="switchPortal('${p.url}','${p.label}')"><i class="${p.icon}"></i> ${p.label}</button>`)
         .join('');
 }
