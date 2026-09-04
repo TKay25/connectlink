@@ -20129,6 +20129,7 @@ async function saveAndDownloadQuotation() {
         clientWhatsapp: data.clientWhatsapp || '',
         quotationDate: data.quotationDate || new Date().toISOString().split('T')[0],
         category: data.category,
+        customCategory: (data.categoryName || '').trim(),
         size: parseFloat(data.size) || 0,
         totalCost: parseFloat(data.totalCost) || 0,
         markup: parseFloat(data.markup) || 0,
@@ -20255,7 +20256,10 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function formatCategoryName(category) {
+function formatCategoryName(category, customCategory) {
+    if (customCategory && String(customCategory).trim()) {
+        return String(customCategory).trim();
+    }
     if (category === 'construction_single') {
         return 'Single Storey Construction';
     } else if (category === 'construction_double') {
@@ -21000,7 +21004,7 @@ function initializeProjectQuotationsDropdown() {
                 data.data.forEach(quotation => {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(quotation);
-                    const formattedCategory = formatCategoryName(quotation.category);
+                    const formattedCategory = formatCategoryName(quotation.category, quotation.customCategory);
                     option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
                     selectElement.appendChild(option);
                 });
@@ -21091,7 +21095,7 @@ function selectProjectQuotation(quotation) {
     const previewDiv = document.getElementById('selected_quotation_preview');
     const previewText = document.getElementById('selected_quotation_name');
     
-    const formattedCategory = formatCategoryName(quotation.category);
+    const formattedCategory = formatCategoryName(quotation.category, quotation.customCategory);
     previewText.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M)`;
     previewDiv.style.display = 'block';
     
@@ -21216,7 +21220,7 @@ function initializeOtherDetailsQuotationDropdown(currentQuotationRef) {
                 data.data.forEach(quotation => {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(quotation);
-                    const formattedCategory = formatCategoryName(quotation.category);
+                    const formattedCategory = formatCategoryName(quotation.category, quotation.customCategory);
                     option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
                     selectElement.appendChild(option);
                     
@@ -21225,7 +21229,7 @@ function initializeOtherDetailsQuotationDropdown(currentQuotationRef) {
                         option.selected = true;
                         // Show the preview
                         document.getElementById('otherDetails_selected_quotation_preview').style.display = 'block';
-                        const formattedCategory = formatCategoryName(quotation.category);
+                        const formattedCategory = formatCategoryName(quotation.category, quotation.customCategory);
                         document.getElementById('otherDetails_selected_quotation_name').textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M)`;
                         // Set hidden field so save works without re-selecting
                         document.getElementById('otherDetailsSelectedQuotationId').value = quotation.id || '';
@@ -21283,7 +21287,7 @@ function selectOtherDetailsQuotation(quotation) {
     const previewDiv = document.getElementById('otherDetails_selected_quotation_preview');
     const previewText = document.getElementById('otherDetails_selected_quotation_name');
     
-    const formattedCategory = formatCategoryName(quotation.category);
+    const formattedCategory = formatCategoryName(quotation.category, quotation.customCategory);
     previewText.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M)`;
     previewDiv.style.display = 'block';
     
@@ -36182,6 +36186,12 @@ function editQuotationFromPortal(quotationId) {
                 $('#quotationClientWhatsapp').val(quotation.clientWhatsapp || '');
                 $('#quotationDate').val(quotation.quotationDate ? quotation.quotationDate.substring(0, 10) : new Date().toISOString().split('T')[0]);
                 $('#quotationCategory').val(quotation.category || '').change();
+                if ((quotation.category || '') === 'other') {
+                    var cc = (quotation.customCategory || '').trim();
+                    $('#otherCategoryName').val(cc);
+                    var tEl = document.getElementById('tvUnitsTitle');
+                    if (tEl) tEl.textContent = cc || 'Other Items';
+                }
                 renderTvUnitsTable();
                 hideLoader();
                 openModal('quotationgeneratorModal');
@@ -39114,10 +39124,19 @@ document.addEventListener('DOMContentLoaded', function(){
                     if(!items.length){alert('Please add at least one item. Click "Add Item" below to add TV Units or items.');return;}
                     var totalC=0;
                     var itemsF = items.map(function(it){totalC+=(it.quantity||1)*(it.amount||0);return{name:it.name||'Item',item:it.name||'Item',quantity:it.quantity||1,amount:it.amount||0,days:it.days||1,total:(it.quantity||1)*(it.amount||0)};});
-                    window.quotationData = {category:cat,clientName:name,clientWhatsapp:wa,quotationDate:date,items:itemsF,totalCost:totalC,markup:30,notes:''};
+                    var dispName = (cat==='other' && document.getElementById('otherCategoryName')) ? (document.getElementById('otherCategoryName').value||'').trim() : '';
+                    window.quotationData = {category:cat, categoryName:dispName, clientName:name, clientWhatsapp:wa, quotationDate:date, items:itemsF, totalCost:totalC, markup:30, notes:''};
                     closeModal('quotationgeneratorModal');
                     setTimeout(function(){
-                        if(typeof openModal==='function') openModal('quotationPreviewModal');
+                        if(typeof openModal==='function'){
+                            openModal('quotationPreviewModal');
+                            if(dispName){
+                                var pcEl=document.getElementById('previewCategory');
+                                if(pcEl && !pcEl.textContent.trim()) pcEl.textContent=dispName.toUpperCase();
+                                var cnEl=document.getElementById('previewClientName');
+                                if(cnEl && !cnEl.textContent.trim()) cnEl.textContent=name;
+                            }
+                        }
                     },300);
                 } catch(ee){alert('Error generating TV Units quotation: '+ee.message);}
                 return;

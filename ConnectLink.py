@@ -34250,7 +34250,7 @@ def build_quotation_pdf_document(quotation_id):
     try:
         with get_db() as (cursor, _):
             cursor.execute("""
-                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage
+                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage, custom_category
                 FROM quotations
                 WHERE id = %s
             """, (quotation_id,))
@@ -34263,6 +34263,7 @@ def build_quotation_pdf_document(quotation_id):
             client_name = quotation[1] or 'Client'
             quotation_date = quotation[2].strftime('%d %B %Y') if quotation[2] else ''
             category = quotation[3] or ''
+            custom_category = quotation[7] if len(quotation) > 7 and quotation[7] else ''
             is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
             total_cost = float(quotation[5]) if quotation[5] else 0
 
@@ -34395,7 +34396,7 @@ def build_quotation_pdf_document(quotation_id):
             # Generate HTML and PDF
             html = generate_quotation_html(
                 client_name, quotation_date, category, total_cost,
-                items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen
+                items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen, custom_category
             )
             
             pdf_bytes = HTML(string=html).write_pdf()
@@ -34403,7 +34404,7 @@ def build_quotation_pdf_document(quotation_id):
             filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
             
             # Format category for caption display
-            caption_category = format_quotation_category(category)
+            caption_category = format_quotation_category(category, is_kitchen, custom_category)
             caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
             
             return pdf_bytes, filename, caption
@@ -34413,8 +34414,10 @@ def build_quotation_pdf_document(quotation_id):
         raise
 
 
-def format_quotation_category(category, is_kitchen=False):
+def format_quotation_category(category, is_kitchen=False, custom_category=''):
     """Convert raw category value to user-friendly display name"""
+    if custom_category and str(custom_category).strip():
+        return str(custom_category).strip()
     if is_kitchen:
         return "Kitchen & Cabinets"
     if category == "construction_single":
@@ -34424,7 +34427,7 @@ def format_quotation_category(category, is_kitchen=False):
     return category.replace('_', ' ').title()
 
 
-def generate_quotation_html(client_name, quotation_date, category, total_cost, items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen=False):
+def generate_quotation_html(client_name, quotation_date, category, total_cost, items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen=False, custom_category=''):
     """Generate HTML for quotation PDF"""
     deposit = total_cost * 0.30
     balance = total_cost - deposit
@@ -34439,7 +34442,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
         payment_period_text = "6 months"
     
     # Format category for PDF display
-    category_display = format_quotation_category(category, is_kitchen)
+    category_display = format_quotation_category(category, is_kitchen, custom_category)
     
     # Pre-escape for use in f-string (avoid html module name conflict in Python 3.14+)
     escaped_name = client_name.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
@@ -35565,6 +35568,7 @@ def update_quotation(quotation_id):
         client_whatsapp = data.get('clientWhatsapp', '')
         quotation_date = data.get('quotationDate', date.today().isoformat())
         category = data.get('category', 'General')
+        custom_category = (data.get('customCategory') or '').strip()
         project_size = float(data.get('size', 0)) if data.get('size') else 0
         total_cost = float(data.get('totalCost', 0)) if data.get('totalCost') else 0
         markup = float(data.get('markup', 0)) if data.get('markup') else 0
@@ -35585,12 +35589,13 @@ def update_quotation(quotation_id):
                     client_whatsapp = %s,
                     quotation_date = %s,
                     category = %s,
+                    custom_category = %s,
                     project_size = %s,
                     total_cost = %s,
                     markup_percentage = %s,
                     notes = %s
                 WHERE id = %s
-            """, (client_name, client_whatsapp, quotation_date, category,
+            """, (client_name, client_whatsapp, quotation_date, category, custom_category,
                   project_size, total_cost, markup, notes, quotation_id))
 
             # Replace items
@@ -35664,6 +35669,7 @@ def save_quotation():
         client_whatsapp = data.get('clientWhatsapp', '')
         quotation_date = data.get('quotationDate', date.today().isoformat())
         category = data.get('category', 'General')
+        custom_category = (data.get('customCategory') or '').strip()
         items = data.get('items', [])
         schedules = data.get('schedules', [])
         
@@ -35757,11 +35763,11 @@ def save_quotation():
             user_name = session.get('user_name') or session.get('username') or 'Admin'
             cursor.execute("""
                 INSERT INTO quotations
-                (client_name, client_whatsapp, quotation_date, category, project_size, total_cost, markup_percentage, notes, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (client_name, client_whatsapp, quotation_date, category, custom_category, project_size, total_cost, markup_percentage, notes, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (
-                client_name, client_whatsapp, quotation_date, category, 
+                client_name, client_whatsapp, quotation_date, category, custom_category,
                 project_size, total_cost, markup, notes, user_name
             ))
             quotation_id = cursor.fetchone()[0]
@@ -35872,7 +35878,7 @@ def get_quotations():
             cursor.execute("""
                 SELECT id, client_name, client_whatsapp, quotation_date, 
                        category, project_size, total_cost, markup_percentage, notes,
-                       created_by
+                       created_by, custom_category
                 FROM quotations
                 ORDER BY id DESC
             """)
@@ -35973,6 +35979,7 @@ def get_quotations():
                     'markup': float(quotation[7]) if quotation[7] else 0,
                     'notes': quotation[8] or '',
                     'createdBy': quotation[9] or '',
+                    'customCategory': quotation[10] if len(quotation) > 10 and quotation[10] else '',
                     'items': items,
                     'schedules': schedules_by_quotation.get(quotation_id, [])
                 })
