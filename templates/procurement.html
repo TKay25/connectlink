@@ -493,6 +493,34 @@
             scrollbar-width: thin;
         }
 
+        /* New Requisition modal: taller, so line items aren't cramped and the
+           modal isn't a squat card. The body becomes a flex column and the
+           line-items area grows to fill the available space. */
+        #reqModal .modal-content {
+            min-height: min(78vh, 760px);
+            display: flex;
+            flex-direction: column;
+        }
+        #reqModal .pc-modal-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        #reqModal .pc-item-scroll {
+            flex: 1 1 auto;
+            min-height: 240px;
+            max-height: none;
+        }
+        /* Category / Product suggestion dropdowns inside the line-items table
+           are anchored absolute, so the scroll container clips them. Once
+           floated by JS they are fixed to the viewport and layer on top. */
+        #reqModal .pc-suggest { z-index: 9000; }
+        #reqModal .pc-item-row .pc-suggest {
+            box-shadow: 0 18px 40px -12px rgba(15,23,42,0.35);
+            border-radius: 10px;
+        }
+
         /* One-line textarea that auto-grows as you type */
         .pc-auto-grow {
             resize: none;
@@ -1606,6 +1634,38 @@ async function loadCategories() {
     } catch (e) { CATEGORIES = []; }
 }
 
+/* Position a suggestion dropdown (inside the scrollable line-items table) as a
+   FIXED overlay at the input's viewport position, so it protrudes past the
+   .pc-item-scroll height cap instead of being clipped by it. Flips upward
+   when there isn't enough room below the input. */
+function floatSuggestOnAnchor(input, list) {
+    if (!input || !list) return;
+    const r = input.getBoundingClientRect();
+    if (!r || (!r.width && !r.height)) return;
+    const gap = 6;
+    const below = window.innerHeight - r.bottom - gap;
+    const above = r.top - gap;
+    const openUp = below < 170 && above > below;
+    const maxH = Math.max(130, Math.min(280, (openUp ? above : below) - 8));
+    list.style.position = 'fixed';
+    list.style.left = r.left + 'px';
+    list.style.width = r.width + 'px';
+    list.style.top = openUp ? 'auto' : (r.bottom + gap) + 'px';
+    list.style.bottom = openUp ? (window.innerHeight - r.top + gap) + 'px' : 'auto';
+    list.style.maxHeight = maxH + 'px';
+    list.style.zIndex = '9000';
+}
+
+/* When the modal / line-items area is scrolled, drop any floated suggestion so
+   it never hangs detached from its input (capture so inner scrollers fire it). */
+document.addEventListener('scroll', function () {
+    document.querySelectorAll('#reqModal .pc-suggest').forEach(function (el) {
+        if (el.style && el.style.position === 'fixed' && el.style.display !== 'none') {
+            el.style.display = 'none';
+        }
+    });
+}, true);
+
 function wireCategoryCombo(input, row) {
     if (!input) return;
     const list = row.querySelector('.pc-cat-wrap .pc-suggest');
@@ -1613,6 +1673,7 @@ function wireCategoryCombo(input, row) {
     const show = (items) => {
         if (!items.length) { list.style.display = 'none'; return; }
         list.innerHTML = items.map((c, i) => `<div class="pc-sug-item" data-i="${i}"><span>${esc(c)}</span></div>`).join('');
+        floatSuggestOnAnchor(input, list);
         list.style.display = 'block';
         list.querySelectorAll('.pc-sug-item').forEach(el => {
             el.addEventListener('mousedown', (e) => {
@@ -1695,6 +1756,7 @@ function wireProductSearch(input, row) {
                     <div class="pc-sug-item" data-id="${p.id}" data-name="${esc(p.name)}" data-cat="${esc(p.category)}" data-cost="${p.buy_price || p.sell_price || ''}">
                         <span>${esc(p.name)}</span><span class="sub">${esc(p.category)} • stock ${p.stock}${p.on_order ? ' • on order ' + p.on_order : ''}</span>
                     </div>`).join('');
+                floatSuggestOnAnchor(input, sug);
                 sug.style.display = 'block';
                 sug.querySelectorAll('.pc-sug-item').forEach(el => {
                     el.addEventListener('mousedown', function(e) {
