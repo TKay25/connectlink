@@ -6840,6 +6840,11 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                             <input type="date" class="form-control form-control-sm" id="activityLogFrom" style="width:145px;font-size:0.7rem;">
                             <label class="small fw-bold mb-0 ms-2">To:</label>
                             <input type="date" class="form-control form-control-sm" id="activityLogTo" style="width:145px;font-size:0.7rem;">
+                            <label class="small fw-bold mb-0 ms-2">Order:</label>
+                            <select id="activityLogOrder" class="form-select form-select-sm" style="width:120px;font-size:0.7rem;" onchange="applyPosActivityOrder()">
+                                <option value="desc" selected>Newest first</option>
+                                <option value="asc">Oldest first</option>
+                            </select>
                         </div>
                         <div class="d-flex gap-2 align-items-center flex-wrap">
                             <div class="position-relative">
@@ -9300,15 +9305,7 @@ async function loadPosActivityLog() {
         }
         const rows = data.data || [];
         _posActivityRows = rows || [];
-        empty.style.display = rows.length ? 'none' : 'block';
-        body.innerHTML = rows.map(function(a) {
-            return '<tr>' +
-                '<td class="text-nowrap">' + escapeHtml(a.created_at || '') + '</td>' +
-                '<td class="text-nowrap"><i class="fas fa-user me-1 text-muted"></i>' + escapeHtml(a.user_name || 'System') + '</td>' +
-                '<td>' + posActivityBadge(a.action_type) + '</td>' +
-                '<td>' + escapeHtml(a.description || '') + '</td>' +
-            '</tr>';
-        }).join('');
+        renderPosActivityRows(orderedPosActivityRows());
     } catch(e) {
         showToast('Error loading activity log: ' + e.message, 'error');
         body.innerHTML = '';
@@ -9335,6 +9332,37 @@ function posActivityBadge(type) {
     return '<span class="badge bg-' + cls + '">' + label + '</span>';
 }
 
+// Render activity rows into the table body (with empty state)
+function renderPosActivityRows(rows) {
+    const body = document.getElementById('activityLogBody');
+    const empty = document.getElementById('activityLogEmpty');
+    if (!body) return;
+    const list = rows || [];
+    empty.style.display = list.length ? 'none' : 'block';
+    body.innerHTML = list.map(function(a) {
+        return '<tr>' +
+            '<td class="text-nowrap">' + escapeHtml(a.created_at || '') + '</td>' +
+            '<td class="text-nowrap"><i class="fas fa-user me-1 text-muted"></i>' + escapeHtml(a.user_name || 'System') + '</td>' +
+            '<td>' + posActivityBadge(a.action_type) + '</td>' +
+            '<td>' + escapeHtml(a.description || '') + '</td>' +
+        '</tr>';
+    }).join('');
+}
+
+// Return the loaded rows in the user-selected order (desc = newest first, asc = oldest first)
+function orderedPosActivityRows() {
+    const orderEl = document.getElementById('activityLogOrder');
+    const asc = orderEl && orderEl.value === 'asc';
+    const rows = (_posActivityRows || []).slice();
+    if (asc) rows.reverse();
+    return rows;
+}
+
+// Re-order the currently displayed table when the Order dropdown changes
+function applyPosActivityOrder() {
+    renderPosActivityRows(orderedPosActivityRows());
+}
+
 // Export the currently displayed POS Activity Log to a PDF (html2pdf)
 function exportPosActivityLogPDF() {
     if (!_posActivityRows || !_posActivityRows.length) {
@@ -9344,7 +9372,7 @@ function exportPosActivityLogPDF() {
     const from = (document.getElementById('activityLogFrom') || {}).value || 'All';
     const to = (document.getElementById('activityLogTo') || {}).value || 'All';
     const user = (document.getElementById('activityLogUser') || {}).value || 'All Cashiers';
-    const rows = _posActivityRows;
+    const rows = orderedPosActivityRows();
     const actionLabel = {
         'sale': 'Sale', 'product_create': 'Product Create', 'stock_add': 'Stock Add',
         'product_update': 'Product Update', 'price_change': 'Price Change', 'stock_remove': 'Stock Remove',
