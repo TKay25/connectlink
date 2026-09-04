@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+@page { size: A5; margin: 5mm 5mm; }
+* { box-sizing: border-box; }
+body { font-family:'Helvetica','Arial',sans-serif; color:#2C3E50; line-height:1.45; margin:0; padding:0; background:#fff; font-size:10px; }
+.receipt-container { border:1px solid #d0d0d0; border-radius:6px; min-height:680px; padding:14px 15px; background:white; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:2px solid #1E2A56; }
+.logo { max-height:44px; }
+.receipt-title { text-align:right; }
+.receipt-title h5 { color:#1E2A56; font-size:15px; margin:0; font-weight:700; letter-spacing:1px; }
+.receipt-title p { color:#666; font-size:9px; margin:2px 0 0; letter-spacing:.4px; }
+.receipt-metadata { margin-top:3px; font-size:8.5px; color:#666; }
+.receipt-number { color:#1E2A56; font-weight:700; letter-spacing:.5px; }
+.company-line { padding:5px 2px 7px; font-size:8px; color:#666; text-align:center; border-bottom:1px solid #e0e0e0; margin-bottom:4px; }
+.company-line b { color:#1E2A56; }
+.payment-summary { background:#fafbfd; border:1px solid #e8e8e8; border-radius:4px; padding:10px 12px; margin:12px 0 10px; }
+.payment-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.status-paid { display:inline-block; background:#27ae60; color:#fff; font-size:8px; font-weight:600; padding:3px 10px; border-radius:12px; text-transform:uppercase; letter-spacing:1px; }
+.payment-meta { font-size:10px; color:#1E2A56; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+.payment-grid { display:flex; justify-content:space-between; gap:8px; text-align:center; }
+.payment-grid .payment-item { flex:1; padding:4px 0; }
+.payment-label { font-size:8px; color:#666; text-transform:uppercase; letter-spacing:.6px; margin-bottom:4px; }
+.payment-amount { font-size:20px; font-weight:700; color:#1E2A56; }
+.amount-whole { font-size:20px; font-weight:700; color:#1E2A56; }
+.amount-decimal { font-size:10px; font-weight:400; color:#999; vertical-align:super; }
+.payment-date { font-size:13px; font-weight:600; color:#2C3E50; }
+.section { margin:10px 0; border:1px solid #e8e8e8; border-radius:4px; overflow:hidden; }
+.section-header { background:#f5f7fa; color:#1E2A56; padding:6px 12px; font-weight:700; font-size:9px; text-transform:uppercase; letter-spacing:.8px; border-bottom:1px solid #e0e0e0; }
+.section-content { padding:8px 12px; background:#fff; }
+.grid-2 { display:flex; gap:14px; }
+.grid-2 > div { flex:1; }
+.info-row { display:flex; margin-bottom:4px; font-size:9.5px; }
+.info-label { width:70px; color:#666; font-weight:500; flex-shrink:0; text-transform:uppercase; letter-spacing:.4px; font-size:7.5px; padding-top:1px; }
+.info-value { flex:1; color:#2C3E50; word-break:break-word; font-weight:500; }
+.notes-box { margin:10px 0; border:1px solid #e0e0e0; background:#fafbfd; border-radius:4px; padding:7px 12px; }
+.notes-box .nb-label { font-size:7px; font-weight:700; color:#666; letter-spacing:1px; text-transform:uppercase; }
+.notes-box .nb-text { font-size:9px; color:#41506b; }
+.footer { margin:12px 0 0; padding-top:8px; border-top:1px solid #e0e0e0; font-size:7px; color:#999; text-align:center; }
+.footer-line { margin:2px 0; }
+</style>
+</head>
+<body>
+<div class="receipt-container">
+    <div class="header">
+        
+        <div class="receipt-title">
+            <h5>PAYMENT RECEIPT</h5>
+            <p>Official Payment Received</p>
+            <div class="receipt-metadata"><span class="receipt-number">REF: RCP-20260904-D60F80</span></div>
+        </div>
+    </div>
+
+    <div class="company-line"><b>ConnectLink Properties</b><br>38A Coronation Avenue Greendale Harare<br>+263 773 368 558 / +263 718 047 602 / +263 781 959 700 | info@connectlinkproperties.co.zw  |  TIN: 2000608068</div>
+
+    <div class="payment-summary">
+        <div class="payment-head">
+            <span class="status-paid">PAID</span>
+            <span class="payment-meta">Bank Transfer / RTGS</span>
+        </div>
+        <div class="payment-grid">
+            <div class="payment-item">
+                <div class="payment-label">Amount</div>
+                <div class="payment-amount">USD <span class="amount-whole">3,000</span>.<span class="amount-decimal">00</span></div>
+            </div>
+            <div class="payment-item">
+                <div class="payment-label">Date Paid</div>
+                <div class="payment-date">04 September 2026</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">Received From</div>
+        <div class="section-content">
+            <div class="info-row"><span class="info-label">Name:</span><span class="info-value">Mary Sbanda</span></div>
+            <div class="info-row"><span class="info-label">Phone:</span><span class="info-value">+263 773 333 444</span></div>
+            <div class="info-row"><span class="info-label">Email:</span><span class="info-value">mary@example.com</span></div>
+            <div class="info-row"><span class="info-label">Address:</span><span class="info-value">12 Highfield, Harare</span></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">Payment Details</div>
+        <div class="section-content">
+            <div class="grid-2">
+                <div>
+                    <div class="info-row"><span class="info-label">Method:</span><span class="info-value">Bank Transfer / RTGS</span></div>
+                    <div class="info-row"><span class="info-label">Amount:</span><span class="info-value">USD 3,000.00</span></div>
+                </div>
+                <div>
+                    <div class="info-row"><span class="info-label">Date Paid:</span><span class="info-value">04 September 2026</span></div>
+                    <div class="info-row"><span class="info-label">Ref:</span><span class="info-value">Initial deposit - 12th Avenue Project</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notes-box"><div class="nb-label">Notes</div><div class="nb-text">Thank you for your payment!</div></div>
+
+    <div class="footer">
+        <div class="footer-line">This is an official receipt from ConnectLink Properties</div>
+        <div class="footer-line">+263 773 368 558 / +263 718 047 602 / +263 781 959 700 | info@connectlinkproperties.co.zw</div>
+        <div class="footer-line">Receipt generated on 04 September 2026 at 13:47</div>
+    </div>
+</div>
+</body>
+</html>

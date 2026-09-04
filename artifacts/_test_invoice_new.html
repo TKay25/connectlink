@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+@page { size: A4; margin: 8mm 8mm 10mm 8mm; }
+* { box-sizing: border-box; }
+body { font-family:'Helvetica','Arial',sans-serif; color:#2C3E50; font-size:10px; margin:0; padding:0; line-height:1.5; background:#fff; }
+.invoice-page { border:1px solid #d0d0d0; border-radius:6px; padding:16px 18px; background:#fff; }
+
+/* Header — clean, matching project receipts (no filled band) */
+.brand-line { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid #1E2A56; }
+.brand { display:flex; align-items:center; gap:12px; }
+.brand img { max-height:52px; }
+.brand-name { font-size:17px; font-weight:700; color:#1E2A56; letter-spacing:.3px; line-height:1.2; }
+.brand-name .tagline { display:block; font-size:8px; font-weight:600; color:#666; letter-spacing:1.6px; text-transform:uppercase; margin-top:3px; }
+.doc-title-wrap { text-align:right; }
+.doc-badge { color:#1E2A56; font-size:20px; font-weight:800; letter-spacing:4px; }
+.meta-table { margin-top:6px; margin-left:auto; border-collapse:collapse; }
+.meta-table td { padding:1px 6px; font-size:9.5px; text-align:right; color:#2C3E50; }
+.meta-table td.k { text-transform:uppercase; letter-spacing:1px; font-size:7px; color:#666; }
+.meta-table td.v { font-weight:700; color:#1E2A56; }
+
+.two-col { display:flex; justify-content:space-between; gap:20px; margin-top:6px; }
+.two-col > div { flex:1; border:1px solid #e8e8e8; border-radius:4px; padding:10px 12px; background:#fafbfd; }
+.box-label { font-size:8px; font-weight:700; letter-spacing:1.2px; color:#666; text-transform:uppercase; border-bottom:1px solid #e0e0e0; padding-bottom:3px; margin-bottom:8px; }
+.client-name { font-size:12px; font-weight:700; color:#1E2A56; margin-bottom:2px; }
+.info-line { font-size:9.5px; color:#41506b; margin:1px 0; }
+.info-line b { color:#1E2A56; }
+
+.items-table { width:100%; border-collapse:collapse; margin-top:14px; border:1px solid #e0e0e0; }
+.items-table th { background:#f5f7fa; color:#1E2A56; font-size:8px; text-transform:uppercase; letter-spacing:.8px; padding:7px 10px; text-align:left; border-bottom:2px solid #d8dce4; }
+.items-table th.num, .items-table td.num { text-align:right; }
+.items-table th.c, .items-table td.c { text-align:center; }
+.items-table td { border-bottom:1px solid #eef1f6; padding:7px 10px; font-size:9.5px; color:#2C3E50; vertical-align:top; }
+.items-table tbody tr:nth-child(even) td { background:#fafbfd; }
+
+.totals-wrap { display:flex; justify-content:flex-end; margin-top:12px; }
+.totals { width:260px; border:1px solid #e0e0e0; border-radius:4px; overflow:hidden; }
+.totals .trow { display:flex; justify-content:space-between; padding:5px 12px; font-size:9.5px; border-top:1px solid #f0f2f5; }
+.totals .trow:first-child { border-top:none; }
+.totals .trow .k { color:#666; }
+.totals .trow .v { font-weight:700; color:#2C3E50; }
+.totals .trow.total { background:#f5f7fa; font-weight:800; font-size:13px; border-top:2px solid #1E2A56; }
+.totals .trow.total .k { color:#1E2A56; }
+.totals .trow.total .v { color:#1E2A56; }
+
+.bank-box { margin-top:14px; border:1px solid #e0e0e0; border-radius:4px; overflow:hidden; }
+.bank-box .bb-head { background:#f5f7fa; color:#1E2A56; font-weight:700; font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; padding:7px 12px; border-bottom:1px solid #e0e0e0; }
+.bank-grid { display:flex; flex-wrap:wrap; background:#fff; }
+.bank-cell { width:33.333%; padding:6px 12px; font-size:9.5px; color:#2C3E50; }
+.bank-cell b { display:block; font-size:7px; text-transform:uppercase; letter-spacing:.7px; color:#888; margin-bottom:1px; }
+
+.notes-box { margin-top:14px; border:1px solid #e0e0e0; background:#fafbfd; border-radius:4px; padding:8px 12px; }
+.notes-box .nb-label { font-size:8px; font-weight:700; color:#666; letter-spacing:1.2px; text-transform:uppercase; margin-bottom:3px; }
+.notes-box .nb-text { font-size:9.5px; color:#41506b; }
+
+.footer { margin-top:18px; padding-top:8px; border-top:1px solid #e0e0e0; text-align:center; font-size:8px; color:#999; }
+.footer .fl { margin:2px 0; }
+</style>
+</head>
+<body>
+<div class="invoice-page">
+    <div class="brand-line">
+        <div class="brand">
+            
+            <div class="brand-name">ConnectLink Properties<span class="tagline">Building &amp; Property Development</span></div>
+        </div>
+        <div class="doc-title-wrap">
+            <div class="doc-badge">INVOICE</div>
+            <table class="meta-table">
+                <tr><td class="k">Invoice No</td><td class="v">INV-20260904-ABC123</td></tr>
+                <tr><td class="k">Issue Date</td><td class="v">04 September 2026</td></tr>
+                <tr><td class="k">Due Date</td><td class="v">04 October 2026</td></tr>
+                <tr><td class="k">Currency</td><td class="v">USD</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div>
+            <div class="box-label">Bill To</div>
+            <div class="client-name">Mary Sbanda</div>
+            <div class="info-line">12 Highfield, Harare</div>
+            <div class="info-line">+263 773 333 444</div>
+            <div class="info-line">mary@example.com</div>
+        </div>
+        <div>
+            <div class="box-label">From</div>
+            <div class="client-name">ConnectLink Properties</div>
+            <div class="info-line">38A Coronation Avenue Greendale Harare</div>
+            <div class="info-line">+263 773 368 558 / +263 718 047 602 / +263 781 959 700</div>
+            <div class="info-line">info@connectlinkproperties.co.zw</div>
+            <div class="info-line"><b>TIN:</b> 2000608068</div>
+        </div>
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:4%;">#</th>
+                <th>Description</th>
+                <th style="width:8%;" class="c">Qty</th>
+                <th style="width:16%;" class="num">Unit Price</th>
+                <th style="width:18%;" class="num">Amount</th>
+            </tr>
+        </thead>
+        <tbody><tr><td class="c">1</td><td>Design &amp; consultation</td><td class="c">1</td><td class="num">USD 1,500.00</td><td class="num">USD 1,500.00</td></tr><tr><td class="c">2</td><td>Construction management (monthly)</td><td class="c">2</td><td class="num">USD 1,750.00</td><td class="num">USD 3,500.00</td></tr></tbody>
+    </table>
+
+    <div class="totals-wrap">
+        <div class="totals">
+            <div class="trow"><span class="k">Subtotal</span><span class="v">USD 5,000.00</span></div>
+            <div class="trow"><span class="k">Discount (0%)</span><span class="v">- USD 0.00</span></div>
+            <div class="trow"><span class="k">Tax (0%)</span><span class="v">USD 0.00</span></div>
+            <div class="trow total"><span class="k">TOTAL DUE</span><span class="v">USD 5,000.00</span></div>
+        </div>
+    </div>
+
+    <div class="bank-box">
+        <div class="bb-head">Payment Details — ConnectLink Properties</div>
+        <div class="bank-grid"><div class="bank-cell"><b>Bank</b>ZB BANK</div><div class="bank-cell"><b>Branch</b>Msasa</div><div class="bank-cell"><b>Account Name</b>Connectlink Agency (Pvt) Ltd</div><div class="bank-cell"><b>Account No</b>450600586638405</div><div class="bank-cell"><b>Account Type</b>USD Account</div></div>
+    </div>
+
+    <div class="notes-box"><div class="nb-label">Notes</div><div class="nb-text">Thank you for your business!</div></div>
+
+    <div class="footer">
+        <div class="fl">This invoice was generated by ConnectLink Properties. Thank you for your business.</div>
+        <div class="fl">+263 773 368 558 / +263 718 047 602 / +263 781 959 700 | info@connectlinkproperties.co.zw | 38A Coronation Avenue Greendale Harare</div>
+        <div class="fl">Generated on 04 September 2026 at 13:47</div>
+    </div>
+</div>
+</body>
+</html>
