@@ -4799,7 +4799,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
 </nav>
 
 <!-- Unattended Enquiries Floating Panel (top-right overlay — never pushes the dashboard) -->
-<div id="enqFloat" style="display:none;position:fixed;top:54px;right:12px;z-index:9990;width:660px;max-width:96vw;background:#fff;border:1px solid rgba(193,43,62,.25);border-radius:12px;box-shadow:0 12px 40px rgba(10,26,58,.18);overflow:hidden;">
+<div id="enqFloat" style="display:none;position:fixed;top:54px;right:12px;z-index:9990;width:627px;max-width:96vw;background:#fff;border:1px solid rgba(193,43,62,.25);border-radius:12px;box-shadow:0 12px 40px rgba(10,26,58,.18);overflow:hidden;">
     <div style="display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:0.72rem;font-weight:800;color:#C12B3E;background:linear-gradient(135deg, rgba(193,43,62,.06), rgba(8,145,178,.07));border-bottom:1px solid rgba(193,43,62,.15);"><i class="bi bi-bell"></i> Unattended Enquiries <span id="enqFloatCount" style="background:#C12B3E;color:#fff;border-radius:999px;padding:0 8px;font-size:0.58rem;">0</span>
         <span style="flex:1;"></span>
         <button onclick="openBulkEnqModal()" title="Bulk status update" style="background:none;border:1px solid rgba(193,43,62,.3);color:#C12B3E;border-radius:6px;padding:1px 8px;font-size:0.62rem;font-weight:700;cursor:pointer;line-height:1.4;"><i class="bi bi-check2-square"></i> Bulk Update</button>
@@ -20079,6 +20079,12 @@ async function saveAndDownloadQuotation() {
         return;
     }
 
+    // Guard: "Other" category requires a typed custom category name
+    if (String(data.category || '').toLowerCase() === 'other' && !String(data.categoryName || '').trim()) {
+        if (typeof showToast === 'function') showToast('Category name cannot be blank. Please enter a name for this category.', 'warning', 'Category Name Required');
+        return;
+    }
+
     if (!data.items || data.items.length === 0) {
         alert('No items found in quotation. Please add construction items.');
         return;
@@ -33242,13 +33248,16 @@ $('#generateQuotationBtn').click(function() {
         // TV Units / Other category - store data and use general preview
         if (isTvUnitsOrOther) {
             const quotationNotes = quillGeneratorNotes ? quillGeneratorNotes.root.innerHTML : '';
-            // Use custom category name for "Other"
+            // Use custom category name for "Other" - typed name becomes the category
             var displayCategory = category;
             if (category === 'other') {
                 var customName = document.getElementById('otherCategoryName');
-                if (customName && customName.value.trim()) {
-                    displayCategory = customName.value.trim();
+                var typedName = (customName && customName.value) ? customName.value.trim() : '';
+                if (!typedName) {
+                    if (typeof showToast === 'function') showToast('Category name cannot be blank. Please enter a name for this category.', 'warning', 'Category Name Required');
+                    return;
                 }
+                displayCategory = typedName;
             }
             window.quotationData = {
                 category: displayCategory,
@@ -35281,7 +35290,12 @@ function displayQuotations(quotations) {
             'kitchen': 'Kitchen',
             'tv_units': 'TV Units'
         };
-        displayCat2 = categoryMap[displayCat2] || displayCat2;
+        // "Other" quotations show the typed custom category name, never bare "Other"
+        if (String(displayCat2).toLowerCase() === 'other') {
+            displayCat2 = (quotation.customCategory && String(quotation.customCategory).trim()) ? quotation.customCategory : 'Other';
+        } else {
+            displayCat2 = categoryMap[displayCat2] || displayCat2;
+        }
         
         html += `
             <tr style="border-bottom: 1px solid #e8e8e8;" id="quotation-row-${quotation.id}">
@@ -39125,6 +39139,10 @@ document.addEventListener('DOMContentLoaded', function(){
                     var totalC=0;
                     var itemsF = items.map(function(it){totalC+=(it.quantity||1)*(it.amount||0);return{name:it.name||'Item',item:it.name||'Item',quantity:it.quantity||1,amount:it.amount||0,days:it.days||1,total:(it.quantity||1)*(it.amount||0)};});
                     var dispName = (cat==='other' && document.getElementById('otherCategoryName')) ? (document.getElementById('otherCategoryName').value||'').trim() : '';
+                    if(cat==='other' && !dispName){
+                        if(typeof showToast==='function') showToast('Category name cannot be blank. Please enter a name for this category.', 'warning', 'Category Name Required');
+                        return;
+                    }
                     window.quotationData = {category:cat, categoryName:dispName, clientName:name, clientWhatsapp:wa, quotationDate:date, items:itemsF, totalCost:totalC, markup:30, notes:''};
                     closeModal('quotationgeneratorModal');
                     setTimeout(function(){

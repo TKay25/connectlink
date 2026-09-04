@@ -708,6 +708,10 @@ def initialize_database_tables():
                 ALTER TABLE quotations 
                 ADD COLUMN IF NOT EXISTS created_by VARCHAR(200) DEFAULT ''
             """)
+            cursor.execute("""
+                ALTER TABLE quotations 
+                ADD COLUMN IF NOT EXISTS custom_category VARCHAR(200) DEFAULT ''
+            """)
 
             # Create quotation_items table to store construction items
             cursor.execute("""
