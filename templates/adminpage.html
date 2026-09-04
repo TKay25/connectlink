@@ -4965,7 +4965,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                 <!-- Quick Actions Section - AT THE TOP -->
                 <div class="section-card" style="margin-bottom: 8px;">
                     <div class="section-body" style="padding: 4px 8px;">
-                        <div class="content-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+                        <div class="content-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 6px;">
                             <div class="quick-action-card" onclick="openModal('addnewProjectModal')">
                                 <div class="action-icon"><i class="bi bi-plus-circle"></i></div>
                                 <div class="action-content">
@@ -4979,6 +4979,14 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                 <div class="action-content">
                                     <div class="action-title">Generate Quote</div>
                                     <div class="action-description">Create a quotation</div>
+                                </div>
+                                <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
+                            </div>
+                            <div class="quick-action-card" onclick="openDocGenerator()">
+                                <div class="action-icon"><i class="bi bi-receipt"></i></div>
+                                <div class="action-content">
+                                    <div class="action-title">Manual invoices &amp; receipts</div>
+                                    <div class="action-description">Generate custom PDF docs</div>
                                 </div>
                                 <div class="action-arrow"><i class="bi bi-arrow-right"></i></div>
                             </div>
@@ -41233,6 +41241,465 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
   window.loadUnattendedEnqs();
   setInterval(window.loadUnattendedEnqs,30000);
 })();
+</script>
+
+<!-- ============================================================
+     INVOICES & RECEIPTS GENERATOR (quick action: "Invoices & Receipts")
+     Single modal, Invoice/Receipt dropdown -> server-side WeasyPrint PDF.
+============================================================ -->
+<style>
+/* Keep the 5 quick-action cards colour-stable (appended last so this wins
+   over the duplicated theme blocks earlier in the page). */
+.quick-action-card:nth-child(1) .action-icon { background:#e8f0fe !important; color:#1a73e8 !important; }
+.quick-action-card:nth-child(2) .action-icon { background:#e6f7e6 !important; color:#2e7d32 !important; }
+.quick-action-card:nth-child(3) .action-icon { background:#f3e8ff !important; color:#7c3aed !important; }
+.quick-action-card:nth-child(4) .action-icon { background:#fff3e0 !important; color:#ef6c00 !important; }
+.quick-action-card:nth-child(5) .action-icon { background:#fce8eb !important; color:#C12B3E !important; }
+.quick-action-card:nth-child(1) { animation-delay:0.15s; }
+.quick-action-card:nth-child(2) { animation-delay:0.25s; }
+.quick-action-card:nth-child(3) { animation-delay:0.35s; }
+.quick-action-card:nth-child(4) { animation-delay:0.45s; }
+.quick-action-card:nth-child(5) { animation-delay:0.55s; }
+body.dark-theme .quick-action-card:nth-child(1) .action-icon { background:rgba(26,115,232,0.20) !important; color:#8bb4ff !important; }
+body.dark-theme .quick-action-card:nth-child(2) .action-icon { background:rgba(16,185,129,0.20) !important; color:#34d399 !important; }
+body.dark-theme .quick-action-card:nth-child(3) .action-icon { background:rgba(124,58,237,0.24) !important; color:#c4b0ff !important; }
+body.dark-theme .quick-action-card:nth-child(4) .action-icon { background:rgba(245,158,11,0.20) !important; color:#fbbf24 !important; }
+body.dark-theme .quick-action-card:nth-child(5) .action-icon { background:rgba(193,43,62,0.20) !important; color:#f58a96 !important; }
+
+.inv-item-row .inv-line-total { color:#1E293B; white-space:nowrap; }
+body.dark-theme .inv-item-row .inv-line-total { color:var(--text-primary); }
+.gen-totals-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
+body.dark-theme .gen-totals-box { background:#1a1f35; border-color:#3a4058; }
+</style>
+
+<!-- Document generator modal (Invoice / Receipt with dropdown switch) -->
+<div id="docGenModal" class="modal-overlay">
+    <div class="modal-container x2large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-receipt" id="docGenTitleIcon"></i> <span id="docGenTitle">INVOICE &amp; RECEIPT GENERATOR</span></h3>
+            <div class="d-flex align-items-center gap-2">
+                {% if can_view_payments %}
+                <button type="button" class="btn btn-sm btn-light" onclick="openDocHistoryModal()"><i class="bi bi-clock-history me-1"></i>History</button>
+                {% endif %}
+                <button class="close-modal" onclick="closeModal('docGenModal')"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        <div class="modal-body-custom">
+            <div id="docCreateArea">
+            <!-- Type dropdown (placeholder state) -->
+            <div class="text-center py-3" style="border-bottom:1px solid var(--gray-200);">
+                <div style="font-size:1.5rem;color:#7c3aed;margin-bottom:8px;"><i class="bi bi-file-earmark-pdf"></i></div>
+                <div class="text-muted small mb-2" style="font-size:.78rem;">Generate a polished PDF — pick what you need to create.</div>
+                <select class="form-select form-select-sm mx-auto" id="docTypeSelect" style="max-width:340px;" onchange="clSetDocType(this.value)" aria-label="Document type">
+                    <option value="" selected disabled>Generate invoice or receipt…</option>
+                    <option value="invoice">Invoice — bill a client with line items, tax &amp; totals</option>
+                    <option value="receipt">Receipt — record a payment received</option>
+                </select>
+                <div class="text-muted mt-2" id="docGenHint" style="font-size:.75rem;">Select a document type above to continue.</div>
+            </div>
+
+            <!-- Fields shown only after a document type is chosen -->
+            <div id="docFieldsArea" style="display:none;">
+            <!-- Shared: client / document header -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold mb-1" style="font-size:.75rem;" id="docClientLabel">Bill To (Client Name) *</label>
+                    <input type="text" class="form-control form-control-sm" id="docClientName" placeholder="Client / company name">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold mb-1" style="font-size:.75rem;" id="docNoLabel">Invoice No.</label>
+                    <input type="text" class="form-control form-control-sm" id="docDocNo" placeholder="Auto-generated if left blank">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Currency</label>
+                    <select class="form-select form-select-sm" id="docCurrency">
+                        <option value="USD" selected>USD</option>
+                        <option value="ZWL">ZWL</option>
+                        <option value="US$">US$</option>
+                        <option value="ZAR">ZAR</option>
+                        <option value="GBP">GBP</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Client Phone</label>
+                    <input type="text" class="form-control form-control-sm" id="docClientPhone" placeholder="e.g. +263 77 000 0000">
+                </div>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Client Address</label>
+                    <input type="text" class="form-control form-control-sm" id="docClientAddress" placeholder="Street, City">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Client Email</label>
+                    <input type="email" class="form-control form-control-sm" id="docClientEmail" placeholder="client@example.com">
+                </div>
+            </div>
+
+            <!-- Invoice-specific fields -->
+            <div id="docInvoiceFields">
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Issue Date</label>
+                        <input type="date" class="form-control form-control-sm" id="invIssueDate">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Due Date</label>
+                        <input type="date" class="form-control form-control-sm" id="invDueDate">
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end pb-1">
+                        <div class="text-muted" style="font-size:.72rem;"><i class="bi bi-info-circle me-1"></i>Line items, discount &amp; tax are totalled automatically.</div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <label class="form-label fw-semibold mb-0" style="font-size:.8rem;"><i class="bi bi-list-ul"></i> Line Items</label>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="clAddInvoiceItem()"><i class="bi bi-plus-lg"></i> Add line item</button>
+                </div>
+                <div class="mb-1 d-none d-md-flex" style="font-size:.68rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;">
+                    <div class="flex-grow-1 ps-1">Description</div>
+                    <div style="width:76px;" class="text-center">Qty</div>
+                    <div style="width:120px;" class="text-end pe-1">Unit Price</div>
+                    <div style="width:110px;" class="text-end pe-1">Amount</div>
+                    <div style="width:32px;"></div>
+                </div>
+                <div id="invItems"></div>
+                <div class="row g-2 mt-1 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold mb-1" style="font-size:.72rem;">Discount %</label>
+                        <input type="number" min="0" max="100" step="any" class="form-control form-control-sm" id="invDiscountPct" value="0" oninput="clRecalcInvoice()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold mb-1" style="font-size:.72rem;">Tax %</label>
+                        <input type="number" min="0" max="100" step="any" class="form-control form-control-sm" id="invTaxPct" value="0" oninput="clRecalcInvoice()">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="gen-totals-box p-2 d-flex flex-wrap justify-content-end align-items-center gap-3" style="font-size:.8rem;">
+                            <span>Subtotal: <b id="invSubtotal">0.00</b></span>
+                            <span>Discount: -<b id="invDiscountAmt">0.00</b></span>
+                            <span>Tax: <b id="invTaxAmt">0.00</b></span>
+                            <span style="background:#1E2A56;color:#fff;border-radius:6px;padding:4px 10px;font-weight:700;">TOTAL: <span id="invTotalAmt">0.00</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Receipt-specific fields -->
+            <div id="docReceiptFields" style="display:none;">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Amount *</label>
+                        <input type="number" min="0" step="0.01" class="form-control form-control-sm" id="rcpAmount" placeholder="0.00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Date Paid</label>
+                        <input type="date" class="form-control form-control-sm" id="rcpPaidDate">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Payment Method</label>
+                        <select class="form-select form-select-sm" id="rcpMethod">
+                            <option>Bank Transfer / RTGS</option>
+                            <option>EcoCash</option>
+                            <option>Cash</option>
+                            <option>Card / POS</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold mb-1" style="font-size:.75rem;">Reference (optional)</label>
+                        <input type="text" class="form-control form-control-sm" id="rcpReference" placeholder="e.g. Deposit for 12th Avenue Project">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shared notes -->
+            <div class="mt-3">
+                <label class="form-label fw-semibold mb-1" style="font-size:.75rem;"><i class="bi bi-sticky"></i> Notes (shown on the PDF)</label>
+                <textarea class="form-control" id="docNotes" rows="2" placeholder="Payment terms, thank-you message, instructions…"></textarea>
+            </div>
+            </div>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('docGenModal')"><i class="bi bi-x-lg me-1"></i>Cancel</button>
+            <button type="button" class="btn btn-primary" id="docGenBtn" onclick="clGenerateDoc()" disabled><i class="bi bi-file-earmark-pdf me-1"></i>Generate PDF</button>
+        </div>
+    </div>
+</div>
+
+<!-- History modal (opens on top of the generator; Invoice/Receipt dropdown + Generate PDF action) -->
+<div id="docHistoryModal" class="modal-overlay" style="z-index:1060;">
+    <div class="modal-container x2large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-clock-history"></i> <span id="docHistoryTitle">GENERATED DOCUMENT HISTORY</span></h3>
+            <button class="close-modal" onclick="closeModal('docHistoryModal')"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="row g-2 mb-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold mb-1" style="font-size:.75rem;"><i class="bi bi-funnel me-1"></i>Show history for</label>
+                    <select class="form-select form-select-sm" id="docHistType" onchange="clLoadDocHistory()">
+                        <option value="invoice">Invoice history</option>
+                        <option value="receipt">Receipt history</option>
+                    </select>
+                </div>
+                <div class="col-md-8 d-flex justify-content-end">
+                    <span class="text-muted small" id="docHistCount"></span>
+                </div>
+            </div>
+            <table class="table table-sm table-hover align-middle mb-0" style="font-size:.78rem;">
+                <thead>
+                    <tr>
+                        <th>Ref No.</th>
+                        <th>Client</th>
+                        <th>Currency</th>
+                        <th class="text-end">Amount</th>
+                        <th>Created by</th>
+                        <th>Date</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="docHistoryBody"></tbody>
+            </table>
+            <div id="docHistoryEmpty" class="text-center text-muted py-5 d-none">
+                <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                No saved <span id="docHistEmptyLabel">invoices</span> yet.<br>
+                <span class="small">Generate one in the main modal and it will be saved here for re-download.</span>
+            </div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('docHistoryModal')"><i class="bi bi-x-lg me-1"></i>Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ---------- Invoices & Receipts generator (single modal + dropdown) ---------- */
+function clSlug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'document'; }
+function clPad(n){ return (n<10?'0':'')+n; }
+function clToday(){ var d=new Date(); return d.getFullYear()+'-'+clPad(d.getMonth()+1)+'-'+clPad(d.getDate()); }
+function clDocRef(prefix){ var d=new Date(); var hex=('000000'+Math.floor(Math.random()*16777215).toString(16).toUpperCase()).slice(-6); return prefix+'-'+d.getFullYear()+clPad(d.getMonth()+1)+clPad(d.getDate())+'-'+hex; }
+function clDownloadBlob(blob,filename){ var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(url); },1200); }
+function clBtnLoading(btn,on){ if(!btn) return; if(on){ btn.dataset.orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Generating PDF…'; } else { btn.disabled=false; btn.innerHTML=btn.dataset.orig||btn.innerHTML; } }
+function clPostPdf(url,payload,btn,filename,cb){
+    clBtnLoading(btn,true);
+    fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(payload)})
+      .then(function(r){
+          if(!r.ok){
+              return r.json().catch(function(){ return {}; }).then(function(e){ throw new Error(e.error_message||('Server error (HTTP '+r.status+')')); });
+          }
+          return r.blob();
+      })
+      .then(function(blob){ clBtnLoading(btn,false); clDownloadBlob(blob,filename); if(cb){cb();} })
+      .catch(function(err){
+          clBtnLoading(btn,false);
+          var raw=(err&&err.message)?String(err.message):'Unknown error';
+          if(/failed to fetch|load failed|network error|networkerror|err_/i.test(raw)){
+              raw='Cannot reach the server. If you are viewing a static preview of this page, open it through the app while logged in. Otherwise the server may need a restart to load the new generate endpoints.';
+          }
+          alert('❌ '+raw);
+      });
+}
+
+/* Active document type: 'invoice' | 'receipt' */
+var clDocType='invoice';
+
+function clResetItems(){
+    var c=document.getElementById('invItems'); if(c) c.innerHTML='';
+    clAddInvoiceItem('',1,'');
+}
+
+function clSetDocType(t){
+    clDocType=(t==='receipt')?'receipt':((t==='invoice')?'invoice':'');
+    var sel=document.getElementById('docTypeSelect'); if(sel) sel.value=clDocType;
+    var area=document.getElementById('docFieldsArea'); if(area) area.style.display=clDocType?'':'none';
+    var gb=document.getElementById('docGenBtn'); if(gb){
+        gb.disabled=!clDocType;
+        gb.innerHTML='<i class="bi bi-file-earmark-pdf me-1"></i>'+(clDocType?('Generate '+(clDocType==='invoice'?'Invoice':'Receipt')+' PDF'):'Generate PDF');
+    }
+    var tt=document.getElementById('docGenTitle'); var ic=document.getElementById('docGenTitleIcon'); var hint=document.getElementById('docGenHint');
+    if(!clDocType){
+        if(tt) tt.textContent='INVOICE & RECEIPT GENERATOR';
+        if(ic) ic.className='bi bi-receipt';
+        if(hint) hint.textContent='Select a document type above to continue.';
+        return;
+    }
+    var inv=document.getElementById('docInvoiceFields'); if(inv) inv.style.display=(clDocType==='invoice')?'':'none';
+    var rcp=document.getElementById('docReceiptFields'); if(rcp) rcp.style.display=(clDocType==='receipt')?'':'none';
+    if(tt) tt.textContent=(clDocType==='invoice')?'GENERATE INVOICE':'GENERATE RECEIPT';
+    if(ic) ic.className='bi '+(clDocType==='invoice'?'bi-file-earmark-text':'bi-receipt-cutoff');
+    var cl=document.getElementById('docClientLabel'); if(cl) cl.textContent=(clDocType==='invoice')?'Bill To (Client Name) *':'Received From (Client Name) *';
+    var nl=document.getElementById('docNoLabel'); if(nl) nl.textContent=(clDocType==='invoice')?'Invoice No.':'Receipt No.';
+    if(hint) hint.textContent=(clDocType==='invoice')?'Create a branded invoice with line items, tax & totals.':'Record a payment received from a client.';
+    var dn=document.getElementById('docDocNo'); if(dn) dn.value=clDocRef(clDocType==='invoice'?'INV':'RCP');
+    if(clDocType==='invoice'){
+        var i1=document.getElementById('invIssueDate'); if(i1) i1.value=clToday();
+        var i2=document.getElementById('invDueDate'); if(i2) i2.value=clToday();
+        var dp=document.getElementById('invDiscountPct'); if(dp) dp.value='0';
+        var tp=document.getElementById('invTaxPct'); if(tp) tp.value='0';
+        clResetItems();
+    } else {
+        var rd=document.getElementById('rcpPaidDate'); if(rd) rd.value=clToday();
+        var rm=document.getElementById('rcpMethod'); if(rm) rm.value='Bank Transfer / RTGS';
+        var ra=document.getElementById('rcpAmount'); if(ra) ra.value='';
+    }
+}
+
+function openDocGenerator(){ openModal('docGenModal'); clSetDocType(''); }
+
+/* ---------- History modal (Invoice / Receipt history; View Payments access) ---------- */
+function clEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function openDocHistoryModal(){
+    openModal('docHistoryModal');
+    var sel=document.getElementById('docHistType'); if(sel) sel.value='invoice';
+    clLoadDocHistory();
+}
+function clLoadDocHistory(){
+    var body=document.getElementById('docHistoryBody'); if(!body) return;
+    var type=document.getElementById('docHistType')?document.getElementById('docHistType').value:'invoice';
+    var isR=(type==='receipt');
+    var label=isR?'Receipt':'Invoice';
+    var plural=label.toLowerCase()+'s';
+    var el=document.getElementById('docHistEmptyLabel'); if(el) el.textContent=plural;
+    body.innerHTML='<tr><td colspan="7" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading '+label+' history…</td></tr>';
+    fetch('/api/manual-documents',{credentials:'include'})
+      .then(function(r){
+          if(!r.ok){ return r.json().catch(function(){ return {}; }).then(function(e){ throw new Error(e.error_message||('Server error (HTTP '+r.status+')')); }); }
+          return r.json();
+      })
+      .then(function(res){
+          if(!res || !res.success){ throw new Error((res&&res.error_message)||'Failed to load history'); }
+          var all=res.documents||[];
+          var docs=all.filter(function(d){ return (d.doc_type==='receipt')===isR; });
+          var cnt=document.getElementById('docHistCount'); if(cnt) cnt.textContent=docs.length+' '+plural;
+          var empty=document.getElementById('docHistoryEmpty'); if(empty) empty.classList.toggle('d-none',docs.length>0);
+          var rows='';
+          docs.forEach(function(d){
+              var amt=(d.total_amount!=null)?Number(d.total_amount).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+              rows+='<tr>'
+                 +'<td class="fw-semibold">'+clEsc(d.doc_no||('ID '+d.id))+'</td>'
+                 +'<td>'+clEsc(d.client_name||'—')+'</td>'
+                 +'<td>'+clEsc(d.currency||'—')+'</td>'
+                 +'<td class="text-end">'+amt+'</td>'
+                 +'<td>'+clEsc(d.created_by||'—')+'</td>'
+                 +'<td>'+clEsc(d.created_at||'—')+'</td>'
+                 +'<td class="text-end"><button type="button" class="btn btn-sm btn-primary" onclick="clHistDownload('+d.id+',\''+label+'\')"><i class="bi bi-file-earmark-pdf me-1"></i>Generate PDF</button></td>'
+                 +'</tr>';
+          });
+          body.innerHTML=rows;
+      })
+      .catch(function(err){
+          body.innerHTML='<tr><td colspan="7" class="text-center text-danger py-4">'+clEsc('❌ '+(err&&err.message?err.message:'Failed to load history'))+'</td></tr>';
+      });
+}
+function clHistDownload(id,label){
+    fetch('/api/manual-documents/'+id+'/download',{method:'POST',credentials:'include'})
+      .then(function(r){
+          if(!r.ok){ return r.json().catch(function(){ return {}; }).then(function(e){ throw new Error(e.error_message||('Server error (HTTP '+r.status+')')); }); }
+          var disp=r.headers.get('Content-Disposition')||'';
+          var m=disp.match(/filename="?([^";]+)"?/i);
+          var name=m?m[1]:((label==='Receipt'?'Receipt':'Invoice')+'_'+id+'.pdf');
+          return r.blob().then(function(b){ clDownloadBlob(b,name); });
+      })
+      .catch(function(err){ alert('❌ '+((err&&err.message)?err.message:'Failed to download')); });
+}
+
+/* ---------- Invoice line items ---------- */
+function clAddInvoiceItem(desc,qty,rate){
+    var c=document.getElementById('invItems'); if(!c) return;
+    var row=document.createElement('div');
+    row.className='inv-item-row d-flex align-items-center gap-2 mb-2';
+    row.innerHTML='<div class="flex-grow-1"><input type="text" class="form-control form-control-sm inv-desc" placeholder="Item / service description" value="'+(desc||'')+'"></div>'
+        +'<div style="width:76px;"><input type="number" min="0" step="any" class="form-control form-control-sm text-center inv-qty" value="'+((qty==null||qty==='')?1:qty)+'"></div>'
+        +'<div style="width:120px;"><input type="number" min="0" step="0.01" class="form-control form-control-sm text-end inv-rate" placeholder="0.00" value="'+((rate==null||rate==='')?'':rate)+'"></div>'
+        +'<div class="inv-line-total fw-semibold text-end" style="width:110px;font-size:.85rem;">0.00</div>'
+        +'<button type="button" class="btn btn-sm btn-outline-danger" title="Remove" onclick="clRemoveInvoiceItem(this)"><i class="bi bi-x-lg"></i></button>';
+    c.appendChild(row);
+    clRecalcInvoice();
+}
+function clRemoveInvoiceItem(btn){
+    var row=btn.closest('.inv-item-row');
+    var rows=document.querySelectorAll('#invItems .inv-item-row');
+    if(rows.length<=1){ alert('An invoice needs at least one line item.'); return; }
+    if(row) row.remove();
+    clRecalcInvoice();
+}
+function clRecalcInvoice(){
+    var subtotal=0;
+    document.querySelectorAll('#invItems .inv-item-row').forEach(function(row){
+        var q=parseFloat((row.querySelector('.inv-qty')||{}).value)||0;
+        var r=parseFloat((row.querySelector('.inv-rate')||{}).value)||0;
+        var t=q*r; subtotal+=t;
+        var el=row.querySelector('.inv-line-total'); if(el) el.textContent=t.toFixed(2);
+    });
+    var dp=parseFloat((document.getElementById('invDiscountPct')||{}).value)||0; dp=Math.max(0,Math.min(100,dp));
+    var tp=parseFloat((document.getElementById('invTaxPct')||{}).value)||0; tp=Math.max(0,Math.min(100,tp));
+    var disc=subtotal*dp/100; var tax=(subtotal-disc)*tp/100; var total=subtotal-disc+tax;
+    var s1=document.getElementById('invSubtotal'); if(s1) s1.textContent=subtotal.toFixed(2);
+    var s2=document.getElementById('invDiscountAmt'); if(s2) s2.textContent=disc.toFixed(2);
+    var s3=document.getElementById('invTaxAmt'); if(s3) s3.textContent=tax.toFixed(2);
+    var s4=document.getElementById('invTotalAmt'); if(s4) s4.textContent=total.toFixed(2);
+}
+
+/* ---------- Generate (dispatch by selected type) ---------- */
+function clGenerateDoc(){ if(clDocType==='receipt'){ clGenerateReceipt(); } else { clGenerateInvoice(); } }
+
+function clGenerateInvoice(){
+    var btn=document.getElementById('docGenBtn');
+    var name=(document.getElementById('docClientName').value||'').trim();
+    if(!name){ alert('⚠️ Please enter the client / bill-to name.'); return; }
+    var items=[];
+    document.querySelectorAll('#invItems .inv-item-row').forEach(function(row){
+        var desc=(row.querySelector('.inv-desc').value||'').trim();
+        var q=parseFloat(row.querySelector('.inv-qty').value)||0;
+        var r=parseFloat(row.querySelector('.inv-rate').value)||0;
+        if(desc) items.push({description:desc,quantity:q,unit_price:r});
+    });
+    if(!items.length){ alert('⚠️ Add at least one line item with a description.'); return; }
+    var docno=(document.getElementById('docDocNo').value||'').trim();
+    var payload={
+        client_name:name,
+        client_address:(document.getElementById('docClientAddress').value||'').trim(),
+        client_phone:(document.getElementById('docClientPhone').value||'').trim(),
+        client_email:(document.getElementById('docClientEmail').value||'').trim(),
+        currency:document.getElementById('docCurrency').value,
+        doc_no:docno,
+        issue_date:document.getElementById('invIssueDate').value,
+        due_date:document.getElementById('invDueDate').value,
+        items:items,
+        discount_pct:parseFloat(document.getElementById('invDiscountPct').value)||0,
+        tax_pct:parseFloat(document.getElementById('invTaxPct').value)||0,
+        notes:(document.getElementById('docNotes').value||'')
+    };
+    clPostPdf('/generate_custom_invoice',payload,btn,'Invoice_'+clSlug(name)+'_'+(docno?clSlug(docno):'auto')+'.pdf',function(){ alert('✅ Invoice PDF downloaded.'); });
+}
+
+function clGenerateReceipt(){
+    var btn=document.getElementById('docGenBtn');
+    var name=(document.getElementById('docClientName').value||'').trim();
+    if(!name){ alert('⚠️ Please enter the client name the payment was received from.'); return; }
+    var amt=parseFloat(document.getElementById('rcpAmount').value);
+    if(isNaN(amt)||amt<=0){ alert('⚠️ Please enter a valid amount greater than zero.'); return; }
+    var docno=(document.getElementById('docDocNo').value||'').trim();
+    var payload={
+        client_name:name,
+        client_phone:(document.getElementById('docClientPhone').value||'').trim(),
+        client_email:(document.getElementById('docClientEmail').value||'').trim(),
+        client_address:(document.getElementById('docClientAddress').value||'').trim(),
+        currency:document.getElementById('docCurrency').value,
+        doc_no:docno,
+        amount:amt,
+        payment_date:document.getElementById('rcpPaidDate').value,
+        payment_method:document.getElementById('rcpMethod').value,
+        reference:(document.getElementById('rcpReference').value||'').trim(),
+        notes:(document.getElementById('docNotes').value||'')
+    };
+    clPostPdf('/generate_custom_receipt',payload,btn,'Receipt_'+clSlug(name)+'_'+(docno?clSlug(docno):'auto')+'.pdf',function(){ alert('✅ Receipt PDF downloaded.'); });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+    var ic=document.getElementById('invItems');
+    if(ic){ ic.addEventListener('input', function(){ clRecalcInvoice(); }); }
+});
 </script>
 
 </body>

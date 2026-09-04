@@ -271,6 +271,21 @@ def initialize_database_tables():
             """)
 
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS manual_documents (
+                    id SERIAL PRIMARY KEY,
+                    doc_type VARCHAR(20) NOT NULL,
+                    doc_no VARCHAR(100),
+                    client_name VARCHAR(200),
+                    currency VARCHAR(10),
+                    total_amount NUMERIC(15,2),
+                    payload JSONB,
+                    created_by VARCHAR(100),
+                    created_by_id VARCHAR(50),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
                 SELECT 
                     qi.quotation_id,
                     qi.item_name,
@@ -31450,6 +31465,781 @@ def generate_deposit_receipt_html(row, effective_date, logo_base64):
     </body>
     </html>
     """
+
+
+# ==============================================================================
+# STANDALONE INVOICE & RECEIPT GENERATOR (dashboard "Invoices & Receipts" tool)
+# Generates polished, project-independent PDF documents. Branding + banking are
+# taken from the company profile (connectlinkdetails) and ConnectLink's standard
+# banking block (same values shown on the company profile / quotation PDFs).
+# ==============================================================================
+
+CONNECTLINK_BANKING = {
+    'bank': 'ZB BANK',
+    'branch': 'Msasa',
+    'account_name': 'Connectlink Agency (Pvt) Ltd',
+    'account_number': '450600586638405',
+    'account_type': 'USD Account',
+}
+
+
+def _cl_digits_only(value):
+    if value is None:
+        return ''
+    return re.sub(r'\D', '', str(value))
+
+
+def _cl_phone_local(value):
+    d = _cl_digits_only(value)
+    if not d:
+        return ''
+    if len(d) == 9:
+        d = '0' + d
+    if len(d) == 10 and d.startswith('0'):
+        return '{} {} {}'.format(d[0:4], d[4:7], d[7:10])
+    return d
+
+
+def _cl_phone_intl(value):
+    d = _cl_digits_only(value)
+    if not d:
+        return ''
+    if d.startswith('0'):
+        d = '263' + d[1:]
+    elif len(d) == 9:
+        d = '263' + d
+    if d.startswith('263') and len(d) == 12:
+        return '+{} {} {} {}'.format(d[0:3], d[3:6], d[6:9], d[9:12])
+    return '+' + d if d else ''
+
+
+def _cl_company_branding():
+    """Return (company dict, logo_base64) reading the company profile table."""
+    company = {
+        'name': 'ConnectLink Properties',
+        'address': '',
+        'phone_local': '', 'phone_intl': '',
+        'phone2_local': '', 'phone2_intl': '',
+        'phone3_local': '', 'phone3_intl': '',
+        'email': '',
+        'tin': '',
+    }
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT companyname, address, contact1, contact2, contact3, email, tinnumber
+                FROM connectlinkdetails LIMIT 1
+            """)
+            row = cursor.fetchone()
+            if row:
+                company = {
+                    'name': str(row[0] or 'ConnectLink Properties'),
+                    'address': str(row[1] or ''),
+                    'phone_local': _cl_phone_local(row[2]),
+                    'phone_intl': _cl_phone_intl(row[2]),
+                    'phone2_local': _cl_phone_local(row[3]),
+                    'phone2_intl': _cl_phone_intl(row[3]),
+                    'phone3_local': _cl_phone_local(row[4]),
+                    'phone3_intl': _cl_phone_intl(row[4]),
+                    'email': str(row[5] or ''),
+                    'tin': str(row[6] or ''),
+                }
+    except Exception as exc:
+        print(f"⚠️ _cl_company_branding: {exc}")
+
+    logo_base64 = None
+    try:
+        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
+        if os.path.exists(logo_path):
+            with open(logo_path, 'rb') as img:
+                logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+    except Exception as exc:
+        print(f"⚠️ Logo load: {exc}")
+    return company, logo_base64
+
+
+def _cl_money_str(value):
+    try:
+        return f"{float(value or 0):,.2f}"
+    except (TypeError, ValueError):
+        return "0.00"
+
+
+def _cl_qty_str(value):
+    try:
+        num = float(value or 0)
+        if num == int(num):
+            return str(int(num))
+        return f"{num:,.2f}".rstrip('0').rstrip('.')
+    except (TypeError, ValueError):
+        return '0'
+
+
+def _cl_iso_date(value, default_today=False):
+    if value:
+        try:
+            return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    return datetime.now().date() if default_today else None
+
+
+def _cl_doc_ref(prefix):
+    return f"{prefix}-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(3).upper()}"
+
+
+def _cl_clean_filename(text):
+    clean = re.sub(r'[^A-Za-z0-9]+', '_', str(text or '')).strip('_')
+    return clean[:60] or 'Document'
+
+
+def _cl_pdf_response(pdf_bytes, filename):
+    response = make_response(pdf_bytes)
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    return response
+
+
+_INVOICE_CSS = """
+@page { size: A4; margin: 9mm 8mm 11mm 8mm; }
+* { box-sizing: border-box; }
+body { font-family: 'Helvetica','Arial',sans-serif; color:#2C3E50; font-size:10px; margin:0; padding:0; line-height:1.45; }
+.invoice-page { position:relative; }
+.brand-line { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:12px; border-bottom:2.5px solid #1E2A56; }
+.brand { display:flex; align-items:center; gap:12px; }
+.brand img { max-width:170px; max-height:64px; }
+.brand-name { font-size:18px; font-weight:800; color:#1E2A56; letter-spacing:0.4px; }
+.brand-name .tagline { display:block; font-size:8.5px; font-weight:700; color:#C12B3E; letter-spacing:1.6px; text-transform:uppercase; margin-top:2px; }
+.doc-title-wrap { text-align:right; }
+.doc-badge { display:inline-block; background:#1E2A56; color:#fff; font-size:24px; font-weight:800; letter-spacing:5px; padding:8px 28px; border-radius:4px; }
+.meta-table { margin-top:10px; margin-left:auto; border-collapse:collapse; }
+.meta-table td { padding:1px 4px; font-size:9.5px; text-align:left; }
+.meta-table td.k { color:#7f8c9b; text-transform:uppercase; letter-spacing:0.6px; font-size:7.5px; }
+.meta-table td.v { font-weight:700; color:#1E2A56; text-align:right; }
+.two-col { display:flex; justify-content:space-between; gap:22px; margin-top:16px; }
+.two-col > div { flex:1; }
+.box-label { font-size:8px; font-weight:800; letter-spacing:1.4px; color:#C12B3E; text-transform:uppercase; border-bottom:1px solid #e3e6ee; padding-bottom:3px; margin-bottom:7px; }
+.client-name { font-size:12px; font-weight:800; color:#1E2A56; margin-bottom:2px; }
+.info-line { font-size:9.5px; color:#41506b; margin:1px 0; }
+.info-line b { color:#1E2A56; }
+.items-table { width:100%; border-collapse:collapse; margin-top:16px; }
+.items-table th { background:#1E2A56; color:#fff; font-size:8px; text-transform:uppercase; letter-spacing:0.7px; padding:6px 8px; text-align:left; }
+.items-table th.num, .items-table td.num { text-align:right; }
+.items-table th.c { text-align:center; }
+.items-table td.c { text-align:center; }
+.items-table td { border-bottom:1px solid #e7eaf1; padding:6px 8px; font-size:9.5px; color:#2C3E50; vertical-align:top; }
+.items-table tr:nth-child(even) td { background:#f7f9fc; }
+.totals-wrap { display:flex; justify-content:flex-end; margin-top:14px; }
+.totals { width:250px; border:1px solid #dfe4ee; border-radius:7px; overflow:hidden; }
+.totals .trow { display:flex; justify-content:space-between; padding:5px 11px; font-size:9.5px; border-bottom:1px solid #eef1f6; }
+.totals .trow .k { color:#7f8c9b; }
+.totals .trow .v { font-weight:700; color:#1E2A56; }
+.totals .trow.total { background:#1E2A56; color:#fff; font-weight:800; font-size:13px; border-bottom:none; }
+.totals .trow.total .v { color:#fff; }
+.bank-box { margin-top:18px; border:1.4px solid #1E2A56; border-radius:8px; overflow:hidden; }
+.bank-box .bb-head { background:#f0f3fa; color:#1E2A56; font-weight:800; font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; padding:6px 12px; border-bottom:1px solid #d9e0f0; }
+.bank-grid { display:flex; flex-wrap:wrap; }
+.bank-cell { width:50%; padding:6px 12px; font-size:9.5px; color:#2C3E50; }
+.bank-cell b { display:block; font-size:7.5px; text-transform:uppercase; letter-spacing:0.6px; color:#8a97ab; margin-bottom:2px; }
+.notes-box { margin-top:14px; border:1px dashed #c9d2e3; background:#fbfcff; border-radius:7px; padding:9px 12px; }
+.notes-box .nb-label { font-size:8px; font-weight:800; color:#C12B3E; letter-spacing:1.2px; text-transform:uppercase; margin-bottom:3px; }
+.notes-box .nb-text { font-size:9.5px; color:#41506b; }
+.footer { margin-top:22px; border-top:1.5px solid #e3e6ee; padding-top:8px; text-align:center; font-size:8px; color:#8a97ab; }
+.footer .fl { margin:2px 0; }
+"""
+
+_RECEIPT_CSS = """
+@page { size: A5; margin: 5mm 5mm; }
+* { box-sizing: border-box; }
+body { font-family: 'Helvetica','Arial',sans-serif; color:#2C3E50; line-height:1.4; margin:0; padding:0; background:#fff; font-size:10px; }
+.receipt-container { border:1px solid #d0d0d0; padding:14px; min-height:680px; position:relative; background:white; }
+.header { display:flex; justify-content:space-between; align-items:center; padding-bottom:11px; border-bottom:2px solid #1E2A56; }
+.logo { max-width:170px; max-height:52px; }
+.receipt-title { text-align:right; }
+.receipt-title h5 { color:#1E2A56; font-size:15px; margin:0; font-weight:800; letter-spacing:1.5px; }
+.receipt-title p { color:#666; font-size:9px; margin:3px 0 0; }
+.receipt-metadata { margin-top:4px; font-size:8.5px; color:#666; }
+.receipt-number { color:#1E2A56; font-weight:700; }
+.company-line { margin-top:10px; font-size:8.5px; color:#41506b; text-align:left; }
+.company-line b { color:#1E2A56; }
+.payment-summary { background:#fafbfd; border:1px solid #e8e8e8; border-radius:6px; padding:12px; margin:14px 0 4px; }
+.payment-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.status-paid { display:inline-block; background:#27ae60; color:white; font-size:8px; font-weight:800; padding:3px 10px; border-radius:12px; text-transform:uppercase; letter-spacing:0.6px; }
+.payment-meta { font-size:9px; color:#666; }
+.payment-grid { display:flex; justify-content:space-between; gap:8px; text-align:center; }
+.payment-grid .payment-item { flex:1; padding:6px 0; }
+.payment-label { font-size:7.5px; color:#666; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:4px; }
+.payment-amount { font-size:17px; font-weight:800; color:#1E2A56; }
+.amount-whole { font-size:17px; font-weight:800; color:#1E2A56; }
+.amount-decimal { font-size:9px; font-weight:400; color:#999; vertical-align:super; }
+.payment-date { font-size:13px; font-weight:600; color:#2C3E50; }
+.section { margin:12px 0; border:1px solid #e8e8e8; border-radius:4px; overflow:hidden; }
+.section-header { background:#f5f7fa; padding:7px 12px; font-weight:800; font-size:10px; color:#1E2A56; text-transform:uppercase; letter-spacing:0.6px; border-bottom:1px solid #e0e0e0; }
+.section-content { padding:10px 12px; }
+.grid-2 { display:flex; gap:14px; }
+.grid-2 > div { flex:1; }
+.info-row { display:flex; margin-bottom:5px; font-size:9.5px; }
+.info-label { width:64px; color:#666; font-weight:500; flex-shrink:0; }
+.info-value { flex:1; color:#2C3E50; word-break:break-word; }
+.notes-box { border:1px dashed #c9d2e3; background:#fbfcff; border-radius:5px; padding:7px 10px; }
+.notes-box .nb-label { font-size:7.5px; font-weight:800; color:#C12B3E; letter-spacing:1px; text-transform:uppercase; }
+.notes-box .nb-text { font-size:9px; color:#41506b; }
+.bank-box { margin-top:12px; border:1.2px solid #1E2A56; border-radius:5px; overflow:hidden; }
+.bank-box .bb-head { background:#f0f3fa; color:#1E2A56; font-weight:800; font-size:8px; letter-spacing:1px; text-transform:uppercase; padding:4px 10px; border-bottom:1px solid #d9e0f0; }
+.bank-grid { display:flex; flex-wrap:wrap; }
+.bank-cell { width:50%; padding:4px 10px; font-size:9px; color:#2C3E50; }
+.bank-cell b { display:block; font-size:7px; text-transform:uppercase; letter-spacing:0.5px; color:#8a97ab; }
+.footer { margin-top:20px; padding-top:10px; border-top:1px solid #e0e0e0; font-size:7.5px; color:#999; text-align:center; }
+.footer-line { margin:2px 0; }
+"""
+
+
+def _cl_build_invoice_html(data, company, logo_base64):
+    """Build a polished A4 invoice HTML string (WeasyPrint)."""
+    currency = str(data.get('currency') or 'USD').upper()[:8]
+    doc_no = str(data.get('doc_no') or '').strip() or _cl_doc_ref('INV')
+
+    issue_date = _cl_iso_date(data.get('issue_date'), default_today=True)
+    due_date = _cl_iso_date(data.get('due_date')) or (issue_date + timedelta(days=30))
+    issue_disp = issue_date.strftime('%d %b %Y')
+    due_disp = due_date.strftime('%d %b %Y')
+
+    client_name = html.escape(str(data.get('client_name') or ''))
+    client_address = html.escape(str(data.get('client_address') or '')).replace('\n', '<br>')
+    client_phone = html.escape(str(data.get('client_phone') or ''))
+    client_email = html.escape(str(data.get('client_email') or ''))
+
+    logo_html = f'<img src="data:image/png;base64,{logo_base64}">' if logo_base64 else ''
+
+    our_name = html.escape(str(company['name']))
+    our_address = html.escape(str(company['address'])).replace('\n', '<br>')
+    our_phones = ' / '.join([p for p in [company['phone_intl'], company['phone2_intl'], company['phone3_intl']] if p])
+    our_email = html.escape(str(company['email']))
+    our_tin = html.escape(str(company['tin']))
+
+    items = data.get('items') or []
+    items_rows = []
+    for idx, item in enumerate(items, start=1):
+        desc = html.escape(str(item.get('description') or ''))
+        qty = _cl_qty_str(item.get('quantity'))
+        rate = _cl_money_str(item.get('unit_price'))
+        amt = _cl_money_str((item.get('quantity') or 0) * (item.get('unit_price') or 0))
+        items_rows.append(
+            f'<tr><td class="c">{idx}</td><td>{desc}</td><td class="c">{qty}</td>'
+            f'<td class="num">{currency} {rate}</td><td class="num">{currency} {amt}</td></tr>'
+        )
+    items_html = ''.join(items_rows)
+
+    subtotal = _cl_money_str(data.get('subtotal'))
+    discount_pct = _cl_qty_str(data.get('discount_pct'))
+    discount_amt = _cl_money_str(data.get('discount_amt'))
+    tax_pct = _cl_qty_str(data.get('tax_pct'))
+    tax_amt = _cl_money_str(data.get('tax_amt'))
+    total = _cl_money_str(data.get('total'))
+
+    notes = html.escape(str(data.get('notes') or '')).replace('\n', '<br>')
+    notes_html = f'<div class="notes-box"><div class="nb-label">Notes</div><div class="nb-text">{notes}</div></div>' if notes else ''
+
+    bank = CONNECTLINK_BANKING
+    bank_cells = ''.join(
+        f'<div class="bank-cell"><b>{html.escape(str(k))}</b>{html.escape(str(v))}</div>'
+        for k, v in [
+            ('Bank', bank['bank']), ('Branch', bank['branch']),
+            ('Account Name', bank['account_name']), ('Account No', bank['account_number']),
+            ('Account Type', bank['account_type']),
+        ]
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>{_INVOICE_CSS}</style>
+</head>
+<body>
+<div class="invoice-page">
+    <div class="brand-line">
+        <div class="brand">
+            {logo_html}
+            <div class="brand-name">{our_name}<span class="tagline">Building &amp; Property Development</span></div>
+        </div>
+        <div class="doc-title-wrap">
+            <div class="doc-badge">INVOICE</div>
+            <table class="meta-table">
+                <tr><td class="k">Invoice No</td><td class="v">{html.escape(doc_no)}</td></tr>
+                <tr><td class="k">Issue Date</td><td class="v">{issue_disp}</td></tr>
+                <tr><td class="k">Due Date</td><td class="v">{due_disp}</td></tr>
+                <tr><td class="k">Currency</td><td class="v">{currency}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div>
+            <div class="box-label">Bill To</div>
+            <div class="client-name">{client_name}</div>
+            <div class="info-line">{client_address}</div>
+            <div class="info-line">{client_phone}</div>
+            <div class="info-line">{client_email}</div>
+        </div>
+        <div>
+            <div class="box-label">From</div>
+            <div class="client-name">{our_name}</div>
+            <div class="info-line">{our_address}</div>
+            <div class="info-line">{our_phones}</div>
+            <div class="info-line">{our_email}</div>
+            <div class="info-line"><b>TIN:</b> {our_tin if our_tin else '—'}</div>
+        </div>
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:4%;">#</th>
+                <th>Description</th>
+                <th style="width:8%;" class="c">Qty</th>
+                <th style="width:16%;" class="num">Unit Price</th>
+                <th style="width:18%;" class="num">Amount</th>
+            </tr>
+        </thead>
+        <tbody>{items_html}</tbody>
+    </table>
+
+    <div class="totals-wrap">
+        <div class="totals">
+            <div class="trow"><span class="k">Subtotal</span><span class="v">{currency} {subtotal}</span></div>
+            <div class="trow"><span class="k">Discount ({discount_pct}%)</span><span class="v">- {currency} {discount_amt}</span></div>
+            <div class="trow"><span class="k">Tax ({tax_pct}%)</span><span class="v">{currency} {tax_amt}</span></div>
+            <div class="trow total"><span class="k">TOTAL DUE</span><span class="v">{currency} {total}</span></div>
+        </div>
+    </div>
+
+    <div class="bank-box">
+        <div class="bb-head">Payment Details — {our_name}</div>
+        <div class="bank-grid">{bank_cells}</div>
+    </div>
+
+    {notes_html}
+
+    <div class="footer">
+        <div class="fl">This invoice was generated by {our_name}. Thank you for your business.</div>
+        <div class="fl">{our_phones} | {our_email} | {our_address}</div>
+        <div class="fl">Generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
+    </div>
+</div>
+</body>
+</html>"""
+
+
+def _cl_build_receipt_html(data, company, logo_base64):
+    """Build an A5 receipt HTML string (WeasyPrint) styled like project receipts."""
+    currency = str(data.get('currency') or 'USD').upper()[:8]
+    doc_no = str(data.get('doc_no') or '').strip() or _cl_doc_ref('RCP')
+
+    pay_date = _cl_iso_date(data.get('payment_date'), default_today=True)
+    pay_date_short = pay_date.strftime('%d %b %Y')
+    pay_date_long = pay_date.strftime('%d %B %Y')
+
+    amount = float(data.get('amount') or 0)
+    whole, decimal = f"{amount:,.2f}".split('.')
+
+    client_name = html.escape(str(data.get('client_name') or ''))
+    client_phone = html.escape(str(data.get('client_phone') or ''))
+    client_email = html.escape(str(data.get('client_email') or ''))
+    client_address = html.escape(str(data.get('client_address') or '')).replace('\n', '<br>')
+
+    method = html.escape(str(data.get('payment_method') or 'Cash'))
+    reference = html.escape(str(data.get('reference') or ''))
+    notes = html.escape(str(data.get('notes') or '')).replace('\n', '<br>')
+    notes_html = f'<div class="notes-box"><div class="nb-label">Notes</div><div class="nb-text">{notes}</div></div>' if notes else ''
+
+    our_name = html.escape(str(company['name']))
+    our_phones = ' / '.join([p for p in [company['phone_intl'], company['phone2_intl'], company['phone3_intl']] if p])
+    our_email = html.escape(str(company['email']))
+    our_tin = html.escape(str(company['tin']))
+    logo_html = f'<img src="data:image/png;base64,{logo_base64}" class="logo">' if logo_base64 else ''
+
+    bank = CONNECTLINK_BANKING
+    bank_cells = ''.join(
+        f'<div class="bank-cell"><b>{html.escape(str(k))}</b>{html.escape(str(v))}</div>'
+        for k, v in [
+            ('Bank', bank['bank']), ('Branch', bank['branch']),
+            ('Account Name', bank['account_name']), ('Account No', bank['account_number']),
+            ('Account Type', bank['account_type']),
+        ]
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>{_RECEIPT_CSS}</style>
+</head>
+<body>
+<div class="receipt-container">
+    <div class="header">
+        {logo_html}
+        <div class="receipt-title">
+            <h5>PAYMENT RECEIPT</h5>
+            <p>Official Payment Received</p>
+            <div class="receipt-metadata"><span class="receipt-number">REF: {html.escape(doc_no)}</span></div>
+        </div>
+    </div>
+
+    <div class="company-line"><b>{our_name}</b><br>{html.escape(str(company['address'])).replace(chr(10), '<br>')}<br>{our_phones} | {our_email}{('  |  TIN: ' + our_tin) if our_tin else ''}</div>
+
+    <div class="payment-summary">
+        <div class="payment-head">
+            <span class="status-paid">PAID</span>
+            <span class="payment-meta">{html.escape(method)}</span>
+        </div>
+        <div class="payment-grid">
+            <div class="payment-item">
+                <div class="payment-label">Amount</div>
+                <div class="payment-amount">{currency} <span class="amount-whole">{whole}</span>.<span class="amount-decimal">{decimal}</span></div>
+            </div>
+            <div class="payment-item">
+                <div class="payment-label">Date Paid</div>
+                <div class="payment-date">{pay_date_short}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">Received From</div>
+        <div class="section-content">
+            <div class="info-row"><span class="info-label">Name:</span><span class="info-value">{client_name}</span></div>
+            {('<div class="info-row"><span class="info-label">Phone:</span><span class="info-value">' + client_phone + '</span></div>') if client_phone else ''}
+            {('<div class="info-row"><span class="info-label">Email:</span><span class="info-value">' + client_email + '</span></div>') if client_email else ''}
+            {('<div class="info-row"><span class="info-label">Address:</span><span class="info-value">' + client_address + '</span></div>') if client_address else ''}
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">Payment Details</div>
+        <div class="section-content">
+            <div class="grid-2">
+                <div>
+                    <div class="info-row"><span class="info-label">Method:</span><span class="info-value">{method}</span></div>
+                    <div class="info-row"><span class="info-label">Amount:</span><span class="info-value">{currency} {_cl_money_str(amount)}</span></div>
+                </div>
+                <div>
+                    <div class="info-row"><span class="info-label">Date Paid:</span><span class="info-value">{pay_date_long}</span></div>
+                    {('<div class="info-row"><span class="info-label">Ref:</span><span class="info-value">' + reference + '</span></div>') if reference else ''}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {notes_html}
+
+    <div class="bank-box">
+        <div class="bb-head">Payment Details — {our_name}</div>
+        <div class="bank-grid">{bank_cells}</div>
+    </div>
+
+    <div class="footer">
+        <div class="footer-line">This is an official receipt from {our_name}</div>
+        <div class="footer-line">{our_phones} | {our_email}</div>
+        <div class="footer-line">Receipt generated on {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
+    </div>
+</div>
+</body>
+</html>"""
+
+
+def _cl_current_actor():
+    """Return (display_name, id_str) of the logged-in user."""
+    name = session.get('user_name') or session.get('username') or 'Unknown'
+    uid = session.get('userid') or session.get('user_id') or session.get('user_uuid') or ''
+    return name, str(uid)
+
+
+def _cl_has_view_payments():
+    """Permission check mirroring Payments-tab access (can_view_payments / super admin)."""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return False
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
+            au = cursor.fetchone()
+        source_sys = au[0] if au else 'projects'
+        source_id = au[1] if au and au[1] is not None else userid
+        perms = get_user_permissions(source_sys, source_id)
+        return bool(perms.get('can_view_payments', False) or perms.get('is_super_admin', False))
+    except Exception as exc:
+        print(f"⚠️ _cl_has_view_payments: {exc}")
+        return False
+
+
+def _cl_ensure_manual_table():
+    """Idempotent: make sure the manual_documents table exists (cheap, safe)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS manual_documents (
+                    id SERIAL PRIMARY KEY,
+                    doc_type VARCHAR(20) NOT NULL,
+                    doc_no VARCHAR(100),
+                    client_name VARCHAR(200),
+                    currency VARCHAR(10),
+                    total_amount NUMERIC(15,2),
+                    payload JSONB,
+                    created_by VARCHAR(100),
+                    created_by_id VARCHAR(50),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            connection.commit()
+    except Exception as exc:
+        print(f"⚠️ _cl_ensure_manual_table: {exc}")
+
+
+def _cl_render_invoice(data):
+    """Validate + render an invoice PDF. Returns (pdf_bytes, meta). Raises ValueError."""
+    data = data or {}
+    client_name = str(data.get('client_name') or '').strip()
+    if not client_name:
+        raise ValueError('Client name is required')
+
+    items = []
+    for it in (data.get('items') or []):
+        try:
+            qty = float(it.get('quantity') or 0)
+        except (TypeError, ValueError):
+            qty = 0
+        try:
+            rate = float(it.get('unit_price') or 0)
+        except (TypeError, ValueError):
+            rate = 0
+        desc = str(it.get('description') or '').strip()
+        if desc and qty >= 0 and rate >= 0:
+            items.append({'description': desc, 'quantity': qty, 'unit_price': rate})
+    if not items:
+        raise ValueError('Add at least one line item with a description and price')
+
+    subtotal = sum(i['quantity'] * i['unit_price'] for i in items)
+    try:
+        discount_pct = float(data.get('discount_pct') or 0)
+    except (TypeError, ValueError):
+        discount_pct = 0.0
+    try:
+        tax_pct = float(data.get('tax_pct') or 0)
+    except (TypeError, ValueError):
+        tax_pct = 0.0
+    discount_pct = max(0.0, min(100.0, discount_pct))
+    tax_pct = max(0.0, min(100.0, tax_pct))
+    discount_amt = subtotal * discount_pct / 100.0
+    tax_amt = (subtotal - discount_amt) * tax_pct / 100.0
+    total = subtotal - discount_amt + tax_amt
+
+    company, logo_b64 = _cl_company_branding()
+    html_out = _cl_build_invoice_html({
+        'client_name': client_name,
+        'client_address': data.get('client_address'),
+        'client_phone': data.get('client_phone'),
+        'client_email': data.get('client_email'),
+        'currency': data.get('currency') or 'USD',
+        'doc_no': data.get('doc_no'),
+        'issue_date': data.get('issue_date'),
+        'due_date': data.get('due_date'),
+        'items': items,
+        'subtotal': subtotal,
+        'discount_pct': discount_pct,
+        'discount_amt': discount_amt,
+        'tax_pct': tax_pct,
+        'tax_amt': tax_amt,
+        'total': total,
+        'notes': data.get('notes'),
+    }, company, logo_b64)
+
+    pdf = HTML(string=html_out).write_pdf()
+    doc_no = str(data.get('doc_no') or '').strip() or _cl_doc_ref('INV')
+    meta = {'doc_no': doc_no, 'client_name': client_name,
+            'currency': str(data.get('currency') or 'USD').upper()[:8], 'amount': total}
+    return pdf, meta
+
+
+def _cl_render_receipt(data):
+    """Validate + render a receipt PDF. Returns (pdf_bytes, meta). Raises ValueError."""
+    data = data or {}
+    client_name = str(data.get('client_name') or '').strip()
+    if not client_name:
+        raise ValueError('Client name is required')
+    try:
+        amount = float(data.get('amount') or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    if amount <= 0:
+        raise ValueError('Please enter a valid amount greater than zero')
+
+    company, logo_b64 = _cl_company_branding()
+    html_out = _cl_build_receipt_html({
+        'client_name': client_name,
+        'client_phone': data.get('client_phone'),
+        'client_email': data.get('client_email'),
+        'client_address': data.get('client_address'),
+        'currency': data.get('currency') or 'USD',
+        'doc_no': data.get('doc_no'),
+        'amount': amount,
+        'payment_date': data.get('payment_date'),
+        'payment_method': data.get('payment_method') or 'Cash',
+        'reference': data.get('reference'),
+        'notes': data.get('notes'),
+    }, company, logo_b64)
+
+    pdf = HTML(string=html_out).write_pdf()
+    doc_no = str(data.get('doc_no') or '').strip() or _cl_doc_ref('RCP')
+    meta = {'doc_no': doc_no, 'client_name': client_name,
+            'currency': str(data.get('currency') or 'USD').upper()[:8], 'amount': amount}
+    return pdf, meta
+
+
+def _cl_save_manual_doc(doc_type, data, meta):
+    """Persist the submitted form data (NOT the PDF) for on-demand regeneration."""
+    _cl_ensure_manual_table()
+    created_by, created_by_id = _cl_current_actor()
+    payload_text = json.dumps(data or {}, default=str)
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            INSERT INTO manual_documents (doc_type, doc_no, client_name, currency, total_amount, payload, created_by, created_by_id)
+            VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+            RETURNING id
+        """, (
+            doc_type,
+            meta.get('doc_no'),
+            meta.get('client_name'),
+            meta.get('currency'),
+            round(float(meta.get('amount') or 0), 2),
+            payload_text,
+            created_by,
+            created_by_id,
+        ))
+        connection.commit()
+        return cursor.fetchone()[0]
+
+
+def _cl_manual_guard():
+    """Return a (response, status) tuple if the user may not view history, else None."""
+    if not _cl_has_view_payments():
+        return jsonify({'success': False, 'error_message': 'You do not have permission to view document history'}), 403
+    return None
+
+
+@app.route('/generate_custom_invoice', methods=['POST'])
+def generate_custom_invoice():
+    """Generate + store a standalone invoice PDF."""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        pdf, meta = _cl_render_invoice(data)
+        _cl_save_manual_doc('invoice', data, meta)
+        filename = f"Invoice_{_cl_clean_filename(meta['client_name'])}_{_cl_clean_filename(meta['doc_no'])}.pdf"
+        return _cl_pdf_response(pdf, filename)
+    except ValueError as exc:
+        return jsonify({'success': False, 'error_message': str(exc)}), 400
+    except Exception as exc:
+        print(f"❌ generate_custom_invoice error: {exc}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error_message': f'Failed to generate invoice: {exc}'}), 500
+
+
+@app.route('/generate_custom_receipt', methods=['POST'])
+def generate_custom_receipt():
+    """Generate + store a standalone payment receipt PDF."""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        pdf, meta = _cl_render_receipt(data)
+        _cl_save_manual_doc('receipt', data, meta)
+        filename = f"Receipt_{_cl_clean_filename(meta['client_name'])}_{_cl_clean_filename(meta['doc_no'])}.pdf"
+        return _cl_pdf_response(pdf, filename)
+    except ValueError as exc:
+        return jsonify({'success': False, 'error_message': str(exc)}), 400
+    except Exception as exc:
+        print(f"❌ generate_custom_receipt error: {exc}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error_message': f'Failed to generate receipt: {exc}'}), 500
+
+
+@app.route('/api/manual-documents', methods=['GET'])
+def manual_documents_list():
+    """List previously generated manual invoices/receipts (View Payments permission)."""
+    guard = _cl_manual_guard()
+    if guard:
+        return guard
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, doc_type, doc_no, client_name, currency, total_amount, created_by, created_at
+                FROM manual_documents
+                ORDER BY id DESC
+                LIMIT 200
+            """)
+            rows = cursor.fetchall()
+        documents = []
+        for r in rows:
+            documents.append({
+                'id': r[0],
+                'doc_type': r[1],
+                'doc_no': r[2],
+                'client_name': r[3],
+                'currency': r[4],
+                'total_amount': float(r[5]) if r[5] is not None else None,
+                'created_by': r[6],
+                'created_at': r[7].strftime('%d %b %Y %H:%M') if hasattr(r[7], 'strftime') else str(r[7]),
+            })
+        return jsonify({'success': True, 'documents': documents})
+    except Exception as exc:
+        print(f"❌ manual_documents_list error: {exc}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error_message': 'Failed to load history'}), 500
+
+
+@app.route('/api/manual-documents/<int:doc_id>/download', methods=['POST'])
+def manual_document_download(doc_id):
+    """Regenerate + download a stored manual document on demand."""
+    guard = _cl_manual_guard()
+    if guard:
+        return guard
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT doc_type, doc_no, payload FROM manual_documents WHERE id = %s", (doc_id,))
+            row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': False, 'error_message': 'Document not found'}), 404
+        doc_type, doc_no, payload = row
+        payload = payload if isinstance(payload, dict) else (json.loads(payload) if payload else {})
+        payload['doc_no'] = doc_no  # keep the original reference number
+        if doc_type == 'receipt':
+            pdf, meta = _cl_render_receipt(payload)
+            filename = f"Receipt_{_cl_clean_filename(meta['client_name'])}_{_cl_clean_filename(meta['doc_no'])}.pdf"
+        else:
+            pdf, meta = _cl_render_invoice(payload)
+            filename = f"Invoice_{_cl_clean_filename(meta['client_name'])}_{_cl_clean_filename(meta['doc_no'])}.pdf"
+        return _cl_pdf_response(pdf, filename)
+    except ValueError as exc:
+        return jsonify({'success': False, 'error_message': str(exc)}), 400
+    except Exception as exc:
+        print(f"❌ manual_document_download error: {exc}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error_message': 'Failed to regenerate document'}), 500
+
+
+@app.route('/api/manual-documents/<int:doc_id>/delete', methods=['POST'])
+def manual_document_delete(doc_id):
+    """Delete a stored manual document (View Payments permission)."""
+    guard = _cl_manual_guard()
+    if guard:
+        return guard
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM manual_documents WHERE id = %s", (doc_id,))
+            connection.commit()
+        return jsonify({'success': True, 'message': 'Document deleted'})
+    except Exception as exc:
+        print(f"❌ manual_document_delete error: {exc}")
+        return jsonify({'success': False, 'error_message': 'Failed to delete document'}), 500
+
 
 @app.route('/logout')
 def logout():
