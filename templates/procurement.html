@@ -455,19 +455,56 @@
         .pc-input, .pc-select, .pc-textarea { border-radius:9px; box-shadow:0 1px 2px rgba(15,23,42,0.03) inset; }
         .pc-form-label { letter-spacing:0.2px; }
 
-        /* ----- Modals: gradient accent bar + refined entrance ----- */
+        /* ----- Modals: Projects-style navy gradient header (parity w/ adminpage
+           .modal-header-custom) + rounded icon chip + refined entrance ----- */
         .modal-content {
             border:none; border-radius:18px; overflow:hidden;
             box-shadow:0 30px 90px -24px rgba(15,23,42,0.55);
         }
-        .modal-content::before {
-            content:''; display:block; height:4px;
-            background: linear-gradient(90deg,#C12B3E,#E91E63 40%,#0891B2);
+        .modal-header {
+            background: linear-gradient(135deg,#0E1F42 0%,#152B5A 100%);
+            padding:12px 18px;
+            border-bottom:2px solid var(--primary,#C12B3E);
+            display:flex; align-items:center; justify-content:space-between;
+            flex:0 0 auto; position:relative; overflow:hidden;
         }
-        .modal-header { border-bottom:1px solid rgba(15,23,42,0.06); padding:16px 20px; }
-        .modal-footer { border-top:1px solid rgba(15,23,42,0.06); padding:14px 20px; }
-        .pc-modal-title { font-weight:700; letter-spacing:0.1px; }
-        .modal.fade .modal-dialog { transform: translateY(14px) scale(0.98); transition: transform .25s cubic-bezier(0.2,0.7,0.3,1); }
+        /* soft radial glow inside the header (mirrors modal-header-custom::before) */
+        .modal-header::before {
+            content:''; position:absolute; top:-70%; right:-12%; width:280px; height:280px;
+            background:radial-gradient(circle,rgba(233,30,99,0.16) 0%,transparent 70%);
+            pointer-events:none;
+        }
+        .modal-header .pc-modal-title {
+            color:#fff; font-weight:700; font-size:0.82rem; letter-spacing:0.2px;
+            display:flex; align-items:center; gap:9px; margin:0;
+            position:relative; z-index:1; line-height:1.3;
+        }
+        /* rounded icon chip */
+        .modal-header .pc-modal-title i {
+            width:28px; height:28px; flex:0 0 28px; border-radius:8px;
+            display:inline-flex; align-items:center; justify-content:center;
+            font-size:0.78rem; color:#FF8FA3;
+            background:rgba(255,255,255,0.10);
+            box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);
+            margin:0 !important; /* neutralise Bootstrap .me-2 gap */
+        }
+        /* destructive headers keep a danger-tinted chip */
+        .modal-header .pc-modal-title i.text-danger { color:#FDA4AF; }
+        /* refined close button */
+        .modal-header .btn-close {
+            filter:invert(1) grayscale(1) brightness(2);
+            opacity:.85; transition:transform .18s ease, opacity .18s ease;
+            padding:6px; border-radius:8px; position:relative; z-index:1;
+        }
+        .modal-header .btn-close:hover { opacity:1; transform:rotate(90deg); }
+        .modal-footer {
+            border-top:1px solid rgba(15,23,42,0.08); padding:12px 18px;
+            background:rgba(248,250,252,0.6);
+        }
+        body.dark-theme .modal-footer { background:rgba(17,26,46,0.6); border-color:#1E293B; }
+        /* keep the crimson underline under the navy header in dark mode too */
+        body.dark-theme .modal-header { border-bottom:2px solid var(--primary,#C12B3E); }
+        .modal.fade .modal-dialog { transform: translateY(16px) scale(0.97); transition: transform .28s cubic-bezier(0.16,1,0.3,1); }
         .modal.show .modal-dialog { transform: none; }
 
         /* Fix design-system.css modal caps on Bootstrap modals: design-system
@@ -1618,6 +1655,8 @@ async function loadRequisitions() {
 // ----- Req modal (create / edit) -----
 let PRODUCT_CACHE = [];
 let CATEGORIES = [];
+// Always offered first in the line-item Category dropdown
+const PINNED_CATEGORY = 'Building Material';
 let CUR_SUP_ROW = null;
 const JUSTIFICATION_LABELS = {
     cheaper: 'Cheaper',
@@ -1666,6 +1705,20 @@ document.addEventListener('scroll', function () {
     });
 }, true);
 
+/* Category choices for a line item: product categories from the API, with
+   "Building Material" pinned to the top (when the field is empty or the
+   typed query matches it). */
+function categoryOptions(q) {
+    const ql = (q || '').trim().toLowerCase();
+    const showPinned = !ql || PINNED_CATEGORY.toLowerCase().includes(ql);
+    let arr = CATEGORIES.filter(c => !ql || c.toLowerCase().includes(ql));
+    if (showPinned) {
+        arr = arr.filter(c => c.toLowerCase() !== PINNED_CATEGORY.toLowerCase());
+        arr.unshift(PINNED_CATEGORY);
+    }
+    return arr;
+}
+
 function wireCategoryCombo(input, row) {
     if (!input) return;
     const list = row.querySelector('.pc-cat-wrap .pc-suggest');
@@ -1684,8 +1737,8 @@ function wireCategoryCombo(input, row) {
         });
     };
     const q = () => input.value.trim().toLowerCase();
-    input.addEventListener('focus', () => show(CATEGORIES.filter(c => !q() || c.toLowerCase().includes(q()))));
-    input.addEventListener('input', () => show(CATEGORIES.filter(c => c.toLowerCase().includes(q()))));
+    input.addEventListener('focus', () => show(categoryOptions(q())));
+    input.addEventListener('input', () => show(categoryOptions(q())));
     input.addEventListener('blur', () => setTimeout(() => { list.style.display = 'none'; }, 150));
 }
 
@@ -2003,7 +2056,7 @@ async function uploadPendingInvoices(collected, resultItems) {
 
 // ===== DEPARTMENT + PROJECT REF SEARCHABLE DROPDOWNS =====
 // Department list matches the HR "Add Employee" form (hr_dashboard.html #empDepartment)
-const DEPARTMENTS = ['Sales and Marketing','Administration','Finance','HR','Logistics','Management','Systems & IT','Production'];
+const DEPARTMENTS = ['Sales and Marketing','Administration','Finance','HR','Logistics','Management','Systems & IT','Production','HARDWARE & Furniture SHOP'];
 let PROJECTS = [];
 let selectedProjectId = null;
 
