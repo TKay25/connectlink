@@ -36779,71 +36779,206 @@ def update_project_schedule(project_id):
 
 @app.route('/api/work-plans', methods=['GET'])
 def get_work_plans():
-    """Get work plans filtered by date range with cost proration based on overlapping days"""
+    """Get costed work-plan rows for a date range (budgeted in-house costing).
+
+    Timeline priority per project:
+      1) the project's saved/edited Gantt (adjusted_schedules_json) when present,
+      2) otherwise the linked quotation's schedule.
+    Each task is costed from the quotation's line items (matched by task name;
+    the quotation's remaining client cost is shared across unmatched tasks by
+    their day count). itemCost = that task's CLIENT price, and the in-house/base
+    figure is derived as itemCost / (1 + markup/100) on the frontend, so the
+    same rows feed today/tomorrow/this-week/next-week/custom views.
+    """
     try:
+        import json
         start_date = request.args.get('startDate')
         end_date = request.args.get('endDate')
-        
+
         if not start_date or not end_date:
             return jsonify({
                 'success': False,
                 'message': 'Start and end dates are required'
             }), 400
-        
+
+        try:
+            f_start = datetime.strptime(start_date[:10], '%Y-%m-%d').date()
+            f_end = datetime.strptime(end_date[:10], '%Y-%m-%d').date()
+        except Exception:
+            return jsonify({'success': False, 'message': 'Invalid date format'}), 400
+        if f_end < f_start:
+            f_start, f_end = f_end, f_start
+
+        def _norm_date(v):
+            if not v:
+                return None
+            if isinstance(v, datetime):
+                return v.date()
+            if isinstance(v, date):
+                return v
+            try:
+                return datetime.strptime(str(v)[:10], '%Y-%m-%d').date()
+            except Exception:
+                return None
+
+        def _budget_val(v):
+            """Return a positive in-house/base budget override, else None."""
+            try:
+                b = float(v)
+                return b if b > 0 else None
+            except (TypeError, ValueError):
+                return None
+
         with get_db() as (cursor, connection):
-            # Query to get work plans with project, client, and cost information
-            # Calculate overlapping days for proration
-            # Join quotation_items to quotation_schedules using their order fields
             cursor.execute("""
-                SELECT 
-                    p.projectname,
-                    p.clientname,
-                    qi.item_name,
-                    qs.start_date,
-                    qs.end_date,
-                    qi.total_price,
-                    q.markup_percentage,
-                    qs.days as schedule_days,
-                    GREATEST(qs.start_date, %s::date) as overlap_start,
-                    LEAST(qs.end_date, %s::date) as overlap_end
-                FROM connectlinkdatabase p
-                INNER JOIN quotations q ON p.quotation_id = q.id
-                INNER JOIN quotation_items qi ON q.id = qi.quotation_id
-                INNER JOIN quotation_schedules qs ON q.id = qs.quotation_id 
-                    AND qi.item_order = qs.task_order
-                WHERE p.quotation_id IS NOT NULL
-                AND qs.start_date <= %s::date 
-                AND qs.end_date >= %s::date
-                ORDER BY p.projectname, qs.start_date
-            """, (start_date, end_date, end_date, start_date))
-            
-            rows = cursor.fetchall()
-            
+                SELECT id, projectname, clientname, quotation_id, adjusted_schedules_json
+                FROM connectlinkdatabase
+                WHERE quotation_id IS NOT NULL
+                ORDER BY projectname
+            """)
+            projects = cursor.fetchall()
+
             work_plans = []
-            for row in rows:
-                # Calculate number of overlapping days
-                schedule_days = int(row[7]) if row[7] else 1
-                overlap_start = row[8]
-                overlap_end = row[9]
-                
-                # Calculate days in filter range
-                if overlap_start and overlap_end:
-                    days_in_filter = (overlap_end - overlap_start).days + 1
+            for pid, pname, cname, qid, adj_json in projects:
+                pname = pname or 'N/A'
+                cname = cname or 'N/A'
+                cursor.execute("SELECT category, markup_percentage, total_cost FROM quotations WHERE id = %s", (qid,))
+                qrow = cursor.fetchone()
+                if not qrow:
+                    continue
+                qcat = (qrow[0] or '').lower()
+                markup_pct = float(qrow[1] or 0)
+                is_kitchen = qcat in ('kitchen', 'kitchen_cabinets')
+
+                # Client-price cost items (kitchen stores its items separately)
+                items = []
+                if is_kitchen:
+                    cursor.execute("""
+                        SELECT item_name, quantity, amount FROM quotation_kitchen_items
+                        WHERE quotation_id = %s ORDER BY item_order
+                    """, (qid,))
+                    for nm, qty, amt in cursor.fetchall():
+                        items.append((str(nm or '').strip(), float(qty or 1) * float(amt or 0)))
                 else:
-                    days_in_filter = schedule_days
-                
-                work_plans.append({
-                    'projectName': row[0] if row[0] else 'N/A',
-                    'clientName': row[1] if row[1] else 'N/A',
-                    'itemName': row[2] if row[2] else 'N/A',
-                    'startDate': row[3].strftime('%Y-%m-%d') if row[3] else None,
-                    'endDate': row[4].strftime('%Y-%m-%d') if row[4] else None,
-                    'itemCost': float(row[5]) if row[5] else 0,
-                    'markupPercentage': float(row[6]) if row[6] else 0,
-                    'totalDays': schedule_days,
-                    'daysInFilter': days_in_filter
-                })
-            
+                    cursor.execute("""
+                        SELECT item_name, total_price FROM quotation_items
+                        WHERE quotation_id = %s ORDER BY item_order
+                    """, (qid,))
+                    for nm, tp in cursor.fetchall():
+                        items.append((str(nm or '').strip(), float(tp or 0)))
+                if not items:
+                    # Allow projects whose edited Gantt carries its own per-task budgets
+                    _adj_pre = []
+                    if adj_json:
+                        try:
+                            _p = json.loads(adj_json) if isinstance(adj_json, (str, bytes, bytearray)) else adj_json
+                            if isinstance(_p, list):
+                                _adj_pre = _p
+                        except Exception:
+                            _adj_pre = []
+                    has_any_budget = any(_budget_val(t.get('budget')) for t in _adj_pre if isinstance(t, dict))
+                    if not has_any_budget:
+                        continue
+
+                # Timeline: prefer the project's live/edited Gantt, else quotation schedule
+                tasks = []
+                adj = []
+                if adj_json:
+                    try:
+                        parsed = json.loads(adj_json) if isinstance(adj_json, (str, bytes, bytearray)) else adj_json
+                        if isinstance(parsed, list):
+                            adj = [t for t in parsed if isinstance(t, dict) and (t.get('workScope') or t.get('startDate'))]
+                    except Exception:
+                        adj = []
+                if adj:
+                    for t in adj:
+                        tasks.append({
+                            'name': str(t.get('workScope') or 'Task').strip(),
+                            'start': _norm_date(t.get('startDate')),
+                            'end': _norm_date(t.get('endDate')),
+                            'days': int(t.get('days') or 0) or 1,
+                            'budget': _budget_val(t.get('budget')),
+                        })
+                else:
+                    cursor.execute("""
+                        SELECT work_scope, start_date, end_date, days FROM quotation_schedules
+                        WHERE quotation_id = %s ORDER BY task_order
+                    """, (qid,))
+                    for ws, sd, ed, dys in cursor.fetchall():
+                        tasks.append({
+                            'name': str(ws or 'Task').strip(),
+                            'start': _norm_date(sd),
+                            'end': _norm_date(ed),
+                            'days': int(dys or 0) or 1,
+                            'budget': None,
+                        })
+                if not tasks:
+                    continue
+
+                # Cost each task. A per-task in-house 'budget' override wins; otherwise
+                # match quotation items by name, then share the leftover across unmatched.
+                markup_mult = (1.0 + (markup_pct / 100.0)) if markup_pct else 1.0
+                used = [False] * len(items)
+                costed = []
+                matched_total = 0.0
+                for t in tasks:
+                    override = t.get('budget')
+                    if override:
+                        # Budget is in-house/base; the engine reports CLIENT price so the
+                        # frontend's base = itemCost / (1+markup) lands back on the budget.
+                        costed.append(override * markup_mult)
+                        # Consume a matching quotation item (if any) so its cost is not
+                        # also given to another task (avoids double counting).
+                        okey = (t['name'] or '').lower()
+                        for oi, (onm, _oc) in enumerate(items):
+                            if not used[oi] and (onm or '').lower() == okey:
+                                used[oi] = True
+                                matched_total += items[oi][1]
+                                break
+                        continue
+                    key = (t['name'] or '').lower()
+                    idx = None
+                    for i, (nm, _c) in enumerate(items):
+                        if not used[i] and (nm or '').lower() == key:
+                            idx = i
+                            break
+                    if idx is not None:
+                        used[idx] = True
+                        costed.append(items[idx][1])
+                        matched_total += items[idx][1]
+                    else:
+                        costed.append(None)
+                items_total = sum(c for _n, c in items)
+                leftover = max(0.0, items_total - matched_total)
+                unmatched = [i for i, c in enumerate(costed) if c is None]
+                if unmatched:
+                    denom = sum(tasks[i]['days'] for i in unmatched) or len(unmatched)
+                    for i in unmatched:
+                        w = (tasks[i]['days'] / float(denom)) if denom else (1.0 / len(unmatched))
+                        costed[i] = leftover * w
+
+                for t, client_cost in zip(tasks, costed):
+                    s = t['start']
+                    e = t['end']
+                    if not s or not e:
+                        continue
+                    if e < f_start or s > f_end:
+                        continue
+                    ov_s = max(s, f_start)
+                    ov_e = min(e, f_end)
+                    days_in = max(0, min((ov_e - ov_s).days + 1, t['days']))
+                    work_plans.append({
+                        'projectName': pname,
+                        'clientName': cname,
+                        'itemName': t['name'],
+                        'startDate': s.strftime('%Y-%m-%d'),
+                        'endDate': e.strftime('%Y-%m-%d'),
+                        'itemCost': round(client_cost, 2),
+                        'markupPercentage': markup_pct,
+                        'totalDays': t['days'],
+                        'daysInFilter': days_in,
+                    })
+
             return jsonify({
                 'success': True,
                 'workPlans': work_plans,
@@ -36855,6 +36990,189 @@ def get_work_plans():
             'success': False,
             'error': str(e)
         }), 500
+
+
+# ------------------------------------------------------------------
+# In-house (base) budget outlook: Today / Tomorrow / This Week / Next Week
+# ------------------------------------------------------------------
+def _ih_week_start(d):
+    """Sunday-based start of the week (mirrors the front-end Work Plan filter)."""
+    return d - timedelta(days=(d.weekday() + 1) % 7)
+
+
+def _ih_budget(v):
+    """Positive in-house/base override, else None."""
+    try:
+        b = float(v)
+        return b if b > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _ih_project_base_tasks(cursor, quotation_id, adj_json):
+    """Return costed tasks [{name,start,end,days,base}] in in-house (base) dollars.
+    Per-task budget overrides win; otherwise quotation items matched by task name,
+    remainder shared across unmatched tasks by days."""
+    import json
+    cursor.execute("SELECT category, markup_percentage FROM quotations WHERE id = %s", (quotation_id,))
+    qrow = cursor.fetchone()
+    if not qrow:
+        return None
+    qcat = (qrow[0] or '').lower()
+    markup_pct = float(qrow[1] or 0)
+    mult = (1.0 + markup_pct / 100.0) if markup_pct else 1.0
+    is_kitchen = qcat in ('kitchen', 'kitchen_cabinets')
+
+    items = []
+    if is_kitchen:
+        cursor.execute("""
+            SELECT item_name, quantity, amount FROM quotation_kitchen_items
+            WHERE quotation_id = %s ORDER BY item_order
+        """, (quotation_id,))
+        for nm, qty, amt in cursor.fetchall():
+            items.append((str(nm or '').strip(), float(qty or 1) * float(amt or 0)))
+    else:
+        cursor.execute("""
+            SELECT item_name, total_price FROM quotation_items
+            WHERE quotation_id = %s ORDER BY item_order
+        """, (quotation_id,))
+        for nm, tp in cursor.fetchall():
+            items.append((str(nm or '').strip(), float(tp or 0)))
+    if not items:
+        return None
+
+    def nd(v):
+        if isinstance(v, datetime):
+            return v.date()
+        if isinstance(v, date):
+            return v
+        try:
+            return datetime.strptime(str(v)[:10], '%Y-%m-%d').date()
+        except Exception:
+            return None
+
+    tasks = []
+    adj = []
+    if adj_json:
+        try:
+            parsed = json.loads(adj_json) if isinstance(adj_json, (str, bytes, bytearray)) else adj_json
+            if isinstance(parsed, list):
+                adj = [t for t in parsed if isinstance(t, dict) and (t.get('workScope') or t.get('startDate'))]
+        except Exception:
+            adj = []
+    if adj:
+        for t in adj:
+            tasks.append({'name': str(t.get('workScope') or 'Task').strip(),
+                          'start': nd(t.get('startDate')),
+                          'end': nd(t.get('endDate')),
+                          'days': int(t.get('days') or 0) or 1,
+                          'budget': _ih_budget(t.get('budget'))})
+    else:
+        cursor.execute("""
+            SELECT work_scope, start_date, end_date, days FROM quotation_schedules
+            WHERE quotation_id = %s ORDER BY task_order
+        """, (quotation_id,))
+        for ws, sd, ed, dys in cursor.fetchall():
+            tasks.append({'name': str(ws or 'Task').strip(),
+                          'start': nd(sd), 'end': nd(ed),
+                          'days': int(dys or 0) or 1, 'budget': None})
+    if not tasks:
+        return None
+
+    used = [False] * len(items)
+    costed_client = []
+    matched = 0.0
+    for t in tasks:
+        if t['budget']:
+            # Override is in-house/base; store in client space so later /mult lands back.
+            costed_client.append(t['budget'] * mult)
+            okey = (t['name'] or '').lower()
+            for oi, (onm, _oc) in enumerate(items):
+                if not used[oi] and (onm or '').lower() == okey:
+                    used[oi] = True
+                    matched += items[oi][1]
+                    break
+            continue
+        key = (t['name'] or '').lower()
+        idx = None
+        for i, (nm, _c) in enumerate(items):
+            if not used[i] and (nm or '').lower() == key:
+                idx = i
+                break
+        if idx is not None:
+            used[idx] = True
+            costed_client.append(items[idx][1])
+            matched += items[idx][1]
+        else:
+            costed_client.append(None)
+    total = sum(c for _n, c in items)
+    leftover = max(0.0, total - matched)
+    unm = [i for i, c in enumerate(costed_client) if c is None]
+    if unm:
+        den = sum(tasks[i]['days'] for i in unm) or len(unm)
+        for i in unm:
+            w = (tasks[i]['days'] / float(den)) if den else (1.0 / len(unm))
+            costed_client[i] = leftover * w
+
+    out = []
+    for t, cc in zip(tasks, costed_client):
+        if t['start'] and t['end']:
+            out.append({'name': t['name'], 'start': t['start'], 'end': t['end'],
+                        'days': t['days'], 'base': (cc or 0.0) / mult})
+    return out
+
+
+def _ih_share(task, ws, we):
+    """Base $ scheduled inside [ws, we] for a task (inclusive overlap days)."""
+    s, e, days = task['start'], task['end'], task['days']
+    if e < ws or s > we:
+        return 0.0
+    ov = (min(e, we) - max(s, ws)).days + 1
+    ov = max(0, min(ov, days))
+    return (task['base'] / days) * ov if days else 0.0
+
+
+@app.route('/api/inhouse-cards', methods=['GET'])
+def inhouse_cards():
+    """Budgeted in-house (base) cost for Today / Tomorrow / This Week / Next Week.
+    UI is gated to users with can_edit_projects AND can_view_payments."""
+    try:
+        today = datetime.now().date()
+        week_start = _ih_week_start(today)
+        windows = [
+            ('today', today, today),
+            ('tomorrow', today + timedelta(days=1), today + timedelta(days=1)),
+            ('this_week', week_start, week_start + timedelta(days=6)),
+            ('next_week', week_start + timedelta(days=7), week_start + timedelta(days=13)),
+        ]
+        totals = {k: 0.0 for k, _ws, _we in windows}
+        projects = {k: 0 for k, _ws, _we in windows}
+        with get_db() as (cursor, _):
+            cursor.execute("""
+                SELECT id, projectname, clientname, quotation_id, adjusted_schedules_json
+                FROM connectlinkdatabase WHERE quotation_id IS NOT NULL
+            """)
+            for _pid, _pname, _cname, qid, adj_json in cursor.fetchall():
+                try:
+                    tasks = _ih_project_base_tasks(cursor, qid, adj_json)
+                except Exception:
+                    tasks = None
+                if not tasks:
+                    continue
+                for key, ws, we in windows:
+                    amt = sum(_ih_share(t, ws, we) for t in tasks)
+                    if amt > 0:
+                        totals[key] += amt
+                        projects[key] += 1
+        return jsonify({
+            'success': True,
+            'windows': {
+                k: {'total': round(totals[k], 2), 'projects': projects[k]} for k, _ws, _we in windows
+            }
+        })
+    except Exception as e:
+        logging.error(f'inhouse-cards error: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ===== PAGINATED API ENDPOINTS =====
@@ -38696,6 +39014,81 @@ def procurement_api_delete_requisition(rid):
 
 # ---------------------------- PURCHASE ORDERS ----------------------------
 
+def _po_overcost_data(cursor):
+    """Return (project_map, po_project_map) used for over-cost flags.
+
+    Links POs -> requisitions.project_ref ('<project_id>--<project name>', set for
+    Production requisitions). project_map[pid] = {name, base, po_total, over} where
+    base = quotation total_cost / (1 + markup/100) and po_total sums all non-cancelled
+    POs linked to that project. po_project_map[po_id] = pid (last seen).
+    """
+    import re
+    proj_total = {}
+    po_proj = {}
+    try:
+        cursor.execute("""
+            SELECT po.id AS po_id, po.total_amount, r.project_ref
+            FROM purchase_orders po
+            CROSS JOIN LATERAL unnest(
+                string_to_array(NULLIF(po.requisition_ids, ''), ',')
+            ) AS rid
+            JOIN requisitions r ON r.id = NULLIF(BTRIM(rid), '')::int
+            WHERE po.status <> 'cancelled'
+              AND r.project_ref IS NOT NULL AND BTRIM(r.project_ref) <> ''
+        """)
+        for po_id, total, ref in cursor.fetchall():
+            m = re.match(r'^\s*(\d+)', str(ref or ''))
+            if not m:
+                continue
+            pid = int(m.group(1))
+            po_proj[po_id] = pid
+            proj_total[pid] = proj_total.get(pid, 0.0) + float(total or 0)
+    except Exception as e:
+        print(f"⚠️ _po_overcost_data PO linkage failed: {e}")
+        return {}, {}
+    if not proj_total:
+        return {}, {}
+    project_map = {}
+    try:
+        cursor.execute("""
+            SELECT p.id, p.projectname, q.total_cost, q.markup_percentage
+            FROM connectlinkdatabase p
+            JOIN quotations q ON q.id = p.quotation_id
+            WHERE p.id = ANY(%s)
+        """, (list(proj_total.keys()),))
+        for pid, pname, tc, mk in cursor.fetchall():
+            try:
+                base = float(tc or 0) / (1.0 + (float(mk or 0) / 100.0))
+            except Exception:
+                base = 0.0
+            po_total = proj_total.get(pid, 0.0)
+            project_map[pid] = {
+                'name': pname or 'N/A',
+                'base': round(base, 2),
+                'po_total': round(po_total, 2),
+                'over': po_total > base
+            }
+    except Exception as e:
+        print(f"⚠️ _po_overcost_data base calc failed: {e}")
+    return project_map, po_proj
+
+
+@app.route('/api/project-overcosts', methods=['GET'])
+def project_overcosts():
+    """Projects whose linked (non-cancelled) purchase orders exceed the quotation's
+    in-house/base budget. Powers the red over-cost flags in the projects portal."""
+    try:
+        with get_db() as (cursor, _):
+            project_map, _po = _po_overcost_data(cursor)
+        return jsonify({'success': True, 'data': [
+            {'id': pid, 'projectName': info['name'], 'base': info['base'],
+             'poTotal': info['po_total']}
+            for pid, info in project_map.items() if info['over']
+        ]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/procurement/purchase-orders', methods=['GET'])
 @login_required
 def procurement_api_purchase_orders():
@@ -38725,6 +39118,15 @@ def procurement_api_purchase_orders():
                     'attachments_count': r[14] or 0,
                     'funding_source': r[15] or 'business'
                 })
+            project_map, po_proj = _po_overcost_data(cursor)
+            for p in pos:
+                pid = po_proj.get(p['id'])
+                info = project_map.get(pid) if pid else None
+                p['project_id'] = pid
+                p['project_name'] = info['name'] if info else None
+                p['po_total'] = info['po_total'] if info else float(p.get('total_amount') or 0)
+                p['base_cost'] = info['base'] if info else None
+                p['overcost'] = bool(info and info['over'])
             return jsonify({'success': True, 'data': pos})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -38897,6 +39299,14 @@ def procurement_api_po_detail(po_id):
                 'mime_type': a[4], 'file_size': a[5], 'uploaded_by': a[6],
                 'uploaded_at': str(a[7]) if a[7] else None
             } for a in atts]
+            project_map, po_proj = _po_overcost_data(cursor)
+            pid = po_proj.get(po['id'])
+            info = project_map.get(pid) if pid else None
+            po['project_id'] = pid
+            po['project_name'] = info['name'] if info else None
+            po['po_total'] = info['po_total'] if info else float(po.get('total_amount') or 0)
+            po['base_cost'] = info['base'] if info else None
+            po['overcost'] = bool(info and info['over'])
             return jsonify({'success': True, 'data': po})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

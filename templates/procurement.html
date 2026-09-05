@@ -2548,7 +2548,7 @@ async function loadPOs() {
         PURCHASE_ORDERS = data.data || [];
         tbody.innerHTML = PURCHASE_ORDERS.map(po => `
             <tr style="cursor:pointer;" onclick="viewPo(${po.id})">
-                <td>${esc(po.po_no)}</td>
+                <td>${esc(po.po_no)}${po.overcost ? ` <span style="color:#b91c1c;background:#fee2e2;border:1px solid #fca5a5;border-radius:4px;font-size:0.56rem;font-weight:800;padding:1px 5px;white-space:nowrap;" title="Linked purchase orders for ${esc(po.project_name || 'this project')} ($${fmtMoney(po.po_total)}) exceed the in-house budget ($${fmtMoney(po.base_cost)})">⚠ OVER BUDGET</span>` : ''}</td>
                 <td>${esc(po.supplier_name || '—')}${po.supplier_phone ? `<div style="color:#94A3B8;font-size:0.58rem;">${esc(po.supplier_phone)}</div>` : ''}${po.funding_source === 'injection' ? `<div style="color:#B45309;font-size:0.56rem;font-weight:700;">◈ Capital injection</div>` : ''}</td>
                 <td>${esc(po.requisition_ids || '—')}</td>
                 <td>${poBadge(po.status)}</td>
@@ -2646,6 +2646,7 @@ window.viewPo = async function(id, openReceive) {
         const po = VIEW_PO;
         document.getElementById('viewPoTitle').textContent = po.po_no + ' — ' + (po.supplier_name || 'No supplier');
         document.getElementById('viewPoMeta').innerHTML = `
+            ${po.overcost ? `<div style="margin-bottom:8px;padding:8px 10px;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;color:#b91c1c;font-size:0.66rem;font-weight:800;">⚠ OVER BUDGET — Purchase orders linked to ${esc(po.project_name || 'this project')} ($${fmtMoney(po.po_total)}) exceed the project's in-house budget ($${fmtMoney(po.base_cost)}).</div>` : ''}
             <div class="row g-2" style="font-size:0.64rem;">
                 <div class="col-md-3"><strong>Supplier:</strong> ${esc(po.supplier_name || '—')}${po.supplier_phone ? `<br><span style="color:#64748B;">${esc(po.supplier_phone)}</span>` : ''}</div>
                 <div class="col-md-2"><strong>Status:</strong> ${poBadge(po.status)}</div>

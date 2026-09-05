@@ -5456,6 +5456,42 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                     <div class="stat-body"><div class="stat-label">Avg Time</div><div class="stat-value">{{ average_duration }}d</div></div>
                                 </div>
                             </div>
+                            {% if can_edit_projects and can_view_payments %}
+                            <div style="display:flex;align-items:center;gap:8px;margin:2px 0 4px;">
+                                <span style="font-size:0.72rem;font-weight:700;color:var(--dark-blue-deep);"><i class="bi bi-cash-stack me-1"></i>Budgeted In-House Cost</span>
+                                <button type="button" class="btn btn-light btn-sm" style="padding:2px 8px;font-size:0.65rem;" onclick="loadInhouseCards()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                <button type="button" class="btn btn-light btn-sm" style="padding:2px 8px;font-size:0.65rem;" onclick="openWorkPlanFromCards()"><i class="bi bi-calendar-check"></i> Work Plan</button>
+                            </div>
+                            <div id="inhouseCardsWrap" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:6px; margin-bottom:10px;"></div>
+                            <script>
+                            function loadInhouseCards(){
+                                var wrap = document.getElementById('inhouseCardsWrap');
+                                if(!wrap) return;
+                                fetch('/api/inhouse-cards', { credentials: 'include' })
+                                    .then(function(r){ return r.json(); })
+                                    .then(function(d){
+                                        if(!d || !d.success) return;
+                                        var w = d.windows || {};
+                                        var meta = [['today','Today','blue'],['tomorrow','Tomorrow','amber'],['this_week','This Week','green'],['next_week','Next Week','purple']];
+                                        wrap.innerHTML = meta.map(function(m){
+                                            var o = w[m[0]] || {total:0, projects:0};
+                                            return '<div class="stat-card" style="padding:5px 8px;">' +
+                                                '<div class="stat-icon ' + m[2] + '" style="width:22px;height:22px;font-size:0.7rem;"><i class="bi bi-cash-stack"></i></div>' +
+                                                '<div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">' + m[1] + '</div>' +
+                                                '<div class="stat-value" style="font-size:0.78rem;color:var(--dark-blue-deep);">USD ' + Number(o.total || 0).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</div>' +
+                                                '<div style="font-size:0.58rem;color:var(--text-muted);">' + (o.projects || 0) + ' project' + (o.projects === 1 ? '' : 's') + '</div></div></div>';
+                                        }).join('');
+                                    })
+                                    .catch(function(){});
+                            }
+                            function openWorkPlanFromCards(){
+                                if(typeof openModal === 'function') openModal('workPlanModal');
+                            }
+                            document.addEventListener('DOMContentLoaded', function(){
+                                if(document.getElementById('inhouseCardsWrap')) loadInhouseCards();
+                            });
+                            </script>
+                            {% endif %}
                             <div class="dashboard-graphs">
                                 <div class="graph-card" style="padding:6px; flex:1; min-width:140px;"><h6 style="font-size:0.7rem;font-weight:700;margin-bottom:4px;color:var(--dark-blue-deep);text-align:center;">Completed vs Ongoing</h6><canvas id="leaveByTypeChart" width="160" height="60"></canvas></div>
                                 <div class="graph-card" style="padding:6px; flex:1; min-width:140px;"><h6 style="font-size:0.7rem;font-weight:700;margin-bottom:4px;color:var(--dark-blue-deep);text-align:center;">By Location</h6><canvas id="projectsByLocationChart" width="160" height="60"></canvas></div>
@@ -13898,10 +13934,11 @@ body { font-family: Arial; margin: 20px; }
                 <table class="table table-striped table-theme" id="ganttScheduleTable">
                     <thead style="position: sticky; top: 0;">
                         <tr>
-                            <th style="width: 35%;">Work Scope</th>
-                            <th style="width: 20%;">Start Date</th>
-                            <th style="width: 20%;">End Date</th>
-                            <th style="width: 15%;">Days</th>
+                            <th style="width: 26%;">Work Scope</th>
+                            <th style="width: 16%;">Start Date</th>
+                            <th style="width: 16%;">End Date</th>
+                            <th style="width: 9%;">Days</th>
+                            <th style="width: 33%;">Budgeted In-House Cost (USD)</th>
                         </tr>
                     </thead>
                     <tbody id="ganttScheduleBody">
@@ -13945,6 +13982,7 @@ body { font-family: Arial; margin: 20px; }
                             <select class="form-select form-select-sm" id="workPlanDateFilter" onchange="filterWorkPlansFromDropdown()">
                                 <option value="">-- Select Date Range --</option>
                                 <option value="today">Today</option>
+                                <option value="tomorrow">Tomorrow</option>
                                 <option value="week">This Week</option>
                                 <option value="month">This Month</option>
                                 <option value="next-week">Next Week</option>
@@ -13983,10 +14021,10 @@ body { font-family: Arial; margin: 20px; }
                             <th>Task/Item</th>
                             <th>Start Date</th>
                             <th>End Date</th>
-                            <th>Full Period Cost</th>
-                            <th>Budget Needed For Period</th>
-                            <th>Past Cost (incl. today)</th>
-                            <th>Future Cost</th>
+                            <th>Full In-House Cost</th>
+                            <th>In-House Budget for Period</th>
+                            <th>Past In-House (incl. today)</th>
+                            <th>Future In-House</th>
                         </tr>
                     </thead>
                     <tbody id="workPlanTableBody">
@@ -14006,19 +14044,19 @@ body { font-family: Arial; margin: 20px; }
                     </div>
                     <div class="row">
                         <div class="col-md-3" style="text-align: left;">
-                            <small class="text-muted d-block">Total Full Period Cost:</small>
+                            <small class="text-muted d-block">Total Full In-House Cost:</small>
                             <span class="fw-bold fs-6 text-primary" id="totalFullPeriodCost">USD 0.00</span>
                         </div>
                         <div class="col-md-3" style="text-align: left;">
-                            <small class="text-muted d-block">Total Budget Needed For Period:</small>
+                            <small class="text-muted d-block">Total In-House Budget for Period:</small>
                             <span class="fw-bold fs-6 text-success" id="totalBudgetForPeriod">USD 0.00</span>
                         </div>
                         <div class="col-md-3" style="text-align: left;">
-                            <small class="text-muted d-block">Total Past Cost (incl. today):</small>
+                            <small class="text-muted d-block">Total Past In-House (incl. today):</small>
                             <span class="fw-bold fs-6 text-warning" id="totalPastCost">USD 0.00</span>
                         </div>
                         <div class="col-md-3" style="text-align: left;">
-                            <small class="text-muted d-block">Total Future Cost:</small>
+                            <small class="text-muted d-block">Total Future In-House:</small>
                             <span class="fw-bold fs-6 text-info" id="totalFutureCost">USD 0.00</span>
                         </div>
                     </div>
@@ -21445,6 +21483,11 @@ function populateGanttTable(schedules) {
                     data-index="${index}" value="${schedule.days || 0}" min="0"
                     style="font-size: 0.75rem;">
             </td>
+            <td>
+                <input type="number" class="form-control form-control-sm gantt-budget" 
+                    data-index="${index}" value="${schedule.budget != null && schedule.budget !== '' ? schedule.budget : ''}" min="0" step="0.01" placeholder="Auto from quotation"
+                    style="font-size: 0.75rem;">
+            </td>
         `;
         tbody.appendChild(row);
     });
@@ -21578,6 +21621,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const startDates = Array.from(document.querySelectorAll('.gantt-start-date')).map(input => input.value);
             const endDates = Array.from(document.querySelectorAll('.gantt-end-date')).map(input => input.value);
             const daysValues = Array.from(document.querySelectorAll('.gantt-days')).map(input => parseInt(input.value) || 0);
+            const budgetValues = Array.from(document.querySelectorAll('.gantt-budget')).map(input => {
+                const v = parseFloat(input.value);
+                return (isFinite(v) && v > 0) ? v : null;
+            });
             
             if (!projectId) {
                 alert('No project selected');
@@ -21589,7 +21636,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 ...schedule,
                 startDate: startDates[index],
                 endDate: endDates[index],
-                days: daysValues[index]
+                days: daysValues[index],
+                budget: budgetValues[index]
             }));
             
             // Send updates to backend
@@ -21674,6 +21722,11 @@ function filterWorkPlans(filterType) {
         case 'today':
             startDate = new Date(today);
             endDate = new Date(today);
+            break;
+        case 'tomorrow':
+            startDate = new Date(today);
+            startDate.setDate(today.getDate() + 1);
+            endDate = new Date(startDate);
             break;
         case 'week':
             // Week starts on Sunday and ends on Saturday
@@ -36922,6 +36975,42 @@ function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
 // --- Load More Projects (server-side pagination) ---
 let projectsOffset = 500;
+// Red over-cost flags on the building projects portal (quotation base vs linked POs)
+function markOvercostProjects(){
+    fetch('/api/project-overcosts', { credentials: 'include' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if(!d || !d.success) return;
+            (d.data || []).forEach(function(o){
+                if(document.querySelector('#allprojectsTable .oc-flag[data-pid="'+o.id+'"]')) return;
+                var host = null;
+                var el = document.querySelector('#allprojectsTable [data-id="'+o.id+'"]');
+                if(el){
+                    var row = el.closest('tr');
+                    if(row) host = row.lastElementChild || row;
+                }
+                if(!host){
+                    var trs = document.querySelectorAll('#allprojectsTable tbody tr');
+                    for(var i=0;i<trs.length;i++){
+                        if(((trs[i].children[0]||{}).textContent || '').trim() === String(o.id)){ host = trs[i].children[0]; break; }
+                    }
+                }
+                if(!host) return;
+                var b = document.createElement('span');
+                b.className = 'oc-flag';
+                b.setAttribute('data-pid', o.id);
+                b.textContent = '⚠ OVER BUDGET';
+                b.title = 'Purchase orders: $' + Number(o.poTotal || 0).toLocaleString('en-US') + ' exceed in-house budget: $' + Number(o.base || 0).toLocaleString('en-US');
+                b.style.cssText = 'color:#b91c1c;background:#fee2e2;border:1px solid #fca5a5;border-radius:4px;font-size:0.58rem;font-weight:800;padding:1px 5px;margin-left:4px;white-space:nowrap;';
+                host.appendChild(b);
+            });
+        })
+        .catch(function(){});
+}
+document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(function(){ if(document.getElementById('allprojectsTable')) markOvercostProjects(); }, 1500);
+});
+
 function loadMoreProjects() {
     const btn = document.getElementById('loadMoreProjectsBtn');
     if (!btn) return;
@@ -36960,6 +37049,7 @@ function loadMoreProjects() {
             });
             
             projectsOffset += res.data.length;
+            markOvercostProjects();
             
             // Update info
             const infoEl = document.getElementById('projectsTableInfo');
