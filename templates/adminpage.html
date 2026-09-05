@@ -5461,9 +5461,23 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                 <span style="font-size:0.72rem;font-weight:700;color:var(--dark-blue-deep);"><i class="bi bi-cash-stack me-1"></i>Budgeted In-House Cost</span>
                                 <button type="button" class="btn btn-light btn-sm" style="padding:2px 8px;font-size:0.65rem;" onclick="loadInhouseCards()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                 <button type="button" class="btn btn-light btn-sm" style="padding:2px 8px;font-size:0.65rem;" onclick="openWorkPlanFromCards()"><i class="bi bi-calendar-check"></i> Work Plan</button>
+                                <span style="flex:1;"></span>
+                                <button type="button" class="btn btn-sm btn-outline-success" style="padding:2px 8px;font-size:0.65rem;" onclick="exportInhouseExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" style="padding:2px 8px;font-size:0.65rem;" onclick="exportInhousePdf()"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
                             </div>
-                            <div id="inhouseCardsWrap" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:6px; margin-bottom:10px;"></div>
+                            <div id="inhouseCardsWrap" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); gap:6px; margin-bottom:6px;"></div>
+                            <div style="display:flex;align-items:center;gap:8px;margin:2px 0 4px;">
+                                <span style="font-size:0.7rem;font-weight:700;color:var(--dark-blue-deep);"><i class="bi bi-list-check me-1"></i>Running projects — in-house budget for period</span>
+                                <select id="ihPeriodSel" class="form-select form-select-sm" style="width:150px;font-size:0.68rem;" onchange="renderInhouseProjects()">
+                                    <option value="today">Today</option>
+                                    <option value="tomorrow">Tomorrow</option>
+                                    <option value="this_week" selected>This Week</option>
+                                    <option value="next_week">Next Week</option>
+                                </select>
+                            </div>
+                            <div id="ihProjectsList" style="max-height:240px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:6px;background:#fff;margin-bottom:10px;"></div>
                             <script>
+                            window._ihData = null;
                             function loadInhouseCards(){
                                 var wrap = document.getElementById('inhouseCardsWrap');
                                 if(!wrap) return;
@@ -5471,21 +5485,103 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                     .then(function(r){ return r.json(); })
                                     .then(function(d){
                                         if(!d || !d.success) return;
-                                        var w = d.windows || {};
-                                        var meta = [['today','Today','blue'],['tomorrow','Tomorrow','amber'],['this_week','This Week','green'],['next_week','Next Week','purple']];
-                                        wrap.innerHTML = meta.map(function(m){
-                                            var o = w[m[0]] || {total:0, projects:0};
-                                            return '<div class="stat-card" style="padding:5px 8px;">' +
-                                                '<div class="stat-icon ' + m[2] + '" style="width:22px;height:22px;font-size:0.7rem;"><i class="bi bi-cash-stack"></i></div>' +
-                                                '<div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">' + m[1] + '</div>' +
-                                                '<div class="stat-value" style="font-size:0.78rem;color:var(--dark-blue-deep);">USD ' + Number(o.total || 0).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</div>' +
-                                                '<div style="font-size:0.58rem;color:var(--text-muted);">' + (o.projects || 0) + ' project' + (o.projects === 1 ? '' : 's') + '</div></div></div>';
-                                        }).join('');
+                                        window._ihData = d.windows || {};
+                                        renderInhouseCards();
+                                        renderInhouseProjects();
                                     })
                                     .catch(function(){});
                             }
+                            function renderInhouseCards(){
+                                var wrap = document.getElementById('inhouseCardsWrap');
+                                if(!wrap) return;
+                                var w = window._ihData || {};
+                                var meta = [['today','Today','blue'],['tomorrow','Tomorrow','amber'],['this_week','This Week','green'],['next_week','Next Week','purple']];
+                                wrap.innerHTML = meta.map(function(m){
+                                    var o = w[m[0]] || {total:0, projects:0};
+                                    return '<div class="stat-card" style="padding:5px 8px;cursor:pointer;" onclick="setIhPeriod(\'' + m[0] + '\')">' +
+                                        '<div class="stat-icon ' + m[2] + '" style="width:22px;height:22px;font-size:0.7rem;"><i class="bi bi-cash-stack"></i></div>' +
+                                        '<div class="stat-body"><div class="stat-label" style="font-size:0.7rem;">' + m[1] + '</div>' +
+                                        '<div class="stat-value" style="font-size:0.78rem;color:var(--dark-blue-deep);">USD ' + Number(o.total || 0).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</div>' +
+                                        '<div style="font-size:0.58rem;color:var(--text-muted);">' + (o.projects || 0) + ' project' + (o.projects === 1 ? '' : 's') + '</div></div></div>';
+                                }).join('');
+                            }
+                            function setIhPeriod(key){
+                                var sel = document.getElementById('ihPeriodSel');
+                                if(sel) sel.value = key;
+                                renderInhouseProjects();
+                            }
+                            function renderInhouseProjects(){
+                                var box = document.getElementById('ihProjectsList');
+                                if(!box) return;
+                                var sel = document.getElementById('ihPeriodSel');
+                                var key = (sel && sel.value) || 'today';
+                                var w = window._ihData || {};
+                                var o = w[key] || {total:0, projects:0, rows:[]};
+                                var rows = o.rows || [];
+                                if(!rows.length){
+                                    box.innerHTML = '<div style="padding:10px;font-size:0.66rem;color:var(--text-muted);text-align:center;">No running project has budgeted in-house cost in this period.</div>';
+                                    return;
+                                }
+                                var wk = key; // current period key used for work plan + exports
+                                box.innerHTML = rows.map(function(r){
+                                    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid #eef1f6;cursor:pointer;" onclick="openIhProjectWorkplan(\'' + wk + '\')">' +
+                                        '<div style="min-width:0;flex:1;">' +
+                                        '<div style="font-size:0.68rem;font-weight:700;color:#1E2A56;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(r.name || '') + '</div>' +
+                                        (r.client ? '<div style="font-size:0.58rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(r.client) + '</div>' : '') +
+                                        '</div>' +
+                                        '<div style="text-align:right;flex-shrink:0;">' +
+                                        '<div style="font-size:0.68rem;font-weight:800;color:#16a34a;">USD ' + Number(r.share || 0).toLocaleString('en-US',{minimumFractionDigits:2}) + '</div>' +
+                                        '<div style="font-size:0.56rem;color:#94A3B8;">budget USD ' + Number(r.base || 0).toLocaleString('en-US',{minimumFractionDigits:0}) + '</div>' +
+                                        '</div></div>';
+                                }).join('');
+                            }
                             function openWorkPlanFromCards(){
                                 if(typeof openModal === 'function') openModal('workPlanModal');
+                            }
+                            function ihWorkplanKey(periodKey){
+                                var map = {'today':'today','tomorrow':'tomorrow','this_week':'week','next_week':'next-week'};
+                                return map[periodKey] || 'week';
+                            }
+                            function openIhProjectWorkplan(periodKey){
+                                var k = ihWorkplanKey(periodKey);
+                                var sel = document.getElementById('workPlanDateFilter');
+                                if(sel) sel.value = k;
+                                if(typeof openModal === 'function') openModal('workPlanModal');
+                                if(typeof filterWorkPlans === 'function') filterWorkPlans(k);
+                            }
+                            function exportInhouseExcel(){
+                                var sel = document.getElementById('ihPeriodSel');
+                                var key = (sel && sel.value) || 'this_week';
+                                var w = window._ihData || {};
+                                var o = w[key] || {rows:[]};
+                                var rows = o.rows || [];
+                                if(!rows.length){ if(typeof showToast==='function') showToast('Nothing to export for this period','warning'); return; }
+                                var data = rows.map(function(r){
+                                    return {'Project': r.name || '', 'Client': r.client || '', 'In-House for Period (USD)': Number(r.share||0), 'Full In-House Budget (USD)': Number(r.base||0)};
+                                });
+                                var fullTotal = rows.reduce(function(s,r){ return s + (Number(r.base)||0); }, 0);
+                                data.push({'Project': 'TOTAL', 'Client': '', 'In-House for Period (USD)': Number(o.total||0), 'Full In-House Budget (USD)': fullTotal});
+                                var sheet = XLSX.utils.json_to_sheet(data);
+                                var book = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(book, sheet, 'In-House Budget');
+                                XLSX.writeFile(book, 'InHouse_Budget_' + key + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
+                                if(typeof showToast==='function') showToast('Excel export complete!', 'success');
+                            }
+                            function exportInhousePdf(){
+                                var sel = document.getElementById('ihPeriodSel');
+                                var key = (sel && sel.value) || 'this_week';
+                                fetch('/api/inhouse-pdf?period=' + key, { credentials: 'include' })
+                                    .then(function(r){ if(!r.ok) throw new Error('Server error'); return r.blob(); })
+                                    .then(function(blob){
+                                        var u = URL.createObjectURL(blob);
+                                        var a = document.createElement('a');
+                                        a.href = u;
+                                        a.download = 'InHouse_Budget_' + key + '.pdf';
+                                        document.body.appendChild(a); a.click(); a.remove();
+                                        setTimeout(function(){ URL.revokeObjectURL(u); }, 8000);
+                                        if(typeof showToast==='function') showToast('PDF export complete!', 'success');
+                                    })
+                                    .catch(function(e){ if(typeof showToast==='function') showToast('Export failed: ' + e.message, 'error'); });
                             }
                             document.addEventListener('DOMContentLoaded', function(){
                                 if(document.getElementById('inhouseCardsWrap')) loadInhouseCards();
@@ -15109,11 +15205,11 @@ body { font-family: Arial; margin: 20px; }
                 <div id="dcGanttOptions" style="display:none; border:1px dashed #b8c2d6; border-radius:6px; padding:8px;">
                     <div style="font-size:0.68rem; font-weight:700; color:#1E2A56; margin-bottom:6px;"><i class="bi bi-bar-chart-steps me-1"></i>This contract has a work-schedule (Gantt chart). Choose how to download:</div>
                     <div style="display:flex; flex-direction:column; gap:6px;">
-                        <button type="button" class="btn btn-primary" style="font-size:0.7rem; padding:6px;" onclick="downloadContractWithGantt(true, this)">
-                            <i class="bi bi-download me-2"></i> Download including Gantt Chart
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" style="font-size:0.7rem; padding:6px;" onclick="downloadContractWithGantt(false, this)">
+                        <button type="button" class="btn btn-primary" style="font-size:0.7rem; padding:6px;" onclick="downloadContractWithGantt(false, this)">
                             <i class="bi bi-download me-2"></i> Download excluding Gantt Chart
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" style="font-size:0.7rem; padding:6px;" onclick="downloadContractWithGantt(true, this)">
+                            <i class="bi bi-download me-2"></i> Download including Gantt Chart
                         </button>
                     </div>
                 </div>
@@ -31515,26 +31611,33 @@ function handleDownloadClick(button) {
     document.getElementById('dcWhatsAppSection').style.display = 'none';
     document.getElementById('dcSendResult').innerHTML = '';
     
-    // Single "Download PDF" by default; if the project has a work-schedule
-    // (Gantt), swap to the include/exclude Gantt download options instead.
+    // Quotation-linked projects must offer include/exclude Gantt + Send via WhatsApp.
     const dcGantt = document.getElementById('dcGanttOptions');
     const dcSingle = document.getElementById('dcDownloadBtn');
+    const hasQ = (button && button.dataset ? (button.dataset.hasQuotation || '') : '');
     if (dcGantt) dcGantt.style.display = 'none';
     if (dcSingle) dcSingle.style.display = '';
     
     openModal('downloadContractModal');
     
-    try {
-        fetch('/api/project/' + projectId + '/has-gantt', { credentials: 'include' })
-            .then(r => r.json())
-            .then(d => {
-                if (d && d.success && d.has_gantt) {
-                    if (dcGantt) dcGantt.style.display = '';
-                    if (dcSingle) dcSingle.style.display = 'none';
-                }
-            })
-            .catch(function() { /* keep single download */ });
-    } catch (e) { /* keep single download */ }
+    if (hasQ === '1') {
+        // Project has a linked quotation -> always show both Gantt download options
+        if (dcGantt) dcGantt.style.display = '';
+        if (dcSingle) dcSingle.style.display = 'none';
+    } else if (hasQ === '') {
+        // No data-has-quotation attribute (other callers) -> async fallback check
+        try {
+            fetch('/api/project/' + projectId + '/has-gantt', { credentials: 'include' })
+                .then(r => r.json())
+                .then(d => {
+                    if (d && d.success && d.has_gantt) {
+                        if (dcGantt) dcGantt.style.display = '';
+                        if (dcSingle) dcSingle.style.display = 'none';
+                    }
+                })
+                .catch(function() { /* keep single download */ });
+        } catch (e) { /* keep single download */ }
+    }
     
     return false;
 }

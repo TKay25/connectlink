@@ -23061,14 +23061,7 @@ def project_has_gantt(project_id):
                 FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             r = cursor.fetchone()
-        has_gantt = False
-        if r:
-            if r[1]:
-                has_gantt = True
-            elif r[0]:
-                with get_db() as (cursor2, _):
-                    cursor2.execute("SELECT 1 FROM quotation_schedules WHERE quotation_id = %s LIMIT 1", (r[0],))
-                    has_gantt = cursor2.fetchone() is not None
+        has_gantt = bool(r and (r[0] or r[1]))  # a linked quotation (or saved Gantt) => offer both options
         return jsonify({'success': True, 'has_gantt': bool(has_gantt)})
     except Exception as e:
         print(f"has-gantt check error: {e}")
@@ -25036,7 +25029,12 @@ def run1(userid):
 
         # Step 3: Rename quotation_id to QREF BEFORE Action creation
         datamain = datamain.rename(columns={'quotation_id': 'QREF'})
-        
+
+        # Step 3b: Remember which projects have a linked quotation (raw, pre-badge)
+        datamain['_has_q'] = datamain['QREF'].apply(
+            lambda x: 1 if (pd.notna(x) and str(x).strip() and str(x).strip().lower() not in ('nan', 'none', 'n/a', 'null')) else 0
+        )
+
         # Step 4: Format QREF column
         datamain['QREF'] = datamain['QREF'].apply(
             lambda x: f'<span class="badge bg-secondary">N/A</span>' if pd.isna(x) or x == '' 
@@ -25044,7 +25042,7 @@ def run1(userid):
         )
         
         # Step 5: Create Action column (uses raw id/clientname values for data attributes)
-        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row['clientname']}" data-client-wa-number="{row['clientwanumber']}" onclick="return handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
+        datamain['Action'] = datamain.apply(lambda row: f''' <div style="display: flex; gap: 10px;"> <a href="#" class="btn btn-primary download-contract-btn" data-id="{row['id']}" data-client-name="{row['clientname']}" data-client-wa-number="{row['clientwanumber']}" data-has-quotation="{row['_has_q']}" onclick="return handleDownloadClick(this)">Download</a> <button class="btn btn-primary view-project-btn" onclick="openModal('viewprojectModal')" data-id="{row['id']}">View</button> <button class="btn btn-primary notes-btn" onclick="openModal('notesModal')" data-id="{row['id']}" data-project-name="{row['projectname']}" data-client-name="{row['clientname']}"  data-client-wa-number="{row['clientwanumber']}" data-client-next-of-kin-number="{row['clientnextofkinphone']}">Notes</button> <button class="btn btn-primary update-project-btn" onclick="openModal('updateModal')">Update</button> </div>''', axis=1)
         
         # Step 6: Sort by ID
         datamain = datamain.sort_values('id', ascending=False)
@@ -37147,31 +37145,149 @@ def inhouse_cards():
         ]
         totals = {k: 0.0 for k, _ws, _we in windows}
         projects = {k: 0 for k, _ws, _we in windows}
+        per_window = {k: [] for k, _ws, _we in windows}
         with get_db() as (cursor, _):
             cursor.execute("""
-                SELECT id, projectname, clientname, quotation_id, adjusted_schedules_json
+                SELECT id, projectname, clientname, quotation_id, adjusted_schedules_json,
+                       COALESCE(projectcompletionstatus, '')
                 FROM connectlinkdatabase WHERE quotation_id IS NOT NULL
             """)
-            for _pid, _pname, _cname, qid, adj_json in cursor.fetchall():
+            for pid, pname, cname, qid, adj_json, pstatus in cursor.fetchall():
                 try:
                     tasks = _ih_project_base_tasks(cursor, qid, adj_json)
                 except Exception:
                     tasks = None
                 if not tasks:
                     continue
+                full_base = sum(t.get('base', 0.0) for t in tasks)
+                running = str(pstatus or '').strip().lower() not in ('completed', 'cancelled')
+                entry = {
+                    'id': pid,
+                    'name': pname or 'N/A',
+                    'client': cname or '',
+                    'base': round(full_base, 2),
+                }
                 for key, ws, we in windows:
                     amt = sum(_ih_share(t, ws, we) for t in tasks)
                     if amt > 0:
                         totals[key] += amt
                         projects[key] += 1
+                        if running:
+                            per_window[key].append(dict(entry, share=round(amt, 2)))
+        for key, _ws, _we in windows:
+            per_window[key].sort(key=lambda x: x['share'], reverse=True)
         return jsonify({
             'success': True,
             'windows': {
-                k: {'total': round(totals[k], 2), 'projects': projects[k]} for k, _ws, _we in windows
+                k: {
+                    'total': round(totals[k], 2),
+                    'projects': projects[k],
+                    'rows': per_window[k]
+                } for k, _ws, _we in windows
             }
         })
     except Exception as e:
         logging.error(f'inhouse-cards error: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/inhouse-pdf', methods=['GET'])
+def inhouse_pdf():
+    """Styled WeasyPrint PDF of running projects' budgeted in-house cost for a period.
+    Visual style matches the manual invoice/receipt/contract documents."""
+    try:
+        period = (request.args.get('period') or 'this_week').strip().lower()
+        today = datetime.now().date()
+        week_start = _ih_week_start(today)
+        ranges = {
+            'today': (today, today, 'Today'),
+            'tomorrow': (today + timedelta(days=1), today + timedelta(days=1), 'Tomorrow'),
+            'this_week': (week_start, week_start + timedelta(days=6), 'This Week'),
+            'next_week': (week_start + timedelta(days=7), week_start + timedelta(days=13), 'Next Week'),
+        }
+        if period not in ranges:
+            period = 'this_week'
+        ws, we, label = ranges[period]
+        date_span = f"{ws.strftime('%d %B %Y')} — {we.strftime('%d %B %Y')}"
+
+        rows = []
+        total = 0.0
+        with get_db() as (cursor, _):
+            cursor.execute("""
+                SELECT id, projectname, clientname, quotation_id, adjusted_schedules_json,
+                       COALESCE(projectcompletionstatus, '')
+                FROM connectlinkdatabase WHERE quotation_id IS NOT NULL
+            """)
+            for _pid, pname, cname, qid, adj_json, pstatus in cursor.fetchall():
+                if str(pstatus or '').strip().lower() in ('completed', 'cancelled'):
+                    continue
+                try:
+                    tasks = _ih_project_base_tasks(cursor, qid, adj_json)
+                except Exception:
+                    tasks = None
+                if not tasks:
+                    continue
+                amt = sum(_ih_share(t, ws, we) for t in tasks)
+                if amt <= 0:
+                    continue
+                full_base = sum(t.get('base', 0.0) for t in tasks)
+                rows.append((pname or 'N/A', cname or '', round(amt, 2), round(full_base, 2)))
+                total += amt
+        rows.sort(key=lambda r: r[2], reverse=True)
+
+        def _money(v):
+            return f"{float(v or 0):,.2f}"
+
+        rows_html = ''.join(
+            f"<tr><td class='c'>{i}</td><td>{html.escape(n)}</td><td>{html.escape(c)}</td>"
+            f"<td class='num'>{_money(a)}</td><td class='num'>{_money(b)}</td></tr>"
+            for i, (n, c, a, b) in enumerate(rows, start=1)
+        ) if rows else "<tr><td colspan='5' style='text-align:center;color:#8a97ab;'>No running project has budgeted in-house cost in this period.</td></tr>"
+
+        html_out = f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><style>
+@page {{ size: A4; margin: 12mm; }}
+* {{ box-sizing: border-box; }}
+body {{ font-family:'Helvetica','Arial',sans-serif; color:#2C3E50; font-size:10px; margin:0; }}
+.wrap {{ border:1px solid #d0d0d0; border-radius:8px; padding:18px; background:#fff; }}
+.head {{ display:flex; justify-content:space-between; align-items:flex-end; padding-bottom:10px; border-bottom:2px solid #1E2A56; margin-bottom:14px; }}
+.head h1 {{ color:#1E2A56; font-size:17px; margin:0; letter-spacing:.5px; }}
+.head .sub {{ color:#666; font-size:9px; margin-top:3px; }}
+.meta {{ text-align:right; font-size:9px; color:#41506b; }}
+.meta b {{ color:#1E2A56; }}
+table {{ width:100%; border-collapse:collapse; margin-top:8px; }}
+th {{ background:#f5f7fa; color:#1E2A56; text-transform:uppercase; letter-spacing:.7px; font-size:8px; text-align:left; padding:7px 9px; border-bottom:2px solid #d8dce4; }}
+td {{ padding:6px 9px; border-bottom:1px solid #eef1f6; font-size:9.5px; }}
+tr:nth-child(even) td {{ background:#fafbfd; }}
+.num {{ text-align:right; font-variant-numeric: tabular-nums; }}
+.c {{ text-align:center; width:28px; }}
+tfoot td {{ border-top:2px solid #1E2A56; font-weight:800; color:#1E2A56; font-size:10px; }}
+.footer {{ margin-top:16px; border-top:1px solid #e0e0e0; padding-top:8px; text-align:center; font-size:8px; color:#999; }}
+</style></head><body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>Budgeted In-House Cost</h1>
+      <div class="sub">Running projects — {label} ({rows and f'{len(rows)} project(s)' or 'no spend'})</div>
+    </div>
+    <div class="meta"><b>Period:</b> {date_span}<br><b>Generated:</b> {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
+  </div>
+  <table>
+    <thead><tr><th class="c">#</th><th>Project</th><th>Client</th><th class="num">In-House for {label} (USD)</th><th class="num">Full In-House Budget (USD)</th></tr></thead>
+    <tbody>{rows_html}</tbody>
+    <tfoot><tr><td class="c" colspan="1"></td><td colspan="2">TOTAL IN-HOUSE FOR PERIOD</td><td class="num">USD {_money(total)}</td><td class="num"></td></tr></tfoot>
+  </table>
+  <div class="footer">ConnectLink Properties · Budgeted in-house cost = quotation base (client price ÷ markup) · Spend is spread across each project's work-plan dates</div>
+</div>
+</body></html>"""
+
+        pdf = HTML(string=html_out).write_pdf()
+        resp = make_response(pdf)
+        resp.headers['Content-Type'] = 'application/pdf'
+        resp.headers['Content-Disposition'] = f"attachment; filename=InHouse_Budget_{period}.pdf"
+        return resp
+    except Exception as e:
+        logging.error(f'inhouse-pdf error: {e}')
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
