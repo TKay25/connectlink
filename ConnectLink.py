@@ -7905,7 +7905,7 @@ def webhook():
                                                                 # Generate and send contract PDF
                                                                 try:
                                                                     with app.test_client() as client:
-                                                                        resp = client.get(f'/download_contract/{contract_project_id}')
+                                                                        resp = client.get(f'/download_contract/{contract_project_id}?include_gantt=0')
                                                                         if resp.status_code == 200:
                                                                             pdf_bytes = resp.data
                                                                             safe_name = f"Contract_{contract_project_id}"
@@ -22105,7 +22105,10 @@ def download_contract(project_id):
             except (ValueError, IndexError):
                 quotation_id = None
 
-            # Build work scope table HTML from linked quotation if available
+            # Build work scope table HTML from linked quotation if available.
+            # ?include_gantt=0 skips the work-scope (Gantt) schedule section
+            # (used for client self-service / chatbot downloads).
+            include_gantt = str(request.args.get('include_gantt', '1')).strip().lower() not in ('0', 'false', 'no', 'off', 'exclude')
             work_scope_html = ""
             
             # PRIORITY 1: Check if this project has adjusted schedules stored
@@ -22253,6 +22256,10 @@ def download_contract(project_id):
                     </table>
                     <div class="page-break"></div>
                 """
+
+            # Exclude the work-scope/Gantt schedule section when requested
+            if not include_gantt:
+                work_scope_html = ""
 
             # Build installment rows filtering out zero-amount entries
             installment_rows_html = ''
@@ -23039,6 +23046,33 @@ def download_contract(project_id):
 
         except Exception as e:
             return str(e), 500
+
+
+@app.route('/api/project/<int:project_id>/has-gantt', methods=['GET'])
+def project_has_gantt(project_id):
+    """Return whether a project's contract will include a work-scope/Gantt
+    schedule section (adjusted schedules stored, or a linked quotation that
+    actually has schedule rows). Used by the download-contract modal to show
+    the include/exclude Gantt options."""
+    try:
+        with get_db() as (cursor, _):
+            cursor.execute("""
+                SELECT quotation_id, adjusted_schedules_json
+                FROM connectlinkdatabase WHERE id = %s
+            """, (project_id,))
+            r = cursor.fetchone()
+        has_gantt = False
+        if r:
+            if r[1]:
+                has_gantt = True
+            elif r[0]:
+                with get_db() as (cursor2, _):
+                    cursor2.execute("SELECT 1 FROM quotation_schedules WHERE quotation_id = %s LIMIT 1", (r[0],))
+                    has_gantt = cursor2.fetchone() is not None
+        return jsonify({'success': True, 'has_gantt': bool(has_gantt)})
+    except Exception as e:
+        print(f"has-gantt check error: {e}")
+        return jsonify({'success': False, 'error': str(e), 'has_gantt': False}), 500
 
 
 @app.route('/send-contract-whatsapp', methods=['POST'])
@@ -35119,7 +35153,7 @@ def get_contract_download_url(project_id):
             public_base = ''
     if not public_base:
         return ''
-    return f"{public_base}/download_contract/{project_id}"
+    return f"{public_base}/download_contract/{project_id}?include_gantt=0"
 
 
 def strip_html_tags(text):

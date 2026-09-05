@@ -15065,10 +15065,21 @@ body { font-family: Arial; margin: 20px; }
             <input type="hidden" id="dcModalProjectId" value="">
             
             <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
-                <button class="btn btn-primary" style="font-size:0.7rem; padding:8px;" onclick="downloadContractDirect()">
+                <button type="button" class="btn btn-primary" id="dcDownloadBtn" style="font-size:0.7rem; padding:8px;" onclick="downloadContractDirect()">
                     <i class="bi bi-download me-2"></i> Download PDF
                 </button>
-                <button class="btn btn-success" style="font-size:0.7rem; padding:8px;" onclick="toggleWhatsAppSendContract()">
+                <div id="dcGanttOptions" style="display:none; border:1px dashed #b8c2d6; border-radius:6px; padding:8px;">
+                    <div style="font-size:0.68rem; font-weight:700; color:#1E2A56; margin-bottom:6px;"><i class="bi bi-bar-chart-steps me-1"></i>This contract has a work-schedule (Gantt chart). Choose how to download:</div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <button type="button" class="btn btn-primary" style="font-size:0.7rem; padding:6px;" onclick="downloadContractWithGantt(true, this)">
+                            <i class="bi bi-download me-2"></i> Download including Gantt Chart
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" style="font-size:0.7rem; padding:6px;" onclick="downloadContractWithGantt(false, this)">
+                            <i class="bi bi-download me-2"></i> Download excluding Gantt Chart
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-success" style="font-size:0.7rem; padding:8px;" onclick="toggleWhatsAppSendContract()">
                     <i class="bi bi-whatsapp me-2"></i> Send via WhatsApp
                 </button>
             </div>
@@ -31451,7 +31462,27 @@ function handleDownloadClick(button) {
     document.getElementById('dcWhatsAppSection').style.display = 'none';
     document.getElementById('dcSendResult').innerHTML = '';
     
+    // Single "Download PDF" by default; if the project has a work-schedule
+    // (Gantt), swap to the include/exclude Gantt download options instead.
+    const dcGantt = document.getElementById('dcGanttOptions');
+    const dcSingle = document.getElementById('dcDownloadBtn');
+    if (dcGantt) dcGantt.style.display = 'none';
+    if (dcSingle) dcSingle.style.display = '';
+    
     openModal('downloadContractModal');
+    
+    try {
+        fetch('/api/project/' + projectId + '/has-gantt', { credentials: 'include' })
+            .then(r => r.json())
+            .then(d => {
+                if (d && d.success && d.has_gantt) {
+                    if (dcGantt) dcGantt.style.display = '';
+                    if (dcSingle) dcSingle.style.display = 'none';
+                }
+            })
+            .catch(function() { /* keep single download */ });
+    } catch (e) { /* keep single download */ }
+    
     return false;
 }
 
@@ -31463,15 +31494,14 @@ function restoreTableButton() {
     }
 }
 
-function downloadContractDirect() {
-    const url = document.getElementById('dcModalContractUrl').value;
-    const btn = document.querySelector('#downloadContractModal .btn-primary');
+function performContractDownload(url, btn) {
     if (!url) return;
-    
-    // Show spinner on modal button
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Downloading...';
-    btn.disabled = true;
+    const targetBtn = btn || document.getElementById('dcDownloadBtn');
+    const originalHtml = targetBtn ? targetBtn.innerHTML : '';
+    if (targetBtn) {
+        targetBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Downloading...';
+        targetBtn.disabled = true;
+    }
     
     // Close modal and show full-page loader
     closeModal('downloadContractModal');
@@ -31496,16 +31526,29 @@ function downloadContractDirect() {
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
             hideLoader();
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
+            if (targetBtn) { targetBtn.innerHTML = originalHtml; targetBtn.disabled = false; }
             restoreTableButton();
         })
         .catch(err => {
             hideLoader();
             alert('Download failed: ' + err.message);
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
+            if (targetBtn) { targetBtn.innerHTML = originalHtml; targetBtn.disabled = false; }
+            restoreTableButton();
         });
+}
+
+function downloadContractDirect() {
+    const url = document.getElementById('dcModalContractUrl').value;
+    performContractDownload(url);
+}
+
+function downloadContractWithGantt(includeGantt, btn) {
+    const projectId = document.getElementById('dcModalProjectId').value;
+    if (!projectId) return;
+    // includeGantt=true  -> default URL (Gantt/work-scope included)
+    // includeGantt=false -> exclude the Gantt/work-scope section
+    const url = '/download_contract/' + projectId + (includeGantt ? '' : '?include_gantt=0');
+    performContractDownload(url, btn);
 }
 
 function toggleWhatsAppSendContract() {
