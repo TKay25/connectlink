@@ -5902,6 +5902,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                         <button class="btn btn-sm btn-success" onclick="exportStockAuditExcel()" id="exportAuditBtn" style="display:none;">
                             <i class="fas fa-file-excel me-1"></i>Export Excel
                         </button>
+                        <button class="btn btn-sm btn-danger" onclick="exportStockAuditPDF()" id="exportAuditPdfBtn" style="display:none;">
+                            <i class="fas fa-file-pdf me-1"></i>Export PDF
+                        </button>
                         <button class="btn btn-sm btn-secondary" onclick="document.getElementById('stockAuditSection').style.display='none';">
                             <i class="fas fa-times me-1"></i>Close
                         </button>
@@ -6906,9 +6909,13 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                    <button class="btn btn-primary-dark btn-sm" id="generateAuditBtn" onclick="generateAuditReport()">
-                        <span id="generateAuditBtnText"><i class="fas fa-search me-1"></i>Generate Report</span>
+                    <button class="btn btn-success btn-sm" id="generateAuditBtn" onclick="generateAuditReport('excel')">
+                        <span id="generateAuditBtnText"><i class="fas fa-file-excel me-1"></i>Export Excel</span>
                         <span id="generateAuditBtnSpinner" class="spinner-border spinner-border-sm" style="display:none;"></span>
+                    </button>
+                    <button class="btn btn-danger btn-sm" id="generateAuditPdfBtn" onclick="generateAuditReport('pdf')">
+                        <span id="generateAuditPdfBtnText"><i class="fas fa-file-pdf me-1"></i>Export PDF</span>
+                        <span id="generateAuditPdfBtnSpinner" class="spinner-border spinner-border-sm" style="display:none;"></span>
                     </button>
                 </div>
             </div>
@@ -9205,6 +9212,7 @@ let auditMovementData = [];
 let auditProductData = [];
 let auditRemovalData = [];
 let auditVoidedData = [];
+let auditSummaryData = {};
 
 function toggleAuditReport() {
     // Show modal to enter date parameters first
@@ -9427,7 +9435,9 @@ function exportPosActivityLogPDF() {
         .catch(function(err) { console.error('PDF generation error:', err); document.body.removeChild(content); showToast('Error generating PDF', 'error'); });
 }
 
-function generateAuditReport() {
+async function generateAuditReport(format) {
+    format = format || 'excel';
+    const isPdf = format === 'pdf';
     const startDate = document.getElementById('modalAuditStartDate').value;
     const endDate = document.getElementById('modalAuditEndDate').value;
     
@@ -9440,45 +9450,52 @@ function generateAuditReport() {
     document.getElementById('auditStartDate').value = startDate;
     document.getElementById('auditEndDate').value = endDate;
     
-    // Show spinner on button, hide text
-    const btn = document.getElementById('generateAuditBtn');
-    const btnText = document.getElementById('generateAuditBtnText');
-    const btnSpinner = document.getElementById('generateAuditBtnSpinner');
-    btn.disabled = true;
-    btnText.style.display = 'none';
-    btnSpinner.style.display = 'inline-block';
+    // Show spinner on the clicked button, disable both
+    const btn = document.getElementById(isPdf ? 'generateAuditPdfBtn' : 'generateAuditBtn');
+    const btnText = document.getElementById(isPdf ? 'generateAuditPdfBtnText' : 'generateAuditBtnText');
+    const btnSpinner = document.getElementById(isPdf ? 'generateAuditPdfBtnSpinner' : 'generateAuditBtnSpinner');
+    const otherBtn = document.getElementById(isPdf ? 'generateAuditBtn' : 'generateAuditPdfBtn');
+    if (btn) btn.disabled = true;
+    if (otherBtn) otherBtn.disabled = true;
+    if (btnText) btnText.style.display = 'none';
+    if (btnSpinner) btnSpinner.style.display = 'inline-block';
     
-    // Fetch data and download as Excel directly
-    fetch(`/api/stock-movements?start_date=${startDate}&end_date=${endDate}`)
-        .then(response => response.json())
-        .then(data => {
-            if (!data.success) {
-                showToast(data.error || 'Failed to load audit data', 'error');
-                return;
-            }
-            
-            auditMovementData = data.movements || [];
-            auditProductData = data.products || [];
-            auditRemovalData = data.removals || [];
-            
-            if (!auditMovementData.length && !auditProductData.length && !auditRemovalData.length) {
-                showToast('No stock movements found for the selected period', 'warning');
-                return;
-            }
-            
-            // Directly export to Excel
-            exportStockAuditExcel();
-        })
-        .catch(error => {
-            console.error('Audit report error:', error);
-            showToast('Error generating audit report: ' + error.message, 'error');
-        })
-        .finally(() => {
-            // Restore button - modal stays open, user closes manually
-            btn.disabled = false;
-            btnText.style.display = 'inline';
-            btnSpinner.style.display = 'none';
-        });
+    try {
+        // Fetch the audit data for the selected period
+        const response = await fetch(`/api/stock-movements?start_date=${startDate}&end_date=${endDate}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            showToast(data.error || 'Failed to load audit data', 'error');
+            return;
+        }
+        
+        auditMovementData = data.movements || [];
+        auditProductData = data.products || [];
+        auditRemovalData = data.removals || [];
+        auditSummaryData = data.summary || {};
+        
+        if (!auditMovementData.length && !auditProductData.length && !auditRemovalData.length) {
+            showToast('No stock movements found for the selected period', 'warning');
+            return;
+        }
+        
+        // Download the requested format (modal stays open, user closes manually)
+        if (isPdf) {
+            await exportStockAuditPDF();
+        } else {
+            await exportStockAuditExcel();
+        }
+    } catch (error) {
+        console.error('Audit report error:', error);
+        showToast('Error generating audit report: ' + error.message, 'error');
+    } finally {
+        // Restore buttons
+        if (btn) btn.disabled = false;
+        if (otherBtn) otherBtn.disabled = false;
+        if (btnText) btnText.style.display = 'inline';
+        if (btnSpinner) btnSpinner.style.display = 'none';
+    }
 }
 
 async function loadStockAuditReport() {
@@ -9498,6 +9515,7 @@ async function loadStockAuditReport() {
     document.getElementById('auditProductSummaryContainer').style.display = 'none';
     document.getElementById('auditNoData').style.display = 'none';
     document.getElementById('exportAuditBtn').style.display = 'none';
+    document.getElementById('exportAuditPdfBtn').style.display = 'none';
     
     try {
         const response = await fetch(`/api/stock-movements?start_date=${startDate}&end_date=${endDate}`);
@@ -9513,11 +9531,13 @@ async function loadStockAuditReport() {
         auditMovementData = data.movements || [];
         auditProductData = data.products || [];
         auditRemovalData = data.removals || [];
-        const summary = data.summary || {};
+        auditSummaryData = data.summary || {};
+        const summary = auditSummaryData;
         
         // Show containers
         document.getElementById('auditSummaryCards').style.display = 'flex';
         document.getElementById('exportAuditBtn').style.display = 'inline-block';
+        document.getElementById('exportAuditPdfBtn').style.display = 'inline-block';
         
         // Update summary cards
         document.getElementById('auditProductCount').textContent = summary.total_products || 0;
@@ -9706,17 +9726,7 @@ async function exportStockAuditExcel() {
     }
     
     // Ensure voided data is loaded (covers quick-export paths that skip the audit table)
-    if (!auditVoidedData.length) {
-        const sd = document.getElementById('auditStartDate').value;
-        const ed = document.getElementById('auditEndDate').value;
-        try {
-            let u = `${API_BASE}/api/transactions/voided`;
-            if (sd && ed) u += `?start_date=${encodeURIComponent(sd)}&end_date=${encodeURIComponent(ed)}`;
-            const r = await fetch(u, { credentials: 'include' });
-            const d = await r.json();
-            auditVoidedData = (d && d.success) ? (d.voided || []) : [];
-        } catch (e) { auditVoidedData = []; }
-    }
+    await ensureAuditVoidedLoaded();
     
     if (typeof XLSX === 'undefined') {
         showToast('Excel library not available', 'error');
@@ -9920,6 +9930,254 @@ async function exportStockAuditExcel() {
     XLSX.writeFile(wb, `stock_audit_${startDate}_to_${endDate}.xlsx`);
     
     showToast('Audit report exported successfully!', 'success');
+}
+
+// Ensure the voided (reverted) transactions are fetched before any audit export
+async function ensureAuditVoidedLoaded() {
+    if (auditVoidedData && auditVoidedData.length) return;
+    const sd = document.getElementById('auditStartDate').value;
+    const ed = document.getElementById('auditEndDate').value;
+    try {
+        let u = `${API_BASE}/api/transactions/voided`;
+        if (sd && ed) u += `?start_date=${encodeURIComponent(sd)}&end_date=${encodeURIComponent(ed)}`;
+        const r = await fetch(u, { credentials: 'include' });
+        const d = await r.json();
+        auditVoidedData = (d && d.success) ? (d.voided || []) : [];
+    } catch (e) { auditVoidedData = []; }
+}
+
+// Export the Inventory Audit Report to a single PDF (html2pdf) — mirrors the Excel workbook:
+// report summary, stock summary by product, itemised movements, removals and voided transactions.
+async function exportStockAuditPDF() {
+    if (!auditMovementData.length && !auditProductData.length && !auditRemovalData.length && !auditVoidedData.length) {
+        showToast('No data to export', 'error');
+        return;
+    }
+    if (typeof html2pdf === 'undefined') {
+        showToast('PDF library not available', 'error');
+        return;
+    }
+    
+    await ensureAuditVoidedLoaded();
+    
+    const startDate = document.getElementById('auditStartDate').value || 'All';
+    const endDate = document.getElementById('auditEndDate').value || 'All';
+    logPosActivity('download', 'Exported Stock Audit Report to PDF');
+    
+    // Shared PDF styles
+    const stlHeader  = 'padding:5px 6px;border:1px solid #445;text-align:left;background-color:#16295c;color:#ffffff;font-size:9px;';
+    const stlHeaderR = 'padding:5px 6px;border:1px solid #445;text-align:right;background-color:#16295c;color:#ffffff;font-size:9px;';
+    const stlCell    = 'padding:4px 6px;border:1px solid #ccd;font-size:9px;';
+    const stlCellR   = 'padding:4px 6px;border:1px solid #ccd;font-size:9px;text-align:right;';
+    const stlZebra   = '#f5f7fb';
+    const sectTitle  = '<h4 style="margin:14px 0 6px;color:#16295c;font-size:12px;">';
+    
+    // ---- Summary figures (derived from the loaded data) ----
+    let totalAdditions = 0;
+    let totalReductions = 0;
+    (auditProductData || []).forEach(function(p) {
+        totalAdditions += Number(p.total_additions) || 0;
+        totalReductions += Number(p.total_reductions) || 0;
+    });
+    const hasSummary = auditSummaryData && Object.keys(auditSummaryData).length > 0;
+    const additionCost = (hasSummary && auditSummaryData.total_addition_cost != null)
+        ? (Number(auditSummaryData.total_addition_cost) || 0)
+        : (auditProductData || []).reduce(function(s, p) {
+            return s + ((Number(p.total_additions) || 0) * (Number(p.buy_price) || 0));
+        }, 0);
+    const productCount = (auditProductData || []).length;
+    const removedCount = (auditRemovalData || []).length;
+    const voidedCount = (auditVoidedData || []).length;
+    
+    function auditStatBox(label, value, color) {
+        return '<div style="flex:1;min-width:140px;border:1px solid #dfe2ea;border-radius:6px;padding:7px 10px;text-align:center;">' +
+            '<div style="font-size:8px;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;">' + escapeHtml(label) + '</div>' +
+            '<div style="font-size:15px;font-weight:bold;color:' + (color || '#16295c') + ';margin-top:2px;">' + value + '</div>' +
+            '</div>';
+    }
+    const summaryHtml =
+        '<h4 style="margin:0 0 6px;color:#16295c;font-size:12px;">Report Summary</h4>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+            auditStatBox('Products Tracked', productCount.toLocaleString(), '#16295c') +
+            auditStatBox('Total Additions', totalAdditions.toLocaleString(), '#198754') +
+            auditStatBox('Total Reductions', totalReductions.toLocaleString(), '#dc3545') +
+            auditStatBox('Addition Cost', '$' + additionCost.toFixed(2), '#0d6efd') +
+            auditStatBox('Removed Items', removedCount.toLocaleString(), '#6f42c1') +
+            auditStatBox('Voided Transactions', voidedCount.toLocaleString(), '#b91c1c') +
+        '</div>';
+    
+    // ---- 1. Stock Summary by Product ----
+    let productHtml = '';
+    if (auditProductData && auditProductData.length) {
+        const rows = auditProductData.map(function(p, i) {
+            const zebra = (i % 2 === 1) ? ' style="background-color:' + stlZebra + ';"' : '';
+            return '<tr' + zebra + '>' +
+                '<td style="' + stlCell + '"><strong>' + escapeHtml(p.name || '') + '</strong></td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(p.category || 'N/A') + '</td>' +
+                '<td style="' + stlCellR + '">' + (p.initial_stock == null ? '0' : p.initial_stock) + '</td>' +
+                '<td style="' + stlCellR + '">+' + (p.total_additions || 0) + '</td>' +
+                '<td style="' + stlCellR + '">-' + (p.sales_reductions || 0) + '</td>' +
+                '<td style="' + stlCellR + '">-' + (p.inventory_edit_reductions || 0) + '</td>' +
+                '<td style="' + stlCellR + '">-' + (p.total_reductions || 0) + '</td>' +
+                '<td style="' + stlCellR + '"><strong>' + (p.final_stock == null ? '0' : p.final_stock) + '</strong></td>' +
+                '<td style="' + stlCellR + '">$' + (Number(p.buy_price) || 0).toFixed(2) + '</td>' +
+                '<td style="' + stlCellR + '">$' + (Number(p.sell_price) || 0).toFixed(2) + '</td>' +
+                '</tr>';
+        }).join('');
+        productHtml =
+            sectTitle + '1. Stock Summary by Product</h4>' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+                '<thead><tr>' +
+                    '<th style="' + stlHeader + '">Product</th>' +
+                    '<th style="' + stlHeader + '">Category</th>' +
+                    '<th style="' + stlHeaderR + '">Opening</th>' +
+                    '<th style="' + stlHeaderR + '">Additions</th>' +
+                    '<th style="' + stlHeaderR + '">Sale Red.</th>' +
+                    '<th style="' + stlHeaderR + '">Inv. Red.</th>' +
+                    '<th style="' + stlHeaderR + '">Total Red.</th>' +
+                    '<th style="' + stlHeaderR + '">Closing</th>' +
+                    '<th style="' + stlHeaderR + '">Buy</th>' +
+                    '<th style="' + stlHeaderR + '">Sell</th>' +
+                '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+    
+    // ---- 2. Itemised Stock Movements ----
+    let movementHtml = '';
+    if (auditMovementData && auditMovementData.length) {
+        const rows = auditMovementData.map(function(m, i) {
+            const zebra = (i % 2 === 1) ? ' style="background-color:' + stlZebra + ';"' : '';
+            const isAddition = m.type === 'addition';
+            const typeLabel = isAddition ? 'Addition' : (m.reduction_type === 'item_sale' ? 'Sale' : 'Inv. Edit');
+            const typeColor = isAddition ? '#198754' : (m.reduction_type === 'item_sale' ? '#0d6efd' : '#dc3545');
+            return '<tr' + zebra + '>' +
+                '<td style="' + stlCell + ';white-space:nowrap;">' + escapeHtml(formatDateShort(m.date)) + '</td>' +
+                '<td style="' + stlCell + '"><strong>' + escapeHtml(m.product_name || 'Unknown') + '</strong></td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(m.category || 'N/A') + '</td>' +
+                '<td style="' + stlCell + ';color:' + typeColor + ';font-weight:bold;">' + typeLabel + '</td>' +
+                '<td style="' + stlCellR + ';color:' + typeColor + ';font-weight:bold;">' + (isAddition ? '+' : '-') + (m.quantity == null ? '0' : m.quantity) + '</td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(m.details || '') + '</td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(m.user || 'System') + '</td>' +
+                '</tr>';
+        }).join('');
+        movementHtml =
+            sectTitle + '2. Itemised Stock Movements</h4>' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+                '<thead><tr>' +
+                    '<th style="' + stlHeader + '">Date</th>' +
+                    '<th style="' + stlHeader + '">Product</th>' +
+                    '<th style="' + stlHeader + '">Category</th>' +
+                    '<th style="' + stlHeader + '">Type</th>' +
+                    '<th style="' + stlHeaderR + '">Qty</th>' +
+                    '<th style="' + stlHeader + '">Details</th>' +
+                    '<th style="' + stlHeader + '">User</th>' +
+                '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+    
+    // ---- 3. Removed / Deleted Items ----
+    let removalHtml = '';
+    if (auditRemovalData && auditRemovalData.length) {
+        const rows = auditRemovalData.map(function(r, i) {
+            const zebra = (i % 2 === 1) ? ' style="background-color:' + stlZebra + ';"' : '';
+            const isWipe = r.action === 'wipe_all';
+            const label = isWipe ? 'Wipe All' : 'Deleted';
+            const color = isWipe ? '#b45309' : '#dc3545';
+            return '<tr' + zebra + '>' +
+                '<td style="' + stlCell + ';white-space:nowrap;">' + escapeHtml(formatDateShort(r.date)) + '</td>' +
+                '<td style="' + stlCell + '"><strong>' + escapeHtml(r.product_name || 'Unknown') + '</strong></td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(r.category || 'N/A') + '</td>' +
+                '<td style="' + stlCell + ';color:' + color + ';font-weight:bold;">' + label + '</td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(r.details || '') + '</td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(r.user || 'System') + '</td>' +
+                '</tr>';
+        }).join('');
+        removalHtml =
+            sectTitle + '3. Removed / Deleted Items</h4>' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+                '<thead><tr>' +
+                    '<th style="' + stlHeader + '">Date</th>' +
+                    '<th style="' + stlHeader + '">Product</th>' +
+                    '<th style="' + stlHeader + '">Category</th>' +
+                    '<th style="' + stlHeader + '">Action</th>' +
+                    '<th style="' + stlHeader + '">Details</th>' +
+                    '<th style="' + stlHeader + '">User</th>' +
+                '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+    
+    // ---- 4. Voided / Reverted Transactions ----
+    let voidedHtml = '';
+    if (auditVoidedData && auditVoidedData.length) {
+        const rows = auditVoidedData.map(function(v, i) {
+            const zebra = (i % 2 === 1) ? ' style="background-color:' + stlZebra + ';"' : '';
+            const its = v.items || [];
+            let itemsPreview = '\u2014';
+            if (its.length) {
+                const names = its.slice(0, 2).map(function(it) {
+                    return escapeHtml(it.product_name || 'Item') + ((it.quantity) ? ' x' + it.quantity : '');
+                }).join(', ');
+                itemsPreview = names + (its.length > 2 ? ' +' + (its.length - 2) + ' more' : '');
+            }
+            const pm = escapeHtml((v.payment_method || 'N/A').toUpperCase());
+            return '<tr' + zebra + '>' +
+                '<td style="' + stlCell + ';white-space:nowrap;">' + escapeHtml(formatDateShort(v.voided_at)) + '</td>' +
+                '<td style="' + stlCell + '"><strong>' + escapeHtml(v.transaction_number || 'N/A') + '</strong></td>' +
+                '<td style="' + stlCell + '">' + itemsPreview + '</td>' +
+                '<td style="' + stlCellR + ';color:#dc3545;font-weight:bold;">$' + (Number(v.total) || 0).toFixed(2) + '</td>' +
+                '<td style="' + stlCell + '">' + pm + '</td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(v.cashier || 'Admin') + '</td>' +
+                '<td style="' + stlCell + '">' + escapeHtml(v.voided_by || 'System') + '</td>' +
+                '<td style="' + stlCell + ';white-space:nowrap;">' + escapeHtml(formatDateShort(v.created_at)) + '</td>' +
+                '</tr>';
+        }).join('');
+        voidedHtml =
+            sectTitle + '4. Voided / Reverted Transactions</h4>' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+                '<thead><tr>' +
+                    '<th style="' + stlHeader + '">Voided On</th>' +
+                    '<th style="' + stlHeader + '">Receipt #</th>' +
+                    '<th style="' + stlHeader + '">Items</th>' +
+                    '<th style="' + stlHeaderR + '">Total</th>' +
+                    '<th style="' + stlHeader + '">Payment</th>' +
+                    '<th style="' + stlHeader + '">Cashier</th>' +
+                    '<th style="' + stlHeader + '">Voided By</th>' +
+                    '<th style="' + stlHeader + '">Original Sale</th>' +
+                '</tr></thead><tbody>' + rows + '</tbody></table>';
+    }
+    
+    // ---- Assemble the printable document ----
+    const pdfContent = document.createElement('div');
+    pdfContent.style.cssText = 'width:1100px;padding:24px;font-family:Arial,Helvetica,sans-serif;background:#ffffff;color:#111827;box-sizing:border-box;';
+    pdfContent.innerHTML =
+        '<div style="text-align:center;border-bottom:3px solid #16295c;padding-bottom:10px;margin-bottom:12px;">' +
+            '<h1 style="margin:0;color:#16295c;font-size:20px;">ConnectLink Hardware</h1>' +
+            '<h3 style="margin:3px 0 0;color:#C12B3E;font-size:13px;">Inventory Audit Report</h3>' +
+            '<p style="margin:5px 0 0;font-size:10px;color:#374151;">Period: <strong>' + escapeHtml(startDate) + '</strong> to <strong>' + escapeHtml(endDate) + '</strong> &nbsp;|&nbsp; Generated: ' + new Date().toLocaleString() + '</p>' +
+        '</div>' +
+        summaryHtml +
+        productHtml +
+        movementHtml +
+        removalHtml +
+        voidedHtml +
+        '<p style="margin-top:10px;font-size:8px;color:#6b7280;">End of report &mdash; ConnectLink Hardware POS.</p>';
+    
+    document.body.appendChild(pdfContent);
+    
+    const opt = {
+        margin: [0.4, 0.4, 0.4, 0.4],
+        filename: 'stock_audit_' + (document.getElementById('auditStartDate').value || 'all') + '_to_' + (document.getElementById('auditEndDate').value || 'all') + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 1.5, useCORS: true },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
+    };
+    html2pdf().set(opt).from(pdfContent).save()
+        .then(function() {
+            document.body.removeChild(pdfContent);
+            showToast('PDF export complete!', 'success');
+        })
+        .catch(function(err) {
+            console.error('PDF generation error:', err);
+            document.body.removeChild(pdfContent);
+            showToast('Error generating PDF', 'error');
+        });
 }
 
 function formatDateShort(dateStr) {
