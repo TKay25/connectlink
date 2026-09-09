@@ -3,20 +3,20 @@
   "_managed_by": "artifacto-plugin",
   "module": "PreviewAuditPdf",
   "file": "_preview_audit_pdf.py",
-  "purpose": "Throwaway mock server to verify the POS Audit Report -> PDF export.",
-  "entry_function": "index()",
+  "purpose": "Throwaway mock server (temp) to diagnose blank Stock Audit PDF pages.",
+  "entry_function": "gen_movements(n)",
   "entry_flows": [
-    "_preview_audit_pdf → system.html, fh.read"
+    "_preview_audit_pdf → fh.read, random.seed, random.randint, out.append"
   ],
   "public_api": [
+    "gen_movements(n)",
+    "gen_products_summary()",
     "index()",
     "favicon()",
     "check_auth()",
     "categories()",
     "products()",
-    "dashboard_stats()",
-    "today_by_cashier()",
-    "transactions()"
+    "dashboard_stats()"
   ],
   "dependencies": [
     "flask"
@@ -28,7 +28,7 @@
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "Key constants: POS_HTML = fh.read(), PRODUCTS = [{'id': 1, 'name': 'Claw Hammer 500g', 'category': 'DIY', 'unit_type': 'piece', 'unit_details': '', 'buy_price': 4.5, 'sell_price': 7.5, 'stock': 20, 'barcode': '1111', 'low_stock': 5}, {'id': 2, 'name': '2.5mm Twin & Earth Cable 50m', 'category': 'Electricals', 'unit_type': 'roll', 'unit_details': '50m', 'buy_price': 18.0, 'sell_price': 26.0, 'stock': 8, 'barcode': '2222', 'low_stock': 3}, {'id': 3, 'name': '15mm Copper Pipe 3m', 'category': 'Plumbing', 'unit_type': 'length', 'unit_details': '3m', 'buy_price': 9.0, 'sell_price': 13.5, 'stock': 0, 'barcode': '3333', 'low_stock': 2}], CATEGORIES = [{'id': 1, 'name': 'All'}, {'id': 2, 'name': 'DIY'}, {'id': 3, 'name': 'Electricals'}, {'id': 4, 'name': 'Plumbing'}], SAMPLE_MOVEMENTS = [{'date': '2026-08-10 08:12:00', 'product_name': 'Claw Hammer 500g', 'category': 'DIY', 'type': 'addition', 'quantity': 25, 'details': 'Stock received from supplier (INV-1045)', 'user': 'Tinashe M'}, {'date': '2026-08-11 10:40:00', 'product_name': '2.5mm Twin & Earth Cable 50m', 'category': 'Electricals', 'type': 'addition', 'quantity': 10, 'details': 'Restock', 'user': 'Tinashe M'}, {'date': '2026-08-12 14:05:00', 'product_name': 'Claw Hammer 500g', 'category': 'DIY', 'type': 'reduction', 'reduction_type': 'item_sale', 'quantity': 3, 'details': 'Sale T-20260812-0001', 'user': 'System (Sale)'}, {'date': '2026-08-13 09:30:00', 'product_name': '15mm Copper Pipe 3m', 'category': 'Plumbing', 'type': 'reduction', 'reduction_type': 'inventory_edit', 'quantity': 2, 'details': 'Damaged stock write-off', 'user': 'Admin'}], SAMPLE_PRODUCT_SUMMARY = [{'name': 'Claw Hammer 500g', 'category': 'DIY', 'initial_stock': 10, 'total_additions': 25, 'sales_reductions': 3, 'inventory_edit_reductions': 0, 'total_reductions': 3, 'final_stock': 32, 'buy_price': 4.5, 'sell_price': 7.5}, {'name': '2.5mm Twin & Earth Cable 50m', 'category': 'Electricals', 'initial_stock': 5, 'total_additions': 10, 'sales_reductions': 2, 'inventory_edit_reductions': 0, 'total_reductions': 2, 'final_stock': 13, 'buy_price': 18.0, 'sell_price': 26.0}, {'name': '15mm Copper Pipe 3m', 'category': 'Plumbing', 'initial_stock': 4, 'total_additions': 0, 'sales_reductions': 1, 'inventory_edit_reductions': 2, 'total_reductions': 3, 'final_stock': 1, 'buy_price': 9.0, 'sell_price': 13.5}], SAMPLE_REMOVALS = [{'date': '2026-08-14 11:00:00', 'product_name': 'Broken Drill Bit', 'category': 'Machinery', 'action': 'delete', 'details': 'Product deleted (duplicate entry)', 'user': 'Admin'}, {'date': '2026-08-15 15:20:00', 'product_name': 'Claw Hammer 500g', 'category': 'DIY', 'action': 'wipe_all', 'details': 'Remove all items & history', 'user': 'Manager'}]",
+  "notes": "Key constants: POS_HTML = fh.read(), PRODUCTS = [{'id': 1, 'name': 'Claw Hammer 500g', 'category': 'DIY', 'unit_type': 'piece', 'unit_details': '', 'buy_price': 4.5, 'sell_price': 7.5, 'stock': 20, 'barcode': '1111', 'low_stock': 5}, {'id': 2, 'name': '2.5mm Twin & Earth Cable 50m', 'category': 'Electricals', 'unit_type': 'roll', 'unit_details': '50m', 'buy_price': 18.0, 'sell_price': 26.0, 'stock': 8, 'barcode': '2222', 'low_stock': 3}, {'id': 3, 'name': '15mm Copper Pipe 3m', 'category': 'Plumbing', 'unit_type': 'length', 'unit_details': '3m', 'buy_price': 9.0, 'sell_price': 13.5, 'stock': 0, 'barcode': '3333', 'low_stock': 2}], CATEGORIES = [{'id': 1, 'name': 'All'}, {'id': 2, 'name': 'DIY'}, {'id': 3, 'name': 'Electricals'}, {'id': 4, 'name': 'Plumbing'}], NAMES = ['Claw Hammer 500g', '2.5mm Twin & Earth Cable 50m', '15mm Copper Pipe 3m', 'Screwdriver Set 6pc', 'LED Bulb 9W', 'PVC Pipe 110mm', 'Angle Grinder 750W'], CATS = ['DIY', 'Electricals', 'Plumbing', 'DIY', 'Electricals', 'Plumbing', 'Machinery'], BIG = 500",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -38,7 +38,7 @@
   "file_mtime": 1788969546840.5452,
   "file_size": 6423,
   "file_birthtime": 1788969546466.2358,
-  "generated_at": "2026-09-09T16:00:34.725967Z",
+  "generated_at": "2026-09-09T17:37:24.677100Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }
