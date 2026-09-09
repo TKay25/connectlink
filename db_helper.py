@@ -90,8 +90,11 @@ def _checkout():
                 pass
             return _connect(), False
 
-    if not pooled or (time.time() - ts) > POOL_IDLE_PROBE_SECONDS:
-        # Probe (or replace) a possibly-stale connection
+    if pooled and ts != 0.0:
+        # Liveness-probe every reused pooled connection before handing it out.
+        # Render/cloud Postgres can silently drop an idle SSL connection, which
+        # otherwise surfaces later as "SSL connection has been closed unexpectedly"
+        # inside request code. One cheap SELECT 1 beats a 500 error.
         try:
             cur = conn.cursor()
             cur.execute("SELECT 1")
@@ -102,9 +105,8 @@ def _checkout():
                 conn.close()
             except Exception:
                 pass
-            if pooled:
-                with _pool_lock:
-                    _total = max(0, _total - 1)
+            with _pool_lock:
+                _total = max(0, _total - 1)
             fresh = _connect()
             return fresh, False
     return conn, pooled
@@ -112,6 +114,7 @@ def _checkout():
 
 def _checkin(conn, pooled):
     """Return a connection to the pool (or close it if temporary/overflow)."""
+    global _total
     if conn is None:
         return
     if not pooled:
@@ -135,6 +138,7 @@ def _checkin(conn, pooled):
 
 def _discard(conn, pooled):
     """Close a broken/poisoned connection and free its pool slot."""
+    global _total
     if conn is None:
         return
     try:
