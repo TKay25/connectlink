@@ -41322,6 +41322,13 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
     var interim=_enqFollowData.interim||[];
     var fups=_enqFollowData.followups||[];
     var enqs=(srcFilter==='interim')?interim:mainEnqs;
+    // Flagged "Still needs help" enquiries float to the top (same idea as the Unattended
+    // banner). Stable sort keeps the existing newest-first order within each group.
+    enqs=enqs.slice().sort(function(a,b){
+      var af=(a.customer_response==='still_need_help')?0:1;
+      var bf=(b.customer_response==='still_need_help')?0:1;
+      return af-bf;
+    });
     var summary=document.getElementById('enqFollowSummary');
     if(summary) summary.textContent=enqs.length+' '+srcFilter+' enquiry(s) \u00b7 '+fups.length+' follow-up(s)';
     if(!enqs.length){list.innerHTML='<div style="font-size:0.65rem;color:var(--text-muted);text-align:center;padding:14px;">No '+srcFilter+' enquiries match this filter.</div>';}
@@ -41333,10 +41340,11 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
         var created=isInterim&&e.created_at?escH((''+e.created_at).slice(0,16).replace('T',' ')):'';
         // Interim enquiries have no status column — derive it from the client's follow-up
         // response (resolved => attended to, otherwise still pending) so the list shows the
-        // same Pending/Attended-to status as main enquiries.
-        var st=isInterim?((e.customer_response==='resolved')?'Attended to':'Pending'):(e.status==='completed'?'Attended to':(e.status==='in_progress'?'In Progress':'Pending'));
-        var stColor=isInterim?((e.customer_response==='resolved')?'#16a34a':'#d97706'):(e.status==='completed'?'#16a34a':(e.status==='in_progress'?'#0891b2':'#d97706'));
-        var resp=e.customer_response?escH(e.customer_response==='resolved'?'\u2713 Resolved':'\u270b Still needs help'):'\u2014';
+        // same Pending/Attended-to status as main enquiries. A "still need help" reply is
+        // surfaced as its own red flag (the Unattended banner's "Still needs help" flag).
+        var needsHelp=(e.customer_response==='still_need_help');
+        var st=isInterim?(needsHelp?'Still needs help':(e.customer_response==='resolved'?'Attended to':'Pending')):(e.status==='completed'?'Attended to':(e.status==='in_progress'?'In Progress':'Pending'));
+        var stColor=isInterim?(needsHelp?'#b91c1c':(e.customer_response==='resolved'?'#16a34a':'#d97706')):(e.status==='completed'?'#16a34a':(e.status==='in_progress'?'#0891b2':'#d97706'));
         return '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--gray-200);cursor:pointer;background:#fff;">'
           +'<input type="checkbox" class="enq-fu-cb" data-src="'+(isInterim?'interim':'main')+'" value="'+e.id+'" checked onchange="enqFollowCount()" style="accent-color:#25D366;width:15px;height:15px;flex-shrink:0;">'
           +'<span style="flex:1;min-width:0;font-size:0.7rem;">'
@@ -41348,7 +41356,8 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
           +(created?' <span style="color:#94a3b8;font-size:0.62rem;">'+created+'</span>':'')
           +' <span style="color:#64748b;font-size:0.62rem;">('+(e.followup_count||0)+'\u00d7)</span>'
           +(e.followup_failed_count>0?' <span style="color:#dc2626;font-size:0.62rem;font-weight:700;" title="Follow-up failed to send">\u26a0 '+e.followup_failed_count+' failed</span>':'')
-          +((!isInterim||e.customer_response)?' <span style="color:'+(e.customer_response?'#16a34a':'#94a3b8')+';font-size:0.62rem;">'+resp+'</span>':'')
+          +(e.customer_response==='resolved'?' <span style="color:#16a34a;font-size:0.62rem;">\u2713 Resolved</span>':(!isInterim?' <span style="color:#94a3b8;font-size:0.62rem;">\u2014</span>':''))
+          +(needsHelp?' <span style="color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:999px;padding:1px 7px;font-size:0.6rem;font-weight:800;white-space:nowrap;" title="Client said they still need help">🚩 Still needs help</span>':'')
           +(!isInterim&&e.banner_flagged?' <span style="color:#7c3aed;font-size:0.62rem;" title="In Unattended banner">📌</span>':'')
           +(!isInterim?'<div style="color:#64748b;font-size:0.62rem;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="'+escH(e.enq||'')+'">'+escH(e.enq||'')+'</div>':'')
           +'</span></label>';
