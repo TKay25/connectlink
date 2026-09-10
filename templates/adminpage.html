@@ -41613,6 +41613,16 @@ body.dark-theme #docTypeSelect:hover, body.dark-theme #docTypeSelect:focus { bor
 
             <!-- Fields shown only after a document type is chosen -->
             <div id="docFieldsArea" style="display:none;">
+            <!-- Document title (big heading printed on the invoice PDF; invoices only) -->
+            <div class="row g-2 mb-2" id="docTitleRow">
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold mb-1" style="font-size:.75rem;" id="docTitleLabel">Document Title</label>
+                    <input type="text" class="form-control form-control-sm" id="docTitle" placeholder="e.g. TAX INVOICE">
+                </div>
+                <div class="col-md-7 d-flex align-items-end pb-1">
+                    <div class="text-muted" style="font-size:.72rem;"><i class="bi bi-info-circle me-1"></i>Printed as the big heading on the invoice PDF — e.g. TAX INVOICE or PROFORMA INVOICE.</div>
+                </div>
+            </div>
             <!-- Shared: client / document header -->
             <div class="row g-2 mb-2">
                 <div class="col-md-4">
@@ -41874,6 +41884,9 @@ function clSetDocType(t){
     var nl=document.getElementById('docNoLabel'); if(nl) nl.textContent=(clDocType==='invoice')?'Invoice No.':'Receipt No.';
     if(hint) hint.textContent=(clDocType==='invoice')?'Create a branded invoice with line items, tax & totals.':'Record a payment received from a client.';
     var dn=document.getElementById('docDocNo'); if(dn) dn.value=clDocRef(clDocType==='invoice'?'INV':'RCP');
+    // The editable title applies to invoices only — receipts keep the standard "PAYMENT RECEIPT" heading.
+    var tr=document.getElementById('docTitleRow'); if(tr) tr.style.display=(clDocType==='invoice')?'':'none';
+    var ti=document.getElementById('docTitle'); if(ti) ti.value=(clDocType==='invoice')?'TAX INVOICE':'';
     if(clDocType==='invoice'){
         var i1=document.getElementById('invIssueDate'); if(i1) i1.value=clToday();
         var i2=document.getElementById('invDueDate'); if(i2) i2.value=clToday();
@@ -42002,6 +42015,7 @@ function clGenerateInvoice(){
     var docno=(document.getElementById('docDocNo').value||'').trim();
     var payload={
         client_name:name,
+        title:(document.getElementById('docTitle').value||'').trim(),
         client_address:(document.getElementById('docClientAddress').value||'').trim(),
         client_phone:(document.getElementById('docClientPhone').value||'').trim(),
         client_email:(document.getElementById('docClientEmail').value||'').trim(),
@@ -42076,6 +42090,7 @@ function clCollectDocPayload(){
     return {
         doc_type:'invoice',
         client_name:name,
+        title:(document.getElementById('docTitle').value||'').trim(),
         client_address:(document.getElementById('docClientAddress').value||'').trim(),
         client_phone:(document.getElementById('docClientPhone').value||'').trim(),
         client_email:(document.getElementById('docClientEmail').value||'').trim(),

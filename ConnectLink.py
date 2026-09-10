@@ -14861,7 +14861,8 @@ ENQUIRY_FOLLOWUP_TEMPLATE_NAME = os.getenv('WHATSAPP_ENQUIRY_FOLLOWUP_TEMPLATE',
 #   Name: receiptdownload  (env WHATSAPP_RECEIPT_DOWNLOAD_TEMPLATE)
 #   Body: "Hello {{1}}, your {{2}} {{3}} for {{4}} is ready. Tap the button below to
 #          download it. Thank you for choosing ConnectLink Properties."
-#          {{1}}=client name  {{2}}=Invoice/Receipt  {{3}}=document number  {{4}}=amount (e.g. "USD 1,250.00")
+#          {{1}}=client name  {{2}}=document title — the invoice's custom title (e.g. "TAX INVOICE"),
+#                or "Invoice"/"Receipt" when no title is set   {{3}}=document number   {{4}}=amount (e.g. "USD 1,250.00")
 #   Button (URL / "Visit website"): text "Download Invoice" (or "Download Receipt")
 #          URL: https://<PUBLIC_BASE_URL>/doc/share/{{1}}   ({{1}} = the share token the app passes)
 # The URL button needs no webhook handling: tapping it opens /doc/share/<token>, which
@@ -31730,8 +31731,9 @@ body { font-family:'Helvetica','Arial',sans-serif; color:#2C3E50; font-size:10px
 .brand img { max-height:52px; }
 .brand-name { font-size:17px; font-weight:700; color:#1E2A56; letter-spacing:.3px; line-height:1.2; }
 .brand-name .tagline { display:block; font-size:8px; font-weight:600; color:#666; letter-spacing:1.6px; text-transform:uppercase; margin-top:3px; }
-.doc-title-wrap { text-align:right; }
+.doc-title-wrap { text-align:right; max-width:55%; }
 .doc-badge { color:#1E2A56; font-size:20px; font-weight:800; letter-spacing:4px; }
+.doc-subtitle { color:#666; font-size:10px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase; margin-top:3px; }
 .meta-table { margin-top:6px; margin-left:auto; border-collapse:collapse; }
 .meta-table td { padding:1px 6px; font-size:9.5px; text-align:right; color:#2C3E50; }
 .meta-table td.k { text-transform:uppercase; letter-spacing:1px; font-size:7px; color:#666; }
@@ -31820,6 +31822,9 @@ def _cl_build_invoice_html(data, company, logo_base64):
     """Build a polished A4 invoice HTML string (WeasyPrint)."""
     currency = str(data.get('currency') or 'USD').upper()[:8]
     doc_no = str(data.get('doc_no') or '').strip() or _cl_doc_ref('INV')
+    # Custom title shown as a subtitle UNDER the "INVOICE" badge (e.g. TAX INVOICE, PROFORMA INVOICE)
+    doc_title = html.escape(str(data.get('title') or '').strip()[:60])
+    doc_subtitle_html = f'<div class="doc-subtitle">{doc_title}</div>' if doc_title else ''
 
     issue_date = _cl_iso_date(data.get('issue_date'), default_today=True)
     due_date = _cl_iso_date(data.get('due_date')) or (issue_date + timedelta(days=30))
@@ -31899,6 +31904,7 @@ def _cl_build_invoice_html(data, company, logo_base64):
         </div>
         <div class="doc-title-wrap">
             <div class="doc-badge">INVOICE</div>
+            {doc_subtitle_html}
             <table class="meta-table">
                 <tr><td class="k">Invoice No</td><td class="v">{html.escape(doc_no)}</td></tr>
                 <tr><td class="k">Issue Date</td><td class="v">{issue_disp}</td></tr>
@@ -32169,6 +32175,7 @@ def _cl_render_invoice(data):
     company, logo_b64 = _cl_company_branding()
     html_out = _cl_build_invoice_html({
         'client_name': client_name,
+        'title': data.get('title'),
         'client_address': data.get('client_address'),
         'client_phone': data.get('client_phone'),
         'client_email': data.get('client_email'),
@@ -32304,11 +32311,13 @@ def _manual_doc_share_page(title, message):
             "</body></html>", 410)
 
 
-def send_manual_doc_download_template(recipient_number, share_token, doc_type, client_name, doc_no, amount, currency):
+def send_manual_doc_download_template(recipient_number, share_token, doc_type, client_name, doc_no, amount, currency, doc_title=''):
     """Send the approved invoice/receipt download template (URL button → public share
-    link) so it works outside the 24h WhatsApp session window. Raises ValueError on failure."""
+    link) so it works outside the 24h WhatsApp session window. Raises ValueError on failure.
+    {{2}} is the document title: the invoice's custom title (e.g. "TAX INVOICE"), or
+    "Invoice"/"Receipt" when no title is set."""
     template_name = RECEIPT_DOWNLOAD_TEMPLATE_NAME if doc_type == 'receipt' else INVOICE_DOWNLOAD_TEMPLATE_NAME
-    doc_label = 'Receipt' if doc_type == 'receipt' else 'Invoice'
+    doc_label = str(doc_title or '').strip() or ('Receipt' if doc_type == 'receipt' else 'Invoice')
     amount_str = f"{str(currency or '').upper()} {float(amount or 0):,.2f}".strip()
     url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
     headers = {"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"}
@@ -32389,6 +32398,7 @@ def manual_document_send_whatsapp():
         return jsonify({'success': False, 'error_message': 'Enter a valid WhatsApp number with a country code, e.g. 263771234567.'}), 400
     try:
         doc_id = data.get('doc_id')
+        title_src = data
         if doc_id:
             with get_db() as (cursor, connection):
                 cursor.execute("SELECT doc_type, doc_no, payload FROM manual_documents WHERE id = %s", (int(doc_id),))
@@ -32398,11 +32408,15 @@ def manual_document_send_whatsapp():
             doc_type = 'receipt' if row[0] == 'receipt' else 'invoice'
             payload = row[2] if isinstance(row[2], dict) else (json.loads(row[2]) if row[2] else {})
             payload['doc_no'] = row[1]
+            title_src = payload
             pdf_bytes, meta = (_cl_render_receipt(payload) if doc_type == 'receipt' else _cl_render_invoice(payload))
         else:
             doc_type = 'receipt' if str(data.get('doc_type')) == 'receipt' else 'invoice'
             pdf_bytes, meta = (_cl_render_receipt(data) if doc_type == 'receipt' else _cl_render_invoice(data))
             doc_id = _cl_save_manual_doc(doc_type, data, meta)
+        # {{2}} of the WhatsApp template = the invoice's custom title (e.g. "TAX INVOICE");
+        # receipts have no editable title, so they fall back to "Receipt".
+        wa_doc_title = str((title_src or {}).get('title') or '').strip() if doc_type == 'invoice' else ''
 
         filename = _cl_manual_doc_filename(doc_type, meta)
         doc_label = 'Receipt' if doc_type == 'receipt' else 'Invoice'
@@ -32420,7 +32434,7 @@ def manual_document_send_whatsapp():
             print(f"⚠️ manual doc share token failed: {se}")
         if share_token and share_url:
             try:
-                send_manual_doc_download_template(recipient, share_token, doc_type, meta.get('client_name'), meta.get('doc_no'), meta.get('amount'), meta.get('currency'))
+                send_manual_doc_download_template(recipient, share_token, doc_type, meta.get('client_name'), meta.get('doc_no'), meta.get('amount'), meta.get('currency'), wa_doc_title)
                 sent_method = 'template'
             except Exception as te:
                 print(f"⚠️ manual doc template unavailable, sending document instead: {te}")
