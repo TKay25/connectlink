@@ -14855,6 +14855,20 @@ bot = "ConnectLink Properties"
 QUOTATION_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_QUOTATION_DOWNLOAD_TEMPLATE', 'quotationdownload')
 CONTRACT_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_CONTRACT_DOWNLOAD_TEMPLATE', 'contractdownloadtemplate')
 ENQUIRY_FOLLOWUP_TEMPLATE_NAME = os.getenv('WHATSAPP_ENQUIRY_FOLLOWUP_TEMPLATE', 'enquiriesfollowup')
+# ---- Manual invoice / receipt WhatsApp download templates --------------------------------
+# Create these 2 UTILITY templates in Meta Business Manager (language: en).
+#   Name: invoicedownload  (env WHATSAPP_INVOICE_DOWNLOAD_TEMPLATE)
+#   Name: receiptdownload  (env WHATSAPP_RECEIPT_DOWNLOAD_TEMPLATE)
+#   Body: "Hello {{1}}, your {{2}} {{3}} for {{4}} is ready. Tap the button below to
+#          download it. Thank you for choosing ConnectLink Properties."
+#          {{1}}=client name  {{2}}=Invoice/Receipt  {{3}}=document number  {{4}}=amount (e.g. "USD 1,250.00")
+#   Button (URL / "Visit website"): text "Download Invoice" (or "Download Receipt")
+#          URL: https://<PUBLIC_BASE_URL>/doc/share/{{1}}   ({{1}} = the share token the app passes)
+# The URL button needs no webhook handling: tapping it opens /doc/share/<token>, which
+# streams the stored PDF from the manual_doc_share_links table.
+INVOICE_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_INVOICE_DOWNLOAD_TEMPLATE', 'invoicedownload')
+RECEIPT_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_RECEIPT_DOWNLOAD_TEMPLATE', 'receiptdownload')
+MANUAL_DOC_SHARE_TOKEN_HOURS = int(os.getenv('MANUAL_DOC_SHARE_TOKEN_HOURS', '720'))
 PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
 QUOTATION_SHARE_TOKEN_HOURS = int(os.getenv('QUOTATION_SHARE_TOKEN_HOURS', '168'))
 
@@ -32095,6 +32109,20 @@ def _cl_ensure_manual_table():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            # Public share tokens for Meta "Download" template URL buttons (mirrors
+            # quotation_share_links). Stores the rendered PDF so the /doc/share/<token>
+            # link can stream it without regenerating.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS manual_doc_share_links (
+                    id SERIAL PRIMARY KEY,
+                    doc_id INT,
+                    share_token VARCHAR(120) NOT NULL UNIQUE,
+                    expires_at TIMESTAMP NOT NULL,
+                    pdf_data BYTEA,
+                    pdf_filename VARCHAR(255) DEFAULT '',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
             connection.commit()
     except Exception as exc:
         print(f"⚠️ _cl_ensure_manual_table: {exc}")
@@ -32229,6 +32257,196 @@ def _cl_manual_guard():
     if not _cl_has_view_payments():
         return jsonify({'success': False, 'error_message': 'You do not have permission to view document history'}), 403
     return None
+
+
+# ==================== Manual invoice/receipt → WhatsApp ====================
+def _cl_manual_doc_filename(doc_type, meta):
+    prefix = 'Receipt' if doc_type == 'receipt' else 'Invoice'
+    return f"{prefix}_{_cl_clean_filename((meta or {}).get('client_name') or 'Client')}_{_cl_clean_filename((meta or {}).get('doc_no') or '')}.pdf"
+
+
+def create_manual_doc_share_token(doc_id, pdf_bytes, pdf_filename):
+    """Create a short-lived public token that serves the stored PDF for the Meta
+    'download' template URL button. Mirrors create_quotation_share_token."""
+    _cl_ensure_manual_table()
+    token = f"manualdoc_{doc_id}_{uuid.uuid4().hex[:12]}"
+    expiry = datetime.now() + timedelta(hours=MANUAL_DOC_SHARE_TOKEN_HOURS)
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            INSERT INTO manual_doc_share_links (doc_id, share_token, expires_at, pdf_data, pdf_filename)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (doc_id, token, expiry, pdf_bytes, pdf_filename or ''))
+        connection.commit()
+    return token
+
+
+def get_manual_doc_share_url(share_token):
+    """Public URL the client's WhatsApp 'Download' button opens."""
+    public_base = PUBLIC_BASE_URL
+    if not public_base:
+        try:
+            public_base = request.url_root.rstrip('/')
+        except RuntimeError:
+            public_base = ''
+    if not public_base:
+        return ''
+    return f"{public_base}/doc/share/{share_token}"
+
+
+def _manual_doc_share_page(title, message):
+    return ("<!doctype html><html><head><meta charset='utf-8'>"
+            "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+            f"<title>{title}</title></head>"
+            "<body style='font-family:Arial,Helvetica,sans-serif;text-align:center;padding:60px 20px;color:#0f172a;'>"
+            f"<h2 style='color:#C12B3E;margin:0 0 8px;'>{title}</h2>"
+            f"<p style='color:#475569;'>{message}</p>"
+            "<p style='color:#94a3b8;font-size:12px;margin-top:26px;'>ConnectLink Properties</p>"
+            "</body></html>", 410)
+
+
+def send_manual_doc_download_template(recipient_number, share_token, doc_type, client_name, doc_no, amount, currency):
+    """Send the approved invoice/receipt download template (URL button → public share
+    link) so it works outside the 24h WhatsApp session window. Raises ValueError on failure."""
+    template_name = RECEIPT_DOWNLOAD_TEMPLATE_NAME if doc_type == 'receipt' else INVOICE_DOWNLOAD_TEMPLATE_NAME
+    doc_label = 'Receipt' if doc_type == 'receipt' else 'Invoice'
+    amount_str = f"{str(currency or '').upper()} {float(amount or 0):,.2f}".strip()
+    url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
+    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"}
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": recipient_number,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": os.getenv('WHATSAPP_MANUAL_DOC_TEMPLATE_LANG', 'en')},
+            "components": [
+                {"type": "body", "parameters": [
+                    {"type": "text", "text": strip_html_tags(client_name) or 'Valued Client'},
+                    {"type": "text", "text": doc_label},
+                    {"type": "text", "text": str(doc_no or '')},
+                    {"type": "text", "text": amount_str},
+                ]},
+                {"type": "button", "sub_type": "url", "index": 0,
+                 "parameters": [{"type": "text", "text": str(share_token)}]},
+            ],
+        },
+    }
+    response = requests.post(url, headers=headers, json=payload, timeout=45)
+    data = response.json()
+    print(f"📨 Manual doc template [{template_name}] → {recipient_number} [{response.status_code}]: {str(data)[:400]}")
+    if response.status_code != 200 or 'error' in data or not data.get('messages'):
+        raise ValueError(f"Template send failed: {data.get('error', data)}")
+    try:
+        with get_db() as (save_cursor, save_conn):
+            save_cursor.execute("""
+                INSERT INTO whatsapp_messages
+                (sender_phone, sender_name, message_text, message_type, direction, status)
+                VALUES (%s, %s, %s, 'template', 'outgoing', 'sent')
+            """, (recipient_number, 'ConnectLink Bot', f'[Template: {template_name}] {doc_label} {doc_no}'))
+            save_conn.commit()
+    except Exception as save_err:
+        print(f"⚠️ Failed to save manual doc template message: {save_err}")
+    return data
+
+
+@app.route('/doc/share/<share_token>')
+def manual_doc_share_view(share_token):
+    """Public (no-login) download link for a shared manual invoice/receipt."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT pdf_data, pdf_filename, expires_at FROM manual_doc_share_links WHERE share_token = %s", (share_token,))
+            row = cursor.fetchone()
+        if not row or not row[0]:
+            return _manual_doc_share_page('Document Not Available', 'This document link is invalid or has expired. Please ask us to resend it.')
+        pdf_data, pdf_filename, expires_at = row
+        if expires_at and expires_at < datetime.now():
+            return _manual_doc_share_page('Link Expired', 'This document link has expired. Please ask us to resend it.')
+        filename = _cl_clean_filename(pdf_filename or 'document.pdf') or 'document.pdf'
+        if not filename.lower().endswith('.pdf'):
+            filename += '.pdf'
+        response = make_response(bytes(pdf_data))
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename="{filename}"'
+        return response
+    except Exception as exc:
+        print(f"Manual doc share error: {exc}")
+        return _manual_doc_share_page('Something Went Wrong', 'We could not load this document right now.')
+
+
+@app.route('/api/manual-documents/send-whatsapp', methods=['POST'])
+def manual_document_send_whatsapp():
+    """Generate (or reuse) a manual invoice/receipt and send it over WhatsApp.
+    Body: {whatsapp_number, doc_type:'invoice'|'receipt', ...generator payload} to
+    generate fresh, or {whatsapp_number, doc_id} to resend a saved document."""
+    if not (session.get('user_id') or session.get('userid')):
+        return jsonify({'success': False, 'error_message': 'Please log in first.'}), 401
+    data = request.get_json(force=True, silent=True) or {}
+    wa_digits = re.sub(r'\D', '', str(data.get('whatsapp_number') or ''))
+    if wa_digits.startswith('00'):
+        wa_digits = wa_digits[2:]
+    recipient = normalize_whatsapp_number(wa_digits)
+    if not recipient or len(recipient) < 8:
+        return jsonify({'success': False, 'error_message': 'Enter a valid WhatsApp number with a country code, e.g. 263771234567.'}), 400
+    try:
+        doc_id = data.get('doc_id')
+        if doc_id:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT doc_type, doc_no, payload FROM manual_documents WHERE id = %s", (int(doc_id),))
+                row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error_message': 'Document not found'}), 404
+            doc_type = 'receipt' if row[0] == 'receipt' else 'invoice'
+            payload = row[2] if isinstance(row[2], dict) else (json.loads(row[2]) if row[2] else {})
+            payload['doc_no'] = row[1]
+            pdf_bytes, meta = (_cl_render_receipt(payload) if doc_type == 'receipt' else _cl_render_invoice(payload))
+        else:
+            doc_type = 'receipt' if str(data.get('doc_type')) == 'receipt' else 'invoice'
+            pdf_bytes, meta = (_cl_render_receipt(data) if doc_type == 'receipt' else _cl_render_invoice(data))
+            doc_id = _cl_save_manual_doc(doc_type, data, meta)
+
+        filename = _cl_manual_doc_filename(doc_type, meta)
+        doc_label = 'Receipt' if doc_type == 'receipt' else 'Invoice'
+        amount_str = f"{str(meta.get('currency') or '').upper()} {float(meta.get('amount') or 0):,.2f}".strip()
+
+        # 1) Publish a public download link and try the approved CTA template first
+        #    (works even outside the 24h window). Falls back to a document message.
+        share_url = ''
+        sent_method = None
+        try:
+            share_token = create_manual_doc_share_token(doc_id, pdf_bytes, filename)
+            share_url = get_manual_doc_share_url(share_token)
+        except Exception as se:
+            share_token = ''
+            print(f"⚠️ manual doc share token failed: {se}")
+        if share_token and share_url:
+            try:
+                send_manual_doc_download_template(recipient, share_token, doc_type, meta.get('client_name'), meta.get('doc_no'), meta.get('amount'), meta.get('currency'))
+                sent_method = 'template'
+            except Exception as te:
+                print(f"⚠️ manual doc template unavailable, sending document instead: {te}")
+
+        # 2) Direct document message (always works inside the 24h window)
+        if not sent_method:
+            caption = str(data.get('caption') or '').strip() or f"{doc_label} {meta.get('doc_no') or ''} — {amount_str}".strip(' —')
+            send_pdf_document_whatsapp(recipient, pdf_bytes, filename, caption)
+            sent_method = 'document'
+
+        log_activity('manual_doc_sent',
+                     f"{doc_label} {meta.get('doc_no')} ({amount_str}) sent to +{recipient} via WhatsApp ({sent_method})",
+                     'manual_document', doc_id,
+                     {'whatsapp_number': recipient, 'method': sent_method, 'share_url': share_url})
+        return jsonify({
+            'success': True,
+            'message': f'{doc_label} sent to +{recipient} on WhatsApp.',
+            'doc_id': doc_id, 'doc_no': meta.get('doc_no'), 'filename': filename,
+            'whatsapp_number': recipient, 'method': sent_method, 'share_url': share_url,
+        })
+    except ValueError as exc:
+        return jsonify({'success': False, 'error_message': str(exc)}), 400
+    except Exception as exc:
+        print(f"❌ manual_document_send_whatsapp error: {exc}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error_message': f'Failed to send document: {exc}'}), 500
 
 
 @app.route('/generate_custom_invoice', methods=['POST'])

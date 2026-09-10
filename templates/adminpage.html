@@ -41734,6 +41734,7 @@ body.dark-theme #docTypeSelect:hover, body.dark-theme #docTypeSelect:focus { bor
         </div>
         <div class="modal-footer-custom">
             <button type="button" class="btn btn-danger" onclick="closeModal('docGenModal')"><i class="bi bi-x-lg me-1"></i>Cancel</button>
+            <button type="button" class="btn btn-success" id="docWaBtn" onclick="clOpenWaSend()" disabled><i class="bi bi-whatsapp me-1"></i>Send via WhatsApp</button>
             <button type="button" class="btn btn-primary" id="docGenBtn" onclick="clGenerateDoc()" disabled><i class="bi bi-file-earmark-pdf me-1"></i>Generate PDF</button>
         </div>
     </div>
@@ -41785,6 +41786,34 @@ body.dark-theme #docTypeSelect:hover, body.dark-theme #docTypeSelect:focus { bor
     </div>
 </div>
 
+<!-- Send-on-WhatsApp modal (opens ON TOP of the generator / history modals) -->
+<div id="docWaModal" class="modal-overlay" style="z-index:1070;">
+    <div class="modal-container" style="max-width:480px;">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-whatsapp"></i> SEND ON WHATSAPP</h3>
+            <button class="close-modal" onclick="closeModal('docWaModal')"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="modal-body-custom">
+            <div class="alert alert-light border mb-3" style="font-size:.82rem;">
+                <div id="docWaSummary" class="fw-semibold">—</div>
+                <div class="text-muted mt-1" style="font-size:.74rem;">The PDF is generated, saved to history, then sent to the number below.</div>
+            </div>
+            <label class="form-label fw-semibold mb-1" style="font-size:.8rem;">WhatsApp number (with country code) *</label>
+            <input type="tel" class="form-control" id="docWaNumber" placeholder="e.g. 263771234567  ·  27821234567" autocomplete="tel">
+            <div class="form-text" style="font-size:.72rem;">Digits only including the country code — e.g. <b>263</b> for Zimbabwe, <b>27</b> for South Africa. No spaces, no “+”.</div>
+            <div class="mt-2">
+                <label class="form-label fw-semibold mb-1" style="font-size:.8rem;">Message / caption (optional)</label>
+                <input type="text" class="form-control" id="docWaCaption" placeholder="Leave blank to use the default message">
+            </div>
+            <div id="docWaStatus" class="mt-2" style="font-size:.8rem;"></div>
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-danger" onclick="closeModal('docWaModal')"><i class="bi bi-x-lg me-1"></i>Cancel</button>
+            <button type="button" class="btn btn-success" id="docWaSendBtn" onclick="clConfirmWaSend()"><i class="bi bi-send me-1"></i>Send</button>
+        </div>
+    </div>
+</div>
+
 <script>
 /* ---------- Invoices & Receipts generator (single modal + dropdown) ---------- */
 function clSlug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'document'; }
@@ -41829,6 +41858,7 @@ function clSetDocType(t){
         gb.disabled=!clDocType;
         gb.innerHTML='<i class="bi bi-file-earmark-pdf me-1"></i>'+(clDocType?('Generate '+(clDocType==='invoice'?'Invoice':'Receipt')+' PDF'):'Generate PDF');
     }
+    var wb=document.getElementById('docWaBtn'); if(wb){ wb.disabled=!clDocType; }
     var tt=document.getElementById('docGenTitle'); var ic=document.getElementById('docGenTitleIcon'); var hint=document.getElementById('docGenHint');
     if(!clDocType){
         if(tt) tt.textContent='INVOICE & RECEIPT GENERATOR';
@@ -41895,7 +41925,8 @@ function clLoadDocHistory(){
                  +'<td class="text-end">'+amt+'</td>'
                  +'<td>'+clEsc(d.created_by||'—')+'</td>'
                  +'<td>'+clEsc(d.created_at||'—')+'</td>'
-                 +'<td class="text-end"><button type="button" class="btn btn-sm btn-primary" onclick="clHistDownload('+d.id+',\''+label+'\')"><i class="bi bi-file-earmark-pdf me-1"></i>Generate PDF</button></td>'
+                 +'<td class="text-end"><button type="button" class="btn btn-sm btn-primary" onclick="clHistDownload('+d.id+',\''+label+'\')"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>'
+                 +' <button type="button" class="btn btn-sm btn-success" title="Send on WhatsApp" onclick="clOpenWaSendSaved('+d.id+',\''+label+'\')"><i class="bi bi-whatsapp"></i></button></td>'
                  +'</tr>';
           });
           body.innerHTML=rows;
@@ -42007,6 +42038,110 @@ function clGenerateReceipt(){
         notes:(document.getElementById('docNotes').value||'')
     };
     clPostPdf('/generate_custom_receipt',payload,btn,'Receipt_'+clSlug(name)+'_'+(docno?clSlug(docno):'auto')+'.pdf',function(){ alert('✅ Receipt PDF downloaded.'); });
+}
+
+/* ---------- Send invoice / receipt on WhatsApp ---------- */
+var clWaState={mode:'new',doc_id:null};
+function clCollectDocPayload(){
+    if(clDocType==='receipt'){
+        var rname=(document.getElementById('docClientName').value||'').trim();
+        if(!rname){ alert('⚠️ Please enter the client name the payment was received from.'); return null; }
+        var amt=parseFloat(document.getElementById('rcpAmount').value);
+        if(isNaN(amt)||amt<=0){ alert('⚠️ Please enter a valid amount greater than zero.'); return null; }
+        return {
+            doc_type:'receipt',
+            client_name:rname,
+            client_phone:(document.getElementById('docClientPhone').value||'').trim(),
+            client_email:(document.getElementById('docClientEmail').value||'').trim(),
+            client_address:(document.getElementById('docClientAddress').value||'').trim(),
+            currency:document.getElementById('docCurrency').value,
+            doc_no:(document.getElementById('docDocNo').value||'').trim(),
+            amount:amt,
+            payment_date:document.getElementById('rcpPaidDate').value,
+            payment_method:document.getElementById('rcpMethod').value,
+            reference:(document.getElementById('rcpReference').value||'').trim(),
+            notes:(document.getElementById('docNotes').value||'')
+        };
+    }
+    var name=(document.getElementById('docClientName').value||'').trim();
+    if(!name){ alert('⚠️ Please enter the client / bill-to name.'); return null; }
+    var items=[];
+    document.querySelectorAll('#invItems .inv-item-row').forEach(function(row){
+        var desc=(row.querySelector('.inv-desc').value||'').trim();
+        var q=parseFloat(row.querySelector('.inv-qty').value)||0;
+        var r=parseFloat(row.querySelector('.inv-rate').value)||0;
+        if(desc) items.push({description:desc,quantity:q,unit_price:r});
+    });
+    if(!items.length){ alert('⚠️ Add at least one line item with a description.'); return null; }
+    return {
+        doc_type:'invoice',
+        client_name:name,
+        client_address:(document.getElementById('docClientAddress').value||'').trim(),
+        client_phone:(document.getElementById('docClientPhone').value||'').trim(),
+        client_email:(document.getElementById('docClientEmail').value||'').trim(),
+        currency:document.getElementById('docCurrency').value,
+        doc_no:(document.getElementById('docDocNo').value||'').trim(),
+        issue_date:document.getElementById('invIssueDate').value,
+        due_date:document.getElementById('invDueDate').value,
+        items:items,
+        discount_pct:parseFloat(document.getElementById('invDiscountPct').value)||0,
+        tax_pct:parseFloat(document.getElementById('invTaxPct').value)||0,
+        notes:(document.getElementById('docNotes').value||'')
+    };
+}
+function clWaSetStatus(msg,isErr){
+    var el=document.getElementById('docWaStatus'); if(!el) return;
+    el.innerHTML=msg?('<span style="color:'+(isErr?'#dc2626':'#16a34a')+';font-weight:600;">'+msg+'</span>'):'';
+}
+function clOpenWaSend(){
+    var p=clCollectDocPayload(); if(!p) return;
+    clWaState={mode:'new',doc_id:null,payload:p};
+    var summary=(clDocType==='receipt')
+        ?('Receipt for '+p.client_name+' — '+(p.currency||'')+' '+(p.amount||0).toFixed(2))
+        :('Invoice for '+p.client_name+' — '+p.items.length+' item(s)');
+    var s=document.getElementById('docWaSummary'); if(s) s.textContent=summary;
+    var n=document.getElementById('docWaNumber');
+    if(n && !n.value) n.value=String(p.client_phone||'').replace(/[^0-9]/g,'');
+    var c=document.getElementById('docWaCaption'); if(c) c.value='';
+    clWaSetStatus('',false);
+    openModal('docWaModal');
+    setTimeout(function(){ if(n) n.focus(); },150);
+}
+function clOpenWaSendSaved(id,label){
+    clWaState={mode:'saved',doc_id:id,payload:null};
+    var s=document.getElementById('docWaSummary'); if(s) s.textContent=(label||'Document')+' — saved document #'+id;
+    var c=document.getElementById('docWaCaption'); if(c) c.value='';
+    clWaSetStatus('',false);
+    openModal('docWaModal');
+    var n=document.getElementById('docWaNumber'); setTimeout(function(){ if(n) n.focus(); },150);
+}
+function clConfirmWaSend(){
+    var num=(document.getElementById('docWaNumber').value||'').replace(/[^0-9]/g,'');
+    if(num.length<8){ clWaSetStatus('⚠️ Enter the full number with its country code, e.g. 263771234567.',true); return; }
+    var caption=(document.getElementById('docWaCaption').value||'').trim();
+    var body;
+    if(clWaState.mode==='saved'){
+        body={whatsapp_number:num,doc_id:clWaState.doc_id,caption:caption};
+    } else {
+        var p=clCollectDocPayload(); if(!p) return;
+        body=Object.assign({},p,{whatsapp_number:num,caption:caption});
+    }
+    var btn=document.getElementById('docWaSendBtn');
+    if(btn){ btn.dataset.orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Sending…'; }
+    clWaSetStatus('Generating the PDF and sending…',false);
+    fetch('/api/manual-documents/send-whatsapp',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if(!r.ok) throw new Error((j&&j.error_message)||('Server error (HTTP '+r.status+')')); return j; }); })
+      .then(function(res){
+          if(btn){ btn.disabled=false; btn.innerHTML=btn.dataset.orig||'<i class="bi bi-send me-1"></i>Send'; }
+          if(!res || !res.success){ throw new Error((res&&res.error_message)||'Failed to send'); }
+          clWaSetStatus('✅ '+(res.message||'Sent on WhatsApp.')+(res.method==='document'?' (sent as a document)':''),false);
+          var wasSaved=(clWaState.mode==='saved');
+          setTimeout(function(){ closeModal('docWaModal'); alert('✅ '+(res.message||'Sent on WhatsApp.')); if(wasSaved){ clLoadDocHistory(); } },400);
+      })
+      .catch(function(err){
+          if(btn){ btn.disabled=false; btn.innerHTML=btn.dataset.orig||'<i class="bi bi-send me-1"></i>Send'; }
+          clWaSetStatus('❌ '+((err&&err.message)?err.message:'Failed to send'),true);
+      });
 }
 
 document.addEventListener('DOMContentLoaded', function(){
