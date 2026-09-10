@@ -14862,7 +14862,13 @@ ENQUIRY_FOLLOWUP_TEMPLATE_NAME = os.getenv('WHATSAPP_ENQUIRY_FOLLOWUP_TEMPLATE',
 #   Body: "Hello {{1}}, your {{2}} {{3}} for {{4}} is ready. Tap the button below to
 #          download it. Thank you for choosing ConnectLink Properties."
 #          {{1}}=client name  {{2}}=document title — the invoice's custom title (e.g. "TAX INVOICE"),
-#                or "Invoice"/"Receipt" when no title is set   {{3}}=document number   {{4}}=amount (e.g. "USD 1,250.00")
+#                or "Invoice"/"Receipt" when no title is set   {{3}}=document number
+#          {{4}}=amount **INCLUDING the currency** (e.g. "USD 4,000.00") — never a bare number.
+#                (In Meta's template editor the sample you type for {{4}} is only a preview;
+#                 use e.g. "USD 4,000.00" there too. At send time the app always prepends the
+#                 invoice currency, defaulting to USD.)
+#                Prefer the currency as its own variable? Set WHATSAPP_MANUAL_DOC_TEMPLATE_VARS=5
+#                and use {{4}}=amount ("4,000.00") + {{5}}=currency ("USD").
 #   Button (URL / "Visit website"): text "Download Invoice" (or "Download Receipt")
 #          URL: https://<PUBLIC_BASE_URL>/doc/share/{{1}}   ({{1}} = the share token the app passes)
 # The URL button needs no webhook handling: tapping it opens /doc/share/<token>, which
@@ -14870,6 +14876,8 @@ ENQUIRY_FOLLOWUP_TEMPLATE_NAME = os.getenv('WHATSAPP_ENQUIRY_FOLLOWUP_TEMPLATE',
 INVOICE_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_INVOICE_DOWNLOAD_TEMPLATE', 'invoicedownload')
 RECEIPT_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_RECEIPT_DOWNLOAD_TEMPLATE', 'receiptdownload')
 MANUAL_DOC_SHARE_TOKEN_HOURS = int(os.getenv('MANUAL_DOC_SHARE_TOKEN_HOURS', '720'))
+# 4 (default): {{4}} = "USD 4,000.00"   |   5: {{4}} = "4,000.00", {{5}} = "USD"
+MANUAL_DOC_TEMPLATE_VARS = int(os.getenv('WHATSAPP_MANUAL_DOC_TEMPLATE_VARS', '4'))
 PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
 QUOTATION_SHARE_TOKEN_HOURS = int(os.getenv('QUOTATION_SHARE_TOKEN_HOURS', '168'))
 
@@ -32318,7 +32326,21 @@ def send_manual_doc_download_template(recipient_number, share_token, doc_type, c
     "Invoice"/"Receipt" when no title is set."""
     template_name = RECEIPT_DOWNLOAD_TEMPLATE_NAME if doc_type == 'receipt' else INVOICE_DOWNLOAD_TEMPLATE_NAME
     doc_label = str(doc_title or '').strip() or ('Receipt' if doc_type == 'receipt' else 'Invoice')
-    amount_str = f"{str(currency or '').upper()} {float(amount or 0):,.2f}".strip()
+    # The amount ALWAYS carries its currency — a money figure is meaningless without it.
+    cur = str(currency or '').upper().strip() or 'USD'
+    amt = f"{float(amount or 0):,.2f}"
+    amount_str = f"{cur} {amt}"
+    body_params = [
+        {"type": "text", "text": strip_html_tags(client_name) or 'Valued Client'},
+        {"type": "text", "text": doc_label},
+        # WhatsApp rejects empty text parameters — never send a blank var
+        {"type": "text", "text": (str(doc_no or '').strip() or '—')},
+    ]
+    if MANUAL_DOC_TEMPLATE_VARS >= 5:
+        body_params.append({"type": "text", "text": amt})            # {{4}} = amount only
+        body_params.append({"type": "text", "text": cur})            # {{5}} = currency
+    else:
+        body_params.append({"type": "text", "text": amount_str})     # {{4}} = currency + amount
     url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
     headers = {"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"}
     payload = {
@@ -32329,12 +32351,7 @@ def send_manual_doc_download_template(recipient_number, share_token, doc_type, c
             "name": template_name,
             "language": {"code": os.getenv('WHATSAPP_MANUAL_DOC_TEMPLATE_LANG', 'en')},
             "components": [
-                {"type": "body", "parameters": [
-                    {"type": "text", "text": strip_html_tags(client_name) or 'Valued Client'},
-                    {"type": "text", "text": doc_label},
-                    {"type": "text", "text": str(doc_no or '')},
-                    {"type": "text", "text": amount_str},
-                ]},
+                {"type": "body", "parameters": body_params},
                 {"type": "button", "sub_type": "url", "index": 0,
                  "parameters": [{"type": "text", "text": str(share_token)}]},
             ],
