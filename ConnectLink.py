@@ -28306,7 +28306,12 @@ def get_enquiry_followups():
                        (SELECT f.response_at FROM enquiry_followups f
                         WHERE f.enquiry_id = t.id AND COALESCE(f.source,'main') = 'interim'
                           AND COALESCE(f.response,'') != ''
-                        ORDER BY f.id DESC LIMIT 1) AS customer_response_at
+                        ORDER BY f.id DESC LIMIT 1) AS customer_response_at,
+                       (SELECT COUNT(*) FROM enquiry_followups f
+                        WHERE f.enquiry_id = t.id AND COALESCE(f.source,'main') = 'interim') AS followup_count,
+                       (SELECT COUNT(*) FROM enquiry_followups f
+                        WHERE f.enquiry_id = t.id AND COALESCE(f.source,'main') = 'interim'
+                          AND COALESCE(f.send_status,'sent') = 'failed') AS followup_failed_count
                 FROM appenqtemp t
                 WHERE NOT EXISTS (SELECT 1 FROM connectlinkenquiries e
                                   WHERE regexp_replace(COALESCE(e.clientwhatsapp, ''), '\\D', '', 'g') = t.wanumber::text)
@@ -28321,7 +28326,9 @@ def get_enquiry_followups():
                 'enqtype': r[2] or '',
                 'created_at': r[3].isoformat() if r[3] else None,
                 'customer_response': r[4] or '',
-                'customer_response_at': r[5].strftime('%d/%m/%Y %H:%M') if r[5] else ''
+                'customer_response_at': r[5].strftime('%d/%m/%Y %H:%M') if r[5] else '',
+                'followup_count': r[6] or 0,
+                'followup_failed_count': r[7] or 0
             } for r in interim_rows
         ], 'enquiries': [
             {
@@ -28544,66 +28551,127 @@ def get_interim_not_in_main():
 @app.route('/api/enquiries/flag-banner', methods=['POST'])
 def flag_enquiry_banner():
     """Pin/unpin enquiries to the Unattended Enquiries banner.
-    Body: {ids: [int,...], flagged: bool}. Requires login."""
+    Body: {main_ids:[...], interim_ids:[...], flagged: bool}  (preferred)
+          or legacy {ids:[...], flagged: bool}. Requires login.
+
+    The caller MUST say which ids are MAIN (connectlinkenquiries) and which are
+    INTERIM (appenqtemp). The two tables have independent id sequences, so a bare
+    id is ambiguous — probing main-first used to mislabel interim rows that happen
+    to share an id with a main enquiry (the enquiry was never promoted and never
+    appeared on the banner, even though the request reported success)."""
     if not (session.get('user_id') or session.get('userid')):
         return jsonify({'status': 'error', 'message': 'Please log in first.'}), 401
     data = request.get_json(silent=True) or {}
-    ids = data.get('ids') or []
     flagged = bool(data.get('flagged', True))
     user = session.get('user_name') or session.get('full_name') or 'System'
-    if not ids:
+
+    def _clean(values):
+        out = []
+        for x in (values or []):
+            try:
+                out.append(int(x))
+            except (TypeError, ValueError):
+                continue
+        return list(dict.fromkeys(out))
+
+    main_ids = _clean(data.get('main_ids'))
+    interim_ids = _clean(data.get('interim_ids'))
+    legacy_ids = _clean(data.get('ids'))
+    if not (main_ids or interim_ids or legacy_ids):
         return jsonify({'status': 'error', 'message': 'Select at least one enquiry.'}), 400
     try:
-        ids = list(dict.fromkeys(int(x) for x in ids))
         updated = 0
         promoted = 0
         with get_db() as (cursor, connection):
-            for eid in ids:
-                # Main enquiry? just toggle its banner flag
+            def _promote_interim(i_id, wanumber, etype):
+                """Move an interim enquiry into the main table as a pinned, pending entry."""
+                nonlocal promoted
+                cursor.execute("""
+                    INSERT INTO connectlinkenquiries
+                        (timestamp, clientwhatsapp, enqcategory, enq, username, status, source, banner_flagged)
+                    VALUES (%s, %s, %s, '', '', 'pending', 'manual', TRUE)
+                    RETURNING id
+                """, (datetime.now(), wanumber, _map_enquiry_category(etype)))
+                new_id = cursor.fetchone()[0]
+                promoted += 1
+                log_activity('enquiry_manual',
+                             f'Interim enquiry #{i_id} promoted to main enquiry #{new_id} (Unattended banner)',
+                             'enquiry', new_id, {'promoted_by': user}, username='System')
+                # The interim row is now a main enquiry — remove it from the interim list
+                cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (i_id,))
+
+            # ---- Main enquiries: pin (reopening as unattended) or unpin ----
+            for eid in main_ids:
                 cursor.execute("SELECT id FROM connectlinkenquiries WHERE id = %s", (eid,))
-                if cursor.fetchone():
-                    cursor.execute("UPDATE connectlinkenquiries SET banner_flagged = %s WHERE id = %s", (flagged, eid))
-                    updated += 1
+                if not cursor.fetchone():
                     continue
-                # Otherwise treat as an interim enquiry (appenqtemp)
+                if flagged:
+                    # Re-open as pending so it really shows on the banner (the banner only
+                    # lists pending items) and leaves again once someone attends to it.
+                    cursor.execute("""
+                        UPDATE connectlinkenquiries
+                        SET banner_flagged = TRUE,
+                            status = 'pending',
+                            attended_by = NULL,
+                            attended_at = NULL,
+                            attended_updated_by = NULL,
+                            attended_updated_at = NULL
+                        WHERE id = %s
+                    """, (eid,))
+                else:
+                    cursor.execute("UPDATE connectlinkenquiries SET banner_flagged = FALSE WHERE id = %s", (eid,))
+                updated += 1
+
+            # ---- Interim enquiries: promote into main when pinning ----
+            for eid in interim_ids:
                 cursor.execute("SELECT id, wanumber, enqtype FROM appenqtemp WHERE id = %s", (eid,))
                 irow = cursor.fetchone()
                 if not irow:
                     continue
                 i_id, wanumber, etype = irow
                 if flagged:
-                    # Promote the interim enquiry into the MAIN enquiries table as a pending
-                    # manual entry (name/description are absent, so left blank). It then
-                    # appears on the Unattended banner and the normal status flow applies.
-                    cursor.execute("""
-                        INSERT INTO connectlinkenquiries
-                            (timestamp, clientwhatsapp, enqcategory, enq, username, status, source, banner_flagged)
-                        VALUES (%s, %s, %s, '', '', 'pending', 'manual', TRUE)
-                        RETURNING id
-                    """, (datetime.now(), wanumber, _map_enquiry_category(etype)))
-                    new_id = cursor.fetchone()[0]
-                    promoted += 1
-                    log_activity('enquiry_manual',
-                                 f'Interim enquiry #{i_id} promoted to main enquiry #{new_id} (Unattended banner)',
-                                 'enquiry', new_id,
-                                 {'promoted_by': user}, username='System')
-                    # The interim row is now a main enquiry — remove it from the interim list
-                    cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (i_id,))
+                    _promote_interim(i_id, wanumber, etype)
                 else:
-                    # Unflag: clear the banner flag on any promoted main row for this phone
                     cursor.execute("""
                         UPDATE connectlinkenquiries SET banner_flagged = FALSE
                         WHERE clientwhatsapp = %s AND source = 'manual' AND banner_flagged = TRUE
                     """, (wanumber,))
                     updated += 1
+
+            # ---- Legacy flat ids (no source info): probe main first, else interim ----
+            for eid in legacy_ids:
+                cursor.execute("SELECT id FROM connectlinkenquiries WHERE id = %s", (eid,))
+                if cursor.fetchone():
+                    cursor.execute("UPDATE connectlinkenquiries SET banner_flagged = %s WHERE id = %s", (flagged, eid))
+                    updated += 1
+                    continue
+                cursor.execute("SELECT id, wanumber, enqtype FROM appenqtemp WHERE id = %s", (eid,))
+                irow = cursor.fetchone()
+                if not irow:
+                    continue
+                i_id, wanumber, etype = irow
+                if flagged:
+                    _promote_interim(i_id, wanumber, etype)
+                else:
+                    cursor.execute("""
+                        UPDATE connectlinkenquiries SET banner_flagged = FALSE
+                        WHERE clientwhatsapp = %s AND source = 'manual' AND banner_flagged = TRUE
+                    """, (wanumber,))
+                    updated += 1
+
             connection.commit()
-        msg = f'{updated} enquiry(s) {"added to" if flagged else "removed from"} the banner.'
-        if promoted:
-            msg += f' Promoted {promoted} interim enquiry(s) to the main enquiries table.'
+        total = len(main_ids) + len(interim_ids) + len(legacy_ids)
+        if updated or promoted:
+            msg = f'{updated} enquiry(s) {"added to" if flagged else "removed from"} the banner.'
+            if promoted:
+                msg += f' Promoted {promoted} interim enquiry(s) to the main enquiries table.'
+        else:
+            msg = ('No matching enquiries were found to add to the banner.'
+                   if flagged else 'No matching enquiries were pinned to the banner.')
         log_activity('enquiry_banner_flag',
-                     f'{len(ids)} enquiry(s) {"added to" if flagged else "removed from"} Unattended banner by {user} (interim promoted: {promoted})',
+                     f'{total} enquiry(s) {"added to" if flagged else "removed from"} Unattended banner by {user} (interim promoted: {promoted})',
                      'enquiry', None)
-        return jsonify({'status': 'success', 'message': msg, 'count': len(ids), 'promoted': promoted})
+        return jsonify({'status': 'success', 'message': msg, 'count': total, 'promoted': promoted})
     except Exception as e:
         print(f"Flag enquiry banner error: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
