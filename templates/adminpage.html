@@ -15212,7 +15212,7 @@ body { font-family: Arial; margin: 20px; }
                             <i class="bi bi-download me-2"></i> Download including Gantt Chart
                         </button>
                     </div>
-                    <div style="font-size:0.6rem; color:#5a678a; margin-top:6px;"><i class="bi bi-info-circle me-1"></i>Contracts sent via WhatsApp or the chatbot never include the Gantt chart.</div>
+                    <div style="font-size:0.6rem; color:#5a678a; margin-top:6px;"><i class="bi bi-info-circle me-1"></i>WhatsApp sends exclude the Gantt chart unless you tick "Send including Gantt Chart"; the chatbot never includes it.</div>
                 </div>
                 <button type="button" class="btn btn-success" style="font-size:0.7rem; padding:8px;" onclick="toggleWhatsAppSendContract()">
                     <i class="bi bi-whatsapp me-2"></i> Send via WhatsApp
@@ -15226,6 +15226,13 @@ body { font-family: Arial; margin: 20px; }
                     <button class="btn btn-success" style="font-size:0.7rem; padding:4px 12px;" onclick="sendContractViaWhatsApp()">
                         <i class="bi bi-send me-1"></i> Send
                     </button>
+                </div>
+                <div id="dcWhatsAppGanttWrap" style="display:none; margin-top:6px; padding:6px 8px; border:1px dashed #b8c2d6; border-radius:6px; background:var(--gray-50);">
+                    <label style="display:flex; align-items:flex-start; gap:6px; font-size:0.68rem; font-weight:600; color:var(--text-primary); cursor:pointer; margin:0;">
+                        <input type="checkbox" id="dcWhatsAppIncludeGantt" style="width:14px; height:14px; margin-top:1px; cursor:pointer; flex:0 0 auto;">
+                        <span>Send including Gantt Chart</span>
+                    </label>
+                    <div style="font-size:0.6rem; color:#5a678a; margin-top:2px; margin-left:20px;">Leave unchecked to send the contract without the work schedule.</div>
                 </div>
                 <div style="margin-top:4px; font-size:0.6rem; color:#d32f2f; background:#fff5f5; padding:4px 8px; border-radius:4px; border:1px solid #ffcdd2;">
                     <i class="bi bi-info-circle me-1"></i> <strong>Important:</strong> Include country code first — e.g. <strong>2637XXXXXXXX</strong> (Zimbabwe), <strong>277XXXXXXXX</strong> (South Africa), <strong>2557XXXXXXXX</strong> (Tanzania)
@@ -31615,16 +31622,26 @@ function handleDownloadClick(button) {
     // Quotation-linked projects must offer include/exclude Gantt + Send via WhatsApp.
     const dcGantt = document.getElementById('dcGanttOptions');
     const dcSingle = document.getElementById('dcDownloadBtn');
+    const dcWaGanttWrap = document.getElementById('dcWhatsAppGanttWrap');
+    const dcWaGanttChk = document.getElementById('dcWhatsAppIncludeGantt');
     const hasQ = (button && button.dataset ? (button.dataset.hasQuotation || '') : '');
+    // Default state: Gantt download options hidden and the WhatsApp
+    // "include Gantt Chart" checkbox unchecked (opt-in).
+    if (dcWaGanttChk) dcWaGanttChk.checked = false;
     if (dcGantt) dcGantt.style.display = 'none';
     if (dcSingle) dcSingle.style.display = '';
+    if (dcWaGanttWrap) dcWaGanttWrap.style.display = 'none';
+    const setGanttChoice = function (available) {
+        if (dcGantt) dcGantt.style.display = available ? '' : 'none';
+        if (dcSingle) dcSingle.style.display = available ? 'none' : '';
+        if (dcWaGanttWrap) dcWaGanttWrap.style.display = available ? '' : 'none';
+    };
     
     openModal('downloadContractModal');
     
     if (hasQ === '1') {
         // Project has a linked quotation -> always show both Gantt download options
-        if (dcGantt) dcGantt.style.display = '';
-        if (dcSingle) dcSingle.style.display = 'none';
+        setGanttChoice(true);
     } else if (hasQ === '') {
         // No data-has-quotation attribute (other callers) -> async fallback check
         try {
@@ -31632,8 +31649,7 @@ function handleDownloadClick(button) {
                 .then(r => r.json())
                 .then(d => {
                     if (d && d.success && d.has_gantt) {
-                        if (dcGantt) dcGantt.style.display = '';
-                        if (dcSingle) dcSingle.style.display = 'none';
+                        setGanttChoice(true);
                     }
                 })
                 .catch(function() { /* keep single download */ });
@@ -31745,7 +31761,12 @@ async function sendContractViaWhatsApp() {
         const response = await fetch('/send-contract-whatsapp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ project_id: projectId, whatsapp_number: phone })
+            body: JSON.stringify({
+                project_id: projectId,
+                whatsapp_number: phone,
+                // Opt-in checkbox (only shown when the project has a work schedule)
+                include_gantt: !!(document.getElementById('dcWhatsAppIncludeGantt') || {}).checked
+            })
         });
         
         const data = await response.json();

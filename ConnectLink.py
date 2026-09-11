@@ -23250,6 +23250,9 @@ def send_contract_whatsapp():
         data = request.get_json()
         project_id = data.get('project_id')
         whatsapp_number = data.get('whatsapp_number', '').strip()
+        # Opt-in from the Contract Action modal: send the contract WITH the Gantt
+        # chart. Default is False so WhatsApp sends exclude the work schedule.
+        wants_gantt = bool(data.get('include_gantt'))
         
         if not project_id or not whatsapp_number:
             return jsonify({'success': False, 'error': 'Project ID and WhatsApp number are required'}), 400
@@ -23272,7 +23275,8 @@ def send_contract_whatsapp():
         # Get project details
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT clientname, projectname, projectlocation, projectdescription 
+                SELECT clientname, projectname, projectlocation, projectdescription,
+                       quotation_id, adjusted_schedules_json
                 FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             project = cursor.fetchone()
@@ -23283,11 +23287,19 @@ def send_contract_whatsapp():
             project_name = project[1] or 'Contract'
             project_location = project[2] or ''
             project_description = project[3] or ''
+            # Only a project with a linked quotation / saved work schedule can
+            # have a Gantt chart in its contract.
+            has_work_schedule = bool(project[4] or project[5])
         
-        # Generate contract PDF by calling download_contract internally
+        include_gantt = wants_gantt and has_work_schedule
+        
+        # Generate contract PDF by calling download_contract internally.
+        # WhatsApp deliveries exclude the Gantt chart by default; the admin can
+        # tick "Send including Gantt Chart" in the Contract Action modal.
         with app.test_client() as client:
-            # Contract sent to a client over WhatsApp - never include the Gantt chart
-            resp = client.get(get_contract_whatsapp_download_url(project_id))
+            url = (f'/download_contract/{project_id}?include_gantt=1'
+                   if include_gantt else get_contract_whatsapp_download_url(project_id))
+            resp = client.get(url)
             if resp.status_code != 200:
                 return jsonify({'success': False, 'error': 'Failed to generate contract PDF'}), 500
             pdf_bytes = resp.data
@@ -23326,12 +23338,15 @@ def send_contract_whatsapp():
 
                 log_activity(
                     'contract_sent_whatsapp',
-                    f'Contract for {client_name} ({project_name}) sent via WhatsApp to {phone_clean}',
+                    f'Contract for {client_name} ({project_name}) sent via WhatsApp to {phone_clean}'
+                    + (' [incl. Gantt chart]' if include_gantt else ''),
                     'project',
                     project_id,
-                    {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean}
+                    {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean,
+                     'include_gantt': include_gantt}
                 )
-                return jsonify({'success': True, 'message': 'Contract sent via WhatsApp'})
+                return jsonify({'success': True, 'message': 'Contract sent via WhatsApp'
+                                + (' (including Gantt chart)' if include_gantt else '')})
             else:
                 error_msg = str(whatsapp_resp) if whatsapp_resp else 'WhatsApp API returned no response'
                 raise ValueError(error_msg)
