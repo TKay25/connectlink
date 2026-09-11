@@ -9,11 +9,11 @@ direction: ""
 critical_modules: []
 
 workspace_status:
-  last_sync: "2026-09-09T11:25:54.655Z"
+  last_sync: "2026-09-11T08:18:25.861Z"
   module_count: 63
   empty_project: false
   planning_ready: true
-  orphaned_count: 57
+  orphaned_count: 58
   state_file: artifacts/project_state.json
 
 ```

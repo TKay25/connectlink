@@ -1,12 +1,12 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "TestColumns",
-  "file": "test_columns.py",
-  "purpose": "Debug script to check table structure and column ordering",
+  "module": "TmpGanttCheck",
+  "file": "_tmp_gantt_check.py",
+  "purpose": "<!-- main function",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [
-    "test_columns → cursor.execute, cursor.fetchall, cursor.fetchone"
+    "_tmp_gantt_check → db_helper.get_db, cur.execute, cur.fetchall"
   ],
   "public_api": [
     "<!-- list public functions/methods here -->"
@@ -27,10 +27,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "f370f54b9760cdaa",
-  "file_mtime": 1776794366000,
-  "file_size": 1973,
-  "file_birthtime": 1776794366327.778,
-  "generated_at": "2026-09-11T09:36:13.353842Z",
-  "stale": false
+  "file_hash": "b6ead37754ed0fff",
+  "file_mtime": 1789119557131.7063,
+  "file_size": 979,
+  "file_birthtime": 1789119557009.826,
+  "generated_at": "2026-09-11T09:39:19.270997Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
 }

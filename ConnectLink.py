@@ -7905,7 +7905,7 @@ def webhook():
                                                                 # Generate and send contract PDF
                                                                 try:
                                                                     with app.test_client() as client:
-                                                                        resp = client.get(f'/download_contract/{contract_project_id}?include_gantt=0')
+                                                                        resp = client.get(get_contract_whatsapp_download_url(contract_project_id))
                                                                         if resp.status_code == 200:
                                                                             pdf_bytes = resp.data
                                                                             safe_name = f"Contract_{contract_project_id}"
@@ -22004,6 +22004,135 @@ def export_enquiries():
             print(f"Error exporting enquiries: {str(e)}")
             return f"Error occurred: {str(e)}", 500
 
+def _contract_parse_schedule_date(value):
+    """Best-effort parse of a work-schedule date into a date object.
+
+    Accepts date/datetime objects, ISO strings (2026-03-31) and the dd/mm/yyyy
+    strings used by legacy schedules.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return datetime.strptime(text[:10], '%Y-%m-%d').date()
+    except ValueError:
+        pass
+    parts = text.replace(' ', '').split('/')
+    if len(parts) == 3:
+        try:
+            return date(int(parts[2]), int(parts[1]), int(parts[0]))
+        except (TypeError, ValueError):
+            return None
+    for fmt in ('%d %B %Y', '%d %b %Y', '%d %B, %Y', '%d %b, %Y'):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _contract_schedule_days_label(start, end, raw_days):
+    """Return (label, day_count) for one work-schedule task."""
+    count = None
+    if start and end:
+        count = (end - start).days + 1
+    if not count or count < 1:
+        try:
+            count = int(float(raw_days))
+        except (TypeError, ValueError):
+            count = None
+    if count and count > 0:
+        return (f"{count} day" + ("s" if count != 1 else "")), count
+    return '', None
+
+
+def _build_contract_gantt_chart_html(items):
+    """Render the contract work schedule as a visual Gantt chart (CSS bars).
+
+    Bars are positioned with percentage left/width inside a relatively
+    positioned track, so the chart renders identically in WeasyPrint and in the
+    headless-Chromium (Playwright) fallback - no JS or images required.
+    """
+    from html import escape as _escape
+
+    parsed = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get('workScope') or item.get('item') or 'Task').strip() or 'Task'
+        start = _contract_parse_schedule_date(item.get('startDate'))
+        end = _contract_parse_schedule_date(item.get('endDate'))
+        label, count = _contract_schedule_days_label(start, end, item.get('days'))
+        if start and not end and count:
+            end = start + timedelta(days=count - 1)
+        parsed.append({'name': name, 'start': start, 'end': end, 'label': label})
+
+    dated = [p for p in parsed if p['start']]
+    if not dated:
+        return ''
+
+    span_start = min(p['start'] for p in dated)
+    span_end = max((p['end'] or p['start']) for p in dated)
+    span_days = max((span_end - span_start).days + 1, 1)
+
+    rows = []
+    for idx, p in enumerate(parsed, 1):
+        if not p['start']:
+            continue
+        item_end = p['end'] or p['start']
+        offset = (p['start'] - span_start).days
+        length = max((item_end - p['start']).days + 1, 1)
+        left_pct = max(0.0, min(100.0, offset / span_days * 100.0))
+        width_pct = max(1.2, min(100.0 - left_pct, length / span_days * 100.0))
+        dates = f"{p['start'].strftime('%d/%m/%Y')} \u2013 {item_end.strftime('%d/%m/%Y')}"
+        if p['label']:
+            dates += f" ({p['label']})"
+        rows.append(
+            f"""
+                                <tr>
+                                    <td style="width: 32%; padding: 3px 8px 3px 0; font-size: 9px; color: #1E2A56; vertical-align: middle;">{idx}. {_escape(p['name'])}</td>
+                                    <td style="width: 46%; padding: 3px 0;">
+                                        <div style="position: relative; height: 11px; background: #EDF1FA; border-radius: 6px;">
+                                            <div style="position: absolute; top: 0; left: {left_pct:.2f}%; width: {width_pct:.2f}%; height: 11px; background: #2A3A78; border-radius: 6px;"></div>
+                                        </div>
+                                    </td>
+                                    <td style="width: 22%; padding: 3px 0 3px 8px; font-size: 8px; color: #5A678A; text-align: right; vertical-align: middle;">{dates}</td>
+                                </tr>"""
+        )
+
+    if not rows:
+        return ''
+
+    return f"""
+                    <h4 class="section-title">PROJECT WORK SCHEDULE (GANTT CHART)</h4>
+                    <div style="page-break-inside: avoid; margin-bottom: 18px;">
+                        <div style="font-size: 9px; color: #5A678A; margin: 0 0 6px 0;">Timeline of the agreed works - each bar spans that task's start and end date.</div>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tbody>
+                                <tr>
+                                    <td style="width: 32%;"></td>
+                                    <td style="width: 46%; padding: 0 0 4px 0;">
+                                        <table style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="font-size: 8px; color: #8A93AD; text-align: left;">{span_start.strftime('%d/%m/%Y')}</td>
+                                                <td style="font-size: 8px; color: #8A93AD; text-align: right;">{span_end.strftime('%d/%m/%Y')}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                    <td style="width: 22%;"></td>
+                                </tr>{''.join(rows)}
+                            </tbody>
+                        </table>
+                    </div>
+                    """
+
+
 @app.route('/download_contract/<project_id>')
 def download_contract(project_id):
     with get_db() as (cursor, connection):
@@ -22133,6 +22262,7 @@ def download_contract(project_id):
             # (used for client self-service / chatbot downloads).
             include_gantt = str(request.args.get('include_gantt', '1')).strip().lower() not in ('0', 'false', 'no', 'off', 'exclude')
             work_scope_html = ""
+            work_scope_items = []
             
             # PRIORITY 1: Check if this project has adjusted schedules stored
             try:
@@ -22142,6 +22272,7 @@ def download_contract(project_id):
                     import json as json_module
                     adjusted_schedules = json_module.loads(adjusted_schedules_json_str)
                     if adjusted_schedules and len(adjusted_schedules) > 0:
+                        work_scope_items = adjusted_schedules
                         work_scope_rows = ""
                         for idx, schedule in enumerate(adjusted_schedules, 1):
                             work_scope = schedule.get('workScope', 'Task')
@@ -22213,6 +22344,12 @@ def download_contract(project_id):
                             days_str = str(days) if days else ""
                             
                             work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{idx}. {work_scope}</td><td style='text-align: center; padding: 8px;'>{start_str}</td><td style='text-align: center; padding: 8px;'>{end_str}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days_str}</td></tr>"
+                            work_scope_items.append({
+                                'workScope': work_scope,
+                                'startDate': start_str,
+                                'endDate': end_str,
+                                'days': days_str
+                            })
                         
                         work_scope_html = f"""
                             <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
@@ -22261,6 +22398,12 @@ def download_contract(project_id):
                 work_scope_rows = ""
                 for scope, start, end, days in work_scope_data:
                     work_scope_rows += f"<tr><td style='text-align: left; padding: 8px;'>{scope}</td><td style='text-align: center; padding: 8px;'>{start}</td><td style='text-align: center; padding: 8px;'>{end}</td><td style='text-align: center; padding: 8px; font-weight: 700;'>{days}</td></tr>"
+                    work_scope_items.append({
+                        'workScope': scope,
+                        'startDate': start,
+                        'endDate': end,
+                        'days': days
+                    })
                 
                 work_scope_html = f"""
                     <h4 class="section-title">DETAILED WORK SCOPE SCHEDULE</h4>
@@ -22280,9 +22423,18 @@ def download_contract(project_id):
                     <div class="page-break"></div>
                 """
 
-            # Exclude the work-scope/Gantt schedule section when requested
+            # Build the work-scope (Gantt) section for the contract: a visual
+            # Gantt chart followed by the detailed date/day table. The chart is
+            # only added when a work schedule was found, and the whole section is
+            # skipped for client self-service / chatbot downloads (?include_gantt=0).
             if not include_gantt:
                 work_scope_html = ""
+            elif work_scope_items:
+                # The legacy table ends with a forced page break. The section now
+                # sits after PAYMENT SCHEDULE, so let the content flow naturally
+                # instead of pushing PROJECT NOTES onto a page of its own.
+                work_scope_html = work_scope_html.replace('<div class="page-break"></div>', '')
+                work_scope_html = _build_contract_gantt_chart_html(work_scope_items) + work_scope_html
 
             # Build installment rows filtering out zero-amount entries
             installment_rows_html = ''
@@ -22667,8 +22819,6 @@ def download_contract(project_id):
                     <div class="section-header">PROJECT SCOPE</div>
                     <div class="scope-box">{project['project_description']}</div>
                     
-                    {work_scope_html}
-
                     <h4 class="section-title">PAYMENT TERMS</h4>
                     <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['total_contract_price']}</div></div>
                     <div class="field-row"><div class="field-label">Deposit Required:</div><div class="field-value" style="font-weight: 700; color: #1E2A56;">USD {project['depositorbullet']}</div></div>
@@ -22690,6 +22840,8 @@ def download_contract(project_id):
                         </tbody>
                     </table>
                     '''}
+
+                    {work_scope_html}
 
                     {f'''
                     <div class="section-header">PROJECT NOTES</div>
@@ -23134,7 +23286,8 @@ def send_contract_whatsapp():
         
         # Generate contract PDF by calling download_contract internally
         with app.test_client() as client:
-            resp = client.get(f'/download_contract/{project_id}')
+            # Contract sent to a client over WhatsApp - never include the Gantt chart
+            resp = client.get(get_contract_whatsapp_download_url(project_id))
             if resp.status_code != 200:
                 return jsonify({'success': False, 'error': 'Failed to generate contract PDF'}), 500
             pdf_bytes = resp.data
@@ -35469,6 +35622,19 @@ def get_contract_download_url(project_id):
     if not public_base:
         return ''
     return f"{public_base}/download_contract/{project_id}?include_gantt=0"
+
+
+def get_contract_whatsapp_download_url(project_id):
+    """Internal URL used for EVERY contract PDF delivered over WhatsApp.
+
+    Covers chatbot self-service (quick-reply download), the fallback share
+    link sent to clients and the admin "Send via WhatsApp" action. Contracts
+    delivered over WhatsApp NEVER include the work-scope / Gantt chart - that
+    section is reserved for the admin portal download (and is skipped whenever
+    include_gantt=0 is present). Keep this as the single source of truth so a
+    WhatsApp delivery can never accidentally ship the Gantt chart.
+    """
+    return f'/download_contract/{project_id}?include_gantt=0'
 
 
 def strip_html_tags(text):

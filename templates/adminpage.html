@@ -15212,6 +15212,7 @@ body { font-family: Arial; margin: 20px; }
                             <i class="bi bi-download me-2"></i> Download including Gantt Chart
                         </button>
                     </div>
+                    <div style="font-size:0.6rem; color:#5a678a; margin-top:6px;"><i class="bi bi-info-circle me-1"></i>Contracts sent via WhatsApp or the chatbot never include the Gantt chart.</div>
                 </div>
                 <button type="button" class="btn btn-success" style="font-size:0.7rem; padding:8px;" onclick="toggleWhatsAppSendContract()">
                     <i class="bi bi-whatsapp me-2"></i> Send via WhatsApp
@@ -40844,6 +40845,24 @@ table.dataTable tbody tr:hover {
 }
 .btn:active {
     transform: scale(0.95) !important;
+}
+
+/* Secondary/outline buttons — must stay readable in BOTH themes.
+   design-system.css gives .btn-outline-secondary a hover background of
+   var(--bg-hover) but adminpage's dark theme only overrides --text-secondary
+   (to light #94a3b8), so dark mode showed light-grey text on a near-white
+   hover background (the "white on white" download button). */
+body.dark-theme { --bg-hover: #252b45; }
+.btn-outline-secondary {
+    background: var(--bg-card, #ffffff);
+    border: 1.5px solid var(--border-color, #E2E8F0);
+    color: var(--text-primary, #0F172A);
+}
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+    background: var(--primary, #C12B3E);
+    border-color: var(--primary, #C12B3E);
+    color: #ffffff;
 }
 
 /* === 7. FORM CONTROLS — GLOW FOCUS === */
