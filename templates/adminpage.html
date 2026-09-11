@@ -4263,6 +4263,126 @@ window.clGanttChartHtml = window.clGanttChartHtml || function (schedules) {
         + '</div></div>';
 };
 
+// Robust loader for the "Link Quotation (Work Plan)" dropdowns.
+// Defined in this early script block so it always exists, and deliberately has no
+// jQuery / Choices.js dependency: the plain <select> is filled with every quotation
+// first, and the search layer is added on top only if it is available. That way a
+// failed optional layer can never leave the dropdown showing nothing.
+window.clInitLinkQuotationDropdown = function (options) {
+    options = options || {};
+    var selectId = options.selectId || 'project_quotation_select';
+    var instanceKey = options.instanceKey || 'quotationChoicesInstance';
+    var PLACEHOLDER = '-- Select a Quotation to Link Work Plan --';
+    var selectElement = document.getElementById(selectId);
+    if (!selectElement) {
+        console.warn('clInitLinkQuotationDropdown: #' + selectId + ' not found');
+        return;
+    }
+
+    // Tear down a previous search layer so re-running is safe
+    if (window[instanceKey]) {
+        try { window[instanceKey].destroy(); } catch (e) {}
+        window[instanceKey] = null;
+    }
+
+    selectElement.innerHTML = '<option value="">Loading quotations...</option>';
+
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, 25000) : null;
+
+    fetch('/api/get-quotations', controller ? { signal: controller.signal } : undefined)
+        .then(function (response) {
+            if (!response.ok) { throw new Error('Server returned ' + response.status); }
+            return response.json();
+        })
+        .then(function (data) {
+            if (timer) clearTimeout(timer);
+            var rows = (data && data.success && Array.isArray(data.data)) ? data.data : [];
+            if (!rows.length) {
+                console.warn('clInitLinkQuotationDropdown: server returned 0 quotations', data && data.error);
+                selectElement.innerHTML = '<option value="">No quotations available</option>';
+                return;
+            }
+
+            selectElement.innerHTML = '<option value="">' + PLACEHOLDER + '</option>';
+            rows.forEach(function (q) {
+                var option = document.createElement('option');
+                // Store only what the form needs - embedding items/schedules makes the
+                // option values (and the search layer's DOM) enormous.
+                option.value = JSON.stringify({
+                    id: q.id,
+                    clientName: q.clientName,
+                    clientWhatsapp: q.clientWhatsapp,
+                    quotationDate: q.quotationDate,
+                    category: q.category,
+                    customCategory: q.customCategory,
+                    projectSize: Number(q.projectSize || 0),
+                    totalCost: Number(q.totalCost || 0),
+                    markup: Number(q.markup || 0)
+                });
+                var label;
+                try {
+                    label = q.clientName + ' - ' + formatCategoryName(q.category, q.customCategory)
+                        + ' (' + Number(q.projectSize || 0) + ' Sq.M) - $' + Number(q.totalCost || 0).toFixed(2);
+                } catch (e) {
+                    label = 'Quotation #' + q.id;
+                }
+                option.textContent = label;
+                if (options.currentRef && String(q.id) === String(options.currentRef)) {
+                    option.selected = true;
+                    if (typeof options.onMatch === 'function') {
+                        try { options.onMatch(q); } catch (e) { console.warn('onMatch failed', e); }
+                    }
+                }
+                selectElement.appendChild(option);
+            });
+            console.log('Link Quotation: loaded ' + rows.length + ' quotation(s) into #' + selectId);
+
+            // Attach the change handler whether or not the search layer loads
+            if (typeof window.handleQuotationSelect === 'function') {
+                selectElement.removeEventListener('change', window.handleQuotationSelect);
+                selectElement.addEventListener('change', window.handleQuotationSelect);
+            } else if (typeof handleQuotationSelect === 'function') {
+                selectElement.removeEventListener('change', handleQuotationSelect);
+                selectElement.addEventListener('change', handleQuotationSelect);
+            }
+
+            // Optional search layer
+            if (typeof Choices === 'function') {
+                try {
+                    selectElement.style.padding = '';
+                    selectElement.style.fontSize = '';
+                    selectElement.style.height = '';
+                    window[instanceKey] = new Choices(selectElement, {
+                        removeItemButton: true,   // gives an x so the link can be cleared
+                        allowHTML: false,
+                        searchEnabled: true,
+                        searchFields: ['label', 'value'],
+                        placeholder: true,
+                        placeholderValue: PLACEHOLDER,
+                        searchPlaceholderValue: 'Search quotations...',
+                        noResultsText: 'No quotations found',
+                        noChoicesText: 'No quotations available',
+                        itemSelectText: '',
+                        shouldSort: false,
+                        searchResultLimit: -1,
+                        loadingText: 'Loading quotations...'
+                    });
+                } catch (choicesErr) {
+                    console.warn('Link Quotation: search layer unavailable - plain dropdown kept', choicesErr);
+                }
+            }
+        })
+        .catch(function (error) {
+            if (timer) clearTimeout(timer);
+            console.error('clInitLinkQuotationDropdown failed for #' + selectId, error);
+            var msg = (error && error.name === 'AbortError')
+                ? 'Quotations took too long to load - reopen this form to retry'
+                : 'Could not load quotations - reopen this form to retry';
+            selectElement.innerHTML = '<option value="">' + msg + '</option>';
+        });
+};
+
 // Early implementations for View/Delete quotation actions
 window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
     console.log('viewQuotationDetails (early init)');
@@ -13473,7 +13593,7 @@ body { font-family: Arial; margin: 20px; }
                                     <select class="form-control editable-field" id="project_quotation_select" name="project_quotation_select" style="font-size:0.7rem;padding:3px 6px;">
                                         <option value="" selected disabled>-- Select a Quotation --</option>
                                     </select>
-                                    <small style="font-size:0.7rem;color:var(--text-muted);">Optional: displays work schedule in project PDF</small>
+                                    <small style="font-size:0.7rem;color:var(--text-muted);">Optional: displays work schedule in project PDF. Type to search, or use × to clear.</small>
                                     <div id="selected_quotation_preview" style="margin-top:3px;padding:3px 6px;background:var(--gray-50);border-left:3px solid var(--dark-blue-deep);display:none;font-size:0.7rem;">
                                         <strong>Selected:</strong> <span id="selected_quotation_name"></span>
                                     </div>
@@ -20860,6 +20980,15 @@ function openModal(modalId) {
             loadAuditData();
         }
         
+        // Populate the "Link Quotation (Work Plan)" dropdown the first time the New
+        // Project form opens (the page-load population can fail or be skipped).
+        if (modalId === 'addnewProjectModal') {
+            const linkQSel = document.getElementById('project_quotation_select');
+            if (linkQSel && linkQSel.options.length <= 1 && typeof initializeProjectQuotationsDropdown === 'function') {
+                initializeProjectQuotationsDropdown();
+            }
+        }
+        
         // Reinitialize Quill editor when New Project modal opens (only if not already initialized)
         if (modalId === 'addnewProjectModal') {
             setTimeout(() => {
@@ -21188,6 +21317,11 @@ function autofillClientDetails(clientData) {
 
 // Initialize project quotations dropdown with search capability
 function initializeProjectQuotationsDropdown() {
+    // Delegates to the robust loader in the early script block (always defined).
+    if (typeof window.clInitLinkQuotationDropdown === 'function') {
+        window.clInitLinkQuotationDropdown({ selectId: 'project_quotation_select', instanceKey: 'quotationChoicesInstance' });
+        return;
+    }
     const selectElement = document.getElementById('project_quotation_select');
     
     if (!selectElement) {
@@ -21415,6 +21549,23 @@ function adjustScheduleDates(quotation) {
 
 // Initialize quotation dropdown for OTHER DETAILS modal
 function initializeOtherDetailsQuotationDropdown(currentQuotationRef) {
+    // Delegates to the robust loader in the early script block (always defined).
+    if (typeof window.clInitLinkQuotationDropdown === 'function') {
+        window.clInitLinkQuotationDropdown({
+            selectId: 'otherDetails_quotation_select',
+            instanceKey: 'otherDetailsChoicesInstance',
+            currentRef: currentQuotationRef,
+            onMatch: function (q) {
+                var preview = document.getElementById('otherDetails_selected_quotation_preview');
+                var nameEl = document.getElementById('otherDetails_selected_quotation_name');
+                var idEl = document.getElementById('otherDetailsSelectedQuotationId');
+                if (preview) preview.style.display = 'block';
+                if (nameEl) nameEl.textContent = q.clientName + ' - ' + formatCategoryName(q.category, q.customCategory) + ' (' + Number(q.projectSize || 0) + ' Sq.M)';
+                if (idEl) idEl.value = q.id || '';
+            }
+        });
+        return;
+    }
     const selectElement = document.getElementById('otherDetails_quotation_select');
     
     if (!selectElement) {
@@ -40946,6 +41097,50 @@ body.dark-theme { --bg-hover: #252b45; }
     background: var(--primary, #C12B3E);
     border-color: var(--primary, #C12B3E);
     color: #ffffff;
+}
+
+/* === Choices.js dropdowns - clear, tall and searchable === */
+/* Overrides the earlier (250px / 0.7rem) rules: the "Link Quotation (Work Plan)"
+   list and every other searchable dropdown are now taller and easier to read. */
+.choices__inner {
+    min-height: 30px !important;
+    font-size: 0.78rem !important;
+    padding: 3px 6px !important;
+    line-height: 1.3 !important;
+}
+.choices__list--single {
+    padding: 1px 14px 1px 3px !important;
+}
+.choices__list--single .choices__item {
+    font-size: 0.78rem !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+}
+.choices__input,
+.choices__input.choices__input--cloned {
+    font-size: 0.78rem !important;
+    padding: 6px 8px !important;
+    line-height: 1.3 !important;
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+}
+.choices__list--dropdown .choices__list {
+    max-height: 420px !important;
+}
+.choices__list--dropdown .choices__item {
+    font-size: 0.78rem !important;
+    padding: 7px 10px !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+}
+.choices__list--dropdown .choices__item--selectable.is-highlighted {
+    background-color: var(--dark-blue-deep) !important;
+    color: #ffffff !important;
+}
+.choices__no-results,
+.choices__loading {
+    font-size: 0.75rem !important;
+    padding: 8px 10px !important;
 }
 
 /* === 7. FORM CONTROLS — GLOW FOCUS === */
