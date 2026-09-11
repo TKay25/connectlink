@@ -4263,6 +4263,19 @@ window.clGanttChartHtml = window.clGanttChartHtml || function (schedules) {
         + '</div></div>';
 };
 
+// Some buttons in this page are bound TWICE (an early "resilience" listener plus a
+// later jQuery/DOM-ready one), which made one click perform the action twice (two
+// PDFs, two saved rows, two confirms...). clOnce() lets both handlers run the
+// shared action only once, in whichever order they happen to fire.
+window.clOnce = function (key, ms) {
+    var windowMs = ms || 1200;
+    window.__clOnceAt = window.__clOnceAt || {};
+    var now = Date.now();
+    if (window.__clOnceAt[key] && (now - window.__clOnceAt[key]) < windowMs) { return false; }
+    window.__clOnceAt[key] = now;
+    return true;
+};
+
 // Robust loader for the "Link Quotation (Work Plan)" dropdowns.
 // Defined in this early script block so it always exists, and deliberately has no
 // jQuery / Choices.js dependency: the plain <select> is filled with every quotation
@@ -25118,6 +25131,15 @@ async function saveKitchenQuotation() {
         alert('No quotation data available');
         return;
     }
+
+    // This button carries TWO click listeners (an early native addEventListener plus
+    // the jQuery binding further down), and jQuery's .off('click') cannot remove the
+    // native one. Without this guard a single click saves the quotation twice (two
+    // rows) and downloads two PDFs. Ignore any second, overlapping run.
+    if (window.__kitchenQuoteBusy) {
+        console.warn('Kitchen save already in progress - duplicate click ignored');
+        return;
+    }
     
     const data = window.kitchenQuotationData;
     
@@ -25168,6 +25190,10 @@ async function saveKitchenQuotation() {
     
     const saveBtn = document.getElementById('kitchenDownloadQuotationBtn');
     const originalText = saveBtn.innerHTML;
+
+    // Set right before the try/finally, so the flag is always released again - even
+    // if the save or the PDF generation fails.
+    window.__kitchenQuoteBusy = true;
     
     try {
         saveBtn.disabled = true;
@@ -25207,6 +25233,7 @@ async function saveKitchenQuotation() {
     } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
+        window.__kitchenQuoteBusy = false;   // release the duplicate-click guard
     }
 }
 
@@ -32008,6 +32035,12 @@ async function sendContractViaWhatsApp() {
 <script>
 document.getElementById("saveAdminBtn").addEventListener("click", function () {
 
+    // The early resilience listener further down ("10. Add Administrator button")
+    // is the primary handler for this button - it also supports editing - so don't
+    // post the administrator twice.
+    var _saveAdminEl = document.getElementById("saveAdminBtn");
+    if (_saveAdminEl && _saveAdminEl._rec) { return; }
+
     const name = document.getElementById("adminName").value.trim();
     const phone = document.getElementById("adminPhone").value.trim();
 
@@ -34875,6 +34908,7 @@ $('#sendQuotationBtn').click(async function() {
 
         // Add new quotation item
         document.getElementById('addQuotationItemBtn')?.addEventListener('click', function() {
+            if(!window.clOnce('addQuotationItem')) return;   // this button is bound twice
             const tbody = document.getElementById('quotationRatesBody');
             const row = document.createElement('tr');
             row.setAttribute('data-row-id', `rate-new-${Date.now()}`);
@@ -34892,6 +34926,7 @@ $('#sendQuotationBtn').click(async function() {
         document.getElementById('quotationRatesBody')?.addEventListener('click', function(e) {
             const deleteBtn = e.target.closest('.delete-rate-btn');
             if (deleteBtn) {
+                if (!window.clOnce('ratesDeleteRow')) return;   // this table is bound twice
                 if (confirm('Are you sure you want to delete this quotation item?')) {
                     deleteBtn.closest('tr').remove();
                 }
@@ -34900,6 +34935,7 @@ $('#sendQuotationBtn').click(async function() {
 
         // Save quotation rates
         document.getElementById('saveQuotationRatesBtn')?.addEventListener('click', function() {
+            if(!window.clOnce('saveQuotationRates')) return;   // this button is bound twice
             const rates = [];
             document.querySelectorAll('#quotationRatesBody tr').forEach(row => {
                 const item = row.querySelector('.quotation-item-input').value.trim();
@@ -35031,6 +35067,7 @@ $('#sendQuotationBtn').click(async function() {
         }
 
         document.getElementById('addGanttItemBtn')?.addEventListener('click', function() {
+            if(!window.clOnce('addGanttItem')) return;   // this button is bound twice
             // Fetch available items from backend
             fetch('/api/get-quotation-rates')
                 .then(response => response.json())
@@ -35111,6 +35148,7 @@ function addItemToGantt(itemName) {
 }
 
 document.getElementById('saveGanttChartBtn')?.addEventListener('click', function() {
+    if(!window.clOnce('saveGanttChart')) return;   // this button is bound twice
     if (ganttItems.length === 0) {
         alert('Please add at least one task to the schedule.');
         return;
@@ -36307,9 +36345,9 @@ $(document).ready(function() {
             showToast('No quotation selected', 'warning', 'No Selection');
         }
     });
-
-    // Send via WhatsApp button in modal - handled by bindBtn in tryBindButtons (line 4534)
-    
+        // Mark as handled by the jQuery listener above so the early resilience
+        // listener for this same button doesn't download a second PDF.
+        (function () { var b = document.getElementById('downloadQuotationFromModalBtn'); if (b) b._laterBound = true; })();
     // Edit Quotation button in modal
     $('#editQuotationFromModalBtn').on('click', function() {
         if (currentViewingQuotation) {
@@ -36319,6 +36357,9 @@ $(document).ready(function() {
             alert('No quotation selected');
         }
     });
+    // Mark as handled by the jQuery listener above so the early resilience
+    // listener for this same button doesn't open the editor twice.
+    (function () { var b = document.getElementById('editQuotationFromModalBtn'); if (b) b._laterBound = true; })();
     console.log('DOCREADY: callback COMPLETED successfully');
 });
 // Helper function to escape HTML
@@ -39661,6 +39702,10 @@ document.addEventListener('DOMContentLoaded', function(){
         if(el && !el._earlyBound){ el._earlyBound=true; el.addEventListener('click', fn); }
     }
     bindModalBtn('downloadQuotationFromModalBtn', async function(){
+        // The jQuery listener below is the primary handler for this button (it
+        // flushes unsaved notes first). Only act here if that one never bound.
+        var dlEl = document.getElementById('downloadQuotationFromModalBtn');
+        if (dlEl && dlEl._laterBound) return;
         if(!window.currentViewingQuotation){alert('No quotation selected');return;}
         var btn=this, ts=document.getElementById('downloadBtnText'), sp=document.getElementById('downloadBtnSpinner');
         if(ts)ts.style.display='none';if(sp)sp.classList.remove('d-none');btn.disabled=true;
@@ -39672,6 +39717,9 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     // sendQuotationFromModalBtn handled by jQuery at line 34791
     bindModalBtn('editQuotationFromModalBtn', function(){
+        // Same button is bound by jQuery below - don't open the editor twice.
+        var edEl = document.getElementById('editQuotationFromModalBtn');
+        if (edEl && edEl._laterBound) return;
         if(!window.currentViewingQuotation){alert('No quotation selected');return;}
         if(typeof closeModal==='function') closeModal('quotationDetailsModal');
         window.editQuotationFromPortal(window.currentViewingQuotation.id);
@@ -39703,6 +39751,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(ganttBtn && !ganttBtn._earlyBound){
         ganttBtn._earlyBound = true;
         ganttBtn.addEventListener('click', function(){
+            if(!window.clOnce('saveGanttChart')) return;   // this button is bound twice
             if(!window.ganttItems || window.ganttItems.length === 0){
                 alert('Please add at least one task to the schedule.');
                 return;
@@ -39763,6 +39812,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(addGanttBtn && !addGanttBtn._ganttBound){
         addGanttBtn._ganttBound = true;
         addGanttBtn.addEventListener('click', function(){
+            if(!window.clOnce('addGanttItem')) return;   // this button is bound twice
             var rates = window.quotationRatesCache || [];
             if(!rates.length){
                 fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(d){
@@ -39855,6 +39905,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(addRateBtn && !addRateBtn._earlyBound){
         addRateBtn._earlyBound = true;
         addRateBtn.addEventListener('click', function(){
+            if(!window.clOnce('addQuotationItem')) return;   // this button is bound twice
             var tb = document.getElementById('quotationRatesBody');
             if(!tb) return;
             var row = document.createElement('tr');
@@ -39872,7 +39923,7 @@ document.addEventListener('DOMContentLoaded', function(){
         ratesBody._earlyBound = true;
         ratesBody.addEventListener('click', function(e){
             var delBtn = e.target.closest('.delete-rate-btn');
-            if(delBtn && confirm('Are you sure you want to delete this quotation item?')){
+            if(delBtn && window.clOnce('ratesDeleteRow') && confirm('Are you sure you want to delete this quotation item?')){
                 delBtn.closest('tr').remove();
             }
         });
@@ -39882,6 +39933,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(saveRateBtn && !saveRateBtn._earlyBound){
         saveRateBtn._earlyBound = true;
         saveRateBtn.addEventListener('click', function(){
+            if(!window.clOnce('saveQuotationRates')) return;   // this button is bound twice
             var rates = [];
             document.querySelectorAll('#quotationRatesBody tr').forEach(function(row){
                 var item = row.querySelector('.quotation-item-input')?.value.trim();

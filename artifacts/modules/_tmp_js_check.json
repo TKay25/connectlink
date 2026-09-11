@@ -6,7 +6,7 @@
   "purpose": "<!-- main function",
   "entry_function": "normalise(code)",
   "entry_flows": [
-    "_tmp_js_check → blocks.append, m.start, m.group, esprima.parseScript, src.find"
+    "_tmp_js_check → blocks.append, m.start, m.group, esprima.parseScript, src.count"
   ],
   "public_api": [
     "normalise(code)"
@@ -31,7 +31,7 @@
   "file_mtime": 1789121233868.611,
   "file_size": 1028,
   "file_birthtime": 1789121233797.3462,
-  "generated_at": "2026-09-11T12:04:28.863950Z",
+  "generated_at": "2026-09-11T13:41:26.119653Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }
