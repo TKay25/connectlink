@@ -41657,10 +41657,10 @@ body.dark-theme #docTypeSelect:hover, body.dark-theme #docTypeSelect:focus { bor
             <div class="row g-2 mb-2" id="docTitleRow">
                 <div class="col-md-5">
                     <label class="form-label fw-semibold mb-1" style="font-size:.75rem;" id="docTitleLabel">Document Title</label>
-                    <input type="text" class="form-control form-control-sm" id="docTitle" placeholder="e.g. TAX INVOICE">
+                    <input type="text" class="form-control form-control-sm" id="docTitle" placeholder="e.g. INVOICE">
                 </div>
                 <div class="col-md-7 d-flex align-items-end pb-1">
-                    <div class="text-muted" style="font-size:.72rem;"><i class="bi bi-info-circle me-1"></i>Printed as the big heading on the invoice PDF — e.g. TAX INVOICE or PROFORMA INVOICE.</div>
+                    <div class="text-muted" style="font-size:.72rem;"><i class="bi bi-info-circle me-1"></i>The INVOICE heading is always printed. Anything typed here appears beneath it (e.g. PROFORMA INVOICE) — leave blank for just INVOICE.</div>
                 </div>
             </div>
             <!-- Shared: client / document header -->
@@ -41926,7 +41926,7 @@ function clSetDocType(t){
     var dn=document.getElementById('docDocNo'); if(dn) dn.value=clDocRef(clDocType==='invoice'?'INV':'RCP');
     // The editable title applies to invoices only — receipts keep the standard "PAYMENT RECEIPT" heading.
     var tr=document.getElementById('docTitleRow'); if(tr) tr.style.display=(clDocType==='invoice')?'':'none';
-    var ti=document.getElementById('docTitle'); if(ti) ti.value=(clDocType==='invoice')?'TAX INVOICE':'';
+    var ti=document.getElementById('docTitle'); if(ti) ti.value=(clDocType==='invoice')?'INVOICE':'';
     if(clDocType==='invoice'){
         var i1=document.getElementById('invIssueDate'); if(i1) i1.value=clToday();
         var i2=document.getElementById('invDueDate'); if(i2) i2.value=clToday();

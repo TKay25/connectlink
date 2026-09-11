@@ -31998,8 +31998,11 @@ def _cl_build_invoice_html(data, company, logo_base64):
     """Build a polished A4 invoice HTML string (WeasyPrint)."""
     currency = str(data.get('currency') or 'USD').upper()[:8]
     doc_no = str(data.get('doc_no') or '').strip() or _cl_doc_ref('INV')
-    # Custom title shown as a subtitle UNDER the "INVOICE" badge (e.g. TAX INVOICE, PROFORMA INVOICE)
+    # Custom title shown as a subtitle UNDER the "INVOICE" badge (e.g. PROFORMA INVOICE).
+    # Suppressed when it would simply repeat the badge ("INVOICE").
     doc_title = html.escape(str(data.get('title') or '').strip()[:60])
+    if doc_title.strip().upper() == 'INVOICE':
+        doc_title = ''
     doc_subtitle_html = f'<div class="doc-subtitle">{doc_title}</div>' if doc_title else ''
 
     issue_date = _cl_iso_date(data.get('issue_date'), default_today=True)
