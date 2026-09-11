@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TmpFlowProbe",
+  "file": "_tmp_flow_probe.py",
+  "purpose": "Temp probe: dump enclosing control-flow chain for specific lines in ConnectLink.py.",
+  "entry_function": "describe(node, maxlen = 110)",
+  "entry_flows": [
+    "_tmp_flow_probe → ast.unparse, src.split, ast.parse, ast.iter_child_nodes, chains.setdefault"
+  ],
+  "public_api": [
+    "describe(node, maxlen = 110)",
+    "walk(node, chain)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: PATH = 'ConnectLink.py', TARGETS = [7830, 7856, 8213, 8487, 8519, 8534, 8595, 10961, 11094, 11378, 11393, 11455, 12317, 12329]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "f6695401fa41fb45",
+  "file_mtime": 1789134704696.1665,
+  "file_size": 3036,
+  "file_birthtime": 1789134704490.1536,
+  "generated_at": "2026-09-11T13:51:47.746269Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

@@ -1334,6 +1334,52 @@ def initialize_database_tables():
                 ON enquiry_admin_notify_log (enquiry_id)
             """, commit=True)
 
+            # ---- WhatsApp delivery idempotency ---------------------------------
+            # Inbound webhook de-dup: Meta re-delivers the same message when the
+            # webhook is slow to acknowledge it. Without a record of what was
+            # already handled, every re-delivery re-ran the enquiry flow and the
+            # staff got the enquiry notifications (incl. the enquiryattachment
+            # template) again and again.
+            execute_query("""
+                CREATE TABLE IF NOT EXISTS whatsapp_webhook_events (
+                    id SERIAL PRIMARY KEY,
+                    wa_message_id VARCHAR (150) NOT NULL,
+                    event_type VARCHAR (30) DEFAULT '',
+                    sender_number VARCHAR (30) DEFAULT '',
+                    status VARCHAR (20) DEFAULT 'processing',
+                    attempts INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """, commit=True)
+
+            execute_query("""
+                CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_webhook_events_msgid_unique
+                ON whatsapp_webhook_events (wa_message_id)
+            """, commit=True)
+
+            # Outbound de-dup: one successful send per notify_key, so a template
+            # notification can never be delivered twice to the same recipient for
+            # the same enquiry. Failed attempts stay retryable.
+            execute_query("""
+                CREATE TABLE IF NOT EXISTS whatsapp_notify_once (
+                    id SERIAL PRIMARY KEY,
+                    notify_key VARCHAR (200) NOT NULL,
+                    status VARCHAR (20) DEFAULT 'pending',
+                    recipient VARCHAR (32) DEFAULT '',
+                    template_name VARCHAR (64) DEFAULT '',
+                    message_id VARCHAR (128) DEFAULT '',
+                    detail VARCHAR (255) DEFAULT '',
+                    attempts INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """, commit=True)
+
+            execute_query("""
+                CREATE UNIQUE INDEX IF NOT EXISTS whatsapp_notify_once_key_unique
+                ON whatsapp_notify_once (notify_key)
+            """, commit=True)
+
             # Remove legacy icon column
             execute_query("""
                 ALTER TABLE products 
@@ -3187,6 +3233,19 @@ def webhook():
                                     session['client'] = str(sender_number)
 
                                     message_type = message.get("type")
+
+                                    # ---- META RETRY GUARD ----------------------------------------
+                                    # Meta re-delivers a webhook message when this route is slow to
+                                    # acknowledge it. Every re-delivery used to re-run the whole
+                                    # block below, which is why enquiry notifications (including
+                                    # the enquiryattachment template with the Download attachment
+                                    # button) kept arriving several times. Each inbound message has
+                                    # a unique id, so handle an id once and drop repeat deliveries.
+                                    _wa_inbound_id = str(message.get("id") or "").strip()
+                                    if _wa_inbound_id and not claim_inbound_whatsapp_message(
+                                            _wa_inbound_id, message_type or "", sender_id):
+                                        print(f"[skip] Duplicate webhook delivery for message {_wa_inbound_id}; already handled")
+                                        continue
                                     
                                     # ---- SAVE ALL INCOMING MESSAGES ----
                                     try:
@@ -8530,8 +8589,17 @@ def webhook():
                                                                                 }
                                                                             }
                                                                             
-                                                                            attachment_response = requests.post(url, headers=headers, json=attachment_payload)
-                                                                            print(f"✅ enquiryattachment sent: {attachment_response.status_code}")
+                                                                            # Idempotent send: the ledger makes sure this template (the
+                                                                            # one carrying the Download attachment button) reaches each
+                                                                            # admin at most once per enquiry, even when Meta re-delivers
+                                                                            # the webhook or the enquiry flow runs again.
+                                                                            send_enquiry_attachment_template_once(
+                                                                                enquiry_data.get('enquiry_id'),
+                                                                                admin_number,
+                                                                                payload=attachment_payload,
+                                                                                headers=headers,
+                                                                                url=url
+                                                                            )
 
                                                                         if isinstance(response_data, dict) and response_data.get('error'):
                                                                             error_data = response_data.get('error', {})
@@ -11389,8 +11457,17 @@ def webhook():
                                                                                 }
                                                                             }
                                                                             
-                                                                            attachment_response = requests.post(url, headers=headers, json=attachment_payload)
-                                                                            print(f"✅ enquiryattachment sent: {attachment_response.status_code}")
+                                                                            # Idempotent send: the ledger makes sure this template (the
+                                                                            # one carrying the Download attachment button) reaches each
+                                                                            # admin at most once per enquiry, even when Meta re-delivers
+                                                                            # the webhook or the enquiry flow runs again.
+                                                                            send_enquiry_attachment_template_once(
+                                                                                enquiry_data.get('enquiry_id'),
+                                                                                admin_number,
+                                                                                payload=attachment_payload,
+                                                                                headers=headers,
+                                                                                url=url
+                                                                            )
 
 
                                                                         if isinstance(response_data, dict) and response_data.get('error'):
@@ -33870,13 +33947,188 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
 
     return send_data
 
+# ---------------------------------------------------------------------------
+# WhatsApp delivery idempotency helpers
+#
+# Permanent fix for enquiry notifications arriving again and again:
+#   1. Meta re-delivers a webhook message when the route is slow to answer, and
+#      nothing remembered which inbound messages were already handled, so the
+#      whole enquiry flow ran a second, third ... time (duplicate enquiries and
+#      duplicate staff notifications).
+#   2. Every notification send was unconditional, so any repeated run re-sent
+#      the enqauto2 alert and the "enquiryattachment" template (the one with the
+#      Download attachment button).
+# Inbound message ids are now claimed once, and every outbound notification is
+# sent at most once per enquiry + recipient. Failed attempts stay retryable, so
+# the "Retry Failed Alerts" feature keeps working.
+# ---------------------------------------------------------------------------
+_WA_WEBHOOK_PRUNE_COUNTER = {'n': 0}
+
+
+def claim_inbound_whatsapp_message(wa_message_id, event_type='', sender_number='', retry_after_minutes=30):
+    """Return True when this inbound Meta message id must be processed now.
+
+    Every WhatsApp message carries a unique id. The id is claimed the first time
+    we see it; a repeat delivery of the same id inside retry_after_minutes is a
+    Meta retry and is ignored. A claim older than that is treated as a crashed
+    run and may be reprocessed, so genuine messages are never lost.
+
+    Never raises: if the ledger is unavailable the message is processed normally.
+    """
+    msg_id = str(wa_message_id or '').strip()
+    if not msg_id:
+        return True
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                """
+                INSERT INTO whatsapp_webhook_events
+                    (wa_message_id, event_type, sender_number, status)
+                VALUES (%s, %s, %s, 'processing')
+                ON CONFLICT (wa_message_id) DO NOTHING
+                RETURNING id
+                """,
+                (msg_id[:150], str(event_type or '')[:30], str(sender_number or '')[:30])
+            )
+            if cursor.fetchone() is not None:
+                connection.commit()
+                # Opportunistic housekeeping (no scheduler needed): keep 30 days.
+                try:
+                    _WA_WEBHOOK_PRUNE_COUNTER['n'] = _WA_WEBHOOK_PRUNE_COUNTER.get('n', 0) + 1
+                    if _WA_WEBHOOK_PRUNE_COUNTER['n'] % 500 == 0:
+                        cursor.execute(
+                            "DELETE FROM whatsapp_webhook_events WHERE created_at < CURRENT_TIMESTAMP - INTERVAL '30 days'"
+                        )
+                        connection.commit()
+                except Exception:
+                    pass
+                return True
+            # Already seen: only reclaim a stale claim (previous run crashed).
+            cursor.execute(
+                """
+                UPDATE whatsapp_webhook_events
+                   SET status = 'processing',
+                       attempts = COALESCE(attempts, 0) + 1,
+                       created_at = CURRENT_TIMESTAMP
+                 WHERE wa_message_id = %s
+                   AND created_at < CURRENT_TIMESTAMP - (%s * INTERVAL '1 minute')
+                RETURNING id
+                """,
+                (msg_id[:150], int(retry_after_minutes))
+            )
+            reclaimed = cursor.fetchone() is not None
+            connection.commit()
+            return reclaimed
+    except Exception as exc:
+        print(f"[warn] Inbound WhatsApp de-dup check failed ({exc}); processing message anyway")
+        return True
+
+
+def wa_notify_sent(notify_key):
+    """True when this notification key already delivered successfully."""
+    try:
+        with get_db() as (cursor, _):
+            cursor.execute(
+                "SELECT 1 FROM whatsapp_notify_once WHERE notify_key = %s AND status = 'sent' LIMIT 1",
+                (str(notify_key)[:200],)
+            )
+            return cursor.fetchone() is not None
+    except Exception as exc:
+        print(f"[warn] Notification ledger read failed: {exc}")
+        return False
+
+
+def wa_notify_record(notify_key, status, recipient='', template_name='', message_id='', detail=''):
+    """Store the outcome of a notification attempt (best-effort).
+
+    A key recorded as 'sent' is never sent again; a key recorded as 'failed' stays
+    retryable (that is what the failed-alerts retry button relies on)."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                """
+                INSERT INTO whatsapp_notify_once
+                    (notify_key, status, recipient, template_name, message_id, detail)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (notify_key) DO UPDATE
+                   SET status = EXCLUDED.status,
+                       recipient = EXCLUDED.recipient,
+                       template_name = EXCLUDED.template_name,
+                       message_id = EXCLUDED.message_id,
+                       detail = EXCLUDED.detail,
+                       attempts = whatsapp_notify_once.attempts + 1,
+                       updated_at = CURRENT_TIMESTAMP
+                """,
+                (str(notify_key)[:200], str(status or 'pending')[:20], str(recipient or '')[:32],
+                 str(template_name or '')[:64], str(message_id or '')[:128], str(detail or '')[:255])
+            )
+            connection.commit()
+        return True
+    except Exception as exc:
+        print(f"[warn] Notification ledger write failed: {exc}")
+        return False
+
+
+def send_enquiry_attachment_template_once(enquiry_id, admin_number, payload=None, headers=None, url=None):
+    """Send the 'enquiryattachment' template (the one carrying the Download
+    attachment button) to one recipient at most once per enquiry.
+
+    Returns True when this call actually delivered the template, False when it
+    was skipped as a duplicate or when the send failed (a failure stays retryable).
+    """
+    if not enquiry_id or not admin_number:
+        return False
+    notify_key = f"enq:attachment_template:{str(enquiry_id).strip()}:{str(admin_number).strip()}"
+    if wa_notify_sent(notify_key):
+        print(f"[skip] enquiryattachment already delivered for enquiry {enquiry_id} to {admin_number}; not sending again")
+        return False
+    url = url or f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    headers = headers or {'Authorization': f'Bearer {ACCESS_TOKEN}', 'Content-Type': 'application/json'}
+    if payload is None:
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": admin_number,
+            "type": "template",
+            # No components array: this template has no variables.
+            "template": {"name": "enquiryattachment", "language": {"code": "en"}}
+        }
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        data = response.json() if response is not None else {}
+        error = data.get('error') if isinstance(data, dict) else None
+        if error:
+            detail = str((error.get('error_data') or {}).get('details') or error.get('message') or '')[:255]
+            wa_notify_record(notify_key, 'failed', admin_number, 'enquiryattachment', '', detail)
+            print(f"[fail] enquiryattachment template failed for {admin_number}: {detail}")
+            return False
+        message_id = ''
+        if isinstance(data, dict):
+            message_id = str(((data.get('messages') or [{}])[0]).get('id') or '')
+        wa_notify_record(notify_key, 'sent', admin_number, 'enquiryattachment', message_id, '')
+        print(f"[ok] enquiryattachment delivered to {admin_number} (message_id={message_id or 'n/a'})")
+        # Remember which template message carries the Download attachment button so
+        # a no-variable button click resolves back to this enquiry.
+        try:
+            log_enquiry_attachment_button_message(message_id, enquiry_id, admin_number)
+        except Exception as map_err:
+            print(f"[fail] Mapping log failed: {map_err}")
+        return True
+    except Exception as exc:
+        wa_notify_record(notify_key, 'failed', admin_number, 'enquiryattachment', '', str(exc))
+        print(f"[fail] enquiryattachment send error for {admin_number}: {exc}")
+        return False
+
+
 # Admins notified on every new enquiry (same numbers the WhatsApp webhook flow uses)
 ENQUIRY_ADMIN_NOTIFY_NUMBERS = ["263774822568", "263773368558", "263777665277"]
 
 
 def log_admin_notify_attempt(enquiry_id, admin_number, send_status, send_error='', message_id=''):
     """Record an enqauto2 admin-alert send attempt so failed alerts can be
-    surfaced and retried. Best-effort; never raises."""
+    surfaced and retried. The same outcome is mirrored into the permanent
+    whatsapp_notify_once ledger (one successful alert per enquiry + admin).
+    Best-effort; never raises."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
@@ -33891,6 +34143,20 @@ def log_admin_notify_attempt(enquiry_id, admin_number, send_status, send_error='
             connection.commit()
     except Exception as exc:
         print(f"⚠️ Could not log admin notify attempt: {exc}")
+    # Mirror into the once-only ledger. Raw attachment-file deliveries
+    # (message_id 'attachment_fallback_*') are not enqauto2 alerts, so they are
+    # skipped — otherwise a failed alert would look delivered and never retry.
+    try:
+        _is_attachment_fallback = (
+            str(send_error or '') == 'attachment_fallback'
+            or str(message_id or '').startswith('attachment_fallback')
+        )
+        if enquiry_id and admin_number and not _is_attachment_fallback:
+            wa_notify_record(f"enq:enqauto2:{enquiry_id}:{admin_number}",
+                             str(send_status or 'sent'), admin_number, 'enqauto2',
+                             message_id, send_error)
+    except Exception as exc:
+        print(f"⚠️ Could not mirror admin alert into notify ledger: {exc}")
 
 
 def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_display,
@@ -33943,6 +34209,14 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
             if _recent_window_fail:
                 print(f"⏭ Skipping repeated admin alert for enquiry {enquiry_id} to {admin_number} (outside 24h window, recently failed)")
                 continue
+            # Permanent once-only guard: this alert is never delivered twice for the
+            # same enquiry + admin, however many times the flow is triggered. A
+            # previous failure is recorded as 'failed' (not 'sent'), so the retry
+            # button can still resend it.
+            enqauto2_notify_key = f"enq:enqauto2:{enquiry_id}:{admin_number}"
+            if wa_notify_sent(enqauto2_notify_key):
+                print(f"[skip] enqauto2 alert already delivered for enquiry {enquiry_id} to {admin_number}")
+                continue
             try:
                 payload = {
                     "messaging_product": "whatsapp",
@@ -33954,19 +34228,11 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
                 response = requests.post(url, headers=headers_wa, json=payload)
                 response_data = response.json()
 
-                # If there's an attachment, ALSO send the enquiryattachment template
+                # If there's an attachment, ALSO send the enquiryattachment template.
+                # Idempotent: at most one delivery per enquiry + admin, so the
+                # Download attachment button template can never spam staff.
                 if use_attachment_template:
-                    attachment_payload = {
-                        "messaging_product": "whatsapp",
-                        "recipient_type": "individual",
-                        "to": admin_number,
-                        "type": "template",
-                        "template": {"name": "enquiryattachment", "language": {"code": "en"}}
-                    }
-                    try:
-                        requests.post(url, headers=headers_wa, json=attachment_payload)
-                    except Exception as exc:
-                        print(f"❌ enquiryattachment send failed for {admin_number}: {exc}")
+                    send_enquiry_attachment_template_once(enquiry_id, admin_number)
 
                 if isinstance(response_data, dict) and response_data.get('error'):
                     error_data = response_data.get('error', {})
@@ -33982,7 +34248,7 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
                                 "sub_type": "quick_reply",
                                 "index": 0,
                                 "parameters": [
-                                    {"type": "payload", "payload": f"contact_client_{enquiry_data.get('enquiry_id')}"}
+                                    {"type": "payload", "payload": f"contact_client_{enquiry_id}"}
                                 ]
                             }],
                             components + [{
@@ -34015,7 +34281,7 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
                                     "components": fallback_components
                                 }
                             }
-                            fallback_response = requests.post(url, headers=headers, json=fallback_payload)
+                            fallback_response = requests.post(url, headers=headers_wa, json=fallback_payload)
                             fallback_data = fallback_response.json()
                             if isinstance(fallback_data, dict) and not fallback_data.get('error'):
                                 print("enqauto2 sent after fallback with button component")
@@ -34028,13 +34294,13 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
                         print("enqauto2 details failed; sending attachment via direct fallback")
                         try:
                             fallback_sent = deliver_enquiry_attachment_pdf(
-                                enquiry_data.get('enquiry_id'),
+                                enquiry_id,
                                 admin_number,
                                 send_text_message=None
                             )
                             if fallback_sent:
                                 response_data = {
-                                    "messages": [{"id": f"attachment_fallback_{enquiry_data.get('enquiry_id')}"}],
+                                    "messages": [{"id": f"attachment_fallback_{enquiry_id}"}],
                                     "fallback": "direct_attachment_pdf"
                                 }
                                 print("Attachment sent via direct PDF fallback")
