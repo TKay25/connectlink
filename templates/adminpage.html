@@ -21462,19 +21462,17 @@ function selectProjectQuotation(quotation) {
         })
         .then(data => {
             if (data.success && data.totalDays) {
-                // Auto-populate project duration
+                // Suggest the project duration from the quotation schedule, but leave
+                // the field fully editable so it can be adjusted for this project.
                 const durationField = document.getElementById('months_to_completion');
                 durationField.value = data.totalDays;
-                durationField.readOnly = true;
-                durationField.style.backgroundColor = '#f5f5f5';
-                durationField.title = `Auto-populated from quotation schedule: ${data.totalDays} days`;
+                durationField.readOnly = false;
+                durationField.style.backgroundColor = '';
+                durationField.title = `Suggested from the quotation schedule (${data.totalDays} days) - you can change it`;
                 
-                // Auto-populate project start date from first schedule item
-                if (data.schedules && data.schedules.length > 0 && data.schedules[0].startDate) {
-                    const startDateField = document.getElementById('project_start_date');
-                    startDateField.value = data.schedules[0].startDate.split('T')[0]; // Extract date part only
-                    console.log('Project start date auto-populated:', startDateField.value);
-                }
+                // NOTE: the Start Date field is deliberately NOT auto-filled. The date
+                // the user typed is kept, and the quotation's schedule is offset onto
+                // it by adjustScheduleDates() (also re-run on start-date change).
                 
                 // Auto-populate total contract price from quotation
                 if (quotation.totalCost) {
