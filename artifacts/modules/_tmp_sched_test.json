@@ -1,0 +1,46 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TmpSchedTest",
+  "file": "_tmp_sched_test.py",
+  "purpose": "Fake cursor",
+  "entry_function": "class FakeCursor  # line 11",
+  "entry_flows": [
+    "FakeCursor.__init__(existing = (), qrow = None, kitchen_items = (), items = ()) → src.index, sql.split, s.startswith, inserts.append",
+    "FakeConn.__init__() → src.index, sql.split, s.startswith, inserts.append"
+  ],
+  "public_api": [
+    "class FakeCursor  # line 11",
+    "  FakeCursor.__init__(existing = (), qrow = None, kitchen_items = (), items = ())",
+    "  FakeCursor.execute(sql, params = None)",
+    "  FakeCursor.fetchall()",
+    "  FakeCursor.fetchone()",
+    "class FakeConn  # line 43",
+    "  FakeConn.__init__()",
+    "  FakeConn.commit()",
+    "  FakeConn.rollback()"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "5cb77bfc50523d85",
+  "file_mtime": 1789121460907.6643,
+  "file_size": 3448,
+  "file_birthtime": 1789121460834.419,
+  "generated_at": "2026-09-11T10:21:12.506084Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

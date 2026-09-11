@@ -4208,6 +4208,61 @@ window.getItemsForQuotationOutput = window.getItemsForQuotationOutput || functio
     });
 };
 
+// Shared Gantt-chart renderer for quotation work schedules (Quotation Details modal).
+// Draws a CSS timeline of bars — no chart library needed.
+window.clGanttChartHtml = window.clGanttChartHtml || function (schedules) {
+    var DAY = 86400000;
+    var esc = function (t) {
+        return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+    var parse = function (v) {
+        if (!v) return null;
+        var d = new Date(v);
+        return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+    var rows = [];
+    (schedules || []).forEach(function (s) {
+        if (!s) return;
+        var st = parse(s.startDate);
+        var en = parse(s.endDate);
+        var days = parseInt(s.days, 10) || 0;
+        if (st && !en && days > 0) en = new Date(st.getTime() + (days - 1) * DAY);
+        if (!st) return;
+        if (!en) en = st;
+        if (!days) days = Math.round((en - st) / DAY) + 1;
+        rows.push({ name: s.workScope || s.item || 'Task', start: st, end: en, days: days });
+    });
+    if (!rows.length) return '';
+    var min = new Date(Math.min.apply(null, rows.map(function (r) { return r.start.getTime(); })));
+    var max = new Date(Math.max.apply(null, rows.map(function (r) { return r.end.getTime(); })));
+    var span = Math.max(Math.round((max - min) / DAY) + 1, 1);
+    var fmt = function (d) {
+        return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
+    };
+    var bars = '';
+    rows.forEach(function (r, i) {
+        var off = Math.round((r.start - min) / DAY);
+        var len = Math.max(Math.round((r.end - r.start) / DAY) + 1, 1);
+        var left = Math.min(100, Math.max(0, off / span * 100));
+        var width = Math.max(1.2, Math.min(100 - left, len / span * 100));
+        bars += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
+            + '<div style="width:34%;font-size:0.68rem;color:var(--text-primary);">' + (i + 1) + '. ' + esc(r.name) + '</div>'
+            + '<div style="flex:1;position:relative;height:12px;background:var(--gray-100);border-radius:6px;">'
+            + '<div title="' + fmt(r.start) + ' - ' + fmt(r.end) + '" style="position:absolute;top:0;height:12px;left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%;background:linear-gradient(90deg,var(--dark-blue-deep),#3A4B8C);border-radius:6px;"></div>'
+            + '</div>'
+            + '<div style="width:24%;text-align:right;font-size:0.62rem;color:var(--text-secondary);">' + fmt(r.start) + ' – ' + fmt(r.end) + ' (' + r.days + 'd)</div>'
+            + '</div>';
+    });
+    return '<div style="background:white;border:1px solid var(--gray-200);border-radius:8px;overflow:hidden;margin-bottom:10px;">'
+        + '<div style="background:var(--dark-blue-deep);color:white;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">Gantt Chart (Project Timeline)</div>'
+        + '<div style="padding:10px 12px;">'
+        + '<div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--text-muted);margin-bottom:6px;"><span>' + fmt(min) + '</span><span>' + span + ' days</span><span>' + fmt(max) + '</span></div>'
+        + bars
+        + '</div></div>';
+};
+
 // Early implementations for View/Delete quotation actions
 window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
     console.log('viewQuotationDetails (early init)');
@@ -4262,8 +4317,9 @@ window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
                     h += '</tbody></table></div>';
                 }
                 
-                // Schedule table
+                // Gantt chart (visual timeline) + work-schedule table
                 if (q.schedules && q.schedules.length > 0) {
+                    if (typeof window.clGanttChartHtml === 'function') h += window.clGanttChartHtml(q.schedules);
                     h += '<div style="background:white;border:1px solid var(--gray-200);border-radius:8px;overflow:hidden;margin-bottom:10px;"><div style="background:var(--dark-blue-deep);color:white;padding:6px 10px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;">Work Schedule ('+taskCount+')</div><table style="width:100%;font-size:0.7rem;border-collapse:collapse;"><thead><tr style="background:var(--gray-100);"><th style="padding:4px 6px;text-align:center;width:30px;">#</th><th style="padding:4px 6px;text-align:left;">Task</th><th style="padding:4px 6px;text-align:center;width:90px;">Start</th><th style="padding:4px 6px;text-align:center;width:90px;">End</th><th style="padding:4px 6px;text-align:center;width:50px;">Days</th></tr></thead><tbody>';
                     (q.schedules||[]).forEach(function(s,idx){
                         h += '<tr><td style="padding:4px 6px;text-align:center;font-weight:700;">'+(idx+1)+'</td><td style="padding:4px 6px;">'+(s.workScope||s.item||'Task')+'</td><td style="padding:4px 6px;text-align:center;">'+(s.startDate||'')+'</td><td style="padding:4px 6px;text-align:center;">'+(s.endDate||'')+'</td><td style="padding:4px 6px;text-align:center;color:#2196F3;font-weight:700;">'+(s.days||0)+'</td></tr>';
@@ -20298,6 +20354,10 @@ async function saveAndDownloadQuotation() {
             quantity: parseFloat(item.sqm || item.quantity) || 0,
             unitRate: parseFloat(item.inhouseRate || item.amount) || 0,
             totalPrice: parseFloat(item.totalPrice || item.total || item.clientPrice) || 0,
+            // Per-item duration: the Gantt builder holds the day count for each
+            // item, so store it with the item and the work schedule can always
+            // be rebuilt (even if the Gantt itself was never persisted).
+            days: parseInt(item.days) || (ganttData[index] ? (parseInt(ganttData[index].days) || 0) : 0),
             item_order: index + 1
         })),
         schedules: (ganttData || []).map((schedule, index) => ({
@@ -35886,10 +35946,12 @@ function displayQuotationDetailsInModal(quotation) {
         html += `</tbody></table></div></div>`;
     }
     
-    // Work Schedule Table
+    // Gantt chart (visual timeline) + work-schedule table
     if (quotation.schedules && quotation.schedules.length > 0) {
         let totalDays = 0;
         quotation.schedules.forEach(s => { totalDays += (s.days || 0); });
+        
+        if (typeof window.clGanttChartHtml === 'function') html += window.clGanttChartHtml(quotation.schedules);
         
         html += `
             <div style="background:white; border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; margin-bottom:10px;">

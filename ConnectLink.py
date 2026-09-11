@@ -728,6 +728,12 @@ def initialize_database_tables():
                 );
             """)
 
+            # Per-item duration. Kitchen items store this on quotation_kitchen_items;
+            # construction (single/double storey), TV unit and 'other' quotations are
+            # saved here, so the day count is kept too. It lets a quotation's work
+            # schedule (Gantt) be rebuilt when it was never persisted.
+            cursor.execute("ALTER TABLE quotation_items ADD COLUMN IF NOT EXISTS days INT DEFAULT 0;")
+
             # Create quotation_schedules table to store project schedule items
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS quotation_schedules (
@@ -22004,6 +22010,126 @@ def export_enquiries():
             print(f"Error exporting enquiries: {str(e)}")
             return f"Error occurred: {str(e)}", 500
 
+def ensure_quotation_schedules(cursor, connection, quotation_id):
+    """Return a quotation's work schedule as (work_scope, start_date, end_date, days) rows.
+
+    A quotation's Gantt chart IS its work schedule: the quotation PDF and the
+    project contract both inherit it. Some quotations were saved before the
+    generator persisted the Gantt, which left quotation_schedules empty - that is
+    why their contracts had no work schedule. Those rows are rebuilt from the
+    quotation's own items and stored once.
+
+    Two shapes, matching how the jobs actually run:
+      * KITCHEN & CABINETS (quotation category 'kitchen' / 'kitchen_cabinets') -
+        the items are installed in parallel, so their durations are NOT added up:
+        the whole project runs for the LONGEST single task, from the project
+        start date to that end date (one row for the whole project);
+      * every other category (single/double storey, TV units, custom/other) -
+        tasks run one after another, so each task starts the day after the
+        previous one ends.
+
+    Per-item durations live in quotation_kitchen_items.days (kitchen) and
+    quotation_items.days (single/double storey, TV units, other), so every
+    quotation type can be rebuilt.
+    """
+    cursor.execute("""
+        SELECT work_scope, start_date, end_date, days
+        FROM quotation_schedules
+        WHERE quotation_id = %s
+        ORDER BY task_order ASC
+    """, (quotation_id,))
+    existing = cursor.fetchall()
+    if existing:
+        return [(r[0], r[1], r[2], int(r[3]) if r[3] else 0) for r in existing]
+
+    # Nothing stored yet - rebuild the schedule from the quotation's items.
+    cursor.execute("SELECT category, quotation_date, COALESCE(custom_category, '') FROM quotations WHERE id = %s", (quotation_id,))
+    qrow = cursor.fetchone()
+    if not qrow:
+        return []
+    category = qrow[0] or ''
+    custom_category = (qrow[2] or '').strip()
+    next_start = qrow[1] or date.today()
+
+    try:
+        if category in ('kitchen', 'kitchen_cabinets'):
+            cursor.execute("""
+                SELECT item_name, days
+                FROM quotation_kitchen_items
+                WHERE quotation_id = %s
+                ORDER BY item_order
+            """, (quotation_id,))
+        else:
+            # Single/double storey, TV unit and 'other' items keep their duration
+            # on quotation_items.days, so the same rebuild works for them.
+            cursor.execute("""
+                SELECT item_name, days
+                FROM quotation_items
+                WHERE quotation_id = %s
+                ORDER BY item_order
+            """, (quotation_id,))
+        raw_rows = cursor.fetchall()
+    except Exception as e:
+        print(f"Note: could not read items for quotation {quotation_id}: {e}")
+        return []
+
+    item_rows = [(r[0] or 'Task', int(r[1]) if r[1] else 1) for r in raw_rows]
+
+    if not item_rows:
+        return []
+
+    if category not in ('kitchen', 'kitchen_cabinets') and not any(
+            (int(r[1]) if r[1] else 0) > 0 for r in raw_rows):
+        # These items never had a duration recorded (quotation saved before the
+        # day count was stored), so don't invent a work schedule - set the
+        # durations in the project's View/Edit Gantt Chart instead.
+        return []
+
+    is_kitchen = category in ('kitchen', 'kitchen_cabinets')
+
+    if is_kitchen:
+        # Kitchen & Cabinets items are installed in parallel, so the durations are
+        # NOT added up: the whole project runs for the LONGEST single task, from
+        # the project start date to that end date.
+        max_days = max(int(days or 1) for _, days in item_rows)
+        max_days = max(max_days, 1)
+        job_label = custom_category or ('Kitchen Cabinets' if category == 'kitchen_cabinets' else 'Kitchen')
+        derived = [(job_label, next_start, next_start + timedelta(days=max_days - 1), max_days)]
+    else:
+        # Every other category (single/double storey, TV units, custom/other) runs
+        # its tasks one after another: each starts the day after the previous ends.
+        derived = []
+        task_start = next_start
+        for name, days in item_rows:
+            days = max(int(days or 1), 1)
+            task_end = task_start + timedelta(days=days - 1)
+            derived.append((name, task_start, task_end, days))
+            task_start = task_end + timedelta(days=1)
+
+    stored = False
+    try:
+        for idx, (name, start_date, end_date, days) in enumerate(derived, 1):
+            cursor.execute("""
+                INSERT INTO quotation_schedules
+                (quotation_id, work_scope, start_date, end_date, days, task_order)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (quotation_id, name, start_date, end_date, days, idx))
+        connection.commit()
+        stored = True
+    except Exception as e:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        print(f"Note: could not store derived schedule for quotation {quotation_id}: {e}")
+
+    if stored:
+        print(f"Derived and stored {len(derived)} work-schedule task(s) for quotation "
+              f"#{quotation_id} ({category})")
+
+    return derived
+
+
 def _contract_parse_schedule_date(value):
     """Best-effort parse of a work-schedule date into a date object.
 
@@ -22306,22 +22432,16 @@ def download_contract(project_id):
             # PRIORITY 2: Fall back to linked quotation schedules + date offset
             if not work_scope_html and quotation_id:
                 try:
-                    # Fetch work schedules from quotation
-                    cursor.execute("""
-                        SELECT work_scope, start_date, end_date, days
-                        FROM quotation_schedules
-                        WHERE quotation_id = %s
-                        ORDER BY task_order ASC
-                    """, (quotation_id,))
-                    
-                    schedules = cursor.fetchall()
+                    # A quotation's Gantt chart IS the project's work schedule, so the
+                    # contract inherits it. ensure_quotation_schedules() also rebuilds
+                    # and stores the schedule for quotations saved without one.
+                    schedules = ensure_quotation_schedules(cursor, connection, quotation_id)
                     
                     if schedules:
-                        # Get project start date
-                        project_start_date = row[14]  # project_start_date from project row
-                        
-                        # Get the first schedule's start date to calculate offset
-                        first_schedule_start = schedules[0][1] if schedules[0][1] else None
+                        # Align the quotation's work schedule to the project's start date
+                        # (normalised to plain dates so mixed date/datetime can't raise).
+                        project_start_date = _contract_parse_schedule_date(row[14])
+                        first_schedule_start = _contract_parse_schedule_date(schedules[0][1])
                         
                         # Calculate date offset in days
                         date_offset = 0
@@ -34628,12 +34748,8 @@ def _serve_quotation_html_page(q):
                     items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
                 items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">0</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
 
-            # Schedules
-            cursor.execute("""
-                SELECT work_scope, start_date, end_date, days, task_order
-                FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order
-            """, (q['id'],))
-            scheds = cursor.fetchall()
+            # Schedules - a quotation's Gantt chart is its work schedule
+            scheds = ensure_quotation_schedules(cursor, _, q['id'])
             for idx, s in enumerate(scheds, 1):
                 sd = s[1].strftime('%d/%m/%Y') if s[1] else ''
                 ed = s[2].strftime('%d/%m/%Y') if s[2] else ''
@@ -34852,14 +34968,8 @@ def build_quotation_pdf_document(quotation_id):
             is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
             total_cost = float(quotation[5]) if quotation[5] else 0
 
-            # Get schedules
-            cursor.execute("""
-                SELECT work_scope, start_date, end_date, days, task_order
-                FROM quotation_schedules
-                WHERE quotation_id = %s
-                ORDER BY task_order
-            """, (quotation_id,))
-            schedules = cursor.fetchall()
+            # Get schedules - a quotation's Gantt chart is its work schedule
+            schedules = ensure_quotation_schedules(cursor, _, quotation_id)
 
             if is_kitchen:
                 # Get kitchen items
@@ -34922,8 +35032,10 @@ def build_quotation_pdf_document(quotation_id):
                 
                 # Build days by order map from schedules
                 days_by_order = {}
-                for schedule in schedules:
-                    order = schedule[4]
+                for pos, schedule in enumerate(schedules, 1):
+                    # Rows read from the DB keep their task_order (5th column);
+                    # derived rows are ordered, so fall back to their position.
+                    order = schedule[4] if len(schedule) > 4 else pos
                     days = int(schedule[3]) if schedule[3] else 0
                     days_by_order[order] = days
                 
@@ -35244,11 +35356,8 @@ def generate_quotation_pdf_playwright(quotation_id):
                     items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
                 items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">0</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
 
-            cursor.execute("""
-                SELECT work_scope, start_date, end_date, days, task_order
-                FROM quotation_schedules WHERE quotation_id = %s ORDER BY task_order
-            """, (quotation_id,))
-            scheds = cursor.fetchall()
+            # Schedules - a quotation's Gantt chart is its work schedule
+            scheds = ensure_quotation_schedules(cursor, _, quotation_id)
             for idx, s in enumerate(scheds, 1):
                 sd = s[1].strftime('%d/%m/%Y') if s[1] else ''
                 ed = s[2].strftime('%d/%m/%Y') if s[2] else ''
@@ -36197,6 +36306,8 @@ def update_quotation(quotation_id):
                   project_size, total_cost, markup, notes, quotation_id))
 
             # Replace items
+            cursor.execute("SELECT item_order, days FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
+            existing_item_days = {r[0]: int(r[1]) if r[1] else 0 for r in cursor.fetchall()}
             cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
             for idx, item in enumerate(items):
                 item_name = item.get('name') or item.get('item', 'Item')
@@ -36204,11 +36315,14 @@ def update_quotation(quotation_id):
                 quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
                 unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
                 total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
+                # Keep the stored duration when the edit payload omits it, so
+                # editing a quotation never wipes its work-schedule day counts.
+                item_days = int(item.get('days') or existing_item_days.get(idx + 1) or 0)
                 cursor.execute("""
                     INSERT INTO quotation_items
-                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
+                    (quotation_id, item_name, quantity, unit_rate, total_price, item_order, days)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1, item_days))
 
             # Replace schedules
             cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
@@ -36410,14 +36524,15 @@ def save_quotation():
                     quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
                     unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
                     total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
+                    item_days = int(item.get('days') or 0)
                     
-                    print(f"Inserting construction item {idx+1}: {item_name}, Qty:{quantity}, Rate:{unit_rate}, Total:{total_price}")
+                    print(f"Inserting construction item {idx+1}: {item_name}, Qty:{quantity}, Rate:{unit_rate}, Total:{total_price}, Days:{item_days}")
                     
                     cursor.execute("""
                         INSERT INTO quotation_items
-                        (quotation_id, item_name, quantity, unit_rate, total_price, item_order)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1))
+                        (quotation_id, item_name, quantity, unit_rate, total_price, item_order, days)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (quotation_id, item_name, quantity, unit_rate, total_price, idx + 1, item_days))
             
             # Save schedules
             for idx, schedule in enumerate(schedules):
@@ -36554,6 +36669,33 @@ def get_quotations():
                     })
             except Exception as e:
                 print(f"Note: quotation_schedules table may not exist: {e}")
+
+            # Self-heal: a quotation's Gantt chart is its work schedule. Quotations
+            # saved before the generator persisted the Gantt have no rows in
+            # quotation_schedules, which left their contract without a work
+            # schedule - rebuild and store those rows once (see
+            # ensure_quotation_schedules; works for kitchen and single/double
+            # storey / TV / other quotations alike).
+            derived_tasks = 0
+            for quotation in quotations:
+                q_id = quotation[0]
+                if q_id in schedules_by_quotation:
+                    continue
+                try:
+                    ensured = ensure_quotation_schedules(cursor, connection, q_id)
+                except Exception as derive_err:
+                    print(f"Note: could not ensure schedule for quotation {q_id}: {derive_err}")
+                    continue
+                if ensured:
+                    schedules_by_quotation[q_id] = [{
+                        'workScope': row[0],
+                        'startDate': row[1].isoformat() if row[1] else None,
+                        'endDate': row[2].isoformat() if row[2] else None,
+                        'days': int(row[3]) if row[3] else 0,
+                    } for row in ensured]
+                    derived_tasks += len(ensured)
+            if derived_tasks:
+                print(f"📅 Rebuilt {derived_tasks} work-schedule task(s) for quotations missing their Gantt schedule")
 
             result = []
             for quotation in quotations:
@@ -37128,15 +37270,9 @@ def get_project_schedule(project_id):
                     'message': 'No quotation linked to this project'
                 })
             
-            # Get schedules from the linked quotation
-            cursor.execute("""
-                SELECT work_scope, start_date, end_date, days
-                FROM quotation_schedules
-                WHERE quotation_id = %s
-                ORDER BY task_order ASC
-            """, (quotation_id,))
-            
-            schedules = cursor.fetchall()
+            # A quotation's Gantt chart is the project's work schedule - make sure
+            # it exists (older quotations may not have persisted schedule rows).
+            schedules = ensure_quotation_schedules(cursor, connection, quotation_id)
             
             schedule_list = [
                 {
@@ -37168,15 +37304,8 @@ def get_quotation_schedule(quotation_id):
     """Retrieve work schedule for a quotation (used for auto-populating project duration)"""
     try:
         with get_db() as (cursor, connection):
-            # Get the schedules from the quotation
-            cursor.execute("""
-                SELECT work_scope, start_date, end_date, days
-                FROM quotation_schedules
-                WHERE quotation_id = %s
-                ORDER BY task_order ASC
-            """, (quotation_id,))
-            
-            schedules = cursor.fetchall()
+            # A quotation's Gantt chart is its work schedule - make sure it exists
+            schedules = ensure_quotation_schedules(cursor, connection, quotation_id)
             
             schedule_list = [
                 {

@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TmpJsCheck",
+  "file": "_tmp_js_check.py",
+  "purpose": "<!-- main function",
+  "entry_function": "normalise(code)",
+  "entry_flows": [
+    "_tmp_js_check → blocks.append, m.start, m.group, esprima.parseScript"
+  ],
+  "public_api": [
+    "normalise(code)"
+  ],
+  "dependencies": [
+    "esprima"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "51988ebf750c466d",
+  "file_mtime": 1789121233868.611,
+  "file_size": 1028,
+  "file_birthtime": 1789121233797.3462,
+  "generated_at": "2026-09-11T10:17:21.279215Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
