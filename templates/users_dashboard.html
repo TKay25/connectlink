@@ -1264,6 +1264,10 @@
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_approve_requisitions"><span class="toggle-slider"></span></label>
             </div>
             <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-patch-check"></i> Authorise Purchase Orders <span style="font-size:0.5rem;color:var(--text-muted);">(1st sign-off after a PO is raised)</span></span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_authorise_purchase_orders"><span class="toggle-slider"></span></label>
+            </div>
+            <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-receipt-cutoff"></i> Manage Purchase Orders <span style="font-size:0.5rem;color:var(--text-muted);">(create POs, receive stock)</span></span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_purchase_orders"><span class="toggle-slider"></span></label>
             </div>
@@ -1322,7 +1326,7 @@ function buildSwitchPortals() {
         { perm: 'can_manage_projects', label: 'Switch to Projects', url: '/dashboard', icon: 'bi-building' },
         { perm: 'can_manage_hardware', label: 'Switch to Hardware POS', url: '/pos-system.html', icon: 'bi-cart' },
         { perm: 'can_manage_hr', label: 'Switch to HR', url: '/hr-dashboard', icon: 'bi-people', alt: 'hr_access' },
-        { any: ['can_create_requisitions', 'can_approve_requisitions', 'can_manage_purchase_orders', 'can_manage_suppliers'], label: 'Switch to Procurement', url: '/procurement', icon: 'bi-truck' },
+        { any: ['can_create_requisitions', 'can_approve_requisitions', 'can_authorise_purchase_orders', 'can_manage_purchase_orders', 'can_manage_suppliers'], label: 'Switch to Procurement', url: '/procurement', icon: 'bi-truck' },
     ];
     container.innerHTML = portals
         .filter(p => PERMS && (PERMS.is_super_admin || PERMS[p.perm] || (p.alt && PERMS[p.alt]) || (p.any && p.any.some(prm => PERMS[prm]))))
@@ -1964,6 +1968,7 @@ const PERM_TOGGLE_IDS = [
     'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments',
     'can_edit_projects', 'can_download_master_file',
     'can_create_requisitions', 'can_approve_requisitions',
+    'can_authorise_purchase_orders',
     'can_manage_purchase_orders', 'can_manage_suppliers'
 ];
 
@@ -1999,7 +2004,7 @@ async function loadPermModalData(userType, userId) {
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file',
-                     'can_create_requisitions','can_approve_requisitions',
+                     'can_create_requisitions','can_approve_requisitions','can_authorise_purchase_orders',
                      'can_manage_purchase_orders','can_manage_suppliers'];
     // Reset all toggles to off
     toggles.forEach(t => {
@@ -2034,7 +2039,7 @@ async function savePermModal() {
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file',
-                     'can_create_requisitions','can_approve_requisitions',
+                     'can_create_requisitions','can_approve_requisitions','can_authorise_purchase_orders',
                      'can_manage_purchase_orders','can_manage_suppliers'];  
     const payload = {
         user_type: permModalUserType,

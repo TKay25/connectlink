@@ -150,6 +150,7 @@
         .pc-badge-partial { background: #fef3c7; color: #b45309; }
         .pc-badge-received { background: #dcfce7; color: #15803d; }
         .pc-badge-pending { background: #ede9fe; color: #6d28d9; }
+        .pc-badge-authorisation { background: #cffafe; color: #0e7490; }
         .pc-badge-cancelled { background: #f3f4f6; color: #6b7280; }
         .pc-badge-high { background: #fee2e2; color: #b91c1c; }
         .pc-badge-medium { background: #fef3c7; color: #b45309; }
@@ -396,6 +397,7 @@
         #kpiSubmitted { --kpi-accent:#2563EB; }
         #kpiApproved { --kpi-accent:#16A34A; }
         #kpiRejected { --kpi-accent:#DC2626; }
+        #kpiAwaitingAuth { --kpi-accent:#0E7490; }
         #kpiOpenPos { --kpi-accent:#0891B2; }
         #kpiPoValue { --kpi-accent:#0E7490; }
         #kpiSuppliers { --kpi-accent:#7C3AED; }
@@ -743,6 +745,7 @@
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="kpiSubmitted">0</div><div class="kpi-label">Awaiting Approval</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div class="kpi-value" id="kpiApproved">0</div><div class="kpi-label">Approved</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-x-circle"></i></div><div class="kpi-value" id="kpiRejected">0</div><div class="kpi-label">Rejected</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-patch-check"></i></div><div class="kpi-value" id="kpiAwaitingAuth">0</div><div class="kpi-label">Awaiting Authorisation</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-box-seam"></i></div><div class="kpi-value" id="kpiOpenPos">0</div><div class="kpi-label">Open POs</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div><div class="kpi-value" id="kpiPoValue" data-money="1">$0</div><div class="kpi-label">Open PO Value</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-truck"></i></div><div class="kpi-value" id="kpiSuppliers">0</div><div class="kpi-label">Active Suppliers</div></div>
@@ -1337,6 +1340,8 @@
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoPdf()"><i class="bi bi-file-earmark-pdf"></i> Download PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoGrn()"><i class="bi bi-file-earmark-richtext"></i> GRN PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="sendPoPdf()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-whatsapp"></i> Send PDF</button>
+                <button class="pc-btn pc-btn-info" onclick="authorisePo(VIEW_PO.id)" id="poAuthoriseBtn" data-perm-action="can_authorise_purchase_orders" style="display:none;"><i class="bi bi-patch-check"></i> Authorise</button>
+                <button class="pc-btn pc-btn-danger" onclick="openPoDecline()" id="poDeclineAuthBtn" data-perm-action="can_authorise_purchase_orders" style="display:none;"><i class="bi bi-x-lg"></i> Decline</button>
                 <button class="pc-btn pc-btn-success" onclick="approvePo(VIEW_PO.id)" id="poApproveBtn" data-perm-action="can_approve_requisitions" style="display:none;"><i class="bi bi-check-lg"></i> Approve</button>
                 <button class="pc-btn pc-btn-danger" onclick="openPoDecline()" id="poDeclineBtn" data-perm-action="can_approve_requisitions" style="display:none;"><i class="bi bi-x-lg"></i> Decline</button>
                 <button class="pc-btn pc-btn-primary" onclick="saveReceive()" id="receiveBtn" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Record Receipt</button>
@@ -1512,6 +1517,7 @@ function prioBadge(p) {
 }
 function poBadge(status) {
     const map = {
+        pending_authorisation: ['pc-badge-authorisation', 'Awaiting Authorisation'],
         pending_approval: ['pc-badge-pending', 'Pending Approval'],
         ordered: ['pc-badge-ordered', 'Ordered'],
         partial: ['pc-badge-partial', 'Partial'],
@@ -1612,6 +1618,7 @@ async function loadDashboard() {
     const kpiMap = [
         ['kpiDraft', 'draft', false], ['kpiSubmitted', 'submitted', false],
         ['kpiApproved', 'approved', false], ['kpiRejected', 'rejected', false],
+        ['kpiAwaitingAuth', 'awaiting_authorisation', false],
         ['kpiOpenPos', 'open_pos', false], ['kpiPoValue', 'open_po_value', true],
         ['kpiSuppliers', 'active_suppliers', false], ['kpiApprovedValue', 'approved_value', true]
     ];
@@ -2561,6 +2568,9 @@ async function loadPOs() {
                     <button class="pc-btn pc-btn-outline pc-btn-sm" title="Download PDF" onclick="downloadPoPdfById(${po.id})"><i class="bi bi-file-earmark-pdf"></i></button>
                     <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewPo(${po.id})"><i class="bi bi-eye"></i></button>
                     ${['ordered','partial'].includes(po.status) ? `<button class="pc-btn pc-btn-success pc-btn-sm" onclick="viewPo(${po.id}, true)" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Receive</button>` : ''}
+                    ${po.status === 'pending_authorisation' ? `
+                    <button class="pc-btn pc-btn-info pc-btn-sm" onclick="authorisePo(${po.id})" data-perm-action="can_authorise_purchase_orders" title="Authorise PO (first sign-off)"><i class="bi bi-patch-check"></i> Authorise</button>
+                    <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="disapprovePo(${po.id})" data-perm-action="can_authorise_purchase_orders" title="Decline PO"><i class="bi bi-x-lg"></i> Decline</button>` : ''}
                     ${po.status === 'pending_approval' ? `
                     <button class="pc-btn pc-btn-success pc-btn-sm" onclick="approvePo(${po.id})" data-perm-action="can_approve_requisitions" title="Approve PO"><i class="bi bi-check-lg"></i> Approve</button>
                     <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="disapprovePo(${po.id})" data-perm-action="can_approve_requisitions" title="Decline PO"><i class="bi bi-x-lg"></i> Decline</button>` : ''}
@@ -2696,11 +2706,17 @@ window.viewPo = async function(id, openReceive) {
             document.getElementById('viewPoItems').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
         applyProcurementPermissions();
-        // Approve/Decline only while the PO is awaiting approval (and user may approve)
+        // Authorise/Approve/Decline only while the PO is in the matching sign-off layer
+        const isAwaitingAuth = po.status === 'pending_authorisation';
         const isPending = po.status === 'pending_approval';
+        const canAuthorisePo = can('can_authorise_purchase_orders');
         const canApprovePo = can('can_approve_requisitions');
+        const poAuthBtn = document.getElementById('poAuthoriseBtn');
+        const poDeclAuthBtn = document.getElementById('poDeclineAuthBtn');
         const poApproveBtn = document.getElementById('poApproveBtn');
         const poDeclineBtn = document.getElementById('poDeclineBtn');
+        if (poAuthBtn) poAuthBtn.style.display = (isAwaitingAuth && canAuthorisePo) ? '' : 'none';
+        if (poDeclAuthBtn) poDeclAuthBtn.style.display = (isAwaitingAuth && canAuthorisePo) ? '' : 'none';
         if (poApproveBtn) poApproveBtn.style.display = (isPending && canApprovePo) ? '' : 'none';
         if (poDeclineBtn) poDeclineBtn.style.display = (isPending && canApprovePo) ? '' : 'none';
     } catch (e) { toast('Failed to load PO', 'error'); }
@@ -2721,6 +2737,15 @@ window.sendPoPdf = async function() {
     } catch (e) { toast('Connection error', 'error'); }
 };
 
+window.authorisePo = async function(id) {
+    if (!confirm('Authorise this purchase order? It will be passed on for approval.')) return;
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + id + '/authorise', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewPoModal'); loadPOs(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
 window.approvePo = async function(id) {
     if (!confirm('Approve this purchase order? It will become Ordered and stock can be received.')) return;
     try {
@@ -2737,8 +2762,7 @@ window.openPoDecline = function() {
     disapprovePo(VIEW_PO.id, reason);
 };
 window.disapprovePo = async function(id, reason) {
-    if (!confirm('Decline this purchase order? Its linked requisitions will be released for re-issue.')) return;
-    try {
+    if (!confirm('Decline this purchase order? Its linked requisitions will be released for re-issue.')) return;    try {
         const res = await fetch('/api/procurement/purchase-orders/' + id + '/reject', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
             body: JSON.stringify({ reason: (reason || '').trim() })

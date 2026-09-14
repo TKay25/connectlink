@@ -1726,7 +1726,10 @@ def initialize_database_tables():
 
             # ========== PROCUREMENT & REQUISITIONS MODULE ==========
             # Permission flags that grey-out action buttons on the Procurement portal.
+            # NOTE: can_authorise_purchase_orders is the first sign-off layer of the PO
+            # workflow (created -> pending_authorisation -> pending_approval -> ordered).
             for _proc_col in ['can_create_requisitions', 'can_approve_requisitions',
+                              'can_authorise_purchase_orders',
                               'can_manage_purchase_orders', 'can_manage_suppliers']:
                 try:
                     cursor.execute(
@@ -1806,7 +1809,7 @@ def initialize_database_tables():
                     supplier_name VARCHAR(150),
                     supplier_phone VARCHAR(50),
                     requisition_ids TEXT,
-                    status VARCHAR(30) DEFAULT 'pending_approval',
+                    status VARCHAR(30) DEFAULT 'pending_authorisation',
                     total_amount DECIMAL(12,2) DEFAULT 0,
                     expected_delivery DATE,
                     created_by VARCHAR(100),
@@ -1847,6 +1850,14 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add requested_by columns: {e}")
+
+            # PO workflow now starts at authorisation:
+            #   pending_authorisation -> (authorise) -> pending_approval -> (approve) -> ordered
+            try:
+                cursor.execute("ALTER TABLE purchase_orders ALTER COLUMN status SET DEFAULT 'pending_authorisation'")
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not set purchase_orders.status default: {e}")
 
             # Purchase order attachments (supplier invoices + goods-received receipts)
             cursor.execute("""
@@ -32991,7 +33002,8 @@ def get_user_permissions(user_type, user_id):
                        is_super_admin, can_view_payments, can_edit_projects,
                        can_download_master_file, hr_access,
                        can_create_requisitions, can_approve_requisitions,
-                       can_manage_purchase_orders, can_manage_suppliers
+                       can_manage_purchase_orders, can_manage_suppliers,
+                       can_authorise_purchase_orders
                 FROM user_permissions WHERE user_type=%s AND user_id=%s
             """, (user_type, user_id))
             row = cursor.fetchone()
@@ -33008,7 +33020,8 @@ def get_user_permissions(user_type, user_id):
                     'can_create_requisitions': row[14] if len(row) > 14 else False,
                     'can_approve_requisitions': row[15] if len(row) > 15 else False,
                     'can_manage_purchase_orders': row[16] if len(row) > 16 else False,
-                    'can_manage_suppliers': row[17] if len(row) > 17 else False
+                    'can_manage_suppliers': row[17] if len(row) > 17 else False,
+                    'can_authorise_purchase_orders': row[18] if len(row) > 18 else False
                 }
                 print(f"📊 get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}, hr_access={result['hr_access']}")
                 return result
@@ -33023,19 +33036,22 @@ def get_user_permissions(user_type, user_id):
                         can_export_data, can_view_audit, can_manage_roles, can_view_payments,
                         can_edit_projects, can_download_master_file, hr_access,
                         can_create_requisitions, can_approve_requisitions,
-                        can_manage_purchase_orders, can_manage_suppliers)
-                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                        can_manage_purchase_orders, can_manage_suppliers,
+                        can_authorise_purchase_orders)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
                 """, (user_type, user_id))
                 connection.commit()
                 return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
                     'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access',
-                    'can_create_requisitions','can_approve_requisitions','can_manage_purchase_orders','can_manage_suppliers']}
+                    'can_create_requisitions','can_approve_requisitions','can_manage_purchase_orders','can_manage_suppliers',
+                    'can_authorise_purchase_orders']}
             # Default: no permissions
             return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                 'can_add_users','can_edit_users','can_delete_users','can_export_data',
                 'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access',
-                'can_create_requisitions','can_approve_requisitions','can_manage_purchase_orders','can_manage_suppliers']}
+                'can_create_requisitions','can_approve_requisitions','can_manage_purchase_orders','can_manage_suppliers',
+                'can_authorise_purchase_orders']}
     except Exception as e:
         print(f"Permissions error: {e}")
         return {}
@@ -33058,7 +33074,8 @@ def um_permissions_api():
                            up.can_manage_roles, up.can_view_payments, up.can_edit_projects,
                            up.can_download_master_file, up.hr_access,
                            up.can_create_requisitions, up.can_approve_requisitions,
-                           up.can_manage_purchase_orders, up.can_manage_suppliers
+                           up.can_manage_purchase_orders, up.can_manage_suppliers,
+                           up.can_authorise_purchase_orders
                     FROM user_permissions up
                     LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
                     LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
@@ -33080,7 +33097,8 @@ def um_permissions_api():
                         'can_create_requisitions': r[18] if len(r) > 18 else False,
                         'can_approve_requisitions': r[19] if len(r) > 19 else False,
                         'can_manage_purchase_orders': r[20] if len(r) > 20 else False,
-                        'can_manage_suppliers': r[21] if len(r) > 21 else False
+                        'can_manage_suppliers': r[21] if len(r) > 21 else False,
+                        'can_authorise_purchase_orders': r[22] if len(r) > 22 else False
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
@@ -33101,7 +33119,8 @@ def um_permissions_api():
                       'can_view_payments', 'can_edit_projects', 'can_download_master_file',
                       'hr_access',
                       'can_create_requisitions', 'can_approve_requisitions',
-                      'can_manage_purchase_orders', 'can_manage_suppliers']
+                      'can_manage_purchase_orders', 'can_manage_suppliers',
+                      'can_authorise_purchase_orders']
 
             with get_db() as (cursor, connection):
                 # Upsert
@@ -39334,6 +39353,10 @@ except Exception as e:
 def _procurement_perms():
     """Current user's procurement permission flags, resolved and cached in session."""
     perms = session.get('procurement_permissions')
+    # Refresh a cache that predates a newly added flag (e.g. can_authorise_purchase_orders)
+    # so a long-lived session doesn't see the new action as permanently denied.
+    if perms and 'can_authorise_purchase_orders' not in perms:
+        perms = None
     if not perms:
         userid = session.get('userid') or session.get('user_id')
         if userid:
@@ -39472,7 +39495,9 @@ def procurement_api_dashboard():
                 SELECT
                     COUNT(*) FILTER (WHERE status IN ('ordered','partial')),
                     COALESCE(SUM(total_amount) FILTER (WHERE status IN ('ordered','partial')), 0),
-                    COUNT(*) FILTER (WHERE status='received')
+                    COUNT(*) FILTER (WHERE status='received'),
+                    COUNT(*) FILTER (WHERE status='pending_authorisation'),
+                    COUNT(*) FILTER (WHERE status='pending_approval')
                 FROM purchase_orders
             """)
             p = cursor.fetchone()
@@ -39489,6 +39514,7 @@ def procurement_api_dashboard():
         return jsonify({'success': True, 'data': {
             'draft': r[0], 'submitted': r[1], 'approved': r[2], 'rejected': r[3], 'total': r[4],
             'open_pos': p[0], 'open_po_value': float(p[1] or 0), 'received_pos': p[2],
+            'awaiting_authorisation': p[3] or 0, 'awaiting_approval': p[4] or 0,
             'active_suppliers': sup, 'total_suppliers': sup_total,
             'approved_value': float(approved_value or 0)
         }})
@@ -40189,7 +40215,7 @@ def procurement_api_create_purchase_order():
                 INSERT INTO purchase_orders (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids,
                                              status, total_amount, expected_delivery, created_by, requested_by,
                                              requested_by_phone, funding_source)
-                VALUES (%s, %s, %s, %s, %s, 'pending_approval', %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, 'pending_authorisation', %s, %s, %s, %s, %s, %s)
             """, (po_no, supplier_id, supplier_name, supplier_phone, ','.join(str(x) for x in req_ids), total,
                   expected_delivery or None, user['name'], requested_by or None, requested_by_phone or None,
                   funding_source))
@@ -40205,24 +40231,56 @@ def procurement_api_create_purchase_order():
             """, req_ids)
             connection.commit()
             log_activity('po_create', f'Created {po_no} ({supplier_name or "No supplier"}) from {len(req_ids)} requisition(s)', 'purchase_order', po_id)
-            # Best-effort WhatsApp approval request to the approvers (Mrs G etc.)
+            # Best-effort WhatsApp authorisation request to the authorisers (first sign-off)
             try:
-                _procurement_notify_po_approvers(po_id)
+                _procurement_notify_po_authorisers(po_id)
             except Exception as nfe:
-                print(f"PO approver notify error: {nfe}")
-            return jsonify({'success': True, 'message': f'{po_no} created (pending approval). Total: ${total:,.2f}'})
+                print(f"PO authoriser notify error: {nfe}")
+            return jsonify({'success': True, 'message': f'{po_no} created (pending authorisation). Total: ${total:,.2f}'})
     except Exception as e:
         print(f"Create PO error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/authorise', methods=['POST'])
+@login_required
+def procurement_api_authorise_po(po_id):
+    """FIRST sign-off layer: authorise a freshly raised PO.
+    Authorise -> 'pending_approval' and the approvers are notified (WhatsApp +
+    available in-app); the PO still needs an approval before it becomes Ordered
+    and stock can be received."""
+    perms = _procurement_perms()
+    if not _procurement_can_authorise(perms):
+        return jsonify({'success': False, 'error': 'Access denied: no PO authorisation permission.'}), 403
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, po_no, status FROM purchase_orders WHERE id = %s", (po_id,))
+            po = cursor.fetchone()
+            if not po:
+                return jsonify({'success': False, 'error': 'PO not found.'}), 404
+            if po[2] != 'pending_authorisation':
+                return jsonify({'success': False, 'error': f'PO is already {po[2].replace("_", " ")}.'}), 400
+            cursor.execute("UPDATE purchase_orders SET status='pending_approval', updated_at=CURRENT_TIMESTAMP WHERE id = %s", (po_id,))
+            connection.commit()
+            log_activity('po_authorise', f'Authorised {po[1]} by {user["name"]} (sent for approval)', 'purchase_order', po_id)
+        # Best-effort: hand the PO over to the approval layer
+        try:
+            _procurement_notify_po_approvers(po_id)
+        except Exception as nfe:
+            print(f"PO approver notify error: {nfe}")
+        return jsonify({'success': True, 'message': f'{po[1]} authorised — now awaiting approval.'})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/procurement/purchase-orders/<int:po_id>/approve', methods=['POST'])
 @login_required
 def procurement_api_approve_po(po_id):
-    """Approve a pending PO in-app (approve -> Ordered so stock can be received)."""
+    """SECOND sign-off layer: approve an authorised PO (approve -> Ordered so
+    stock can be received). The PO must first have been authorised."""
     perms = _procurement_perms()
-    if not (perms.get('is_super_admin', False) or perms.get('can_approve_requisitions', False)
-            or perms.get('can_manage_purchase_orders', False)):
+    if not _procurement_can_approve(perms):
         return jsonify({'success': False, 'error': 'Access denied: no PO approval permission.'}), 403
     user = _procurement_user()
     try:
@@ -40244,12 +40302,12 @@ def procurement_api_approve_po(po_id):
 @app.route('/api/procurement/purchase-orders/<int:po_id>/reject', methods=['POST'])
 @login_required
 def procurement_api_reject_po(po_id):
-    """Decline a pending PO in-app (Cancelled). Linked requisitions are released
+    """Decline a PO at whichever sign-off layer it is sitting in:
+      - pending_authorisation -> needs can_authorise_purchase_orders
+      - pending_approval      -> needs can_approve_requisitions / can_manage_purchase_orders
+    Either way the PO becomes Cancelled and its linked requisitions are released
     back to 'approved' so they can be re-issued on a corrected PO."""
     perms = _procurement_perms()
-    if not (perms.get('is_super_admin', False) or perms.get('can_approve_requisitions', False)
-            or perms.get('can_manage_purchase_orders', False)):
-        return jsonify({'success': False, 'error': 'Access denied: no PO approval permission.'}), 403
     data = request.get_json() or {}
     reason = (data.get('reason') or '').strip()
     user = _procurement_user()
@@ -40259,15 +40317,24 @@ def procurement_api_reject_po(po_id):
             po = cursor.fetchone()
             if not po:
                 return jsonify({'success': False, 'error': 'PO not found.'}), 404
-            if po[2] != 'pending_approval':
-                return jsonify({'success': False, 'error': f'PO is already {po[2].replace("_", " ")}.'}), 400
+            status = po[2]
+            if status == 'pending_authorisation':
+                if not _procurement_can_authorise(perms):
+                    return jsonify({'success': False, 'error': 'Access denied: no PO authorisation permission.'}), 403
+                stage = 'authorisation'
+            elif status == 'pending_approval':
+                if not _procurement_can_approve(perms):
+                    return jsonify({'success': False, 'error': 'Access denied: no PO approval permission.'}), 403
+                stage = 'approval'
+            else:
+                return jsonify({'success': False, 'error': f'PO is already {status.replace("_", " ")}.'}), 400
             cursor.execute("UPDATE purchase_orders SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE id = %s", (po_id,))
             reqs = [int(x) for x in (po[3] or '').split(',') if str(x).strip().isdigit()]
             if reqs:
                 ph = ','.join(['%s'] * len(reqs))
                 cursor.execute(f"UPDATE requisitions SET status='approved', updated_at=CURRENT_TIMESTAMP WHERE id IN ({ph})", reqs)
             connection.commit()
-            log_activity('po_reject', f'Declined {po[1]} by {user["name"]}{": " + reason if reason else ""}', 'purchase_order', po_id)
+            log_activity('po_reject', f'Declined {po[1]} at {stage} stage by {user["name"]}{": " + reason if reason else ""}', 'purchase_order', po_id)
             return jsonify({'success': True, 'message': f'{po[1]} declined{": " + reason if reason else ""}'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -40340,6 +40407,8 @@ def procurement_api_receive_po(po_id):
                 return jsonify({'success': False, 'error': 'PO not found.'}), 404
             if po[2] == 'received':
                 return jsonify({'success': False, 'error': 'PO already fully received.'}), 400
+            if po[2] == 'pending_authorisation':
+                return jsonify({'success': False, 'error': 'PO is awaiting authorisation — it must be authorised then approved before goods can be received.'}), 400
             if po[2] == 'pending_approval':
                 return jsonify({'success': False, 'error': 'PO is awaiting approval — it must be approved before goods can be received.'}), 400
 
@@ -40771,6 +40840,8 @@ def _render_po_pdf(po_id):
         return (v if v is not None else '')
 
     status_map = {
+        'pending_authorisation': ('Pending Authorisation', colors.HexColor('#D97706')),
+        'pending_approval': ('Pending Approval', colors.HexColor('#7C3AED')),
         'ordered': ('Ordered', colors.HexColor('#2563EB')),
         'partial': ('Partial', colors.HexColor('#D97706')),
         'received': ('Received', colors.HexColor('#16A34A')),
@@ -41242,6 +41313,29 @@ def procurement_api_export():
 #                  {{11}}=supplier phone, {{12}}=logged by, {{13}}=logged date
 #       Buttons: quick_reply "Approve" payload poappr_{{3}},
 #                quick_reply "Decline" payload podecl_{{3}}  ({{3}} = PO id)
+#   - purchase_order_authorisation_request  (FIRST PO sign-off layer)
+#       Same 13 body variables as purchase_order_approval_request (so the same
+#       _procurement_po_details() payload is reused) — only the wording and the
+#       button payloads differ:
+#       Body: "Hello {{1}}
+#              You have a new *{{2}}* Purchase Order *({{3}})* from *{{4}}*
+#              *({{5}})* totalling around *USD {{6}}* that requires your
+#              AUTHORISATION.
+#              The items are required before *{{7}}*.
+#              The Purchase Order has *{{8}} items*: {{9}}.
+#              Proposed Supplier *{{10}}* *({{11}})*.
+#              Logged by {{12}} on {{13}}.
+#              Kindly click "Authorise" below to pass it on for approval and
+#              "Decline" to decline the purchase order."
+#       Variables: {{1}}=authoriser name, {{2}}=department, {{3}}=PO number,
+#                  {{4}}=requested by, {{5}}=requested-by phone,
+#                  {{6}}=total USD, {{7}}=items required before,
+#                  {{8}}=item count, {{9}}=item summary, {{10}}=supplier,
+#                  {{11}}=supplier phone, {{12}}=logged by, {{13}}=logged date
+#       Buttons: quick_reply "Authorise" payload poauth_{{3}},
+#                quick_reply "Decline" payload podeclauth_{{3}}  ({{3}} = PO id)
+#       PO workflow: pending_authorisation -> (poauth_) pending_approval
+#                    -> (poappr_) ordered. Either layer may decline (cancelled).
 # All sends are best-effort: missing numbers / unapproved templates / API
 # errors only print a warning — the in-app action always succeeds.
 # ============================================================================
@@ -41249,6 +41343,7 @@ def procurement_api_export():
 PROC_REQ_APPROVAL_TEMPLATE = 'requisition_approval_request'
 PROC_REQ_STATUS_TEMPLATE = 'requisition_status_update'
 PROC_PO_APPROVAL_TEMPLATE = 'purchase_order_approval_request'
+PROC_PO_AUTHORISATION_TEMPLATE = 'purchase_order_authorisation_request'
 
 
 def _wa_normalize_phone(phone):
@@ -41408,6 +41503,36 @@ def _procurement_can_approve(perms):
                            or perms.get('can_manage_purchase_orders', False)))
 
 
+def _procurement_can_authorise(perms):
+    """Super admin or the dedicated PO authorisation permission.
+    This is the FIRST sign-off layer of the PO workflow."""
+    return bool(perms and (perms.get('is_super_admin', False)
+                           or perms.get('can_authorise_purchase_orders', False)))
+
+
+def _procurement_authorisers():
+    """Active admin_users who can authorise purchase orders (or super admin)
+    and have a WhatsApp number saved."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, full_name, whatsapp, source_system, source_id
+                FROM admin_users WHERE is_active = TRUE
+            """)
+            rows = cursor.fetchall()
+        out = []
+        for r in rows:
+            if not r[2]:
+                continue
+            perms = get_user_permissions(r[3] or 'projects', r[4] or r[0])
+            if _procurement_can_authorise(perms):
+                out.append({'id': r[0], 'name': r[1] or 'Authoriser', 'whatsapp': r[2]})
+        return out
+    except Exception as e:
+        print(f"Authoriser lookup error: {e}")
+        return []
+
+
 def _procurement_po_item_summary(po_id):
     """Return (item_count, one-line item summary) for a PO's GRN lines."""
     try:
@@ -41494,6 +41619,56 @@ def _procurement_po_details(po_id):
         return None
 
 
+def _procurement_notify_po_authorisers(po_id):
+    """Notify every authoriser about a newly raised PO awaiting authorisation
+    via the purchase_order_authorisation_request template (authorise/decline
+    buttons). This is the first sign-off layer of the PO workflow."""
+    try:
+        d = _procurement_po_details(po_id)
+        if not d:
+            return
+        count, summary = _procurement_po_item_summary(po_id)
+
+        def fmt_date(v):
+            try:
+                if hasattr(v, 'strftime'):
+                    return f"{v.day} {v.strftime('%B %Y')}"
+                return str(v)[:10] if v else '—'
+            except Exception:
+                return '—'
+
+        def fmt_amount(v):
+            try:
+                f = float(v)
+                return f"{int(f):,}" if f == int(f) else f"{f:,.2f}"
+            except Exception:
+                return str(v)
+
+        for au in _procurement_authorisers():
+            try:
+                ok, txt = _procurement_send_template(
+                    au['whatsapp'], PROC_PO_AUTHORISATION_TEMPLATE,
+                    [au['name'],
+                     d['department'] or '—',
+                     d['po_no'],
+                     d['requested_by'] or '—',
+                     d['requested_by_phone'] or '',
+                     fmt_amount(d['total']),
+                     fmt_date(d['required_by']),
+                     count,
+                     summary,
+                     d['supplier_name'] or '—',
+                     d['supplier_phone'] or '',
+                     d['created_by'] or '—',
+                     fmt_date(d['created_at'])],
+                    button_payloads=[f"poauth_{po_id}", f"podeclauth_{po_id}"])
+                print(f"PO authorisation request -> {au['name']}: ok={ok}")
+            except Exception as e:
+                print(f"PO authoriser notify error: {e}")
+    except Exception as e:
+        print(f"PO notify authorisers error: {e}")
+
+
 def _procurement_notify_po_approvers(po_id):
     """Notify every approver about a new PO awaiting approval via the
     purchase_order_approval_request template (approve/decline buttons)."""
@@ -41544,18 +41719,31 @@ def _procurement_notify_po_approvers(po_id):
 
 
 def _handle_procurement_po_payload(payload, sender_id, sender_number):
-    """Handle poappr_<id> / podecl_<id> quick-reply payloads from the
-    purchase_order_approval_request WhatsApp template.
-    Approve -> Ordered (stock can be received). Decline -> Cancelled and the
-    linked requisitions are released back to 'approved'. Returns True if the
-    payload was a PO button (already handled), False otherwise."""
+    """Handle the PO quick-reply payloads arriving from WhatsApp:
+      poauth_<id>      -> AUTHORISE a PO awaiting authorisation (layer 1)
+      podeclauth_<id>  -> decline at the authorisation layer
+      poappr_<id>      -> APPROVE an authorised PO (layer 2) -> Ordered
+      podecl_<id>      -> decline at the approval layer
+    Authorise -> pending_approval and the approvers are notified.
+    Approve   -> ordered (stock can then be received).
+    Either decline -> cancelled with the linked requisitions released back to
+    'approved'. Returns True if the payload was a PO button (already handled),
+    False otherwise."""
     try:
         if not payload:
             return False
         low = payload.lower()
-        if not (low.startswith('poappr_') or low.startswith('podecl_')):
+        # NOTE: test the 'declauth' prefix BEFORE 'decl' — they are different layers.
+        if low.startswith('poauth_'):
+            action = 'authorise'
+        elif low.startswith('podeclauth_'):
+            action = 'decline_authorisation'
+        elif low.startswith('poappr_'):
+            action = 'approve'
+        elif low.startswith('podecl_'):
+            action = 'decline_approval'
+        else:
             return False
-        action = 'approve' if low.startswith('poappr_') else 'reject'
         try:
             po_id = int(payload.split('_', 1)[1])
         except (IndexError, ValueError):
@@ -41564,6 +41752,7 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
             _procurement_send_text(sender_id, "Invalid purchase order reference.")
             return True
 
+        notify_approvers = False
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT id, po_no, status, requisition_ids FROM purchase_orders WHERE id = %s
@@ -41573,10 +41762,15 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
                 _procurement_send_text(sender_id, "Purchase order not found.")
                 return True
             po_no, status, req_ids = row[1], row[2], row[3]
-            if status != 'pending_approval':
+            # Which sign-off layer does this action belong to?
+            if action in ('authorise', 'decline_authorisation'):
+                need_status, stage, verb = 'pending_authorisation', 'authorisation', 'authorise'
+            else:
+                need_status, stage, verb = 'pending_approval', 'approval', 'approve'
+            if status != need_status:
                 _procurement_send_text(sender_id, f"{po_no} is already {status.replace('_', ' ')} - no change made.")
                 return True
-            sender_name = 'Approver'
+            sender_name = 'Authoriser' if stage == 'authorisation' else 'Approver'
             perms = {}
             try:
                 cursor.execute("""
@@ -41585,15 +41779,23 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
                 """, (f"%{sender_number}%",))
                 au = cursor.fetchone()
                 if au:
-                    sender_name = au[0] or 'Approver'
+                    sender_name = au[0] or sender_name
                     perms = get_user_permissions(au[1] or 'projects', au[2] or sender_id)
             except Exception as pe:
                 print(f"PO sender lookup error: {pe}")
-            if not _procurement_can_approve(perms):
-                _procurement_send_text(sender_id, "You don't have permission to approve purchase orders. Contact an administrator.")
+            allowed = (_procurement_can_authorise(perms) if stage == 'authorisation'
+                       else _procurement_can_approve(perms))
+            if not allowed:
+                _procurement_send_text(sender_id, f"You don't have permission to {verb} purchase orders. Contact an administrator.")
                 return True
 
-            if action == 'approve':
+            if action == 'authorise':
+                cursor.execute("""
+                    UPDATE purchase_orders SET status='pending_approval', updated_at=CURRENT_TIMESTAMP WHERE id=%s
+                """, (po_id,))
+                new_status = 'authorised'
+                notify_approvers = True
+            elif action == 'approve':
                 cursor.execute("""
                     UPDATE purchase_orders SET status='ordered', updated_at=CURRENT_TIMESTAMP WHERE id=%s
                 """, (po_id,))
@@ -41608,10 +41810,16 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
                     cursor.execute(f"UPDATE requisitions SET status='approved', updated_at=CURRENT_TIMESTAMP WHERE id IN ({ph})", reqs)
                 new_status = 'declined'
             connection.commit()
-            log_activity('po_approve' if action == 'approve' else 'po_reject',
-                         f'Purchase order {po_no} {new_status} via WhatsApp by {sender_name}',
+            log_activity('po_authorise' if action == 'authorise' else ('po_approve' if action == 'approve' else 'po_reject'),
+                         f'Purchase order {po_no} {new_status} via WhatsApp at {stage} stage by {sender_name}',
                          'purchase_order', po_id)
 
+        # Authorised -> hand the PO over to the approval layer
+        if notify_approvers:
+            try:
+                _procurement_notify_po_approvers(po_id)
+            except Exception as nfe:
+                print(f"PO approver notify error: {nfe}")
         _procurement_send_text(sender_id, f"Purchase order {po_no} has been {new_status}.")
         return True
     except Exception as e:
@@ -41624,15 +41832,17 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
 
 
 def handle_procurement_button_payload(payload, sender_id, sender_number):
-    """Handle reqappr_/reqdecl_ (requisition) and poappr_/podecl_ (purchase
-    order) quick-reply payloads from the WhatsApp approval templates.
+    """Handle reqappr_/reqdecl_ (requisition) and poauth_/podeclauth_/
+    poappr_/podecl_ (purchase order) quick-reply payloads from the WhatsApp
+    procurement templates.
     Returns True if the payload was a procurement button (already handled),
     False otherwise (so other payloads keep flowing to existing handlers)."""
     try:
         if not payload:
             return False
         low = payload.lower()
-        if low.startswith('poappr_') or low.startswith('podecl_'):
+        if (low.startswith('poauth_') or low.startswith('podeclauth_')
+                or low.startswith('poappr_') or low.startswith('podecl_')):
             return _handle_procurement_po_payload(payload, sender_id, sender_number)
         if not (low.startswith('reqappr_') or low.startswith('reqdecl_')):
             return False

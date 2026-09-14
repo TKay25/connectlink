@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-09-11T08:18:25.861Z",
+  "last_sync": "2026-09-14T15:57:17.254Z",
   "module_count": 63,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 58,
+  "orphaned_count": 63,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -222,6 +222,26 @@
       "source": "_rerun_aug_payroll.py"
     },
     {
+      "artifact": "artifacts/modules/_tmp_flow_probe.json",
+      "source": "_tmp_flow_probe.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_gantt_check.json",
+      "source": "_tmp_gantt_check.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_gantt_test.json",
+      "source": "_tmp_gantt_test.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_js_check.json",
+      "source": "_tmp_js_check.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_sched_test.json",
+      "source": "_tmp_sched_test.py"
+    },
+    {
       "artifact": "artifacts/modules/_verify_aug_payroll.json",
       "source": "_verify_aug_payroll.py"
     },
@@ -238,5 +258,38 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "_tmp_flow_probe.py",
+      "ts": "2026-09-11T14:02:36.474Z"
+    },
+    {
+      "rel": "_tmp_flow_probe.py",
+      "ts": "2026-09-11T14:02:36.339Z"
+    },
+    {
+      "rel": "_tmp_js_check.py",
+      "ts": "2026-09-11T13:41:32.956Z"
+    },
+    {
+      "rel": "_tmp_js_check.py",
+      "ts": "2026-09-11T13:41:32.760Z"
+    },
+    {
+      "rel": "_tmp_js_check.py",
+      "ts": "2026-09-11T13:36:29.136Z"
+    },
+    {
+      "rel": "_tmp_js_check.py",
+      "ts": "2026-09-11T13:36:29.006Z"
+    },
+    {
+      "rel": "_tmp_js_check.py",
+      "ts": "2026-09-11T13:36:04.201Z"
+    },
+    {
+      "rel": "_tmp_js_check.py",
+      "ts": "2026-09-11T13:36:04.093Z"
+    }
+  ]
 }
