@@ -1815,6 +1815,12 @@ def initialize_database_tables():
                     created_by VARCHAR(100),
                     requested_by VARCHAR(150),
                     requested_by_phone VARCHAR(50),
+                    authorised_by VARCHAR(150),
+                    authorised_at TIMESTAMP,
+                    authoriser_user_id INTEGER,
+                    authoriser_name VARCHAR(150),
+                    approver_user_id INTEGER,
+                    approver_name VARCHAR(150),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     received_at TIMESTAMP
                 )
@@ -1858,6 +1864,28 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not set purchase_orders.status default: {e}")
+
+            # Who signed the PO off at the AUTHORISATION layer (shown on the
+            # approval WhatsApp template + View PO). For existing databases.
+            try:
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS authorised_by VARCHAR(150)")
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS authorised_at TIMESTAMP")
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add authorised_by columns: {e}")
+
+            # Who the PO was ROUTED to: the chosen authoriser (1st sign-off) and the
+            # chosen approver (final approval), picked on the New PO form from the
+            # users holding the matching User-Management permissions. NULL = notify
+            # everyone eligible. For existing databases.
+            try:
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS authoriser_user_id INTEGER")
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS authoriser_name VARCHAR(150)")
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS approver_user_id INTEGER")
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS approver_name VARCHAR(150)")
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add authoriser/approver columns: {e}")
 
             # Purchase order attachments (supplier invoices + goods-received receipts)
             cursor.execute("""
@@ -40137,7 +40165,8 @@ def procurement_api_purchase_orders():
                        po.status, po.total_amount, po.expected_delivery, po.created_by, po.requested_by,
                        po.requested_by_phone, po.created_at, po.received_at,
                        (SELECT COUNT(*) FROM procurement_attachments pa WHERE pa.po_id = po.id) AS attach_count,
-                       po.funding_source
+                       po.funding_source, po.authoriser_user_id, po.authoriser_name,
+                       po.approver_user_id, po.approver_name
                 FROM purchase_orders po ORDER BY po.created_at DESC
             """)
             rows = cursor.fetchall()
@@ -40154,7 +40183,11 @@ def procurement_api_purchase_orders():
                     'created_at': str(r[12]) if r[12] else None,
                     'received_at': str(r[13]) if r[13] else None,
                     'attachments_count': r[14] or 0,
-                    'funding_source': r[15] or 'business'
+                    'funding_source': r[15] or 'business',
+                    'authoriser_user_id': r[16],
+                    'authoriser_name': r[17] or '',
+                    'approver_user_id': r[18],
+                    'approver_name': r[19] or ''
                 })
             project_map, po_proj = _po_overcost_data(cursor)
             for p in pos:
@@ -40170,6 +40203,34 @@ def procurement_api_purchase_orders():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/procurement/po-assignees', methods=['GET'])
+@login_required
+def procurement_api_po_assignees():
+    """Eligible PO sign-off people, derived from their User Management permissions:
+      authorisers = super admin OR can_authorise_purchase_orders  (1st sign-off)
+      approvers   = super admin OR can_approve_requisitions OR can_manage_purchase_orders
+    Powers the Authoriser / Approver dropdowns on the New Purchase Order form.
+    A person may appear in both lists."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, full_name, username, whatsapp, source_system, source_id
+                FROM admin_users WHERE is_active = TRUE ORDER BY full_name, id
+            """)
+            rows = cursor.fetchall()
+        authorisers, approvers = [], []
+        for r in rows:
+            perms = get_user_permissions(r[4] or 'projects', r[5] or r[0])
+            person = {'id': r[0], 'name': (r[1] or r[2] or f'User {r[0]}'), 'whatsapp': r[3] or ''}
+            if _procurement_can_authorise(perms):
+                authorisers.append(dict(person))
+            if _procurement_can_approve(perms):
+                approvers.append(dict(person))
+        return jsonify({'success': True, 'data': {'authorisers': authorisers, 'approvers': approvers}})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/procurement/purchase-orders', methods=['POST'])
 @login_required
 @_procurement_perm_required('can_manage_purchase_orders')
@@ -40180,11 +40241,37 @@ def procurement_api_create_purchase_order():
     expected_delivery = data.get('expected_delivery')
     requested_by = (data.get('requested_by') or '').strip()[:150]
     requested_by_phone = (data.get('requested_by_phone') or '').strip()[:50]
+    authoriser_id = data.get('authoriser_id')
+    approver_id = data.get('approver_id')
     user = _procurement_user()
     if not req_ids or not isinstance(req_ids, list):
         return jsonify({'success': False, 'error': 'Select at least one approved requisition.'}), 400
     try:
         with get_db() as (cursor, connection):
+            def _resolve_assignee(raw_id, checker):
+                """Validate a picked user id: must exist, be active, and still hold
+                the matching permission. Returns (user_id, name) or (None, '')."""
+                try:
+                    uid = int(raw_id)
+                except (TypeError, ValueError):
+                    return None, ''
+                if uid <= 0:
+                    return None, ''
+                cursor.execute("""
+                    SELECT id, full_name, username, source_system, source_id
+                    FROM admin_users WHERE id = %s AND is_active = TRUE
+                """, (uid,))
+                au = cursor.fetchone()
+                if not au:
+                    return None, ''
+                perms = get_user_permissions(au[3] or 'projects', au[4] or au[0])
+                if not checker(perms):
+                    return None, ''
+                return au[0], (au[1] or au[2] or f'User {au[0]}')
+
+            authoriser_uid, authoriser_nm = _resolve_assignee(authoriser_id, _procurement_can_authorise)
+            approver_uid, approver_nm = _resolve_assignee(approver_id, _procurement_can_approve)
+
             supplier_name = ''
             supplier_phone = ''
             if supplier_id:
@@ -40214,11 +40301,12 @@ def procurement_api_create_purchase_order():
             cursor.execute("""
                 INSERT INTO purchase_orders (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids,
                                              status, total_amount, expected_delivery, created_by, requested_by,
-                                             requested_by_phone, funding_source)
-                VALUES (%s, %s, %s, %s, %s, 'pending_authorisation', %s, %s, %s, %s, %s, %s)
+                                             requested_by_phone, funding_source,
+                                             authoriser_user_id, authoriser_name, approver_user_id, approver_name)
+                VALUES (%s, %s, %s, %s, %s, 'pending_authorisation', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (po_no, supplier_id, supplier_name, supplier_phone, ','.join(str(x) for x in req_ids), total,
                   expected_delivery or None, user['name'], requested_by or None, requested_by_phone or None,
-                  funding_source))
+                  funding_source, authoriser_uid, authoriser_nm or None, approver_uid, approver_nm or None))
             for it in items:
                 cursor.execute("""
                     INSERT INTO grn_lines (purchase_order_id, product_id, product_name,
@@ -40231,9 +40319,10 @@ def procurement_api_create_purchase_order():
             """, req_ids)
             connection.commit()
             log_activity('po_create', f'Created {po_no} ({supplier_name or "No supplier"}) from {len(req_ids)} requisition(s)', 'purchase_order', po_id)
-            # Best-effort WhatsApp authorisation request to the authorisers (first sign-off)
+            # Best-effort WhatsApp authorisation request to the chosen authoriser
+            # (or to every eligible authoriser when none was picked)
             try:
-                _procurement_notify_po_authorisers(po_id)
+                _procurement_notify_po_authorisers(po_id, authoriser_uid)
             except Exception as nfe:
                 print(f"PO authoriser notify error: {nfe}")
             return jsonify({'success': True, 'message': f'{po_no} created (pending authorisation). Total: ${total:,.2f}'})
@@ -40255,20 +40344,34 @@ def procurement_api_authorise_po(po_id):
     user = _procurement_user()
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT id, po_no, status FROM purchase_orders WHERE id = %s", (po_id,))
+            cursor.execute("SELECT id, po_no, status, approver_user_id FROM purchase_orders WHERE id = %s", (po_id,))
             po = cursor.fetchone()
             if not po:
                 return jsonify({'success': False, 'error': 'PO not found.'}), 404
             if po[2] != 'pending_authorisation':
                 return jsonify({'success': False, 'error': f'PO is already {po[2].replace("_", " ")}.'}), 400
-            cursor.execute("UPDATE purchase_orders SET status='pending_approval', updated_at=CURRENT_TIMESTAMP WHERE id = %s", (po_id,))
+            cursor.execute("""
+                UPDATE purchase_orders
+                SET status='pending_approval', authorised_by=%s, authorised_at=CURRENT_TIMESTAMP,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (user['name'], po_id))
             connection.commit()
             log_activity('po_authorise', f'Authorised {po[1]} by {user["name"]} (sent for approval)', 'purchase_order', po_id)
-        # Best-effort: hand the PO over to the approval layer
+        # Best-effort: hand the PO over to the picked approver (or all approvers)
         try:
-            _procurement_notify_po_approvers(po_id)
+            _procurement_notify_po_approvers(po_id, po[3])
         except Exception as nfe:
             print(f"PO approver notify error: {nfe}")
+        # Status update to the requester / logger (they did not interact on WhatsApp,
+        # so they can only be reached with a template)
+        try:
+            _procurement_notify_po_status(
+                po_id, 'Authorised – awaiting final approval',
+                f'Authorised by {_procurement_actor_name(user)} on {datetime.now().strftime("%d %B %Y")}',
+                exclude=[_procurement_actor_name(user)])
+        except Exception as nse:
+            print(f"PO status notify error: {nse}")
         return jsonify({'success': True, 'message': f'{po[1]} authorised — now awaiting approval.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -40294,7 +40397,15 @@ def procurement_api_approve_po(po_id):
             cursor.execute("UPDATE purchase_orders SET status='ordered', updated_at=CURRENT_TIMESTAMP WHERE id = %s", (po_id,))
             connection.commit()
             log_activity('po_approve', f'Approved {po[1]} by {user["name"]}', 'purchase_order', po_id)
-            return jsonify({'success': True, 'message': f'{po[1]} approved. You can now receive goods.'})
+        # Status update to the requester / logger / authoriser
+        try:
+            _procurement_notify_po_status(
+                po_id, 'Approved',
+                f'Approved by {_procurement_actor_name(user)} on {datetime.now().strftime("%d %B %Y")}',
+                exclude=[_procurement_actor_name(user)])
+        except Exception as nse:
+            print(f"PO status notify error: {nse}")
+        return jsonify({'success': True, 'message': f'{po[1]} approved. You can now receive goods.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -40335,7 +40446,16 @@ def procurement_api_reject_po(po_id):
                 cursor.execute(f"UPDATE requisitions SET status='approved', updated_at=CURRENT_TIMESTAMP WHERE id IN ({ph})", reqs)
             connection.commit()
             log_activity('po_reject', f'Declined {po[1]} at {stage} stage by {user["name"]}{": " + reason if reason else ""}', 'purchase_order', po_id)
-            return jsonify({'success': True, 'message': f'{po[1]} declined{": " + reason if reason else ""}'})
+        # Status update to the requester / logger / authoriser
+        try:
+            _procurement_notify_po_status(
+                po_id, 'Declined',
+                f'Declined by {_procurement_actor_name(user)} at the {stage} stage on {datetime.now().strftime("%d %B %Y")}'
+                + (f' — reason: {reason}' if reason else ''),
+                exclude=[_procurement_actor_name(user)])
+        except Exception as nse:
+            print(f"PO status notify error: {nse}")
+        return jsonify({'success': True, 'message': f'{po[1]} declined{": " + reason if reason else ""}'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -40351,7 +40471,7 @@ def procurement_api_po_detail(po_id):
                 return jsonify({'success': False, 'error': 'PO not found.'}), 404
             cols = [d[0] for d in cursor.description]
             po = dict(zip(cols, r))
-            for k in ('created_at', 'received_at', 'expected_delivery'):
+            for k in ('created_at', 'received_at', 'expected_delivery', 'authorised_at'):
                 if po.get(k):
                     po[k] = str(po[k])
             cursor.execute("""
@@ -41295,7 +41415,7 @@ def procurement_api_export():
 #                quick_reply "Decline" payload reqdecl_{{5}}
 #   - requisition_status_update
 #       Body: "Hello {{1}}, your requisition {{2}} ({{3}}) is now {{4}}."
-#   - purchase_order_approval_request  (new PO approval gate -> Mrs G)
+#   - purchase_order_final_approval_request  (SECOND sign-off layer -> Mr/Mrs Gogwe)
 #       Body: "Hello {{1}}
 #              You have a new *{{2}}* Purchase Order *({{3}})* from *{{4}}*
 #              *({{5}})* totalling around *USD {{6}}* that is awaiting your
@@ -41303,30 +41423,35 @@ def procurement_api_export():
 #              The items are required before *{{7}}*.
 #              The Purchase Order has *{{8}} items*: {{9}}.
 #              Proposed Supplier *{{10}}* *({{11}})*.
-#              Logged by {{12}} on {{13}}.
-#              Kindly click "Approve" below to approve and "Decline" to decline
-#              the purchase order."
+#              Logged by *{{12}}* on *{{13}}*.
+#              Authorised by *{{14}}* on *{{15}}*.
+#              Kindly click "Approve" below to approve the purchase order and
+#              "Decline" to decline the purchase order."
 #       Variables: {{1}}=approver name, {{2}}=department, {{3}}=PO number,
 #                  {{4}}=requested by, {{5}}=requested-by phone,
 #                  {{6}}=total USD, {{7}}=items required before,
 #                  {{8}}=item count, {{9}}=item summary, {{10}}=supplier,
-#                  {{11}}=supplier phone, {{12}}=logged by, {{13}}=logged date
+#                  {{11}}=supplier phone, {{12}}=logged by, {{13}}=logged date,
+#                  {{14}}=authorised by (layer 1 signer), {{15}}=authorised date
 #       Buttons: quick_reply "Approve" payload poappr_{{3}},
 #                quick_reply "Decline" payload podecl_{{3}}  ({{3}} = PO id)
-#   - purchase_order_authorisation_request  (FIRST PO sign-off layer)
-#       Same 13 body variables as purchase_order_approval_request (so the same
-#       _procurement_po_details() payload is reused) — only the wording and the
-#       button payloads differ:
+#   - purchase_order_approval_request  (FIRST PO sign-off layer)
+#       NOTE: the AUTHORISATION-stage template is already approved in Meta under
+#       this name ("purchase_order_approval_request") — the name is kept so the
+#       existing approved template is reused. It has 13 body variables, the same
+#       ones as purchase_order_final_approval_request minus {{14}}/{{15}} (so the
+#       same _procurement_po_details() payload is reused) — only the wording and
+#       the button payloads differ:
 #       Body: "Hello {{1}}
 #              You have a new *{{2}}* Purchase Order *({{3}})* from *{{4}}*
-#              *({{5}})* totalling around *USD {{6}}* that requires your
-#              AUTHORISATION.
+#              *({{5}})* totalling around *USD {{6}}* that is awaiting your
+#              authorisation.
 #              The items are required before *{{7}}*.
 #              The Purchase Order has *{{8}} items*: {{9}}.
 #              Proposed Supplier *{{10}}* *({{11}})*.
 #              Logged by {{12}} on {{13}}.
-#              Kindly click "Authorise" below to pass it on for approval and
-#              "Decline" to decline the purchase order."
+#              Kindly click "Authorise" below to escalate the purchase order to
+#              Mr/Mrs Gogwe and "Decline" to decline the purchase order."
 #       Variables: {{1}}=authoriser name, {{2}}=department, {{3}}=PO number,
 #                  {{4}}=requested by, {{5}}=requested-by phone,
 #                  {{6}}=total USD, {{7}}=items required before,
@@ -41336,14 +41461,36 @@ def procurement_api_export():
 #                quick_reply "Decline" payload podeclauth_{{3}}  ({{3}} = PO id)
 #       PO workflow: pending_authorisation -> (poauth_) pending_approval
 #                    -> (poappr_) ordered. Either layer may decline (cancelled).
+#   - purchase_order_status_update  (STATUS UPDATE -> requester, logger, authoriser)
+#       Sent to the people AROUND the PO (the department requester at
+#       {{4}}/{{5}} of the request templates, the logger at {{12}}, and the
+#       authoriser) whenever the PO moves on. They never message the business
+#       number, so there is no 24h customer-service window open for them and a
+#       TEMPLATE is the only way to reach them (free text would silently fail).
+#       Body: "Hello {{1}}
+#              Purchase Order *{{2}}* ({{3}}) totalling around *USD {{4}}* is now
+#              *{{5}}*.
+#              The Purchase Order has *{{6}} items*: {{7}}.
+#              {{8}}
+#              Kindly log in to the Procurement portal for the full purchase order."
+#       Variables: {{1}}=recipient name, {{2}}=PO number, {{3}}=department,
+#                  {{4}}=total USD, {{5}}=new status,
+#                  {{6}}=item count, {{7}}=item summary (top 3 lines + '+N more'),
+#                  {{8}}=detail line (who did it + when, or the decline reason)
+#       No buttons.
 # All sends are best-effort: missing numbers / unapproved templates / API
 # errors only print a warning — the in-app action always succeeds.
 # ============================================================================
 
 PROC_REQ_APPROVAL_TEMPLATE = 'requisition_approval_request'
 PROC_REQ_STATUS_TEMPLATE = 'requisition_status_update'
-PROC_PO_APPROVAL_TEMPLATE = 'purchase_order_approval_request'
-PROC_PO_AUTHORISATION_TEMPLATE = 'purchase_order_authorisation_request'
+# 2nd layer, final APPROVAL (15 vars, Approve/Decline)
+PROC_PO_APPROVAL_TEMPLATE = 'purchase_order_final_approval_request'
+# 1st layer, AUTHORISATION (13 vars, Authorise/Decline) — Meta name is the
+# historical 'purchase_order_approval_request' (already approved there)
+PROC_PO_AUTHORISATION_TEMPLATE = 'purchase_order_approval_request'
+# Status update to the requester / logger / authoriser (8 vars, no buttons)
+PROC_PO_STATUS_TEMPLATE = 'purchase_order_status_update'
 
 
 def _wa_normalize_phone(phone):
@@ -41566,7 +41713,7 @@ def _procurement_po_details(po_id):
             cursor.execute("""
                 SELECT po.po_no, po.supplier_name, po.supplier_phone, po.total_amount,
                        po.expected_delivery, po.created_by, po.created_at, po.requested_by,
-                       po.requested_by_phone, po.requisition_ids
+                       po.requested_by_phone, po.requisition_ids, po.authorised_by, po.authorised_at
                 FROM purchase_orders po WHERE po.id = %s
             """, (po_id,))
             po = cursor.fetchone()
@@ -41613,21 +41760,32 @@ def _procurement_po_details(po_id):
                 'requested_by_phone': requested_by_phone,
                 'department': department,
                 'required_by': needed or po[4],
+                'authorised_by': po[10] or '',
+                'authorised_at': po[11],
             }
     except Exception as e:
         print(f"PO details error: {e}")
         return None
 
 
-def _procurement_notify_po_authorisers(po_id):
-    """Notify every authoriser about a newly raised PO awaiting authorisation
-    via the purchase_order_authorisation_request template (authorise/decline
-    buttons). This is the first sign-off layer of the PO workflow."""
+def _procurement_notify_po_authorisers(po_id, target_user_id=None):
+    """Notify the authoriser about a newly raised PO awaiting authorisation via the
+    purchase_order_approval_request template (13 vars, authorise/decline buttons).
+    This is the first sign-off layer of the PO workflow.
+    `target_user_id` = the specific admin_users.id picked on the New PO form;
+    when it is empty/unmatched every eligible authoriser is notified."""
     try:
         d = _procurement_po_details(po_id)
         if not d:
             return
         count, summary = _procurement_po_item_summary(po_id)
+        targets = _procurement_authorisers()
+        if target_user_id:
+            picked = [t for t in targets if t['id'] == target_user_id]
+            if picked:
+                targets = picked
+            else:
+                print(f"PO {d['po_no']}: chosen authoriser {target_user_id} has no WhatsApp — notifying all authorisers")
 
         def fmt_date(v):
             try:
@@ -41644,7 +41802,7 @@ def _procurement_notify_po_authorisers(po_id):
             except Exception:
                 return str(v)
 
-        for au in _procurement_authorisers():
+        for au in targets:
             try:
                 ok, txt = _procurement_send_template(
                     au['whatsapp'], PROC_PO_AUTHORISATION_TEMPLATE,
@@ -41669,14 +41827,24 @@ def _procurement_notify_po_authorisers(po_id):
         print(f"PO notify authorisers error: {e}")
 
 
-def _procurement_notify_po_approvers(po_id):
-    """Notify every approver about a new PO awaiting approval via the
-    purchase_order_approval_request template (approve/decline buttons)."""
+def _procurement_notify_po_approvers(po_id, target_user_id=None):
+    """Notify the approver about an authorised PO awaiting FINAL approval via
+    the purchase_order_final_approval_request template (15 vars incl. who
+    authorised it, approve/decline buttons).
+    `target_user_id` = the specific admin_users.id picked on the New PO form;
+    when it is empty/unmatched every eligible approver is notified."""
     try:
         d = _procurement_po_details(po_id)
         if not d:
             return
         count, summary = _procurement_po_item_summary(po_id)
+        targets = _procurement_approvers()
+        if target_user_id:
+            picked = [t for t in targets if t['id'] == target_user_id]
+            if picked:
+                targets = picked
+            else:
+                print(f"PO {d['po_no']}: chosen approver {target_user_id} has no WhatsApp — notifying all approvers")
 
         def fmt_date(v):
             try:
@@ -41693,7 +41861,7 @@ def _procurement_notify_po_approvers(po_id):
             except Exception:
                 return str(v)
 
-        for ap in _procurement_approvers():
+        for ap in targets:
             try:
                 ok, txt = _procurement_send_template(
                     ap['whatsapp'], PROC_PO_APPROVAL_TEMPLATE,
@@ -41709,13 +41877,91 @@ def _procurement_notify_po_approvers(po_id):
                      d['supplier_name'] or '—',
                      d['supplier_phone'] or '',
                      d['created_by'] or '—',
-                     fmt_date(d['created_at'])],
+                     fmt_date(d['created_at']),
+                     d['authorised_by'] or '—',
+                     fmt_date(d['authorised_at'])],
                     button_payloads=[f"poappr_{po_id}", f"podecl_{po_id}"])
                 print(f"PO approval request -> {ap['name']}: ok={ok}")
             except Exception as e:
                 print(f"PO approver notify error: {e}")
     except Exception as e:
         print(f"PO notify approvers error: {e}")
+
+
+def _procurement_whatsapp_by_name(name):
+    """Best-effort admin_users WhatsApp lookup by full name / username.
+    Used for the PO status updates to the logger and the authoriser."""
+    n = (name or '').strip()
+    if not n:
+        return None
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT whatsapp FROM admin_users
+                WHERE is_active = TRUE AND whatsapp IS NOT NULL AND whatsapp <> ''
+                  AND (LOWER(full_name) = LOWER(%s) OR LOWER(username) = LOWER(%s))
+                ORDER BY id LIMIT 1
+            """, (n, n))
+            row = cursor.fetchone()
+            return row[0] if row else None
+    except Exception as e:
+        print(f"Procurement WhatsApp name lookup error: {e}")
+        return None
+
+
+def _procurement_notify_po_status(po_id, status_label, detail='', exclude=None):
+    """Status update to the people AROUND a PO — the department requester
+    (requested_by / requested_by_phone), the logger (created_by) and the
+    authoriser (authorised_by) — via the purchase_order_status_update template
+    (which lists the items still to be purchased).
+    A TEMPLATE is used because these people never messaged the business number,
+    so no 24h customer-service window is open for them (free text would fail).
+    `exclude` = names that already got a free-text reply (whoever just tapped
+    the button / did the action). Never raises."""
+    try:
+        d = _procurement_po_details(po_id)
+        if not d:
+            return
+        count, summary = _procurement_po_item_summary(po_id)
+        skip = {str(x).strip().lower() for x in (exclude or []) if x}
+        req_name = (d.get('requested_by') or '').strip()
+        req_phone = (d.get('requested_by_phone') or '').strip()
+        recipients = []
+        if req_name or req_phone:
+            recipients.append((req_name or 'there', req_phone))
+        for who in (d.get('created_by'), d.get('authorised_by')):
+            nm = (who or '').strip()
+            if nm:
+                recipients.append((nm, _procurement_whatsapp_by_name(nm)))
+        total = d.get('total') or 0
+        try:
+            amount = f"{int(float(total)):,}" if float(total) == int(float(total)) else f"{float(total):,.2f}"
+        except Exception:
+            amount = str(total)
+        seen = set()
+        for name, phone in recipients:
+            key = (name or '').strip().lower()
+            if not phone or not key or key in skip or key in seen:
+                continue
+            seen.add(key)
+            try:
+                ok, txt = _procurement_send_template(
+                    phone, PROC_PO_STATUS_TEMPLATE,
+                    [name, d['po_no'], d['department'] or '—', amount, status_label,
+                     count, summary, detail or ''])
+                print(f"PO status update ({status_label}) -> {name}: ok={ok}")
+            except Exception as e:
+                print(f"PO status notify send error: {e}")
+    except Exception as e:
+        print(f"PO status notify error: {e}")
+
+
+def _procurement_actor_name(user):
+    """Display name of the person doing an in-app PO action."""
+    try:
+        return (user or {}).get('name') or 'User'
+    except Exception:
+        return 'User'
 
 
 def _handle_procurement_po_payload(payload, sender_id, sender_number):
@@ -41755,13 +42001,15 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
         notify_approvers = False
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, po_no, status, requisition_ids FROM purchase_orders WHERE id = %s
+                SELECT id, po_no, status, requisition_ids, approver_user_id
+                FROM purchase_orders WHERE id = %s
             """, (po_id,))
             row = cursor.fetchone()
             if not row:
                 _procurement_send_text(sender_id, "Purchase order not found.")
                 return True
             po_no, status, req_ids = row[1], row[2], row[3]
+            approver_uid = row[4]
             # Which sign-off layer does this action belong to?
             if action in ('authorise', 'decline_authorisation'):
                 need_status, stage, verb = 'pending_authorisation', 'authorisation', 'authorise'
@@ -41791,8 +42039,11 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
 
             if action == 'authorise':
                 cursor.execute("""
-                    UPDATE purchase_orders SET status='pending_approval', updated_at=CURRENT_TIMESTAMP WHERE id=%s
-                """, (po_id,))
+                    UPDATE purchase_orders
+                    SET status='pending_approval', authorised_by=%s, authorised_at=CURRENT_TIMESTAMP,
+                        updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (sender_name, po_id))
                 new_status = 'authorised'
                 notify_approvers = True
             elif action == 'approve':
@@ -41814,12 +42065,33 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
                          f'Purchase order {po_no} {new_status} via WhatsApp at {stage} stage by {sender_name}',
                          'purchase_order', po_id)
 
-        # Authorised -> hand the PO over to the approval layer
+        # Authorised -> hand the PO over to the approval layer (picked approver if set)
         if notify_approvers:
             try:
-                _procurement_notify_po_approvers(po_id)
+                _procurement_notify_po_approvers(po_id, approver_uid)
             except Exception as nfe:
                 print(f"PO approver notify error: {nfe}")
+        # Status update to the requester / logger / authoriser. The person who tapped
+        # the button is EXCLUDED — they are inside the 24h window, so they get the
+        # free-text reply below instead (no template needed for them).
+        try:
+            if action == 'authorise':
+                _procurement_notify_po_status(
+                    po_id, 'Authorised – awaiting final approval',
+                    f'Authorised by {sender_name} on {datetime.now().strftime("%d %B %Y")}',
+                    exclude=[sender_name])
+            elif action == 'approve':
+                _procurement_notify_po_status(
+                    po_id, 'Approved',
+                    f'Approved by {sender_name} on {datetime.now().strftime("%d %B %Y")}',
+                    exclude=[sender_name])
+            else:
+                _procurement_notify_po_status(
+                    po_id, 'Declined',
+                    f'Declined by {sender_name} at the {stage} stage on {datetime.now().strftime("%d %B %Y")}',
+                    exclude=[sender_name])
+        except Exception as nse:
+            print(f"PO status notify error: {nse}")
         _procurement_send_text(sender_id, f"Purchase order {po_no} has been {new_status}.")
         return True
     except Exception as e:

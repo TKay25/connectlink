@@ -1282,6 +1282,22 @@
                         <input type="text" class="pc-input" id="poRequestedPhoneShow" readonly placeholder="Pick a name — number auto-fills">
                     </div>
                     <div class="col-12">
+                        <label class="pc-form-label">Authoriser <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(1st sign-off — users with "Authorise Purchase Orders" in User Management; blank = all eligible)</span></label>
+                        <div style="position:relative;">
+                            <input type="text" class="pc-input" id="poAuthoriser" placeholder="Search eligible users..." autocomplete="off">
+                            <input type="hidden" id="poAuthoriserId">
+                            <div class="pc-suggest" id="poAuthoriserList"></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="pc-form-label">Approver <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(final approval — users with "Approve Requisitions"/"Manage Purchase Orders"; blank = all eligible)</span></label>
+                        <div style="position:relative;">
+                            <input type="text" class="pc-input" id="poApprover" placeholder="Search eligible users..." autocomplete="off">
+                            <input type="hidden" id="poApproverId">
+                            <div class="pc-suggest" id="poApproverList"></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
                         <label class="pc-form-label">Funding Source</label>
                         <select class="pc-select" id="poFunding">
                             <option value="business" selected>From business cash flows</option>
@@ -1436,6 +1452,7 @@ let VIEW_REQ = null;
 let VIEW_PO = null;
 let EDIT_REQ_ID = null;
 let PO_HR_PEOPLE = []; // HR-portal names/phones for the PO requester picker
+let PO_ASSIGNEES = { authorisers: [], approvers: [] }; // eligible sign-off people (from User Management perms)
 
 // ===== LIGHTWEIGHT POLISH (no extra libraries) =====
 function animateValue(el, target, isMoney, dur) {
@@ -1610,6 +1627,7 @@ async function init() {
     setupReqDepartment();
     setupReqProject();
     setupPoRequestedCombo();
+    setupPoAssigneesCombo();
     showModule('dashboard');
 }
 
@@ -2220,6 +2238,64 @@ function setupPoRequestedCombo() {
     input.addEventListener('change', () => fillPhone(input.value));
 }
 
+// ----- PO Authoriser / Approver pickers (eligible users from User Management perms) -----
+async function loadPoAssignees() {
+    try {
+        const res = await fetch('/api/procurement/po-assignees', { credentials: 'include' });
+        const data = await res.json();
+        PO_ASSIGNEES = (data.success && data.data) ? data.data : { authorisers: [], approvers: [] };
+        PO_ASSIGNEES.authorisers = PO_ASSIGNEES.authorisers || [];
+        PO_ASSIGNEES.approvers = PO_ASSIGNEES.approvers || [];
+    } catch (e) { PO_ASSIGNEES = { authorisers: [], approvers: [] }; }
+}
+
+function setupAssigneeCombo(inputId, listId, hiddenId, key, emptyMsg) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    const hidden = document.getElementById(hiddenId);
+    if (!input || !list || !hidden) return;
+    const people = () => PO_ASSIGNEES[key] || [];
+    const show = (items, note) => {
+        if (!items.length) {
+            list.innerHTML = `<div class="pc-sug-item" style="cursor:default;color:#94A3B8;"><span>${esc(note || emptyMsg)}</span></div>`;
+            list.style.display = 'block';
+            return;
+        }
+        list.innerHTML = items.map((p, i) => `<div class="pc-sug-item" data-i="${i}"><span>${esc(p.name)}</span><span class="sub">${p.whatsapp ? esc(p.whatsapp) : 'no WhatsApp'}</span></div>`).join('');
+        list.style.display = 'block';
+        list.querySelectorAll('.pc-sug-item').forEach(el => {
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const it = items[+el.dataset.i];
+                if (!it) { list.style.display = 'none'; return; }   // note row
+                input.value = it.name;
+                hidden.value = it.id;
+                list.style.display = 'none';
+            });
+        });
+    };
+    const q = () => input.value.trim().toLowerCase();
+    const matches = () => people().filter(p => !q() || p.name.toLowerCase().includes(q()));
+    input.addEventListener('focus', () => show(matches().slice(0, 30)));
+    input.addEventListener('input', () => {
+        hidden.value = '';
+        const exact = people().find(p => p.name.toLowerCase() === q());
+        if (exact) hidden.value = exact.id;
+        show(matches().slice(0, 30));
+    });
+    input.addEventListener('blur', () => setTimeout(() => { list.style.display = 'none'; }, 150));
+    document.addEventListener('click', (e) => {
+        if (list.style.display === 'block' && !input.contains(e.target) && !list.contains(e.target)) list.style.display = 'none';
+    });
+}
+
+function setupPoAssigneesCombo() {
+    setupAssigneeCombo('poAuthoriser', 'poAuthoriserList', 'poAuthoriserId', 'authorisers',
+        'No user has "Authorise Purchase Orders" — grant it in User Management, or leave blank.');
+    setupAssigneeCombo('poApprover', 'poApproverList', 'poApproverId', 'approvers',
+        'No user can approve POs — grant "Approve Requisitions" in User Management, or leave blank.');
+}
+
 // Project Ref only shows (and is required) when Department = Production
 function toggleReqProjectField() {
     const field = document.getElementById('reqProjectField');
@@ -2590,8 +2666,13 @@ window.openPoModal = async function() {
     if (poReqPh) poReqPh.value = '';
     const poReqShow = document.getElementById('poRequestedPhoneShow');
     if (poReqShow) poReqShow.value = '';
+    // reset the authoriser / approver pickers
+    ['poAuthoriser', 'poApprover'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['poAuthoriserId', 'poApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     // HR names for the requester dropdown
     await loadPoRequesters();
+    // eligible sign-off people (authorisers / approvers) from User Management perms
+    await loadPoAssignees();
     // suppliers
     let supOpts = '<option value="">— No supplier —</option>';
     try {
@@ -2639,7 +2720,7 @@ window.savePo = async function() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ requisition_ids: reqIds, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null, requested_by: document.getElementById('poRequestedBy').value.trim(), requested_by_phone: document.getElementById('poRequestedPhone').value.trim(), funding_source: (document.getElementById('poFunding') ? document.getElementById('poFunding').value : 'business') })
+            body: JSON.stringify({ requisition_ids: reqIds, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null, requested_by: document.getElementById('poRequestedBy').value.trim(), requested_by_phone: document.getElementById('poRequestedPhone').value.trim(), authoriser_id: parseInt(document.getElementById('poAuthoriserId').value || '', 10) || null, approver_id: parseInt(document.getElementById('poApproverId').value || '', 10) || null, funding_source: (document.getElementById('poFunding') ? document.getElementById('poFunding').value : 'business') })
         });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
@@ -2663,6 +2744,9 @@ window.viewPo = async function(id, openReceive) {
                 <div class="col-md-2"><strong>Total:</strong> $${fmtMoney(po.total_amount)}</div>
                 <div class="col-md-2"><strong>Created By:</strong> ${esc(po.created_by || '—')}</div>
                 <div class="col-md-3"><strong>Requested By:</strong> ${esc(po.requested_by || '—')}${po.requested_by_phone ? `<br><span style="color:#64748B;">${esc(po.requested_by_phone)}</span>` : ''}</div>
+                <div class="col-md-3"><strong>Authorised By:</strong> ${po.authorised_by ? `${esc(po.authorised_by)}<br><span style="color:#64748B;">${esc((po.authorised_at || '').slice(0,16))}</span>` : '—'}</div>
+                <div class="col-md-3"><strong>Authoriser:</strong> ${po.authoriser_name ? esc(po.authoriser_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
+                <div class="col-md-3"><strong>Approver:</strong> ${po.approver_name ? esc(po.approver_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
                 <div class="col-md-3"><strong>Funding:</strong> ${po.funding_source === 'injection' ? '<span style="color:#B45309;font-weight:700;">Capital injection</span>' : '<span style="color:#15803D;font-weight:700;">Business cash flows</span>'}</div>
                 <div class="col-md-3"><strong>Expected Delivery:</strong> ${esc(po.expected_delivery || '—')}</div>
                 <div class="col-md-4"><strong>Requisitions:</strong> ${esc(po.requisition_ids || '—')}</div>
