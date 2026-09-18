@@ -40213,20 +40213,52 @@ def procurement_api_po_assignees():
     A person may appear in both lists."""
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT id, full_name, username, whatsapp, source_system, source_id
-                FROM admin_users WHERE is_active = TRUE ORDER BY full_name, id
-            """)
-            rows = cursor.fetchall()
+            rows = _procurement_signoff_people(cursor)
         authorisers, approvers = [], []
         for r in rows:
-            perms = get_user_permissions(r[4] or 'projects', r[5] or r[0])
             person = {'id': r[0], 'name': (r[1] or r[2] or f'User {r[0]}'), 'whatsapp': r[3] or ''}
-            if _procurement_can_authorise(perms):
+            if r[4] or r[5]:
                 authorisers.append(dict(person))
-            if _procurement_can_approve(perms):
+            if r[4] or r[6] or r[7]:
                 approvers.append(dict(person))
         return jsonify({'success': True, 'data': {'authorisers': authorisers, 'approvers': approvers}})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/requesters', methods=['GET'])
+@login_required
+def procurement_api_requesters():
+    """Slim list of people who can appear as the PO 'Requested By' (HR employees +
+    active admin_users), merged by name. Deliberately tiny — the New PO form used to
+    pull the whole /api/hr/employees payload (24 columns per employee) just to fill
+    this dropdown."""
+    try:
+        people = {}
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT TRIM(CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))) AS nm,
+                       COALESCE(whatsapp, ''), COALESCE(department, '')
+                FROM hr_employees
+            """)
+            for nm, phone, dept in cursor.fetchall():
+                nm = (nm or '').strip()
+                if not nm:
+                    continue
+                cur = people.get(nm.lower())
+                if not cur or (phone and not cur['phone']):
+                    people[nm.lower()] = {'name': nm, 'phone': phone or '', 'dept': dept or ''}
+            cursor.execute("SELECT full_name, whatsapp, '' FROM admin_users WHERE is_active = TRUE")
+            for nm, phone, dept in cursor.fetchall():
+                nm = (nm or '').strip()
+                if not nm:
+                    continue
+                cur = people.get(nm.lower())
+                if not cur:
+                    people[nm.lower()] = {'name': nm, 'phone': phone or '', 'dept': dept or ''}
+                elif phone and not cur['phone']:
+                    cur['phone'] = phone
+        return jsonify({'success': True, 'data': sorted(people.values(), key=lambda p: p['name'].lower())})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -41140,6 +41172,210 @@ def procurement_api_po_pdf(po_id):
                      as_attachment=True, download_name=f'{po_no}.pdf')
 
 
+_PO_PRINT_CSS = """
+    @page { size: A4 portrait; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #0F172A; margin: 0; padding: 18px; background: #EEF2F7; }
+    .sheet { background: #fff; max-width: 820px; margin: 0 auto; padding: 26px 30px 34px; box-shadow: 0 10px 30px -18px rgba(15,23,42,.35); border-radius: 8px; }
+    .head { background: #0F172A; color: #fff; border-radius: 8px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .head .brand { font-size: 21px; font-weight: 800; letter-spacing: .5px; }
+    .head .brand small { display: block; font-size: 9.5px; font-weight: 400; color: #CBD5E1; letter-spacing: 0; margin-top: 3px; }
+    .head .doc { text-align: right; }
+    .head .doc .t { color: #FACC15; font-size: 16px; font-weight: 800; letter-spacing: 1px; }
+    .head .doc .n { font-size: 12px; color: #E2E8F0; margin-top: 3px; }
+    .pill { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; background: #1E293B; color: #fff; }
+    .meta { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-top: 18px; }
+    .box { border: 1px solid #E2E8F0; border-radius: 6px; padding: 11px 13px; }
+    .box h4 { margin: 0 0 7px; font-size: 9px; letter-spacing: .8px; text-transform: uppercase; color: #64748B; }
+    .box p { margin: 0 0 3px; font-size: 11.5px; line-height: 1.45; }
+    .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; padding: 2px 0; }
+    .kv span:first-child { color: #64748B; }
+    .kv span:last-child { font-weight: 600; text-align: right; }
+    table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+    thead th { background: #F1F5F9; color: #334155; font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; text-align: left; padding: 8px 9px; border-bottom: 1px solid #CBD5E1; }
+    tbody td { padding: 7px 9px; border-bottom: 1px solid #EEF2F7; font-size: 11.5px; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tfoot td { padding: 10px 9px; font-size: 12.5px; font-weight: 800; background: #F8FAFC; border-top: 2px solid #0F172A; }
+    .signoff { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 30px; }
+    .sign { border-top: 1px dashed #94A3B8; padding-top: 6px; font-size: 9.5px; color: #64748B; min-height: 46px; }
+    .sign b { display: block; color: #0F172A; font-size: 10.5px; margin-bottom: 12px; }
+    .foot { margin-top: 22px; font-size: 9px; color: #94A3B8; text-align: center; }
+    .bar { max-width: 820px; margin: 0 auto 12px; display: flex; gap: 8px; justify-content: flex-end; }
+    .bar button { font: inherit; font-size: 12px; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid #CBD5E1; background: #fff; cursor: pointer; }
+    .bar .p { background: linear-gradient(135deg,#C12B3E,#E91E63); color: #fff; border-color: transparent; }
+    @media print {
+        body { background: #fff; padding: 0; }
+        .sheet { box-shadow: none; border-radius: 0; padding: 0; max-width: none; }
+        .bar { display: none !important; }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
+    }
+"""
+
+
+@app.route('/api/procurement/purchase-orders/<int:po_id>/print', methods=['GET'])
+@login_required
+def procurement_api_po_print(po_id):
+    """Printable A4 purchase order — opens the browser print dialog on load.
+    Add ?auto=0 to open it without auto-printing."""
+    import html as _html
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT po.po_no, po.supplier_name, po.supplier_phone, po.requisition_ids, po.status,
+                       po.total_amount, po.expected_delivery, po.created_by, po.created_at, po.received_at,
+                       po.requested_by, po.requested_by_phone, po.authorised_by, po.authorised_at,
+                       po.authoriser_name, po.approver_name, po.funding_source,
+                       s.contact_person, s.email, s.address
+                FROM purchase_orders po
+                LEFT JOIN suppliers s ON s.id = po.supplier_id
+                WHERE po.id = %s
+            """, (po_id,))
+            r = cursor.fetchone()
+            if not r:
+                return '<h3 style="font-family:Arial">Purchase order not found.</h3>', 404
+            cursor.execute("""
+                SELECT product_name, quantity_ordered, quantity_received, unit_cost
+                FROM grn_lines WHERE purchase_order_id = %s ORDER BY id
+            """, (po_id,))
+            lines = cursor.fetchall()
+    except Exception as e:
+        print(f"PO print error: {e}")
+        return f'<h3 style="font-family:Arial">Could not load purchase order: {_html.escape(str(e))}</h3>', 500
+
+    def esc(v):
+        return _html.escape(str(v if v is not None else ''))
+
+    def money(v):
+        try:
+            f = float(v or 0)
+            return f"{f:,.2f}"
+        except Exception:
+            return '0.00'
+
+    def dstr(v):
+        try:
+            return v.strftime('%d %b %Y') if hasattr(v, 'strftime') else (str(v)[:16] if v else '')
+        except Exception:
+            return ''
+
+    (po_no, supplier_name, supplier_phone, requisition_ids, status, total_amount, expected_delivery,
+     created_by, created_at, received_at, requested_by, requested_by_phone, authorised_by,
+     authorised_at, authoriser_name, approver_name, funding_source,
+     contact_person, email, address) = r
+
+    status_labels = {
+        'pending_authorisation': 'Awaiting Authorisation', 'pending_approval': 'Pending Approval',
+        'ordered': 'Ordered', 'partial': 'Partially Received', 'received': 'Received', 'cancelled': 'Cancelled',
+    }
+    status_label = status_labels.get(status, str(status or '—').replace('_', ' ').title())
+    funding_label = 'Capital injection into business' if (funding_source or 'business') == 'injection' else 'From business cash flows'
+
+    supplier_lines = [f'<p><b>{esc(supplier_name or "No supplier")}</b></p>']
+    if contact_person:
+        supplier_lines.append(f'<p>Contact: {esc(contact_person)}</p>')
+    if supplier_phone:
+        supplier_lines.append(f'<p>Phone: {esc(supplier_phone)}</p>')
+    if email:
+        supplier_lines.append(f'<p>Email: {esc(email)}</p>')
+    if address:
+        supplier_lines.append(f'<p>{esc(address)}</p>')
+
+    rows = []
+    grand = 0.0
+    for i, (pname, qty_o, qty_r, unit) in enumerate(lines, 1):
+        qty_o = int(qty_o or 0)
+        unit = float(unit or 0)
+        line_total = qty_o * unit
+        grand += line_total
+        rows.append(f'<tr><td>{i}</td><td>{esc(pname)}</td><td class="num">{qty_o}</td>'
+                    f'<td class="num">{money(unit)}</td><td class="num">{money(line_total)}</td></tr>')
+    if not rows:
+        rows.append('<tr><td colspan="5" style="color:#94A3B8;text-align:center;padding:16px;">No line items</td></tr>')
+    total_shown = float(total_amount or 0) or grand
+
+    page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{esc(po_no)} — Purchase Order</title>
+<style>{_PO_PRINT_CSS}</style>
+</head>
+<body>
+<div class="bar">
+    <button class="p" onclick="window.print()">Print</button>
+    <button onclick="window.close()">Close</button>
+</div>
+<div class="sheet">
+    <div class="head">
+        <div class="brand">CONNECTLINK<small>Hardware &amp; Building Projects • Procurement Suite</small></div>
+        <div class="doc">
+            <div class="t">PURCHASE ORDER</div>
+            <div class="n">{esc(po_no)}</div>
+            <div class="pill">{esc(status_label)}</div>
+        </div>
+    </div>
+
+    <div class="meta">
+        <div class="box">
+            <h4>Supplier</h4>
+            {''.join(supplier_lines)}
+        </div>
+        <div class="box">
+            <h4>Order Details</h4>
+            <div class="kv"><span>Requisitions</span><span>{esc(requisition_ids or '—')}</span></div>
+            <div class="kv"><span>Funding</span><span>{esc(funding_label)}</span></div>
+            <div class="kv"><span>Logged by</span><span>{esc(created_by or '—')}</span></div>
+            <div class="kv"><span>Logged on</span><span>{esc(dstr(created_at) or '—')}</span></div>
+            <div class="kv"><span>Expected delivery</span><span>{esc(expected_delivery or '—')}</span></div>
+            <div class="kv"><span>Received</span><span>{esc(dstr(received_at) or '—')}</span></div>
+        </div>
+    </div>
+
+    <div class="meta" style="grid-template-columns:1fr 1fr;">
+        <div class="box">
+            <h4>Requested By (department)</h4>
+            <p>{esc(requested_by or '—')}{(' • ' + esc(requested_by_phone)) if requested_by_phone else ''}</p>
+        </div>
+        <div class="box">
+            <h4>Sign-off</h4>
+            <div class="kv"><span>Authoriser</span><span>{esc(authoriser_name or 'Any eligible')}</span></div>
+            <div class="kv"><span>Approver</span><span>{esc(approver_name or 'Any eligible')}</span></div>
+            <div class="kv"><span>Authorised</span><span>{esc((authorised_by + ' • ' if authorised_by else '') + dstr(authorised_at)) or '—'}</span></div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr><th style="width:32px;">#</th><th>Item</th><th class="num" style="width:70px;">Qty</th>
+                <th class="num" style="width:100px;">Unit Cost (USD)</th><th class="num" style="width:110px;">Line Total (USD)</th></tr>
+        </thead>
+        <tbody>{''.join(rows)}</tbody>
+        <tfoot>
+            <tr><td colspan="4" style="text-align:right;">GRAND TOTAL</td><td class="num">{money(total_shown)}</td></tr>
+        </tfoot>
+    </table>
+
+    <div class="signoff">
+        <div class="sign"><b>Logged by: {esc(created_by or '')}</b>Name / Signature / Date</div>
+        <div class="sign"><b>Authorised by: {esc(authorised_by or '')}</b>Name / Signature / Date</div>
+        <div class="sign"><b>Approved by: {esc(approver_name or '')}</b>Name / Signature / Date</div>
+        <div class="sign"><b>Received by:</b>Name / Signature / Date</div>
+    </div>
+
+    <div class="foot">Generated by ConnectLink Procurement on {datetime.now().strftime('%d %b %Y, %H:%M')} • {esc(po_no)}</div>
+</div>
+<script>
+    window.addEventListener('load', function () {{
+        if (!/[?&]auto=0/.test(window.location.search)) setTimeout(function () {{ window.print(); }}, 350);
+    }});
+</script>
+</body>
+</html>"""
+    return Response(page, mimetype='text/html')
+
+
 @app.route('/api/procurement/purchase-orders/<int:po_id>/pdf/send', methods=['POST'])
 @login_required
 @_procurement_perm_required('can_manage_purchase_orders')
@@ -41578,23 +41814,48 @@ def _procurement_user_whatsapp(userid):
         return None
 
 
+def _procurement_signoff_people(cursor=None):
+    """Every active admin_users row with its sign-off permission flags, resolved in
+    ONE query.
+
+    PERF: calling get_user_permissions() per user opens a SEPARATE DB connection each
+    time (one checkout + round trip per person). Over a remote Postgres that made the
+    New PO form take seconds before it could read the authoriser/approver lists, so the
+    flags are joined in SQL instead. Returns rows:
+      (id, full_name, username, whatsapp, is_super_admin,
+       can_authorise_purchase_orders, can_approve_requisitions, can_manage_purchase_orders)
+    """
+    sql = """
+        SELECT au.id, au.full_name, au.username, au.whatsapp,
+               COALESCE(up.is_super_admin, FALSE),
+               COALESCE(up.can_authorise_purchase_orders, FALSE),
+               COALESCE(up.can_approve_requisitions, FALSE),
+               COALESCE(up.can_manage_purchase_orders, FALSE)
+        FROM admin_users au
+        LEFT JOIN user_permissions up
+               ON up.user_type = COALESCE(au.source_system, 'projects')
+              AND up.user_id   = COALESCE(au.source_id, au.id)
+        WHERE au.is_active = TRUE
+        ORDER BY au.full_name, au.id
+    """
+    if cursor is not None:
+        cursor.execute(sql)
+        return cursor.fetchall()
+    with get_db() as (c, _):
+        c.execute(sql)
+        return c.fetchall()
+
+
 def _procurement_approvers():
     """Active admin_users who can approve requisitions (or super admin) and
     have a WhatsApp number saved."""
     try:
-        with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT id, full_name, whatsapp, source_system, source_id
-                FROM admin_users WHERE is_active = TRUE
-            """)
-            rows = cursor.fetchall()
         out = []
-        for r in rows:
-            if not r[2]:
+        for r in _procurement_signoff_people():
+            if not r[3]:
                 continue
-            perms = get_user_permissions(r[3] or 'projects', r[4] or r[0])
-            if perms.get('is_super_admin') or perms.get('can_approve_requisitions'):
-                out.append({'id': r[0], 'name': r[1] or 'Approver', 'whatsapp': r[2]})
+            if r[4] or r[6]:
+                out.append({'id': r[0], 'name': r[1] or 'Approver', 'whatsapp': r[3]})
         return out
     except Exception as e:
         print(f"Approver lookup error: {e}")
@@ -41661,19 +41922,12 @@ def _procurement_authorisers():
     """Active admin_users who can authorise purchase orders (or super admin)
     and have a WhatsApp number saved."""
     try:
-        with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT id, full_name, whatsapp, source_system, source_id
-                FROM admin_users WHERE is_active = TRUE
-            """)
-            rows = cursor.fetchall()
         out = []
-        for r in rows:
-            if not r[2]:
+        for r in _procurement_signoff_people():
+            if not r[3]:
                 continue
-            perms = get_user_permissions(r[3] or 'projects', r[4] or r[0])
-            if _procurement_can_authorise(perms):
-                out.append({'id': r[0], 'name': r[1] or 'Authoriser', 'whatsapp': r[2]})
+            if r[4] or r[5]:
+                out.append({'id': r[0], 'name': r[1] or 'Authoriser', 'whatsapp': r[3]})
         return out
     except Exception as e:
         print(f"Authoriser lookup error: {e}")

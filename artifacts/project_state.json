@@ -1,6 +1,6 @@
 {
-  "last_sync": "2026-09-14T15:57:17.254Z",
-  "module_count": 63,
+  "last_sync": "2026-09-15T15:55:16.397Z",
+  "module_count": 64,
   "empty_project": false,
   "planning_ready": true,
   "orphaned_count": 63,
@@ -258,38 +258,5 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": [
-    {
-      "rel": "_tmp_flow_probe.py",
-      "ts": "2026-09-11T14:02:36.474Z"
-    },
-    {
-      "rel": "_tmp_flow_probe.py",
-      "ts": "2026-09-11T14:02:36.339Z"
-    },
-    {
-      "rel": "_tmp_js_check.py",
-      "ts": "2026-09-11T13:41:32.956Z"
-    },
-    {
-      "rel": "_tmp_js_check.py",
-      "ts": "2026-09-11T13:41:32.760Z"
-    },
-    {
-      "rel": "_tmp_js_check.py",
-      "ts": "2026-09-11T13:36:29.136Z"
-    },
-    {
-      "rel": "_tmp_js_check.py",
-      "ts": "2026-09-11T13:36:29.006Z"
-    },
-    {
-      "rel": "_tmp_js_check.py",
-      "ts": "2026-09-11T13:36:04.201Z"
-    },
-    {
-      "rel": "_tmp_js_check.py",
-      "ts": "2026-09-11T13:36:04.093Z"
-    }
-  ]
+  "recent_deletions": []
 }

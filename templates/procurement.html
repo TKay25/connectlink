@@ -1354,6 +1354,7 @@
             </div>
             <div class="modal-footer">
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoPdf()"><i class="bi bi-file-earmark-pdf"></i> Download PDF</button>
+                <button class="pc-btn pc-btn-outline" onclick="printPo()"><i class="bi bi-printer"></i> Print</button>
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoGrn()"><i class="bi bi-file-earmark-richtext"></i> GRN PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="sendPoPdf()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-whatsapp"></i> Send PDF</button>
                 <button class="pc-btn pc-btn-info" onclick="authorisePo(VIEW_PO.id)" id="poAuthoriseBtn" data-perm-action="can_authorise_purchase_orders" style="display:none;"><i class="bi bi-patch-check"></i> Authorise</button>
@@ -2191,6 +2192,17 @@ function setupReqDepartment() {
 
 // ----- PO "Requested By" picker (names + WhatsApp from the HR portal) -----
 async function loadPoRequesters() {
+    // Slim endpoint (name / whatsapp / department) instead of the whole HR payload.
+    // Cached after the first load — the picker reads PO_HR_PEOPLE directly.
+    if (PO_HR_PEOPLE.length) return;
+    try {
+        const res = await fetch('/api/procurement/requesters', { credentials: 'include' });
+        const data = await res.json();
+        if (data.success && (data.data || []).length) {
+            PO_HR_PEOPLE = (data.data || []).map(p => ({ name: p.name || '', phone: p.phone || '', dept: p.dept || '' }));
+            return;
+        }
+    } catch (e) { /* fall through to the HR endpoint */ }
     try {
         const res = await fetch('/api/hr/employees', { credentials: 'include' });
         const data = await res.json();
@@ -2642,6 +2654,7 @@ async function loadPOs() {
                 <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                     ${po.attachments_count ? `<button class="pc-btn pc-btn-outline pc-btn-sm" title="${po.attachments_count} attachment(s)" onclick="viewPo(${po.id})"><i class="bi bi-paperclip"></i> ${po.attachments_count}</button>` : ''}
                     <button class="pc-btn pc-btn-outline pc-btn-sm" title="Download PDF" onclick="downloadPoPdfById(${po.id})"><i class="bi bi-file-earmark-pdf"></i></button>
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" title="Print" onclick="printPoById(${po.id})"><i class="bi bi-printer"></i></button>
                     <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewPo(${po.id})"><i class="bi bi-eye"></i></button>
                     ${['ordered','partial'].includes(po.status) ? `<button class="pc-btn pc-btn-success pc-btn-sm" onclick="viewPo(${po.id}, true)" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Receive</button>` : ''}
                     ${po.status === 'pending_authorisation' ? `
@@ -2658,7 +2671,10 @@ async function loadPOs() {
     }
 }
 
-window.openPoModal = async function() {
+// PERF: the modal used to await 4 sequential network calls (HR employees, assignees,
+// suppliers, requisitions) BEFORE showModal(), so the form only appeared after every
+// round trip finished. It now opens immediately and the pickers fill in behind it.
+window.openPoModal = function() {
     // reset the requester picker
     const poReqIn = document.getElementById('poRequestedBy');
     if (poReqIn) poReqIn.value = '';
@@ -2669,24 +2685,37 @@ window.openPoModal = async function() {
     // reset the authoriser / approver pickers
     ['poAuthoriser', 'poApprover'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['poAuthoriserId', 'poApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    // HR names for the requester dropdown
-    await loadPoRequesters();
-    // eligible sign-off people (authorisers / approvers) from User Management perms
-    await loadPoAssignees();
-    // suppliers
-    let supOpts = '<option value="">— No supplier —</option>';
+    const supSel = document.getElementById('poSupplier');
+    if (supSel && !SUPPLIERS.length) supSel.innerHTML = '<option value="">Loading suppliers…</option>';
+    const list = document.getElementById('poReqList');
+    if (list) list.innerHTML = '<div class="pc-empty" style="padding:16px;"><i class="bi bi-hourglass-split"></i> Loading approved requisitions…</div>';
+    document.getElementById('poExpectedDelivery').value = '';
+    document.getElementById('poTotal').textContent = '$0.00';
+    showModal('poModal');
+    // Open, then hydrate in the background (all in parallel — nothing blocks the form)
+    Promise.allSettled([loadPoRequesters(), loadPoAssignees(), fillPoSupplierSelect(), fillPoRequisitionList()]);
+};
+
+async function fillPoSupplierSelect() {
+    const sel = document.getElementById('poSupplier');
+    if (!sel) return;
+    const render = () => {
+        const keep = sel.value;
+        sel.innerHTML = '<option value="">— No supplier —</option>' + SUPPLIERS.filter(s => s.is_active)
+            .map(s => `<option value="${s.id}">${esc(s.name)}${s.phone ? ' — ' + esc(s.phone) : ''}</option>`).join('');
+        if (keep) sel.value = keep;
+    };
+    if (SUPPLIERS.length) render();          // show the cached list at once
     try {
         const res = await fetch('/api/procurement/suppliers', { credentials: 'include' });
         const data = await res.json();
-        SUPPLIERS = data.data || [];
-        supOpts += SUPPLIERS.filter(s => s.is_active).map(s => `<option value="${s.id}">${esc(s.name)}${s.phone ? ' — ' + esc(s.phone) : ''}</option>`).join('');
-    } catch (e) {}
-    document.getElementById('poSupplier').innerHTML = supOpts;
-    document.getElementById('poExpectedDelivery').value = '';
-    document.getElementById('poTotal').textContent = '$0.00';
+        if (data.success) { SUPPLIERS = data.data || []; render(); }
+    } catch (e) { /* keep whatever we had */ }
+}
 
-    // approved requisitions (not already in a PO)
+async function fillPoRequisitionList() {
     const list = document.getElementById('poReqList');
+    if (!list) return;
     try {
         const res = await fetch('/api/procurement/requisitions?status=approved', { credentials: 'include' });
         const data = await res.json();
@@ -2701,11 +2730,11 @@ window.openPoModal = async function() {
                     <span class="ms-auto text-danger fw-semibold">$${fmtMoney(r.total)}</span>
                 </label>`).join('');
         }
+        recalcPoTotal();
     } catch (e) {
         list.innerHTML = '<div class="pc-empty">Failed to load approved requisitions.</div>';
     }
-    showModal('poModal');
-};
+}
 window.recalcPoTotal = function() {
     let total = 0;
     document.querySelectorAll('.po-req-check:checked').forEach(c => { total += parseFloat(c.dataset.total || '0'); });
@@ -2804,6 +2833,14 @@ window.viewPo = async function(id, openReceive) {
         if (poApproveBtn) poApproveBtn.style.display = (isPending && canApprovePo) ? '' : 'none';
         if (poDeclineBtn) poDeclineBtn.style.display = (isPending && canApprovePo) ? '' : 'none';
     } catch (e) { toast('Failed to load PO', 'error'); }
+};
+window.printPoById = function(id) {
+    // Opens the printable A4 PO document — it triggers the browser print dialog itself.
+    const w = window.open('/api/procurement/purchase-orders/' + id + '/print', '_blank');
+    if (!w) toast('Allow pop-ups for this site to print the purchase order', 'error');
+};
+window.printPo = function() {
+    if (VIEW_PO) printPoById(VIEW_PO.id);
 };
 window.downloadPoPdfById = function(id) {
     window.open('/api/procurement/purchase-orders/' + id + '/pdf', '_blank');
