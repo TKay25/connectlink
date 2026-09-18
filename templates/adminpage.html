@@ -4979,6 +4979,11 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                 <i class="bi bi-cart"></i> POS System
             </div>
             {% endif %}
+            <!-- Procurement: reachable by ANY logged-in admin (individual actions stay
+                 permission-gated inside the portal), so it is always offered. -->
+            <div class="dropdown-item" onclick="switchPortal('procurement')">
+                <i class="bi bi-truck"></i> Procurement
+            </div>
             <div class="dropdown-divider"></div>
             <div class="dropdown-item text-danger" onclick="handleLogout()">
                 <i class="bi bi-box-arrow-right"></i> Logout
@@ -20783,8 +20788,8 @@ function openProfileModal() {
 /** Switch portal with activity logging */
 function switchPortal(portal) {
     closeUserDropdown();
-    const urls = { hr: '/hr-dashboard', users: '/user-management', pos: '/pos-system.html' };
-    const names = { hr: 'HR Portal', users: 'User Management', pos: 'POS System' };
+    const urls = { hr: '/hr-dashboard', users: '/user-management', pos: '/pos-system.html', procurement: '/procurement' };
+    const names = { hr: 'HR Portal', users: 'User Management', pos: 'POS System', procurement: 'Procurement' };
     const url = urls[portal] || '/dashboard';
     
     // Show loading overlay
