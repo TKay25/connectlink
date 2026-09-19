@@ -14979,8 +14979,11 @@ CONTRACT_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_CONTRACT_DOWNLOAD_TEMPLATE
 ENQUIRY_FOLLOWUP_TEMPLATE_NAME = os.getenv('WHATSAPP_ENQUIRY_FOLLOWUP_TEMPLATE', 'enquiriesfollowup')
 # ---- Manual invoice / receipt WhatsApp download templates --------------------------------
 # Create these 2 UTILITY templates in Meta Business Manager (language: en).
-#   Name: invoicedownload  (env WHATSAPP_INVOICE_DOWNLOAD_TEMPLATE)
-#   Name: receiptdownload  (env WHATSAPP_RECEIPT_DOWNLOAD_TEMPLATE)
+#   Name: invoicedownloadmanual  (env WHATSAPP_INVOICE_DOWNLOAD_TEMPLATE)
+#   Name: receiptdownload        (env WHATSAPP_RECEIPT_DOWNLOAD_TEMPLATE)
+#   NOTE: the INVOICE template is registered in Meta as **invoicedownloadmanual** (the live
+#   name this app sends); the receipt one still defaults to 'receiptdownload' — override
+#   either with the env vars above, which always win.
 #   Body: "Hello {{1}}, your {{2}} {{3}} for {{4}} is ready. Tap the button below to
 #          download it. Thank you for choosing ConnectLink Properties."
 #          {{1}}=client name  {{2}}=document title — the invoice's custom title (e.g. "TAX INVOICE"),
@@ -14995,7 +14998,7 @@ ENQUIRY_FOLLOWUP_TEMPLATE_NAME = os.getenv('WHATSAPP_ENQUIRY_FOLLOWUP_TEMPLATE',
 #          URL: https://<PUBLIC_BASE_URL>/doc/share/{{1}}   ({{1}} = the share token the app passes)
 # The URL button needs no webhook handling: tapping it opens /doc/share/<token>, which
 # streams the stored PDF from the manual_doc_share_links table.
-INVOICE_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_INVOICE_DOWNLOAD_TEMPLATE', 'invoicedownload')
+INVOICE_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_INVOICE_DOWNLOAD_TEMPLATE', 'invoicedownloadmanual')
 RECEIPT_DOWNLOAD_TEMPLATE_NAME = os.getenv('WHATSAPP_RECEIPT_DOWNLOAD_TEMPLATE', 'receiptdownload')
 MANUAL_DOC_SHARE_TOKEN_HOURS = int(os.getenv('MANUAL_DOC_SHARE_TOKEN_HOURS', '720'))
 # 4 (default): {{4}} = "USD 4,000.00"   |   5: {{4}} = "4,000.00", {{5}} = "USD"
