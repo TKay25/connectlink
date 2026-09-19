@@ -1704,6 +1704,10 @@ let PERMS = {};
 
 // ===== STATE =====
 let REQUISITIONS = [];
+// Statuses a requisition may be deleted from. Mirrors REQ_DELETABLE_STATUSES in
+// ConnectLink.py — a delete is passcode-gated and archived, so it is offered for
+// any status except one already committed to a purchase order.
+const REQ_DELETABLE_STATUSES = ['draft', 'submitted', 'authorised', 'approved', 'cancelled', 'rejected'];
 let PURCHASE_ORDERS = [];
 let SUPPLIERS = [];
 let VIEW_REQ = null;
@@ -1871,12 +1875,14 @@ function ratingStars(r) {
 function applyProcurementPermissions() {
     if (!PERMS) return;
     document.querySelectorAll('[data-perm-action]').forEach(el => {
-        const perm = el.dataset.permAction;
-        const allowed = can(perm);
+        // `data-perm-action` accepts several comma-separated perms — ANY of them is
+        // enough. Used where the server accepts more than one route into an action.
+        const permList = String(el.dataset.permAction || '').split(',').map(s => s.trim()).filter(Boolean);
+        const allowed = permList.some(p => can(p));
         if (!allowed) {
             el.classList.add('pc-disabled');
             if (el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'A') el.setAttribute('disabled', 'disabled');
-            el.title = 'Requires permission: ' + perm.replace(/_/g, ' ');
+            el.title = 'Requires permission: ' + permList.join(' or ').replace(/_/g, ' ');
         } else {
             el.classList.remove('pc-disabled');
             el.removeAttribute('disabled');
@@ -2014,7 +2020,7 @@ async function loadRequisitions() {
                     <button class="pc-btn pc-btn-outline pc-btn-sm" title="Download PDF" onclick="downloadReqPdfById(${r.id})"><i class="bi bi-file-earmark-pdf"></i></button>
                     ${['draft'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="editReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-pencil"></i></button>` : ''}
                     ${['draft','submitted'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="submitReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-send"></i></button>` : ''}
-                    ${['draft','cancelled','rejected'].includes(r.status) ? `<button class="pc-btn pc-btn-danger pc-btn-sm" onclick="deleteReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-trash"></i></button>` : ''}
+                    ${REQ_DELETABLE_STATUSES.includes(r.status) ? `<button class="pc-btn pc-btn-danger pc-btn-sm" onclick="deleteReq(${r.id})" data-perm-action="can_create_requisitions,can_manage_purchase_orders"><i class="bi bi-trash"></i></button>` : ''}
                 </td>
             </tr>`).join('') || '<tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> No requisitions found</td></tr>';
         applyProcurementPermissions();
@@ -3029,6 +3035,12 @@ window.viewReq = async function(id) {
             if (can('can_approve_requisitions') || can('can_manage_purchase_orders')) {
                 actions += `<button class="pc-btn pc-btn-outline" onclick="cancelReq(${r.id})"><i class="bi bi-slash-circle"></i> Cancel</button>`;
             }
+        }
+        // Delete is offered for every status except one already on a purchase order
+        // (draft already has its own Delete above). Passcode-gated + archived.
+        if (r.status !== 'draft' && REQ_DELETABLE_STATUSES.includes(r.status)
+            && (can('can_create_requisitions') || can('can_manage_purchase_orders'))) {
+            actions += `<button class="pc-btn pc-btn-danger" onclick="deleteReq(${r.id})"><i class="bi bi-trash"></i> Delete</button>`;
         }
         if (actions === '') actions = '<span style="color:#94A3B8;font-size:0.62rem;">No actions available for this status.</span>';
         document.getElementById('viewReqActions').innerHTML = actions;

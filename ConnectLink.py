@@ -39809,6 +39809,11 @@ REQ_FUNDS_STATUSES = ('yes', 'partial', 'no')
 # Passcode required to DELETE a requisition — same admin-passcode convention used by
 # the rest of the app, overridable via the PROCUREMENT_DELETE_PASSCODE env var.
 PROC_REQ_DELETE_PASSCODE = os.environ.get('PROCUREMENT_DELETE_PASSCODE', 'conlink01admin01')
+# Statuses a requisition may be deleted from. A delete is passcode-gated AND the
+# whole record (header, items, quotes, attachments) is snapshotted into
+# `deleted_requisitions` first, so deleting is never destructive. Only a
+# requisition that is already committed to a purchase order is refused.
+REQ_DELETABLE_STATUSES = ('draft', 'submitted', 'authorised', 'approved', 'cancelled', 'rejected')
 
 
 def _req_stock_status(value):
@@ -40572,8 +40577,21 @@ def procurement_api_delete_requisition(rid):
             row = cursor.fetchone()
             if not row:
                 return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
-            if row[2] not in ('draft', 'cancelled', 'rejected'):
-                return jsonify({'success': False, 'error': 'Only draft, cancelled or rejected requisitions can be deleted.'}), 400
+            # A requisition on a purchase order must keep existing — the PO stores
+            # its ids, so deleting it would leave the PO pointing at nothing.
+            cursor.execute("""
+                SELECT po_no FROM purchase_orders
+                WHERE requisition_ids IS NOT NULL
+                  AND (',' || REPLACE(requisition_ids, ' ', '') || ',') LIKE %s
+                LIMIT 1
+            """, (f'%,{rid},%',))
+            po_ref = cursor.fetchone()
+            if po_ref:
+                return jsonify({'success': False,
+                                'error': f'{row[1]} is on purchase order {po_ref[0]} — '
+                                         f'remove it from that order first.'}), 400
+            if row[2] not in REQ_DELETABLE_STATUSES:
+                return jsonify({'success': False, 'error': f'A {str(row[2]).replace("_", " ")} requisition is already committed and cannot be deleted.'}), 400
             is_owner = (row[3] == user['id'])
             if not perms.get('is_super_admin', False) and not perms.get('can_manage_purchase_orders', False) and not is_owner:
                 return jsonify({'success': False, 'error': 'Access denied.'}), 403
@@ -42219,13 +42237,31 @@ def _render_po_pdf(po_id):
     return buf.getvalue(), po_no
 
 
+def _proc_pdf_available():
+    """True when reportlab is importable. Checked by the PDF routes so a missing
+    package reports itself instead of the vague 'PDF library unavailable'."""
+    try:
+        import reportlab  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def _proc_pdf_missing_response():
+    return jsonify({'success': False,
+                    'error': 'PDF generation is unavailable: the "reportlab" package is not '
+                             'installed on this server. Add it to requirements.txt and redeploy.'}), 503
+
+
 @app.route('/api/procurement/purchase-orders/<int:po_id>/pdf', methods=['GET'])
 @login_required
 def procurement_api_po_pdf(po_id):
     """Download a tidy PDF of the purchase order."""
+    if not _proc_pdf_available():
+        return _proc_pdf_missing_response()
     pdf_bytes, po_no = _render_po_pdf(po_id)
     if pdf_bytes is None:
-        return jsonify({'success': False, 'error': 'Could not generate PDF (PO not found or PDF library unavailable).'}), 404
+        return jsonify({'success': False, 'error': f'Purchase order {po_id} could not be found.'}), 404
     return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf',
                      as_attachment=True, download_name=f'{po_no}.pdf')
 
@@ -42442,9 +42478,11 @@ def _render_req_pdf(rid):
 @login_required
 def procurement_api_req_pdf(rid):
     """Download a tidy PDF of a single requisition."""
+    if not _proc_pdf_available():
+        return _proc_pdf_missing_response()
     pdf_bytes, req_no = _render_req_pdf(rid)
     if pdf_bytes is None:
-        return jsonify({'success': False, 'error': 'Could not generate PDF (requisition not found or PDF library unavailable).'}), 404
+        return jsonify({'success': False, 'error': f'Requisition {rid} could not be found.'}), 404
     return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf',
                      as_attachment=True, download_name=f'{req_no}.pdf')
 

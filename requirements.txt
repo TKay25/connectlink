@@ -28,3 +28,6 @@ python-socketio
 fuzzywuzzy
 python-Levenshtein
 PyPDF2
+# Used by the procurement PDFs (purchase orders, requisitions, GRN) — reportlab is
+# pure-Python so it works on Render; weasyprint needs GTK and is NOT used for these.
+reportlab
