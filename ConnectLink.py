@@ -1770,7 +1770,11 @@ def initialize_database_tables():
                     department VARCHAR(100),
                     requested_by VARCHAR(100),
                     requested_by_user_id INTEGER,
-                    project_ref VARCHAR(150),
+                    -- One or more projects. project_ref keeps the human-readable labels
+                    -- joined with ' | ' (used by lists + the over-cost matcher);
+                    -- project_ids is the reliable comma-joined id list.
+                    project_ref TEXT,
+                    project_ids TEXT,
                     priority VARCHAR(20) DEFAULT 'Medium',
                     status VARCHAR(30) DEFAULT 'draft',
                     notes TEXT,
@@ -1817,6 +1821,10 @@ def initialize_database_tables():
                     product_id INTEGER,
                     product_name VARCHAR(150) NOT NULL,
                     category VARCHAR(50),
+                    -- ONE project per line item. The requisition header carries the
+                    -- deduped roll-up of these (see _req_sync_projects).
+                    project_id INTEGER,
+                    project_ref VARCHAR(200),
                     quantity INTEGER NOT NULL,
                     unit_cost DECIMAL(12,2) DEFAULT 0,
                     total_cost DECIMAL(12,2) DEFAULT 0,
@@ -1836,6 +1844,12 @@ def initialize_database_tables():
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS funds_note VARCHAR(300)")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS funds_by VARCHAR(100)")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS funds_at TIMESTAMP")
+                cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS project_ids TEXT")
+                # A requisition can be attached to SEVERAL projects, so the label list no
+                # longer fits in VARCHAR(150).
+                cursor.execute("ALTER TABLE requisitions ALTER COLUMN project_ref TYPE TEXT")
+                cursor.execute("ALTER TABLE requisition_items ADD COLUMN IF NOT EXISTS project_id INTEGER")
+                cursor.execute("ALTER TABLE requisition_items ADD COLUMN IF NOT EXISTS project_ref VARCHAR(200)")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authorised_by VARCHAR(150)")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authorised_at TIMESTAMP")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS notify_approver_on_authorisation BOOLEAN DEFAULT TRUE")
@@ -39754,6 +39768,87 @@ def _req_stock_status(value):
     return v if v in REQ_STOCK_STATUSES else 'not_in_stock'
 
 
+def _req_funds_status(value):
+    """Whitelist the requisition funds-check value. None = not checked yet
+    (distinct from 'no', which means someone actively confirmed there is no money)."""
+    v = str(value or '').strip().lower()
+    return v if v in REQ_FUNDS_STATUSES else None
+
+
+def _req_project_ids(raw):
+    """Normalise the picked project ids to a comma-joined string.
+    Accepts a list/array or an already-joined comma/semicolon string (the legacy
+    single `project_id` works too). Anything non-numeric is dropped, so a bad
+    payload can never smuggle text into the column."""
+    if raw is None:
+        return ''
+    if isinstance(raw, (list, tuple, set)):
+        items = list(raw)
+    else:
+        items = str(raw).replace(';', ',').split(',')
+    out = []
+    for it in items:
+        try:
+            v = int(str(it).strip())
+        except (TypeError, ValueError):
+            continue
+        if v > 0 and v not in out:
+            out.append(v)
+    return ','.join(str(v) for v in out)
+
+
+def _req_project_labels(data):
+    """Human-readable project labels for the picked projects, joined with ' | '.
+    Prefers the `project_labels` array sent alongside `project_ids` (same order);
+    falls back to the legacy single `project_ref` string."""
+    raw = data.get('project_labels')
+    labels = []
+    if isinstance(raw, (list, tuple)):
+        labels = [str(x).strip() for x in raw if str(x or '').strip()]
+    elif raw:
+        labels = [str(raw).strip()]
+    if not labels:
+        legacy = str(data.get('project_ref') or '').strip()
+        if legacy:
+            labels = [x.strip() for x in legacy.split(' | ') if x.strip()]
+    return ' | '.join(labels)
+
+
+def _req_parse_ids(csv):
+    """Parse a stored id list back into a list of ints (for JSON responses)."""
+    return [int(x) for x in str(csv or '').replace(';', ',').split(',') if str(x).strip().isdigit()]
+
+
+def _item_project_id(it):
+    """Project id for ONE line item. A blank/garbage value means 'no project
+    attached' rather than raising, so a partial form still saves."""
+    try:
+        v = int(it.get('project_id'))
+    except (TypeError, ValueError):
+        return None
+    return v if v > 0 else None
+
+
+def _req_sync_projects(cursor, req_id):
+    """Roll the DISTINCT per-item projects up onto the requisition header.
+
+    The header columns (`project_ids` / `project_ref`) are what the list view, the
+    over-cost matcher and the Excel export already read, so they are kept as a
+    denormalised summary of whatever the line items reference. The two values are
+    built in the SAME order (by project id) so the UI can zip them back together."""
+    cursor.execute("""
+        SELECT project_id, MAX(project_ref) AS label
+        FROM requisition_items
+        WHERE requisition_id = %s AND project_id IS NOT NULL
+        GROUP BY project_id ORDER BY project_id
+    """, (req_id,))
+    pairs = cursor.fetchall()
+    cursor.execute("UPDATE requisitions SET project_ids=%s, project_ref=%s WHERE id=%s",
+                   (','.join(str(p[0]) for p in pairs),
+                    ' | '.join((p[1] or f'Project {p[0]}') for p in pairs),
+                    req_id))
+
+
 def _procurement_resolve_assignee(cursor, raw_id, checker):
     """Validate a picked sign-off user id: must exist, be active, and STILL hold the
     matching permission. Returns (user_id, name) or (None, '') when invalid, in
@@ -39793,7 +39888,7 @@ def procurement_api_requisitions():
                        r.funds_status, r.funds_note, r.funds_by,
                        r.authorised_by, r.authorised_at,
                        COALESCE(r.notify_approver_on_authorisation, TRUE) AS notify_approver,
-                       r.authoriser_name, r.approver_name
+                       r.authoriser_name, r.approver_name, r.project_ids
                 FROM requisitions r
                 LEFT JOIN requisition_items ri ON ri.requisition_id = r.id
             """
@@ -39823,7 +39918,8 @@ def procurement_api_requisitions():
                     'authorised_at': str(r[23]) if r[23] else None,
                     'notify_approver_on_authorisation': bool(r[24]),
                     'authoriser_name': r[25] or '',
-                    'approver_name': r[26] or ''
+                    'approver_name': r[26] or '',
+                    'project_ids': _req_parse_ids(r[27])
                 })
             return jsonify({'success': True, 'data': requisitions})
     except Exception as e:
@@ -39851,19 +39947,28 @@ def procurement_api_create_requisition():
                 cursor, data.get('authoriser_id'), _procurement_can_authorise_req)
             req_approver_uid, req_approver_nm = _procurement_resolve_assignee(
                 cursor, data.get('approver_id'), _procurement_can_approve)
+            # Optional FUNDS declaration made by the logger on the form ("is there
+            # money to buy the goods?"). Stays NULL when they leave it untouched.
+            req_funds_status = _req_funds_status(data.get('funds_status'))
+            req_funds_note = (data.get('funds_note') or '').strip()[:300] or None
             cursor.execute("""
                 INSERT INTO requisitions (req_no, title, department, requested_by, requested_by_user_id,
-                    project_ref, priority, status, notes, needed_by, stock_status,
+                    project_ref, project_ids, priority, status, notes, needed_by, stock_status,
                     notify_approver_on_authorisation,
-                    authoriser_user_id, authoriser_name, approver_user_id, approver_name)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', %s, %s, %s, %s, %s, %s, %s, %s)
+                    authoriser_user_id, authoriser_name, approver_user_id, approver_name,
+                    funds_status, funds_note, funds_by, funds_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'draft', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (req_no, title, data.get('department'), user['name'], user['id'],
-                  data.get('project_ref'), data.get('priority', 'Medium'), data.get('notes'),
+                  _req_project_labels(data), _req_project_ids(data.get('project_ids', data.get('project_id'))),
+                  data.get('priority', 'Medium'), data.get('notes'),
                   data.get('needed_by') or None, _req_stock_status(data.get('stock_status')),
                   bool(data.get('notify_approver_on_authorisation', True)),
                   req_authoriser_uid, req_authoriser_nm or None,
-                  req_approver_uid, req_approver_nm or None))
+                  req_approver_uid, req_approver_nm or None,
+                  req_funds_status, req_funds_note,
+                  (user['name'] if req_funds_status else None),
+                  (datetime.now() if req_funds_status else None)))
             req_id = cursor.fetchone()[0]
             created_items = []
             for it in items:
@@ -39876,11 +39981,13 @@ def procurement_api_create_requisition():
                 unit = float(it.get('unit_cost') or 0)
                 cursor.execute("""
                     INSERT INTO requisition_items (requisition_id, product_id, product_name, category,
+                                                   project_id, project_ref,
                                                    quantity, unit_cost, total_cost, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
-                """, (req_id, it.get('product_id'), pname, it.get('category'), qty, unit,
-                      round(unit * qty, 2), it.get('notes')))
+                """, (req_id, it.get('product_id'), pname, it.get('category'),
+                      _item_project_id(it), (it.get('project_ref') or '').strip()[:200] or None,
+                      qty, unit, round(unit * qty, 2), it.get('notes')))
                 item_id = cursor.fetchone()[0]
                 sup_ids = []
                 for sup in (it.get('suppliers') or []):
@@ -39903,6 +40010,7 @@ def procurement_api_create_requisition():
                           (sup.get('notes') or '')[:500]))
                     sup_ids.append(cursor.fetchone()[0])
                 created_items.append({'item_id': item_id, 'supplier_ids': sup_ids})
+            _req_sync_projects(cursor, req_id)
             connection.commit()
             log_activity('requisition_create', f'Created requisition {req_no} "{title}"', 'requisition', req_id)
             return jsonify({'success': True, 'message': f'Requisition {req_no} created (draft).', 'items': created_items})
@@ -39927,8 +40035,11 @@ def procurement_api_requisition_detail(rid):
                 if req.get(k):
                     req[k] = str(req[k])
             req['stock_status'] = req.get('stock_status') or 'not_in_stock'
+            # Joined id list -> real array, so the UI can render one chip per project
+            req['project_ids'] = _req_parse_ids(req.get('project_ids'))
             cursor.execute("""
-                SELECT id, product_id, product_name, category, quantity, unit_cost, total_cost, notes
+                SELECT id, product_id, product_name, category, quantity, unit_cost, total_cost, notes,
+                       project_id, project_ref
                 FROM requisition_items WHERE requisition_id = %s ORDER BY id
             """, (rid,))
             items = cursor.fetchall()
@@ -39936,7 +40047,8 @@ def procurement_api_requisition_detail(rid):
             for i in items:
                 item_dict = {
                     'id': i[0], 'product_id': i[1], 'product_name': i[2], 'category': i[3],
-                    'quantity': i[4], 'unit_cost': float(i[5] or 0), 'total_cost': float(i[6] or 0), 'notes': i[7]
+                    'quantity': i[4], 'unit_cost': float(i[5] or 0), 'total_cost': float(i[6] or 0), 'notes': i[7],
+                    'project_id': i[8], 'project_ref': i[9] or ''
                 }
                 cursor.execute("""
                     SELECT id, supplier_id, supplier_name, supplier_phone, unit_cost, delivery_days,
@@ -39995,19 +40107,27 @@ def procurement_api_update_requisition(rid):
                 cursor, data.get('authoriser_id'), _procurement_can_authorise_req)
             req_approver_uid, req_approver_nm = _procurement_resolve_assignee(
                 cursor, data.get('approver_id'), _procurement_can_approve)
+            req_funds_status = _req_funds_status(data.get('funds_status'))
+            req_funds_note = (data.get('funds_note') or '').strip()[:300] or None
             cursor.execute("""
-                UPDATE requisitions SET title=%s, department=%s, project_ref=%s, priority=%s,
+                UPDATE requisitions SET title=%s, department=%s, project_ref=%s, project_ids=%s, priority=%s,
                     notes=%s, needed_by=%s, stock_status=%s,
                     notify_approver_on_authorisation=%s,
                     authoriser_user_id=%s, authoriser_name=%s, approver_user_id=%s, approver_name=%s,
+                    funds_status=%s, funds_note=%s, funds_by=%s, funds_at=%s,
                     updated_at=CURRENT_TIMESTAMP
                 WHERE id=%s
-            """, (title, data.get('department'), data.get('project_ref'), data.get('priority', 'Medium'),
+            """, (title, data.get('department'), _req_project_labels(data),
+                  _req_project_ids(data.get('project_ids', data.get('project_id'))),
+                  data.get('priority', 'Medium'),
                   data.get('notes'), data.get('needed_by') or None,
                   _req_stock_status(data.get('stock_status')),
                   bool(data.get('notify_approver_on_authorisation', True)),
                   req_authoriser_uid, req_authoriser_nm or None,
-                  req_approver_uid, req_approver_nm or None, rid))
+                  req_approver_uid, req_approver_nm or None,
+                  req_funds_status, req_funds_note,
+                  (user['name'] if req_funds_status else None),
+                  (datetime.now() if req_funds_status else None), rid))
             cursor.execute("DELETE FROM requisition_items WHERE requisition_id = %s", (rid,))
             created_items = []
             for it in items or []:
@@ -40020,11 +40140,13 @@ def procurement_api_update_requisition(rid):
                 unit = float(it.get('unit_cost') or 0)
                 cursor.execute("""
                     INSERT INTO requisition_items (requisition_id, product_id, product_name, category,
+                                                   project_id, project_ref,
                                                    quantity, unit_cost, total_cost, notes)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
-                """, (rid, it.get('product_id'), pname, it.get('category'), qty, unit,
-                      round(unit * qty, 2), it.get('notes')))
+                """, (rid, it.get('product_id'), pname, it.get('category'),
+                      _item_project_id(it), (it.get('project_ref') or '').strip()[:200] or None,
+                      qty, unit, round(unit * qty, 2), it.get('notes')))
                 item_id = cursor.fetchone()[0]
                 sup_ids = []
                 for sup in (it.get('suppliers') or []):
@@ -40047,6 +40169,7 @@ def procurement_api_update_requisition(rid):
                           (sup.get('notes') or '')[:500]))
                     sup_ids.append(cursor.fetchone()[0])
                 created_items.append({'item_id': item_id, 'supplier_ids': sup_ids})
+            _req_sync_projects(cursor, rid)
             connection.commit()
             log_activity('requisition_edit', f'Edited requisition {row[1]}', 'requisition', rid)
             return jsonify({'success': True, 'message': 'Requisition updated.', 'items': created_items})

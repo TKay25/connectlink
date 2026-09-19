@@ -201,6 +201,8 @@
         .pc-items-table input.pc-input { width: 100%; min-width: 70px; }
         .pc-items-table .pc-prod-input { min-width: 190px; }
         .pc-items-table .pc-item-cat { min-width: 120px; }
+        .pc-items-table .pc-proj-wrap { position: relative; }
+        .pc-items-table .pc-item-proj { min-width: 170px; }
         .pc-item-line-total { display:inline-block; font-weight:600; font-size:0.6rem; color:#0F172A; }
         .pc-quotes-btn { white-space: nowrap; }
         .pc-item-quote-count { display:inline-block; min-width:16px; text-align:center; margin-left:4px; background:#C12B3E; color:#fff; border-radius:10px; font-size:0.55rem; padding:0 4px; }
@@ -678,6 +680,88 @@
                 transition-duration: .01ms !important;
             }
         }
+
+        /* ===================== VIEW REQUISITION: STRUCTURED LAYOUT =====================
+           Replaces the old flat label:value wall of text with titled cards:
+           Details (definition grid) -> Sign-off (step lanes) -> Stock & funds (tiles). */
+        .pc-rv-card { background:#fff; border:1px solid #E7ECF3; border-radius:12px; padding:12px 14px; margin-bottom:12px; }
+        .pc-rv-card-head { display:flex; align-items:center; gap:7px; font-size:0.58rem; font-weight:800; text-transform:uppercase; letter-spacing:0.7px; color:#64748B; padding-bottom:8px; margin-bottom:10px; border-bottom:1px solid #EEF2F7; }
+        .pc-rv-card-head i { color:#C12B3E; font-size:0.78rem; }
+        .pc-rv-count { margin-left:auto; font-weight:700; color:#94A3B8; text-transform:none; letter-spacing:0; font-size:0.56rem; }
+
+        .pc-rv-defs { display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:10px 16px; }
+        .pc-rv-def { min-width:0; }
+        .pc-rv-def .k { display:block; font-size:0.5rem; font-weight:800; text-transform:uppercase; letter-spacing:0.6px; color:#94A3B8; margin-bottom:2px; }
+        .pc-rv-def .v { display:block; font-size:0.68rem; font-weight:600; color:#0F172A; word-break:break-word; line-height:1.35; }
+
+        .pc-rv-note { margin-top:10px; font-size:0.62rem; color:#475569; background:#F8FAFC; border:1px solid #EEF2F7; border-radius:8px; padding:7px 10px; line-height:1.45; }
+        .pc-rv-note b { color:#334155; margin-right:4px; }
+
+        .pc-rv-banner { margin-top:10px; border-radius:8px; padding:8px 11px; font-size:0.63rem; font-weight:700; display:flex; gap:7px; align-items:flex-start; line-height:1.4; }
+        .pc-rv-banner.red { background:#FEF2F2; border:1px solid #FCA5A5; color:#B91C1C; }
+
+        .pc-rv-steps { display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; }
+        .pc-rv-step { border:1px solid #E7ECF3; border-left:3px solid #CBD5E1; border-radius:10px; padding:9px 12px; background:#FCFDFE; }
+        .pc-rv-step.done    { border-left-color:#16A34A; background:#F6FEF9; }
+        .pc-rv-step.pending { border-left-color:#D97706; background:#FFFCF5; }
+        .pc-rv-step.stop    { border-left-color:#DC2626; background:#FEF7F7; }
+        .pc-rv-step-role { font-size:0.5rem; font-weight:800; text-transform:uppercase; letter-spacing:0.6px; color:#94A3B8; }
+        .pc-rv-step-who { font-size:0.7rem; font-weight:700; color:#0F172A; margin:3px 0 2px; }
+        .pc-rv-step-state { font-size:0.58rem; color:#64748B; line-height:1.4; }
+        .pc-rv-step.done .pc-rv-step-state    { color:#15803D; font-weight:700; }
+        .pc-rv-step.pending .pc-rv-step-state { color:#B45309; font-weight:700; }
+        .pc-rv-step.stop .pc-rv-step-state    { color:#B91C1C; font-weight:700; }
+        .pc-rv-arrow { display:flex; align-items:center; justify-content:center; padding:0 12px; color:#CBD5E1; font-size:0.95rem; }
+
+        .pc-rv-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:10px; }
+        .pc-rv-tile { display:flex; gap:10px; align-items:flex-start; border:1px solid #E7ECF3; border-radius:10px; padding:10px 12px; background:#FCFDFE; }
+        .pc-rv-tile > i { font-size:1.05rem; line-height:1; margin-top:2px; color:#94A3B8; }
+        .pc-rv-tile .t-lbl { font-size:0.5rem; font-weight:800; text-transform:uppercase; letter-spacing:0.6px; color:#94A3B8; }
+        .pc-rv-tile .t-val { font-size:0.74rem; font-weight:800; color:#0F172A; margin:2px 0; }
+        .pc-rv-tile .t-note { font-size:0.57rem; color:#64748B; line-height:1.4; }
+        .pc-rv-tile.ok > i, .pc-rv-tile.ok .t-val { color:#15803D; }
+        .pc-rv-tile.warn > i, .pc-rv-tile.warn .t-val { color:#B45309; }
+        .pc-rv-tile.attention > i, .pc-rv-tile.attention .t-val { color:#0E7490; }
+        .pc-rv-tile.bad { border-color:#FCA5A5; background:#FEF7F7; }
+        .pc-rv-tile.bad > i, .pc-rv-tile.bad .t-val { color:#B91C1C; }
+
+        .pc-rv-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+        .pc-rv-pill { display:inline-flex; align-items:center; gap:5px; font-size:0.56rem; font-weight:700; padding:3px 10px; border-radius:20px; background:#F1F5F9; color:#475569; }
+        .pc-rv-pill.on { background:#ECFDF5; color:#15803D; }
+        .pc-rv-pill.off { background:#F1F5F9; color:#64748B; }
+
+        .pc-rv-form { margin-top:12px; border-top:1px dashed #E2E8F0; padding-top:10px; }
+        .pc-rv-form-title { font-size:0.58rem; font-weight:800; color:#334155; margin-bottom:7px; display:flex; gap:6px; align-items:center; }
+        .pc-rv-form-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+
+        /* ----- Multi-project picker (requisition form) + project chips (view) ----- */
+        .pc-multi-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
+        .pc-multi-chip { display:inline-flex; align-items:center; gap:6px; font-size:0.58rem; font-weight:700; background:#EEF2FF; color:#3730A3; border:1px solid #C7D2FE; border-radius:20px; padding:3px 6px 3px 10px; max-width:100%; }
+        .pc-multi-chip > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:320px; }
+        .pc-multi-chip button { border:0; background:transparent; color:#4338CA; font-size:0.68rem; line-height:1; padding:0 2px; cursor:pointer; }
+        .pc-multi-chip button:hover { color:#B91C1C; }
+        .pc-rv-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:3px; }
+        .pc-rv-chip { display:inline-flex; align-items:center; gap:5px; font-size:0.6rem; font-weight:700; background:#EEF2FF; color:#3730A3; border:1px solid #C7D2FE; border-radius:20px; padding:3px 10px; cursor:pointer; }
+        .pc-rv-chip:hover { background:#E0E7FF; }
+        body.dark-theme .pc-multi-chip, body.dark-theme .pc-rv-chip { background:#1E293B; color:#C7D2FE; border-color:#334155; }
+
+        body.dark-theme .pc-rv-card { background:#111A2E; border-color:#1E293B; }
+        body.dark-theme .pc-rv-card-head { color:#94A3B8; border-color:#1E293B; }
+        body.dark-theme .pc-rv-def .v { color:#E2E8F0; }
+        body.dark-theme .pc-rv-note { background:#0F172A; border-color:#1E293B; color:#CBD5E1; }
+        body.dark-theme .pc-rv-step { background:#0F172A; border-color:#1E293B; border-left-color:#334155; }
+        body.dark-theme .pc-rv-step.done    { border-left-color:#16A34A; background:#0C1F16; }
+        body.dark-theme .pc-rv-step.pending { border-left-color:#D97706; background:#1F1A0C; }
+        body.dark-theme .pc-rv-step.stop    { border-left-color:#DC2626; background:#1F0C0C; }
+        body.dark-theme .pc-rv-step-who { color:#E2E8F0; }
+        body.dark-theme .pc-rv-tile { background:#0F172A; border-color:#1E293B; }
+        body.dark-theme .pc-rv-tile .t-val { color:#E2E8F0; }
+        body.dark-theme .pc-rv-pill { background:#1E293B; color:#CBD5E1; }
+
+        @media (max-width: 700px) {
+            .pc-rv-steps { grid-template-columns:1fr; }
+            .pc-rv-arrow { padding:6px 0; transform:rotate(90deg); }
+        }
     </style>
 </head>
 <body>
@@ -997,6 +1081,23 @@
                             </label>
                         </div>
                     </div>
+                    <div class="col-12" id="reqFundsFields">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="pc-form-label">Funds to buy? <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(is there money to purchase the goods?)</span></label>
+                                <select class="pc-select" id="reqFundsStatusInput">
+                                    <option value="">— not checked —</option>
+                                    <option value="yes">Yes — funds available</option>
+                                    <option value="partial">Partial — only some of the money</option>
+                                    <option value="no">No — no funds available</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="pc-form-label">Funds note</label>
+                                <input type="text" class="pc-input" id="reqFundsNoteInput" placeholder="e.g. awaiting September cash flows, budget line, donor">
+                            </div>
+                        </div>
+                    </div>
                     <div class="col-md-6">
                         <label class="pc-form-label">Authoriser <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(who signs it off first — leave blank for anyone eligible)</span></label>
                         <div style="position:relative;">
@@ -1013,15 +1114,6 @@
                             <div class="pc-suggest" id="reqApproverList"></div>
                         </div>
                     </div>
-                    <div class="col-md-5" id="reqProjectField">
-                        <label class="pc-form-label">Project Ref <span style="color:#DC2626;">*</span></label>
-                        <div style="position:relative;">
-                            <input type="text" class="pc-input" id="reqProjectRef" placeholder="Required for Production requisitions" autocomplete="off">
-                            <input type="hidden" id="reqProjectId" value="">
-                            <div class="pc-suggest" id="reqProjectList"></div>
-                        </div>
-                        <button type="button" class="pc-btn pc-btn-info pc-btn-sm mt-1" id="viewProjectBtn" style="display:none;" onclick="openProjectView()"><i class="bi bi-folder2-open"></i> View Project</button>
-                    </div>
                     <div class="col-md-7">
                         <label class="pc-form-label">Notes</label>
                         <textarea class="pc-input pc-textarea pc-auto-grow" id="reqNotes" rows="1" placeholder="Any additional information"></textarea>
@@ -1036,7 +1128,7 @@
                     <table class="pc-items-table">
                         <thead>
                             <tr>
-                                <th>Product / Item *</th><th>Category</th><th class="num">Qty *</th><th class="num">Unit Cost (USD)</th><th class="num">Total</th><th>Notes</th><th class="num">Quotes</th><th></th>
+                                <th>Product / Item *</th><th>Category</th><th>Project</th><th class="num">Qty *</th><th class="num">Unit Cost (USD)</th><th class="num">Total</th><th>Notes</th><th class="num">Quotes</th><th></th>
                             </tr>
                         </thead>
                         <tbody id="itemRows"></tbody>
@@ -1113,12 +1205,18 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body pc-modal-body">
-                <div id="viewReqMeta" class="mb-3"></div>
-                <div class="pc-table-wrap">
-                    <table class="pc-table">
-                        <thead><tr><th>#</th><th>Item</th><th>Category</th><th class="num">Qty</th><th class="num">Unit Cost</th><th class="num">Total</th><th>Notes</th></tr></thead>
-                        <tbody id="viewReqItems"></tbody>
-                    </table>
+                <div id="viewReqMeta"></div>
+                <div class="pc-rv-card">
+                    <div class="pc-rv-card-head">
+                        <i class="bi bi-list-ul"></i> Line items
+                        <span class="pc-rv-count" id="viewReqItemCount"></span>
+                    </div>
+                    <div class="pc-table-wrap">
+                        <table class="pc-table">
+                            <thead><tr><th>#</th><th>Item</th><th>Category</th><th>Project</th><th class="num">Qty</th><th class="num">Unit Cost</th><th class="num">Total</th><th>Notes</th></tr></thead>
+                            <tbody id="viewReqItems"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1592,13 +1690,16 @@ function signedOffLine(x) {
 window.toggleReqFundsHint = function() {
     const sel = document.getElementById('reqStockStatus');
     const hint = document.getElementById('reqStockHint');
-    if (!sel || !hint) return;
+    const fundsFields = document.getElementById('reqFundsFields');
+    if (!sel) return;
     const map = {
-        not_in_stock: 'The goods must be bought — a funds check is needed before the approver signs off.',
+        not_in_stock: 'The goods must be bought — record whether the money to buy them is available.',
         partial: 'Only part of the goods are held; the shortfall must be bought.',
-        in_stock: 'Already in the company and already bought — no purchase is needed.'
+        in_stock: 'Already in the company and already bought — no purchase is needed, so no funds check.'
     };
-    hint.textContent = map[sel.value] || '';
+    if (hint) hint.textContent = map[sel.value] || '';
+    // Nothing to fund when it is already in stock — hide the funds block.
+    if (fundsFields) fundsFields.style.display = (sel.value === 'in_stock') ? 'none' : '';
 };
 function prioBadge(p) {
     const map = { High:'pc-badge-high', Urgent:'pc-badge-high', Medium:'pc-badge-medium', Low:'pc-badge-low' };
@@ -1893,6 +1994,13 @@ function addItemRow(data) {
                 <div class="pc-suggest"></div>
             </div>
         </td>
+        <td style="min-width:180px;">
+            <div class="pc-proj-wrap">
+                <input type="text" class="pc-input pc-item-proj" placeholder="Project (one per item)" value="${esc(data.project_ref || '')}" autocomplete="off">
+                <input type="hidden" class="pc-item-proj-id" value="${data.project_id || ''}">
+                <div class="pc-suggest"></div>
+            </div>
+        </td>
         <td><input type="number" class="pc-input pc-item-qty" min="1" value="${data.quantity || 1}" oninput="recalcReqTotal()"></td>
         <td><input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()"></td>
         <td class="num"><span class="pc-item-line-total">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span></td>
@@ -1915,8 +2023,49 @@ function addItemRow(data) {
     wrap.appendChild(row);
     wireProductSearch(row.querySelector('.pc-prod-input'), row);
     wireCategoryCombo(row.querySelector('.pc-item-cat'), row);
+    wireProjectCombo(row.querySelector('.pc-item-proj'), row);
     updateQuoteCount(row);
     recalcReqTotal();
+}
+
+/* ONE project per line item. Type to search the project list; picking binds the
+   hidden id. Typing the exact label also binds it, so the text alone is never
+   relied on. */
+function wireProjectCombo(input, row) {
+    if (!input) return;
+    const list = row.querySelector('.pc-proj-wrap .pc-suggest');
+    const hidden = row.querySelector('.pc-item-proj-id');
+    if (!list || !hidden) return;
+    const show = (items) => {
+        if (!items.length) { list.style.display = 'none'; return; }
+        list.innerHTML = items.map((p, i) => `<div class="pc-sug-item" data-i="${i}"><span>${esc(projectLabel(p))}</span><span class="sub">${esc(p.projectname || '')}${p.clientname ? ' · ' + esc(p.clientname) : ''}</span></div>`).join('');
+        floatSuggestOnAnchor(input, list);
+        list.style.display = 'block';
+        list.querySelectorAll('.pc-sug-item').forEach(el => {
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                const p = items[+el.dataset.i];
+                input.value = projectLabel(p);
+                hidden.value = p.id;
+                list.style.display = 'none';
+            });
+        });
+    };
+    const matches = () => {
+        const q = input.value.trim().toLowerCase();
+        return PROJECTS.filter(p => !q
+            || projectLabel(p).toLowerCase().includes(q)
+            || String(p.id).includes(q)
+            || (p.projectname || '').toLowerCase().includes(q)
+            || (p.clientname || '').toLowerCase().includes(q)).slice(0, 30);
+    };
+    input.addEventListener('focus', () => show(matches()));
+    input.addEventListener('input', () => { hidden.value = ''; show(matches()); });
+    input.addEventListener('blur', () => setTimeout(() => {
+        list.style.display = 'none';
+        const m = PROJECTS.find(p => projectLabel(p).toLowerCase() === input.value.trim().toLowerCase());
+        if (m) hidden.value = m.id;
+    }, 150));
 }
 function wireProductSearch(input, row) {
     let t = null;
@@ -1977,6 +2126,8 @@ function collectReqItems(includeFiles) {
             product_id: row.querySelector('.pc-prod-id').value ? parseInt(row.querySelector('.pc-prod-id').value, 10) : null,
             product_name: name,
             category: row.querySelector('.pc-item-cat').value.trim(),
+            project_id: row.querySelector('.pc-item-proj-id').value ? parseInt(row.querySelector('.pc-item-proj-id').value, 10) : null,
+            project_ref: row.querySelector('.pc-item-proj').value.trim(),
             quantity: qty,
             unit_cost: parseFloat(row.querySelector('.pc-item-cost').value || '0') || 0,
             notes: row.querySelector('.pc-item-notes').value.trim(),
@@ -2184,7 +2335,6 @@ async function uploadPendingInvoices(collected, resultItems) {
 // Department list matches the HR "Add Employee" form (hr_dashboard.html #empDepartment)
 const DEPARTMENTS = ['Sales and Marketing','Administration','Finance','HR','Logistics','Management','Systems & IT','Production','HARDWARE & Furniture SHOP'];
 let PROJECTS = [];
-let selectedProjectId = null;
 
 const PROJECT_FIELD_ORDER = [
     "id","datecaptured","capturer","capturerid","clientname","clientidnumber","clientaddress",
@@ -2406,45 +2556,16 @@ function setupReqAssigneesCombo() {
         () => REQ_ASSIGNEES);
 }
 
-// Project Ref only shows (and is required) when Department = Production
-function toggleReqProjectField() {
-    const field = document.getElementById('reqProjectField');
-    const deptInput = document.getElementById('reqDepartment');
-    if (!field || !deptInput) return;
-    const isProd = deptInput.value.trim().toLowerCase() === 'production';
-    field.style.display = isProd ? '' : 'none';
-    if (!isProd) {
-        document.getElementById('reqProjectRef').value = '';
-        document.getElementById('reqProjectId').value = '';
-        selectedProjectId = null;
-        const vp = document.getElementById('viewProjectBtn');
-        if (vp) vp.style.display = 'none';
-    }
-}
+/* Projects are attached PER LINE ITEM now (see wireProjectCombo), so there is no
+   header-level project field left to show/hide. This stays as a no-op because the
+   department combo and the modal open/edit paths still call it. */
+function toggleReqProjectField() { /* no-op */ }
 
-function setupReqProject() {
-    const input = document.getElementById('reqProjectRef');
-    const list = document.getElementById('reqProjectList');
-    if (!input || !list) return;
-    const syncSelection = (text) => {
-        const m = PROJECTS.find(p => projectLabel(p).toLowerCase() === String(text).trim().toLowerCase());
-        selectedProjectId = m ? m.id : null;
-        document.getElementById('reqProjectId').value = selectedProjectId || '';
-        const vp = document.getElementById('viewProjectBtn');
-        if (vp) vp.style.display = selectedProjectId ? 'inline-flex' : 'none';
-    };
-    setupSearchableCombo(
-        input, list,
-        (q) => PROJECTS
-            .filter(p => !q || (p.projectname || '').toLowerCase().includes(q.toLowerCase()) || String(p.id).includes(q) || (p.location || p.projectlocation || '').toLowerCase().includes(q.toLowerCase()) || (p.clientname || '').toLowerCase().includes(q.toLowerCase()))
-            .map(p => ({ label: projectLabel(p), value: p })),
-        (val) => syncSelection(val ? projectLabel(val) : ''),
-        (text) => syncSelection(text)
-    );
-}
+/* The header project combo was replaced by the per-item Project column. */
+function setupReqProject() { /* no-op */ }
 
-async function openProjectView() {
-    const pid = parseInt(document.getElementById('reqProjectId').value || '', 10) || selectedProjectId;
+async function openProjectView(pid) {
+    pid = parseInt(pid || '', 10) || 0;
     if (!pid) { toast('Select a project first', 'error'); return; }
     const tbody = document.getElementById('procProjectDetailsBody');
     if (!tbody) return;
@@ -2490,16 +2611,15 @@ window.openReqModal = function() {
     document.getElementById('reqId').value = '';
     document.getElementById('reqTitle').value = '';
     document.getElementById('reqDepartment').value = '';
-    document.getElementById('reqProjectRef').value = '';
-    document.getElementById('reqProjectId').value = '';
-    selectedProjectId = null;
-    const vp = document.getElementById('viewProjectBtn');
-    if (vp) vp.style.display = 'none';
     document.getElementById('reqPriority').value = 'Medium';
     document.getElementById('reqNeededBy').value = '';
     document.getElementById('reqNotes').value = '';
     document.getElementById('reqStockStatus').value = 'not_in_stock';
     document.getElementById('reqNotifyApprover').checked = true;
+    const rfS = document.getElementById('reqFundsStatusInput');
+    const rfN = document.getElementById('reqFundsNoteInput');
+    if (rfS) rfS.value = '';
+    if (rfN) rfN.value = '';
     ['reqAuthoriser', 'reqApprover'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['reqAuthoriserId', 'reqApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     toggleReqFundsHint();
@@ -2522,21 +2642,16 @@ window.editReq = async function(id) {
         document.getElementById('reqId').value = id;
         document.getElementById('reqTitle').value = r.title || '';
         document.getElementById('reqDepartment').value = r.department || '';
-        document.getElementById('reqProjectRef').value = r.project_ref || '';
-        document.getElementById('reqProjectId').value = '';
-        selectedProjectId = null;
-        const vp = document.getElementById('viewProjectBtn');
-        if (vp) {
-            const m = PROJECTS.find(p => projectLabel(p).toLowerCase() === String(r.project_ref || '').trim().toLowerCase());
-            if (m) { selectedProjectId = m.id; document.getElementById('reqProjectId').value = m.id; vp.style.display = 'inline-flex'; }
-            else { vp.style.display = 'none'; }
-        }
         toggleReqProjectField();
         document.getElementById('reqPriority').value = r.priority || 'Medium';
         document.getElementById('reqNeededBy').value = r.needed_by || '';
         document.getElementById('reqNotes').value = r.notes || '';
         document.getElementById('reqStockStatus').value = r.stock_status || 'not_in_stock';
         document.getElementById('reqNotifyApprover').checked = (r.notify_approver_on_authorisation !== false);
+        const rfS = document.getElementById('reqFundsStatusInput');
+        const rfN = document.getElementById('reqFundsNoteInput');
+        if (rfS) rfS.value = r.funds_status || '';
+        if (rfN) rfN.value = r.funds_note || '';
         const raA = document.getElementById('reqAuthoriser');
         const raAId = document.getElementById('reqAuthoriserId');
         if (raA) raA.value = r.authoriser_name || '';
@@ -2556,27 +2671,36 @@ window.editReq = async function(id) {
 window.saveReq = async function() {
     const title = document.getElementById('reqTitle').value.trim();
     const dept = document.getElementById('reqDepartment').value.trim();
-    const projRef = document.getElementById('reqProjectRef').value.trim();
     if (!title) { toast('Title is required', 'error'); return; }
-    if (dept.toLowerCase() === 'production' && !projRef) { toast('Project Ref is required for Production requisitions', 'error'); return; }
     const collected = collectReqItems(true);
     if (!collected.length) { toast('Add at least one item with a quantity', 'error'); return; }
+    // Projects live ON the line items, so the Production rule is enforced per item.
+    if (dept.toLowerCase() === 'production') {
+        const missing = collected.filter(it => !it.project_id).length;
+        if (missing) { toast(missing + ' line item' + (missing === 1 ? '' : 's') + ' need a project attached (Department is Production)', 'error'); return; }
+    }
     const payloadItems = collected.map(it => {
         const c = Object.assign({}, it);
         c.suppliers = (it.suppliers || []).map(s => { const { _files, ...rest } = s; return rest; });
         return c;
     });
+    // Nothing to fund when the goods are already in stock — send blanks so a stale
+    // funds answer can't linger after the stock answer changes.
+    const stockNow = document.getElementById('reqStockStatus').value || 'not_in_stock';
+    const fundsIn = document.getElementById('reqFundsStatusInput');
+    const fundsNoteIn = document.getElementById('reqFundsNoteInput');
     const payload = {
         title,
         department: dept,
-        project_ref: projRef,
         priority: document.getElementById('reqPriority').value,
         needed_by: document.getElementById('reqNeededBy').value || null,
         notes: document.getElementById('reqNotes').value.trim(),
-        stock_status: document.getElementById('reqStockStatus').value || 'not_in_stock',
+        stock_status: stockNow,
         notify_approver_on_authorisation: document.getElementById('reqNotifyApprover').checked,
         authoriser_id: parseInt(document.getElementById('reqAuthoriserId').value || '', 10) || null,
         approver_id: parseInt(document.getElementById('reqApproverId').value || '', 10) || null,
+        funds_status: stockNow === 'in_stock' ? null : ((fundsIn && fundsIn.value) || null),
+        funds_note: stockNow === 'in_stock' ? null : ((fundsNoteIn && fundsNoteIn.value.trim()) || null),
         items: payloadItems
     };
     const btn = document.getElementById('saveReqBtn');
@@ -2607,24 +2731,7 @@ window.viewReq = async function(id) {
         VIEW_REQ = data.data;
         const r = VIEW_REQ;
         document.getElementById('viewReqTitle').textContent = r.req_no + ' — ' + r.title;
-        document.getElementById('viewReqMeta').innerHTML = `
-            <div class="row g-2" style="font-size:0.64rem;">
-                <div class="col-md-3"><strong>Department:</strong> ${esc(r.department || '—')}</div>
-                <div class="col-md-3"><strong>Requested By:</strong> ${esc(r.requested_by || '—')}</div>
-                <div class="col-md-2"><strong>Priority:</strong> ${prioBadge(r.priority)}</div>
-                <div class="col-md-2"><strong>Status:</strong> ${reqBadge(r.status)}</div>
-                <div class="col-md-2"><strong>Needed By:</strong> ${esc(r.needed_by || '—')}</div>
-                <div class="col-md-4"><strong>Project:</strong> ${esc(r.project_ref || '—')}</div>
-                <div class="col-md-4"><strong>Created:</strong> ${esc(r.created_at || '—')}</div>
-                <div class="col-md-4"><strong>Submitted:</strong> ${esc(r.submitted_at || '—')}</div>
-                <div class="col-md-4"><strong>Authoriser:</strong> ${r.authoriser_name ? esc(r.authoriser_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
-                <div class="col-md-4"><strong>Approver:</strong> ${r.approver_name ? esc(r.approver_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
-                ${r.approved_by ? `<div class="col-md-4"><strong>Approved By:</strong> ${esc(r.approved_by)} @ ${esc(r.approved_at || '')}</div>` : ''}
-                ${r.authorised_by ? `<div class="col-md-4"><strong>Authorised By:</strong> ${esc(r.authorised_by)} @ ${esc(r.authorised_at || '')}</div>` : ''}
-                ${r.reject_reason ? `<div class="col-md-8"><strong>Reject Reason:</strong> <span class="text-danger">${esc(r.reject_reason)}</span></div>` : ''}
-                ${r.notes ? `<div class="col-12"><strong>Notes:</strong> ${esc(r.notes)}</div>` : ''}
-            </div>
-            ${stockFundsPanel(r)}`;
+        document.getElementById('viewReqMeta').innerHTML = reqDetailSections(r);
         document.getElementById('viewReqItems').innerHTML = (r.items || []).map((it, i) => {
             const sups = it.suppliers || [];
             let supHtml = '';
@@ -2657,13 +2764,16 @@ window.viewReq = async function(id) {
                 <td>${i + 1}</td>
                 <td>${esc(it.product_name)}</td>
                 <td>${esc(it.category || '—')}</td>
+                <td>${it.project_id ? `<span class="pc-rv-chip" onclick="openProjectView(${it.project_id})" title="Open project ${it.project_id}"><i class="bi bi-folder2-open"></i> ${esc(it.project_ref || ('Project ' + it.project_id))}</span>` : '<span style="color:#94A3B8;">—</span>'}</td>
                 <td class="num">${it.quantity}</td>
                 <td class="num">${fmtMoney(it.unit_cost)}</td>
                 <td class="num">${fmtMoney(it.total_cost)}</td>
                 <td>${esc(it.notes || '')}</td>
             </tr>
-            <tr class="pc-quotes-subrow"><td colspan="7">${supHtml}</td></tr>`;
-        }).join('') || '<tr><td colspan="7" class="pc-empty">No items</td></tr>';
+            <tr class="pc-quotes-subrow"><td colspan="8">${supHtml}</td></tr>`;
+        }).join('') || '<tr><td colspan="8" class="pc-empty">No items</td></tr>';
+        const cnt = document.getElementById('viewReqItemCount');
+        if (cnt) cnt.textContent = ((r.items || []).length) + ' item' + ((r.items || []).length === 1 ? '' : 's');
 
         // actions based on status + perms
         let actions = '';
@@ -2739,23 +2849,107 @@ window.approveReq = async function(id) {
         if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
     } catch (e) { toast('Connection error', 'error'); }
 };
-/* Stock availability + funds check block shown in the View Requisition modal.
-   The requester declares on the form whether the goods are already in the company
-   (and already bought). When they are NOT, whoever signs off records whether the
-   money to buy them is available — and that is what the approver sees. */
+/* ===== View Requisition: structured sections =====
+   Three titled cards — Details (definition grid), Sign-off (step lanes) and
+   Stock & funds (tiles) — instead of one long run of label: value pairs. */
+function reqDetailSections(r) {
+    const dash = v => (v === null || v === undefined || v === '') ? '<span style="color:#94A3B8;">—</span>' : esc(v);
+    const when = v => v ? esc(String(v).replace('T', ' ').slice(0, 16)) : '';
+    const def = (k, v) => `<div class="pc-rv-def"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`;
+    // One chip per attached project; clicking opens that project.
+    const pIds = Array.isArray(r.project_ids) ? r.project_ids : String(r.project_ids || '').split(',').filter(Boolean).map(Number);
+    const pLabels = String(r.project_ref || '').split(' | ').filter(Boolean);
+    let projectsHtml = '<span style="color:#94A3B8;">—</span>';
+    if (pIds.length) {
+        projectsHtml = `<div class="pc-rv-chips">${pIds.map((pid, i) =>
+            `<span class="pc-rv-chip" onclick="openProjectView(${pid})" title="Open project ${pid}"><i class="bi bi-folder2-open"></i> ${esc(pLabels[i] || ('Project ' + pid))}</span>`).join('')}</div>`;
+    } else if (pLabels.length) {
+        projectsHtml = `<div class="pc-rv-chips">${pLabels.map(l => `<span class="pc-rv-chip">${esc(l)}</span>`).join('')}</div>`;
+    }
+    return `
+    <div class="pc-rv-card">
+        <div class="pc-rv-card-head"><i class="bi bi-info-circle"></i> Requisition details</div>
+        <div class="pc-rv-defs">
+            ${def('Department', dash(r.department))}
+            ${def('Requested By', dash(r.requested_by))}
+            ${def('Priority', prioBadge(r.priority))}
+            ${def('Status', reqBadge(r.status))}
+            ${def('Needed By', dash(r.needed_by))}
+            ${def('Created', dash(when(r.created_at)))}
+            ${def('Submitted', dash(when(r.submitted_at)))}
+        </div>
+        <div class="pc-rv-defs" style="margin-top:10px;">
+            <div class="pc-rv-def" style="grid-column:1/-1;"><span class="k">Projects</span><span class="v">${projectsHtml}</span></div>
+        </div>
+        ${r.notes ? `<div class="pc-rv-note"><b>Notes</b>${esc(r.notes)}</div>` : ''}
+        ${r.reject_reason ? `<div class="pc-rv-banner red"><i class="bi bi-x-octagon-fill"></i><span><b>Declined</b> — ${esc(r.reject_reason)}${r.rejected_by ? ' <span style="font-weight:600;">(' + esc(r.rejected_by) + ')</span>' : ''}</span></div>` : ''}
+    </div>
+    ${reqSignoffCard(r)}
+    ${stockFundsPanel(r)}`;
+}
+
+/* The two sign-off lanes: 1 Authorisation (submitted -> authorised) then
+   2 Approval. "who" is who it was ROUTED to; the state line reports what
+   ACTUALLY happened (authorised_by / approved_by) and when. */
+function reqSignoffCard(r) {
+    const when = v => esc(String(v || '').replace('T', ' ').slice(0, 16));
+    const assignee = (name, perm) => name ? esc(name) : `<span style="color:#94A3B8;">Anyone with “${perm}”</span>`;
+    const st = String(r.status || '');
+
+    let aCls = 'idle', aState = 'Not submitted yet';
+    if (r.authorised_by) { aCls = 'done'; aState = `Authorised by ${esc(r.authorised_by)} · ${when(r.authorised_at) || '—'}`; }
+    else if (st === 'rejected') { aCls = 'stop'; aState = 'Declined'; }
+    else if (st === 'submitted') { aCls = 'pending'; aState = 'Awaiting authorisation'; }
+
+    let bCls = 'idle', bState = 'Starts after authorisation';
+    if (r.approved_by) { bCls = 'done'; bState = `Approved by ${esc(r.approved_by)} · ${when(r.approved_at) || '—'}`; }
+    else if (st === 'rejected') { bCls = 'stop'; bState = 'Declined'; }
+    else if (st === 'po_created') { bCls = 'done'; bState = 'Purchase order raised'; }
+    else if (st === 'authorised') { bCls = 'pending'; bState = 'Awaiting approval'; }
+
+    return `
+    <div class="pc-rv-card">
+        <div class="pc-rv-card-head"><i class="bi bi-shield-check"></i> Sign-off</div>
+        <div class="pc-rv-steps">
+            <div class="pc-rv-step ${aCls}">
+                <div class="pc-rv-step-role">1 · Authorisation</div>
+                <div class="pc-rv-step-who">${assignee(r.authoriser_name, 'Authorise Requisitions')}</div>
+                <div class="pc-rv-step-state">${aState}</div>
+            </div>
+            <div class="pc-rv-arrow"><i class="bi bi-arrow-right"></i></div>
+            <div class="pc-rv-step ${bCls}">
+                <div class="pc-rv-step-role">2 · Approval</div>
+                <div class="pc-rv-step-who">${assignee(r.approver_name, 'Approve Requisitions')}</div>
+                <div class="pc-rv-step-state">${bState}</div>
+            </div>
+        </div>
+    </div>`;
+}
+
+/* Stock availability + funds check, as two clear tiles plus the check form. */
 function stockFundsPanel(r) {
-    const stockLabel = {
-        in_stock: '📦 In stock — already bought',
-        partial: '📦 Partially in stock — buy the shortfall',
-        not_in_stock: '🛒 Not in stock — must be purchased'
-    }[r.stock_status] || '🛒 Not in stock — must be purchased';
-    const fundsLabel = { yes: 'Funds available', partial: 'Partial funds', no: 'NO FUNDS' }[r.funds_status] || 'Not checked';
-    const fundsCls = { yes: 'pc-badge-approved', partial: 'pc-badge-medium', no: 'pc-badge-rejected' }[r.funds_status] || 'pc-badge-draft';
+    const stocks = {
+        in_stock:     { ico: 'bi-box-seam',        label: 'In stock',           note: 'Already in the company and already bought' },
+        partial:      { ico: 'bi-boxes',           label: 'Partially in stock', note: 'The shortfall still has to be bought' },
+        not_in_stock: { ico: 'bi-cart-plus',       label: 'Not in stock',       note: 'Must be purchased' }
+    };
+    /* Colour the stock tile by whether a purchase is even needed. */
+    const stockCls = { in_stock: 'ok', partial: 'warn', not_in_stock: 'attention' };
+    const stock = stocks[r.stock_status] || stocks.not_in_stock;
+    const funds = {
+        yes:     { ico: 'bi-cash-coin',              label: 'Available',   cls: 'ok' },
+        partial: { ico: 'bi-cash-stack',             label: 'Partial',     cls: 'warn' },
+        no:      { ico: 'bi-exclamation-octagon',    label: 'NO FUNDS',    cls: 'bad' }
+    }[r.funds_status] || { ico: 'bi-question-circle', label: 'Not checked', cls: 'idle' };
+    const fundsNote = r.funds_by
+        ? `Checked by ${esc(r.funds_by)} · ${esc(String(r.funds_at || '').replace('T', ' ').slice(0, 16))}`
+        : (r.stock_status === 'in_stock' ? 'No purchase needed — nothing to fund' : 'No funds check recorded yet');
+
     const canFunds = can('can_approve_requisitions') && ['draft', 'submitted', 'authorised', 'approved'].includes(r.status);
     const fundsForm = canFunds ? `
-        <div style="margin-top:8px;border-top:1px dashed #CBD5E1;padding-top:8px;">
-            <div style="font-weight:800;margin-bottom:4px;">💰 Funds check — is there money to buy the goods?</div>
-            <div class="d-flex flex-wrap gap-2 align-items-center">
+        <div class="pc-rv-form">
+            <div class="pc-rv-form-title"><i class="bi bi-cash-coin"></i> Record a funds check</div>
+            <div class="pc-rv-form-row">
                 <select class="pc-select" id="reqFundsStatus" style="width:200px;">
                     <option value="">— not checked —</option>
                     <option value="yes">Funds available</option>
@@ -2763,19 +2957,39 @@ function stockFundsPanel(r) {
                     <option value="no">NO funds</option>
                 </select>
                 <input type="text" class="pc-input" id="reqFundsNote" placeholder="Note (e.g. awaiting September cash flows)" style="flex:1;min-width:200px;" value="${esc(r.funds_note || '')}">
-                <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="saveReqFunds(${r.id})"><i class="bi bi-cash-coin"></i> Save Funds Check</button>
+                <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="saveReqFunds(${r.id})"><i class="bi bi-check-lg"></i> Save Funds Check</button>
             </div>
         </div>` : '';
+
     return `
-    <div style="border:1px solid #E2E8F0;border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:0.62rem;">
-        <div class="d-flex flex-wrap gap-3 align-items-center">
-            <span><b>Stock:</b> ${esc(stockLabel)}</span>
-            <span><b>Funds:</b> <span class="pc-badge ${fundsCls}">${esc(fundsLabel)}</span></span>
-            ${r.funds_by ? `<span><b>Checked by:</b> ${esc(r.funds_by)}${r.funds_at ? ' @ ' + esc(String(r.funds_at).slice(0, 16)) : ''}</span>` : ''}
-            <span><b>Notify approver when authorised:</b> ${r.notify_approver_on_authorisation === false ? 'No' : 'Yes'}</span>
+    <div class="pc-rv-card">
+        <div class="pc-rv-card-head"><i class="bi bi-clipboard-check"></i> Stock &amp; funds</div>
+        <div class="pc-rv-tiles">
+            <div class="pc-rv-tile ${stockCls[r.stock_status] || 'attention'}">
+                <i class="bi ${stock.ico}"></i>
+                <div>
+                    <div class="t-lbl">Stock availability</div>
+                    <div class="t-val">${esc(stock.label)}</div>
+                    <div class="t-note">${esc(stock.note)}</div>
+                </div>
+            </div>
+            <div class="pc-rv-tile ${funds.cls}">
+                <i class="bi ${funds.ico}"></i>
+                <div>
+                    <div class="t-lbl">Funds to buy</div>
+                    <div class="t-val">${esc(funds.label)}</div>
+                    <div class="t-note">${fundsNote}</div>
+                </div>
+            </div>
         </div>
-        ${r.funds_note ? `<div style="margin-top:4px;color:#475569;"><b>Funds note:</b> ${esc(r.funds_note)}</div>` : ''}
-        ${r.funds_status === 'no' ? `<div style="margin-top:6px;background:#FEF2F2;border:1px solid #FCA5A5;color:#B91C1C;border-radius:6px;padding:6px 8px;font-weight:800;">⚠ NO FUNDS to buy the goods — do not raise a purchase order until the money is confirmed.</div>` : ''}
+        ${r.funds_note ? `<div class="pc-rv-note"><b>Funds note</b>${esc(r.funds_note)}</div>` : ''}
+        ${r.funds_status === 'no' ? `<div class="pc-rv-banner red"><i class="bi bi-exclamation-triangle-fill"></i><span><b>NO FUNDS</b> to buy the goods — do not raise a purchase order until the money is confirmed.</span></div>` : ''}
+        <div class="pc-rv-meta">
+            <span class="pc-rv-pill ${r.notify_approver_on_authorisation === false ? 'off' : 'on'}">
+                <i class="bi ${r.notify_approver_on_authorisation === false ? 'bi-bell-slash' : 'bi-bell'}"></i>
+                Notify approver on authorisation: ${r.notify_approver_on_authorisation === false ? 'No' : 'Yes'}
+            </span>
+        </div>
         ${fundsForm}
     </div>`;
 }
