@@ -1861,6 +1861,33 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"Note: Could not add requisition stock/funds columns: {e}")
 
+            # Archive of DELETED requisitions. A delete is passcode-gated, and the whole
+            # requisition (header + line items + supplier quotes + attachments) is
+            # snapshotted here as JSONB first, so nothing is ever really lost even though
+            # the child rows go with the FK cascade.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS deleted_requisitions (
+                    id SERIAL PRIMARY KEY,
+                    requisition_id INTEGER,
+                    req_no VARCHAR(30),
+                    title VARCHAR(200),
+                    department VARCHAR(100),
+                    requested_by VARCHAR(100),
+                    status VARCHAR(30),
+                    priority VARCHAR(20),
+                    project_ref TEXT,
+                    total_amount NUMERIC(14,2) DEFAULT 0,
+                    item_count INTEGER DEFAULT 0,
+                    requisition_snapshot JSONB,
+                    items_snapshot JSONB,
+                    deleted_by VARCHAR(150),
+                    deleted_by_user_id INTEGER,
+                    deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    delete_reason TEXT
+                )
+            """)
+            connection.commit()
+
             # Purchase orders
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS purchase_orders (
@@ -39760,6 +39787,9 @@ def procurement_api_categories():
 
 REQ_STOCK_STATUSES = ('in_stock', 'partial', 'not_in_stock')
 REQ_FUNDS_STATUSES = ('yes', 'partial', 'no')
+# Passcode required to DELETE a requisition — same admin-passcode convention used by
+# the rest of the app, overridable via the PROCUREMENT_DELETE_PASSCODE env var.
+PROC_REQ_DELETE_PASSCODE = os.environ.get('PROCUREMENT_DELETE_PASSCODE', 'conlink01admin01')
 
 
 def _req_stock_status(value):
@@ -39827,6 +39857,74 @@ def _item_project_id(it):
     except (TypeError, ValueError):
         return None
     return v if v > 0 else None
+
+
+def _archive_requisition(cursor, rid, user, reason=''):
+    """Snapshot a requisition — header, line items, their supplier quotes and the
+    quote attachments — into `deleted_requisitions` BEFORE it is removed.
+    Returns the archived req_no (or None when the requisition does not exist).
+    Everything is JSON-serialised, so date/Decimal values are stringified."""
+    cursor.execute("SELECT * FROM requisitions WHERE id = %s", (rid,))
+    row = cursor.fetchone()
+    if not row:
+        return None
+    header = {d[0]: v for d, v in zip(cursor.description, row)}
+    for k, v in list(header.items()):
+        if hasattr(v, 'isoformat'):
+            header[k] = v.isoformat()
+
+    total = 0.0
+    cursor.execute("""
+        SELECT id, product_id, product_name, category, project_id, project_ref,
+               quantity, unit_cost, total_cost, notes
+        FROM requisition_items WHERE requisition_id = %s ORDER BY id
+    """, (rid,))
+    icols = [d[0] for d in cursor.description]
+    items = []
+    for r in cursor.fetchall():
+        it = dict(zip(icols, r))
+        it['unit_cost'] = float(it.get('unit_cost') or 0)
+        it['total_cost'] = float(it.get('total_cost') or 0)
+        total += it['total_cost']
+        cursor.execute("""
+            SELECT id, supplier_id, supplier_name, supplier_phone, unit_cost, delivery_days,
+                   is_preferred, justification, notes, approved
+            FROM requisition_item_suppliers WHERE item_id = %s ORDER BY id
+        """, (it['id'],))
+        scols = [d[0] for d in cursor.description]
+        quotes = []
+        for s in cursor.fetchall():
+            q = dict(zip(scols, s))
+            q['unit_cost'] = float(q.get('unit_cost') or 0)
+            cursor.execute("""
+                SELECT id, original_name, stored_name, mime_type, file_size, uploaded_by, uploaded_at
+                FROM requisition_item_attachments WHERE item_supplier_id = %s ORDER BY id
+            """, (q['id'],))
+            acols = [d[0] for d in cursor.description]
+            q['attachments'] = []
+            for a in cursor.fetchall():
+                ad = dict(zip(acols, a))
+                for k, v in list(ad.items()):
+                    if hasattr(v, 'isoformat'):
+                        ad[k] = v.isoformat()
+                q['attachments'].append(ad)
+            quotes.append(q)
+        it['suppliers'] = quotes
+        items.append(it)
+
+    cursor.execute("""
+        INSERT INTO deleted_requisitions
+            (requisition_id, req_no, title, department, requested_by, status, priority,
+             project_ref, total_amount, item_count, requisition_snapshot, items_snapshot,
+             deleted_by, deleted_by_user_id, delete_reason)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s)
+    """, (header.get('id'), header.get('req_no'), header.get('title'), header.get('department'),
+          header.get('requested_by'), header.get('status'), header.get('priority'),
+          header.get('project_ref'), round(total, 2), len(items),
+          json.dumps(header, default=str), json.dumps(items, default=str),
+          (user or {}).get('name'), (user or {}).get('id'),
+          (reason or '').strip()[:500] or None))
+    return header.get('req_no')
 
 
 def _req_sync_projects(cursor, req_id):
@@ -40427,6 +40525,16 @@ def procurement_api_cancel_requisition(rid):
 @app.route('/api/procurement/requisitions/<int:rid>/delete', methods=['POST'])
 @login_required
 def procurement_api_delete_requisition(rid):
+    """Delete a requisition. PASSCODE-GATED, and the full requisition (header, line
+    items, supplier quotes and attachments) is archived into `deleted_requisitions`
+    first, so a delete is never destructive."""
+    data = request.get_json(silent=True) or {}
+    passcode = str(data.get('passcode') or '').strip()
+    reason = (data.get('reason') or '').strip()
+    if not passcode:
+        return jsonify({'success': False, 'error': 'Passcode is required to delete a requisition.'}), 400
+    if passcode != PROC_REQ_DELETE_PASSCODE:
+        return jsonify({'success': False, 'error': 'Invalid passcode.'}), 403
     user = _procurement_user()
     perms = _procurement_perms()
     try:
@@ -40440,10 +40548,75 @@ def procurement_api_delete_requisition(rid):
             is_owner = (row[3] == user['id'])
             if not perms.get('is_super_admin', False) and not perms.get('can_manage_purchase_orders', False) and not is_owner:
                 return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            # Snapshot FIRST — the FK cascade wipes requisition_items on delete.
+            _archive_requisition(cursor, rid, user, reason)
             cursor.execute("DELETE FROM requisitions WHERE id = %s", (rid,))
             connection.commit()
-            log_activity('requisition_delete', f'Deleted requisition {row[1]}', 'requisition', rid)
-            return jsonify({'success': True, 'message': 'Requisition deleted.'})
+            log_activity('requisition_delete',
+                         f'Deleted requisition {row[1]} (passcode verified) — archived'
+                         + (f': {reason}' if reason else ''), 'requisition', rid)
+            return jsonify({'success': True,
+                            'message': f'{row[1]} deleted and archived to the Deleted Requisitions log.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/deleted-requisitions', methods=['GET'])
+@login_required
+def procurement_api_deleted_requisitions():
+    """Archive listing of every deleted requisition (summary rows)."""
+    perms = _procurement_perms()
+    if not (perms.get('is_super_admin') or perms.get('can_manage_purchase_orders')):
+        return jsonify({'success': False, 'error': 'Access denied: needs Manage Purchase Orders.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, requisition_id, req_no, title, department, requested_by, status,
+                       priority, project_ref, total_amount, item_count, deleted_by, deleted_at,
+                       delete_reason
+                FROM deleted_requisitions ORDER BY deleted_at DESC
+            """)
+            rows = cursor.fetchall()
+            return jsonify({'success': True, 'data': [{
+                'id': r[0], 'requisition_id': r[1], 'req_no': r[2], 'title': r[3],
+                'department': r[4] or '', 'requested_by': r[5] or '', 'status': r[6] or '',
+                'priority': r[7] or '', 'project_ref': r[8] or '',
+                'total_amount': float(r[9] or 0), 'item_count': r[10] or 0,
+                'deleted_by': r[11] or '', 'deleted_at': str(r[12]) if r[12] else None,
+                'delete_reason': r[13] or ''
+            } for r in rows]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/deleted-requisitions/<int:did>', methods=['GET'])
+@login_required
+def procurement_api_deleted_requisition_detail(did):
+    """Full snapshot of one archived (deleted) requisition: every header field plus
+    the line items with their supplier quotes and quote attachments."""
+    perms = _procurement_perms()
+    if not (perms.get('is_super_admin') or perms.get('can_manage_purchase_orders')):
+        return jsonify({'success': False, 'error': 'Access denied: needs Manage Purchase Orders.'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, requisition_id, req_no, title, department, requested_by, status,
+                       priority, project_ref, total_amount, item_count, requisition_snapshot,
+                       items_snapshot, deleted_by, deleted_by_user_id, deleted_at, delete_reason
+                FROM deleted_requisitions WHERE id = %s
+            """, (did,))
+            r = cursor.fetchone()
+            if not r:
+                return jsonify({'success': False, 'error': 'Archived requisition not found.'}), 404
+            return jsonify({'success': True, 'data': {
+                'id': r[0], 'requisition_id': r[1], 'req_no': r[2], 'title': r[3],
+                'department': r[4] or '', 'requested_by': r[5] or '', 'status': r[6] or '',
+                'priority': r[7] or '', 'project_ref': r[8] or '',
+                'total_amount': float(r[9] or 0), 'item_count': r[10] or 0,
+                'requisition': r[11] or {}, 'items': r[12] or [],
+                'deleted_by': r[13] or '', 'deleted_by_user_id': r[14],
+                'deleted_at': str(r[15]) if r[15] else None, 'delete_reason': r[16] or ''
+            }})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

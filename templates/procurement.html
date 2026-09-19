@@ -866,6 +866,7 @@
                             <option value="rejected">Rejected</option>
                             <option value="cancelled">Cancelled</option>
                         </select>
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="openDeletedReqs()" data-perm-action="can_manage_purchase_orders" title="Requisitions that were deleted (with full details)"><i class="bi bi-archive"></i> Deleted Archive</button>
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="exportData('requisitions')" data-perm-action="can_export_data"><i class="bi bi-file-earmark-excel"></i> Export</button>
                         <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openReqModal()" data-perm-action="can_create_requisitions"><i class="bi bi-plus-lg"></i> New Requisition</button>
                     </div>
@@ -1241,6 +1242,62 @@
             <div class="modal-footer">
                 <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
                 <button class="pc-btn pc-btn-danger" onclick="confirmReject()"><i class="bi bi-x-lg"></i> Reject</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== DELETE REQUISITION (PASSCODE) MODAL ==================== -->
+<div class="modal fade" id="deleteReqModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-trash me-2 text-danger"></i>Delete Requisition</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div class="pc-rv-banner red" style="margin-top:0;">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span>About to delete <b id="delReqNo">this requisition</b>. The full record (header, line items and supplier quotes) is <b>archived</b> first, so it can still be inspected in the Deleted Requisitions log.</span>
+                </div>
+                <div style="margin-top:12px;">
+                    <label class="pc-form-label">Passcode *</label>
+                    <input type="password" class="pc-input" id="delReqPasscode" placeholder="Enter the deletion passcode" autocomplete="off">
+                </div>
+                <div style="margin-top:10px;">
+                    <label class="pc-form-label">Reason (optional)</label>
+                    <input type="text" class="pc-input" id="delReqReason" placeholder="e.g. duplicate, raised in error">
+                </div>
+                <div id="delReqMsg" style="font-size:0.6rem;margin-top:8px;font-weight:700;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-danger" id="delReqBtn" onclick="confirmDeleteReq()"><i class="bi bi-trash"></i> Delete &amp; Archive</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== DELETED REQUISITIONS ARCHIVE MODAL ==================== -->
+<div class="modal fade" id="deletedReqModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-archive me-2"></i>Deleted Requisitions (archive)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div style="font-size:0.62rem;color:#64748B;margin-bottom:8px;">Every deleted requisition is kept here with its full details, line items and supplier quotes.</div>
+                <div class="pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Req No</th><th>Title</th><th>Department</th><th>Status</th><th class="num">Total (USD)</th><th class="num">Items</th><th>Deleted By</th><th>Deleted</th><th style="text-align:right;">Full details</th></tr></thead>
+                        <tbody id="delReqBody"></tbody>
+                    </table>
+                </div>
+                <div id="delReqDetail"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -3043,14 +3100,144 @@ window.cancelReq = async function(id) {
         if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
     } catch (e) { toast('Connection error', 'error'); }
 };
-window.deleteReq = async function(id) {
-    if (!confirm('Delete this requisition permanently?')) return;
+/* Delete now needs a PASSCODE and archives the whole requisition first. */
+window.deleteReq = function(id) {
+    const r = (REQUISITIONS || []).find(x => x.id === id)
+           || ((VIEW_REQ && VIEW_REQ.id === id) ? VIEW_REQ : null);
+    document.getElementById('delReqNo').textContent = r ? (r.req_no + ' — ' + (r.title || '')) : ('requisition #' + id);
+    document.getElementById('deleteReqModal').dataset.reqId = id;
+    document.getElementById('delReqPasscode').value = '';
+    document.getElementById('delReqReason').value = '';
+    const msg = document.getElementById('delReqMsg');
+    msg.textContent = '';
+    showModal('deleteReqModal');
+};
+window.confirmDeleteReq = async function() {
+    const id = document.getElementById('deleteReqModal').dataset.reqId;
+    const passcode = document.getElementById('delReqPasscode').value;
+    const reason = document.getElementById('delReqReason').value.trim();
+    const msg = document.getElementById('delReqMsg');
+    if (!passcode) { msg.textContent = 'Passcode is required.'; msg.style.color = '#B91C1C'; return; }
+    const btn = document.getElementById('delReqBtn');
+    btn.disabled = true;
+    msg.textContent = '';
     try {
-        const res = await fetch('/api/procurement/requisitions/' + id + '/delete', { method: 'POST', credentials: 'include' });
+        const res = await fetch('/api/procurement/requisitions/' + id + '/delete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ passcode, reason })
+        });
         const data = await res.json();
-        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
-        if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
-    } catch (e) { toast('Connection error', 'error'); }
+        if (data.success) {
+            toast(data.message, 'success');
+            hideModal('deleteReqModal');
+            hideModal('viewReqModal');
+            loadRequisitions(); loadDashboard();
+        } else {
+            msg.textContent = data.error || 'Delete failed.';
+            msg.style.color = '#B91C1C';
+            toast(data.error || 'Delete failed', 'error');
+        }
+    } catch (e) {
+        msg.textContent = 'Connection error';
+        msg.style.color = '#B91C1C';
+    }
+    btn.disabled = false;
+};
+
+/* ---------- Deleted requisitions archive ---------- */
+window.openDeletedReqs = async function() {
+    const tbody = document.getElementById('delReqBody');
+    document.getElementById('delReqDetail').innerHTML = '';
+    showSkeleton(tbody, 9);
+    showModal('deletedReqModal');
+    try {
+        const res = await fetch('/api/procurement/deleted-requisitions', { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { tbody.innerHTML = `<tr><td colspan="9" class="pc-empty text-danger">${esc(data.error || 'Failed to load')}</td></tr>`; return; }
+        const rows = data.data || [];
+        tbody.innerHTML = rows.map(d => `
+            <tr>
+                <td>${esc(d.req_no || '—')}</td>
+                <td><strong>${esc(d.title || '—')}</strong>${d.delete_reason ? `<div style="font-size:0.56rem;color:#94A3B8;">${esc(d.delete_reason)}</div>` : ''}</td>
+                <td>${esc(d.department || '—')}</td>
+                <td>${reqBadge(d.status)}</td>
+                <td class="num">${fmtMoney(d.total_amount)}</td>
+                <td class="num">${d.item_count}</td>
+                <td>${esc(d.deleted_by || '—')}</td>
+                <td>${esc(String(d.deleted_at || '').slice(0, 16))}</td>
+                <td style="text-align:right;"><button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewDeletedReq(${d.id})"><i class="bi bi-eye"></i> Open</button></td>
+            </tr>`).join('') || '<tr><td colspan="9" class="pc-empty"><i class="bi bi-archive"></i> Nothing has been deleted yet</td></tr>';
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="9" class="pc-empty text-danger">Failed to load</td></tr>';
+    }
+};
+window.viewDeletedReq = async function(did) {
+    const box = document.getElementById('delReqDetail');
+    box.innerHTML = '<div class="pc-empty"><i class="bi bi-hourglass-split"></i> Loading…</div>';
+    try {
+        const res = await fetch('/api/procurement/deleted-requisitions/' + did, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { box.innerHTML = `<div class="pc-empty text-danger">${esc(data.error || 'Failed to load')}</div>`; return; }
+        const d = data.data;
+        const h = d.requisition || {};
+        const dash = v => (v === null || v === undefined || v === '') ? '<span style="color:#94A3B8;">—</span>' : esc(v);
+        const when = v => dash(String(v || '').slice(0, 16));
+        const def = (k, v) => `<div class="pc-rv-def"><span class="k">${esc(k)}</span><span class="v">${v}</span></div>`;
+        const items = d.items || [];
+        box.innerHTML = `
+        <div class="pc-rv-card" style="margin-top:14px;">
+            <div class="pc-rv-card-head"><i class="bi bi-info-circle"></i> ${esc(d.req_no || '')} — full archived record</div>
+            <div class="pc-rv-defs">
+                ${def('Title', dash(d.title))}
+                ${def('Department', dash(d.department))}
+                ${def('Requested By', dash(d.requested_by))}
+                ${def('Status at deletion', reqBadge(d.status))}
+                ${def('Priority', prioBadge(d.priority))}
+                ${def('Total', '$' + fmtMoney(d.total_amount))}
+                ${def('Projects', dash(h.project_ref))}
+                ${def('Needed By', dash(h.needed_by))}
+                ${def('Created', when(h.created_at))}
+                ${def('Submitted', when(h.submitted_at))}
+                ${def('Authorised By', dash(h.authorised_by))}
+                ${def('Authorised At', when(h.authorised_at))}
+                ${def('Approved By', dash(h.approved_by))}
+                ${def('Approved At', when(h.approved_at))}
+                ${def('Stock', dash(h.stock_status))}
+                ${def('Funds', dash(h.funds_status))}
+                ${def('Deleted By', dash(d.deleted_by))}
+                ${def('Deleted At', when(d.deleted_at))}
+            </div>
+            ${d.delete_reason ? `<div class="pc-rv-note"><b>Reason</b>${esc(d.delete_reason)}</div>` : ''}
+            ${h.notes ? `<div class="pc-rv-note"><b>Notes</b>${esc(h.notes)}</div>` : ''}
+        </div>
+        <div class="pc-rv-card">
+            <div class="pc-rv-card-head"><i class="bi bi-list-ul"></i> Line items <span class="pc-rv-count">${items.length} item${items.length === 1 ? '' : 's'}</span></div>
+            <div class="pc-table-wrap">
+                <table class="pc-table">
+                    <thead><tr><th>#</th><th>Item</th><th>Category</th><th>Project</th><th class="num">Qty</th><th class="num">Unit Cost</th><th class="num">Total</th><th>Supplier quotes</th></tr></thead>
+                    <tbody>
+                    ${items.map((it, i) => {
+                        const qs = (it.suppliers || []).map(s =>
+                            `${esc(s.supplier_name || '—')} · $${fmtMoney(s.unit_cost)}${s.is_preferred ? ' ★' : ''}${s.approved ? ' ✓' : ''}`
+                        ).join('<br>') || '<span style="color:#94A3B8;">—</span>';
+                        return `<tr>
+                            <td>${i + 1}</td>
+                            <td>${esc(it.product_name || '')}</td>
+                            <td>${esc(it.category || '—')}</td>
+                            <td>${esc(it.project_ref || '—')}</td>
+                            <td class="num">${it.quantity}</td>
+                            <td class="num">${fmtMoney(it.unit_cost)}</td>
+                            <td class="num">${fmtMoney(it.total_cost)}</td>
+                            <td style="font-size:0.56rem;line-height:1.5;">${qs}</td>
+                        </tr>`;
+                    }).join('') || '<tr><td colspan="8" class="pc-empty">No items</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    } catch (e) {
+        box.innerHTML = '<div class="pc-empty text-danger">Failed to load</div>';
+    }
 };
 
 // ===================== PURCHASE ORDERS =====================
