@@ -202,7 +202,14 @@
         .pc-items-table .pc-prod-input { min-width: 190px; }
         .pc-items-table .pc-item-cat { min-width: 120px; }
         .pc-items-table .pc-proj-wrap { position: relative; }
-        .pc-items-table .pc-item-proj { min-width: 170px; }
+        .pc-items-table .pc-item-proj { min-width: 230px; }
+        /* The Project picker's panel is much wider than its field so the full
+           "<id>--<name>--<location>--<client>" label plus the sub-line fit. JS
+           also auto-fits it to the widest option (floatSuggestOnAnchor). */
+        .pc-items-table .pc-proj-wrap .pc-suggest { min-width: 460px; }
+        .pc-items-table .pc-proj-wrap .pc-suggest .pc-sug-item { align-items: baseline; gap: 14px; }
+        .pc-items-table .pc-proj-wrap .pc-suggest .pc-sug-item > span:first-child { white-space: nowrap; }
+        .pc-items-table .pc-proj-wrap .pc-suggest .pc-sug-item .sub { margin-left: auto; }
         .pc-item-line-total { display:inline-block; font-weight:600; font-size:0.6rem; color:#0F172A; }
         .pc-quotes-btn { white-space: nowrap; }
         .pc-item-quote-count { display:inline-block; min-width:16px; text-align:center; margin-left:4px; background:#C12B3E; color:#fff; border-radius:10px; font-size:0.55rem; padding:0 4px; }
@@ -1995,33 +2002,60 @@ async function loadCategories() {
 
 /* Position a suggestion dropdown (inside the scrollable line-items table) as a
    FIXED overlay at the input's viewport position, so it protrudes past the
-   .pc-item-scroll height cap instead of being clipped by it. Flips upward
-   when there isn't enough room below the input. */
-function floatSuggestOnAnchor(input, list) {
+   .pc-item-scroll height cap instead of being clipped by it.
+   `minW` asks for a WIDER panel than the field, and `fitContent` grows it to
+   the widest option (the Project picker does both — its labels are long). The
+   panel is kept inside the viewport and only flips upward when there really is
+   no room below. */
+function floatSuggestOnAnchor(input, list, minW, fitContent) {
     if (!input || !list) return;
     const r = input.getBoundingClientRect();
     if (!r || (!r.width && !r.height)) return;
+    if (minW) list._minW = minW;
+    if (fitContent) list._fit = true;
     const gap = 6;
+    let width = Math.max(r.width, list._minW || 0);
+    if (list._fit) {
+        // Measure the natural (unwrapped) width of the options, then restore.
+        list.style.width = 'auto';
+        list.style.visibility = 'hidden';
+        const natural = list.scrollWidth + 2;
+        list.style.visibility = '';
+        list.style.width = '';
+        width = Math.max(width, natural);
+    }
+    width = Math.min(width, Math.max(240, window.innerWidth - 16));
+    let left = r.left;
+    if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - width);
     const below = window.innerHeight - r.bottom - gap;
     const above = r.top - gap;
-    const openUp = below < 170 && above > below;
-    const maxH = Math.max(130, Math.min(280, (openUp ? above : below) - 8));
+    const openUp = below < 190 && above > below;
+    const maxH = Math.max(150, Math.min(320, (openUp ? above : below) - 8));
     list.style.position = 'fixed';
-    list.style.left = r.left + 'px';
-    list.style.width = r.width + 'px';
+    list.style.left = left + 'px';
+    list.style.width = width + 'px';
     list.style.top = openUp ? 'auto' : (r.bottom + gap) + 'px';
     list.style.bottom = openUp ? (window.innerHeight - r.top + gap) + 'px' : 'auto';
     list.style.maxHeight = maxH + 'px';
     list.style.zIndex = '9000';
+    list._anchor = input;
 }
 
-/* When the modal / line-items area is scrolled, drop any floated suggestion so
-   it never hangs detached from its input (capture so inner scrollers fire it). */
+/* When the modal / line-items area is scrolled, RE-ANCHOR an open suggestion to
+   its input instead of hiding it — hiding made the list vanish the moment the
+   user scrolled the line-item area, which felt broken. It is only hidden when
+   its input is gone or scrolled out of view. (capture so inner scrollers fire.) */
 document.addEventListener('scroll', function () {
     document.querySelectorAll('#reqModal .pc-suggest').forEach(function (el) {
-        if (el.style && el.style.position === 'fixed' && el.style.display !== 'none') {
+        if (!el.style || el.style.position !== 'fixed' || el.style.display === 'none') return;
+        const a = el._anchor;
+        if (!a || !a.isConnected || a.offsetWidth === 0 || a.offsetHeight === 0) {
             el.style.display = 'none';
+            return;
         }
+        const r = a.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) { el.style.display = 'none'; return; }
+        floatSuggestOnAnchor(a, el);
     });
 }, true);
 
@@ -2087,7 +2121,7 @@ function addItemRow(data) {
                 <div class="pc-suggest"></div>
             </div>
         </td>
-        <td style="min-width:180px;">
+        <td style="min-width:230px;">
             <div class="pc-proj-wrap">
                 <input type="text" class="pc-input pc-item-proj" placeholder="Project (one per item)" value="${esc(data.project_ref || '')}" autocomplete="off">
                 <input type="hidden" class="pc-item-proj-id" value="${data.project_id || ''}">
@@ -2130,7 +2164,7 @@ function wireProjectCombo(input, row) {
     const show = (items) => {
         if (!items.length) { list.style.display = 'none'; return; }
         list.innerHTML = items.map((p, i) => `<div class="pc-sug-item" data-i="${i}"><span>${esc(projectLabel(p))}</span><span class="sub">${esc(p.projectname || '')}${p.clientname ? ' · ' + esc(p.clientname) : ''}</span></div>`).join('');
-        floatSuggestOnAnchor(input, list);
+        floatSuggestOnAnchor(input, list, 460, true);
         list.style.display = 'block';
         list.querySelectorAll('.pc-sug-item').forEach(el => {
             el.addEventListener('mousedown', (e) => {
