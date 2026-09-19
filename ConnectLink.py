@@ -41753,6 +41753,7 @@ def _proc_pdf_kit():
         'brand': ParagraphStyle('brand', fontName='Helvetica-Bold', fontSize=15, leading=16.5, textColor=C['navy']),
         'badge': ParagraphStyle('badge', fontName='Helvetica-Bold', fontSize=16, leading=18, textColor=C['navy']),
         'subt': ParagraphStyle('subt', fontName='Helvetica-Bold', fontSize=7.5, leading=10, textColor=C['muted']),
+        'tag': ParagraphStyle('tag', fontName='Helvetica-Bold', fontSize=7, leading=9.5, textColor=C['muted']),
         'money': ParagraphStyle('money', fontName='Helvetica-Bold', fontSize=18, leading=20,
                                 textColor=C['navy'], alignment=TA_RIGHT),
         'cellc': ParagraphStyle('cellc', fontName='Helvetica', fontSize=9, leading=12,
@@ -41787,24 +41788,33 @@ def _proc_pdf_pill(label, bg, S, C, width_mm=30):
 
 
 def _proc_pdf_header(company, logo_b64, badge, subtitle, meta_rows, S, C):
-    """Logo + company name on the left; letter-spaced document badge, subtitle and
-    a key/value meta table on the right, closed by a navy rule (receipt look)."""
+    """The LOGO (with the strapline beneath it) on the left; letter-spaced document
+    badge, subtitle and a key/value meta table on the right, closed by a navy rule
+    (receipt look).
+
+    The company NAME is deliberately NOT printed next to the logo — the logo already
+    carries it, so repeating it just clutters the header. It is only printed when no
+    logo file is available, so the document still identifies the company."""
     import base64 as _b64
     from reportlab.lib.units import mm
     from reportlab.platypus import Table, TableStyle, Paragraph, Image
 
+    TAGLINE = 'BUILDING &amp; PROPERTY DEVELOPMENT'
     logo = None
     if logo_b64:
         try:
             logo = Image(io.BytesIO(_b64.b64decode(logo_b64)))
-            max_h = 40.0
-            if logo.imageHeight and float(logo.imageHeight) > max_h:
-                ratio = max_h / float(logo.imageHeight)
-                logo.drawHeight = max_h
-                logo.drawWidth = float(logo.imageWidth) * ratio
-            if float(logo.drawWidth) > 30 * mm:
-                ratio = (30 * mm) / float(logo.drawWidth)
-                logo.drawWidth = 30 * mm
+            # Scale to a target HEIGHT in both directions (so a small source image is
+            # enlarged too, not just capped), then clamp the width. Ratio preserved.
+            target_h = 50.0
+            if logo.imageHeight:
+                ratio = target_h / float(logo.imageHeight)
+                logo.drawHeight = target_h
+                logo.drawWidth = max(1.0, float(logo.imageWidth) * ratio)
+            max_w = 40 * mm
+            if float(logo.drawWidth) > max_w:
+                ratio = max_w / float(logo.drawWidth)
+                logo.drawWidth = max_w
                 logo.drawHeight = float(logo.drawHeight) * ratio
         except Exception:
             logo = None
@@ -41812,21 +41822,32 @@ def _proc_pdf_header(company, logo_b64, badge, subtitle, meta_rows, S, C):
     name = _proc_esc(company.get('name') or 'ConnectLink')
     left_w = _PROC_PAGE_W * mm * 0.56
     right_w = (_PROC_PAGE_W * mm) - left_w
-    logo_w = (float(logo.drawWidth) + 7) if logo else 0.0
 
-    left = Table([[
-        logo if logo else '',
-        Paragraph(f'{name}<br/><font size="6.2" color="{_PROC_MUTED}">'
-                  'BUILDING &amp; PROPERTY DEVELOPMENT</font>', S['brand'])
-    ]], colWidths=[logo_w, left_w - logo_w])
-    left.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (0, 0), 7),
-        ('RIGHTPADDING', (1, 0), (1, 0), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
+    if logo:
+        left = Table([[logo], [Paragraph(TAGLINE, S['tag'])]], colWidths=[left_w])
+        left.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (0, 0), 0),
+            ('BOTTOMPADDING', (0, 0), (0, 0), 3),
+            ('TOPPADDING', (0, 1), (0, 1), 0),
+            ('BOTTOMPADDING', (0, 1), (0, 1), 0),
+        ]))
+    else:
+        # No logo available — fall back to the company name so the document still says
+        # who issued it.
+        left = Table([[Paragraph(
+            f'{name}<br/><font size="6.5" color="{_PROC_MUTED}">{TAGLINE}</font>',
+            S['brand'])]], colWidths=[left_w])
+        left.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ]))
 
     meta = Table([[Paragraph(str(k).upper(), S['tiny']), Paragraph(v, S['bold'])]
                   for k, v in meta_rows], colWidths=[25 * mm, right_w - (25 * mm)])
@@ -43138,12 +43159,56 @@ def _procurement_log_send(label, ok, txt):
         print(f"{label}: NOT SENT - {reason}")
 
 
+def _procurement_hr_whatsapp_map(cursor):
+    """(lower-cased full name -> whatsapp, hr_employees.id -> whatsapp).
+
+    The HR portal is where staff WhatsApp numbers are actually maintained; the
+    admin_users mirror is frequently blank, which left sign-off people showing
+    'No WhatsApp number saved — they cannot be notified' even though HR holds the
+    number. Resolved in Python from ONE query rather than an OR-join on the tables,
+    because a multi-condition join can match two employees and duplicate the row."""
+    by_name, by_id = {}, {}
+    try:
+        cursor.execute("""
+            SELECT id,
+                   TRIM(CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))),
+                   NULLIF(TRIM(COALESCE(whatsapp, '')), '')
+            FROM hr_employees
+        """)
+        for hid, nm, wa in cursor.fetchall():
+            if not wa:
+                continue
+            if hid:
+                by_id[hid] = wa
+            key = re.sub(r'\s+', ' ', str(nm or '').strip().lower())
+            if key and key not in by_name:
+                by_name[key] = wa
+    except Exception as e:
+        print(f"HR WhatsApp map error: {e}")
+    return by_name, by_id
+
+
 def _procurement_user_whatsapp(userid):
+    """WhatsApp number for an admin_users id.
+
+    admin_users.whatsapp wins when it is set, because the WhatsApp webhook matches
+    inbound button taps / replies against THAT column — sending to a different number
+    would leave the person unable to be identified when they respond. When it is
+    blank (the common case) the number comes from the HR portal instead of giving up."""
+    if not userid:
+        return None
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT whatsapp FROM admin_users WHERE id = %s", (userid,))
+            cursor.execute("SELECT whatsapp, full_name, username, source_id FROM admin_users WHERE id = %s", (userid,))
             row = cursor.fetchone()
-            return row[0] if row else None
+            if not row:
+                return None
+            wa = str(row[0] or '').strip()
+            if wa:
+                return wa
+            by_name, by_id = _procurement_hr_whatsapp_map(cursor)
+            nm = re.sub(r'\s+', ' ', str(row[1] or row[2] or '').strip().lower())
+            return by_id.get(row[3]) or by_name.get(nm) or None
     except Exception as e:
         print(f"User whatsapp lookup error: {e}")
         return None
@@ -43159,7 +43224,17 @@ def _procurement_signoff_people(cursor=None):
     flags are joined in SQL instead. Returns rows:
       (id, full_name, username, whatsapp, is_super_admin,
        can_authorise_purchase_orders, can_approve_requisitions, can_manage_purchase_orders,
-       can_authorise_requisitions)
+       can_authorise_requisitions, source_id)
+
+    `whatsapp` (index 3) is admin_users.whatsapp when set, otherwise the number from the
+    HR portal — see `_procurement_hr_whatsapp_map`. The HR portal is where staff numbers
+    are actually maintained and admin_users is often blank, so without that fallback the
+    Authoriser/Approver pickers reported 'No WhatsApp number saved — they cannot be
+    notified' for people HR has a number for, AND `_procurement_authorisers` /
+    `_procurement_approvers` / `_procurement_req_authorisers` silently dropped those
+    people from the notify lists (they each skip rows with no number).
+    `source_id` (index 9) is APPENDED — it is only used internally to link to the HR
+    record, so existing callers indexing r[0..8] are unaffected.
     """
     sql = """
         SELECT au.id, au.full_name, au.username, au.whatsapp,
@@ -43167,7 +43242,8 @@ def _procurement_signoff_people(cursor=None):
                COALESCE(up.can_authorise_purchase_orders, FALSE),
                COALESCE(up.can_approve_requisitions, FALSE),
                COALESCE(up.can_manage_purchase_orders, FALSE),
-               COALESCE(up.can_authorise_requisitions, FALSE)
+               COALESCE(up.can_authorise_requisitions, FALSE),
+               au.source_id
         FROM admin_users au
         LEFT JOIN user_permissions up
                ON up.user_type = COALESCE(au.source_system, 'projects')
@@ -43175,12 +43251,29 @@ def _procurement_signoff_people(cursor=None):
         WHERE au.is_active = TRUE
         ORDER BY au.full_name, au.id
     """
+
+    def _fill_hr_numbers(rows, cur):
+        """Anyone whose admin_users.whatsapp is blank gets the HR portal number, so
+        the sign-off picker (and the WhatsApp notifies that read this list) stop
+        reporting 'No WhatsApp number saved' when HR has one."""
+        if not any(not str(r[3] or '').strip() for r in rows):
+            return rows
+        by_name, by_id = _procurement_hr_whatsapp_map(cur)
+        out = []
+        for r in rows:
+            wa = str(r[3] or '').strip()
+            if not wa:
+                nm = re.sub(r'\s+', ' ', str(r[1] or '').strip().lower())
+                wa = by_id.get(r[9]) or by_name.get(nm) or ''
+            out.append(tuple(r[:3]) + (wa,) + tuple(r[4:]))
+        return out
+
     if cursor is not None:
         cursor.execute(sql)
-        return cursor.fetchall()
+        return _fill_hr_numbers(cursor.fetchall(), cursor)
     with get_db() as (c, _):
         c.execute(sql)
-        return c.fetchall()
+        return _fill_hr_numbers(c.fetchall(), c)
 
 
 def _procurement_approvers():
@@ -43432,10 +43525,16 @@ def _procurement_po_details(po_id):
             requested_by_phone = (po[8] or '').strip()
             if not requested_by_phone and fallback_req_user:
                 try:
-                    cursor.execute("SELECT whatsapp FROM admin_users WHERE id = %s", (fallback_req_user,))
+                    cursor.execute("SELECT whatsapp, full_name, username, source_id FROM admin_users WHERE id = %s", (fallback_req_user,))
                     fr = cursor.fetchone()
-                    if fr and fr[0]:
-                        requested_by_phone = fr[0]
+                    if fr:
+                        requested_by_phone = str(fr[0] or '').strip()
+                        if not requested_by_phone:
+                            # admin_users has no number — fall back to the HR portal,
+                            # which is where staff numbers are actually maintained.
+                            by_name, by_id = _procurement_hr_whatsapp_map(cursor)
+                            nm = re.sub(r'\s+', ' ', str(fr[1] or fr[2] or '').strip().lower())
+                            requested_by_phone = by_id.get(fr[3]) or by_name.get(nm) or ''
                 except Exception:
                     pass
             return {
@@ -43587,8 +43686,10 @@ def _procurement_notify_po_approvers(po_id, target_user_id=None):
 
 
 def _procurement_whatsapp_by_name(name):
-    """Best-effort admin_users WhatsApp lookup by full name / username.
-    Used for the PO status updates to the logger and the authoriser."""
+    """Best-effort WhatsApp lookup by full name / username, used for the PO status
+    updates to the logger and the authoriser. admin_users is checked first (it is what
+    the WhatsApp webhook matches inbound replies against), then the HR portal, which is
+    where the numbers are actually maintained and where admin_users is often blank."""
     n = (name or '').strip()
     if not n:
         return None
@@ -43601,7 +43702,10 @@ def _procurement_whatsapp_by_name(name):
                 ORDER BY id LIMIT 1
             """, (n, n))
             row = cursor.fetchone()
-            return row[0] if row else None
+            if row and row[0]:
+                return row[0]
+            by_name, _ = _procurement_hr_whatsapp_map(cursor)
+            return by_name.get(re.sub(r'\s+', ' ', n.lower())) or None
     except Exception as e:
         print(f"Procurement WhatsApp name lookup error: {e}")
         return None
