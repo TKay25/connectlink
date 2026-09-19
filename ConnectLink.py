@@ -1796,6 +1796,13 @@ def initialize_database_tables():
                     -- Ticked by the logger on the form: when the requisition is
                     -- authorised, send the approver an info-only notice (no buttons).
                     notify_approver_on_authorisation BOOLEAN DEFAULT TRUE,
+                    -- Who the requisition is ROUTED to, picked on the form. NULL = notify
+                    -- everyone eligible. Distinct from authorised_by / approved_by,
+                    -- which record who ACTUALLY signed.
+                    authoriser_user_id INTEGER,
+                    authoriser_name VARCHAR(150),
+                    approver_user_id INTEGER,
+                    approver_name VARCHAR(150),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -1832,6 +1839,10 @@ def initialize_database_tables():
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authorised_by VARCHAR(150)")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authorised_at TIMESTAMP")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS notify_approver_on_authorisation BOOLEAN DEFAULT TRUE")
+                cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authoriser_user_id INTEGER")
+                cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authoriser_name VARCHAR(150)")
+                cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS approver_user_id INTEGER")
+                cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS approver_name VARCHAR(150)")
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add requisition stock/funds columns: {e}")
@@ -39743,6 +39754,30 @@ def _req_stock_status(value):
     return v if v in REQ_STOCK_STATUSES else 'not_in_stock'
 
 
+def _procurement_resolve_assignee(cursor, raw_id, checker):
+    """Validate a picked sign-off user id: must exist, be active, and STILL hold the
+    matching permission. Returns (user_id, name) or (None, '') when invalid, in
+    which case the caller falls back to notifying everyone eligible.
+    A posted name is never trusted — the name is always resolved from the DB."""
+    try:
+        uid = int(raw_id)
+    except (TypeError, ValueError):
+        return None, ''
+    if uid <= 0:
+        return None, ''
+    cursor.execute("""
+        SELECT id, full_name, username, source_system, source_id
+        FROM admin_users WHERE id = %s AND is_active = TRUE
+    """, (uid,))
+    au = cursor.fetchone()
+    if not au:
+        return None, ''
+    perms = get_user_permissions(au[3] or 'projects', au[4] or au[0])
+    if not checker(perms):
+        return None, ''
+    return au[0], (au[1] or au[2] or f'User {au[0]}')
+
+
 @app.route('/api/procurement/requisitions', methods=['GET'])
 @login_required
 def procurement_api_requisitions():
@@ -39757,7 +39792,8 @@ def procurement_api_requisitions():
                        COALESCE(r.stock_status, 'not_in_stock') AS stock_status,
                        r.funds_status, r.funds_note, r.funds_by,
                        r.authorised_by, r.authorised_at,
-                       COALESCE(r.notify_approver_on_authorisation, TRUE) AS notify_approver
+                       COALESCE(r.notify_approver_on_authorisation, TRUE) AS notify_approver,
+                       r.authoriser_name, r.approver_name
                 FROM requisitions r
                 LEFT JOIN requisition_items ri ON ri.requisition_id = r.id
             """
@@ -39785,7 +39821,9 @@ def procurement_api_requisitions():
                     'funds_by': r[21] or '',
                     'authorised_by': r[22] or '',
                     'authorised_at': str(r[23]) if r[23] else None,
-                    'notify_approver_on_authorisation': bool(r[24])
+                    'notify_approver_on_authorisation': bool(r[24]),
+                    'authoriser_name': r[25] or '',
+                    'approver_name': r[26] or ''
                 })
             return jsonify({'success': True, 'data': requisitions})
     except Exception as e:
@@ -39809,16 +39847,23 @@ def procurement_api_create_requisition():
             cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM requisitions")
             next_id = cursor.fetchone()[0]
             req_no = f'REQ-{next_id:04d}'
+            req_authoriser_uid, req_authoriser_nm = _procurement_resolve_assignee(
+                cursor, data.get('authoriser_id'), _procurement_can_authorise_req)
+            req_approver_uid, req_approver_nm = _procurement_resolve_assignee(
+                cursor, data.get('approver_id'), _procurement_can_approve)
             cursor.execute("""
                 INSERT INTO requisitions (req_no, title, department, requested_by, requested_by_user_id,
                     project_ref, priority, status, notes, needed_by, stock_status,
-                    notify_approver_on_authorisation)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', %s, %s, %s, %s)
+                    notify_approver_on_authorisation,
+                    authoriser_user_id, authoriser_name, approver_user_id, approver_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (req_no, title, data.get('department'), user['name'], user['id'],
                   data.get('project_ref'), data.get('priority', 'Medium'), data.get('notes'),
                   data.get('needed_by') or None, _req_stock_status(data.get('stock_status')),
-                  bool(data.get('notify_approver_on_authorisation', True))))
+                  bool(data.get('notify_approver_on_authorisation', True)),
+                  req_authoriser_uid, req_authoriser_nm or None,
+                  req_approver_uid, req_approver_nm or None))
             req_id = cursor.fetchone()[0]
             created_items = []
             for it in items:
@@ -39946,15 +39991,23 @@ def procurement_api_update_requisition(rid):
             is_owner = (row[3] == user['id'])
             if not perms.get('is_super_admin', False) and not is_owner:
                 return jsonify({'success': False, 'error': 'Access denied.'}), 403
+            req_authoriser_uid, req_authoriser_nm = _procurement_resolve_assignee(
+                cursor, data.get('authoriser_id'), _procurement_can_authorise_req)
+            req_approver_uid, req_approver_nm = _procurement_resolve_assignee(
+                cursor, data.get('approver_id'), _procurement_can_approve)
             cursor.execute("""
                 UPDATE requisitions SET title=%s, department=%s, project_ref=%s, priority=%s,
                     notes=%s, needed_by=%s, stock_status=%s,
-                    notify_approver_on_authorisation=%s, updated_at=CURRENT_TIMESTAMP
+                    notify_approver_on_authorisation=%s,
+                    authoriser_user_id=%s, authoriser_name=%s, approver_user_id=%s, approver_name=%s,
+                    updated_at=CURRENT_TIMESTAMP
                 WHERE id=%s
             """, (title, data.get('department'), data.get('project_ref'), data.get('priority', 'Medium'),
                   data.get('notes'), data.get('needed_by') or None,
                   _req_stock_status(data.get('stock_status')),
-                  bool(data.get('notify_approver_on_authorisation', True)), rid))
+                  bool(data.get('notify_approver_on_authorisation', True)),
+                  req_authoriser_uid, req_authoriser_nm or None,
+                  req_approver_uid, req_approver_nm or None, rid))
             cursor.execute("DELETE FROM requisition_items WHERE requisition_id = %s", (rid,))
             created_items = []
             for it in items or []:
@@ -40008,7 +40061,7 @@ def procurement_api_submit_requisition(rid):
     user = _procurement_user()
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT id, req_no, status, requested_by_user_id FROM requisitions WHERE id = %s", (rid,))
+            cursor.execute("SELECT id, req_no, status, requested_by_user_id, authoriser_user_id FROM requisitions WHERE id = %s", (rid,))
             row = cursor.fetchone()
             if not row:
                 return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
@@ -40023,7 +40076,7 @@ def procurement_api_submit_requisition(rid):
             """, (rid,))
             connection.commit()
             log_activity('requisition_submit', f'Submitted requisition {row[1]} for authorisation', 'requisition', rid)
-            _procurement_notify_req_authorisers(rid)  # best-effort WhatsApp, never blocks
+            _procurement_notify_req_authorisers(rid, row[4])  # best-effort WhatsApp, never blocks
             return jsonify({'success': True, 'message': 'Requisition submitted for authorisation.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -40047,7 +40100,7 @@ goods that are NOT already in stock — and that PO goes STRAIGHT to the approve
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, req_no, status, COALESCE(notify_approver_on_authorisation, TRUE)
+                SELECT id, req_no, status, COALESCE(notify_approver_on_authorisation, TRUE), approver_user_id
                 FROM requisitions WHERE id = %s
             """, (rid,))
             row = cursor.fetchone()
@@ -40056,6 +40109,7 @@ goods that are NOT already in stock — and that PO goes STRAIGHT to the approve
             if row[2] != 'submitted':
                 return jsonify({'success': False, 'error': f'Requisition is already {row[2].replace("_", " ")}.'}), 400
             notify_approver = bool(row[3])
+            req_approver_uid = row[4]
             cursor.execute("""
                 UPDATE requisitions SET status='authorised', authorised_by=%s,
                     authorised_at=CURRENT_TIMESTAMP, reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
@@ -40072,7 +40126,7 @@ goods that are NOT already in stock — and that PO goes STRAIGHT to the approve
         # INFO-ONLY notice to the approver, only when the logger asked for it
         if notify_approver:
             try:
-                _procurement_notify_req_authorised(rid, _procurement_actor_name(user))
+                _procurement_notify_req_authorised(rid, _procurement_actor_name(user), req_approver_uid)
             except Exception as nne:
                 print(f"Requisition authorised notice error: {nne}")
         return jsonify({
@@ -40404,22 +40458,37 @@ def procurement_api_purchase_orders():
 @app.route('/api/procurement/po-assignees', methods=['GET'])
 @login_required
 def procurement_api_po_assignees():
-    """Eligible PO sign-off people, derived from their User Management permissions:
+    """Eligible sign-off people, derived from their User Management permissions.
+
+    Purchase orders:
       authorisers = super admin OR can_authorise_purchase_orders  (1st sign-off)
       approvers   = super admin OR can_approve_requisitions OR can_manage_purchase_orders
-    Powers the Authoriser / Approver dropdowns on the New Purchase Order form.
-    A person may appear in both lists."""
+    Requisitions:
+      req_authorisers = super admin OR can_authorise_requisitions (1st sign-off)
+      req_approvers   = super admin OR can_approve_requisitions
+
+    Powers the Authoriser / Approver dropdowns on the New Purchase Order AND the
+    New Requisition forms. A person may appear in several lists."""
     try:
         with get_db() as (cursor, connection):
             rows = _procurement_signoff_people(cursor)
-        authorisers, approvers = [], []
+        authorisers, approvers, req_authorisers, req_approvers = [], [], [], []
         for r in rows:
             person = {'id': r[0], 'name': (r[1] or r[2] or f'User {r[0]}'), 'whatsapp': r[3] or ''}
+            req_authorise = bool(r[4] or (len(r) > 8 and r[8]))
+            req_approve = bool(r[4] or r[6])
             if r[4] or r[5]:
                 authorisers.append(dict(person))
             if r[4] or r[6] or r[7]:
                 approvers.append(dict(person))
-        return jsonify({'success': True, 'data': {'authorisers': authorisers, 'approvers': approvers}})
+            if req_authorise:
+                req_authorisers.append(dict(person))
+            if req_approve:
+                req_approvers.append(dict(person))
+        return jsonify({'success': True, 'data': {
+            'authorisers': authorisers, 'approvers': approvers,
+            'req_authorisers': req_authorisers, 'req_approvers': req_approvers,
+        }})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -42164,11 +42233,13 @@ def _procurement_req_authorisers():
         return []
 
 
-def _procurement_notify_req_authorisers(req_id):
-    """Notify every requisition AUTHORISER about a newly submitted requisition.
+def _procurement_notify_req_authorisers(req_id, target_user_id=None):
+    """Notify the requisition AUTHORISER(s) about a newly submitted requisition.
     Reuses the Meta-approved requisition_approval_request template (its
     approve/decline buttons are interpreted by the webhook as authorise/decline
-    while the requisition is still 'submitted')."""
+    while the requisition is still 'submitted').
+    `target_user_id` = the specific admin_users.id picked on the requisition form;
+    when it is empty/unmatched every eligible authoriser is notified."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("SELECT req_no, title, requested_by FROM requisitions WHERE id = %s", (req_id,))
@@ -42176,7 +42247,14 @@ def _procurement_notify_req_authorisers(req_id):
             if not row:
                 return
             req_no, req_title, req_by = row[0], row[1], (row[2] or 'Staff')
-        for au in _procurement_req_authorisers():
+        targets = _procurement_req_authorisers()
+        if target_user_id:
+            picked = [t for t in targets if t['id'] == target_user_id]
+            if picked:
+                targets = picked
+            else:
+                print(f"Requisition {req_no}: chosen authoriser {target_user_id} has no WhatsApp — notifying all authorisers")
+        for au in targets:
             try:
                 ok, txt = _procurement_send_template(
                     au['whatsapp'], PROC_REQ_APPROVAL_TEMPLATE,
@@ -42189,12 +42267,13 @@ def _procurement_notify_req_authorisers(req_id):
         print(f"Requisition notify authorisers error: {e}")
 
 
-def _procurement_notify_req_authorised(req_id, authoriser_name):
+def _procurement_notify_req_authorised(req_id, authoriser_name, target_user_id=None):
     """INFO-ONLY notice to the approvers: a requisition has been AUTHORISED.
     There is deliberately nothing for the approver to press at this stage - they
     only act once a purchase order is raised (and that PO goes straight to them).
     
-    recipient name, requisition no, title, department, authoriser, date)."""
+    recipient name, requisition no, title, department, authoriser, date).
+    `target_user_id` = the approver picked on the requisition form."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("SELECT req_no, title, department FROM requisitions WHERE id = %s", (req_id,))
@@ -42203,7 +42282,14 @@ def _procurement_notify_req_authorised(req_id, authoriser_name):
                 return
             req_no, req_title, dept = row[0], row[1], (row[2] or '-')
         when = datetime.now().strftime('%d %B %Y')
-        for ap in _procurement_approvers():
+        targets = _procurement_approvers()
+        if target_user_id:
+            picked = [t for t in targets if t['id'] == target_user_id]
+            if picked:
+                targets = picked
+            else:
+                print(f"Requisition {req_no}: chosen approver {target_user_id} has no WhatsApp — notifying all approvers")
+        for ap in targets:
             try:
                 ok, txt = _procurement_send_template(
                     ap['whatsapp'], PROC_REQ_AUTHORISED_TEMPLATE,
@@ -42698,14 +42784,15 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT id, req_no, title, status, requested_by_user_id, requested_by,
-                       COALESCE(notify_approver_on_authorisation, TRUE)
+                       COALESCE(notify_approver_on_authorisation, TRUE), approver_user_id
                 FROM requisitions WHERE id = %s
             """, (req_id,))
             row = cursor.fetchone()
             if not row:
                 _procurement_send_text(sender_id, "Requisition not found.")
                 return True
-            r_id, req_no, req_title, status, req_user_id, req_by, notify_appr = row
+            r_id, req_no, req_title, status, req_user_id, req_by, notify_appr = row[:7]
+            req_approver_uid = row[7] if len(row) > 7 else None
             if status not in ('submitted', 'authorised'):
                 _procurement_send_text(sender_id, f"{req_no} is already {status.replace('_', ' ')} - no change made.")
                 return True
@@ -42768,7 +42855,7 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
         # INFO-ONLY notice to the approvers when the logger asked for it
         if new_status == 'authorised' and notify_appr:
             try:
-                _procurement_notify_req_authorised(req_id, sender_name)
+                _procurement_notify_req_authorised(req_id, sender_name, req_approver_uid)
             except Exception as nne:
                 print(f"Requisition authorised notice error: {nne}")
         return True

@@ -997,6 +997,22 @@
                             </label>
                         </div>
                     </div>
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Authoriser <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(who signs it off first — leave blank for anyone eligible)</span></label>
+                        <div style="position:relative;">
+                            <input type="text" class="pc-input" id="reqAuthoriser" placeholder="Search eligible users..." autocomplete="off">
+                            <input type="hidden" id="reqAuthoriserId">
+                            <div class="pc-suggest" id="reqAuthoriserList"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Approver <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(notified after authorisation, per the tick above)</span></label>
+                        <div style="position:relative;">
+                            <input type="text" class="pc-input" id="reqApprover" placeholder="Search eligible users..." autocomplete="off">
+                            <input type="hidden" id="reqApproverId">
+                            <div class="pc-suggest" id="reqApproverList"></div>
+                        </div>
+                    </div>
                     <div class="col-md-5" id="reqProjectField">
                         <label class="pc-form-label">Project Ref <span style="color:#DC2626;">*</span></label>
                         <div style="position:relative;">
@@ -1473,6 +1489,7 @@ let VIEW_PO = null;
 let EDIT_REQ_ID = null;
 let PO_HR_PEOPLE = []; // HR-portal names/phones for the PO requester picker
 let PO_ASSIGNEES = { authorisers: [], approvers: [] }; // eligible sign-off people (from User Management perms)
+let REQ_ASSIGNEES = { req_authorisers: [], req_approvers: [] }; // same, for the requisition form
 
 // ===== LIGHTWEIGHT POLISH (no extra libraries) =====
 function animateValue(el, target, isMoney, dur) {
@@ -1683,6 +1700,8 @@ async function init() {
     setupReqProject();
     setupPoRequestedCombo();
     setupPoAssigneesCombo();
+    setupReqAssigneesCombo();
+    loadPoAssignees();   // one fetch fills BOTH the PO and requisition pickers
     showModule('dashboard');
 }
 
@@ -2304,7 +2323,8 @@ function setupPoRequestedCombo() {
     input.addEventListener('change', () => fillPhone(input.value));
 }
 
-// ----- PO Authoriser / Approver pickers (eligible users from User Management perms) -----
+// ----- PO + Requisition Authoriser / Approver pickers (eligible users by perms) -----
+// One endpoint feeds BOTH forms: authorisers/approvers (PO) + req_authorisers/req_approvers.
 async function loadPoAssignees() {
     try {
         const res = await fetch('/api/procurement/po-assignees', { credentials: 'include' });
@@ -2312,18 +2332,32 @@ async function loadPoAssignees() {
         PO_ASSIGNEES = (data.success && data.data) ? data.data : { authorisers: [], approvers: [] };
         PO_ASSIGNEES.authorisers = PO_ASSIGNEES.authorisers || [];
         PO_ASSIGNEES.approvers = PO_ASSIGNEES.approvers || [];
-    } catch (e) { PO_ASSIGNEES = { authorisers: [], approvers: [] }; }
+        REQ_ASSIGNEES = {
+            req_authorisers: (data.success && data.data && data.data.req_authorisers) || [],
+            req_approvers: (data.success && data.data && data.data.req_approvers) || []
+        };
+    } catch (e) {
+        PO_ASSIGNEES = { authorisers: [], approvers: [] };
+        REQ_ASSIGNEES = { req_authorisers: [], req_approvers: [] };
+    }
 }
 
-function setupAssigneeCombo(inputId, listId, hiddenId, key, emptyMsg) {
+/* `getSource` is a FUNCTION returning the object holding the list (not the object
+   itself) because PO_ASSIGNEES / REQ_ASSIGNEES get REASSIGNED when they load. */
+function setupAssigneeCombo(inputId, listId, hiddenId, key, emptyMsg, getSource) {
     const input = document.getElementById(inputId);
     const list = document.getElementById(listId);
     const hidden = document.getElementById(hiddenId);
     if (!input || !list || !hidden) return;
-    const people = () => PO_ASSIGNEES[key] || [];
-    const show = (items, note) => {
+    const people = () => (getSource ? getSource() : PO_ASSIGNEES)[key] || [];
+    const show = (items) => {
         if (!items.length) {
-            list.innerHTML = `<div class="pc-sug-item" style="cursor:default;color:#94A3B8;"><span>${esc(note || emptyMsg)}</span></div>`;
+            // Two very different situations — don't tell the user nobody has the
+            // permission just because their search text matched nobody.
+            const note = people().length
+                ? 'No match — clear the box to list everyone eligible.'
+                : emptyMsg;
+            list.innerHTML = `<div class="pc-sug-item" style="cursor:default;color:#94A3B8;"><span>${esc(note)}</span></div>`;
             list.style.display = 'block';
             return;
         }
@@ -2360,6 +2394,16 @@ function setupPoAssigneesCombo() {
         'No user has "Authorise Purchase Orders" — grant it in User Management, or leave blank.');
     setupAssigneeCombo('poApprover', 'poApproverList', 'poApproverId', 'approvers',
         'No user can approve POs — grant "Approve Requisitions" in User Management, or leave blank.');
+}
+
+// Requisition form pickers (same eligible-user data, requisition permissions)
+function setupReqAssigneesCombo() {
+    setupAssigneeCombo('reqAuthoriser', 'reqAuthoriserList', 'reqAuthoriserId', 'req_authorisers',
+        'No user has "Authorise Requisitions" — grant it in User Management, or leave blank.',
+        () => REQ_ASSIGNEES);
+    setupAssigneeCombo('reqApprover', 'reqApproverList', 'reqApproverId', 'req_approvers',
+        'No user can approve requisitions — grant "Approve Requisitions" in User Management, or leave blank.',
+        () => REQ_ASSIGNEES);
 }
 
 // Project Ref only shows (and is required) when Department = Production
@@ -2456,12 +2500,15 @@ window.openReqModal = function() {
     document.getElementById('reqNotes').value = '';
     document.getElementById('reqStockStatus').value = 'not_in_stock';
     document.getElementById('reqNotifyApprover').checked = true;
+    ['reqAuthoriser', 'reqApprover'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['reqAuthoriserId', 'reqApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     toggleReqFundsHint();
     growReqNotes();
     toggleReqProjectField();
     document.getElementById('itemRows').innerHTML = '';
     addItemRow();
     if (!PROJECTS.length) loadProjects();
+    if (!REQ_ASSIGNEES.req_authorisers.length && !REQ_ASSIGNEES.req_approvers.length) loadPoAssignees();
     showModal('reqModal');
 };
 window.editReq = async function(id) {
@@ -2490,6 +2537,14 @@ window.editReq = async function(id) {
         document.getElementById('reqNotes').value = r.notes || '';
         document.getElementById('reqStockStatus').value = r.stock_status || 'not_in_stock';
         document.getElementById('reqNotifyApprover').checked = (r.notify_approver_on_authorisation !== false);
+        const raA = document.getElementById('reqAuthoriser');
+        const raAId = document.getElementById('reqAuthoriserId');
+        if (raA) raA.value = r.authoriser_name || '';
+        if (raAId) raAId.value = r.authoriser_user_id || '';
+        const raP = document.getElementById('reqApprover');
+        const raPId = document.getElementById('reqApproverId');
+        if (raP) raP.value = r.approver_name || '';
+        if (raPId) raPId.value = r.approver_user_id || '';
         toggleReqFundsHint();
         growReqNotes();
         document.getElementById('itemRows').innerHTML = '';
@@ -2520,6 +2575,8 @@ window.saveReq = async function() {
         notes: document.getElementById('reqNotes').value.trim(),
         stock_status: document.getElementById('reqStockStatus').value || 'not_in_stock',
         notify_approver_on_authorisation: document.getElementById('reqNotifyApprover').checked,
+        authoriser_id: parseInt(document.getElementById('reqAuthoriserId').value || '', 10) || null,
+        approver_id: parseInt(document.getElementById('reqApproverId').value || '', 10) || null,
         items: payloadItems
     };
     const btn = document.getElementById('saveReqBtn');
@@ -2560,6 +2617,8 @@ window.viewReq = async function(id) {
                 <div class="col-md-4"><strong>Project:</strong> ${esc(r.project_ref || '—')}</div>
                 <div class="col-md-4"><strong>Created:</strong> ${esc(r.created_at || '—')}</div>
                 <div class="col-md-4"><strong>Submitted:</strong> ${esc(r.submitted_at || '—')}</div>
+                <div class="col-md-4"><strong>Authoriser:</strong> ${r.authoriser_name ? esc(r.authoriser_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
+                <div class="col-md-4"><strong>Approver:</strong> ${r.approver_name ? esc(r.approver_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
                 ${r.approved_by ? `<div class="col-md-4"><strong>Approved By:</strong> ${esc(r.approved_by)} @ ${esc(r.approved_at || '')}</div>` : ''}
                 ${r.authorised_by ? `<div class="col-md-4"><strong>Authorised By:</strong> ${esc(r.authorised_by)} @ ${esc(r.authorised_at || '')}</div>` : ''}
                 ${r.reject_reason ? `<div class="col-md-8"><strong>Reject Reason:</strong> <span class="text-danger">${esc(r.reject_reason)}</span></div>` : ''}
