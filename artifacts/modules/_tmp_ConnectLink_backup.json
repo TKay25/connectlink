@@ -1,12 +1,12 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "ConnectLink",
-  "file": "ConnectLink.py",
-  "purpose": "Initialize database tables",
+  "module": "TmpConnectLinkBackup",
+  "file": "_tmp_ConnectLink_backup.py",
+  "purpose": "Numberfmt filter",
   "entry_function": "numberfmt_filter(value)",
   "entry_flows": [
-    "ConnectLink → environ.setdefault, app.template_filter"
+    "_tmp_ConnectLink_backup → environ.setdefault, app.template_filter"
   ],
   "public_api": [
     "numberfmt_filter(value)",
@@ -41,18 +41,18 @@
     "pytz"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 14989"
+    "INSTRUCTIONS @ line 14970"
   ],
   "token_controls": [
-    "max_length = 0 @ line 26262",
-    "max_length = len(str(cell.value)) @ line 26267",
-    "adjusted_width = min(max_length + 2, 50) @ line 26270",
-    "max_length = 0 @ line 27094",
-    "max_length = cell_length @ line 27101",
-    "adjusted_width = min(max_length + 2, 50) @ line 27104",
-    "max_length = 0 @ line 28089",
-    "max_length = cell_length @ line 28096",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 28099"
+    "max_length = 0 @ line 26243",
+    "max_length = len(str(cell.value)) @ line 26248",
+    "adjusted_width = min(max_length + 2, 50) @ line 26251",
+    "max_length = 0 @ line 27075",
+    "max_length = cell_length @ line 27082",
+    "adjusted_width = min(max_length + 2, 50) @ line 27085",
+    "max_length = 0 @ line 28070",
+    "max_length = cell_length @ line 28077",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 28080"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -65,10 +65,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "2d184572e1743f6a",
-  "file_mtime": 1783054242358.2612,
-  "file_size": 1737290,
-  "file_birthtime": 1781690980000,
-  "generated_at": "2026-09-19T18:14:54.188334Z",
+  "file_hash": "27aaf10bae516b12",
+  "file_mtime": 1789840614965.1304,
+  "file_size": 2597972,
+  "file_birthtime": 1789840614962.1155,
+  "generated_at": "2026-09-19T17:57:07.133553Z",
   "stale": false
 }

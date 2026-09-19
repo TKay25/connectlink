@@ -1914,13 +1914,7 @@ def initialize_database_tables():
                     approved_by VARCHAR(150),
                     approved_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    received_at TIMESTAMP,
-                    -- When the money to pay for this order actually arrived (recorded by
-                    -- editing the PO). NULL = not yet funded. `updated_at` is stamped by
-                    -- every state change below.
-                    funds_received_at TIMESTAMP,
-                    funds_received_by VARCHAR(150),
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    received_at TIMESTAMP
                 )
             """)
             connection.commit()
@@ -1985,19 +1979,6 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add authoriser/approver columns: {e}")
-
-            # When the money to pay for a PO was actually received (date + time),
-            # recorded by editing the PO. Also adds `updated_at`, which the PO
-            # decline/cancel routes already write but which was never created -
-            # without it those UPDATEs raised UndefinedColumn and declining a PO
-            # failed with a 500. For existing databases.
-            try:
-                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS funds_received_at TIMESTAMP")
-                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS funds_received_by VARCHAR(150)")
-                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-                connection.commit()
-            except Exception as e:
-                print(f"Note: Could not add funds_received columns: {e}")
 
             # Purchase order attachments (supplier invoices + goods-received receipts)
             cursor.execute("""
@@ -39993,10 +39974,7 @@ def _procurement_resolve_assignee(cursor, raw_id, checker):
 @app.route('/api/procurement/requisitions', methods=['GET'])
 @login_required
 def procurement_api_requisitions():
-    # `status` accepts a single value ('submitted') or a list ('approved,authorised')
-    # so the New PO form can offer both orderable states in one request.
-    status_raw = (request.args.get('status') or '').strip()
-    statuses = [s.strip() for s in status_raw.split(',') if s.strip()]
+    status = (request.args.get('status') or '').strip()
     try:
         with get_db() as (cursor, connection):
             base = """
@@ -40014,12 +39992,9 @@ def procurement_api_requisitions():
             """
             where = ''
             params = []
-            if len(statuses) == 1:
+            if status:
                 where = ' WHERE r.status = %s'
-                params.append(statuses[0])
-            elif statuses:
-                where = ' WHERE r.status IN (' + ','.join(['%s'] * len(statuses)) + ')'
-                params.extend(statuses)
+                params.append(status)
             cursor.execute(base + where + ' GROUP BY r.id ORDER BY r.created_at DESC', params)
             rows = cursor.fetchall()
             requisitions = []
@@ -40161,11 +40136,9 @@ def procurement_api_requisition_detail(rid):
             # Joined id list -> real array, so the UI can render one chip per project
             req['project_ids'] = _req_parse_ids(req.get('project_ids'))
             cursor.execute("""
-                SELECT ri.id, ri.product_id, ri.product_name, ri.category, ri.quantity, ri.unit_cost,
-                       ri.total_cost, ri.notes, ri.project_id, ri.project_ref, p.stock
-                FROM requisition_items ri
-                LEFT JOIN products p ON p.id = ri.product_id
-                WHERE ri.requisition_id = %s ORDER BY ri.id
+                SELECT id, product_id, product_name, category, quantity, unit_cost, total_cost, notes,
+                       project_id, project_ref
+                FROM requisition_items WHERE requisition_id = %s ORDER BY id
             """, (rid,))
             items = cursor.fetchall()
             req['items'] = []
@@ -40173,9 +40146,7 @@ def procurement_api_requisition_detail(rid):
                 item_dict = {
                     'id': i[0], 'product_id': i[1], 'product_name': i[2], 'category': i[3],
                     'quantity': i[4], 'unit_cost': float(i[5] or 0), 'total_cost': float(i[6] or 0), 'notes': i[7],
-                    'project_id': i[8], 'project_ref': i[9] or '',
-                    # current stock, so the PO form can flag lines already in the company
-                    'current_stock': int(i[10]) if i[10] is not None else None
+                    'project_id': i[8], 'project_ref': i[9] or ''
                 }
                 cursor.execute("""
                     SELECT id, supplier_id, supplier_name, supplier_phone, unit_cost, delivery_days,
@@ -40739,8 +40710,7 @@ def procurement_api_purchase_orders():
                        (SELECT COUNT(*) FROM procurement_attachments pa WHERE pa.po_id = po.id) AS attach_count,
                        po.funding_source, po.authoriser_user_id, po.authoriser_name,
                        po.approver_user_id, po.approver_name,
-                       po.authorised_by, po.authorised_at, po.approved_by, po.approved_at,
-                       po.funds_received_at
+                       po.authorised_by, po.authorised_at, po.approved_by, po.approved_at
                 FROM purchase_orders po ORDER BY po.created_at DESC
             """)
             rows = cursor.fetchall()
@@ -40765,9 +40735,7 @@ def procurement_api_purchase_orders():
                     'authorised_by': r[20] or '',
                     'authorised_at': str(r[21]) if r[21] else None,
                     'approved_by': r[22] or '',
-                    'approved_at': str(r[23]) if r[23] else None,
-                    # APPENDED last on purpose — this SELECT is unpacked positionally.
-                    'funds_received_at': str(r[24]) if r[24] else None
+                    'approved_at': str(r[23]) if r[23] else None
                 })
             project_map, po_proj = _po_overcost_data(cursor)
             for p in pos:
@@ -40864,16 +40832,6 @@ def procurement_api_requesters():
 def procurement_api_create_purchase_order():
     data = request.get_json() or {}
     req_ids = data.get('requisition_ids') or []
-    # Items the user UNTICKED on the New PO form (e.g. lines already in stock).
-    # They stay on the requisition but are not ordered on this PO.
-    excluded_item_ids = []
-    for _x in (data.get('excluded_item_ids') or []):
-        try:
-            _xi = int(_x)
-            if _xi > 0:
-                excluded_item_ids.append(_xi)
-        except (TypeError, ValueError):
-            continue
     supplier_id = data.get('supplier_id')
     expected_delivery = data.get('expected_delivery')
     requested_by = (data.get('requested_by') or '').strip()[:150]
@@ -40918,25 +40876,14 @@ def procurement_api_create_purchase_order():
                     supplier_name = s[0] or ''
                     supplier_phone = s[1] or ''
             placeholders = ','.join(['%s'] * len(req_ids))
-            # NOTE: this SELECT is unpacked POSITIONALLY by index below, so any new
-            # column must be APPENDED at the end, never inserted in the middle.
-            item_sql = f"""
+            cursor.execute(f"""
                 SELECT ri.product_id, ri.product_name, ri.quantity, ri.unit_cost, r.req_no
                 FROM requisition_items ri
                 JOIN requisitions r ON r.id = ri.requisition_id
                 WHERE r.id IN ({placeholders}) AND r.status IN ('approved', 'authorised')
-            """
-            item_params = list(req_ids)
-            if excluded_item_ids:
-                item_sql += ' AND ri.id NOT IN (' + ','.join(['%s'] * len(excluded_item_ids)) + ')'
-                item_params += excluded_item_ids
-            cursor.execute(item_sql, item_params)
+            """, req_ids)
             items = cursor.fetchall()
             if not items:
-                if excluded_item_ids:
-                    return jsonify({'success': False,
-                                    'error': 'Every line of the selected requisition(s) was deselected — '
-                                             'nothing left to order. Re-tick the lines you need.'}), 400
                 return jsonify({'success': False, 'error': 'No authorised requisitions with items were selected.'}), 400
 
             # AUTHORISATION SHORTCUT: when EVERY attached requisition has already been
@@ -40994,54 +40941,6 @@ def procurement_api_create_purchase_order():
             return jsonify({'success': True, 'message': f'{po_no} created (pending authorisation). Total: ${total:,.2f}'})
     except Exception as e:
         print(f"Create PO error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/procurement/purchase-orders/<int:po_id>/funds-received', methods=['POST'])
-@login_required
-@_procurement_perm_required('can_manage_purchase_orders')
-def procurement_api_po_funds_received(po_id):
-    """Record WHEN the money to pay for a PO was actually received (date + time).
-    Body: {received_at: 'YYYY-MM-DDTHH:MM' | 'YYYY-MM-DD HH:MM' | ''}
-    An empty `received_at` CLEARS the stamp."""
-    data = request.get_json(silent=True) or {}
-    raw = str(data.get('received_at') or '').strip()
-    user = _procurement_user()
-    when = None
-    if raw:
-        s = raw.replace('T', ' ').strip()
-        if len(s) == 16:
-            s += ':00'
-        for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
-            try:
-                when = datetime.strptime(s[:19], fmt)
-                break
-            except Exception:
-                when = None
-        if when is None:
-            return jsonify({'success': False, 'error': 'Enter a valid date and time.'}), 400
-    try:
-        with get_db() as (cursor, connection):
-            cursor.execute("SELECT po_no FROM purchase_orders WHERE id = %s", (po_id,))
-            po = cursor.fetchone()
-            if not po:
-                return jsonify({'success': False, 'error': 'Purchase order not found.'}), 404
-            cursor.execute("""
-                UPDATE purchase_orders
-                SET funds_received_at = %s, funds_received_by = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (when, (user['name'] if when else None), po_id))
-            connection.commit()
-            log_activity('po_funds_received',
-                         (f'Funds received for {po[0]} on {when.strftime("%d %b %Y %H:%M")} by {user["name"]}'
-                          if when else f'Cleared the funds-received date on {po[0]}'),
-                         'purchase_order', po_id)
-        if when:
-            return jsonify({'success': True,
-                            'message': f'Funds received recorded on {po[0]} — {_proc_short_date(when)} at {when.strftime("%H:%M")}.'})
-        return jsonify({'success': True, 'message': f'Funds-received date cleared on {po[0]}.'})
-    except Exception as e:
-        print(f"PO funds-received error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -41638,467 +41537,24 @@ def procurement_api_analytics():
 
 # ------------------------------- PO PDF -------------------------------
 
-# ==================== Procurement document styling ====================
-# The procurement PDFs deliberately reuse the visual language of the PAYMENT
-# RECEIPT / INVOICE documents (_RECEIPT_CSS / _INVOICE_CSS, WeasyPrint) so every
-# ConnectLink document a supplier or an approver receives looks like one family:
-# navy #1E2A56 accents, a letter-spaced uppercase document badge, faint grey box
-# headers, a summary strip with the figure in large type, a striped item table,
-# a right-aligned totals box and a centred footer. Built with reportlab (not
-# WeasyPrint) so it renders on every platform, including the Windows dev box.
-_PROC_NAVY = '#1E2A56'
-_PROC_TEXT = '#2C3E50'
-_PROC_MUTED = '#666666'
-_PROC_FAINT = '#999999'
-_PROC_HEADBG = '#F5F7FA'
-_PROC_BOXBG = '#FAFBFD'
-_PROC_BORDER = '#E0E0E0'
-_PROC_SOFT = '#EEF1F6'
-_PROC_GREEN = '#27AE60'
-
-_PROC_PAGE_W = 182.0  # A4 portrait width minus the 14mm side margins, in mm
-
-
-def _proc_esc(v):
-    """Escape document text for reportlab paragraphs. Stored titles/notes can
-    contain HTML (e.g. '<p>Urgent &amp; fittings</p>'), so tags are stripped and
-    entities decoded before being re-escaped for the PDF."""
-    import html as _h
-    import re as _re
-    s = _re.sub(r'<[^>]*>', ' ', str(v if v is not None else ''))
-    return _h.escape(_h.unescape(_re.sub(r'\s+', ' ', s).strip()))
-
-
-def _proc_short_date(v):
-    """Document date format: '2 Feb 2026' (no leading zero, short month)."""
-    if not v:
-        return '—'
-    d = v
-    if not hasattr(d, 'strftime'):
-        s = str(v).replace('T', ' ')
-        d = None
-        for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d'):
-            try:
-                d = datetime.strptime(s[:19], fmt)
-                break
-            except Exception:
-                d = None
-        if d is None:
-            return (s[:10] or '—')
+def _render_po_pdf(po_id):
+    """Render a neat Purchase Order PDF (reportlab) -> (pdf_bytes, po_no)."""
     try:
-        return f"{d.day} {d.strftime('%b %Y')}"
-    except Exception:
-        return str(v)[:10]
-
-
-def _proc_money(v):
-    try:
-        return f"{float(v or 0):,.2f}"
-    except (TypeError, ValueError):
-        return '0.00'
-
-
-def _proc_pdf_kit():
-    """reportlab styles + colours for procurement documents (receipt look).
-    Returns (S, C) or (None, None) when reportlab is unavailable."""
-    try:
+        from reportlab.lib.pagesizes import A4
         from reportlab.lib import colors
+        from reportlab.lib.units import mm
         from reportlab.lib.styles import ParagraphStyle
         from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
     except Exception as e:
         print(f"reportlab import error: {e}")
         return None, None
-
-    C = {
-        'navy': colors.HexColor(_PROC_NAVY),
-        'text': colors.HexColor(_PROC_TEXT),
-        'muted': colors.HexColor(_PROC_MUTED),
-        'faint': colors.HexColor(_PROC_FAINT),
-        'headbg': colors.HexColor(_PROC_HEADBG),
-        'boxbg': colors.HexColor(_PROC_BOXBG),
-        'border': colors.HexColor(_PROC_BORDER),
-        'soft': colors.HexColor(_PROC_SOFT),
-        'green': colors.HexColor(_PROC_GREEN),
-        'white': colors.white,
-        'amber': colors.HexColor('#D97706'),
-        'red': colors.HexColor('#DC2626'),
-        'blue': colors.HexColor('#2563EB'),
-        'cyan': colors.HexColor('#0E7490'),
-    }
-    S = {
-        'base': ParagraphStyle('base', fontName='Helvetica', fontSize=9, leading=12.4, textColor=C['text']),
-        'small': ParagraphStyle('small', fontName='Helvetica', fontSize=7.5, leading=10, textColor=C['muted']),
-        'tiny': ParagraphStyle('tiny', fontName='Helvetica-Bold', fontSize=6.2, leading=8.6, textColor=C['faint']),
-        'label': ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=7.2, leading=9.6, textColor=C['navy']),
-        'bold': ParagraphStyle('bold', fontName='Helvetica-Bold', fontSize=9.5, leading=12, textColor=C['navy']),
-        'name': ParagraphStyle('name', fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=C['text']),
-        'brand': ParagraphStyle('brand', fontName='Helvetica-Bold', fontSize=15, leading=16.5, textColor=C['navy']),
-        'badge': ParagraphStyle('badge', fontName='Helvetica-Bold', fontSize=16, leading=18, textColor=C['navy']),
-        'subt': ParagraphStyle('subt', fontName='Helvetica-Bold', fontSize=7.5, leading=10, textColor=C['muted']),
-        'money': ParagraphStyle('money', fontName='Helvetica-Bold', fontSize=18, leading=20,
-                                textColor=C['navy'], alignment=TA_RIGHT),
-        'cellc': ParagraphStyle('cellc', fontName='Helvetica', fontSize=9, leading=12,
-                                textColor=C['text'], alignment=TA_CENTER),
-        'cellr': ParagraphStyle('cellr', fontName='Helvetica', fontSize=9, leading=12,
-                                textColor=C['text'], alignment=TA_RIGHT),
-        'cellrb': ParagraphStyle('cellrb', fontName='Helvetica-Bold', fontSize=9.5, leading=12,
-                                 textColor=C['navy'], alignment=TA_RIGHT),
-        'pillc': ParagraphStyle('pillc', fontName='Helvetica-Bold', fontSize=7.2, leading=9.6,
-                                textColor=C['white'], alignment=TA_CENTER),
-        'state': ParagraphStyle('state', fontName='Helvetica-Bold', fontSize=10, leading=13, textColor=C['text']),
-        'ban': ParagraphStyle('ban', fontName='Helvetica-Bold', fontSize=9, leading=12,
-                              textColor=C['white']),
-    }
-    return S, C
-
-
-def _proc_pdf_pill(label, bg, S, C, width_mm=30):
-    """Status chip, like the receipt's green PAID badge."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    t = Table([[Paragraph(_proc_esc(label).upper(), S['pillc'])]], colWidths=[width_mm * mm])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), bg),
-        ('TOPPADDING', (0, 0), (-1, -1), 3.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 7),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 7),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
-    return t
-
-
-def _proc_pdf_header(company, logo_b64, badge, subtitle, meta_rows, S, C):
-    """Logo + company name on the left; letter-spaced document badge, subtitle and
-    a key/value meta table on the right, closed by a navy rule (receipt look)."""
-    import base64 as _b64
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph, Image
-
-    logo = None
-    if logo_b64:
-        try:
-            logo = Image(io.BytesIO(_b64.b64decode(logo_b64)))
-            max_h = 40.0
-            if logo.imageHeight and float(logo.imageHeight) > max_h:
-                ratio = max_h / float(logo.imageHeight)
-                logo.drawHeight = max_h
-                logo.drawWidth = float(logo.imageWidth) * ratio
-            if float(logo.drawWidth) > 30 * mm:
-                ratio = (30 * mm) / float(logo.drawWidth)
-                logo.drawWidth = 30 * mm
-                logo.drawHeight = float(logo.drawHeight) * ratio
-        except Exception:
-            logo = None
-
-    name = _proc_esc(company.get('name') or 'ConnectLink')
-    left_w = _PROC_PAGE_W * mm * 0.56
-    right_w = (_PROC_PAGE_W * mm) - left_w
-    logo_w = (float(logo.drawWidth) + 7) if logo else 0.0
-
-    left = Table([[
-        logo if logo else '',
-        Paragraph(f'{name}<br/><font size="6.2" color="{_PROC_MUTED}">'
-                  'BUILDING &amp; PROPERTY DEVELOPMENT</font>', S['brand'])
-    ]], colWidths=[logo_w, left_w - logo_w])
-    left.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (0, 0), 7),
-        ('RIGHTPADDING', (1, 0), (1, 0), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-
-    meta = Table([[Paragraph(str(k).upper(), S['tiny']), Paragraph(v, S['bold'])]
-                  for k, v in meta_rows], colWidths=[25 * mm, right_w - (25 * mm)])
-    meta.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 3),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0.5),
-    ]))
-    right_rows = [[Paragraph(badge, S['badge'])]]
-    if subtitle:
-        right_rows.append([Paragraph(subtitle, S['subt'])])
-    right_rows.append([meta])
-    right = Table(right_rows, colWidths=[right_w])
-    right.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-    ]))
-
-    hdr = Table([[left, right]], colWidths=[left_w, right_w])
-    hdr.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
-        ('LINEBELOW', (0, 0), (-1, -1), 1.5, C['navy']),
-    ]))
-    return hdr
-
-
-def _proc_pdf_company_line(company, S, C):
-    """One centred grey line under the header: address / phones / email / TIN."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    bits = [company.get('address') or '', ' / '.join(
-        [p for p in (company.get('phone_intl'), company.get('phone2_intl'), company.get('phone3_intl')) if p]),
-        company.get('email') or '']
-    if company.get('tin'):
-        bits.append(f"TIN: {company['tin']}")
-    line = ' &nbsp;|&nbsp; '.join(_proc_esc(b) for b in bits if b)
-    t = Table([[Paragraph(line or '&nbsp;', S['small'])]], colWidths=[_PROC_PAGE_W * mm])
-    t.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LINEBELOW', (0, 0), (-1, -1), 0.5, C['border']),
-    ]))
-    return t
-
-
-def _proc_pdf_summary(pill_label, pill_bg, meta_label, meta_value, amount_label, amount_value, S, C):
-    """The receipt's 'payment-summary' strip: status chip + a key/value + the big
-    figure on the right. The visual anchor of every ConnectLink document."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-
-    pill_w = 32.0
-    mid_w = 58.0
-    amt_w = _PROC_PAGE_W - pill_w - mid_w
-
-    pill = _proc_pdf_pill(pill_label, pill_bg, S, C, width_mm=pill_w - 9)
-
-    mid = Table([[Paragraph(_proc_esc(meta_label).upper(), S['tiny'])],
-                 [Paragraph(meta_value, S['bold'])]], colWidths=[(mid_w * mm) - 12])
-    mid.setStyle(TableStyle([
-        ('LEFTPADDING', (0, 0), (-1, -1), 9),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (0, 0), 1.5),
-        ('BOTTOMPADDING', (0, 1), (0, 1), 0),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-    amt = Table([[Paragraph(_proc_esc(amount_label).upper(), S['tiny'])],
-                 [Paragraph(amount_value, S['money'])]], colWidths=[(amt_w * mm) - 9])
-    amt.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (0, 0), 1.5),
-        ('BOTTOMPADDING', (0, 1), (0, 1), 0),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-
-    t = Table([[pill, mid, amt]], colWidths=[pill_w * mm, mid_w * mm, amt_w * mm])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), C['boxbg']),
-        ('BOX', (0, 0), (-1, -1), 0.6, C['border']),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (0, 0), 9),
-        ('RIGHTPADDING', (0, 0), (0, 0), 0),
-        ('LEFTPADDING', (1, 0), (-1, 0), 0),
-        ('RIGHTPADDING', (-1, 0), (-1, 0), 9),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    return t
-
-
-def _proc_pdf_box(title, body, S, C, width_mm=_PROC_PAGE_W):
-    """A titled box: faint grey header bar with a navy uppercase label + content."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    t = Table([[Paragraph(_proc_esc(title).upper(), S['label'])], [body]], colWidths=[width_mm * mm])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, 0), C['headbg']),
-        ('BACKGROUND', (0, 1), (0, 1), C['boxbg']),
-        ('BOX', (0, 0), (-1, -1), 0.6, C['border']),
-        ('LINEBELOW', (0, 0), (0, 0), 0.6, C['border']),
-        ('LEFTPADDING', (0, 0), (-1, -1), 9),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 9),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-    return t
-
-
-def _proc_pdf_kv_box(title, rows, S, C, width_mm=_PROC_PAGE_W, label_mm=25):
-    """A titled box whose content is label:value lines (receipt .info-row look)."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    body_w = (width_mm * mm) - 18
-    lw = min(label_mm * mm, body_w - (40 * mm))
-    body = Table([[Paragraph(str(k).upper(), S['tiny']), Paragraph(v, S['base'])]
-                  for k, v in rows], colWidths=[lw, body_w - lw])
-    body.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0.8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0.8),
-    ]))
-    return _proc_pdf_box(title, body, S, C, width_mm=width_mm)
-
-
-def _proc_pdf_state_box(title, state, colour, note, S, C, width_mm=89):
-    """A colour-coded state box (stock availability / funds to buy)."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    body = Table([[Paragraph(f'<b><font color="{colour.hexval()}">{_proc_esc(state)}</font></b>',
-                             S['state'])],
-                  [Paragraph(_proc_esc(note), S['small'])]], colWidths=[(width_mm * mm) - 18])
-    body.setStyle(TableStyle([
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (0, 0), 0),
-        ('BOTTOMPADDING', (0, 0), (0, 0), 2),
-        ('TOPPADDING', (0, 1), (0, 1), 0),
-        ('BOTTOMPADDING', (0, 1), (0, 1), 0),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-    return _proc_pdf_box(title, body, S, C, width_mm=width_mm)
-
-
-def _proc_pdf_two_boxes(left_box, right_box):
-    """Place two boxes side by side across the full page width."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle
-    t = Table([[left_box, right_box]], colWidths=[91 * mm, 91 * mm])
-    t.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (0, 0), 0),
-        ('RIGHTPADDING', (0, 0), (0, 0), 2),
-        ('LEFTPADDING', (1, 0), (1, 0), 2),
-        ('RIGHTPADDING', (1, 0), (1, 0), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    return t
-
-
-def _proc_pdf_table(header, rows, widths_mm, S, C):
-    """Striped table with a faint header band and navy uppercase headings."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    data = [[Paragraph(_proc_esc(h).upper(), S['label']) for h in header]] + rows
-    style = [
-        ('BACKGROUND', (0, 0), (-1, 0), C['headbg']),
-        ('LINEBELOW', (0, 0), (-1, 0), 1.0, C['border']),
-        ('GRID', (0, 0), (-1, -1), 0.5, C['soft']),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 5.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5.5),
-    ]
-    for i in range(1, len(data)):
-        if i % 2 == 0:
-            style.append(('BACKGROUND', (0, i), (-1, i), C['boxbg']))
-    t = Table(data, colWidths=[w * mm for w in widths_mm], repeatRows=1)
-    t.setStyle(TableStyle(style))
-    return t
-
-
-def _proc_pdf_grand_total(label, value, widths_mm, S, C):
-    """A merged, highlighted GRAND TOTAL row for the bottom of an items table."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    n = len(widths_mm)
-    cells = [Paragraph('', S['base']) for _ in range(n - 2)]
-    cells.append(Paragraph(f'<b>{_proc_esc(label)}</b>', S['bold']))
-    cells.append(Paragraph(f'<b>{_proc_esc(value)}</b>', S['cellrb']))
-    t = Table([cells], colWidths=[w * mm for w in widths_mm])
-    style = [
-        ('BACKGROUND', (0, 0), (-1, -1), C['headbg']),
-        ('LINEABOVE', (0, 0), (-1, -1), 1.0, C['border']),
-        ('GRID', (0, 0), (-1, -1), 0.5, C['soft']),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-    ]
-    if n > 2:
-        style.append(('SPAN', (0, 0), (n - 3, 0)))
-    t.setStyle(TableStyle(style))
-    return t
-
-
-def _proc_pdf_signatures(cells, S, C):
-    """Signature strip: label (+ who signed) above a rule and a caption."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    n = max(1, len(cells))
-    col_mm = _PROC_PAGE_W / float(n)
-    paras = []
-    for label, who in cells:
-        line = f'<b>{_proc_esc(label)}</b>'
-        if who:
-            line += f' &nbsp;<font color="{_PROC_MUTED}">{_proc_esc(who)}</font>'
-        paras.append(Paragraph(line + '<br/><br/>'
-                               f'<font size="6" color="{_PROC_FAINT}">Name &amp; signature</font>',
-                               S['base']))
-    t = Table([paras], colWidths=[col_mm * mm] * n)
-    t.setStyle(TableStyle([
-        ('LINEABOVE', (0, 0), (-1, 0), 0.7, C['faint']),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (0, 0), 0),
-        ('LEFTPADDING', (1, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    return t
-
-
-def _proc_pdf_footer(lines, S, C):
-    """Centred footer with a hairline rule, like the receipt."""
-    from reportlab.lib.units import mm
-    from reportlab.platypus import Table, TableStyle, Paragraph
-    t = Table([[Paragraph(_proc_esc(l), S['small'])] for l in lines], colWidths=[_PROC_PAGE_W * mm])
-    t.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('LINEABOVE', (0, 0), (-1, 0), 0.6, C['border']),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, 0), 7),
-        ('TOPPADDING', (0, 1), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    return t
-
-
-def _render_po_pdf(po_id):
-    """Render a Purchase Order PDF (reportlab) -> (pdf_bytes, po_no).
-    Styled to match the ConnectLink payment receipt / invoice documents."""
-    S, C = _proc_pdf_kit()
-    if S is None:
-        return None, None
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
     with get_db() as (cursor, connection):
         cursor.execute("""
             SELECT po.po_no, po.supplier_id, po.supplier_name, po.supplier_phone, po.requisition_ids,
                    po.status, po.total_amount, po.expected_delivery, po.created_by, po.created_at, po.received_at,
-                   s.contact_person, s.email, s.address, po.funding_source, po.authoriser_name, po.approver_name,
-                   po.authorised_by, po.authorised_at, po.approved_by, po.approved_at,
-                   po.funds_received_at, po.funds_received_by
+                   s.contact_person, s.email, s.address
             FROM purchase_orders po
             LEFT JOIN suppliers s ON s.id = po.supplier_id
             WHERE po.id = %s
@@ -42114,105 +41570,175 @@ def _render_po_pdf(po_id):
 
     (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids, status,
      total_amount, expected_delivery, created_by, created_at, received_at,
-     contact_person, email, address, funding_source, authoriser_name, approver_name,
-     authorised_by, authorised_at, approved_by, approved_at,
-     funds_received_at, funds_received_by) = r
+     contact_person, email, address) = r
+
+    def _s(v):
+        return (v if v is not None else '')
 
     status_map = {
-        'pending_authorisation': ('Pending Authorisation', C['amber']),
-        'pending_approval': ('Pending Approval', C['blue']),
-        'ordered': ('Ordered', C['blue']),
-        'partial': ('Partially Received', C['amber']),
-        'received': ('Received', C['green']),
-        'cancelled': ('Cancelled', C['red']),
+        'pending_authorisation': ('Pending Authorisation', colors.HexColor('#D97706')),
+        'pending_approval': ('Pending Approval', colors.HexColor('#7C3AED')),
+        'ordered': ('Ordered', colors.HexColor('#2563EB')),
+        'partial': ('Partial', colors.HexColor('#D97706')),
+        'received': ('Received', colors.HexColor('#16A34A')),
+        'cancelled': ('Cancelled', colors.HexColor('#DC2626')),
     }
-    status_label, status_color = status_map.get(
-        status, (str(status or '—').replace('_', ' ').title(), C['muted']))
+    status_label, status_color = status_map.get(status, (str(status or '—'), colors.HexColor('#475569')))
 
-    company, logo_b64 = _cl_company_branding()
+    navy = colors.HexColor('#0F172A')
+    slate = colors.HexColor('#64748B')
+    line_col = colors.HexColor('#E2E8F0')
+    soft = colors.HexColor('#F8FAFC')
+    gold = colors.HexColor('#FACC15')
+
+    base = ParagraphStyle('base', fontName='Helvetica', fontSize=9, leading=12, textColor=colors.HexColor('#0F172A'))
+    small = ParagraphStyle('small', parent=base, fontSize=8, leading=11, textColor=slate)
+    label = ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=7, leading=9, textColor=slate)
+    val = ParagraphStyle('val', fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.HexColor('#0F172A'))
+    brand = ParagraphStyle('brand', fontName='Helvetica-Bold', fontSize=18, leading=20, textColor=colors.white)
+    brandsub = ParagraphStyle('brandsub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#CBD5E1'))
+    doctitle = ParagraphStyle('doctitle', fontName='Helvetica-Bold', fontSize=15, leading=18, textColor=gold)
+    docsub = ParagraphStyle('docsub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#CBD5E1'))
+    cellc = ParagraphStyle('cellc', parent=base, alignment=TA_CENTER)
+    cellr = ParagraphStyle('cellr', parent=base, alignment=TA_RIGHT)
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
-                            topMargin=14 * mm, bottomMargin=13 * mm,
-                            title=f'{po_no} — Purchase Order',
-                            author=company.get('name') or 'ConnectLink')
+                            topMargin=14 * mm, bottomMargin=14 * mm,
+                            title=f'{po_no} — Purchase Order', author='ConnectLink')
     story = []
-    story.append(_proc_pdf_header(
-        company, logo_b64, 'PURCHASE ORDER', str(status_label),
-        [('PO No', _proc_esc(po_no)),
-         ('Issue Date', _proc_short_date(created_at)),
-         ('Expected', _proc_short_date(expected_delivery)),
-         ('Currency', 'USD')], S, C))
-    story.append(_proc_pdf_company_line(company, S, C))
+
+    # ---- Header band ----
+    header = Table(
+        [[Paragraph('CONNECTLINK', brand), Paragraph('PURCHASE ORDER', doctitle)],
+         [Paragraph('Hardware &amp; Building Projects • Procurement Suite', brandsub),
+          Paragraph(f'<b>{po_no}</b>', docsub)]],
+        colWidths=[115 * mm, 67 * mm]
+    )
+    header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), navy),
+        ('LEFTPADDING', (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+        ('TOPPADDING', (0, 0), (-1, 0), 13),
+        ('BOTTOMPADDING', (-1, 1), (-1, 1), 13),
+        ('BOTTOMPADDING', (0, 1), (0, 1), 3),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('ALIGN', (1, 1), (1, 1), 'RIGHT'),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 5 * mm))
+
+    # ---- Status pill ----
+    pill = Table([[Paragraph(f'<font color="white"><b>{status_label}</b></font>', ParagraphStyle('pill', parent=base, alignment=TA_CENTER, fontSize=8))]],
+                 colWidths=[34 * mm])
+    pill.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), status_color),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(pill)
     story.append(Spacer(1, 4 * mm))
 
-    story.append(_proc_pdf_summary(
-        status_label, status_color, 'Supplier',
-        _proc_esc(supplier_name) or '— not set —',
-        'Total (USD)', _proc_money(total_amount), S, C))
-    story.append(Spacer(1, 4 * mm))
+    # ---- Meta grid ----
+    sup_lines = [f'<b>{_s(supplier_name) or "—"}</b>']
+    if contact_person:
+        sup_lines.append(f'Contact: {_s(contact_person)}')
+    if supplier_phone:
+        sup_lines.append(f'Phone: {_s(supplier_phone)}')
+    if email:
+        sup_lines.append(f'Email: {_s(email)}')
+    if address:
+        sup_lines.append(f'Address: {_s(address)}')
+    sup_html = '<br/>'.join(sup_lines)
 
-    sup_rows = [('Contact', _proc_esc(contact_person) or '—'),
-                ('Phone', _proc_esc(supplier_phone) or '—'),
-                ('Email', _proc_esc(email) or '—'),
-                ('Address', _proc_esc(address) or '—')]
-    funding_label = 'Capital injection' if (funding_source or '') == 'injection' else 'From business cash flows'
-    if funds_received_at:
-        funds_txt = _proc_short_date(funds_received_at)
-        try:
-            funds_txt += ' at ' + funds_received_at.strftime('%H:%M')
-        except Exception:
-            pass
-        if funds_received_by:
-            funds_txt += f' — {_proc_esc(funds_received_by)}'
-    else:
-        funds_txt = 'Not yet recorded'
-    order_rows = [('Logged by', _proc_esc(created_by) or '—'),
-                  ('Requisitions', _proc_esc(requisition_ids) or '—'),
-                  ('Funding', funding_label),
-                  ('Funds received', funds_txt),
-                  ('Received', _proc_short_date(received_at))]
-    story.append(_proc_pdf_two_boxes(
-        _proc_pdf_kv_box('Supplier', sup_rows, S, C, width_mm=89),
-        _proc_pdf_kv_box('Order Information', order_rows, S, C, width_mm=89)))
-    story.append(Spacer(1, 4.5 * mm))
+    created_date = str(created_at)[:10] if created_at else '—'
+    received_date = str(received_at)[:10] if received_at else '—'
+    exp_del = str(expected_delivery)[:10] if expected_delivery else '—'
 
-    widths = [10, 74, 22, 22, 27, 27]
-    rows = []
-    computed = 0.0
+    meta = Table([
+        [Paragraph('SUPPLIER', label), Paragraph('ORDER', label), Paragraph('INFORMATION', label)],
+        [Paragraph(sup_html, base),
+         Paragraph(f'<b>{_s(po_no)}</b><br/><font color="{status_color.hexval()}"><b>{status_label}</b></font>', val),
+         Paragraph(f'<b>Created By:</b> {_s(created_by) or "—"}<br/><b>Requisitions:</b> {_s(requisition_ids) or "—"}', small)],
+    ], colWidths=[82 * mm, 50 * mm, 50 * mm])
+    meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), soft),
+        ('SPAN', (1, 1), (1, 1)),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(meta)
+    story.append(Spacer(1, 3 * mm))
+
+    # ---- Created / Expected / Received line ----
+    timeline = Table([
+        [Paragraph(f'<b>Created:</b> {created_date}', base),
+         Paragraph(f'<b>Expected Delivery:</b> {exp_del}', base),
+         Paragraph(f'<b>Received:</b> {received_date}', base)],
+    ], colWidths=[60.6 * mm, 60.6 * mm, 60.6 * mm])
+    timeline.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(timeline)
+
+    # ---- Line items ----
+    item_header = ['#', 'Item', 'Qty Ordered', 'Qty Received', 'Unit Cost (USD)', 'Total (USD)']
+    data = [item_header]
+    computed_total = 0.0
     for i, ln in enumerate(lines, 1):
-        nm, qty_o, qty_r, unit = ln[0], int(ln[1] or 0), int(ln[2] or 0), float(ln[3] or 0)
-        amount = unit * qty_o
-        computed += amount
-        rows.append([
-            Paragraph(str(i), S['cellc']),
-            Paragraph(_proc_esc(nm) or '—', S['name']),
-            Paragraph(str(qty_o), S['cellc']),
-            Paragraph(str(qty_r), S['cellc']),
-            Paragraph(_proc_money(unit), S['cellr']),
-            Paragraph(_proc_money(amount), S['cellr']),
+        name, qty_o, qty_r, unit = ln
+        unit = float(unit or 0)
+        qty_o = int(qty_o or 0)
+        qty_r = int(qty_r or 0)
+        total = unit * qty_o
+        computed_total += total
+        data.append([
+            Paragraph(str(i), cellc),
+            Paragraph(_s(name), base),
+            Paragraph(str(qty_o), cellc),
+            Paragraph(str(qty_r), cellc),
+            Paragraph(f'{unit:,.2f}', cellr),
+            Paragraph(f'{total:,.2f}', cellr),
         ])
-    if not rows:
-        rows.append([Paragraph('—', S['cellc']),
-                     Paragraph('No items recorded', S['base'])] +
-                    [Paragraph('', S['base'])] * 4)
-    story.append(_proc_pdf_table(
-        ['#', 'Item', 'Qty Ordered', 'Qty Received', 'Unit Cost (USD)', 'Amount (USD)'],
-        rows, widths, S, C))
-    grand = float(total_amount or 0) or computed
-    story.append(_proc_pdf_grand_total('GRAND TOTAL (USD)', _proc_money(grand), widths, S, C))
-    story.append(Spacer(1, 14 * mm))
-    story.append(_proc_pdf_signatures([
-        ('Logged by', created_by),
-        ('Authorised by', authorised_by or authoriser_name),
-        ('Approved by', approved_by or approver_name),
-    ], S, C))
-    story.append(Spacer(1, 7 * mm))
-    story.append(_proc_pdf_footer([
-        f'This purchase order was generated by {company.get("name") or "ConnectLink"}.',
-        f'Requisitions: {_proc_esc(requisition_ids) or "—"}  |  Supplier: {_proc_esc(supplier_name) or "—"}',
-        f'Generated on {_proc_short_date(datetime.now())} at {datetime.now().strftime("%H:%M")}',
-    ], S, C))
+    grand_total = float(total_amount or 0) if total_amount else computed_total
+    data.append([
+        Paragraph('', base),
+        Paragraph('<b>GRAND TOTAL</b>', ParagraphStyle('gt', parent=base, fontName='Helvetica-Bold', fontSize=10)),
+        Paragraph('', base), Paragraph('', base), Paragraph('', base),
+        Paragraph(f'<b>{grand_total:,.2f}</b>', ParagraphStyle('gtn', parent=cellr, fontName='Helvetica-Bold', fontSize=11)),
+    ])
+    items = Table(data, colWidths=[16 * mm, 78 * mm, 22 * mm, 26 * mm, 26 * mm, 26 * mm])
+    items.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#334155')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('BACKGROUND', (0, -1), (-1, -1), soft),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(items)
+    story.append(Spacer(1, 6 * mm))
+
+    # ---- Footer ----
+    story.append(Paragraph(
+        f'Generated by ConnectLink Procurement on {datetime.now().strftime("%d %b %Y, %H:%M")} '
+        f'• Requisitions: {_s(requisition_ids) or "—"} • Supplier: {_s(supplier_name) or "—"}',
+        small
+    ))
 
     doc.build(story)
     buf.seek(0)
@@ -42231,16 +41757,25 @@ def procurement_api_po_pdf(po_id):
 
 
 def _render_req_pdf(rid):
-    """Render a Purchase Requisition PDF (reportlab) -> (pdf_bytes, req_no).
-    Same house style as the PO / payment receipt, carrying the stock & funds
-    declaration and both sign-off layers — what an approver or an auditor needs
-    on the printed form."""
-    S, C = _proc_pdf_kit()
-    if S is None:
+    """Render a neat Purchase Requisition PDF (reportlab) -> (pdf_bytes, req_no).
+    Includes the stock/funds declaration and the two sign-off layers, because
+    those are what an approver/auditor needs to see on the printed form."""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer
+    except Exception as e:
+        print(f"reportlab import error: {e}")
         return None, None
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+
+    import html as _h
+
+    def e(v):
+        """Escape free text so a stray < in a title can't break the layout."""
+        return _h.escape(str(v if v is not None else ''))
 
     with get_db() as (cursor, connection):
         cursor.execute("SELECT * FROM requisitions WHERE id = %s", (rid,))
@@ -42273,165 +41808,332 @@ def _render_req_pdf(rid):
                 } for q in cursor.fetchall()]
             })
 
+    def dt(v):
+        return str(v)[:10] if v else '—'
+
     req_no = req.get('req_no') or f'REQ-{rid}'
     status = req.get('status') or 'draft'
     total = sum(i['total_cost'] for i in items)
 
     status_map = {
-        'draft': ('Draft', C['muted']),
-        'submitted': ('Submitted', C['amber']),
-        'authorised': ('Authorised', C['cyan']),
-        'approved': ('Approved', C['green']),
-        'po_created': ('PO Raised', C['blue']),
-        'rejected': ('Rejected', C['red']),
-        'cancelled': ('Cancelled', C['muted']),
+        'draft': ('Draft', colors.HexColor('#64748B')),
+        'submitted': ('Submitted', colors.HexColor('#D97706')),
+        'authorised': ('Authorised', colors.HexColor('#0891B2')),
+        'approved': ('Approved', colors.HexColor('#16A34A')),
+        'po_created': ('PO Raised', colors.HexColor('#2563EB')),
+        'rejected': ('Rejected', colors.HexColor('#DC2626')),
+        'cancelled': ('Cancelled', colors.HexColor('#475569')),
     }
-    status_label, status_color = status_map.get(
-        status, (status.replace('_', ' ').title(), C['muted']))
+    status_label, status_color = status_map.get(status, (status.replace('_', ' ').title(), colors.HexColor('#475569')))
 
     stock_map = {
-        'in_stock': ('In stock', 'Already in the company and already bought — no purchase needed.', C['green']),
-        'partial': ('Partly in stock', 'The shortfall must be purchased.', C['amber']),
-        'not_in_stock': ('Not in stock', 'The goods must be purchased.', C['red']),
+        'in_stock': ('In stock — already in the company and already bought',
+                     'No purchase is needed, so no funds check applies.', colors.HexColor('#16A34A')),
+        'partial': ('Partly in stock', 'The shortfall must be purchased.', colors.HexColor('#D97706')),
+        'not_in_stock': ('Not in stock', 'The goods must be purchased.', colors.HexColor('#DC2626')),
     }
     stock_head, stock_note, stock_color = stock_map.get(
         req.get('stock_status') or 'not_in_stock', stock_map['not_in_stock'])
 
     fs = req.get('funds_status')
     funds_map = {
-        'yes': ('Funds available', C['green']),
-        'partial': ('Part funds available', C['amber']),
-        'no': ('NO FUNDS', C['red']),
+        'yes': ('Funds available', colors.HexColor('#16A34A')),
+        'partial': ('PART of the funds available', colors.HexColor('#D97706')),
+        'no': ('NO FUNDS', colors.HexColor('#DC2626')),
     }
     if fs in funds_map:
         funds_head, funds_color = funds_map[fs]
-        funds_note = 'Checked by %s on %s' % (_proc_esc(req.get('funds_by') or '—'),
-                                             _proc_short_date(req.get('funds_at')))
+        funds_note = 'Checked by %s on %s' % (e(req.get('funds_by') or '—'), e(dt(req.get('funds_at'))))
     elif (req.get('stock_status') or '') == 'in_stock':
-        funds_head, funds_color = ('Not applicable', C['muted'])
+        funds_head, funds_color = ('Not applicable', colors.HexColor('#64748B'))
         funds_note = 'The stock is already in the company.'
     else:
-        funds_head, funds_color = ('Not checked yet', C['muted'])
+        funds_head, funds_color = ('Not checked yet', colors.HexColor('#64748B'))
         funds_note = 'No one has confirmed whether the money to buy the goods is available.'
 
-    company, logo_b64 = _cl_company_branding()
+    # ---- styles ----
+    navy = colors.HexColor('#0F172A')
+    slate = colors.HexColor('#64748B')
+    line_col = colors.HexColor('#E2E8F0')
+    soft = colors.HexColor('#F8FAFC')
+    gold = colors.HexColor('#FACC15')
+
+    base = ParagraphStyle('base', fontName='Helvetica', fontSize=9, leading=12, textColor=colors.HexColor('#0F172A'))
+    small = ParagraphStyle('small', parent=base, fontSize=8, leading=11, textColor=slate)
+    label = ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=7, leading=9, textColor=slate)
+    val = ParagraphStyle('val', fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.HexColor('#0F172A'))
+    brand = ParagraphStyle('brand', fontName='Helvetica-Bold', fontSize=18, leading=20, textColor=colors.white)
+    brandsub = ParagraphStyle('brandsub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#CBD5E1'))
+    doctitle = ParagraphStyle('doctitle', fontName='Helvetica-Bold', fontSize=15, leading=18, textColor=gold)
+    docsub = ParagraphStyle('docsub', fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor('#CBD5E1'))
+    cellc = ParagraphStyle('cellc', parent=base, alignment=TA_CENTER)
+    cellr = ParagraphStyle('cellr', parent=base, alignment=TA_RIGHT)
+    boldc = ParagraphStyle('boldc', parent=base, fontName='Helvetica-Bold', fontSize=10)
+    boldn = ParagraphStyle('boldn', parent=cellr, fontName='Helvetica-Bold', fontSize=11)
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
-                            topMargin=14 * mm, bottomMargin=13 * mm,
-                            title=f'{req_no} — Purchase Requisition',
-                            author=company.get('name') or 'ConnectLink')
+                            topMargin=14 * mm, bottomMargin=14 * mm,
+                            title=f'{req_no} — Purchase Requisition', author='ConnectLink')
     story = []
-    story.append(_proc_pdf_header(
-        company, logo_b64, 'PURCHASE REQUISITION', str(status_label),
-        [('Requisition No', _proc_esc(req_no)),
-         ('Date Raised', _proc_short_date(req.get('created_at'))),
-         ('Needed By', _proc_short_date(req.get('needed_by'))),
-         ('Priority', _proc_esc((req.get('priority') or 'normal').title()))], S, C))
-    story.append(_proc_pdf_company_line(company, S, C))
+
+    # ---- Header band ----
+    header = Table(
+        [[Paragraph('CONNECTLINK', brand), Paragraph('PURCHASE REQUISITION', doctitle)],
+         [Paragraph('Hardware &amp; Building Projects • Procurement Suite', brandsub),
+          Paragraph(f'<b>{e(req_no)}</b>', docsub)]],
+        colWidths=[115 * mm, 67 * mm]
+    )
+    header.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), navy),
+        ('LEFTPADDING', (0, 0), (-1, -1), 14),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 14),
+        ('TOPPADDING', (0, 0), (-1, 0), 13),
+        ('BOTTOMPADDING', (-1, 1), (-1, 1), 13),
+        ('BOTTOMPADDING', (0, 1), (0, 1), 3),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('ALIGN', (1, 1), (1, 1), 'RIGHT'),
+    ]))
+    story.append(header)
+    story.append(Spacer(1, 5 * mm))
+
+    # ---- Status pill + priority/date line ----
+    pill = Table([[Paragraph(f'<font color="white"><b>{e(status_label)}</b></font>',
+                             ParagraphStyle('pill', parent=base, alignment=TA_CENTER, fontSize=8))]],
+                 colWidths=[34 * mm])
+    pill.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), status_color),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    headrow = Table([[pill, Paragraph(
+        f'<b>Priority:</b> {e((req.get("priority") or "normal").title())} &nbsp;•&nbsp; '
+        f'<b>Needed by:</b> {e(dt(req.get("needed_by")))} &nbsp;•&nbsp; '
+        f'<b>Items:</b> {len(items)}', small)]],
+        colWidths=[36 * mm, 146 * mm])
+    headrow.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (0, 0), 0),
+        ('LEFTPADDING', (1, 0), (1, 0), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(headrow)
     story.append(Spacer(1, 4 * mm))
 
-    story.append(_proc_pdf_summary(
-        status_label, status_color, 'Requested by',
-        _proc_esc(req.get('requested_by')) or '—',
-        'Total (USD)', _proc_money(total), S, C))
-    story.append(Spacer(1, 4 * mm))
-
+    # ---- Meta grid ----
     projects = [p for p in (req.get('project_ref') or '').split(' | ') if p.strip()]
-    proj_txt = '<br/>'.join(_proc_esc(p) for p in projects) if projects else '—'
-    req_rows = [('Department', _proc_esc(req.get('department')) or '—'),
-                ('Logged by', _proc_esc(req.get('created_by')) or '—'),
-                ('Submitted', _proc_short_date(req.get('submitted_at'))),
-                ('Items', str(len(items)))]
-    story.append(_proc_pdf_two_boxes(
-        _proc_pdf_kv_box('Requisition', req_rows, S, C, width_mm=89),
-        _proc_pdf_kv_box('Attached Project(s)', [('Project(s)', proj_txt)], S, C, width_mm=89)))
+    proj_html = '<br/>'.join(e(p) for p in projects) if projects else '<font color="#94A3B8">—</font>'
+    reqby_html = (
+        f'<b>{e(req.get("requested_by") or "—")}</b><br/>'
+        f'Dept: {e(req.get("department") or "—")}<br/>'
+        f'<font size="7" color="#64748B">Logged by {e(req.get("created_by") or "—")} on {e(dt(req.get("created_at")))}</font>'
+    )
+    info_html = (
+        f'<b>Priority:</b> {e((req.get("priority") or "normal").title())}<br/>'
+        f'<b>Needed by:</b> {e(dt(req.get("needed_by")))}<br/>'
+        f'<b>Submitted:</b> {e(dt(req.get("submitted_at")))}'
+    )
+    meta = Table([
+        [Paragraph('REQUESTED BY', label), Paragraph('REQUISITION', label),
+         Paragraph('INFORMATION', label), Paragraph('PROJECT(S)', label)],
+        [Paragraph(reqby_html, base),
+         Paragraph(f'<b>{e(req_no)}</b><br/><font color="{status_color.hexval()}"><b>{e(status_label)}</b></font>', val),
+         Paragraph(info_html, small),
+         Paragraph(proj_html, small)],
+    ], colWidths=[52 * mm, 40 * mm, 44 * mm, 46 * mm])
+    meta.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), soft),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(meta)
+    story.append(Spacer(1, 3 * mm))
+
+    # ---- Title + description ----
+    story.append(Paragraph(f'<b>{e(req.get("title") or "—")}</b>', ParagraphStyle(
+        't', fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#0F172A'))))
+    notes = (req.get('notes') or '').strip()
+    if notes:
+        story.append(Spacer(1, 1 * mm))
+        story.append(Paragraph(e(notes), small))
     story.append(Spacer(1, 4 * mm))
 
-    notes = _proc_esc(req.get('notes'))
-    if notes:
-        story.append(_proc_pdf_kv_box('Description / Notes', [('Notes', notes)], S, C, label_mm=22))
-        story.append(Spacer(1, 3 * mm))
-
-    story.append(_proc_pdf_two_boxes(
-        _proc_pdf_state_box('Stock Availability', stock_head, stock_color, stock_note, S, C),
-        _proc_pdf_state_box('Funds to Buy', funds_head, funds_color, funds_note, S, C)))
-    fnote = _proc_esc(req.get('funds_note'))
+    # ---- Stock & funds declaration ----
+    sf = Table([
+        [Paragraph('STOCK AVAILABILITY', label), Paragraph('FUNDS TO BUY', label)],
+        [Paragraph(f'<font color="{stock_color.hexval()}"><b>{e(stock_head)}</b></font><br/>{e(stock_note)}', base),
+         Paragraph(f'<font color="{funds_color.hexval()}"><b>{e(funds_head)}</b></font><br/>{e(funds_note)}', base)],
+    ], colWidths=[91 * mm, 91 * mm])
+    sf.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), soft),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(sf)
+    if fs == 'no':
+        story.append(Spacer(1, 2 * mm))
+        banner = Table([[Paragraph(
+            '<font color="white"><b>NO FUNDS</b> to buy the goods — do not raise a purchase order '
+            'until the money is confirmed.</font>', ParagraphStyle('ban', parent=base, textColor=colors.white))]],
+            colWidths=[182 * mm])
+        banner.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#DC2626')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        story.append(banner)
+    fnote = (req.get('funds_note') or '').strip()
     if fnote and fs in funds_map:
         story.append(Spacer(1, 2 * mm))
-        story.append(Paragraph(f'<b>Funds note:</b> {fnote}', S['small']))
-    if fs == 'no':
-        story.append(Spacer(1, 2.5 * mm))
-        from reportlab.platypus import Table, TableStyle
-        ban = Table([[Paragraph('<b>NO FUNDS to buy the goods — do not raise a purchase order '
-                                'until the money is confirmed.</b>', S['ban'])]],
-                    colWidths=[_PROC_PAGE_W * mm])
-        ban.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), C['red']),
-            ('LEFTPADDING', (0, 0), (-1, -1), 9),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 9),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ]))
-        story.append(ban)
-    story.append(Spacer(1, 4.5 * mm))
+        story.append(Paragraph(f'<b>Funds note:</b> {e(fnote)}', small))
+    story.append(Spacer(1, 4 * mm))
 
-    widths = [9, 50, 25, 33, 13, 26, 26]
-    rows = []
+    # ---- Sign-off lanes ----
+    def lane(kind, assigned, actual, at):
+        who = e(assigned) if assigned else '<font color="#94A3B8">Anyone eligible</font>'
+        if actual:
+            done = f'<font color="#16A34A"><b>{e(actual)}</b></font><br/>{e(dt(at))}'
+        elif status in ('rejected', 'cancelled'):
+            done = '<font color="#DC2626">Not completed</font>'
+        else:
+            done = '<font color="#D97706">Pending</font>'
+        return Paragraph(f'<b>{kind}</b><br/>Assigned: {who}<br/>{done}', base)
+
+    signoff = Table([
+        [Paragraph('SIGN-OFF', label), Paragraph('', label), Paragraph('', label)],
+        [lane('1 · Authorisation', req.get('authoriser_name'), req.get('authorised_by'), req.get('authorised_at')),
+         lane('2 · Approval', req.get('approver_name'), req.get('approved_by'), req.get('approved_at')),
+         Paragraph('<b>Requisition total</b><br/><font size="13"><b>USD %s</b></font>' % f'{total:,.2f}', base)],
+    ], colWidths=[68 * mm, 68 * mm, 46 * mm])
+    signoff.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), soft),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(signoff)
+    story.append(Spacer(1, 5 * mm))
+
+    # ---- Line items ----
+    item_header = ['#', 'Item', 'Category', 'Project', 'Qty', 'Unit Cost (USD)', 'Total (USD)']
+    data = [item_header]
     for i, it in enumerate(items, 1):
-        rows.append([
-            Paragraph(str(i), S['cellc']),
-            Paragraph(_proc_esc(it['name']) or '—', S['name']),
-            Paragraph(_proc_esc(it['category']) or '—', S['small']),
-            Paragraph(_proc_esc(it['project_ref']) or '—', S['small']),
-            Paragraph(str(int(it['quantity'] or 0)), S['cellc']),
-            Paragraph(_proc_money(it['unit_cost']), S['cellr']),
-            Paragraph(_proc_money(it['total_cost']), S['cellr']),
+        data.append([
+            Paragraph(str(i), cellc),
+            Paragraph(e(it['name']) or '—', base),
+            Paragraph(e(it['category']) or '—', small),
+            Paragraph(e(it['project_ref']) or '<font color="#94A3B8">—</font>', small),
+            Paragraph(str(int(it['quantity'] or 0)), cellc),
+            Paragraph(f"{it['unit_cost']:,.2f}", cellr),
+            Paragraph(f"{it['total_cost']:,.2f}", cellr),
         ])
-    if not rows:
-        rows.append([Paragraph('—', S['cellc']),
-                     Paragraph('No items recorded', S['base'])] +
-                    [Paragraph('', S['base'])] * 5)
-    story.append(_proc_pdf_table(
-        ['#', 'Item', 'Category', 'Project', 'Qty', 'Unit Cost (USD)', 'Amount (USD)'],
-        rows, widths, S, C))
-    story.append(_proc_pdf_grand_total('GRAND TOTAL (USD)', _proc_money(total), widths, S, C))
+    data.append([
+        Paragraph('', base), Paragraph('<b>GRAND TOTAL</b>', boldc),
+        Paragraph('', base), Paragraph('', base), Paragraph('', base), Paragraph('', base),
+        Paragraph(f'<b>{total:,.2f}</b>', boldn),
+    ])
+    items_tbl = Table(data, colWidths=[10 * mm, 52 * mm, 26 * mm, 34 * mm, 14 * mm, 23 * mm, 23 * mm],
+                      repeatRows=1)
+    items_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#334155')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+        ('BACKGROUND', (0, -1), (-1, -1), soft),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(items_tbl)
 
+    # ---- Supplier quotes annexe ----
     justification = {'cheaper': 'Cheaper', 'closer': 'Closer',
                      'earlier_delivery': 'Earlier delivery', 'other': 'Other'}
-    if any(it['quotes'] for it in items):
-        story.append(Spacer(1, 4 * mm))
-        qrows = []
+    any_q = any(it['quotes'] for it in items)
+    if any_q:
+        story.append(Spacer(1, 6 * mm))
+        story.append(Paragraph('SUPPLIER QUOTES', label))
+        story.append(Spacer(1, 2 * mm))
+        qdata = [['Item', '#', 'Supplier', 'Phone', 'Unit Cost', 'Days', 'Chosen', 'Why']]
         for i, it in enumerate(items, 1):
             for q in it['quotes']:
-                chosen = '✔ Approved' if q['approved'] else ('★ Preferred' if q['is_preferred'] else '—')
-                qrows.append([
-                    Paragraph(_proc_esc(it['name']) or '—', S['small']),
-                    Paragraph(str(i), S['cellc']),
-                    Paragraph(_proc_esc(q['name']) or '—', S['small']),
-                    Paragraph(_proc_esc(q['phone']) or '—', S['small']),
-                    Paragraph(_proc_money(q['unit_cost']), S['cellr']),
-                    Paragraph(str(q['delivery_days']) if q['delivery_days'] else '—', S['cellc']),
-                    Paragraph(chosen, S['small']),
-                    Paragraph(justification.get(q['justification'],
-                                                _proc_esc(q['justification']) or '—'), S['small']),
+                chosen = '★ Preferred' if q['is_preferred'] else ''
+                if q['approved']:
+                    chosen = '✔ Approved'
+                qdata.append([
+                    Paragraph(e(it['name']) or '—', small),
+                    Paragraph(str(i), cellc),
+                    Paragraph(e(q['name']) or '—', small),
+                    Paragraph(e(q['phone']) or '—', small),
+                    Paragraph(f"{q['unit_cost']:,.2f}", cellr),
+                    Paragraph(str(q['delivery_days']) if q['delivery_days'] else '—', cellc),
+                    Paragraph(chosen or '—', small),
+                    Paragraph(justification.get(q['justification'], e(q['justification']) or '—'), small),
                 ])
-        story.append(_proc_pdf_table(
-            ['Item', '#', 'Supplier', 'Phone', 'Unit Cost', 'Days', 'Chosen', 'Why'],
-            qrows, [40, 8, 34, 26, 21, 12, 20, 21], S, C))
+        q_tbl = Table(qdata, colWidths=[40 * mm, 8 * mm, 34 * mm, 26 * mm, 21 * mm, 12 * mm, 20 * mm, 21 * mm],
+                      repeatRows=1)
+        q_tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#334155')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, line_col),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        story.append(q_tbl)
 
+    # ---- Signature strip ----
     story.append(Spacer(1, 10 * mm))
-    story.append(_proc_pdf_signatures([
-        ('Requested by', req.get('requested_by')),
-        ('Authorised by', req.get('authorised_by') or req.get('authoriser_name')),
-        ('Approved by', req.get('approved_by') or req.get('approver_name')),
-    ], S, C))
-    story.append(Spacer(1, 7 * mm))
-    story.append(_proc_pdf_footer([
-        f'This purchase requisition was generated by {company.get("name") or "ConnectLink"}.',
-        f'{_proc_esc(req_no)}  |  {len(items)} item(s)  |  Total USD {_proc_money(total)}',
-        f'Generated on {_proc_short_date(datetime.now())} at {datetime.now().strftime("%H:%M")}',
-    ], S, C))
+    sigcells = []
+    for who in ('Requested by', 'Authorised by', 'Approved by'):
+        nm = ''
+        if who == 'Authorised by':
+            nm = req.get('authorised_by') or ''
+        elif who == 'Approved by':
+            nm = req.get('approved_by') or ''
+        elif who == 'Requested by':
+            nm = req.get('requested_by') or ''
+        sigcells.append(Paragraph(
+            f'<b>{who}</b>{(" — " + e(nm)) if nm else ""}'
+            '<br/><br/><font size="7" color="#94A3B8">Name &amp; signature</font>', base))
+    sig = Table([sigcells], colWidths=[60.6 * mm, 60.6 * mm, 60.6 * mm])
+    sig.setStyle(TableStyle([
+        ('LINEABOVE', (0, 0), (-1, 0), 0.7, colors.HexColor('#94A3B8')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    story.append(sig)
+
+    # ---- Footer ----
+    story.append(Spacer(1, 6 * mm))
+    story.append(Paragraph(
+        f'Generated by ConnectLink Procurement on {datetime.now().strftime("%d %b %Y, %H:%M")} '
+        f'• {e(req_no)} • {len(items)} item(s) • Total USD {total:,.2f}', small))
 
     doc.build(story)
     buf.seek(0)

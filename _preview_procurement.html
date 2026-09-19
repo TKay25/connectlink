@@ -739,6 +739,36 @@
         .pc-rv-form-title { font-size:0.58rem; font-weight:800; color:#334155; margin-bottom:7px; display:flex; gap:6px; align-items:center; }
         .pc-rv-form-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 
+        /* ----- Selected sign-off person's WhatsApp (shown under the picker) ----- */
+        .pc-phone-hint { margin-top:4px; font-size:0.56rem; font-weight:700; color:#475569; display:flex; align-items:center; gap:5px; min-height:14px; line-height:1.3; }
+        .pc-phone-hint i { color:#25D366; }
+        .pc-phone-hint.none { color:#B45309; }
+        .pc-phone-hint.none i { color:#B45309; }
+        body.dark-theme .pc-phone-hint { color:#CBD5E1; }
+
+        /* ----- PO form: per-requisition line selection (untick what is in stock) ----- */
+        .po-req-item { border-bottom:1px solid #f1f5f9; }
+        .po-req-row { display:flex; align-items:center; gap:8px; padding:7px 10px; margin:0; cursor:pointer; font-size:0.64rem; }
+        .po-req-title { flex:1; min-width:0; }
+        .po-req-dept { color:#94A3B8; }
+        .po-req-amt { color:#C12B3E; font-weight:700; white-space:nowrap; }
+        .po-req-lines { padding:0 6px 6px 30px; }
+        .po-line { display:flex; align-items:center; gap:8px; padding:4px 8px; margin:0; border-radius:6px; cursor:pointer; font-size:0.6rem; }
+        .po-line:hover { background:#f8fafc; }
+        .po-line.in-stock { background:#f0fdf4; }
+        .po-line-name { flex:1; min-width:0; color:#334155; }
+        .po-line-qty { color:#64748B; white-space:nowrap; }
+        .po-line-stock { font-weight:700; white-space:nowrap; font-size:0.55rem; color:#94A3B8; }
+        .po-line-stock.ok { color:#16A34A; }
+        .po-line-stock.some { color:#B45309; }
+        .po-line-stock.none { color:#DC2626; }
+        .po-line-amt { color:#475569; font-weight:700; white-space:nowrap; min-width:62px; text-align:right; }
+        .po-line-note { padding:5px 8px; font-size:0.58rem; color:#94A3B8; }
+        .po-untick { margin:5px 0 2px 8px; }
+        body.dark-theme .po-line:hover { background:#1e293b; }
+        body.dark-theme .po-line.in-stock { background:#14321f; }
+        body.dark-theme .po-line-name { color:#CBD5E1; }
+
         /* ----- Multi-project picker (requisition form) + project chips (view) ----- */
         .pc-multi-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
         .pc-multi-chip { display:inline-flex; align-items:center; gap:6px; font-size:0.58rem; font-weight:700; background:#EEF2FF; color:#3730A3; border:1px solid #C7D2FE; border-radius:20px; padding:3px 6px 3px 10px; max-width:100%; }
@@ -1111,6 +1141,7 @@
                             <input type="hidden" id="reqAuthoriserId">
                             <div class="pc-suggest" id="reqAuthoriserList"></div>
                         </div>
+                        <div class="pc-phone-hint" id="reqAuthoriserPhone">— select to see their WhatsApp</div>
                     </div>
                     <div class="col-md-6">
                         <label class="pc-form-label">Approver <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(notified after authorisation, per the tick above)</span></label>
@@ -1119,6 +1150,7 @@
                             <input type="hidden" id="reqApproverId">
                             <div class="pc-suggest" id="reqApproverList"></div>
                         </div>
+                        <div class="pc-phone-hint" id="reqApproverPhone">— select to see their WhatsApp</div>
                     </div>
                     <div class="col-md-7">
                         <label class="pc-form-label">Notes</label>
@@ -1482,6 +1514,7 @@
                             <input type="hidden" id="poAuthoriserId">
                             <div class="pc-suggest" id="poAuthoriserList"></div>
                         </div>
+                        <div class="pc-phone-hint" id="poAuthoriserPhone">— select to see their WhatsApp</div>
                     </div>
                     <div class="col-12">
                         <label class="pc-form-label">Approver <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(final approval — users with "Approve Requisitions"/"Manage Purchase Orders"; blank = all eligible)</span></label>
@@ -1490,6 +1523,7 @@
                             <input type="hidden" id="poApproverId">
                             <div class="pc-suggest" id="poApproverList"></div>
                         </div>
+                        <div class="pc-phone-hint" id="poApproverPhone">— select to see their WhatsApp</div>
                     </div>
                     <div class="col-12">
                         <label class="pc-form-label">Funding Source</label>
@@ -1551,11 +1585,37 @@
                 <button class="pc-btn pc-btn-outline" onclick="printPo()"><i class="bi bi-printer"></i> Print</button>
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoGrn()"><i class="bi bi-file-earmark-richtext"></i> GRN PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="sendPoPdf()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-whatsapp"></i> Send PDF</button>
+                <button class="pc-btn pc-btn-outline" onclick="openPoFunds()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-cash-coin"></i> Funds Received</button>
                 <button class="pc-btn pc-btn-info" onclick="authorisePo(VIEW_PO.id)" id="poAuthoriseBtn" data-perm-action="can_authorise_purchase_orders" style="display:none;"><i class="bi bi-patch-check"></i> Authorise</button>
                 <button class="pc-btn pc-btn-danger" onclick="openPoDecline()" id="poDeclineAuthBtn" data-perm-action="can_authorise_purchase_orders" style="display:none;"><i class="bi bi-x-lg"></i> Decline</button>
                 <button class="pc-btn pc-btn-success" onclick="approvePo(VIEW_PO.id)" id="poApproveBtn" data-perm-action="can_approve_requisitions" style="display:none;"><i class="bi bi-check-lg"></i> Approve</button>
                 <button class="pc-btn pc-btn-danger" onclick="openPoDecline()" id="poDeclineBtn" data-perm-action="can_approve_requisitions" style="display:none;"><i class="bi bi-x-lg"></i> Decline</button>
                 <button class="pc-btn pc-btn-primary" onclick="saveReceive()" id="receiveBtn" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Record Receipt</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== PO FUNDS RECEIVED MODAL ==================== -->
+<div class="modal fade" id="poFundsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-cash-coin me-2"></i>Funds Received</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <label class="pc-form-label">When were the funds received? *</label>
+                <input type="datetime-local" class="pc-input" id="poFundsAt">
+                <div style="font-size:0.56rem;color:#94A3B8;margin-top:5px;">
+                    The date and time the money for <strong id="poFundsNo">this order</strong> actually came in.
+                    This is recorded on the purchase order and shown on its PDF.
+                </div>
+                <div id="poFundsMsg" style="display:none;margin-top:8px;font-size:0.6rem;font-weight:800;color:#DC2626;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="pc-btn pc-btn-outline" onclick="savePoFunds(true)" id="poFundsClearBtn">Clear</button>
+                <button type="button" class="pc-btn pc-btn-primary" onclick="savePoFunds(false)"><i class="bi bi-check-lg"></i> Save</button>
             </div>
         </div>
     </div>
@@ -1665,6 +1725,8 @@ let PERMS = {};
     ];
     const DEL_REQ_LIST = [{ id: 1, requisition_id: 9, req_no: 'REQ-0009', title: 'Duplicate boards order', department: 'Production', requested_by: 'T. Chikerema', status: 'draft', priority: 'Medium', project_ref: '221--Rainham Park--Harare--John Doe', total_amount: 180.0, item_count: 1, deleted_by: 'Mrs G', deleted_at: '2026-09-18 15:02:00', delete_reason: 'duplicate, raised in error' }];
     const DEL_REQ_DETAIL = { id: 1, requisition_id: 9, req_no: 'REQ-0009', title: 'Duplicate boards order', department: 'Production', requested_by: 'T. Chikerema', status: 'draft', priority: 'Medium', project_ref: '221--Rainham Park--Harare--John Doe', total_amount: 180.0, item_count: 1, deleted_by: 'Mrs G', deleted_at: '2026-09-18 15:02:00', delete_reason: 'duplicate, raised in error', requisition: { project_ref: '221--Rainham Park--Harare--John Doe', needed_by: '2026-09-20', created_at: '2026-09-18 14:29:00', submitted_at: null, authorised_by: null, authorised_at: null, approved_by: null, approved_at: null, stock_status: 'not_in_stock', funds_status: 'no', notes: 'Raised twice by mistake.' }, items: [{ product_name: 'Boards', category: 'Building Material', project_ref: '221--Rainham Park--Harare--John Doe', quantity: 15, unit_cost: 12.0, total_cost: 180.0, suppliers: [{ supplier_name: 'Bulawayo Hardware Distributors', unit_cost: 12.0, is_preferred: true, approved: false }] }] };
+    window.PO_FUNDS = {};   // po_id -> {at, by}; preview stand-in for funds_received_at/_by
+
     window.fetch = async function (url, opts) {
         const u = String(url);
         if (u.startsWith('data:')) return _nativeFetch(url, opts);
@@ -1682,7 +1744,44 @@ let PERMS = {};
         }
         if (u.indexOf('/api/procurement/expenses/requests') > -1) return json({ success: true, data: EXP_LIST });
         if (u.indexOf('/api/procurement/expenses/assets') > -1) return json({ success: true, data: ASSETS_SAMPLE });
+        if (/\/api\/procurement\/purchase-orders\/\d+\/funds-received$/.test(u)) {
+            const pid = parseInt(u.replace(/.*\/purchase-orders\/(\d+)\/funds-received$/, '$1'), 10);
+            let body = {};
+            try { body = JSON.parse((opts && opts.body) || '{}'); } catch (e) { }
+            // Key presence (not truthiness) is what marks the value as overridden, so
+            // CLEARING a recorded date is visible in the preview too.
+            window.PO_FUNDS[pid] = body.received_at
+                ? { at: String(body.received_at).replace('T', ' ') + ':00', by: 'Preview User' }
+                : { at: null, by: null };
+            return json({ success: true, message: body.received_at ? 'Funds received recorded.' : 'Funds-received date cleared.' });
+        }
+        // New PO form: orderable requisitions + their line items (for unticking in-stock lines)
+        const isGet = !opts || !opts.method || opts.method === 'GET';
+        if (isGet && /\/api\/procurement\/requisitions\?status=/.test(u)) return json({ success: true, data: PO_READY_REQS });
+        if (isGet && /\/api\/procurement\/requisitions\/\d+$/.test(u)) {
+            const rid = parseInt(u.replace(/.*\/(\d+)$/, '$1'), 10);
+            return json({ success: true, data: (rid === 2 ? PO_REQ_DETAIL_2 : PO_REQ_DETAIL) });
+        }
         return _nativeFetch(url, opts);
+    };
+    const PO_READY_REQS = [
+        { id: 1, req_no: 'REQ-0001', title: 'Restock Electrical Cable & Fittings', department: 'Production', total: 1290.0 },
+        { id: 2, req_no: 'REQ-0002', title: 'Boards for Chisipite site', department: 'Production', total: 780.0 }
+    ];
+    const PO_REQ_DETAIL = {
+        id: 1, req_no: 'REQ-0001', title: 'Restock Electrical Cable & Fittings',
+        items: [
+            { id: 101, product_name: 'Electrical Cable 2.5mm', quantity: 100, total_cost: 250.0, current_stock: 250 },
+            { id: 102, product_name: 'Distribution Board 12-way', quantity: 3, total_cost: 540.0, current_stock: 0 },
+            { id: 103, product_name: 'Cable Trunking 50mm', quantity: 40, total_cost: 500.0, current_stock: 12 }
+        ]
+    };
+    const PO_REQ_DETAIL_2 = {
+        id: 2, req_no: 'REQ-0002', title: 'Boards for Chisipite site',
+        items: [
+            { id: 201, product_name: 'Cement 50kg', quantity: 40, total_cost: 500.0, current_stock: 60 },
+            { id: 202, product_name: 'River Sand (tonne)', quantity: 4, total_cost: 280.0, current_stock: 1 }
+        ]
     };
 })();
 
@@ -1748,6 +1847,25 @@ function esc(s) {
 function fmtMoney(n) {
     const v = Number(n || 0);
     return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+/* Documents and dates on screen read '2 Feb 2026' — add 'at 14:30' when a time matters. */
+function fmtDocDate(v, withTime) {
+    if (!v) return '—';
+    const s = String(v).replace('T', ' ');
+    const d = new Date(s.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return s.slice(0, 10);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let out = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+    if (withTime) {
+        const p = n => String(n).padStart(2, '0');
+        out += ' at ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    return out;
+}
+/* Local 'YYYY-MM-DDTHH:MM' for a datetime-local input (never UTC-shifted). */
+function localDateTimeValue(d) {
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
 }
 function toast(message, type) {
     type = type || 'success';
@@ -1968,6 +2086,7 @@ async function loadRequisitions() {
                 <td class="num">${fmtMoney(r.total)}</td>
                 <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                     <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewReq(${r.id})"><i class="bi bi-eye"></i></button>
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" title="Download PDF" onclick="downloadReqPdfById(${r.id})"><i class="bi bi-file-earmark-pdf"></i></button>
                     ${['draft'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="editReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-pencil"></i></button>` : ''}
                     ${['draft','submitted'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="submitReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-send"></i></button>` : ''}
                     ${['draft','cancelled','rejected'].includes(r.status) ? `<button class="pc-btn pc-btn-danger pc-btn-sm" onclick="deleteReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-trash"></i></button>` : ''}
@@ -2611,12 +2730,14 @@ async function loadPoAssignees() {
 }
 
 /* `getSource` is a FUNCTION returning the object holding the list (not the object
-   itself) because PO_ASSIGNEES / REQ_ASSIGNEES get REASSIGNED when they load. */
-function setupAssigneeCombo(inputId, listId, hiddenId, key, emptyMsg, getSource) {
+   itself) because PO_ASSIGNEES / REQ_ASSIGNEES get REASSIGNED when they load.
+   `phoneDisplayId` = element that shows the picked person's WhatsApp number. */
+function setupAssigneeCombo(inputId, listId, hiddenId, key, emptyMsg, getSource, phoneDisplayId) {
     const input = document.getElementById(inputId);
     const list = document.getElementById(listId);
     const hidden = document.getElementById(hiddenId);
     if (!input || !list || !hidden) return;
+    const phoneEl = phoneDisplayId ? document.getElementById(phoneDisplayId) : null;
     const people = () => (getSource ? getSource() : PO_ASSIGNEES)[key] || [];
     const show = (items) => {
         if (!items.length) {
@@ -2638,17 +2759,24 @@ function setupAssigneeCombo(inputId, listId, hiddenId, key, emptyMsg, getSource)
                 if (!it) { list.style.display = 'none'; return; }   // note row
                 input.value = it.name;
                 hidden.value = it.id;
+                setAssigneePhone(phoneEl, it);
                 list.style.display = 'none';
             });
         });
     };
     const q = () => input.value.trim().toLowerCase();
     const matches = () => people().filter(p => !q() || p.name.toLowerCase().includes(q()));
-    input.addEventListener('focus', () => show(matches().slice(0, 30)));
+    input.addEventListener('focus', () => {
+        // Re-show the number for the currently bound person (e.g. after an edit).
+        const cur = people().find(p => String(p.id) === String(hidden.value));
+        if (cur) setAssigneePhone(phoneEl, cur);
+        show(matches().slice(0, 30));
+    });
     input.addEventListener('input', () => {
         hidden.value = '';
+        setAssigneePhone(phoneEl, null);
         const exact = people().find(p => p.name.toLowerCase() === q());
-        if (exact) hidden.value = exact.id;
+        if (exact) { hidden.value = exact.id; setAssigneePhone(phoneEl, exact); }
         show(matches().slice(0, 30));
     });
     input.addEventListener('blur', () => setTimeout(() => { list.style.display = 'none'; }, 150));
@@ -2659,19 +2787,49 @@ function setupAssigneeCombo(inputId, listId, hiddenId, key, emptyMsg, getSource)
 
 function setupPoAssigneesCombo() {
     setupAssigneeCombo('poAuthoriser', 'poAuthoriserList', 'poAuthoriserId', 'authorisers',
-        'No user has "Authorise Purchase Orders" — grant it in User Management, or leave blank.');
+        'No user has "Authorise Purchase Orders" — grant it in User Management, or leave blank.',
+        null, 'poAuthoriserPhone');
     setupAssigneeCombo('poApprover', 'poApproverList', 'poApproverId', 'approvers',
-        'No user can approve POs — grant "Approve Requisitions" in User Management, or leave blank.');
+        'No user can approve POs — grant "Approve Requisitions" in User Management, or leave blank.',
+        null, 'poApproverPhone');
+}
+
+/* Show / clear the WhatsApp number of the picked sign-off person. */
+function setAssigneePhone(el, person) {
+    if (!el) return;
+    if (!person) {
+        el.className = 'pc-phone-hint';
+        el.textContent = '— select to see their WhatsApp';
+        return;
+    }
+    if (person._unknown) {
+        el.className = 'pc-phone-hint none';
+        el.innerHTML = '<i class="bi bi-question-circle"></i> Not in the current eligible list';
+        return;
+    }
+    if (person.whatsapp) {
+        el.className = 'pc-phone-hint';
+        el.innerHTML = `<i class="bi bi-whatsapp"></i> WhatsApp: ${esc(person.whatsapp)}`;
+    } else {
+        el.className = 'pc-phone-hint none';
+        el.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> No WhatsApp number saved — they cannot be notified';
+    }
+}
+
+/* Look a sign-off person up by id in one of the eligible lists. */
+function assigneeById(key, id, getSource) {
+    if (!id) return null;
+    return ((getSource ? getSource() : PO_ASSIGNEES)[key] || []).find(p => String(p.id) === String(id)) || null;
 }
 
 // Requisition form pickers (same eligible-user data, requisition permissions)
 function setupReqAssigneesCombo() {
     setupAssigneeCombo('reqAuthoriser', 'reqAuthoriserList', 'reqAuthoriserId', 'req_authorisers',
         'No user has "Authorise Requisitions" — grant it in User Management, or leave blank.',
-        () => REQ_ASSIGNEES);
+        () => REQ_ASSIGNEES, 'reqAuthoriserPhone');
     setupAssigneeCombo('reqApprover', 'reqApproverList', 'reqApproverId', 'req_approvers',
         'No user can approve requisitions — grant "Approve Requisitions" in User Management, or leave blank.',
-        () => REQ_ASSIGNEES);
+        () => REQ_ASSIGNEES, 'reqApproverPhone');
 }
 
 /* Projects are attached PER LINE ITEM now (see wireProjectCombo). No-op kept because
@@ -2739,6 +2897,7 @@ window.openReqModal = function() {
     if (rfN) rfN.value = '';
     ['reqAuthoriser', 'reqApprover'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['reqAuthoriserId', 'reqApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['reqAuthoriserPhone', 'reqApproverPhone'].forEach(id => setAssigneePhone(document.getElementById(id), null));
     toggleReqFundsHint();
     growReqNotes();
     toggleReqProjectField();
@@ -2777,6 +2936,14 @@ window.editReq = async function(id) {
         const raPId = document.getElementById('reqApproverId');
         if (raP) raP.value = r.approver_name || '';
         if (raPId) raPId.value = r.approver_user_id || '';
+        // Show the picked people's numbers (falls back to a neutral hint when the
+        // person is no longer in the eligible list).
+        setAssigneePhone(document.getElementById('reqAuthoriserPhone'),
+            assigneeById('req_authorisers', r.authoriser_user_id, () => REQ_ASSIGNEES)
+            || (r.authoriser_name ? { _unknown: true } : null));
+        setAssigneePhone(document.getElementById('reqApproverPhone'),
+            assigneeById('req_approvers', r.approver_user_id, () => REQ_ASSIGNEES)
+            || (r.approver_name ? { _unknown: true } : null));
         toggleReqFundsHint();
         growReqNotes();
         document.getElementById('itemRows').innerHTML = '';
@@ -2912,7 +3079,8 @@ window.viewReq = async function(id) {
         if (cnt) cnt.textContent = ((r.items || []).length) + ' item' + ((r.items || []).length === 1 ? '' : 's');
 
         // actions based on status + perms
-        let actions = '';
+        // The PDF is always offered — it needs no special permission.
+        let actions = `<button class="pc-btn pc-btn-outline" onclick="downloadReqPdfById(${r.id})"><i class="bi bi-file-earmark-pdf"></i> Download PDF</button>`;
         if (r.status === 'draft') {
             const canEdit = can('can_create_requisitions');
             if (canEdit) {
@@ -3328,14 +3496,17 @@ async function loadPOs() {
             if (po.id === 1) {
                 po.authorised_by = 'Mrs Gogwe'; po.authorised_at = '2026-08-23 09:10:00';
                 po.approved_by = 'T. Chikerema'; po.approved_at = '2026-08-24 14:05:00';
+                po.funds_received_at = '2026-09-19 10:30:00'; po.funds_received_by = 'Mrs Gogwe';
             }
+            const ov = window.PO_FUNDS[po.id];
+            if (ov) { po.funds_received_at = ov.at; po.funds_received_by = ov.by; }
         });
         tbody.innerHTML = PURCHASE_ORDERS.map(po => `
             <tr style="cursor:pointer;" onclick="viewPo(${po.id})">
                 <td>${esc(po.po_no)}</td>
                 <td>${esc(po.supplier_name || '—')}${po.supplier_phone ? `<div style="color:#94A3B8;font-size:0.58rem;">${esc(po.supplier_phone)}</div>` : ''}</td>
                 <td>${esc(po.requisition_ids || '—')}</td>
-                <td>${poBadge(po.status)}${signedOffLine(po)}</td>
+                <td>${poBadge(po.status)}${po.funds_received_at ? ` <span class="pc-badge pc-badge-approved" title="Funds received ${esc(fmtDocDate(po.funds_received_at, true))}">💰 Funded</span>` : ''}${signedOffLine(po)}</td>
                 <td class="num">${fmtMoney(po.total_amount)}</td>
                 <td>${esc(po.expected_delivery || '—')}</td>
                 <td>${esc(po.created_by || '—')}</td>
@@ -3372,6 +3543,7 @@ window.openPoModal = function() {
     if (poReqShow) poReqShow.value = '';
     ['poAuthoriser', 'poApprover'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['poAuthoriserId', 'poApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['poAuthoriserPhone', 'poApproverPhone'].forEach(id => setAssigneePhone(document.getElementById(id), null));
     const supSel = document.getElementById('poSupplier');
     if (supSel && !SUPPLIERS.length) supSel.innerHTML = '<option value="">Loading suppliers…</option>';
     const list = document.getElementById('poReqList');
@@ -3403,39 +3575,129 @@ async function fillPoRequisitionList() {
     const list = document.getElementById('poReqList');
     if (!list) return;
     try {
-        const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Production", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "submitted", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
+        // A requisition becomes orderable once it is AUTHORISED (the normal path:
+        // logger authorises it, then raises the PO) or APPROVED (one-step / legacy).
+        const res = await fetch('/api/procurement/requisitions?status=approved,authorised', { credentials: 'include' });
         const data = await res.json();
-        const approved = data.data || [];
-        if (!approved.length) {
-            list.innerHTML = '<div class="pc-empty" style="padding:16px;"><i class="bi bi-info-circle"></i> No approved requisitions available. Approve requisitions first.</div>';
+        const ready = data.data || [];
+        if (!ready.length) {
+            list.innerHTML = '<div class="pc-empty" style="padding:16px;"><i class="bi bi-info-circle"></i> No authorised or approved requisitions available. Authorise a requisition first.</div>';
         } else {
-            list.innerHTML = approved.map(r => `
-                <label class="d-flex align-items-center gap-2" style="padding:7px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:0.64rem;">
-                    <input type="checkbox" class="po-req-check" value="${r.id}" data-total="${r.total}" onchange="recalcPoTotal()">
-                    <span><strong>${esc(r.req_no)}</strong> — ${esc(r.title)} (${esc(r.department || '—')})</span>
-                    <span class="ms-auto text-danger fw-semibold">$${fmtMoney(r.total)}</span>
-                </label>`).join('');
+            list.innerHTML = ready.map(r => `
+                <div class="po-req-item">
+                    <label class="po-req-row">
+                        <input type="checkbox" class="po-req-check" value="${r.id}" data-total="${r.total}" onchange="togglePoReq(this)">
+                        <span class="po-req-title"><strong>${esc(r.req_no)}</strong> — ${esc(r.title)} <span class="po-req-dept">(${esc(r.department || '—')})</span></span>
+                        <span class="po-req-amt">$${fmtMoney(r.total)}</span>
+                    </label>
+                    <div class="po-req-lines" id="poReqLines${r.id}" style="display:none;"></div>
+                </div>`).join('');
         }
         recalcPoTotal();
     } catch (e) {
-        list.innerHTML = '<div class="pc-empty">Failed to load approved requisitions.</div>';
+        list.innerHTML = '<div class="pc-empty">Failed to load requisitions.</div>';
     }
 }
+/* Tick a requisition -> load (once) and show its line items so individual lines
+   can be deselected, e.g. goods that are already in stock and need not be bought. */
+window.togglePoReq = async function(cb) {
+    const box = document.getElementById('poReqLines' + cb.value);
+    if (!box) return;
+    if (cb.checked) {
+        box.style.display = '';
+        if (!box.dataset.loaded) await loadPoReqItems(cb.value);
+    } else {
+        box.style.display = 'none';
+    }
+    recalcPoTotal();
+};
+async function loadPoReqItems(reqId) {
+    const box = document.getElementById('poReqLines' + reqId);
+    if (!box) return;
+    box.dataset.loaded = '1';
+    box.innerHTML = '<div class="po-line-note">Loading items…</div>';
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + reqId, { credentials: 'include' });
+        const data = await res.json();
+        const items = (data.data && data.data.items) || [];
+        if (!items.length) {
+            box.innerHTML = '<div class="po-line-note">This requisition has no line items.</div>';
+            return;
+        }
+        let anyCovered = false;
+        box.innerHTML = items.map(it => {
+            const stock = (it.current_stock === null || it.current_stock === undefined) ? null : Number(it.current_stock);
+            const covered = stock !== null && stock >= Number(it.quantity);
+            if (covered) anyCovered = true;
+            let stockCls = '', stockTxt = '';
+            if (stock !== null) {
+                if (covered) { stockCls = 'ok'; stockTxt = '✔ in stock (' + stock + ')'; }
+                else if (stock > 0) { stockCls = 'some'; stockTxt = 'stock ' + stock; }
+                else { stockCls = 'none'; stockTxt = 'no stock'; }
+            }
+            return `
+            <label class="po-line${covered ? ' in-stock' : ''}">
+                <input type="checkbox" class="po-line-check" value="${it.id}" data-cost="${it.total_cost}" checked onchange="recalcPoTotal()">
+                <span class="po-line-name">${esc(it.product_name)}</span>
+                <span class="po-line-qty">×${it.quantity}</span>
+                <span class="po-line-stock ${stockCls}">${stockTxt}</span>
+                <span class="po-line-amt">$${fmtMoney(it.total_cost)}</span>
+            </label>`;
+        }).join('') + (anyCovered
+            ? `<button type="button" class="pc-btn pc-btn-outline pc-btn-sm po-untick" onclick="untickInStockLines(${reqId})"><i class="bi bi-box-seam"></i> Deselect lines already in stock</button>`
+            : '');
+        recalcPoTotal();
+    } catch (e) {
+        box.innerHTML = '<div class="po-line-note text-danger">Could not load the line items.</div>';
+    }
+}
+/* Untick every line the products table says is already fully in stock. */
+window.untickInStockLines = function(reqId) {
+    const box = document.getElementById('poReqLines' + reqId);
+    if (!box) return;
+    box.querySelectorAll('.po-line.in-stock .po-line-check').forEach(c => { c.checked = false; });
+    recalcPoTotal();
+};
 window.recalcPoTotal = function() {
     let total = 0;
-    document.querySelectorAll('.po-req-check:checked').forEach(c => { total += parseFloat(c.dataset.total || '0'); });
+    document.querySelectorAll('.po-req-check:checked').forEach(c => {
+        const box = document.getElementById('poReqLines' + c.value);
+        const lines = box ? box.querySelectorAll('.po-line-check') : [];
+        if (lines.length) {
+            lines.forEach(l => { if (l.checked) total += parseFloat(l.dataset.cost || '0'); });
+        } else {
+            total += parseFloat(c.dataset.total || '0');   // items not loaded -> whole requisition
+        }
+    });
     document.getElementById('poTotal').textContent = '$' + fmtMoney(total);
 };
 window.savePo = async function() {
     const reqIds = Array.from(document.querySelectorAll('.po-req-check:checked')).map(c => parseInt(c.value, 10));
+    if (!reqIds.length) { toast('Select at least one requisition', 'error'); return; }
+    // Lines the user unticked (already in stock). They stay on the requisition but
+    // are not ordered on this PO.
+    const excluded = [];
+    document.querySelectorAll('.po-req-check:checked').forEach(c => {
+        const box = document.getElementById('poReqLines' + c.value);
+        if (!box) return;
+        box.querySelectorAll('.po-line-check').forEach(l => { if (!l.checked) excluded.push(parseInt(l.value, 10)); });
+    });
+    const anyLoaded = document.querySelectorAll('#poReqList .po-line-check').length > 0;
+    const anyChecked = document.querySelectorAll('#poReqList .po-line-check:checked').length > 0;
+    const anyUnloaded = Array.from(document.querySelectorAll('.po-req-check:checked')).some(c => {
+        const box = document.getElementById('poReqLines' + c.value);
+        return box && !box.querySelectorAll('.po-line-check').length;
+    });
+    if (anyLoaded && !anyChecked && !anyUnloaded) {
+        toast('Every line is deselected — nothing left to order.', 'error'); return;
+    }
     const supplier_id = document.getElementById('poSupplier').value ? parseInt(document.getElementById('poSupplier').value, 10) : null;
-    if (!reqIds.length) { toast('Select at least one approved requisition', 'error'); return; }
     try {
         const res = await fetch('/api/procurement/purchase-orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ requisition_ids: reqIds, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null, requested_by: document.getElementById('poRequestedBy').value.trim(), requested_by_phone: document.getElementById('poRequestedPhone').value.trim(), authoriser_id: parseInt(document.getElementById('poAuthoriserId').value || '', 10) || null, approver_id: parseInt(document.getElementById('poApproverId').value || '', 10) || null, funding_source: (document.getElementById('poFunding') ? document.getElementById('poFunding').value : 'business') })
+            body: JSON.stringify({ requisition_ids: reqIds, excluded_item_ids: excluded, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null, requested_by: document.getElementById('poRequestedBy').value.trim(), requested_by_phone: document.getElementById('poRequestedPhone').value.trim(), authoriser_id: parseInt(document.getElementById('poAuthoriserId').value || '', 10) || null, approver_id: parseInt(document.getElementById('poApproverId').value || '', 10) || null, funding_source: (document.getElementById('poFunding') ? document.getElementById('poFunding').value : 'business') })
         });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
@@ -3446,6 +3708,14 @@ window.savePo = async function() {
 window.viewPo = async function(id, openReceive) {
     try {
         const _stubData = (id === 2) ? {"id": 2, "po_no": "PO-0002", "supplier_id": 2, "supplier_name": "Delta Hardware Suppliers", "supplier_phone": "+263 71 555 8899", "requisition_ids": "REQ-0002", "status": "pending_authorisation", "total_amount": 3875.5, "expected_delivery": "2026-09-20", "created_by": "N. Moyo", "created_at": "2026-09-12 08:30:00", "received_at": null, "lines": [{"id": 3, "product_id": 12, "product_name": "Cement 50kg", "quantity_ordered": 150, "quantity_received": 0, "unit_cost": 12.5, "current_stock": 30, "on_order": 150}], "attachments": []} : {"id": 1, "po_no": "PO-0001", "supplier_id": 1, "supplier_name": "Zimbabwe Electrical Wholesalers", "supplier_phone": "+263 77 123 4567", "requisition_ids": "REQ-0001", "status": "partial", "total_amount": 2450.0, "expected_delivery": "2026-08-30", "created_by": "T. Chikerema", "created_at": "2026-08-22 10:00:00", "received_at": null, "authorised_by": "Mrs G", "authorised_at": "2026-08-22 09:15:00", "lines": [{"id": 1, "product_id": 10, "product_name": "Electrical Cable 2.5mm", "quantity_ordered": 100, "quantity_received": 40, "unit_cost": 15.0, "current_stock": 120, "on_order": 60}, {"id": 2, "product_id": 11, "product_name": "Socket Outlet", "quantity_ordered": 50, "quantity_received": 0, "unit_cost": 19.0, "current_stock": 8, "on_order": 50}], "attachments": [{"id": 1, "attachment_type": "invoice", "original_name": "invoice_zew_001.pdf", "stored_name": "x.pdf", "mime_type": "application/pdf", "file_size": 204800, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-22 11:00:00"}, {"id": 2, "attachment_type": "receipt", "original_name": "grn_receipt_01.jpg", "stored_name": "y.jpg", "mime_type": "image/jpeg", "file_size": 90112, "uploaded_by": "T. Chikerema", "uploaded_at": "2026-08-23 09:30:00"}]};
+        // Preview: sample funds-received state, with any in-session edit winning
+        if (Object.prototype.hasOwnProperty.call(window.PO_FUNDS, _stubData.id)) {
+            _stubData.funds_received_at = window.PO_FUNDS[_stubData.id].at;
+            _stubData.funds_received_by = window.PO_FUNDS[_stubData.id].by;
+        } else if (_stubData.id === 1) {
+            _stubData.funds_received_at = '2026-09-19 10:30:00';
+            _stubData.funds_received_by = 'Mrs Gogwe';
+        }
         const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:_stubData})));
         const data = await res.json();
         if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
@@ -3462,6 +3732,7 @@ window.viewPo = async function(id, openReceive) {
                 <div class="col-md-4"><strong>Authorised By:</strong> ${po.authorised_by ? `${esc(po.authorised_by)}<br><span style="color:#64748B;">${esc((po.authorised_at || '').slice(0,16))}</span>` : '—'}</div>
                 <div class="col-md-4"><strong>Authoriser:</strong> ${po.authoriser_name ? esc(po.authoriser_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
                 <div class="col-md-4"><strong>Approver:</strong> ${po.approver_name ? esc(po.approver_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
+                <div class="col-md-3"><strong>Funds Received:</strong> ${po.funds_received_at ? `<span style="color:#15803D;font-weight:700;">${esc(fmtDocDate(po.funds_received_at, true))}</span>${po.funds_received_by ? `<br><span style="color:#64748B;">recorded by ${esc(po.funds_received_by)}</span>` : ''}` : '<span style="color:#B45309;font-weight:700;">Not yet recorded</span>'}</div>
                 <div class="col-md-3"><strong>Expected Delivery:</strong> ${esc(po.expected_delivery || '—')}</div>
                 <div class="col-md-4"><strong>Requisitions:</strong> ${esc(po.requisition_ids || '—')}</div>
                 <div class="col-md-4"><strong>Created:</strong> ${esc(po.created_at || '—')}</div>
@@ -3533,6 +3804,58 @@ window.downloadPoPdfById = function(id) {
 window.downloadPoPdf = function() {
     if (VIEW_PO) downloadPoPdfById(VIEW_PO.id);
 };
+window.downloadReqPdfById = function(id) {
+    window.open('/api/procurement/requisitions/' + id + '/pdf', '_blank');
+};
+window.downloadReqPdf = function() {
+    if (VIEW_REQ) downloadReqPdfById(VIEW_REQ.id);
+};
+window.openPoFunds = function() {
+    if (!VIEW_PO) return;
+    document.getElementById('poFundsNo').textContent = VIEW_PO.po_no;
+    const inp = document.getElementById('poFundsAt');
+    inp.value = VIEW_PO.funds_received_at
+        ? String(VIEW_PO.funds_received_at).replace(' ', 'T').slice(0, 16)
+        : localDateTimeValue(new Date());
+    const clr = document.getElementById('poFundsClearBtn');
+    if (clr) clr.style.display = VIEW_PO.funds_received_at ? '' : 'none';
+    const msg = document.getElementById('poFundsMsg');
+    msg.style.display = 'none';
+    msg.textContent = '';
+    showModal('poFundsModal');
+};
+window.savePoFunds = async function(clear) {
+    if (!VIEW_PO) return;
+    const val = clear ? '' : (document.getElementById('poFundsAt').value || '');
+    const msg = document.getElementById('poFundsMsg');
+    if (!clear && !val) {
+        msg.style.display = '';
+        msg.textContent = 'Pick the date and time the funds were received.';
+        return;
+    }
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + VIEW_PO.id + '/funds-received', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ received_at: val })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            msg.style.display = '';
+            msg.textContent = data.error || 'Could not save.';
+            return;
+        }
+        toast(data.message || 'Saved', 'success');
+        hideModal('poFundsModal');
+        await viewPo(VIEW_PO.id);
+        loadPOs();
+    } catch (e) {
+        msg.style.display = '';
+        msg.textContent = 'Connection error';
+    }
+};
+
 window.sendPoPdf = async function() {
     if (!VIEW_PO) return;
     if (!confirm('Send the PO PDF to the supplier on WhatsApp?')) return;

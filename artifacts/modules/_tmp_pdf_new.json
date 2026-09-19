@@ -1,0 +1,40 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TmpPdfNew",
+  "file": "_tmp_pdf_new.py",
+  "purpose": "<!-- main function",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_tmp_pdf_new → _re.sub, _h.escape, datetime.strptime, d.strftime, colors.HexColor"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "base64",
+    "html",
+    "procurement_helpers",
+    "reportlab"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: _PROC_NAVY = '#1E2A56', _PROC_TEXT = '#2C3E50', _PROC_MUTED = '#666666', _PROC_FAINT = '#999999', _PROC_HEADBG = '#F5F7FA', _PROC_BOXBG = '#FAFBFD'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "5a13b4f36a63a5e8",
+  "file_mtime": 1789840533796.57,
+  "file_size": 21003,
+  "file_birthtime": 1789840533661.2886,
+  "generated_at": "2026-09-19T17:55:35.839184Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
