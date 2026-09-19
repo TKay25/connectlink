@@ -776,6 +776,7 @@
                             <option value="">All Statuses</option>
                             <option value="draft">Draft</option>
                             <option value="submitted">Submitted</option>
+                            <option value="authorised">Authorised</option>
                             <option value="approved">Approved</option>
                             <option value="po_created">PO Created</option>
                             <option value="rejected">Rejected</option>
@@ -977,6 +978,24 @@
                     <div class="col-md-3">
                         <label class="pc-form-label">Needed By</label>
                         <input type="date" class="pc-input" id="reqNeededBy">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pc-form-label">Stock Availability *</label>
+                        <select class="pc-select" id="reqStockStatus" onchange="toggleReqFundsHint()">
+                            <option value="not_in_stock" selected>Not in stock — must be purchased</option>
+                            <option value="partial">Partially in stock — buy the shortfall</option>
+                            <option value="in_stock">In stock — already bought (no purchase needed)</option>
+                        </select>
+                        <div id="reqStockHint" style="font-size:0.56rem;color:#64748B;margin-top:3px;"></div>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div style="display:flex;gap:8px;align-items:flex-start;">
+                            <input type="checkbox" id="reqNotifyApprover" checked style="margin-top:2px;">
+                            <label for="reqNotifyApprover" style="font-size:0.6rem;line-height:1.35;cursor:pointer;margin:0;">
+                                <b>Notify the approver when this requisition is authorised</b>
+                                <div style="color:#64748B;font-size:0.56rem;">The approver only gets an <b>informational</b> message (no approve buttons) — they act once a purchase order is raised.</div>
+                            </label>
+                        </div>
                     </div>
                     <div class="col-md-5" id="reqProjectField">
                         <label class="pc-form-label">Project Ref <span style="color:#DC2626;">*</span></label>
@@ -1471,6 +1490,7 @@ let PERMS = {};
     window.fetch = async function (url, opts) {
         const u = String(url);
         if (u.startsWith('data:')) return _nativeFetch(url, opts);
+        if (/\/api\/procurement\/requisitions\/\d+\/(authorise|funds)$/.test(u)) return ok();
         if (u.indexOf('/api/procurement/expenses/requests/') > -1) {
             const tail = u.split('/api/procurement/expenses/requests/')[1];
             if (/submit$|approve$|reject$|cancel$|delete$/.test(tail)) return ok();
@@ -1564,9 +1584,44 @@ function showModal(id) { const m = modal(id); if (m) m.show(); }
 function hideModal(id) { const m = modal(id); if (m) m.hide(); }
 
 function reqBadge(status) {
-    const map = { draft:'pc-badge-draft', submitted:'pc-badge-submitted', approved:'pc-badge-approved', po_created:'pc-badge-pocreated', rejected:'pc-badge-rejected', cancelled:'pc-badge-cancelled' };
+    const map = { draft:'pc-badge-draft', submitted:'pc-badge-submitted', authorised:'pc-badge-authorisation', approved:'pc-badge-approved', po_created:'pc-badge-pocreated', rejected:'pc-badge-rejected', cancelled:'pc-badge-cancelled' };
     return `<span class="pc-badge ${map[status] || 'pc-badge-draft'}">${esc(status.replace(/_/g,' '))}</span>`;
 }
+/* Inline chips shown next to a requisition title: is the stock already in the
+   company (and bought), and is the money to buy the shortfall confirmed? */
+function reqChips(r) {
+    let out = '';
+    if (r.stock_status === 'in_stock') out += ' <span class="pc-badge pc-badge-approved" title="Already in the company and already bought">📦 In stock</span>';
+    else if (r.stock_status === 'partial') out += ' <span class="pc-badge pc-badge-medium" title="Partly in stock — the shortfall must be bought">📦 Partial stock</span>';
+    if (r.funds_status === 'no') out += ' <span class="pc-badge pc-badge-rejected" title="No funds to buy the goods">⚠ NO FUNDS</span>';
+    else if (r.funds_status === 'partial') out += ' <span class="pc-badge pc-badge-medium" title="Only part of the money is available">💵 Partial funds</span>';
+    else if (r.funds_status === 'yes') out += ' <span class="pc-badge pc-badge-approved" title="Funds confirmed available">💵 Funds OK</span>';
+    return out;
+}
+/* Compact "who signed off" sub-line shown under a status badge, so the NAME of
+   the authoriser and of the approver is visible in the list itself. */
+function signedOffLine(x) {
+    const bits = [];
+    if (x.authorised_by) {
+        bits.push(`<span title="Authorised by">✍ Authorised: ${esc(x.authorised_by)}${x.authorised_at ? ' · ' + esc(String(x.authorised_at).slice(0, 10)) : ''}</span>`);
+    }
+    if (x.approved_by) {
+        bits.push(`<span title="Approved by">✔ Approved: ${esc(x.approved_by)}${x.approved_at ? ' · ' + esc(String(x.approved_at).slice(0, 10)) : ''}</span>`);
+    }
+    if (!bits.length) return '';
+    return `<div style="font-size:0.56rem;color:#64748B;line-height:1.4;margin-top:2px;">${bits.join('<br>')}</div>`;
+}
+window.toggleReqFundsHint = function() {
+    const sel = document.getElementById('reqStockStatus');
+    const hint = document.getElementById('reqStockHint');
+    if (!sel || !hint) return;
+    const map = {
+        not_in_stock: 'The goods must be bought — a funds check is needed before the approver signs off.',
+        partial: 'Only part of the goods are held; the shortfall must be bought.',
+        in_stock: 'Already in the company and already bought — no purchase is needed.'
+    };
+    hint.textContent = map[sel.value] || '';
+};
 function prioBadge(p) {
     const map = { High:'pc-badge-high', Urgent:'pc-badge-high', Medium:'pc-badge-medium', Low:'pc-badge-low' };
     return `<span class="pc-badge ${map[p] || 'pc-badge-medium'}">${esc(p || 'Medium')}</span>`;
@@ -1649,7 +1704,7 @@ window.logout = function() {
 
 // ===== AUTH + PERMS =====
 async function init() {
-    PERMS = { is_super_admin: true, can_create_requisitions: true, can_approve_requisitions: true, can_authorise_purchase_orders: true, can_manage_purchase_orders: true, can_manage_suppliers: true, can_export_data: true };
+    PERMS = { is_super_admin: true, can_create_requisitions: true, can_approve_requisitions: true, can_authorise_requisitions: true, can_authorise_purchase_orders: true, can_manage_purchase_orders: true, can_manage_suppliers: true, can_export_data: true };
     applyProcurementPermissions();
     loadProjects();
     loadCategories();
@@ -1710,14 +1765,16 @@ async function loadRequisitions() {
         const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "req_no": "REQ-0001", "title": "Restock Electrical Cable & Fittings", "department": "Production", "requested_by": "T. Chikerema", "project_ref": "221--Rainham Park--Harare--John Doe", "priority": "High", "status": "submitted", "item_count": 3, "total": 2450.0, "created_at": "2026-08-20 09:12:00", "notes": "Please prioritise this order."}]})));
         const data = await res.json();
         REQUISITIONS = data.data || [];
+        // Preview: sample stock / funds state so the chips are visible
+        REQUISITIONS.forEach((r, i) => { r.stock_status = r.stock_status || 'not_in_stock'; r.funds_status = r.funds_status || 'no'; });
         tbody.innerHTML = REQUISITIONS.map(r => `
             <tr style="cursor:pointer;" onclick="viewReq(${r.id})">
                 <td>${esc(r.req_no)}</td>
-                <td><strong>${esc(r.title)}</strong></td>
+                <td><strong>${esc(r.title)}</strong>${reqChips(r)}</td>
                 <td>${esc(r.department || '—')}</td>
                 <td>${esc(r.requested_by || '—')}</td>
                 <td>${prioBadge(r.priority)}</td>
-                <td>${reqBadge(r.status)}</td>
+                <td>${reqBadge(r.status)}${signedOffLine(r)}</td>
                 <td>${r.item_count}</td>
                 <td class="num">${fmtMoney(r.total)}</td>
                 <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
@@ -2421,6 +2478,9 @@ window.openReqModal = function() {
     document.getElementById('reqPriority').value = 'Medium';
     document.getElementById('reqNeededBy').value = '';
     document.getElementById('reqNotes').value = '';
+    document.getElementById('reqStockStatus').value = 'not_in_stock';
+    document.getElementById('reqNotifyApprover').checked = true;
+    toggleReqFundsHint();
     growReqNotes();
     toggleReqProjectField();
     document.getElementById('itemRows').innerHTML = '';
@@ -2452,6 +2512,9 @@ window.editReq = async function(id) {
         document.getElementById('reqPriority').value = r.priority || 'Medium';
         document.getElementById('reqNeededBy').value = r.needed_by || '';
         document.getElementById('reqNotes').value = r.notes || '';
+        document.getElementById('reqStockStatus').value = r.stock_status || 'not_in_stock';
+        document.getElementById('reqNotifyApprover').checked = (r.notify_approver_on_authorisation !== false);
+        toggleReqFundsHint();
         growReqNotes();
         document.getElementById('itemRows').innerHTML = '';
         (r.items || []).forEach(it => addItemRow(it));
@@ -2479,6 +2542,8 @@ window.saveReq = async function() {
         priority: document.getElementById('reqPriority').value,
         needed_by: document.getElementById('reqNeededBy').value || null,
         notes: document.getElementById('reqNotes').value.trim(),
+        stock_status: document.getElementById('reqStockStatus').value || 'not_in_stock',
+        notify_approver_on_authorisation: document.getElementById('reqNotifyApprover').checked,
         items: payloadItems
     };
     const btn = document.getElementById('saveReqBtn');
@@ -2508,6 +2573,13 @@ window.viewReq = async function(id) {
         if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
         VIEW_REQ = data.data;
         const r = VIEW_REQ;
+        // Preview only: sample stock / funds / authorisation state
+        r.stock_status = r.stock_status || 'not_in_stock';
+        r.funds_status = r.funds_status || 'no';
+        r.funds_note = r.funds_note || 'Awaiting September cash flows — no funds released yet.';
+        r.funds_by = r.funds_by || 'T. Chikerema';
+        r.funds_at = r.funds_at || '2026-09-10 11:20:00';
+        r.notify_approver_on_authorisation = true;
         document.getElementById('viewReqTitle').textContent = r.req_no + ' — ' + r.title;
         document.getElementById('viewReqMeta').innerHTML = `
             <div class="row g-2" style="font-size:0.64rem;">
@@ -2520,9 +2592,11 @@ window.viewReq = async function(id) {
                 <div class="col-md-4"><strong>Created:</strong> ${esc(r.created_at || '—')}</div>
                 <div class="col-md-4"><strong>Submitted:</strong> ${esc(r.submitted_at || '—')}</div>
                 ${r.approved_by ? `<div class="col-md-4"><strong>Approved By:</strong> ${esc(r.approved_by)} @ ${esc(r.approved_at || '')}</div>` : ''}
+                ${r.authorised_by ? `<div class="col-md-4"><strong>Authorised By:</strong> ${esc(r.authorised_by)} @ ${esc(r.authorised_at || '')}</div>` : ''}
                 ${r.reject_reason ? `<div class="col-md-8"><strong>Reject Reason:</strong> <span class="text-danger">${esc(r.reject_reason)}</span></div>` : ''}
                 ${r.notes ? `<div class="col-12"><strong>Notes:</strong> ${esc(r.notes)}</div>` : ''}
-            </div>`;
+            </div>
+            ${stockFundsPanel(r)}`;
         document.getElementById('viewReqItems').innerHTML = (r.items || []).map((it, i) => {
             const sups = it.suppliers || [];
             let supHtml = '';
@@ -2576,6 +2650,15 @@ window.viewReq = async function(id) {
             }
         }
         if (r.status === 'submitted') {
+            if (can('can_authorise_requisitions')) {
+                actions += `<button class="pc-btn pc-btn-success" onclick="authoriseReq(${r.id})" data-perm-action="can_authorise_requisitions"><i class="bi bi-shield-check"></i> Authorise</button>`;
+                actions += `<button class="pc-btn pc-btn-danger" onclick="openReject(${r.id})" data-perm-action="can_authorise_requisitions"><i class="bi bi-x-lg"></i> Decline</button>`;
+            }
+            if (can('can_create_requisitions')) {
+                actions += `<button class="pc-btn pc-btn-outline" onclick="cancelReq(${r.id})"><i class="bi bi-slash-circle"></i> Cancel</button>`;
+            }
+        }
+        if (r.status === 'authorised') {
             if (can('can_approve_requisitions')) {
                 actions += `<button class="pc-btn pc-btn-success" onclick="approveReq(${r.id})"><i class="bi bi-check-lg"></i> Approve</button>`;
                 actions += `<button class="pc-btn pc-btn-danger" onclick="openReject(${r.id})"><i class="bi bi-x-lg"></i> Reject</button>`;
@@ -2591,13 +2674,15 @@ window.viewReq = async function(id) {
         }
         if (actions === '') actions = '<span style="color:#94A3B8;font-size:0.62rem;">No actions available for this status.</span>';
         document.getElementById('viewReqActions').innerHTML = actions;
+        const fsEl = document.getElementById('reqFundsStatus');
+        if (fsEl) fsEl.value = r.funds_status || '';
         applyProcurementPermissions();
         showModal('viewReqModal');
     } catch (e) { toast('Failed to load requisition', 'error'); }
 };
 
 window.submitReq = async function(id) {
-    if (!confirm('Submit this requisition for approval?')) return;
+    if (!confirm('Submit this requisition for authorisation?')) return;
     try {
         const res = await fetch('/api/procurement/requisitions/' + id + '/submit', { method: 'POST', credentials: 'include' });
         const data = await res.json();
@@ -2611,12 +2696,81 @@ window.approveReq = async function(id) {
         const itemId = r.name.replace('supchoice_', '');
         choices[itemId] = r.value;
     });
-    if (!confirm(Object.keys(choices).length ? 'Approve this requisition with the selected suppliers?' : 'Approve this requisition?')) return;
+    const vr = VIEW_REQ || {};
+    let msg = Object.keys(choices).length ? 'Approve this requisition with the selected suppliers?' : 'Approve this requisition?';
+    if (vr.funds_status === 'no') {
+        msg = '⚠ THIS REQUISITION IS MARKED "NO FUNDS" to buy the goods.\n\n' + msg;
+    } else if (vr.stock_status !== 'in_stock' && vr.funds_status !== 'yes' && vr.funds_status !== 'partial') {
+        msg = 'ℹ Funds have NOT been checked for this requisition (goods must be purchased).\n\n' + msg;
+    }
+    if (!confirm(msg)) return;
     try {
         const res = await fetch('/api/procurement/requisitions/' + id + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ choices }) });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
         if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+/* Stock availability + funds check block shown in the View Requisition modal. */
+function stockFundsPanel(r) {
+    const stockLabel = {
+        in_stock: '📦 In stock — already bought',
+        partial: '📦 Partially in stock — buy the shortfall',
+        not_in_stock: '🛒 Not in stock — must be purchased'
+    }[r.stock_status] || '🛒 Not in stock — must be purchased';
+    const fundsLabel = { yes: 'Funds available', partial: 'Partial funds', no: 'NO FUNDS' }[r.funds_status] || 'Not checked';
+    const fundsCls = { yes: 'pc-badge-approved', partial: 'pc-badge-medium', no: 'pc-badge-rejected' }[r.funds_status] || 'pc-badge-draft';
+    const canFunds = can('can_approve_requisitions') && ['draft', 'submitted', 'authorised', 'approved'].includes(r.status);
+    const fundsForm = canFunds ? `
+        <div style="margin-top:8px;border-top:1px dashed #CBD5E1;padding-top:8px;">
+            <div style="font-weight:800;margin-bottom:4px;">💰 Funds check — is there money to buy the goods?</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <select class="pc-select" id="reqFundsStatus" style="width:200px;">
+                    <option value="">— not checked —</option>
+                    <option value="yes">Funds available</option>
+                    <option value="partial">Partial funds</option>
+                    <option value="no">NO funds</option>
+                </select>
+                <input type="text" class="pc-input" id="reqFundsNote" placeholder="Note (e.g. awaiting September cash flows)" style="flex:1;min-width:200px;" value="${esc(r.funds_note || '')}">
+                <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="saveReqFunds(${r.id})"><i class="bi bi-cash-coin"></i> Save Funds Check</button>
+            </div>
+        </div>` : '';
+    return `
+    <div style="border:1px solid #E2E8F0;border-radius:8px;padding:9px 12px;margin-bottom:12px;font-size:0.62rem;">
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+            <span><b>Stock:</b> ${esc(stockLabel)}</span>
+            <span><b>Funds:</b> <span class="pc-badge ${fundsCls}">${esc(fundsLabel)}</span></span>
+            ${r.funds_by ? `<span><b>Checked by:</b> ${esc(r.funds_by)}${r.funds_at ? ' @ ' + esc(String(r.funds_at).slice(0, 16)) : ''}</span>` : ''}
+            <span><b>Notify approver when authorised:</b> ${r.notify_approver_on_authorisation === false ? 'No' : 'Yes'}</span>
+        </div>
+        ${r.funds_note ? `<div style="margin-top:4px;color:#475569;"><b>Funds note:</b> ${esc(r.funds_note)}</div>` : ''}
+        ${r.funds_status === 'no' ? `<div style="margin-top:6px;background:#FEF2F2;border:1px solid #FCA5A5;color:#B91C1C;border-radius:6px;padding:6px 8px;font-weight:800;">⚠ NO FUNDS to buy the goods — do not raise a purchase order until the money is confirmed.</div>` : ''}
+        ${fundsForm}
+    </div>`;
+}
+window.authoriseReq = async function(id) {
+    if (!confirm('Authorise this requisition? The logger can then raise a purchase order if the goods are not in stock.')) return;
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id + '/authorise', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { hideModal('viewReqModal'); loadRequisitions(); loadDashboard(); }
+    } catch (e) { toast('Connection error', 'error'); }
+};
+window.saveReqFunds = async function(id) {
+    const sel = document.getElementById('reqFundsStatus');
+    const noteEl = document.getElementById('reqFundsNote');
+    const status = sel ? sel.value : '';
+    const note = noteEl ? noteEl.value.trim() : '';
+    if (status === 'no' && !confirm('Record NO FUNDS? The approver will be warned on this requisition.')) return;
+    try {
+        const res = await fetch('/api/procurement/requisitions/' + id + '/funds', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ status, note })
+        });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { await viewReq(id); loadRequisitions(); }
     } catch (e) { toast('Connection error', 'error'); }
 };
 window.openReject = function(id) {
@@ -2662,12 +2816,20 @@ async function loadPOs() {
         const res = await fetch('data:application/json,' + encodeURIComponent(JSON.stringify({success:true,data:[{"id": 1, "po_no": "PO-0001", "supplier_id": 1, "supplier_name": "Zimbabwe Electrical Wholesalers", "supplier_phone": "+263 77 123 4567", "requisition_ids": "REQ-0001", "status": "partial", "total_amount": 2450.0, "expected_delivery": "2026-08-30", "created_by": "T. Chikerema", "created_at": "2026-08-22 10:00:00", "received_at": null, "attachments_count": 2},{"id": 2, "po_no": "PO-0002", "supplier_id": 2, "supplier_name": "Delta Hardware Suppliers", "supplier_phone": "+263 71 555 8899", "requisition_ids": "REQ-0002", "status": "pending_authorisation", "total_amount": 3875.5, "expected_delivery": "2026-09-20", "created_by": "N. Moyo", "created_at": "2026-09-12 08:30:00", "received_at": null, "attachments_count": 0}]})));
         const data = await res.json();
         PURCHASE_ORDERS = data.data || [];
+        // Preview: sample sign-off names (the live value comes from the DB columns
+        // purchase_orders.authorised_by / approved_by)
+        PURCHASE_ORDERS.forEach(po => {
+            if (po.id === 1) {
+                po.authorised_by = 'Mrs Gogwe'; po.authorised_at = '2026-08-23 09:10:00';
+                po.approved_by = 'T. Chikerema'; po.approved_at = '2026-08-24 14:05:00';
+            }
+        });
         tbody.innerHTML = PURCHASE_ORDERS.map(po => `
             <tr style="cursor:pointer;" onclick="viewPo(${po.id})">
                 <td>${esc(po.po_no)}</td>
                 <td>${esc(po.supplier_name || '—')}${po.supplier_phone ? `<div style="color:#94A3B8;font-size:0.58rem;">${esc(po.supplier_phone)}</div>` : ''}</td>
                 <td>${esc(po.requisition_ids || '—')}</td>
-                <td>${poBadge(po.status)}</td>
+                <td>${poBadge(po.status)}${signedOffLine(po)}</td>
                 <td class="num">${fmtMoney(po.total_amount)}</td>
                 <td>${esc(po.expected_delivery || '—')}</td>
                 <td>${esc(po.created_by || '—')}</td>
