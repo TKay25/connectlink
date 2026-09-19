@@ -43108,8 +43108,41 @@ def _procurement_send_text(to, text):
         return None
 
 
+_WA_TEMPLATE_LANG_CACHE = {}    # template_name -> language code that worked
+_WA_TEMPLATE_LANG_FAILED = {}   # template_name -> (epoch seconds, Meta response body)
+_WA_LANG_PROBE_COOLDOWN = 600   # seconds before a failed language probe is retried
+
+
+def _wa_template_lang_candidates(template_name):
+    """Language codes to try for this template, best guess first.
+
+    Meta replies 132001 'Template name does not exist in the translation' when the
+    requested language code does not match how the template was created — and the Meta
+    UI offers BOTH "English" (en) and "English (US)" (en_US), so this is easy to get
+    wrong. A template that is still PENDING review returns the SAME error, which makes
+    it doubly confusing. So the code is probed once and then remembered.
+
+    Once a code has worked ONLY it is returned (a normal send must stay one API call).
+    After a failed probe we back off for `_WA_LANG_PROBE_COOLDOWN` so an unapproved
+    template cannot add several seconds to every request.
+    """
+    base = (os.getenv('WHATSAPP_TEMPLATE_LANG') or 'en').strip() or 'en'
+    cached = _WA_TEMPLATE_LANG_CACHE.get(template_name)
+    if cached:
+        return [cached]
+    failed = _WA_TEMPLATE_LANG_FAILED.get(template_name)
+    if failed and (time.time() - failed[0]) < _WA_LANG_PROBE_COOLDOWN:
+        return [base]
+    out = []
+    for code in (base, 'en', 'en_US', 'en_GB'):
+        if code and code not in out:
+            out.append(code)
+    return out
+
+
 def _procurement_send_template(to_phone, template_name, body_params, button_payloads=None):
-    """Send a Meta-approved template (bypasses the 24h window). Best-effort."""
+    """Send a Meta-approved template (bypasses the 24h window). Best-effort.
+    Returns (ok, meta_response_body); the body is only interesting on failure."""
     try:
         e164 = _wa_normalize_phone(to_phone)
         if not e164:
@@ -43129,19 +43162,40 @@ def _procurement_send_template(to_phone, template_name, body_params, button_payl
                     "index": idx,
                     "parameters": [{"type": "payload", "payload": str(pld)}]
                 })
-        payload = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": e164,
-            "type": "template",
-            "template": {
-                "name": template_name,
-                "language": {"code": "en"},
-                "components": components
+
+        candidates = _wa_template_lang_candidates(template_name)
+        last_body = 'no language code attempted'
+        for i, lang in enumerate(candidates):
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": e164,
+                "type": "template",
+                "template": {
+                    "name": template_name,
+                    "language": {"code": lang},
+                    "components": components
+                }
             }
-        }
-        resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers_wa, timeout=15)
-        return resp.status_code == 200, resp.text
+            resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers_wa, timeout=15)
+            last_body = resp.text
+            if resp.status_code == 200:
+                if _WA_TEMPLATE_LANG_CACHE.get(template_name) != lang:
+                    _WA_TEMPLATE_LANG_CACHE[template_name] = lang
+                    print(f"WhatsApp template '{template_name}' accepted language code '{lang}'")
+                _WA_TEMPLATE_LANG_FAILED.pop(template_name, None)
+                return True, last_body
+            # ONLY a name/language mismatch is worth retrying with a different code.
+            if ('132001' not in last_body) and ('does not exist in' not in last_body):
+                return False, last_body
+            if _WA_TEMPLATE_LANG_CACHE.get(template_name) == lang:
+                _WA_TEMPLATE_LANG_CACHE.pop(template_name, None)   # stale cache, re-probe later
+            if i < len(candidates) - 1:
+                print(f"WhatsApp template '{template_name}' not found as '{lang}' - retrying with "
+                      f"'{candidates[i + 1]}'")
+            else:
+                _WA_TEMPLATE_LANG_FAILED[template_name] = (time.time(), last_body)
+        return False, last_body
     except Exception as e:
         print(f"Procurement WhatsApp template error: {e}")
         return False, str(e)
