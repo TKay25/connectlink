@@ -45493,32 +45493,106 @@ def _procurement_log_send(label, ok, txt):
 
 
 def _procurement_hr_whatsapp_map(cursor):
-    """(lower-cased full name -> whatsapp, hr_employees.id -> whatsapp).
+    """(lower-cased full name -> whatsapp, connectlinkusers id -> whatsapp).
 
     The HR portal is where staff WhatsApp numbers are actually maintained; the
     admin_users mirror is frequently blank, which left sign-off people showing
     'No WhatsApp number saved — they cannot be notified' even though HR holds the
     number. Resolved in Python from ONE query rather than an OR-join on the tables,
-    because a multi-condition join can match two employees and duplicate the row."""
+    because a multi-condition join can match two employees and duplicate the row.
+
+    The id map is keyed by `hr_employees.user_id`, NOT `hr_employees.id`: every caller
+    looks an account up with `admin_users.source_id`, and source_id is the
+    connectlinkusers id that `hr_employees.user_id` points at. Keying it by the
+    EMPLOYEE id therefore missed the number for every account where the two differ
+    (verified on live data: source_id = user_id matches ~33 accounts, source_id = id
+    only ~22) and silently fell through to the name lookup."""
     by_name, by_id = {}, {}
     try:
         cursor.execute("""
-            SELECT id,
+            SELECT COALESCE(user_id, 0),
                    TRIM(CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))),
                    NULLIF(TRIM(COALESCE(whatsapp, '')), '')
             FROM hr_employees
         """)
-        for hid, nm, wa in cursor.fetchall():
+        for uid, nm, wa in cursor.fetchall():
             if not wa:
                 continue
-            if hid:
-                by_id[hid] = wa
+            if uid:
+                by_id.setdefault(uid, wa)
             key = re.sub(r'\s+', ' ', str(nm or '').strip().lower())
             if key and key not in by_name:
                 by_name[key] = wa
     except Exception as e:
         print(f"HR WhatsApp map error: {e}")
     return by_name, by_id
+
+
+def _procurement_sender_account(cursor, sender_number):
+    """Identify the admin_users account behind an INBOUND WhatsApp number.
+
+    Returns (full_name, source_system, source_id, admin_user_id) or None.
+
+    WHY: `admin_users.whatsapp` is tried first — that is the number the webhook has
+    always matched a tap against. But the NOTIFY side falls back to the number held in
+    the HR portal whenever admin_users.whatsapp is blank (see
+    `_procurement_hr_whatsapp_map`), so a person can receive the authorisation request
+    on their HR number and then be told "you don't have permission" the moment they
+    tap it: nobody was identified, so the permission check ran against an EMPTY
+    permission set. That number is therefore resolvable here as well — the HR employee
+    is mapped back to their account by NAME first (that is how the outbound side pairs
+    them) and by source_id second.
+    """
+    digits = ''.join(ch for ch in str(sender_number or '') if ch.isdigit())[-9:]
+    if not digits:
+        return None
+    try:
+        cursor.execute("""
+            SELECT full_name, source_system, source_id, id FROM admin_users
+            WHERE REPLACE(COALESCE(whatsapp, ''), ' ', '') LIKE %s
+              AND COALESCE(is_active, TRUE)
+            ORDER BY id LIMIT 1
+        """, (f"%{digits}%",))
+        au = cursor.fetchone()
+        if au:
+            return au
+    except Exception as e:
+        print(f"Sender number lookup error: {e}")
+        return None
+    # Not in admin_users — the number may be the one the HR portal holds.
+    try:
+        cursor.execute("""
+            SELECT COALESCE(user_id, 0),
+                   TRIM(CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, ''))),
+                   COALESCE(whatsapp, '')
+            FROM hr_employees
+            WHERE COALESCE(whatsapp, '') <> ''
+        """)
+        employees = [(uid, re.sub(r'\s+', ' ', str(nm or '').strip()))
+                     for uid, nm, wa in cursor.fetchall()
+                     if ''.join(ch for ch in str(wa) if ch.isdigit())[-9:] == digits]
+        for emp_user_id, emp_name in employees:
+            if emp_name:
+                cursor.execute("""
+                    SELECT full_name, source_system, source_id, id FROM admin_users
+                    WHERE LOWER(TRIM(full_name)) = LOWER(%s) AND COALESCE(is_active, TRUE)
+                    ORDER BY id LIMIT 1
+                """, (emp_name,))
+                au = cursor.fetchone()
+                if au:
+                    return au
+            if emp_user_id:
+                cursor.execute("""
+                    SELECT full_name, source_system, source_id, id FROM admin_users
+                    WHERE source_id = %s AND COALESCE(is_active, TRUE)
+                    ORDER BY id LIMIT 1
+                """, (emp_user_id,))
+                au = cursor.fetchone()
+                if au:
+                    return au
+    except Exception as e:
+        print(f"HR sender lookup error: {e}")
+    return None
 
 
 def _procurement_user_whatsapp(userid):
@@ -46366,23 +46440,35 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
                 return True
             sender_name = 'Authoriser' if stage == 'authorisation' else 'Approver'
             perms = {}
+            sender_row = None
             try:
-                cursor.execute("""
-                    SELECT full_name, source_system, source_id, id FROM admin_users
-                    WHERE REPLACE(whatsapp, ' ', '') LIKE %s LIMIT 1
-                """, (f"%{sender_number}%",))
-                au = cursor.fetchone()
-                if au:
-                    sender_name = au[0] or sender_name
-                    perms = get_user_permissions(au[1] or 'projects', au[2] or sender_id)
-                    # ...plus the procurement flags WHEREVER they were granted (see
-                    # _procurement_flags_for).
-                    for _flag, _on in _procurement_flags_for(au[1], au[2], au[3],
-                                                             cursor).items():
-                        if _on:
-                            perms[_flag] = True
+                # admin_users.whatsapp FIRST, then the HR portal number — the notify side
+                # sends to the HR number when admin_users is blank, so that number has to
+                # be identifiable here too (see _procurement_sender_account).
+                sender_row = _procurement_sender_account(cursor, sender_number)
             except Exception as pe:
                 print(f"PO sender lookup error: {pe}")
+            if sender_row:
+                sender_name = sender_row[0] or sender_name
+                try:
+                    perms = get_user_permissions(sender_row[1] or 'projects',
+                                                 sender_row[2] or sender_row[3])
+                    # ...plus the procurement flags WHEREVER they were granted (see
+                    # _procurement_flags_for).
+                    for _flag, _on in _procurement_flags_for(sender_row[1], sender_row[2],
+                                                             sender_row[3], cursor).items():
+                        if _on:
+                            perms[_flag] = True
+                except Exception as pe:
+                    print(f"PO sender permission lookup error: {pe}")
+            else:
+                # Say what is actually wrong. "You don't have permission" is misleading
+                # when the real problem is that we cannot tell who is tapping.
+                _procurement_send_text(sender_id, (
+                    "I cannot match this WhatsApp number to a user account, so I cannot check "
+                    "your permissions. Ask an administrator to add this number to your user "
+                    "profile, or use Send / Decline inside the procurement portal."))
+                return True
             allowed = (_procurement_can_authorise(perms) if stage == 'authorisation'
                        else _procurement_can_approve(perms))
             if not allowed:
@@ -46508,22 +46594,39 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
             sender_name = 'Authoriser' if stage == 'authorisation' else 'Approver'
             sender_uid = None
             perms = {}
+            sender_row = None
             try:
-                cursor.execute("SELECT full_name, source_system, source_id, id FROM admin_users WHERE REPLACE(whatsapp, ' ', '') LIKE %s LIMIT 1", (f"%{sender_number}%",))
-                au = cursor.fetchone()
-                if au:
-                    sender_name = au[0] or sender_name
-                    sender_uid = au[3]
-                    perms = get_user_permissions(au[1] or 'projects', au[2] or sender_id)
+                # admin_users.whatsapp FIRST, then the HR portal number — the notify side
+                # sends to the HR number when admin_users is blank, so that number has to
+                # be identifiable here too (see _procurement_sender_account). Without it a
+                # person receives the request and is then refused, because nobody could be
+                # matched and the permission check ran against an empty permission set.
+                sender_row = _procurement_sender_account(cursor, sender_number)
+            except Exception as pe:
+                print(f"Sender lookup error: {pe}")
+            if sender_row:
+                sender_name = sender_row[0] or sender_name
+                sender_uid = sender_row[3]
+                try:
+                    perms = get_user_permissions(sender_row[1] or 'projects',
+                                                 sender_row[2] or sender_row[3])
                     # ...plus the procurement flags WHEREVER they were granted, so a tick
                     # in User Management counts even when this account's
                     # source_system / source_id point at a different row.
-                    for _flag, _on in _procurement_flags_for(au[1], au[2], au[3],
-                                                             cursor).items():
+                    for _flag, _on in _procurement_flags_for(sender_row[1], sender_row[2],
+                                                             sender_row[3], cursor).items():
                         if _on:
                             perms[_flag] = True
-            except Exception as pe:
-                print(f"Sender lookup error: {pe}")
+                except Exception as pe:
+                    print(f"Sender permission lookup error: {pe}")
+            else:
+                # Say what is actually wrong. "You don't have permission" is misleading
+                # when the real problem is that we cannot tell who is tapping.
+                _procurement_send_text(sender_id, (
+                    "I cannot match this WhatsApp number to a user account, so I cannot check "
+                    "your permissions. Ask an administrator to add this number to your user "
+                    "profile, or use Authorise / Decline inside the procurement portal."))
+                return True
             if stage == 'authorisation':
                 allowed = _procurement_can_authorise_req(perms)
                 verb = 'authorise' if action == 'approve' else 'decline'
