@@ -1255,6 +1255,25 @@ def initialize_database_tables():
                 )
             """, commit=True)
 
+            # Every stock movement now carries the DOCUMENT that caused it, so the
+            # Workshop stock ledger can show WHY a quantity moved:
+            #   stock_additions.reference  -> the PO number the goods were received on
+            #   stock_reductions.reference -> the requisition number the goods were
+            #                                 issued for (an "in stock" requisition
+            #                                 being AUTHORISED takes goods out of the store)
+            # NULL on rows written before this (and on POS sales) — the ledger prints
+            # '—' for those. The reference doubles as the idempotency key: a requisition
+            # is issued ONCE however many times authorisation is retried, so the ledger
+            # can never double-count a movement.
+            try:
+                execute_query("ALTER TABLE stock_additions ADD COLUMN IF NOT EXISTS reference VARCHAR(40)", commit=True)
+                execute_query("ALTER TABLE stock_reductions ADD COLUMN IF NOT EXISTS reference VARCHAR(40)", commit=True)
+                execute_query("CREATE INDEX IF NOT EXISTS idx_stock_additions_added_at ON stock_additions (added_at)", commit=True)
+                execute_query("CREATE INDEX IF NOT EXISTS idx_stock_reductions_reduced_at ON stock_reductions (reduced_at)", commit=True)
+                execute_query("CREATE INDEX IF NOT EXISTS idx_stock_reductions_reference ON stock_reductions (reference)", commit=True)
+            except Exception as e:
+                print(f"Note: Could not add stock movement reference columns: {e}")
+
             # Product removals audit table.
             # Records deleted / wiped items so the audit report can show them
             # even after the product row is soft-deleted or hard-wiped.
@@ -40436,6 +40455,112 @@ def procurement_api_submit_requisition(rid):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ============================================================================
+# WORKSHOP STORE — GOODS ISSUED WHEN AN "IN STOCK" REQUISITION IS AUTHORISED
+# ============================================================================
+
+def _procurement_issue_req_stock(cursor, rid, user_id=None, when=None):
+    """Take the goods of an "IN STOCK" requisition OUT of the store.
+
+    Called the moment a requisition is AUTHORISED (the in-app route and a WhatsApp
+    reqappr_ tap both come through here). A requisition whose availability is
+    'in_stock' describes goods that are ALREADY in the company and already bought, so
+    authorising it is what actually RELEASES those goods — that is the reduction side
+    of the Workshop stock ledger.
+
+    'partial' and 'not_in_stock' are NOT issued here: they buy their goods, so their
+    stock moves in when the purchase order is received. (Only the in-stock portion of
+    a 'partial' would logically leave the store, but nothing on the form records that
+    split yet, so guessing it would put invented numbers in the ledger.)
+
+    Writes one stock_reductions row per line item, tagged
+    reason='requisition_in_stock' with reference=<req_no>, and NEVER issues the same
+    requisition twice — the reference is the idempotency key, so a retried
+    authorisation (or the reconciliation pass over older requisitions) is safe.
+
+    A line that is not linked to a product master record, or whose product has no
+    stock left, cannot take anything out of the store. Those lines are REPORTED BACK
+    instead of being silently dropped or forced negative, as a list of
+    (product_name, wanted, available_or_None).
+
+    Returns (rows_written, shortages).
+    """
+    cursor.execute("""
+        SELECT req_no, department, COALESCE(stock_status, 'not_in_stock')
+        FROM requisitions WHERE id = %s
+    """, (rid,))
+    r = cursor.fetchone()
+    if not r:
+        return 0, []
+    req_no, department, stock_status = r[0], r[1], r[2]
+    if stock_status != 'in_stock':
+        return 0, []
+
+    cursor.execute("""
+        SELECT id FROM stock_reductions
+        WHERE reason = 'requisition_in_stock' AND reference = %s LIMIT 1
+    """, (req_no,))
+    if cursor.fetchone():
+        return 0, []                    # already issued — never move the same goods twice
+
+    cursor.execute("""
+        SELECT id, product_id, product_name, quantity
+        FROM requisition_items WHERE requisition_id = %s ORDER BY id
+    """, (rid,))
+    items = cursor.fetchall()
+    if not items:
+        return 0, []
+
+    written, shortages = 0, []
+    for it in items:
+        product_id = it[1]
+        product_name = (it[2] or 'item')
+        qty = int(it[3] or 0)
+        if qty <= 0:
+            continue
+        if not product_id:
+            # Free-text line with no stock record behind it — nothing to take out.
+            shortages.append((product_name, qty, None))
+            continue
+        cursor.execute("SELECT stock FROM products WHERE id = %s FOR UPDATE", (product_id,))
+        pr = cursor.fetchone()
+        if not pr:
+            shortages.append((product_name, qty, None))
+            continue
+        available = int(pr[0] or 0)
+        take = min(qty, max(available, 0))
+        if take <= 0:
+            shortages.append((product_name, qty, 0))
+            continue
+
+        cursor.execute("""
+            UPDATE products SET stock = stock - %s, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (take, product_id))
+
+        note = (f"Issued from the store on authorisation of {req_no}"
+                + (f" ({department})" if department else '')
+                + f" — {product_name}")
+        if take < qty:
+            note += f" [only {take} of {qty} were on hand]"
+            shortages.append((product_name, qty, available))
+
+        if when is None:
+            cursor.execute("""
+                INSERT INTO stock_reductions
+                    (product_id, quantity, reason, notes, user_id, reduced_at, reference)
+                VALUES (%s, %s, 'requisition_in_stock', %s, %s, CURRENT_TIMESTAMP, %s)
+            """, (product_id, take, note, user_id, req_no))
+        else:
+            cursor.execute("""
+                INSERT INTO stock_reductions
+                    (product_id, quantity, reason, notes, user_id, reduced_at, reference)
+                VALUES (%s, %s, 'requisition_in_stock', %s, %s, %s, %s)
+            """, (product_id, take, note, user_id, when, req_no))
+        written += 1
+    return written, shortages
+
+
 @app.route('/api/procurement/requisitions/<int:rid>/authorise', methods=['POST'])
 @login_required
 def procurement_api_authorise_requisition(rid):
@@ -40469,6 +40594,14 @@ goods that are NOT already in stock — and that PO goes STRAIGHT to the approve
                     authorised_at=CURRENT_TIMESTAMP, reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
                 WHERE id=%s
             """, (user['name'], rid))
+            # The workshop store releases the goods HERE: authorising an "in stock"
+            # requisition is what issues them. Best-effort — a stock hiccup must never
+            # block the authorisation itself.
+            issued, shortages = 0, []
+            try:
+                issued, shortages = _procurement_issue_req_stock(cursor, rid, user['id'])
+            except Exception as sie:
+                print(f"Requisition stock issue error: {sie}")
             connection.commit()
             log_activity('requisition_authorise',
                          f'Authorised requisition {row[1]} by {user["name"]}', 'requisition', rid)
@@ -40539,6 +40672,13 @@ def procurement_api_approve_requisition(rid):
                     reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
                 WHERE id=%s
             """, (user['name'], rid))
+            # A super admin may approve without the authorisation step, so the issue is
+            # attempted here too — it is idempotent, so a requisition that was already
+            # issued at authorisation is not touched twice.
+            try:
+                _procurement_issue_req_stock(cursor, rid, user['id'])
+            except Exception as sie:
+                print(f"Requisition stock issue error: {sie}")
             connection.commit()
             log_activity('requisition_approve', f'Approved requisition {row[1]}', 'requisition', rid)
             _procurement_notify_requester(rid, 'approved')  # best-effort WhatsApp, never blocks
@@ -41460,9 +41600,10 @@ def procurement_api_receive_po(po_id):
                     try:
                         cursor.execute("""
                             INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
-                                                         funding_source, user_id, added_at)
-                            VALUES (%s, %s, %s, %s, 'PO', %s, CURRENT_TIMESTAMP)
-                        """, (ln[1], add, float(ln[5] or 0), round(float(ln[5] or 0) * add, 2), user['id']))
+                                                         funding_source, user_id, added_at, reference)
+                            VALUES (%s, %s, %s, %s, 'PO', %s, CURRENT_TIMESTAMP, %s)
+                        """, (ln[1], add, float(ln[5] or 0), round(float(ln[5] or 0) * add, 2),
+                              user['id'], po[1]))
                     except Exception as sa:
                         print(f"Warning: stock_additions log failed on PO receive: {sa}")
                 cursor.execute("UPDATE grn_lines SET quantity_received = %s WHERE id = %s",
@@ -42522,6 +42663,12 @@ def _render_req_pdf(rid):
     }
     stock_head, stock_note, stock_color = stock_map.get(
         req.get('stock_status') or 'not_in_stock', stock_map['not_in_stock'])
+    # An "in stock — already bought (no purchase needed)" requisition buys NOTHING, so
+    # every money figure on this form is meaningless. Same rule the New Requisition form
+    # applies by hiding the Unit Cost / Total / Quotes columns — tracked ONCE here and
+    # used for the summary box, the items table, the grand total, the quotes annexe and
+    # the footer, so the printed form and the screen agree.
+    in_stock = (req.get('stock_status') or 'not_in_stock') == 'in_stock'
 
     fs = req.get('funds_status')
     funds_map = {
@@ -42560,7 +42707,8 @@ def _render_req_pdf(rid):
     story.append(_proc_pdf_summary(
         status_label, status_color, 'Requested by',
         _proc_esc(req.get('requested_by')) or '—',
-        'Total (USD)', _proc_money(total), S, C))
+        'Purchase' if in_stock else 'Total (USD)',
+        'Not required (in stock)' if in_stock else _proc_money(total), S, C))
     story.append(Spacer(1, 4 * mm))
 
     projects = [p for p in (req.get('project_ref') or '').split(' | ') if p.strip()]
@@ -42602,30 +42750,51 @@ def _render_req_pdf(rid):
         story.append(ban)
     story.append(Spacer(1, 4.5 * mm))
 
-    widths = [9, 50, 25, 33, 13, 26, 26]
-    rows = []
-    for i, it in enumerate(items, 1):
-        rows.append([
-            Paragraph(str(i), S['cellc']),
-            Paragraph(_proc_esc(it['name']) or '—', S['name']),
-            Paragraph(_proc_esc(it['category']) or '—', S['small']),
-            Paragraph(_proc_esc(it['project_ref']) or '—', S['small']),
-            Paragraph(str(int(it['quantity'] or 0)), S['cellc']),
-            Paragraph(_proc_money(it['unit_cost']), S['cellr']),
-            Paragraph(_proc_money(it['total_cost']), S['cellr']),
-        ])
-    if not rows:
-        rows.append([Paragraph('—', S['cellc']),
-                     Paragraph('No items recorded', S['base'])] +
-                    [Paragraph('', S['base'])] * 5)
-    story.append(_proc_pdf_table(
-        ['#', 'Item', 'Category', 'Project', 'Qty', 'Unit Cost (USD)', 'Amount (USD)'],
-        rows, widths, S, C))
-    story.append(_proc_pdf_grand_total('GRAND TOTAL (USD)', _proc_money(total), widths, S, C))
+    if in_stock:
+        # No cost / amount columns and no grand total — nothing is being bought.
+        # Widths must still sum to _PROC_PAGE_W (182mm).
+        widths = [9, 58, 33, 62, 20]
+        rows = []
+        for i, it in enumerate(items, 1):
+            rows.append([
+                Paragraph(str(i), S['cellc']),
+                Paragraph(_proc_esc(it['name']) or '—', S['name']),
+                Paragraph(_proc_esc(it['category']) or '—', S['small']),
+                Paragraph(_proc_esc(it['project_ref']) or '—', S['small']),
+                Paragraph(str(int(it['quantity'] or 0)), S['cellc']),
+            ])
+        if not rows:
+            rows.append([Paragraph('—', S['cellc']),
+                         Paragraph('No items recorded', S['base'])] +
+                        [Paragraph('', S['base'])] * 3)
+        story.append(_proc_pdf_table(
+            ['#', 'Item', 'Category', 'Project', 'Qty'], rows, widths, S, C))
+    else:
+        widths = [9, 50, 25, 33, 13, 26, 26]
+        rows = []
+        for i, it in enumerate(items, 1):
+            rows.append([
+                Paragraph(str(i), S['cellc']),
+                Paragraph(_proc_esc(it['name']) or '—', S['name']),
+                Paragraph(_proc_esc(it['category']) or '—', S['small']),
+                Paragraph(_proc_esc(it['project_ref']) or '—', S['small']),
+                Paragraph(str(int(it['quantity'] or 0)), S['cellc']),
+                Paragraph(_proc_money(it['unit_cost']), S['cellr']),
+                Paragraph(_proc_money(it['total_cost']), S['cellr']),
+            ])
+        if not rows:
+            rows.append([Paragraph('—', S['cellc']),
+                         Paragraph('No items recorded', S['base'])] +
+                        [Paragraph('', S['base'])] * 5)
+        story.append(_proc_pdf_table(
+            ['#', 'Item', 'Category', 'Project', 'Qty', 'Unit Cost (USD)', 'Amount (USD)'],
+            rows, widths, S, C))
+        story.append(_proc_pdf_grand_total('GRAND TOTAL (USD)', _proc_money(total), widths, S, C))
 
     justification = {'cheaper': 'Cheaper', 'closer': 'Closer',
                      'earlier_delivery': 'Earlier delivery', 'other': 'Other'}
-    if any(it['quotes'] for it in items):
+    # No supplier quotes belong to goods that were never bought.
+    if not in_stock and any(it['quotes'] for it in items):
         story.append(Spacer(1, 4 * mm))
         qrows = []
         for i, it in enumerate(items, 1):
@@ -42655,7 +42824,9 @@ def _render_req_pdf(rid):
     story.append(Spacer(1, 7 * mm))
     story.append(_proc_pdf_footer([
         f'This purchase requisition was generated by {company.get("name") or "ConnectLink"}.',
-        f'{_proc_esc(req_no)}  |  {len(items)} item(s)  |  Total USD {_proc_money(total)}',
+        (f'{_proc_esc(req_no)}  |  {len(items)} item(s)  |  No purchase required (in stock)'
+         if in_stock else
+         f'{_proc_esc(req_no)}  |  {len(items)} item(s)  |  Total USD {_proc_money(total)}'),
         f'Generated on {_proc_short_date(datetime.now())} at {datetime.now().strftime("%H:%M")}',
     ], S, C))
 
@@ -43149,6 +43320,576 @@ def procurement_api_export():
 
 
 # ============================================================================
+# WORKSHOP — STOCK LEDGER
+# Opening stock + additions (goods RECEIVED on a purchase order) - reductions
+# (goods ISSUED when an "in stock" requisition was authorised) = closing stock.
+#
+# The ledger is built from the two movement tables, not from a stored balance:
+#   stock_additions  -> what came in  (reference = the PO number)
+#   stock_reductions -> what went out (reference = the requisition number)
+# Opening is derived by running TODAY's real stock backwards over the movements,
+# so closing stock ALWAYS equals what the store actually holds — which is what
+# "a view of what is in stock at any point in time" has to mean. Any change to a
+# product's stock that was never logged as a movement therefore lands in opening
+# stock (the honest place for it) and the report still balances.
+# ============================================================================
+
+_WS_ADD_LABELS = {
+    'PO': 'PO receipt',
+    'injection': 'Capital injection',
+    'cash': 'Cash purchase',
+    'VOID': 'Sale voided',
+}
+_WS_RED_LABELS = {
+    'item_sale': 'Sale (POS)',
+    'requisition_in_stock': 'Requisition issued',
+    'damage': 'Damage / write-off',
+    'loss': 'Loss',
+    'expired': 'Expired',
+    'transfer': 'Transfer out',
+}
+
+
+def _workshop_movement_label(kind, code):
+    """Human wording for a movement's source code, so the ledger never shows a
+    bare database value like 'item_sale' or 'injection'."""
+    code = code or ''
+    table = _WS_ADD_LABELS if kind == 'in' else _WS_RED_LABELS
+    return table.get(code) or code.replace('_', ' ').strip().title() or '—'
+
+
+def _workshop_period(period, ref=None, start=None, end=None):
+    """Resolve the reporting window -> (start_dt, end_dt, label).
+
+    Daily / weekly / monthly / quarterly / yearly windows are all anchored on a
+    reference date (default today); 'custom' takes an explicit start and end."""
+    def _parse(s):
+        s = str(s or '').strip()[:10]
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+            try:
+                return datetime.strptime(s, fmt)
+            except Exception:
+                continue
+        return None
+
+    period = (period or 'month').strip().lower()
+    ref_dt = _parse(ref) or datetime.now()
+    ref_dt = ref_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if period in ('custom', 'range'):
+        s = _parse(start) or ref_dt
+        e = _parse(end) or s
+        if e < s:
+            s, e = e, s
+        s = s.replace(hour=0, minute=0, second=0, microsecond=0)
+        e = e.replace(hour=23, minute=59, second=59, microsecond=0)
+        return s, e, f'{s.strftime("%d %b %Y")} to {e.strftime("%d %b %Y")}'
+
+    if period in ('day', 'daily', 'today'):
+        s = ref_dt
+        e = ref_dt.replace(hour=23, minute=59, second=59)
+        label = s.strftime('%d %b %Y')
+    elif period in ('week', 'weekly'):
+        s = (ref_dt - timedelta(days=ref_dt.weekday())).replace(hour=0, minute=0, second=0)
+        e = s + timedelta(days=6, hours=23, minutes=59, seconds=59)
+        label = f'Week {s.strftime("%d %b")} to {e.strftime("%d %b %Y")}'
+    elif period in ('quarter', 'quarterly'):
+        q_month = ((ref_dt.month - 1) // 3) * 3 + 1
+        s = ref_dt.replace(month=q_month, day=1, hour=0, minute=0, second=0)
+        e = ((s + timedelta(days=92)).replace(day=1, hour=0, minute=0, second=0)
+             - timedelta(seconds=1))
+        label = f'Q{((q_month - 1) // 3) + 1} {s.year}'
+    elif period in ('year', 'yearly', 'annual'):
+        s = ref_dt.replace(month=1, day=1, hour=0, minute=0, second=0)
+        e = ref_dt.replace(month=12, day=31, hour=23, minute=59, second=59)
+        label = str(s.year)
+    else:   # month (default)
+        s = ref_dt.replace(day=1, hour=0, minute=0, second=0)
+        e = ((s + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0)
+             - timedelta(seconds=1))
+        label = s.strftime('%B %Y')
+    return s, e, label
+
+
+def _procurement_reconcile_in_stock_issues():
+    """Issue every "in stock" requisition that was AUTHORISED before this feature
+    existed, so the ledger is not blind to history.
+
+    A requisition is only ever issued ONCE (the req_no is the idempotency key on
+    stock_reductions), and the issue is dated with the requisition's OWN
+    authorised_at, so the movements land in the right reporting period. Safe to run
+    on every report — it does nothing once everything is reconciled.
+
+    Returns (requisitions_processed, rows_written, shortages)."""
+    out = {'requisitions': 0, 'rows': 0, 'shortages': []}
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT r.id, r.req_no, r.authorised_at
+                FROM requisitions r
+                WHERE COALESCE(r.stock_status, '') = 'in_stock'
+                  AND r.authorised_at IS NOT NULL
+                  AND NOT EXISTS (
+                        SELECT 1 FROM stock_reductions sr
+                        WHERE sr.reason = 'requisition_in_stock'
+                          AND sr.reference = r.req_no)
+                ORDER BY r.authorised_at, r.id
+            """)
+            pending = cursor.fetchall()
+            for rid, req_no, when in pending:
+                try:
+                    written, shortages = _procurement_issue_req_stock(cursor, rid, None, when=when)
+                except Exception as ie:
+                    print(f"Reconcile issue error on {req_no}: {ie}")
+                    continue
+                if written:
+                    out['requisitions'] += 1
+                    out['rows'] += written
+                for nm, wanted, avail in shortages:
+                    out['shortages'].append({'req_no': req_no, 'item': nm,
+                                             'wanted': wanted, 'available': avail})
+            connection.commit()
+    except Exception as e:
+        print(f"Reconcile in-stock issues error: {e}")
+    return out
+
+
+def _workshop_ledger(start_dt, end_dt):
+    """Build the stock ledger for the window (start_dt, end_dt].
+
+    Returns a dict with the current stock snapshot, the per-item ledger rows, the
+    individual movements in the window, and the column totals."""
+    with get_db() as (cursor, connection):
+        cursor.execute("""
+            SELECT id, name, category, unit_type, COALESCE(stock, 0),
+                   COALESCE(min_stock_level, 0), COALESCE(is_active, TRUE)
+            FROM products ORDER BY name
+        """)
+        prods = cursor.fetchall() or []
+
+        # Per-product movement totals: everything AFTER the window start, and the
+        # slice that falls INSIDE the window. 'after start' lets us walk today's
+        # real stock backwards to the opening figure.
+        def _movement_map(table, ts_col):
+            cursor.execute(f"""
+                SELECT product_id,
+                       COALESCE(SUM(quantity) FILTER (WHERE {ts_col} > %s), 0),
+                       COALESCE(SUM(quantity) FILTER (WHERE {ts_col} > %s AND {ts_col} <= %s), 0)
+                FROM {table}
+                WHERE product_id IS NOT NULL
+                GROUP BY product_id
+            """, (start_dt, start_dt, end_dt))
+            return {r[0]: (int(r[1] or 0), int(r[2] or 0)) for r in (cursor.fetchall() or [])}
+
+        add_map = _movement_map('stock_additions', 'added_at')
+        red_map = _movement_map('stock_reductions', 'reduced_at')
+
+        cursor.execute("""
+            SELECT sa.added_at, sa.reference, COALESCE(p.name, '(removed item)'),
+                   p.category, sa.quantity, sa.funding_source,
+                   COALESCE(u.full_name, 'System'), COALESCE(sa.total_cost, 0)
+            FROM stock_additions sa
+            LEFT JOIN products p ON p.id = sa.product_id
+            LEFT JOIN admin_users u ON u.id = sa.user_id
+            WHERE sa.added_at > %s AND sa.added_at <= %s
+            ORDER BY sa.added_at, sa.id
+        """, (start_dt, end_dt))
+        add_rows = cursor.fetchall() or []
+
+        cursor.execute("""
+            SELECT sr.reduced_at, sr.reference, COALESCE(p.name, '(removed item)'),
+                   p.category, sr.quantity, sr.reason,
+                   COALESCE(u.full_name, 'System')
+            FROM stock_reductions sr
+            LEFT JOIN products p ON p.id = sr.product_id
+            LEFT JOIN admin_users u ON u.id = sr.user_id
+            WHERE sr.reduced_at > %s AND sr.reduced_at <= %s
+            ORDER BY sr.reduced_at, sr.id
+        """, (start_dt, end_dt))
+        red_rows = cursor.fetchall() or []
+
+    # ---- current stock snapshot -------------------------------------------
+    stock = []
+    for p in prods:
+        qty = int(p[4] or 0)
+        minv = int(p[5] or 0)
+        stock.append({
+            'id': p[0], 'name': p[1] or '', 'category': p[2] or '',
+            'unit': p[3] or 'piece', 'stock': qty, 'min_level': minv,
+            'low': bool(minv and qty <= minv),
+            'active': bool(p[6]),
+        })
+
+    # ---- per-item ledger ---------------------------------------------------
+    ledger = []
+    for p in prods:
+        pid = p[0]
+        now_stock = int(p[4] or 0)
+        add_after, add_in = add_map.get(pid, (0, 0))
+        red_after, red_in = red_map.get(pid, (0, 0))
+        opening = now_stock - add_after + red_after      # closing at period start
+        closing = opening + add_in - red_in              # ties to now_stock exactly
+        if opening == 0 and add_in == 0 and red_in == 0 and closing == 0:
+            continue                                     # no stock, no movement
+        ledger.append({
+            'id': pid, 'name': p[1] or '', 'category': p[2] or '',
+            'unit': p[3] or 'piece',
+            'opening': opening, 'received': add_in, 'issued': red_in, 'closing': closing,
+        })
+
+    # ---- individual movements ---------------------------------------------
+    movements = []
+    for r in add_rows:
+        movements.append({
+            'date': r[0], 'reference': r[1] or '—', 'item': r[2] or '',
+            'category': r[3] or '', 'type': 'in',
+            'label': _workshop_movement_label('in', r[5]),
+            'qty_in': int(r[4] or 0), 'qty_out': 0,
+            'by': r[6] or 'System', 'value': float(r[7] or 0),
+        })
+    for r in red_rows:
+        movements.append({
+            'date': r[0], 'reference': r[1] or '—', 'item': r[2] or '',
+            'category': r[3] or '', 'type': 'out',
+            'label': _workshop_movement_label('out', r[5]),
+            'qty_in': 0, 'qty_out': int(r[4] or 0),
+            'by': r[6] or 'System', 'value': 0.0,
+        })
+    movements.sort(key=lambda m: (m['date'], 0 if m['type'] == 'in' else 1))
+
+    totals = {
+        'items': len(ledger),
+        'opening': sum(x['opening'] for x in ledger),
+        'received': sum(x['received'] for x in ledger),
+        'issued': sum(x['issued'] for x in ledger),
+        'closing': sum(x['closing'] for x in ledger),
+        'on_hand_items': sum(1 for s in stock if s['stock'] > 0),
+        'low_stock': sum(1 for s in stock if s['low']),
+        'movements': len(movements),
+    }
+    return {'stock': stock, 'ledger': ledger, 'movements': movements, 'totals': totals}
+
+
+def _workshop_request_window():
+    """Read the reporting window from the query string: period + date (or an
+    explicit start/end for a custom range)."""
+    return _workshop_period(request.args.get('period'),
+                            request.args.get('date'),
+                            request.args.get('start'),
+                            request.args.get('end'))
+
+
+def _workshop_user_name():
+    try:
+        u = _procurement_user()
+        return (u or {}).get('name') or 'System'
+    except Exception:
+        return 'System'
+
+
+@app.route('/api/procurement/workshop/stock', methods=['GET'])
+@login_required
+def procurement_api_workshop_stock():
+    """What is in the store right now, plus the opening / in / out / closing
+    ledger for the selected window (daily, weekly, monthly, quarterly, yearly or a
+    custom range)."""
+    try:
+        start_dt, end_dt, label = _workshop_request_window()
+        reconciled = _procurement_reconcile_in_stock_issues()
+        data = _workshop_ledger(start_dt, end_dt)
+        return jsonify({
+            'success': True,
+            'period': {'label': label,
+                       'start': start_dt.strftime('%Y-%m-%d'),
+                       'end': end_dt.strftime('%Y-%m-%d'),
+                       'key': (request.args.get('period') or 'month')},
+            'totals': data['totals'],
+            'stock': data['stock'],
+            'ledger': data['ledger'],
+            'movements': [{**m, 'date': m['date'].strftime('%Y-%m-%d %H:%M') if m['date'] else ''}
+                          for m in data['movements']],
+            'reconciled': reconciled,
+        })
+    except Exception as e:
+        print(f"Workshop stock error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---- Workshop stock report: PDF ----
+
+def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
+    """Render the Workshop stock ledger PDF -> pdf_bytes (or None if reportlab is
+    missing). Same house style as the requisition / PO documents."""
+    S, C = _proc_pdf_kit()
+    if S is None:
+        return None
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    data = _workshop_ledger(start_dt, end_dt)
+    t = data['totals']
+    company, logo_b64 = _cl_company_branding()
+
+    def n(v):
+        return f'{int(v or 0):,}'
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
+        topMargin=14 * mm, bottomMargin=13 * mm,
+        title=f'Workshop Stock Report — {period_label}',
+        author=company.get('name') or 'ConnectLink')
+
+    story = []
+    story.append(_proc_pdf_header(
+        company, logo_b64, 'WORKSHOP STOCK', _proc_esc(period_label),
+        [('Period From', _proc_short_date(start_dt)),
+         ('Period To', _proc_short_date(end_dt)),
+         ('Items', str(t['items'])),
+         ('Prepared By', _proc_esc(prepared_by) or '—')], S, C))
+    story.append(_proc_pdf_company_line(company, S, C))
+    story.append(Spacer(1, 4 * mm))
+
+    story.append(_proc_pdf_summary(
+        'ON HAND', C['navy'], 'Reporting period', _proc_esc(period_label),
+        'Closing stock (units)', n(t['closing']), S, C))
+    story.append(Spacer(1, 4 * mm))
+
+    report_rows = [
+        ('Period', f'{_proc_short_date(start_dt)} to {_proc_short_date(end_dt)}'),
+        ('Items in ledger', str(t['items'])),
+        ('Items with stock', str(t['on_hand_items'])),
+        ('Below minimum', str(t['low_stock'])),
+    ]
+    move_rows = [
+        ('Opening stock', n(t['opening'])),
+        ('Received (in)', f"+{n(t['received'])}"),
+        ('Issued (out)', f"-{n(t['issued'])}"),
+        ('Closing stock', n(t['closing'])),
+        ('Movements', str(t['movements'])),
+    ]
+    story.append(_proc_pdf_two_boxes(
+        _proc_pdf_kv_box('Report Details', report_rows, S, C, width_mm=89),
+        _proc_pdf_kv_box('Movement Summary', move_rows, S, C, width_mm=89)))
+    story.append(Spacer(1, 6 * mm))
+
+    # ---- ledger summary table ----
+    widths = [8, 58, 30, 16, 18, 18, 16, 18]          # = 182mm, one full page width
+    rows = []
+    for i, x in enumerate(data['ledger'], 1):
+        rows.append([
+            Paragraph(str(i), S['cellc']),
+            Paragraph(_proc_esc(x['name']) or '—', S['name']),
+            Paragraph(_proc_esc(x['category']) or '—', S['small']),
+            Paragraph(_proc_esc(x['unit']) or '—', S['cellc']),
+            Paragraph(n(x['opening']), S['cellr']),
+            Paragraph(n(x['received']), S['cellr']),
+            Paragraph(n(x['issued']), S['cellr']),
+            Paragraph(f"<b>{n(x['closing'])}</b>", S['cellr']),
+        ])
+    if not rows:
+        rows.append([Paragraph('—', S['cellc']),
+                     Paragraph('No stock recorded for this period', S['base'])] +
+                    [Paragraph('', S['base'])] * 6)
+    story.append(_proc_pdf_table(
+        ['#', 'Item', 'Category', 'Unit', 'Opening', 'Received', 'Issued', 'Closing'],
+        rows, widths, S, C))
+    # Totals row. The house grand-total helper is built for the 6-column money tables,
+    # so on these 8 columns it drops its label into the 16mm 'Unit' cell and wraps it
+    # vertically ('CLOSI / NG / STOCK'). Built here instead, with the label spanning the
+    # four text columns and the four figures lining up under their own headings.
+    tot = [Paragraph('TOTAL — ALL ITEMS', S['bold']) if i == 0 else
+           Paragraph(f"<b>{n(v)}</b>", S['cellrb']) if i >= 4 else
+           Paragraph('', S['base'])
+           for i, v in enumerate([None, None, None, None,
+                                  t['opening'], t['received'], t['issued'], t['closing']])]
+    tot_table = Table([tot], colWidths=[w * mm for w in widths])
+    tot_table.setStyle(TableStyle([
+        ('SPAN', (0, 0), (3, 0)),
+        ('BACKGROUND', (0, 0), (-1, -1), C['headbg']),
+        ('LINEABOVE', (0, 0), (-1, -1), 1.0, C['border']),
+        ('GRID', (0, 0), (-1, -1), 0.5, C['soft']),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(tot_table)
+    story.append(Spacer(1, 7 * mm))
+
+    # ---- movement detail table ----
+    story.append(Paragraph('STOCK MOVEMENTS IN THIS PERIOD', S['label']))
+    story.append(Spacer(1, 2 * mm))
+    m_widths = [22, 26, 58, 44, 16, 16]                # = 182mm
+    m_rows = []
+    for m in data['movements']:
+        m_rows.append([
+            Paragraph(_proc_short_date(m['date']), S['small']),
+            Paragraph(_proc_esc(m['reference']), S['small']),
+            Paragraph(_proc_esc(m['item']) or '—', S['base']),
+            Paragraph(_proc_esc(m['label']), S['small']),
+            Paragraph(n(m['qty_in']) if m['qty_in'] else '', S['cellr']),
+            Paragraph(n(m['qty_out']) if m['qty_out'] else '', S['cellr']),
+        ])
+    if not m_rows:
+        m_rows.append([Paragraph('—', S['cellc']),
+                       Paragraph('No stock moved in this period', S['base'])] +
+                      [Paragraph('', S['base'])] * 4)
+    story.append(_proc_pdf_table(['Date', 'Document', 'Item', 'Movement', 'In', 'Out'],
+                                 m_rows, m_widths, S, C))
+    story.append(Spacer(1, 14 * mm))
+    story.append(_proc_pdf_signatures([
+        ('Prepared by', prepared_by),
+        ('Store keeper', None),
+        ('Approved by', None),
+    ], S, C))
+    story.append(Spacer(1, 7 * mm))
+    story.append(_proc_pdf_footer([
+        f'This workshop stock report was generated by {company.get("name") or "ConnectLink"}.',
+        f'Period: {_proc_esc(period_label)}  |  Closing stock: {n(t["closing"])} units',
+        f'Generated on {_proc_short_date(datetime.now())} at {datetime.now().strftime("%H:%M")}',
+    ], S, C))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+@app.route('/api/procurement/workshop/report.pdf', methods=['GET'])
+@login_required
+def procurement_api_workshop_pdf():
+    """Download the workshop stock ledger as a PDF."""
+    if not _proc_pdf_available():
+        return _proc_pdf_missing_response()
+    start_dt, end_dt, label = _workshop_request_window()
+    _procurement_reconcile_in_stock_issues()
+    pdf_bytes = _render_workshop_pdf(start_dt, end_dt, label, _workshop_user_name())
+    if pdf_bytes is None:
+        return _proc_pdf_missing_response()
+    fname = f'workshop_stock_{start_dt.strftime("%Y%m%d")}_{end_dt.strftime("%Y%m%d")}.pdf'
+    return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf',
+                     as_attachment=True, download_name=fname)
+
+
+# ---- Workshop stock report: Excel ----
+
+def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
+    """Build the workbook -> bytes. Sheet 1 = the ledger, sheet 2 = every movement."""
+    from openpyxl.styles import Alignment
+    from openpyxl.utils import get_column_letter
+
+    data = _workshop_ledger(start_dt, end_dt)
+    t = data['totals']
+
+    hfill = PatternFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+    sfill = PatternFill(start_color='EEF1F6', end_color='EEF1F6', fill_type='solid')
+    hfont = Font(bold=True, color='FFFFFF', size=10)
+    tfont = Font(bold=True, color='1E2A56', size=14)
+    bfont = Font(bold=True, color='1E2A56')
+    mfont = Font(color='666666', size=9)
+
+    def n(v):
+        return int(v or 0)
+
+    wb = Workbook()
+
+    # -------- sheet 1: the ledger --------
+    ws = wb.active
+    ws.title = 'Stock Ledger'
+    r = 1
+    ws.cell(row=r, column=1, value='WORKSHOP STOCK LEDGER').font = tfont
+    r += 1
+    ws.cell(row=r, column=1, value=f'Period: {period_label}').font = Font(bold=True, size=10)
+    r += 1
+    ws.cell(row=r, column=1,
+            value=f'Generated: {datetime.now().strftime("%d %b %Y %H:%M")}   |   '
+                  f'By: {generated_by or "—"}').font = mfont
+    r += 2
+
+    cols = ['Item', 'Category', 'Unit', 'Opening', 'Received (In)', 'Issued (Out)', 'Closing']
+    for c, name in enumerate(cols, 1):
+        cell = ws.cell(row=r, column=c, value=name)
+        cell.font = hfont
+        cell.fill = hfill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    r += 1
+    for x in data['ledger']:
+        ws.cell(row=r, column=1, value=x['name'])
+        ws.cell(row=r, column=2, value=x['category'])
+        ws.cell(row=r, column=3, value=x['unit'])
+        ws.cell(row=r, column=4, value=n(x['opening']))
+        ws.cell(row=r, column=5, value=n(x['received']))
+        ws.cell(row=r, column=6, value=n(x['issued']))
+        ws.cell(row=r, column=7, value=n(x['closing'])).font = bfont
+        r += 1
+    for c, val in enumerate(['TOTAL (all items)', '', '',
+                             n(t['opening']), n(t['received']), n(t['issued']), n(t['closing'])], 1):
+        cell = ws.cell(row=r, column=c, value=val)
+        cell.font = bfont
+        cell.fill = sfill
+    r += 2
+    ws.cell(row=r, column=1, value='Opening + Received - Issued = Closing').font = mfont
+    for col, width in zip('ABCDEFG', (46, 24, 12, 12, 15, 14, 12)):
+        ws.column_dimensions[col].width = width
+    ws.freeze_panes = 'A6'
+
+    # -------- sheet 2: every movement --------
+    ws2 = wb.create_sheet('Movements')
+    r = 1
+    ws2.cell(row=r, column=1, value='WORKSHOP STOCK MOVEMENTS').font = tfont
+    r += 1
+    ws2.cell(row=r, column=1, value=f'Period: {period_label}').font = Font(bold=True, size=10)
+    r += 2
+    mcols = ['Date', 'Document', 'Item', 'Category', 'Movement', 'In', 'Out', 'Recorded By']
+    for c, name in enumerate(mcols, 1):
+        cell = ws2.cell(row=r, column=c, value=name)
+        cell.font = hfont
+        cell.fill = hfill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    r += 1
+    for m in data['movements']:
+        ws2.cell(row=r, column=1, value=m['date'].strftime('%Y-%m-%d %H:%M') if m['date'] else '')
+        ws2.cell(row=r, column=2, value=m['reference'])
+        ws2.cell(row=r, column=3, value=m['item'])
+        ws2.cell(row=r, column=4, value=m['category'])
+        ws2.cell(row=r, column=5, value=m['label'])
+        ws2.cell(row=r, column=6, value=n(m['qty_in']) or None)
+        ws2.cell(row=r, column=7, value=n(m['qty_out']) or None)
+        ws2.cell(row=r, column=8, value=m['by'])
+        r += 1
+    for c, val in enumerate(['TOTAL', '', '', '', '', n(t['received']), n(t['issued']), ''], 1):
+        cell = ws2.cell(row=r, column=c, value=val)
+        cell.font = bfont
+        cell.fill = sfill
+    for col, width in zip('ABCDEFGH', (18, 16, 42, 22, 24, 10, 10, 22)):
+        ws2.column_dimensions[col].width = width
+    ws2.freeze_panes = 'A5'
+
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    return bio.getvalue()
+
+
+@app.route('/api/procurement/workshop/report.xlsx', methods=['GET'])
+@login_required
+def procurement_api_workshop_excel():
+    """Download the workshop stock ledger as an Excel workbook."""
+    try:
+        start_dt, end_dt, label = _workshop_request_window()
+        _procurement_reconcile_in_stock_issues()
+        blob = _workshop_excel_bytes(start_dt, end_dt, label, _workshop_user_name())
+        fname = f'workshop_stock_{start_dt.strftime("%Y%m%d")}_{end_dt.strftime("%Y%m%d")}.xlsx'
+        return send_file(io.BytesIO(blob), as_attachment=True, download_name=fname,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        print(f"Workshop excel error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
 # PROCUREMENT WHATSAPP NOTIFICATIONS (additive — never blocks the in-app flow)
 # Uses Meta-approved templates to bypass the 24-hour customer-service window.
 # Templates to create in Meta Business Manager (Utility category, en):
@@ -43259,6 +44000,17 @@ def _wa_tpl_name(env_key, default):
 # authorisation notice (the user's name for the authorisation stage), so it must send
 # the same 12 body variables in the same order — see the template block above.
 PROC_REQ_APPROVAL_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_AUTHORISE', 'purchase_order_approval_request')
+# A DIFFERENT authorisation template for requisitions whose goods are ALREADY IN STOCK.
+# Those buy nothing, so the normal body's "totalling around *USD {{6}}*" would read
+# "USD 0" and its Stock line is redundant — this one drops both and says so plainly.
+# It therefore has 10 body variables instead of 12 (the 12 minus {{6}} total and {{8}}
+# stock), in the SAME relative order:
+#   {{1}} authoriser name {{2}} department {{3}} requisition no {{4}} requested by
+#   {{5}} requester phone {{6}} required-before date {{7}} item count
+#   {{8}} item summary WITH each item's project {{9}} logged by {{10}} logged date
+# Chosen at send time by _procurement_notify_req_authorisers() from the requisition's
+# own stock_status. Button payloads are still overridden per send to reqappr_/reqdecl_.
+PROC_REQ_INSTOCK_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_INSTOCK', 'requisition_instock_authorisation')
 PROC_REQ_STATUS_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_STATUS', 'requisition_status_update')
 # INFO-ONLY notice to the approver when a requisition has been AUTHORISED and the
 # logger ticked "notify the approver" on the requisition form (6 vars, NO buttons).
@@ -43684,6 +44436,7 @@ def _procurement_req_details(req_id):
             'created_at': r[5],
             'total': float(r[6] or 0),
             'stock_label': _req_stock_label(r[7]),
+            'stock_status': r[7] or 'not_in_stock',
             'projects': _req_projects_line(r[8]),
             'item_count': count,
             'item_summary': ('; '.join(parts) if parts else '—'),
@@ -43749,20 +44502,37 @@ def _procurement_notify_req_authorisers(req_id, target_user_id=None):
 
         for au in targets:
             try:
+                # An IN-STOCK requisition buys nothing, so it uses the 10-variable
+                # template (no "totalling around USD {{6}}", no Stock line) — see
+                # PROC_REQ_INSTOCK_TEMPLATE. Everything else uses the 12-variable one.
+                if (d.get('stock_status') or '') == 'in_stock':
+                    tpl = PROC_REQ_INSTOCK_TEMPLATE
+                    params = [au['name'],
+                              d['department'] or '—',
+                              d['req_no'],
+                              d['requested_by'] or '—',
+                              d['requested_by_phone'] or '',
+                              fmt_date(d['required_by']),
+                              d['item_count'],
+                              d['item_summary'],
+                              d['requested_by'] or '—',
+                              fmt_date(d['created_at'])]
+                else:
+                    tpl = PROC_REQ_APPROVAL_TEMPLATE
+                    params = [au['name'],
+                              d['department'] or '—',
+                              d['req_no'],
+                              d['requested_by'] or '—',
+                              d['requested_by_phone'] or '',
+                              fmt_amount(d['total']),
+                              fmt_date(d['required_by']),
+                              d['stock_label'],           # sits beside the required-before line in the body
+                              d['item_count'],
+                              d['item_summary'],
+                              d['requested_by'] or '—',   # no created_by column: the logger IS the requester
+                              fmt_date(d['created_at'])]
                 ok, txt = _procurement_send_template(
-                    au['whatsapp'], PROC_REQ_APPROVAL_TEMPLATE,
-                    [au['name'],
-                     d['department'] or '—',
-                     d['req_no'],
-                     d['requested_by'] or '—',
-                     d['requested_by_phone'] or '',
-                     fmt_amount(d['total']),
-                     fmt_date(d['required_by']),
-                     d['stock_label'],           # sits beside the required-before line in the body
-                     d['item_count'],
-                     d['item_summary'],
-                     d['requested_by'] or '—',   # no created_by column: the logger IS the requester
-                     fmt_date(d['created_at'])],
+                    au['whatsapp'], tpl, params,
                     button_payloads=[f"reqappr_{req_id}", f"reqdecl_{req_id}"])
                 _procurement_log_send(f"Requisition authorisation request -> {au['name']}", ok, txt)
             except Exception as e:
@@ -44393,12 +45163,14 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
 
             # Identify sender + check they may act on THIS layer
             sender_name = 'Authoriser' if stage == 'authorisation' else 'Approver'
+            sender_uid = None
             perms = {}
             try:
-                cursor.execute("SELECT full_name, source_system, source_id FROM admin_users WHERE REPLACE(whatsapp, ' ', '') LIKE %s LIMIT 1", (f"%{sender_number}%",))
+                cursor.execute("SELECT full_name, source_system, source_id, id FROM admin_users WHERE REPLACE(whatsapp, ' ', '') LIKE %s LIMIT 1", (f"%{sender_number}%",))
                 au = cursor.fetchone()
                 if au:
                     sender_name = au[0] or sender_name
+                    sender_uid = au[3]
                     perms = get_user_permissions(au[1] or 'projects', au[2] or sender_id)
             except Exception as pe:
                 print(f"Sender lookup error: {pe}")
@@ -44420,6 +45192,12 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
                         WHERE id=%s
                     """, (sender_name, req_id))
                     new_status = 'authorised'
+                    # Authorising an "in stock" requisition IS the issue — the goods
+                    # leave the workshop store here, exactly as on the in-app route.
+                    try:
+                        _procurement_issue_req_stock(cursor, req_id, sender_uid)
+                    except Exception as sie:
+                        print(f"Requisition stock issue error: {sie}")
                 else:
                     cursor.execute("""
                         UPDATE requisitions SET status='approved', approved_by=%s,

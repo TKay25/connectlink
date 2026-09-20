@@ -1,13 +1,11 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "DebugIndent",
-  "file": "debug_indent.py",
-  "purpose": "<!-- main function",
+  "module": "TmpShortStream",
+  "file": "_tmp_short_stream.txt",
+  "purpose": "<!-- Describe what TmpShortStream does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [
-    "debug_indent → f.readlines"
-  ],
+  "entry_flows": [],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
@@ -27,10 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "5815286eefb70f65",
-  "file_mtime": 1785161944278.2869,
-  "file_size": 579,
-  "file_birthtime": 1785161944193.82,
-  "generated_at": "2026-09-20T14:24:56.922022Z",
-  "stale": false
+  "file_hash": "ce3b6ca1193b064f",
+  "file_mtime": 1789916066344.5999,
+  "file_size": 2800,
+  "file_birthtime": 1789916066344.5999,
+  "generated_at": "2026-09-20T14:54:28.954Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
 }

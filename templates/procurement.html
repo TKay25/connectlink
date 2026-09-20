@@ -203,6 +203,14 @@
         .pc-items-table .pc-item-cat { min-width: 120px; }
         .pc-items-table .pc-proj-wrap { position: relative; }
         .pc-items-table .pc-item-proj { min-width: 230px; }
+        /* "In stock — already bought (no purchase needed)" means NOTHING is being bought,
+           so Unit Cost, the line Total and the Quotes (supplier prices + invoices)
+           columns are meaningless and the table is marked .no-cost to hide them.
+           Applied to the table so rows added later are covered too. */
+        .pc-items-table.no-cost .pc-col-cost,
+        .pc-items-table.no-cost .pc-col-total,
+        .pc-items-table.no-cost .pc-col-quotes { display: none; }
+        .pc-hide { display: none !important; }
         /* The Project picker's panel is much wider than its field so the full
            "<id>--<name>--<location>--<client>" label plus the sub-line fit. JS
            also auto-fits it to the widest option (floatSuggestOnAnchor). */
@@ -841,6 +849,7 @@
         <button class="pc-nav-btn active" data-module="dashboard" onclick="showModule('dashboard')"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></button>
         <button class="pc-nav-btn" data-module="requisitions" onclick="showModule('requisitions')"><i class="bi bi-clipboard-check"></i> <span>Requisitions</span></button>
         <button class="pc-nav-btn" data-module="pos" onclick="showModule('pos')"><i class="bi bi-receipt-cutoff"></i> <span>Purchase Orders</span></button>
+        <button class="pc-nav-btn" data-module="workshop" onclick="showModule('workshop')"><i class="bi bi-tools"></i> <span>Workshop</span></button>
         <button class="pc-nav-btn" data-module="suppliers" onclick="showModule('suppliers')"><i class="bi bi-truck"></i> <span>Suppliers</span></button>
         <button class="pc-nav-btn" data-module="payments" onclick="showModule('payments')"><i class="bi bi-cash-stack"></i> <span>Payments</span></button>
         <button class="pc-nav-btn" data-module="analytics" onclick="showModule('analytics')"><i class="bi bi-graph-up-arrow"></i> <span>Analytics</span></button>
@@ -931,6 +940,81 @@
                     <table class="pc-table">
                         <thead><tr><th>PO No</th><th>Supplier</th><th>Requisitions</th><th>Status</th><th class="num">Total (USD)</th><th>Expected Delivery</th><th>Created By</th><th>Created</th><th style="text-align:right;">Actions</th></tr></thead>
                         <tbody id="poBody"><tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ WORKSHOP (stock ledger) ============ -->
+        <section class="pc-module" id="module-workshop">
+            <div class="pc-kpi-grid">
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-box-seam"></i></div><div class="kpi-value" id="wsKpiClosing">0</div><div class="kpi-label">Closing Stock (units)</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="wsKpiOpening">0</div><div class="kpi-label">Opening Stock (units)</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-box-arrow-in-down"></i></div><div class="kpi-value" id="wsKpiIn">0</div><div class="kpi-label">Received In</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-box-arrow-up"></i></div><div class="kpi-value" id="wsKpiOut">0</div><div class="kpi-label">Issued Out</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="kpi-value" id="wsKpiLow">0</div><div class="kpi-label">Below Minimum</div></div>
+            </div>
+
+            <div class="pc-panel">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-clipboard-data"></i> Stock Movement Ledger</div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <select class="pc-select" id="wsPeriod" style="width:150px;" onchange="wsPeriodChanged()">
+                            <option value="day">Daily</option>
+                            <option value="week">Weekly</option>
+                            <option value="month" selected>Monthly</option>
+                            <option value="quarter">Quarterly</option>
+                            <option value="year">Yearly</option>
+                            <option value="custom">Custom range…</option>
+                        </select>
+                        <input type="date" class="pc-input" id="wsRefDate" style="width:150px;" onchange="loadWorkshop()" title="Any date inside the period you want">
+                        <input type="date" class="pc-input" id="wsStart" style="width:150px;display:none;" onchange="loadWorkshop()" title="Range start">
+                        <input type="date" class="pc-input" id="wsEnd" style="width:150px;display:none;" onchange="loadWorkshop()" title="Range end">
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="loadWorkshop()"><i class="bi bi-arrow-clockwise"></i> Apply</button>
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="workshopExport('pdf')" title="Download the report as a PDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="workshopExport('xlsx')" title="Download the report as an Excel workbook"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+                    </div>
+                </div>
+                <div class="pc-panel-body">
+                    <div id="wsPeriodBanner" style="font-size:0.62rem;color:#64748B;margin-bottom:8px;"></div>
+                    <div id="wsReconciledBanner" class="pc-rv-banner" style="display:none;margin-bottom:8px;"></div>
+                    <div class="pc-table-wrap">
+                        <table class="pc-table">
+                            <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">Opening</th><th class="num">Received (In)</th><th class="num">Issued (Out)</th><th class="num">Closing</th></tr></thead>
+                            <tbody id="wsLedgerBody"><tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                            <tbody id="wsLedgerTotals"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pc-panel mt-3">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-arrow-left-right"></i> Every Movement In The Period</div>
+                    <div style="font-size:0.58rem;color:#94A3B8;">Opening + Received − Issued = Closing</div>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Date</th><th>Document</th><th>Item</th><th>Movement</th><th class="num">In</th><th class="num">Out</th><th>Recorded By</th></tr></thead>
+                        <tbody id="wsMoveBody"><tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="pc-panel mt-3">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-boxes"></i> Stock On Hand Now</div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <label style="font-size:0.58rem;color:#64748B;display:flex;align-items:center;gap:5px;cursor:pointer;">
+                            <input type="checkbox" id="wsHideEmpty" onchange="renderWsStock()" checked> Hide items with none in stock
+                        </label>
+                        <input class="pc-input" id="wsStockSearch" style="width:200px;" placeholder="Filter items…" oninput="renderWsStock()">
+                    </div>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <table class="pc-table">
+                        <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">In Stock</th><th class="num">Min Level</th><th>Status</th></tr></thead>
+                        <tbody id="wsStockBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -1106,7 +1190,7 @@
                     </div>
                     <div class="col-md-6">
                         <label class="pc-form-label">Stock Availability *</label>
-                        <select class="pc-select" id="reqStockStatus" onchange="toggleReqFundsHint()">
+                        <select class="pc-select" id="reqStockStatus" onchange="toggleReqFundsHint(); toggleReqStockColumns()">
                             <option value="not_in_stock" selected>Not in stock — must be purchased</option>
                             <option value="partial">Partially in stock — buy the shortfall</option>
                             <option value="in_stock">In stock — already bought (no purchase needed)</option>
@@ -1171,13 +1255,13 @@
                     <table class="pc-items-table">
                         <thead>
                             <tr>
-                                <th>Product / Item *</th><th>Category</th><th>Project</th><th class="num">Qty *</th><th class="num">Unit Cost (USD)</th><th class="num">Total</th><th>Notes</th><th class="num">Quotes</th><th></th>
+                                <th>Product / Item *</th><th>Category</th><th>Project</th><th class="num">Qty *</th><th class="num pc-col-cost">Unit Cost (USD)</th><th class="num pc-col-total">Total</th><th>Notes</th><th class="num pc-col-quotes">Quotes</th><th></th>
                             </tr>
                         </thead>
                         <tbody id="itemRows"></tbody>
                     </table>
                 </div>
-                <div class="d-flex justify-content-end mt-2" style="font-size:0.66rem;font-weight:700;">
+                <div class="d-flex justify-content-end mt-2" style="font-size:0.66rem;font-weight:700;" id="reqGrandTotalWrap">
                     Grand Total: <span class="ms-2 text-danger" id="reqGrandTotal">$0.00</span>
                 </div>
             </div>
@@ -1754,6 +1838,7 @@ const PAGE_META = {
     dashboard: { title: 'Dashboard', sub: 'Your procurement command centre — track requisitions, approvals and stock movement.' },
     requisitions: { title: 'Requisitions', sub: 'Request goods, route for approval and keep every request auditable.' },
     pos: { title: 'Purchase Orders', sub: 'Convert approved requisitions into orders and receive goods into stock.' },
+    workshop: { title: 'Workshop', sub: 'What is in the store at any point in time — opening stock, goods received, goods issued and closing stock.' },
     suppliers: { title: 'Suppliers', sub: 'Manage your supplier register, lead times, terms and ratings.' },
     payments: { title: 'Payments', sub: 'Track what you owe suppliers and record payments.' },
     analytics: { title: 'Analytics', sub: 'Procurement spend, trends and supplier performance.' },
@@ -1926,6 +2011,7 @@ function showModule(name) {
     if (name === 'dashboard') loadDashboard();
     if (name === 'requisitions') loadRequisitions();
     if (name === 'pos') loadPOs();
+    if (name === 'workshop') loadWorkshop();
     if (name === 'suppliers') loadSuppliers();
     if (name === 'payments') loadPayables();
     if (name === 'analytics') loadAnalytics();
@@ -2196,10 +2282,10 @@ function addItemRow(data) {
             </div>
         </td>
         <td><input type="number" class="pc-input pc-item-qty" min="1" value="${data.quantity || 1}" oninput="recalcReqTotal()"></td>
-        <td><input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()"></td>
-        <td class="num"><span class="pc-item-line-total">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span></td>
+        <td class="pc-col-cost"><input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()"></td>
+        <td class="num pc-col-total"><span class="pc-item-line-total">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span></td>
         <td><input type="text" class="pc-input pc-item-notes" placeholder="Notes" value="${esc(data.notes || '')}"></td>
-        <td class="num"><button type="button" class="pc-btn pc-btn-outline pc-btn-sm pc-quotes-btn" title="Supplier quotes & invoices" onclick="openItemSuppliers(this.closest('.pc-item-row'))"><i class="bi bi-tags"></i><span class="pc-item-quote-count">0</span></button></td>
+        <td class="num pc-col-quotes"><button type="button" class="pc-btn pc-btn-outline pc-btn-sm pc-quotes-btn" title="Supplier quotes & invoices" onclick="openItemSuppliers(this.closest('.pc-item-row'))"><i class="bi bi-tags"></i><span class="pc-item-quote-count">0</span></button></td>
         <td class="num"><button class="pc-btn pc-btn-danger pc-btn-sm" onclick="this.closest('.pc-item-row').remove(); recalcReqTotal();" title="Remove"><i class="bi bi-x-lg"></i></button></td>
     `;
     row._suppliers = (data.suppliers || []).map(s => ({
@@ -2298,11 +2384,17 @@ function wireProductSearch(input, row) {
 }
 function collectReqItems(includeFiles) {
     const items = [];
+    // "In stock — already bought (no purchase needed)" means NOTHING is being bought, so
+    // the lines carry no cost and no supplier quotes. The Unit Cost / Total / Quotes
+    // columns are hidden by toggleReqStockColumns(); whatever lingers in them is dropped
+    // HERE so a stale figure can never inflate the requisition total.
+    const _stockEl = document.getElementById('reqStockStatus');
+    const inStock = !!_stockEl && _stockEl.value === 'in_stock';
     document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
         const name = row.querySelector('.pc-prod-input').value.trim();
         const qty = parseInt(row.querySelector('.pc-item-qty').value || '0', 10);
         if (!name || qty <= 0) return;
-        const suppliers = (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).map(s => {
+        const suppliers = inStock ? [] : (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).map(s => {
             const o = {
                 supplier_id: s.supplier_id || null,
                 supplier_name: (s.supplier_name || '').trim(),
@@ -2323,7 +2415,7 @@ function collectReqItems(includeFiles) {
             project_id: row.querySelector('.pc-item-proj-id').value ? parseInt(row.querySelector('.pc-item-proj-id').value, 10) : null,
             project_ref: row.querySelector('.pc-item-proj').value.trim(),
             quantity: qty,
-            unit_cost: parseFloat(row.querySelector('.pc-item-cost').value || '0') || 0,
+            unit_cost: inStock ? 0 : (parseFloat(row.querySelector('.pc-item-cost').value || '0') || 0),
             notes: row.querySelector('.pc-item-notes').value.trim(),
             suppliers
         });
@@ -2340,6 +2432,21 @@ function recalcReqTotal() {
         total += line;
     });
     document.getElementById('reqGrandTotal').textContent = '$' + fmtMoney(total);
+}
+
+/* Stock availability decides whether money columns make sense at all.
+   "In stock — already bought (no purchase needed)" means the goods are already in the
+   company AND already bought, so Unit Cost, the line Total, the Quotes column and the
+   Grand Total are noise — hide them. Any other answer (partly / not in stock) keeps the
+   full table, because SOMETHING is being bought. */
+function toggleReqStockColumns() {
+    const el = document.getElementById('reqStockStatus');
+    const inStock = !!el && el.value === 'in_stock';
+    const tbody = document.getElementById('itemRows');
+    const table = tbody ? tbody.closest('table') : null;
+    if (table) table.classList.toggle('no-cost', inStock);
+    const gtWrap = document.getElementById('reqGrandTotalWrap');
+    if (gtWrap) gtWrap.classList.toggle('pc-hide', inStock);
 }
 
 // ===== ITEM SUPPLIER QUOTES (editor modal) =====
@@ -2875,6 +2982,7 @@ window.openReqModal = function() {
     ['reqAuthoriserId', 'reqApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['reqAuthoriserPhone', 'reqApproverPhone'].forEach(id => setAssigneePhone(document.getElementById(id), null));
     toggleReqFundsHint();
+    toggleReqStockColumns();
     growReqNotes();
     toggleReqProjectField();
     document.getElementById('itemRows').innerHTML = '';
@@ -2924,6 +3032,7 @@ window.editReq = async function(id) {
             assigneeById('req_approvers', r.approver_user_id, () => REQ_ASSIGNEES)
             || (r.approver_name ? { _unknown: true } : null));
         toggleReqFundsHint();
+        toggleReqStockColumns();
         growReqNotes();
         document.getElementById('itemRows').innerHTML = '';
         (r.items || []).forEach(it => addItemRow(it));
@@ -4557,6 +4666,187 @@ window.deleteAsset = async function(id) {
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
         if (data.success) loadAssets();
     } catch (e) { toast('Connection error', 'error'); }
+};
+
+// ===================== WORKSHOP (STOCK LEDGER) =====================
+let WS_DATA = null;
+
+/* Show the two date boxes only when a custom range is chosen, and prefill them
+   with the current month so 'Apply' always has something sensible to send. */
+window.wsPeriodChanged = function() {
+    const period = document.getElementById('wsPeriod').value;
+    const custom = period === 'custom';
+    document.getElementById('wsStart').style.display = custom ? '' : 'none';
+    document.getElementById('wsEnd').style.display = custom ? '' : 'none';
+    document.getElementById('wsRefDate').style.display = custom ? 'none' : '';
+    if (custom) {
+        const s = document.getElementById('wsStart');
+        const e = document.getElementById('wsEnd');
+        if (!s.value || !e.value) {
+            const now = new Date();
+            const first = new Date(now.getFullYear(), now.getMonth(), 1);
+            const p = n => String(n).padStart(2, '0');
+            const fmt = d => d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+            if (!s.value) s.value = fmt(first);
+            if (!e.value) e.value = fmt(now);
+        }
+    }
+    loadWorkshop();
+};
+
+/* Build the query string the three workshop endpoints all understand. */
+function wsQuery() {
+    const period = document.getElementById('wsPeriod').value;
+    const q = new URLSearchParams();
+    q.set('period', period);
+    if (period === 'custom') {
+        q.set('start', document.getElementById('wsStart').value || '');
+        q.set('end', document.getElementById('wsEnd').value || '');
+    } else {
+        q.set('date', document.getElementById('wsRefDate').value || '');
+    }
+    return q.toString();
+}
+
+function wsNum(v) { return Number(v || 0).toLocaleString(); }
+
+async function loadWorkshop() {
+    const refEl = document.getElementById('wsRefDate');
+    if (refEl && !refEl.value) {
+        const d = new Date();
+        const p = n => String(n).padStart(2, '0');
+        refEl.value = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    }
+    const body = document.getElementById('wsLedgerBody');
+    const moves = document.getElementById('wsMoveBody');
+    showSkeleton(body, 7, 4);
+    showSkeleton(moves, 7, 3);
+    try {
+        const res = await fetch('/api/procurement/workshop/stock?' + wsQuery(), { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) { toast(data.error || 'Could not load the stock ledger', 'error'); return; }
+        WS_DATA = data;
+        const t = data.totals || {};
+        animateValue(document.getElementById('wsKpiClosing'), t.closing || 0, false);
+        animateValue(document.getElementById('wsKpiOpening'), t.opening || 0, false);
+        animateValue(document.getElementById('wsKpiIn'), t.received || 0, false);
+        animateValue(document.getElementById('wsKpiOut'), t.issued || 0, false);
+        animateValue(document.getElementById('wsKpiLow'), t.low_stock || 0, false);
+        document.getElementById('wsPeriodBanner').innerHTML =
+            '<i class="bi bi-calendar-range"></i> <b>' + esc(data.period.label) + '</b> (' +
+            esc(data.period.start) + ' to ' + esc(data.period.end) + ') &nbsp;·&nbsp; ' +
+            (t.items || 0) + ' item' + ((t.items === 1) ? '' : 's') + ' in the ledger, ' +
+            (t.movements || 0) + ' movement' + ((t.movements === 1) ? '' : 's') + '.';
+
+        // Tell the user when old 'in stock' requisitions had to be reconciled into
+        // the ledger, so a first-time jump in the numbers is explainable.
+        const rec = data.reconciled || { requisitions: 0, shortages: [] };
+        const rBanner = document.getElementById('wsReconciledBanner');
+        if (rec.requisitions > 0 || (rec.shortages || []).length) {
+            let html = '<i class="bi bi-info-circle-fill"></i><span>';
+            if (rec.requisitions > 0) {
+                html += '<b>' + rec.requisitions + ' earlier "in stock" requisition' +
+                        (rec.requisitions === 1 ? '' : 's') + '</b> had already been authorised, so ' +
+                        'the goods ' + (rec.requisitions === 1 ? 'was' : 'were') +
+                        ' issued into this ledger at the date ' +
+                        (rec.requisitions === 1 ? 'it was' : 'they were') + ' authorised.';
+            }
+            (rec.shortages || []).slice(0, 4).forEach(s => {
+                html += (rec.requisitions > 0 ? ' ' : '') + '<b>' + esc(s.req_no) + '</b>: ' +
+                        esc(s.item) + ' could not be issued (' + s.wanted + ' wanted, ' +
+                        (s.available === null || s.available === undefined
+                            ? 'not linked to a stock item' : s.available + ' on hand') + ').';
+            });
+            if ((rec.shortages || []).length > 4) {
+                html += ' …and ' + ((rec.shortages || []).length - 4) + ' more.';
+            }
+            html += '</span>';
+            rBanner.innerHTML = html;
+            rBanner.style.display = '';
+        } else {
+            rBanner.style.display = 'none';
+        }
+    } catch (e) {
+        body.innerHTML = '<tr><td colspan="7" class="pc-empty text-danger">Failed to load the ledger</td></tr>';
+        return;
+    }
+    renderWsLedger();
+    renderWsMovements();
+    renderWsStock();
+}
+
+function renderWsLedger() {
+    const body = document.getElementById('wsLedgerBody');
+    const totals = document.getElementById('wsLedgerTotals');
+    if (!WS_DATA) return;
+    const rows = WS_DATA.ledger || [];
+    body.innerHTML = rows.map(x => `
+        <tr>
+            <td><strong>${esc(x.name)}</strong></td>
+            <td>${esc(x.category || '—')}</td>
+            <td>${esc(x.unit || '')}</td>
+            <td class="num">${wsNum(x.opening)}</td>
+            <td class="num" style="color:#047857;">${x.received ? '+' + wsNum(x.received) : '—'}</td>
+            <td class="num" style="color:#b91c1c;">${x.issued ? '−' + wsNum(x.issued) : '—'}</td>
+            <td class="num"><strong>${wsNum(x.closing)}</strong></td>
+        </tr>`).join('') ||
+        '<tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Nothing moved and nothing is in stock for this period.</td></tr>';
+    const t = WS_DATA.totals || {};
+    totals.innerHTML = rows.length ? `
+        <tr style="background:#F1F5F9;font-weight:700;">
+            <td>TOTAL</td><td></td><td></td>
+            <td class="num">${wsNum(t.opening)}</td>
+            <td class="num" style="color:#047857;">+${wsNum(t.received)}</td>
+            <td class="num" style="color:#b91c1c;">−${wsNum(t.issued)}</td>
+            <td class="num">${wsNum(t.closing)}</td>
+        </tr>` : '';
+}
+
+function renderWsMovements() {
+    const body = document.getElementById('wsMoveBody');
+    if (!WS_DATA) return;
+    const rows = WS_DATA.movements || [];
+    body.innerHTML = rows.map(m => `
+        <tr>
+            <td style="white-space:nowrap;">${esc((m.date || '').slice(0, 16))}</td>
+            <td>${esc(m.reference || '—')}</td>
+            <td>${esc(m.item)}</td>
+            <td><span class="pc-badge ${m.type === 'in' ? 'pc-badge-approved' : 'pc-badge-medium'}">${esc(m.label)}</span></td>
+            <td class="num" style="color:#047857;">${m.qty_in ? wsNum(m.qty_in) : ''}</td>
+            <td class="num" style="color:#b91c1c;">${m.qty_out ? wsNum(m.qty_out) : ''}</td>
+            <td>${esc(m.by || 'System')}</td>
+        </tr>`).join('') ||
+        '<tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> No stock moved in this period.</td></tr>';
+}
+
+function renderWsStock() {
+    const body = document.getElementById('wsStockBody');
+    if (!WS_DATA) return;
+    const hideEmpty = document.getElementById('wsHideEmpty').checked;
+    const needle = (document.getElementById('wsStockSearch').value || '').toLowerCase().trim();
+    let rows = WS_DATA.stock || [];
+    if (hideEmpty) rows = rows.filter(s => s.stock > 0);
+    if (needle) rows = rows.filter(s => (s.name + ' ' + s.category).toLowerCase().includes(needle));
+    body.innerHTML = rows.map(s => `
+        <tr>
+            <td><strong>${esc(s.name)}</strong>${s.active ? '' : ' <span class="pc-badge pc-badge-cancelled" title="This item is no longer active">inactive</span>'}</td>
+            <td>${esc(s.category || '—')}</td>
+            <td>${esc(s.unit || '')}</td>
+            <td class="num"><strong>${wsNum(s.stock)}</strong></td>
+            <td class="num">${wsNum(s.min_level)}</td>
+            <td>${s.low ? '<span class="pc-badge pc-badge-rejected">Below minimum</span>'
+                       : (s.stock > 0 ? '<span class="pc-badge pc-badge-approved">In stock</span>'
+                                      : '<span class="pc-badge pc-badge-draft">None</span>')}</td>
+        </tr>`).join('') ||
+        '<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> No items match.</td></tr>';
+}
+
+/* The PDF and Excel reports are the SAME report as the screen — same period, same
+   figures — so both are built from the current period selector. */
+window.workshopExport = function(kind) {
+    const url = '/api/procurement/workshop/report.' + kind + '?' + wsQuery();
+    const w = window.open(url, '_blank');
+    if (!w) toast('Allow pop-ups for this site to download the report', 'error');
 };
 
 init();
