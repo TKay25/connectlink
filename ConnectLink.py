@@ -39834,7 +39834,7 @@ def _req_stock_label(status):
     """One-line, recipient-readable stock availability for WhatsApp messages.
 
     Used in the requisition AND purchase-order authorisation template (both send the
-    same 13 body variables), so the authoriser reads the same phrase in the app, on
+    same 12 body variables), so the authoriser reads the same phrase in the app, on
     the PDF and on their phone. KEEP the phrasing in sync with the `stock_map` in
     _render_req_pdf()."""
     labels = {
@@ -39846,14 +39846,33 @@ def _req_stock_label(status):
 
 
 def _req_projects_line(project_ref):
-    """Project label(s) for a WhatsApp message.
+    """Project NAME(s) for a WhatsApp message — short form only.
 
-    `requisitions.project_ref` holds the human-readable labels joined with ' | '
-    (see _req_sync_projects); '; ' separates them better on a phone, and an empty
-    value must become something printable rather than a blank gap in the sentence.
-    Labels themselves contain '--', never '|', so splitting on '|' is safe."""
-    parts = [p.strip() for p in str(project_ref or '').split('|') if p.strip()]
-    return '; '.join(parts) if parts else '—'
+    `requisitions.project_ref` holds labels like '<id>--<name>--<location>--<client>'
+    joined with ' | ' (see _req_sync_projects). Only the NAME is kept: these ride
+    INSIDE the item-listing template variable, so the full label would swamp the
+    message. A label with no '--' is passed through as-is, and nothing returns '' so
+    the caller can leave the whole suffix out rather than print an empty one."""
+    names = []
+    for raw in str(project_ref or '').split('|'):
+        label = raw.strip()
+        if not label:
+            continue
+        bits = [b.strip() for b in label.split('--') if b.strip()]
+        names.append(bits[1] if len(bits) > 1 else label)
+    return '; '.join(names)
+
+
+def _req_items_with_projects(item_summary, projects):
+    """The item listing with the attached project name(s) appended.
+
+    The projects are appended HERE rather than given a template variable of their own,
+    so the Meta template needs no extra placeholder: the authoriser still sees which
+    project(s) the goods are for, on the item line. Returns the plain item list when
+    there are no projects, so the suffix never appears empty."""
+    items = (item_summary or '').strip() or '—'
+    proj = (projects or '').strip()
+    return f"{items} — Projects: {proj}" if proj else items
 
 
 def _req_funds_status(value):
@@ -43063,7 +43082,7 @@ def procurement_api_export():
 #       There is no requisition-specific authorisation template. The user confirmed
 #       (Sep 2026) that the template for the authorisation stage IS
 #       'purchase_order_approval_request', which is already approved in Meta — so the
-#       requisition authorisation notice sends that template with all 13 body
+#       requisition authorisation notice sends that template with all 12 body
 #       variables filled from the requisition (see _procurement_req_details) and its
 #       button payloads overridden to reqappr_<id> / reqdecl_<id> so a tap is routed
 #       to the REQUISITION, never to a purchase order with the same id.
@@ -43094,7 +43113,7 @@ def procurement_api_export():
 #       because they are the same decision for the same authoriser)
 #       NOTE: this name is the user's; the template is editable in Meta and its body
 #       was re-specified by the user (Sep 2026) as the REQUISITION-wording body below.
-#       It has 13 body variables. THE VARIABLE COUNT AND ORDER ARE PART OF THE
+#       It has 12 body variables. THE VARIABLE COUNT AND ORDER ARE PART OF THE
 #       CONTRACT: a send that passes a different number fails with Meta 132000, which
 #       is why _procurement_notify_req_authorisers() (requisitions) and
 #       _procurement_notify_po_authorisers() (purchase orders) BOTH build these same
@@ -43107,18 +43126,17 @@ def procurement_api_export():
 #              authorisation.
 #              The items are required before *{{7}}*.
 #              Stock: {{8}}
-#              The Requisition has *{{9}} items*: {{10}}.
-#              Projects: {{11}}
-#              Logged by *{{12}}* on *{{13}}*.
+#              The Requisition has *{{9}} items*: *{{10}}*.
+#              Logged by *{{11}}* on *{{12}}*.
 #              Kindly click "Authorise" below to escalate the purchase order to
 #              Mr/Mrs Gogwe and "Decline" to decline the purchase order."
 #       Variables: {{1}}=authoriser name, {{2}}=department, {{3}}=requisition no,
 #                  {{4}}=requested by, {{5}}=requested-by phone,
 #                  {{6}}=total USD, {{7}}=items required before,
 #                  {{8}}=STOCK availability (full sentence, from _req_stock_label),
-#                  {{9}}=item count, {{10}}=item summary,
-#                  {{11}}=attached PROJECT LABEL(S) (listed with the items),
-#                  {{12}}=logged by, {{13}}=logged date
+#                  {{9}}=item count, {{10}}=item summary WITH the attached project
+#                  name(s) appended ("<items> — Projects: <names>", no extra placeholder),
+#                  {{11}}=logged by, {{12}}=logged date
 #       Buttons: quick_reply "Authorise" / "Decline" — the PAYLOAD is replaced on
 #                every send, so the tap carries reqappr_<id>/reqdecl_<id> for a
 #                requisition and poauth_<id>/podeclauth_<id> for a purchase order.
@@ -43165,7 +43183,7 @@ def _wa_tpl_name(env_key, default):
 
 # Requisition AUTHORISATION notice. Deliberately the SAME Meta template as the PO
 # authorisation notice (the user's name for the authorisation stage), so it must send
-# the same 13 body variables in the same order — see the template block above.
+# the same 12 body variables in the same order — see the template block above.
 PROC_REQ_APPROVAL_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_AUTHORISE', 'purchase_order_approval_request')
 PROC_REQ_STATUS_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_STATUS', 'requisition_status_update')
 # INFO-ONLY notice to the approver when a requisition has been AUTHORISED and the
@@ -43175,7 +43193,7 @@ PROC_REQ_STATUS_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_STATUS', 'requisition_status
 PROC_REQ_AUTHORISED_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_AUTHORISED', 'requisition_authorised_notice')
 # 2nd layer, final APPROVAL (15 vars, Approve/Decline) — name given by the user
 PROC_PO_APPROVAL_TEMPLATE = _wa_tpl_name('WA_TPL_PO_APPROVE', 'purchase_order_final_approval_request')
-# 1st layer, AUTHORISATION — shared by requisitions AND purchase orders, 13 vars,
+# 1st layer, AUTHORISATION — shared by requisitions AND purchase orders, 12 vars,
 # body re-specified by the user (requisition wording). See the block above.
 PROC_PO_AUTHORISATION_TEMPLATE = _wa_tpl_name('WA_TPL_PO_AUTHORISE', 'purchase_order_approval_request')
 # Status update to the requester / logger / authoriser (8 vars, no buttons)
@@ -43458,7 +43476,7 @@ def _procurement_approvers():
 # NOTE: the old `_procurement_notify_approvers()` helper was REMOVED (Sep 2026). It
 # was dead code left over from the single-stage design (no call sites anywhere) AND a
 # landmine: it sent PROC_REQ_APPROVAL_TEMPLATE with only FOUR body parameters, which
-# after the template switch to `purchase_order_approval_request` (13 vars) would fail
+# after the template switch to `purchase_order_approval_request` (12 vars) would fail
 # with Meta error 132000. In the 2-stage workflow the approver is reached by
 # `_procurement_notify_req_authorisers()` (authorisation request, buttons) and by
 # `_procurement_notify_req_authorised()` (info-only, no buttons).
@@ -43518,7 +43536,7 @@ def _procurement_req_details(req_id):
     """Fields used to fill the AUTHORISATION WhatsApp notification for a requisition.
 
     The requisition authorisation notice REUSES the Meta-approved PO authorisation
-    template (`purchase_order_approval_request`, 13 body variables — the user
+    template (`purchase_order_approval_request`, 12 body variables — the user
     specified it as the template for the authorisation stage), so the variable ORDER
     here must match _procurement_po_details() exactly:
       name, department, number, requested by, their phone, total USD, required by,
@@ -43598,19 +43616,17 @@ def _procurement_notify_req_authorisers(req_id, target_user_id=None):
     132001 "template name (requisition_approval_request) does not exist in en".
     Its button payloads are OVERRIDDEN per send to reqappr_/reqdecl_, so a tap is
     routed to the REQUISITION and never to a purchase order that happens to share the
-    numeric id. The TEMPLATE defines 13 body variables, so this payload must stay in
+    numeric id. The TEMPLATE defines 12 body variables, so this payload must stay in
     exactly this order:
-      1 authoriser name         8 STOCK availability (right after the date line)
-      2 department              9 item count
-      3 requisition no         10 item summary
-      4 requested by           11 ATTACHED PROJECT(S) (listed with the items)
-      5 requester phone        12 logged by
-      6 total USD              13 logged date
-      7 required-before date
-    (The supplier pair was dropped when the user re-specified the body; the stock line
-    was inserted as {{8}} and the projects line as {{11}}.
-    Change one and you MUST change
-    the other, or Meta answers 132000.)
+      1 authoriser name         7 required-before date
+      2 department              8 STOCK availability (right after the date line)
+      3 requisition no          9 item count
+      4 requested by           10 item summary WITH the attached project name(s)
+      5 requester phone        11 logged by
+      6 total USD              12 logged date
+    (The supplier pair was dropped and the stock line added when the user re-specified
+    the body; the PROJECTS ride inside {{10}} rather than taking a placeholder of their
+    own. Change one and you MUST change the other, or Meta answers 132000.)
     `target_user_id` = the specific admin_users.id picked on the requisition form;
     when it is empty/unmatched every eligible authoriser is notified."""
     try:
@@ -43657,8 +43673,7 @@ def _procurement_notify_req_authorisers(req_id, target_user_id=None):
                      fmt_date(d['required_by']),
                      d['stock_label'],           # sits beside the required-before line in the body
                      d['item_count'],
-                     d['item_summary'],
-                     d['projects'],              # with the item listing
+                     _req_items_with_projects(d['item_summary'], d['projects']),
                      d['requested_by'] or '—',   # no created_by column: the logger IS the requester
                      fmt_date(d['created_at'])],
                     button_payloads=[f"reqappr_{req_id}", f"reqdecl_{req_id}"])
@@ -43840,7 +43855,7 @@ def _procurement_po_details(po_id):
 
 def _procurement_notify_po_authorisers(po_id, target_user_id=None):
     """Notify the authoriser about a newly raised PO awaiting authorisation via the
-    shared AUTHORISATION template (13 vars, authorise/decline buttons). This is the
+    shared AUTHORISATION template (12 vars, authorise/decline buttons). This is the
     first sign-off layer of the PO workflow.
     NOTE this path is RARE: a PO raised from requisitions that are already authorised
     SKIPS authorisation and goes straight to the approver, so this only fires for a
@@ -43894,8 +43909,7 @@ def _procurement_notify_po_authorisers(po_id, target_user_id=None):
                      fmt_date(d['required_by']),
                      d['stock_label'],           # sits beside the required-before line in the body
                      count,
-                     summary,
-                     d['projects'],              # with the item listing
+                     _req_items_with_projects(summary, d['projects']),
                      d['created_by'] or '—',
                      fmt_date(d['created_at'])],
                     button_payloads=[f"poauth_{po_id}", f"podeclauth_{po_id}"])
