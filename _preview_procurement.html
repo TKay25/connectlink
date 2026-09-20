@@ -4617,7 +4617,7 @@ window.saveReceive = async function() {
         if (v > 0) { received[inp.dataset.line] = v; any = true; }
     });
     if (!any) { toast('Enter a quantity to receive for at least one item', 'error'); return; }
-    if (!confirm('Record receipt? Received stock will be added to inventory.')) return;
+    if (!confirm('Record receipt? The goods go into the WORKSHOP store, not the shop inventory.')) return;
     try {
         const res = await fetch('/api/procurement/purchase-orders/' + VIEW_PO.id + '/receive', {
             method: 'POST',
@@ -4627,6 +4627,7 @@ window.saveReceive = async function() {
         });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.workshop_warning) toast(data.workshop_warning, 'error');
         if (data.success) { hideModal('viewPoModal'); loadPOs(); loadDashboard(); }
     } catch (e) { toast('Connection error', 'error'); }
 };

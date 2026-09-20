@@ -40652,6 +40652,7 @@ goods that are NOT already in stock — and that PO goes STRAIGHT to the approve
     if not _procurement_can_authorise_req(perms):
         return jsonify({'success': False, 'error': 'Access denied: no requisition authorisation permission.'}), 403
     user = _procurement_user()
+    ws_warning = None
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
@@ -40676,7 +40677,7 @@ goods that are NOT already in stock — and that PO goes STRAIGHT to the approve
             try:
                 _procurement_issue_req_stock(cursor, rid, user['id'], user.get('name'))
             except Exception as sie:
-                print(f"Requisition workshop issue error: {sie}")
+                ws_warning = _procurement_workshop_warning(f'authorisation of {row[1]}', sie)
             connection.commit()
             log_activity('requisition_authorise',
                          f'Authorised requisition {row[1]} by {user["name"]}', 'requisition', rid)
@@ -40695,6 +40696,7 @@ goods that are NOT already in stock — and that PO goes STRAIGHT to the approve
             'success': True,
             'message': f'{row[1]} authorised.' + (' The approver has been notified.' if notify_approver else ''),
             'notified_approver': notify_approver,
+            'workshop_warning': ws_warning,
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -40708,6 +40710,7 @@ def procurement_api_approve_requisition(rid):
     choices = data.get('choices') or {}   # {item_id: chosen supplier_quote_id} — approver may override preferred
     user = _procurement_user()
     perms = _procurement_perms()
+    ws_warning = None
     try:
         with get_db() as (cursor, connection):
             cursor.execute("SELECT id, req_no, status, funds_status FROM requisitions WHERE id = %s", (rid,))
@@ -40753,7 +40756,7 @@ def procurement_api_approve_requisition(rid):
             try:
                 _procurement_issue_req_stock(cursor, rid, user['id'], user.get('name'))
             except Exception as sie:
-                print(f"Requisition workshop issue error: {sie}")
+                ws_warning = _procurement_workshop_warning(f'approval of {row[1]}', sie)
             connection.commit()
             log_activity('requisition_approve', f'Approved requisition {row[1]}', 'requisition', rid)
             _procurement_notify_requester(rid, 'approved')  # best-effort WhatsApp, never blocks
@@ -40762,6 +40765,7 @@ def procurement_api_approve_requisition(rid):
                 'success': True,
                 'message': 'Requisition approved.' + (' ⚠ NOTE: this requisition is marked NO FUNDS to buy.' if no_funds else ''),
                 'funds_warning': no_funds,
+                'workshop_warning': ws_warning,
             })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -41659,6 +41663,7 @@ def procurement_api_receive_po(po_id):
             lines = cursor.fetchall()
             all_done = True
             any_received = False
+            workshop_warnings = []
             for ln in lines:
                 ln_id = ln[0]
                 qty_rec = _proc_qty_of(received.get(str(ln_id), received.get(ln_id, 0)))
@@ -41683,7 +41688,8 @@ def procurement_api_receive_po(po_id):
                                 reference=po[1], notes=f'Received against {po[1]}',
                                 user_id=user['id'], user_name=(user or {}).get('name'))
                     except Exception as wse:
-                        print(f"Warning: workshop receipt not recorded on PO receive: {wse}")
+                        workshop_warnings.append(_procurement_workshop_warning(
+                            f'receipt on {po[1]}', wse))
                 cursor.execute("UPDATE grn_lines SET quantity_received = %s WHERE id = %s",
                                (min(new_received, ln[3]), ln_id))
                 if new_received < ln[3]:
@@ -41697,7 +41703,9 @@ def procurement_api_receive_po(po_id):
                            (new_status, po_id))
             connection.commit()
             log_activity('po_receive', f'Received goods on {po[1]} ({new_status})', 'purchase_order', po_id)
-            return jsonify({'success': True, 'message': f'Receipt recorded on {po[1]}. Status: {new_status}.'})
+            return jsonify({'success': True,
+                            'message': f'Receipt recorded on {po[1]}. Status: {new_status}.',
+                            'workshop_warning': (workshop_warnings[0] if workshop_warnings else None)})
     except Exception as e:
         print(f"Receive PO error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -43515,18 +43523,42 @@ def _workshop_record_movement(cursor, item_id, direction, quantity, reason,
         UPDATE workshop_items SET stock = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s
     """, (new_balance, item_id))
 
-    params = [item_id, direction, applied, reason, reference, notes, user_id, user_name]
-    if when is not None:
-        params.append(when)
-    params.append(item_id)
-    cursor.execute(f"""
+    # `when` is always sent, and the SQL falls back to the database clock only when it
+    # is NULL. Building the timestamp into the statement itself (rather than gluing a
+    # value into the SQL text) keeps the placeholder count fixed and means a caller can
+    # never end up with a statement that does not match its parameters — which is what
+    # an undefined `stamp` name did here, silently, for every movement ever written.
+    params = [item_id, direction, applied, reason, reference, notes, user_id, user_name,
+              when, item_id]
+    cursor.execute("""
         INSERT INTO workshop_movements
             (item_id, item_name, direction, quantity, reason, reference, notes,
              user_id, user_name, moved_at)
-        SELECT %s, name, %s, %s, %s, %s, %s, %s, %s, {stamp}
+        SELECT %s, name, %s, %s, %s, %s, %s, %s, %s, COALESCE(%s, CURRENT_TIMESTAMP)
         FROM workshop_items WHERE id = %s
     """, tuple(params))
     return applied, new_balance
+
+
+def _procurement_workshop_warning(where, error):
+    """Turn a failed workshop stock movement into something the user will actually SEE.
+
+    A stock hiccup must never block the document that caused it — the receipt, the
+    authorisation, the approval all stand on their own. But it must never be invisible
+    either. Every one of these callers used to swallow the error into a `print`, and on
+    a hosted deployment a print is a message nobody ever reads: that is exactly how a
+    broken movement writer went unnoticed while purchase orders were being received and
+    the workshop stayed empty. So the failure is logged as real activity AND handed
+    back to the caller to put in front of the person.
+    """
+    msg = (f'The workshop register was NOT updated ({where}): {error}. '
+           f'The document itself is saved — record the movement by hand on the '
+           f'Workshop tab.')
+    try:
+        log_activity('workshop_sync_failed', msg, 'workshop', None)
+    except Exception:
+        pass
+    return msg
 
 
 def _workshop_period(period, ref=None, start=None, end=None):
@@ -45630,7 +45662,13 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
                     try:
                         _procurement_issue_req_stock(cursor, req_id, sender_uid, sender_name)
                     except Exception as sie:
-                        print(f"Requisition workshop issue error: {sie}")
+                        # There is no screen here to show a warning on, so the failure
+                        # goes back to the person in the same conversation.
+                        try:
+                            _procurement_send_text(sender_id, _procurement_workshop_warning(
+                                f'authorisation of requisition #{req_id}', sie))
+                        except Exception:
+                            pass
                 else:
                     cursor.execute("""
                         UPDATE requisitions SET status='approved', approved_by=%s,
