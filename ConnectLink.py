@@ -1958,6 +1958,64 @@ def initialize_database_tables():
             """)
             connection.commit()
 
+            # ------------------------------------------------------------------
+            # WORKSHOP — ITS OWN STORE
+            # The workshop is a separate section of the company, so it has its OWN
+            # item list and its OWN movements. Nothing here belongs to the shop's POS
+            # inventory, and the shop reads nothing from here.
+            # ------------------------------------------------------------------
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS workshop_items (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(150) NOT NULL,
+                    category VARCHAR(80),
+                    unit VARCHAR(30) DEFAULT 'unit',
+                    min_stock_level INTEGER DEFAULT 0,
+                    notes TEXT,
+                    -- Running balance. Only _workshop_record_movement() changes it, in
+                    -- the same transaction as the movement row, so it can never drift
+                    -- away from the movement history.
+                    stock INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_by VARCHAR(150),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            # One row per movement. `item_name` is a SNAPSHOT (kept from the old
+            # `products`-based design, and still worth having): renaming an item later
+            # must not rewrite what the ledger already reported.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS workshop_movements (
+                    id SERIAL PRIMARY KEY,
+                    item_id INTEGER REFERENCES workshop_items(id) ON DELETE SET NULL,
+                    item_name VARCHAR(150) NOT NULL,
+                    direction VARCHAR(3) NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    reason VARCHAR(40) NOT NULL,
+                    reference VARCHAR(60),
+                    notes TEXT,
+                    user_id INTEGER,
+                    user_name VARCHAR(150),
+                    moved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            connection.commit()
+
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_workshop_movements_moved_at ON workshop_movements (moved_at)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_workshop_movements_item ON workshop_movements (item_id)")
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_workshop_movements_reference ON workshop_movements (reference)")
+                # Case-insensitive uniqueness on the name — the same safety net
+                # _workshop_ensure_item() relies on when it matches a received line.
+                cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_workshop_items_name ON workshop_items (lower(name))")
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add workshop indexes: {e}")
+
+
             # Supplier phone snapshot on POs (for existing databases)
             try:
                 cursor.execute("ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS supplier_phone VARCHAR(50)")
@@ -40459,31 +40517,30 @@ def procurement_api_submit_requisition(rid):
 # WORKSHOP STORE — GOODS ISSUED WHEN AN "IN STOCK" REQUISITION IS AUTHORISED
 # ============================================================================
 
-def _procurement_issue_req_stock(cursor, rid, user_id=None, when=None):
-    """Take the goods of an "IN STOCK" requisition OUT of the store.
+def _procurement_issue_req_stock(cursor, rid, user_id=None, user_name=None, when=None):
+    """Issue the goods of an "IN STOCK" requisition OUT of the WORKSHOP store.
 
     Called the moment a requisition is AUTHORISED (the in-app route and a WhatsApp
     reqappr_ tap both come through here). A requisition whose availability is
-    'in_stock' describes goods that are ALREADY in the company and already bought, so
-    authorising it is what actually RELEASES those goods — that is the reduction side
-    of the Workshop stock ledger.
+    'in_stock' describes goods that are already in the company and already bought, so
+    authorising it is what RELEASES them — the reduction side of the workshop ledger.
 
-    'partial' and 'not_in_stock' are NOT issued here: they buy their goods, so their
-    stock moves in when the purchase order is received. (Only the in-stock portion of
-    a 'partial' would logically leave the store, but nothing on the form records that
-    split yet, so guessing it would put invented numbers in the ledger.)
+    Writes into the WORKSHOP's OWN tables only. The workshop is a separate section of
+    the company, so this must never touch the shop's inventory. Goods are matched into
+    the workshop's register by NAME, exactly as a purchase-order receipt is.
 
-    Writes one stock_reductions row per line item, tagged
-    reason='requisition_in_stock' with reference=<req_no>, and NEVER issues the same
-    requisition twice — the reference is the idempotency key, so a retried
-    authorisation (or the reconciliation pass over older requisitions) is safe.
+    'partial' and 'not_in_stock' are NOT issued: they buy their goods, so their stock
+    arrives when the purchase order is received. (Only the in-stock part of a
+    'partial' would logically leave, but nothing records that split, so guessing it
+    would put invented numbers in the ledger.)
 
-    A line that is not linked to a product master record, or whose product has no
-    stock left, cannot take anything out of the store. Those lines are REPORTED BACK
-    instead of being silently dropped or forced negative, as a list of
-    (product_name, wanted, available_or_None).
+    ONE ISSUE PER REQUISITION: the req_no is the movement's reference, so a retried
+    authorisation can never take the same goods out twice.
 
-    Returns (rows_written, shortages).
+    Where the workshop holds less than the line asks for, it issues what IS there and
+    reports the shortfall, rather than forcing the balance negative.
+
+    Returns (rows_written, shortages), shortages as (item_name, wanted, available).
     """
     cursor.execute("""
         SELECT req_no, department, COALESCE(stock_status, 'not_in_stock')
@@ -40497,66 +40554,41 @@ def _procurement_issue_req_stock(cursor, rid, user_id=None, when=None):
         return 0, []
 
     cursor.execute("""
-        SELECT id FROM stock_reductions
+        SELECT id FROM workshop_movements
         WHERE reason = 'requisition_in_stock' AND reference = %s LIMIT 1
     """, (req_no,))
     if cursor.fetchone():
         return 0, []                    # already issued — never move the same goods twice
 
     cursor.execute("""
-        SELECT id, product_id, product_name, quantity
+        SELECT id, product_name, quantity
         FROM requisition_items WHERE requisition_id = %s ORDER BY id
     """, (rid,))
     items = cursor.fetchall()
     if not items:
         return 0, []
 
+    actor = user_name or 'Requisition issue'
     written, shortages = 0, []
     for it in items:
-        product_id = it[1]
-        product_name = (it[2] or 'item')
-        qty = int(it[3] or 0)
-        if qty <= 0:
+        item_name = (it[1] or '').strip()
+        qty = int(it[2] or 0)
+        if qty <= 0 or not item_name:
             continue
-        if not product_id:
-            # Free-text line with no stock record behind it — nothing to take out.
-            shortages.append((product_name, qty, None))
+        ws_item = _workshop_ensure_item(cursor, item_name, user_name=actor)
+        cursor.execute("SELECT COALESCE(stock, 0) FROM workshop_items WHERE id = %s", (ws_item,))
+        available = int((cursor.fetchone() or [0])[0] or 0)
+        note = ('Issued on authorisation of ' + str(req_no)
+                + (f' ({department})' if department else ''))
+        applied, _balance = _workshop_record_movement(
+            cursor, ws_item, 'out', qty, 'requisition_in_stock',
+            reference=req_no, notes=note,
+            user_id=user_id, user_name=actor, when=when, clamp=True)
+        if applied <= 0:
+            shortages.append((item_name, qty, 0))
             continue
-        cursor.execute("SELECT stock FROM products WHERE id = %s FOR UPDATE", (product_id,))
-        pr = cursor.fetchone()
-        if not pr:
-            shortages.append((product_name, qty, None))
-            continue
-        available = int(pr[0] or 0)
-        take = min(qty, max(available, 0))
-        if take <= 0:
-            shortages.append((product_name, qty, 0))
-            continue
-
-        cursor.execute("""
-            UPDATE products SET stock = stock - %s, updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-        """, (take, product_id))
-
-        note = (f"Issued from the store on authorisation of {req_no}"
-                + (f" ({department})" if department else '')
-                + f" — {product_name}")
-        if take < qty:
-            note += f" [only {take} of {qty} were on hand]"
-            shortages.append((product_name, qty, available))
-
-        if when is None:
-            cursor.execute("""
-                INSERT INTO stock_reductions
-                    (product_id, quantity, reason, notes, user_id, reduced_at, reference)
-                VALUES (%s, %s, 'requisition_in_stock', %s, %s, CURRENT_TIMESTAMP, %s)
-            """, (product_id, take, note, user_id, req_no))
-        else:
-            cursor.execute("""
-                INSERT INTO stock_reductions
-                    (product_id, quantity, reason, notes, user_id, reduced_at, reference)
-                VALUES (%s, %s, 'requisition_in_stock', %s, %s, %s, %s)
-            """, (product_id, take, note, user_id, when, req_no))
+        if applied < qty:
+            shortages.append((item_name, qty, available))
         written += 1
     return written, shortages
 
@@ -40594,14 +40626,13 @@ goods that are NOT already in stock — and that PO goes STRAIGHT to the approve
                     authorised_at=CURRENT_TIMESTAMP, reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
                 WHERE id=%s
             """, (user['name'], rid))
-            # The workshop store releases the goods HERE: authorising an "in stock"
-            # requisition is what issues them. Best-effort — a stock hiccup must never
-            # block the authorisation itself.
-            issued, shortages = 0, []
+            # Authorising an "in stock" requisition IS the issue: the goods leave the
+            # WORKSHOP store here. Best-effort — a stock hiccup must never block the
+            # authorisation itself.
             try:
-                issued, shortages = _procurement_issue_req_stock(cursor, rid, user['id'])
+                _procurement_issue_req_stock(cursor, rid, user['id'], user.get('name'))
             except Exception as sie:
-                print(f"Requisition stock issue error: {sie}")
+                print(f"Requisition workshop issue error: {sie}")
             connection.commit()
             log_activity('requisition_authorise',
                          f'Authorised requisition {row[1]} by {user["name"]}', 'requisition', rid)
@@ -40672,13 +40703,13 @@ def procurement_api_approve_requisition(rid):
                     reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
                 WHERE id=%s
             """, (user['name'], rid))
-            # A super admin may approve without the authorisation step, so the issue is
-            # attempted here too — it is idempotent, so a requisition that was already
+            # A super admin may approve without the authorisation step, so the workshop
+            # issue is attempted here too. It is idempotent, so a requisition already
             # issued at authorisation is not touched twice.
             try:
-                _procurement_issue_req_stock(cursor, rid, user['id'])
+                _procurement_issue_req_stock(cursor, rid, user['id'], user.get('name'))
             except Exception as sie:
-                print(f"Requisition stock issue error: {sie}")
+                print(f"Requisition workshop issue error: {sie}")
             connection.commit()
             log_activity('requisition_approve', f'Approved requisition {row[1]}', 'requisition', rid)
             _procurement_notify_requester(rid, 'approved')  # best-effort WhatsApp, never blocks
@@ -41593,19 +41624,21 @@ def procurement_api_receive_po(po_id):
                 any_received = True
                 add = qty_rec
                 new_received = ln[4] + add
-                if ln[1]:
-                    cursor.execute("""
-                        UPDATE products SET stock = stock + %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s
-                    """, (add, ln[1]))
+                # Received goods belong to the WORKSHOP — the two are separate sections
+                # of the company (the user: "workshop only"). The line lands in the
+                # workshop's OWN register, matched on its name, so the workshop and the
+                # shop keep independent catalogues and independent stock. This no longer
+                # touches the shop's inventory at all.
+                if ln[2]:
                     try:
-                        cursor.execute("""
-                            INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
-                                                         funding_source, user_id, added_at, reference)
-                            VALUES (%s, %s, %s, %s, 'PO', %s, CURRENT_TIMESTAMP, %s)
-                        """, (ln[1], add, float(ln[5] or 0), round(float(ln[5] or 0) * add, 2),
-                              user['id'], po[1]))
-                    except Exception as sa:
-                        print(f"Warning: stock_additions log failed on PO receive: {sa}")
+                        ws_item = _workshop_ensure_item(cursor, ln[2])
+                        if ws_item:
+                            _workshop_record_movement(
+                                cursor, ws_item, 'in', add, 'received',
+                                reference=po[1], notes=f'Received against {po[1]}',
+                                user_id=user['id'], user_name=(user or {}).get('name'))
+                    except Exception as wse:
+                        print(f"Warning: workshop receipt not recorded on PO receive: {wse}")
                 cursor.execute("UPDATE grn_lines SET quantity_received = %s WHERE id = %s",
                                (min(new_received, ln[3]), ln_id))
                 if new_received < ln[3]:
@@ -43320,42 +43353,139 @@ def procurement_api_export():
 
 
 # ============================================================================
-# WORKSHOP — STOCK LEDGER
-# Opening stock + additions (goods RECEIVED on a purchase order) - reductions
-# (goods ISSUED when an "in stock" requisition was authorised) = closing stock.
+# WORKSHOP — ITS OWN STORE
 #
-# The ledger is built from the two movement tables, not from a stored balance:
-#   stock_additions  -> what came in  (reference = the PO number)
-#   stock_reductions -> what went out (reference = the requisition number)
-# Opening is derived by running TODAY's real stock backwards over the movements,
-# so closing stock ALWAYS equals what the store actually holds — which is what
-# "a view of what is in stock at any point in time" has to mean. Any change to a
-# product's stock that was never logged as a movement therefore lands in opening
-# stock (the honest place for it) and the report still balances.
+# The WORKSHOP IS ITS OWN SECTION OF THE COMPANY. It keeps its own item list and its
+# own stock, completely independently of the shop's POS inventory — nothing in this
+# section reads or writes anything belonging to the shop.
+#
+#   workshop_items     -> the workshop's own items (the materials it holds and the
+#                         things it makes), each with a running `stock` balance
+#   workshop_movements -> one row per movement: direction in/out, quantity, the
+#                         reason, and the DOCUMENT that caused it
+#
+# The report is: opening stock + received - issued = closing stock, over any daily /
+# weekly / monthly / quarterly / yearly / custom window. Opening is derived by
+# running today's balance BACKWARDS over the movements, so closing always equals what
+# the workshop actually holds, and opening + in - out = closing holds for every item
+# and every window.
+#
+# The register starts EMPTY (the user's instruction: "start from scratch"). It fills
+# from real events — goods received on a purchase order, goods issued when an
+# "in stock" requisition is authorised — and from anything entered by hand.
 # ============================================================================
 
-_WS_ADD_LABELS = {
-    'PO': 'PO receipt',
-    'injection': 'Capital injection',
-    'cash': 'Cash purchase',
-    'VOID': 'Sale voided',
+# Why stock moved. Defined once so the screen, the PDF and the Excel export all word
+# a movement identically, and so the forms can offer the lists as dropdowns.
+_WS_IN_REASONS = {
+    'received': 'Goods received',
+    'made': 'Made in workshop',
+    'opening': 'Opening stock',
+    'returned': 'Returned to store',
+    'adjustment': 'Adjustment (increase)',
 }
-_WS_RED_LABELS = {
-    'item_sale': 'Sale (POS)',
+_WS_OUT_REASONS = {
+    'issued': 'Issued from store',
+    'cut': 'Cut / used in production',
     'requisition_in_stock': 'Requisition issued',
     'damage': 'Damage / write-off',
-    'loss': 'Loss',
-    'expired': 'Expired',
-    'transfer': 'Transfer out',
+    'lost': 'Lost',
+    'adjustment': 'Adjustment (decrease)',
 }
 
 
-def _workshop_movement_label(kind, code):
-    """Human wording for a movement's source code, so the ledger never shows a
-    bare database value like 'item_sale' or 'injection'."""
-    code = code or ''
-    table = _WS_ADD_LABELS if kind == 'in' else _WS_RED_LABELS
-    return table.get(code) or code.replace('_', ' ').strip().title() or '—'
+def _workshop_movement_label(direction, reason):
+    """Human wording for a movement, so the ledger never shows a bare database
+    value. Anything unrecognised is title-cased rather than hidden."""
+    reason = (reason or '').strip()
+    table = _WS_IN_REASONS if direction == 'in' else _WS_OUT_REASONS
+    return table.get(reason) or reason.replace('_', ' ').strip().title() or '—'
+
+
+def _workshop_ensure_item(cursor, name, category=None, unit=None, min_level=None,
+                          user_name=None):
+    """Return the workshop item id for `name`, creating it when it is new.
+
+    This is how a purchase-order line — which names a PROCUREMENT product — lands in
+    the workshop's OWN register without the two sections sharing a catalogue.
+    Matching is case-insensitive and whitespace-trimmed, so receiving the same goods
+    twice cannot create a duplicate. Returns None when there is no usable name."""
+    name = str(name or '').strip()
+    if not name:
+        return None
+    cursor.execute("SELECT id FROM workshop_items WHERE lower(name) = lower(%s) LIMIT 1",
+                   (name,))
+    row = cursor.fetchone()
+    if row:
+        return row[0]
+    cursor.execute("""
+        INSERT INTO workshop_items (name, category, unit, min_stock_level, stock, created_by)
+        VALUES (%s, %s, %s, %s, 0, %s) RETURNING id
+    """, (name, ((category or '').strip() or None), ((unit or '').strip() or 'unit'),
+          int(min_level or 0), user_name))
+    return cursor.fetchone()[0]
+
+
+def _workshop_record_movement(cursor, item_id, direction, quantity, reason,
+                              reference=None, notes=None, user_id=None,
+                              user_name=None, when=None, clamp=False):
+    """THE ONLY THING THAT CHANGES WORKSHOP STOCK.
+
+    Writes one workshop_movements row AND moves the item's balance by the same
+    amount, in the caller's transaction, so the running balance can never drift away
+    from the movement history. The item's name is snapshotted onto the movement from
+    the same statement, so a later rename cannot rewrite history.
+
+    Returns (applied_quantity, new_balance).
+
+    `clamp=True` is for AUTOMATED movements (a purchase-order receipt, an issue
+    against a requisition): it takes only what is on hand instead of pushing the
+    balance negative, and reports the reduced quantity back so the caller can say what
+    was short. Manual entries leave it False — the route refuses an issue larger than
+    the stock on hand rather than silently trimming it to something the user did not
+    ask for.
+    """
+    direction = 'in' if str(direction or '').lower().startswith('i') else 'out'
+    try:
+        quantity = int(quantity or 0)
+    except (TypeError, ValueError):
+        return 0, None
+    if quantity <= 0 or not item_id:
+        return 0, None
+
+    cursor.execute("SELECT COALESCE(stock, 0) FROM workshop_items WHERE id = %s FOR UPDATE",
+                   (item_id,))
+    row = cursor.fetchone()
+    if not row:
+        return 0, None
+    available = int(row[0] or 0)
+
+    applied = quantity
+    if direction == 'out' and applied > available:
+        if not clamp:
+            return 0, available
+        applied = max(available, 0)
+        if applied <= 0:
+            return 0, available
+
+    new_balance = available + applied if direction == 'in' else available - applied
+    cursor.execute("""
+        UPDATE workshop_items SET stock = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s
+    """, (new_balance, item_id))
+
+    stamp = 'CURRENT_TIMESTAMP' if when is None else '%s'
+    params = [item_id, direction, applied, reason, reference, notes, user_id, user_name]
+    if when is not None:
+        params.append(when)
+    params.append(item_id)
+    cursor.execute(f"""
+        INSERT INTO workshop_movements
+            (item_id, item_name, direction, quantity, reason, reference, notes,
+             user_id, user_name, moved_at)
+        SELECT %s, name, %s, %s, %s, %s, %s, %s, %s, {stamp}
+        FROM workshop_items WHERE id = %s
+    """, tuple(params))
+    return applied, new_balance
 
 
 def _workshop_period(period, ref=None, start=None, end=None):
@@ -43412,150 +43542,108 @@ def _workshop_period(period, ref=None, start=None, end=None):
 
 
 def _procurement_reconcile_in_stock_issues():
-    """Issue every "in stock" requisition that was AUTHORISED before this feature
-    existed, so the ledger is not blind to history.
+    """DELIBERATELY NOT USED — returns empty and writes nothing.
 
-    A requisition is only ever issued ONCE (the req_no is the idempotency key on
-    stock_reductions), and the issue is dated with the requisition's OWN
-    authorised_at, so the movements land in the right reporting period. Safe to run
-    on every report — it does nothing once everything is reconciled.
+    Its original job was to pull in requisitions authorised before this feature
+    existed. The user has since asked for the workshop register to "start from
+    scratch", so past requisitions are NOT backfilled; the register fills only from
+    events that happen from now on.
 
-    Returns (requisitions_processed, rows_written, shortages)."""
-    out = {'requisitions': 0, 'rows': 0, 'shortages': []}
-    try:
-        with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT r.id, r.req_no, r.authorised_at
-                FROM requisitions r
-                WHERE COALESCE(r.stock_status, '') = 'in_stock'
-                  AND r.authorised_at IS NOT NULL
-                  AND NOT EXISTS (
-                        SELECT 1 FROM stock_reductions sr
-                        WHERE sr.reason = 'requisition_in_stock'
-                          AND sr.reference = r.req_no)
-                ORDER BY r.authorised_at, r.id
-            """)
-            pending = cursor.fetchall()
-            for rid, req_no, when in pending:
-                try:
-                    written, shortages = _procurement_issue_req_stock(cursor, rid, None, when=when)
-                except Exception as ie:
-                    print(f"Reconcile issue error on {req_no}: {ie}")
-                    continue
-                if written:
-                    out['requisitions'] += 1
-                    out['rows'] += written
-                for nm, wanted, avail in shortages:
-                    out['shortages'].append({'req_no': req_no, 'item': nm,
-                                             'wanted': wanted, 'available': avail})
-            connection.commit()
-    except Exception as e:
-        print(f"Reconcile in-stock issues error: {e}")
-    return out
+    Kept as a stub so its callers keep working."""
+    return {'requisitions': 0, 'rows': 0, 'shortages': []}
 
 
 def _workshop_ledger(start_dt, end_dt):
-    """Build the stock ledger for the window (start_dt, end_dt].
+    """Build the workshop stock ledger for the window (start_dt, end_dt].
 
-    Returns a dict with the current stock snapshot, the per-item ledger rows, the
-    individual movements in the window, and the column totals."""
+    Reads ONLY the workshop's own tables (`workshop_items`, `workshop_movements`).
+    Returns the on-hand snapshot, the per-item ledger rows, the individual movements
+    that fell inside the window, and the column totals.
+    """
     with get_db() as (cursor, connection):
         cursor.execute("""
-            SELECT id, name, category, unit_type, COALESCE(stock, 0),
+            SELECT id, name, category, unit, COALESCE(stock, 0),
                    COALESCE(min_stock_level, 0), COALESCE(is_active, TRUE)
-            FROM products ORDER BY name
+            FROM workshop_items ORDER BY name
         """)
-        prods = cursor.fetchall() or []
+        items = cursor.fetchall() or []
 
-        # Per-product movement totals: everything AFTER the window start, and the
-        # slice that falls INSIDE the window. 'after start' lets us walk today's
-        # real stock backwards to the opening figure.
-        def _movement_map(table, ts_col):
-            cursor.execute(f"""
-                SELECT product_id,
-                       COALESCE(SUM(quantity) FILTER (WHERE {ts_col} > %s), 0),
-                       COALESCE(SUM(quantity) FILTER (WHERE {ts_col} > %s AND {ts_col} <= %s), 0)
-                FROM {table}
-                WHERE product_id IS NOT NULL
-                GROUP BY product_id
-            """, (start_dt, start_dt, end_dt))
-            return {r[0]: (int(r[1] or 0), int(r[2] or 0)) for r in (cursor.fetchall() or [])}
-
-        add_map = _movement_map('stock_additions', 'added_at')
-        red_map = _movement_map('stock_reductions', 'reduced_at')
+        # Per item: the in/out totals AFTER the window start (so today's balance can
+        # be walked back to the opening figure) and the slice INSIDE the window.
+        cursor.execute("""
+            SELECT item_id,
+                   COALESCE(SUM(CASE WHEN direction = 'in'  THEN quantity ELSE 0 END)
+                            FILTER (WHERE moved_at > %s), 0),
+                   COALESCE(SUM(CASE WHEN direction = 'out' THEN quantity ELSE 0 END)
+                            FILTER (WHERE moved_at > %s), 0),
+                   COALESCE(SUM(CASE WHEN direction = 'in'  THEN quantity ELSE 0 END)
+                            FILTER (WHERE moved_at > %s AND moved_at <= %s), 0),
+                   COALESCE(SUM(CASE WHEN direction = 'out' THEN quantity ELSE 0 END)
+                            FILTER (WHERE moved_at > %s AND moved_at <= %s), 0)
+            FROM workshop_movements
+            WHERE item_id IS NOT NULL
+            GROUP BY item_id
+        """, (start_dt, start_dt, start_dt, end_dt, start_dt, end_dt))
+        move_map = {r[0]: (int(r[1] or 0), int(r[2] or 0), int(r[3] or 0), int(r[4] or 0))
+                    for r in (cursor.fetchall() or [])}
 
         cursor.execute("""
-            SELECT sa.added_at, sa.reference, COALESCE(p.name, '(removed item)'),
-                   p.category, sa.quantity, sa.funding_source,
-                   COALESCE(u.full_name, 'System'), COALESCE(sa.total_cost, 0)
-            FROM stock_additions sa
-            LEFT JOIN products p ON p.id = sa.product_id
-            LEFT JOIN admin_users u ON u.id = sa.user_id
-            WHERE sa.added_at > %s AND sa.added_at <= %s
-            ORDER BY sa.added_at, sa.id
+            SELECT wm.id, wm.moved_at, wm.reference, wm.item_name, COALESCE(wi.category, ''),
+                   wm.direction, wm.quantity, wm.reason,
+                   COALESCE(NULLIF(wm.user_name, ''), 'System'), COALESCE(wm.notes, '')
+            FROM workshop_movements wm
+            LEFT JOIN workshop_items wi ON wi.id = wm.item_id
+            WHERE wm.moved_at > %s AND wm.moved_at <= %s
+            ORDER BY wm.moved_at, wm.id
         """, (start_dt, end_dt))
-        add_rows = cursor.fetchall() or []
+        moves_raw = cursor.fetchall() or []
 
-        cursor.execute("""
-            SELECT sr.reduced_at, sr.reference, COALESCE(p.name, '(removed item)'),
-                   p.category, sr.quantity, sr.reason,
-                   COALESCE(u.full_name, 'System')
-            FROM stock_reductions sr
-            LEFT JOIN products p ON p.id = sr.product_id
-            LEFT JOIN admin_users u ON u.id = sr.user_id
-            WHERE sr.reduced_at > %s AND sr.reduced_at <= %s
-            ORDER BY sr.reduced_at, sr.id
-        """, (start_dt, end_dt))
-        red_rows = cursor.fetchall() or []
-
-    # ---- current stock snapshot -------------------------------------------
+    # ---- on-hand snapshot -------------------------------------------------
     stock = []
-    for p in prods:
-        qty = int(p[4] or 0)
-        minv = int(p[5] or 0)
+    for it in items:
+        qty = int(it[4] or 0)
+        minv = int(it[5] or 0)
         stock.append({
-            'id': p[0], 'name': p[1] or '', 'category': p[2] or '',
-            'unit': p[3] or 'piece', 'stock': qty, 'min_level': minv,
+            'id': it[0], 'name': it[1] or '', 'category': it[2] or '',
+            'unit': it[3] or 'unit', 'stock': qty, 'min_level': minv,
             'low': bool(minv and qty <= minv),
-            'active': bool(p[6]),
+            'active': bool(it[6]),
         })
 
-    # ---- per-item ledger ---------------------------------------------------
+    # ---- per-item ledger --------------------------------------------------
     ledger = []
-    for p in prods:
-        pid = p[0]
-        now_stock = int(p[4] or 0)
-        add_after, add_in = add_map.get(pid, (0, 0))
-        red_after, red_in = red_map.get(pid, (0, 0))
-        opening = now_stock - add_after + red_after      # closing at period start
-        closing = opening + add_in - red_in              # ties to now_stock exactly
-        if opening == 0 and add_in == 0 and red_in == 0 and closing == 0:
-            continue                                     # no stock, no movement
+    for it in items:
+        pid = it[0]
+        balance = int(it[4] or 0)
+        in_after, out_after, in_win, out_win = move_map.get(pid, (0, 0, 0, 0))
+        opening = balance - (in_after - out_after)     # balance at the window start
+        closing = opening + in_win - out_win           # ties to the live balance
+        if opening == 0 and in_win == 0 and out_win == 0 and closing == 0:
+            continue                                   # nothing to report
         ledger.append({
-            'id': pid, 'name': p[1] or '', 'category': p[2] or '',
-            'unit': p[3] or 'piece',
-            'opening': opening, 'received': add_in, 'issued': red_in, 'closing': closing,
+            'id': pid, 'name': it[1] or '', 'category': it[2] or '',
+            'unit': it[3] or 'unit',
+            'opening': opening, 'received': in_win, 'issued': out_win, 'closing': closing,
         })
 
-    # ---- individual movements ---------------------------------------------
+    # ---- the individual movements in the window ---------------------------
     movements = []
-    for r in add_rows:
+    for m in moves_raw:
+        direction = 'in' if (m[5] or '') == 'in' else 'out'
         movements.append({
-            'date': r[0], 'reference': r[1] or '—', 'item': r[2] or '',
-            'category': r[3] or '', 'type': 'in',
-            'label': _workshop_movement_label('in', r[5]),
-            'qty_in': int(r[4] or 0), 'qty_out': 0,
-            'by': r[6] or 'System', 'value': float(r[7] or 0),
+            'id': m[0],
+            'date': m[1], 'reference': m[2] or '—', 'item': m[3] or '',
+            'category': m[4] or '', 'type': direction,
+            'label': _workshop_movement_label(direction, m[7]),
+            'reason': m[7] or '',
+            # A movement that came from a DOCUMENT (a purchase-order receipt or a
+            # requisition issue) belongs to that document's history and cannot be
+            # undone from here; a hand-entered one can.
+            'undoable': (m[7] or '') not in ('received', 'requisition_in_stock'),
+            'qty_in': int(m[6] or 0) if direction == 'in' else 0,
+            'qty_out': int(m[6] or 0) if direction == 'out' else 0,
+            'by': m[8] or 'System', 'notes': m[9] or '',
         })
-    for r in red_rows:
-        movements.append({
-            'date': r[0], 'reference': r[1] or '—', 'item': r[2] or '',
-            'category': r[3] or '', 'type': 'out',
-            'label': _workshop_movement_label('out', r[5]),
-            'qty_in': 0, 'qty_out': int(r[4] or 0),
-            'by': r[6] or 'System', 'value': 0.0,
-        })
-    movements.sort(key=lambda m: (m['date'], 0 if m['type'] == 'in' else 1))
 
     totals = {
         'items': len(ledger),
@@ -43587,6 +43675,252 @@ def _workshop_user_name():
         return 'System'
 
 
+# ---- Workshop: the register and its movements (the ONLY writers) ----
+
+def _ws_int(value, default=0):
+    """Lenient int for form input — a blank or nonsense value becomes `default`
+    instead of raising a 500."""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _ws_clean(value):
+    """Trimmed string, or None when it is empty (so blank fields store NULL, not '')."""
+    return str(value or '').strip() or None
+
+
+@app.route('/api/procurement/workshop/items', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_workshop_item_add():
+    """Add an item to the workshop's OWN register, with an optional opening quantity.
+
+    The opening quantity is written as a normal 'opening' movement rather than being
+    stamped onto the balance, so the balance and the movement history can never
+    disagree and there is no back door that skips the ledger."""
+    data = request.get_json() or {}
+    name = str(data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'An item name is required.'}), 400
+    user = _procurement_user() or {}
+    opening = max(_ws_int(data.get('opening_qty')), 0)
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id FROM workshop_items WHERE lower(name) = lower(%s) LIMIT 1",
+                           (name,))
+            if cursor.fetchone():
+                return jsonify({'success': False,
+                                'error': f'"{name}" is already in the workshop register.'}), 400
+            cursor.execute("""
+                INSERT INTO workshop_items (name, category, unit, min_stock_level, notes, stock, created_by)
+                VALUES (%s, %s, %s, %s, %s, 0, %s) RETURNING id
+            """, (name, _ws_clean(data.get('category')),
+                  (_ws_clean(data.get('unit')) or 'unit'),
+                  max(_ws_int(data.get('min_stock_level')), 0),
+                  _ws_clean(data.get('notes')), user.get('name')))
+            item_id = cursor.fetchone()[0]
+            if opening > 0:
+                _workshop_record_movement(cursor, item_id, 'in', opening, 'opening',
+                                          reference='Opening',
+                                          notes='Opening quantity entered with the item',
+                                          user_id=user.get('id'), user_name=user.get('name'))
+            connection.commit()
+        log_activity('workshop_item_add', f'Added workshop item "{name}"',
+                     'workshop_item', item_id)
+        msg = f'"{name}" added to the workshop register.'
+        if opening > 0:
+            msg += f' Opening stock recorded as {opening}.'
+        return jsonify({'success': True, 'message': msg, 'id': item_id})
+    except Exception as e:
+        print(f"Workshop item add error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/workshop/items/<int:item_id>', methods=['PUT'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_workshop_item_update(item_id):
+    """Edit a workshop item's details.
+
+    The BALANCE IS NOT EDITABLE — that is what movements are for. Allowing a direct
+    edit here would create stock the ledger cannot explain."""
+    data = request.get_json() or {}
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id FROM workshop_items WHERE id = %s", (item_id,))
+            if not cursor.fetchone():
+                return jsonify({'success': False, 'error': 'Workshop item not found.'}), 404
+            name = str(data.get('name') or '').strip()
+            if name:
+                cursor.execute("""
+                    SELECT id FROM workshop_items
+                    WHERE lower(name) = lower(%s) AND id <> %s LIMIT 1
+                """, (name, item_id))
+                if cursor.fetchone():
+                    return jsonify({'success': False,
+                                    'error': f'Another workshop item is already called "{name}".'}), 400
+            cursor.execute("""
+                UPDATE workshop_items SET
+                    name = COALESCE(NULLIF(%s, ''), name),
+                    category = %s,
+                    unit = COALESCE(NULLIF(%s, ''), unit),
+                    min_stock_level = %s,
+                    notes = %s,
+                    is_active = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (name, _ws_clean(data.get('category')),
+                  str(data.get('unit') or '').strip(),
+                  max(_ws_int(data.get('min_stock_level')), 0),
+                  _ws_clean(data.get('notes')),
+                  bool(data.get('is_active', True)), item_id))
+            connection.commit()
+        log_activity('workshop_item_edit', f'Edited workshop item #{item_id}',
+                     'workshop_item', item_id)
+        return jsonify({'success': True, 'message': 'Workshop item updated.'})
+    except Exception as e:
+        print(f"Workshop item update error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/workshop/items/<int:item_id>', methods=['DELETE'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_workshop_item_delete(item_id):
+    """Remove a workshop item.
+
+    Refused once the item has ANY movement: deleting it would silently change every
+    report already produced. Deactivate it instead, so it drops out of the day-to-day
+    list but history stays intact."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT name FROM workshop_items WHERE id = %s", (item_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Workshop item not found.'}), 404
+            name = row[0]
+            cursor.execute("SELECT COUNT(*) FROM workshop_movements WHERE item_id = %s", (item_id,))
+            used = int((cursor.fetchone() or [0])[0] or 0)
+            if used:
+                return jsonify({'success': False,
+                                'error': f'"{name}" has {used} movement(s) against it, so it cannot be '
+                                         f'deleted — deactivate it instead and its history stays intact.'}), 400
+            cursor.execute("DELETE FROM workshop_items WHERE id = %s", (item_id,))
+            connection.commit()
+        log_activity('workshop_item_delete', f'Deleted workshop item "{name}"',
+                     'workshop_item', item_id)
+        return jsonify({'success': True, 'message': f'"{name}" removed from the workshop register.'})
+    except Exception as e:
+        print(f"Workshop item delete error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/workshop/movements', methods=['POST'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_workshop_movement_add():
+    """Record a movement by hand: goods received, something made, boards cut, an
+    issue, damage, or a correction.
+
+    This is how the register fills for anything that did not arrive through a purchase
+    order. A movement may name an item that is not in the register yet — it joins."""
+    data = request.get_json() or {}
+    direction = 'in' if str(data.get('direction') or '').lower().startswith('i') else 'out'
+    allowed = _WS_IN_REASONS if direction == 'in' else _WS_OUT_REASONS
+    reason = str(data.get('reason') or '').strip() or ('received' if direction == 'in' else 'issued')
+    if reason not in allowed:
+        return jsonify({'success': False,
+                        'error': f'"{reason}" is not a valid reason for stock going {direction}.'}), 400
+    qty = _ws_int(data.get('quantity'))
+    if qty <= 0:
+        return jsonify({'success': False, 'error': 'Enter a quantity greater than zero.'}), 400
+    user = _procurement_user() or {}
+    try:
+        with get_db() as (cursor, connection):
+            item_id = _ws_int(data.get('item_id')) or None
+            if item_id:
+                cursor.execute("SELECT name, COALESCE(stock, 0) FROM workshop_items WHERE id = %s",
+                               (item_id,))
+                row = cursor.fetchone()
+                if not row:
+                    return jsonify({'success': False, 'error': 'Workshop item not found.'}), 404
+                item_name, available = row[0], int(row[1] or 0)
+            else:
+                item_name = str(data.get('name') or '').strip()
+                if not item_name:
+                    return jsonify({'success': False,
+                                    'error': 'Choose an item, or type the name of a new one.'}), 400
+                item_id = _workshop_ensure_item(cursor, item_name,
+                                                category=data.get('category'),
+                                                unit=data.get('unit'),
+                                                user_name=user.get('name'))
+                cursor.execute("SELECT COALESCE(stock, 0) FROM workshop_items WHERE id = %s", (item_id,))
+                available = int((cursor.fetchone() or [0])[0] or 0)
+            # Refuse rather than silently trim: a person typing 40 when only 25 are
+            # there has made a mistake worth being told about.
+            if direction == 'out' and qty > available:
+                return jsonify({'success': False,
+                                'error': f'Only {available} of "{item_name}" are in the workshop — '
+                                         f'{qty} cannot be taken out.'}), 400
+            applied, balance = _workshop_record_movement(
+                cursor, item_id, direction, qty, reason,
+                reference=_ws_clean(data.get('reference')),
+                notes=_ws_clean(data.get('notes')),
+                user_id=user.get('id'), user_name=user.get('name'))
+            connection.commit()
+        log_activity('workshop_movement',
+                     f'{_workshop_movement_label(direction, reason)}: {qty} x {item_name}',
+                     'workshop_item', item_id)
+        return jsonify({'success': True, 'applied': applied, 'balance': balance,
+                        'message': f'{_workshop_movement_label(direction, reason)} — {qty} x {item_name}. '
+                                   f'{item_name} now stands at {balance}.'})
+    except Exception as e:
+        print(f"Workshop movement error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/workshop/movements/<int:mv_id>', methods=['DELETE'])
+@login_required
+@_procurement_perm_required('can_manage_purchase_orders')
+def procurement_api_workshop_movement_delete(mv_id):
+    """Undo a movement entered by mistake: reverses the balance and drops the row.
+
+    Refused for a movement that came from a DOCUMENT (a purchase-order receipt or a
+    requisition issue) — that belongs to that document's own history, and a correcting
+    adjustment is the honest way to fix it."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT item_id, direction, quantity, reason, item_name
+                FROM workshop_movements WHERE id = %s
+            """, (mv_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'error': 'Movement not found.'}), 404
+            item_id, direction, qty, reason, item_name = row
+            if reason in ('received', 'requisition_in_stock'):
+                return jsonify({'success': False,
+                                'error': f'This movement is part of {item_name}\'s document history (a receipt '
+                                         f'or a requisition), so it cannot be undone here. Record an '
+                                         f'adjustment instead.'}), 400
+            if item_id:
+                reverse = 'out' if direction == 'in' else 'in'
+                _workshop_record_movement(cursor, item_id, reverse, int(qty or 0), 'adjustment',
+                                          reference='Reversal',
+                                          notes=f'Reversal of movement #{mv_id}',
+                                          user_name='System')
+            cursor.execute("DELETE FROM workshop_movements WHERE id = %s", (mv_id,))
+            connection.commit()
+        log_activity('workshop_movement_undo', f'Undid workshop movement #{mv_id}',
+                     'workshop_item', item_id)
+        return jsonify({'success': True, 'message': f'Movement undone — {item_name} put back to where it was.'})
+    except Exception as e:
+        print(f"Workshop movement undo error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/procurement/workshop/stock', methods=['GET'])
 @login_required
 def procurement_api_workshop_stock():
@@ -43609,6 +43943,7 @@ def procurement_api_workshop_stock():
             'movements': [{**m, 'date': m['date'].strftime('%Y-%m-%d %H:%M') if m['date'] else ''}
                           for m in data['movements']],
             'reconciled': reconciled,
+            'reasons': {'in': _WS_IN_REASONS, 'out': _WS_OUT_REASONS},
         })
     except Exception as e:
         print(f"Workshop stock error: {e}")
@@ -45193,11 +45528,11 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
                     """, (sender_name, req_id))
                     new_status = 'authorised'
                     # Authorising an "in stock" requisition IS the issue — the goods
-                    # leave the workshop store here, exactly as on the in-app route.
+                    # leave the WORKSHOP store here, exactly as on the in-app route.
                     try:
-                        _procurement_issue_req_stock(cursor, req_id, sender_uid)
+                        _procurement_issue_req_stock(cursor, req_id, sender_uid, sender_name)
                     except Exception as sie:
-                        print(f"Requisition stock issue error: {sie}")
+                        print(f"Requisition workshop issue error: {sie}")
                 else:
                     cursor.execute("""
                         UPDATE requisitions SET status='approved', approved_by=%s,

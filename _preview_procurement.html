@@ -968,7 +968,8 @@
                         <input type="date" class="pc-input" id="wsRefDate" style="width:150px;" onchange="loadWorkshop()" title="Any date inside the period you want">
                         <input type="date" class="pc-input" id="wsStart" style="width:150px;display:none;" onchange="loadWorkshop()" title="Range start">
                         <input type="date" class="pc-input" id="wsEnd" style="width:150px;display:none;" onchange="loadWorkshop()" title="Range end">
-                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="loadWorkshop()"><i class="bi bi-arrow-clockwise"></i> Apply</button>
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="openWsMove()" data-perm-action="can_manage_purchase_orders" title="Record goods received, something made, boards cut, an issue or damage"><i class="bi bi-arrow-left-right"></i> Record Movement</button>
+                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openWsItem()" data-perm-action="can_manage_purchase_orders" title="Add an item to the workshop register"><i class="bi bi-plus-lg"></i> Add Item</button>
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="workshopExport('pdf')" title="Download the report as a PDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="workshopExport('xlsx')" title="Download the report as an Excel workbook"><i class="bi bi-file-earmark-excel"></i> Excel</button>
                     </div>
@@ -993,8 +994,8 @@
                 </div>
                 <div class="pc-panel-body pc-table-wrap">
                     <table class="pc-table">
-                        <thead><tr><th>Date</th><th>Document</th><th>Item</th><th>Movement</th><th class="num">In</th><th class="num">Out</th><th>Recorded By</th></tr></thead>
-                        <tbody id="wsMoveBody"><tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                        <thead><tr><th>Date</th><th>Document</th><th>Item</th><th>Movement</th><th class="num">In</th><th class="num">Out</th><th>Recorded By</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="wsMoveBody"><tr><td colspan="8" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -1011,8 +1012,8 @@
                 </div>
                 <div class="pc-panel-body pc-table-wrap">
                     <table class="pc-table">
-                        <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">In Stock</th><th class="num">Min Level</th><th>Status</th></tr></thead>
-                        <tbody id="wsStockBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                        <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">In Stock</th><th class="num">Min Level</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="wsStockBody"><tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -1676,6 +1677,98 @@
     </div>
 </div>
 
+<!-- ==================== WORKSHOP: ADD / EDIT ITEM ==================== -->
+<div class="modal fade" id="wsItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-tools me-2"></i><span id="wsItemTitle">Add Workshop Item</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <input type="hidden" id="wsItemId">
+                <label class="pc-form-label">Item name *</label>
+                <input class="pc-input" id="wsItemName" placeholder="e.g. Melamine Board 18mm, Kitchen Unit Base 600mm">
+                <div class="row g-2 mt-0">
+                    <div class="col-6">
+                        <label class="pc-form-label">Category</label>
+                        <input class="pc-input" id="wsItemCategory" placeholder="Boards / Kitchen">
+                    </div>
+                    <div class="col-6">
+                        <label class="pc-form-label">Unit</label>
+                        <input class="pc-input" id="wsItemUnit" placeholder="sheet / unit / length">
+                    </div>
+                    <div class="col-6">
+                        <label class="pc-form-label">Minimum level</label>
+                        <input type="number" min="0" class="pc-input" id="wsItemMin" value="0">
+                    </div>
+                    <div class="col-6" id="wsItemOpeningWrap">
+                        <label class="pc-form-label">Opening quantity</label>
+                        <input type="number" min="0" class="pc-input" id="wsItemOpening" value="0">
+                    </div>
+                </div>
+                <div style="font-size:0.56rem;color:#94A3B8;margin-top:5px;">
+                    Anything already on the workshop floor is entered as the opening quantity.
+                    After that, stock only moves through recorded movements.
+                </div>
+                <div class="mt-2">
+                    <label class="pc-form-label">Notes</label>
+                    <textarea class="pc-textarea" id="wsItemNotes" rows="2"></textarea>
+                </div>
+                <div id="wsItemMsg" style="display:none;margin-top:8px;font-size:0.6rem;font-weight:800;color:#DC2626;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="pc-btn pc-btn-primary" onclick="saveWsItem()"><i class="bi bi-check-lg"></i> Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== WORKSHOP: RECORD MOVEMENT ==================== -->
+<div class="modal fade" id="wsMoveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-arrow-left-right me-2"></i>Record A Movement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <label class="pc-form-label">Direction *</label>
+                <select class="pc-select" id="wsMoveDir" onchange="wsMoveDirChanged()">
+                    <option value="in">Into the workshop</option>
+                    <option value="out">Out of the workshop</option>
+                </select>
+                <label class="pc-form-label mt-2">Why? *</label>
+                <select class="pc-select" id="wsMoveReason"></select>
+                <label class="pc-form-label mt-2">Item *</label>
+                <select class="pc-select" id="wsMoveItem" onchange="wsMoveItemChanged()"></select>
+                <input class="pc-input mt-1" id="wsMoveNewName" placeholder="Name of the new item" style="display:none;">
+                <div class="row g-2 mt-0">
+                    <div class="col-4">
+                        <label class="pc-form-label">Quantity *</label>
+                        <input type="number" min="1" class="pc-input" id="wsMoveQty" value="1">
+                    </div>
+                    <div class="col-8">
+                        <label class="pc-form-label">Document / reference</label>
+                        <input class="pc-input" id="wsMoveRef" placeholder="PO-0004, job no, etc.">
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <label class="pc-form-label">Notes</label>
+                    <textarea class="pc-textarea" id="wsMoveNotes" rows="2"></textarea>
+                </div>
+                <div id="wsMoveAvail" style="font-size:0.58rem;color:#64748B;margin-top:6px;"></div>
+                <div id="wsMoveMsg" style="display:none;margin-top:8px;font-size:0.6rem;font-weight:800;color:#DC2626;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="pc-btn pc-btn-primary" onclick="saveWsMovement()"><i class="bi bi-check-lg"></i> Record</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ==================== PO FUNDS RECEIVED MODAL ==================== -->
 <div class="modal fade" id="poFundsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1811,21 +1904,23 @@ let PERMS = {};
     // Same window arithmetic as the server: opening is derived by walking today's
     // stock backwards over the movements, so the numbers always balance.
     const WS_NOW = {
-        'Electrical Cable 2.5mm': { cat: 'Electrical', unit: 'roll',   stock: 250, min: 50 },
-        'Cement 50kg':            { cat: 'Building',   unit: 'bag',    stock: 395, min: 100 },
-        'Cable Trunking 50mm':    { cat: 'Electrical', unit: 'length', stock: 42,  min: 60 },
-        'Distribution Board 12-way': { cat: 'Electrical', unit: 'piece', stock: 14, min: 5 },
-        'PVC Conduit 20mm':       { cat: 'Electrical', unit: 'length', stock: 0,   min: 25 },
-        'Paint — White 20L':      { cat: 'Finishes',   unit: 'tin',    stock: 9,   min: 10 }
+        'Melamine Board 18mm White': { cat: 'Boards',   unit: 'sheet',  stock: 24,  min: 10 },
+        'MDF Board 16mm':            { cat: 'Boards',   unit: 'sheet',  stock: 6,   min: 12 },
+        'Kitchen Unit Base 600mm':   { cat: 'Kitchen',  unit: 'unit',   stock: 9,   min: 2 },
+        'Kitchen Unit Wall 600mm':   { cat: 'Kitchen',  unit: 'unit',   stock: 4,   min: 2 },
+        'Granite Top 2.4m':          { cat: 'Kitchen',  unit: 'length', stock: 3,   min: 1 },
+        'Clip-on Hinge 35mm':        { cat: 'Fittings', unit: 'piece',  stock: 148, min: 50 },
+        'Edging Tape 22mm':          { cat: 'Fittings', unit: 'roll',   stock: 2,   min: 5 }
     };
     const WS_MOVES = [
-        ['2026-09-10 09:12', 'PO-0002',  'Electrical Cable 2.5mm',     'in',  'PO receipt',         150, 0,  'T. Chikerema'],
-        ['2026-09-12 11:05', 'REQ-0007', 'Cement 50kg',                'out', 'Requisition issued', 0,   40, 'Mrs G'],
-        ['2026-09-15 14:40', '—',        'Cable Trunking 50mm',        'out', 'Sale (POS)',         0,   8,  'System'],
-        ['2026-09-18 08:20', 'PO-0004',  'Cement 50kg',                'in',  'PO receipt',         200, 0,  'T. Chikerema'],
-        ['2026-09-19 16:10', 'PO-0004',  'Distribution Board 12-way',  'in',  'PO receipt',         12,  0,  'T. Chikerema'],
-        ['2026-09-19 17:02', 'REQ-0008', 'Cable Trunking 50mm',        'out', 'Requisition issued', 0,   20, 'Mrs G'],
-        ['2026-09-20 09:30', '—',        'Paint — White 20L',          'out', 'Damage / write-off', 0,   3,  'Mrs G']
+        ['2026-09-08 08:40', 'PO-0004',  'Melamine Board 18mm White', 'in',  'Goods received',            30, 0,  'T. Chikerema'],
+        ['2026-09-09 10:15', 'PO-0004',  'Clip-on Hinge 35mm',        'in',  'Goods received',            200, 0, 'T. Chikerema'],
+        ['2026-09-11 09:05', 'JOB-0007', 'Melamine Board 18mm White', 'out', 'Cut / used in production',  0,  6,  'Workshop'],
+        ['2026-09-11 14:20', 'JOB-0007', 'Kitchen Unit Base 600mm',   'in',  'Made in workshop',          6,  0,  'Workshop'],
+        ['2026-09-14 08:30', 'JOB-0007', 'Clip-on Hinge 35mm',        'out', 'Cut / used in production',  0,  36, 'Workshop'],
+        ['2026-09-16 11:10', 'REQ-0009', 'Granite Top 2.4m',          'out', 'Requisition issued',        0,  1,  'Mrs G'],
+        ['2026-09-18 15:45', 'JOB-0008', 'Kitchen Unit Wall 600mm',   'in',  'Made in workshop',          4,  0,  'Workshop'],
+        ['2026-09-19 09:00', '—',        'MDF Board 16mm',            'out', 'Damage / write-off',        0,  2,  'Workshop']
     ];
 
     function wsWindow(qs) {
@@ -1868,14 +1963,16 @@ let PERMS = {};
         const qs = new URLSearchParams(u.split('?')[1] || '');
         const w = wsWindow(qs);
         const t = d => d.slice(0, 10);
-        const moves = WS_MOVES.map(m => ({
-            date: m[0], reference: m[1], item: m[2], category: (WS_NOW[m[2]] || {}).cat || '',
-            type: m[3], label: m[4], qty_in: m[5], qty_out: m[6], by: m[7]
+        const moves = WS_MOVES.map((m, i) => ({
+            id: i + 1, date: m[0], reference: m[1], item: m[2],
+            category: (WS_NOW[m[2]] || {}).cat || '',
+            type: m[3], label: m[4], qty_in: m[5], qty_out: m[6], by: m[7],
+            undoable: ['Goods received', 'Requisition issued'].indexOf(m[4]) < 0
         }));
         const inWin = m => t(m.date) > w.start && t(m.date) <= w.end;
         const after = m => t(m.date) > w.start;
         const ledger = [];
-        Object.keys(WS_NOW).forEach(name => {
+        Object.keys(WS_NOW).forEach((name, idx) => {
             const base = WS_NOW[name];
             let addAfter = 0, redAfter = 0, addIn = 0, redIn = 0;
             moves.filter(m => m.item === name).forEach(m => {
@@ -1885,7 +1982,7 @@ let PERMS = {};
             const opening = base.stock - addAfter + redAfter;
             const closing = opening + addIn - redIn;
             if (opening || addIn || redIn || closing) {
-                ledger.push({ id: name, name: name, category: base.cat, unit: base.unit,
+                ledger.push({ id: idx + 1, name: name, category: base.cat, unit: base.unit,
                               opening: opening, received: addIn, issued: redIn, closing: closing });
             }
         });
@@ -1898,14 +1995,20 @@ let PERMS = {};
                       on_hand_items: Object.values(WS_NOW).filter(x => x.stock > 0).length,
                       low_stock: Object.values(WS_NOW).filter(x => x.stock <= x.min).length,
                       movements: moves.filter(inWin).length },
-            stock: Object.keys(WS_NOW).map(n => ({ id: n, name: n, category: WS_NOW[n].cat,
+            stock: Object.keys(WS_NOW).map((n, i) => ({ id: i + 1, name: n, category: WS_NOW[n].cat,
                      unit: WS_NOW[n].unit, stock: WS_NOW[n].stock, min_level: WS_NOW[n].min,
                      low: WS_NOW[n].stock <= WS_NOW[n].min, active: true })),
             ledger: ledger,
             movements: moves.filter(inWin),
-            reconciled: { requisitions: 1, rows: 1, shortages: [
-                { req_no: 'REQ-0007', item: 'Cement 50kg', wanted: 50, available: 40 }
-            ] }
+            reconciled: { requisitions: 0, rows: 0, shortages: [] },
+            reasons: {
+                in: { received: 'Goods received', made: 'Made in workshop',
+                      opening: 'Opening stock', returned: 'Returned to store',
+                      adjustment: 'Adjustment (increase)' },
+                out: { issued: 'Issued from store', cut: 'Cut / used in production',
+                       requisition_in_stock: 'Requisition issued', damage: 'Damage / write-off',
+                       lost: 'Lost', adjustment: 'Adjustment (decrease)' }
+            }
         };
     }
 
@@ -4946,6 +5049,7 @@ async function loadWorkshop() {
         const data = await res.json();
         if (!data.success) { toast(data.error || 'Could not load the stock ledger', 'error'); return; }
         WS_DATA = data;
+        WS_REASONS = data.reasons || WS_REASONS;
         const t = data.totals || {};
         animateValue(document.getElementById('wsKpiClosing'), t.closing || 0, false);
         animateValue(document.getElementById('wsKpiOpening'), t.opening || 0, false);
@@ -4960,8 +5064,8 @@ async function loadWorkshop() {
 
         // Tell the user when old 'in stock' requisitions had to be reconciled into
         // the ledger, so a first-time jump in the numbers is explainable.
-        const rec = data.reconciled || { requisitions: 0, shortages: [] };
         const rBanner = document.getElementById('wsReconciledBanner');
+        const rec = data.reconciled || { requisitions: 0, shortages: [] };
         if (rec.requisitions > 0 || (rec.shortages || []).length) {
             let html = '<i class="bi bi-info-circle-fill"></i><span>';
             if (rec.requisitions > 0) {
@@ -5035,8 +5139,9 @@ function renderWsMovements() {
             <td class="num" style="color:#047857;">${m.qty_in ? wsNum(m.qty_in) : ''}</td>
             <td class="num" style="color:#b91c1c;">${m.qty_out ? wsNum(m.qty_out) : ''}</td>
             <td>${esc(m.by || 'System')}</td>
+            <td style="text-align:right;">${m.undoable ? `<button class="pc-btn pc-btn-outline pc-btn-sm" title="Undo this movement" onclick="undoWsMovement(${m.id}, '${esc(m.item)}')" data-perm-action="can_manage_purchase_orders"><i class="bi bi-arrow-counterclockwise"></i></button>` : `<span style="font-size:0.55rem;color:#CBD5E1;" title="Part of a document's history (a receipt or a requisition)">from document</span>`}</td>
         </tr>`).join('') ||
-        '<tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> No stock moved in this period.</td></tr>';
+        '<tr><td colspan="8" class="pc-empty"><i class="bi bi-inbox"></i> No stock moved in this period.</td></tr>';
 }
 
 function renderWsStock() {
@@ -5057,8 +5162,13 @@ function renderWsStock() {
             <td>${s.low ? '<span class="pc-badge pc-badge-rejected">Below minimum</span>'
                        : (s.stock > 0 ? '<span class="pc-badge pc-badge-approved">In stock</span>'
                                       : '<span class="pc-badge pc-badge-draft">None</span>')}</td>
+            <td style="text-align:right;white-space:nowrap;">
+                <button class="pc-btn pc-btn-outline pc-btn-sm" title="Record a movement for this item" onclick="openWsMove('in', ${s.id})" data-perm-action="can_manage_purchase_orders"><i class="bi bi-arrow-left-right"></i></button>
+                <button class="pc-btn pc-btn-outline pc-btn-sm" title="Edit" onclick="openWsItem(${s.id})" data-perm-action="can_manage_purchase_orders"><i class="bi bi-pencil"></i></button>
+                <button class="pc-btn pc-btn-danger pc-btn-sm" title="Remove from the register" onclick="deleteWsItem(${s.id}, '${esc(s.name)}')" data-perm-action="can_manage_purchase_orders"><i class="bi bi-trash"></i></button>
+            </td>
         </tr>`).join('') ||
-        '<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> No items match.</td></tr>';
+        '<tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Nothing in the workshop register yet — use “Add Item”, or receive a purchase order.</td></tr>';
 }
 
 /* The PDF and Excel reports are the SAME report as the screen — same period, same
@@ -5067,6 +5177,152 @@ window.workshopExport = function(kind) {
     // Preview: the real report is rendered server-side, so show what would be called.
     toast('Preview: the ' + kind.toUpperCase() + ' would be generated from /api/procurement/workshop/report.'
           + kind + '?' + wsQuery(), 'info');
+};
+
+/* ---------- workshop register: add an item, record a movement ---------- */
+
+let WS_REASONS = { in: {}, out: {} };
+
+function wsItemOptions() {
+    const sel = document.getElementById('wsMoveItem');
+    const keep = sel.value;
+    const items = (WS_DATA && WS_DATA.stock) || [];
+    sel.innerHTML = '<option value="">— new item —</option>' + items.map(s =>
+        `<option value="${s.id}">${esc(s.name)}${s.stock ? ' (' + s.stock + ' on hand)' : ''}</option>`).join('');
+    sel.value = keep;
+}
+
+window.wsMoveDirChanged = function() {
+    const dir = document.getElementById('wsMoveDir').value;
+    const list = (WS_REASONS[dir] || {});
+    document.getElementById('wsMoveReason').innerHTML =
+        Object.keys(list).map(k => `<option value="${k}">${esc(list[k])}</option>`).join('');
+    wsMoveItemChanged();
+};
+
+window.wsMoveItemChanged = function() {
+    const sel = document.getElementById('wsMoveItem');
+    const isNew = !sel.value;
+    document.getElementById('wsMoveNewName').style.display = isNew ? '' : 'none';
+    const dir = document.getElementById('wsMoveDir').value;
+    const avail = document.getElementById('wsMoveAvail');
+    const it = ((WS_DATA || {}).stock || []).find(s => String(s.id) === String(sel.value));
+    if (isNew) {
+        avail.textContent = 'Not in the register yet — it will be added.';
+    } else if (it) {
+        avail.textContent = `${it.stock} ${it.unit || ''} of ${it.name} is in the workshop just now.`;
+    } else {
+        avail.textContent = '';
+    }
+    if (dir === 'out' && it && !isNew) avail.style.color = it.stock > 0 ? '#64748B' : '#DC2626';
+};
+
+window.openWsMove = function(direction, itemId) {
+    document.getElementById('wsMoveMsg').style.display = 'none';
+    document.getElementById('wsMoveDir').value = direction || 'in';
+    wsItemOptions();
+    if (itemId) document.getElementById('wsMoveItem').value = itemId;
+    document.getElementById('wsMoveQty').value = 1;
+    document.getElementById('wsMoveRef').value = '';
+    document.getElementById('wsMoveNotes').value = '';
+    document.getElementById('wsMoveNewName').value = '';
+    wsMoveDirChanged();
+    showModal('wsMoveModal');
+};
+
+window.saveWsMovement = async function() {
+    const msg = document.getElementById('wsMoveMsg');
+    msg.style.display = 'none';
+    const itemId = document.getElementById('wsMoveItem').value;
+    const body = {
+        direction: document.getElementById('wsMoveDir').value,
+        reason: document.getElementById('wsMoveReason').value,
+        quantity: document.getElementById('wsMoveQty').value,
+        reference: document.getElementById('wsMoveRef').value.trim(),
+        notes: document.getElementById('wsMoveNotes').value.trim(),
+        item_id: itemId || null,
+        name: itemId ? null : document.getElementById('wsMoveNewName').value.trim()
+    };
+    if (!body.item_id && !body.name) {
+        msg.textContent = 'Choose an item, or type the name of a new one.';
+        msg.style.display = '';
+        return;
+    }
+    try {
+        const res = await fetch('/api/procurement/workshop/movements', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!data.success) { msg.textContent = data.error || 'Could not record it.'; msg.style.display = ''; return; }
+        toast(data.message || 'Recorded');
+        hideModal('wsMoveModal');
+        loadWorkshop();
+    } catch (e) { msg.textContent = 'Connection error'; msg.style.display = ''; }
+};
+
+window.undoWsMovement = async function(id, item) {
+    if (!confirm('Undo this movement of ' + item + '?\n\nThe quantity goes back where it was and the line is removed from the history.')) return;
+    try {
+        const res = await fetch('/api/procurement/workshop/movements/' + id, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) loadWorkshop();
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+window.openWsItem = function(id) {
+    const it = id ? ((WS_DATA || {}).stock || []).find(s => s.id === id) : null;
+    document.getElementById('wsItemMsg').style.display = 'none';
+    document.getElementById('wsItemId').value = it ? it.id : '';
+    document.getElementById('wsItemTitle').textContent = it ? 'Edit Workshop Item' : 'Add Workshop Item';
+    document.getElementById('wsItemName').value = it ? it.name : '';
+    document.getElementById('wsItemCategory').value = it ? (it.category || '') : '';
+    document.getElementById('wsItemUnit').value = it ? (it.unit || '') : '';
+    document.getElementById('wsItemMin').value = it ? it.min_level : 0;
+    document.getElementById('wsItemNotes').value = '';
+    document.getElementById('wsItemOpening').value = 0;
+    // The opening quantity only makes sense when the item is first created — after
+    // that, stock moves through movements like everything else.
+    document.getElementById('wsItemOpeningWrap').style.display = it ? 'none' : '';
+    showModal('wsItemModal');
+};
+
+window.saveWsItem = async function() {
+    const msg = document.getElementById('wsItemMsg');
+    msg.style.display = 'none';
+    const id = document.getElementById('wsItemId').value;
+    const body = {
+        name: document.getElementById('wsItemName').value.trim(),
+        category: document.getElementById('wsItemCategory').value.trim(),
+        unit: document.getElementById('wsItemUnit').value.trim(),
+        min_stock_level: document.getElementById('wsItemMin').value,
+        notes: document.getElementById('wsItemNotes').value.trim(),
+        opening_qty: document.getElementById('wsItemOpening').value,
+        is_active: true
+    };
+    if (!body.name) { msg.textContent = 'An item name is required.'; msg.style.display = ''; return; }
+    try {
+        const res = await fetch('/api/procurement/workshop/items' + (id ? '/' + id : ''), {
+            method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!data.success) { msg.textContent = data.error || 'Could not save it.'; msg.style.display = ''; return; }
+        toast(data.message || 'Saved');
+        hideModal('wsItemModal');
+        loadWorkshop();
+    } catch (e) { msg.textContent = 'Connection error'; msg.style.display = ''; }
+};
+
+window.deleteWsItem = async function(id, name) {
+    if (!confirm('Remove "' + name + '" from the workshop register?')) return;
+    try {
+        const res = await fetch('/api/procurement/workshop/items/' + id, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) loadWorkshop();
+    } catch (e) { toast('Connection error', 'error'); }
 };
 
 init();
