@@ -42869,7 +42869,11 @@ def _proc_pdf_grand_total(label, value, widths_mm, S, C):
 
 
 def _proc_pdf_signatures(cells, S, C, caption=True):
-    """Signature strip: label (+ who signed) above a rule, with room to sign.
+    """Signature strip: label (+ who signed, + when) above a rule, with room to sign.
+
+    A cell is `(label, who)` or `(label, who, when)`. The WHEN gets its own line: it is
+    long ('20 September 2026 at 14:31') and inline it wrapped mid-date, printing
+    '· 19 / September 2026 at 21:05', which reads like two dates on a signed form.
 
     `caption=False` drops the 'Name & signature' hint (the workshop stock report asks
     for it off); the money documents keep it.
@@ -42879,11 +42883,16 @@ def _proc_pdf_signatures(cells, S, C, caption=True):
     n = max(1, len(cells))
     col_mm = _PROC_PAGE_W / float(n)
     paras = []
-    for label, who in cells:
+    for cell in cells:
+        label, who = cell[0], cell[1]
+        when = cell[2] if len(cell) > 2 else None
         line = f'<b>{_proc_esc(label)}</b>'
         if who:
             line += f' &nbsp;<font color="{_PROC_MUTED}">{_proc_esc(who)}</font>'
-        body = line + '<br/><br/>'
+        body = line
+        if when:
+            body += f'<br/><font size="7" color="{_PROC_FAINT}">{_proc_esc(when)}</font>'
+        body += '<br/><br/>'
         if caption:
             body += f'<font size="6" color="{_PROC_FAINT}">Name &amp; signature</font>'
         else:
@@ -43034,19 +43043,16 @@ def _render_po_pdf(po_id):
         rows, widths, S, C))
     grand = float(total_amount or 0) or computed
     story.append(_proc_pdf_grand_total('GRAND TOTAL (USD)', _proc_money(grand), widths, S, C))
-    def _signer(name, at):
-        """'Name · 20 September 2026 at 14:31' — the stamp the portal shows in its sign-off
-        block, so the printed order says WHEN each layer acted and not only who.
-        Escaping stays with the strip (it escapes whatever it is handed)."""
-        if name and at:
-            return f'{name} · {_proc_long_date(at, with_time=True)}'
-        return name
+    def _stamp(at):
+        """When that layer acted, in the long document format ('20 September 2026 at
+        14:31') or None — None drops the line instead of printing a dash on a signature."""
+        return _proc_long_date(at, with_time=True) if at else None
 
     story.append(Spacer(1, 14 * mm))
     story.append(_proc_pdf_signatures([
-        ('Logged by', _signer(created_by, created_at)),
-        ('Authorised by', _signer(authorised_by or authoriser_name, authorised_at)),
-        ('Approved by', _signer(approved_by or approver_name, approved_at)),
+        ('Logged by', created_by, _stamp(created_at)),
+        ('Authorised by', authorised_by or authoriser_name, _stamp(authorised_at)),
+        ('Approved by', approved_by or approver_name, _stamp(approved_at)),
     ], S, C))
     story.append(Spacer(1, 7 * mm))
     story.append(_proc_pdf_footer([
@@ -43307,21 +43313,18 @@ def _render_req_pdf(rid):
             ['Item', '#', 'Supplier', 'Phone', 'Unit Cost', 'Days', 'Chosen', 'Why'],
             qrows, [40, 8, 34, 26, 21, 12, 20, 21], S, C))
 
-    def _signer(name, at):
-        """'Name · 20 September 2026 at 14:31' — the same stamp the Sign-off block shows
-        on screen, so the printed form and the portal agree on when each layer acted.
-        Escaping stays with the strip (it escapes whatever it is handed)."""
-        if name and at:
-            return f'{name} · {_proc_long_date(at, with_time=True)}'
-        return name
+    def _stamp(at):
+        """When that layer acted, in the long document format ('20 September 2026 at
+        14:31') or None — None drops the line instead of printing a dash on a signature."""
+        return _proc_long_date(at, with_time=True) if at else None
 
     story.append(Spacer(1, 10 * mm))
     story.append(_proc_pdf_signatures([
-        ('Requested by', _signer(req.get('requested_by'), req.get('submitted_at'))),
-        ('Authorised by', _signer(req.get('authorised_by') or req.get('authoriser_name'),
-                                  req.get('authorised_at'))),
-        ('Approved by', _signer(req.get('approved_by') or req.get('approver_name'),
-                                req.get('approved_at'))),
+        ('Requested by', req.get('requested_by'), _stamp(req.get('submitted_at'))),
+        ('Authorised by', req.get('authorised_by') or req.get('authoriser_name'),
+         _stamp(req.get('authorised_at'))),
+        ('Approved by', req.get('approved_by') or req.get('approver_name'),
+         _stamp(req.get('approved_at'))),
     ], S, C))
     story.append(Spacer(1, 7 * mm))
     story.append(_proc_pdf_footer([
