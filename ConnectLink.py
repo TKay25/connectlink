@@ -40114,6 +40114,29 @@ def _proc_qty_str(v):
     return f'{_proc_qty_of(v):g}'
 
 
+def _proc_received_on(raw):
+    """A user-supplied RECEIPT date -> a datetime, or None meaning "use the server clock".
+
+    Accepts what a date input posts ('YYYY-MM-DD') and what a datetime input posts
+    ('YYYY-MM-DDTHH:MM', also with a space, also with seconds). Only the DATE is taken
+    from the input; it is combined with the CURRENT time of day so the stamp reads like
+    every other sign-off ('23 August 2026 at 14:33') instead of a suspicious 00:00 — and
+    so a receipt recorded late still lands in the right reporting period in the
+    workshop ledger. An unparseable or empty value returns None = "now" (the previous
+    behaviour), so a bad payload can never lose the receipt."""
+    s = str(raw or '').strip().replace('T', ' ')
+    if not s:
+        return None
+    for fmt, cut in (('%Y-%m-%d %H:%M:%S', 19), ('%Y-%m-%d %H:%M', 16), ('%Y-%m-%d', 10)):
+        try:
+            d = datetime.strptime(s[:cut], fmt)
+            return datetime.combine(d.date(), datetime.now().time()).replace(microsecond=0)
+        except ValueError:
+            continue
+    print(f"Receipt date not understood ({raw!r}) — using the server clock")
+    return None
+
+
 def _req_item_line(name, qty, project_ref):
     """One line item for a WhatsApp item list, WITH the project it is needed for.
 
@@ -40898,9 +40921,12 @@ def procurement_api_approve_requisition(rid):
                 if not q:
                     continue
                 cursor.execute("UPDATE requisition_item_suppliers SET approved=TRUE WHERE id=%s", (quote_id,))
+                # _proc_qty_of, NOT int(): int() turned a half quantity into 0, so choosing a
+                # quote for a 0.5 line priced it at zero.
+                _line_total = round(float(q[1] or 0) * _proc_qty_of(q[3]), 2)
                 cursor.execute("""
                     UPDATE requisition_items SET unit_cost=%s, total_cost=%s WHERE id=%s
-                """, (q[1], round(float(q[1] or 0) * int(q[3] or 0), 2), item_id))
+                """, (q[1], _line_total, item_id))
             cursor.execute("""
                 UPDATE requisitions SET status='approved', approved_by=%s, approved_at=CURRENT_TIMESTAMP,
                     reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
@@ -41461,7 +41487,8 @@ def procurement_api_create_purchase_order():
             cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM purchase_orders")
             po_id = cursor.fetchone()[0]
             po_no = f'PO-{po_id:04d}'
-            total = sum(float(i[3] or 0) * int(i[2] or 0) for i in items)
+            # _proc_qty_of, NOT int(): int() truncated a 2.5 to 2, understating the PO total.
+            total = sum(float(i[3] or 0) * _proc_qty_of(i[2]) for i in items)
             funding_source = (data.get('funding_source') or 'business').strip().lower()
             if funding_source not in ('business', 'injection'):
                 funding_source = 'business'
@@ -41765,8 +41792,10 @@ def procurement_api_po_detail(po_id):
                 'id': l[0], 'product_id': l[1], 'product_name': l[2],
                 'quantity_ordered': _proc_qty_of(l[3]), 'quantity_received': _proc_qty_of(l[4]),
                 'unit_cost': float(l[5] or 0),
-                'current_stock': int(l[6] or 0),
-                'on_order': int(l[3] or 0) - int(l[4] or 0)
+                'current_stock': _proc_qty_of(l[6]),
+                # _proc_qty_of, NOT int(): a half quantity would truncate to 0 and the
+                # View PO modal would claim nothing is still on order.
+                'on_order': _proc_qty_of(_proc_qty_of(l[3]) - _proc_qty_of(l[4]))
             } for l in lines]
             cursor.execute("""
                 SELECT id, attachment_type, original_name, stored_name, mime_type, file_size, uploaded_by, uploaded_at
@@ -41795,9 +41824,14 @@ def procurement_api_po_detail(po_id):
 @login_required
 @_procurement_perm_required('can_manage_purchase_orders')
 def procurement_api_receive_po(po_id):
-    """Receive goods against a PO. received = {grn_line_id: qty received now}."""
+    """Receive goods against a PO. received = {grn_line_id: qty received now}.
+
+    `received_at` (optional, 'YYYY-MM-DD') dates the receipt: it stamps
+    purchase_orders.received_at AND the workshop movement, so goods received late land
+    in the right reporting period. Omit it and the server clock is used, as before."""
     data = request.get_json() or {}
     received = data.get('received') or {}
+    received_on = _proc_received_on(data.get('received_at') or data.get('received_on'))
     user = _procurement_user()
     try:
         with get_db() as (cursor, connection):
@@ -41805,6 +41839,11 @@ def procurement_api_receive_po(po_id):
             po = cursor.fetchone()
             if not po:
                 return jsonify({'success': False, 'error': 'PO not found.'}), 404
+            # A receipt cannot be dated in the future — that would put stock into a
+            # period that has not happened yet.
+            if received_on and received_on > datetime.now():
+                return jsonify({'success': False,
+                                'error': 'The date received cannot be in the future.'}), 400
             if po[2] == 'received':
                 return jsonify({'success': False, 'error': 'PO already fully received.'}), 400
             if po[2] == 'pending_authorisation':
@@ -41822,14 +41861,21 @@ def procurement_api_receive_po(po_id):
             workshop_warnings = []
             for ln in lines:
                 ln_id = ln[0]
+                # EVERY numeric read from the row is normalised to float FIRST.
+                # psycopg2 hands back Decimal for NUMERIC columns while _proc_qty_of()
+                # returns a float, and `Decimal + float` raises "unsupported operand
+                # type(s) for +: 'decimal.Decimal' and 'float'" — which is what made
+                # Record receipt fail once quantities became NUMERIC(12,2).
+                qty_ordered = _proc_qty_of(ln[3])
+                qty_done = _proc_qty_of(ln[4])
                 qty_rec = _proc_qty_of(received.get(str(ln_id), received.get(ln_id, 0)))
                 if qty_rec <= 0:
-                    if ln[4] < ln[3]:
+                    if qty_done < qty_ordered:
                         all_done = False
                     continue
                 any_received = True
                 add = qty_rec
-                new_received = ln[4] + add
+                new_received = qty_done + add
                 # Received goods belong to the WORKSHOP — the two are separate sections
                 # of the company (the user: "workshop only"). The line lands in the
                 # workshop's OWN register, matched on its name, so the workshop and the
@@ -41842,23 +41888,30 @@ def procurement_api_receive_po(po_id):
                             _workshop_record_movement(
                                 cursor, ws_item, 'in', add, 'received',
                                 reference=po[1], notes=f'Received against {po[1]}',
-                                user_id=user['id'], user_name=(user or {}).get('name'))
+                                user_id=user['id'], user_name=(user or {}).get('name'),
+                                when=received_on)
                     except Exception as wse:
                         workshop_warnings.append(_procurement_workshop_warning(
                             f'receipt on {po[1]}', wse))
                 cursor.execute("UPDATE grn_lines SET quantity_received = %s WHERE id = %s",
-                               (min(new_received, ln[3]), ln_id))
-                if new_received < ln[3]:
+                               (min(new_received, qty_ordered), ln_id))
+                if new_received < qty_ordered:
                     all_done = False
 
             if not any_received:
                 return jsonify({'success': False, 'error': 'Enter a quantity to receive for at least one item.'}), 400
 
             new_status = 'received' if all_done else 'partial'
-            cursor.execute("UPDATE purchase_orders SET status=%s, received_at=CURRENT_TIMESTAMP WHERE id=%s",
-                           (new_status, po_id))
+            # COALESCE keeps the old behaviour when no date was supplied: the database
+            # clock stamps it, exactly as before.
+            cursor.execute("""UPDATE purchase_orders SET status=%s,
+                              received_at=COALESCE(%s, CURRENT_TIMESTAMP) WHERE id=%s""",
+                           (new_status, received_on, po_id))
             connection.commit()
-            log_activity('po_receive', f'Received goods on {po[1]} ({new_status})', 'purchase_order', po_id)
+            log_activity('po_receive',
+                         f'Received goods on {po[1]} ({new_status}'
+                         + (f', dated {received_on:%d %B %Y}' if received_on else '') + ')',
+                         'purchase_order', po_id)
             return jsonify({'success': True,
                             'message': f'Receipt recorded on {po[1]}. Status: {new_status}.',
                             'workshop_warning': (workshop_warnings[0] if workshop_warnings else None)})

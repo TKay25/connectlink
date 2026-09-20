@@ -1753,6 +1753,16 @@
             </div>
             <div class="modal-body pc-modal-body">
                 <div id="viewPoMeta" class="mb-3"></div>
+                <div id="viewPoReceiveBox" class="d-flex align-items-end gap-3 flex-wrap mb-2" style="display:none;">
+                    <div>
+                        <label class="pc-form-label mb-0">Date received</label>
+                        <input type="date" class="pc-input pc-input-sm" id="poReceivedDate" style="width:150px;">
+                    </div>
+                    <div style="font-size:0.6rem;color:#94A3B8;max-width:520px;line-height:1.45;">
+                        The date these goods were received. It stamps the purchase order and the workshop movement,
+                        so a receipt entered late still lands in the right reporting period. Defaults to today.
+                    </div>
+                </div>
                 <div class="pc-table-wrap">
                     <table class="pc-table">
                         <thead><tr><th>#</th><th>Item</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Unit Cost</th><th class="num">Total</th><th class="num">Stock</th><th class="num">On Order</th><th class="num">Receive Now</th></tr></thead>
@@ -2506,19 +2516,25 @@ function fmtMoney(n) {
     const v = Number(n || 0);
     return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-/* Documents and dates on screen read '2 Feb 2026' — add 'at 14:30' when a time matters. */
+/* Documents and dates on screen read '23 August 2026' — add ' at 14:30' when a time matters.
+   The FULL month name is deliberate: '23 Aug 2026' was too easy to misread at 0.6rem. */
 function fmtDocDate(v, withTime) {
     if (!v) return '—';
     const s = String(v).replace('T', ' ');
     const d = new Date(s.replace(' ', 'T'));
     if (isNaN(d.getTime())) return s.slice(0, 10);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     let out = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
     if (withTime) {
         const p = n => String(n).padStart(2, '0');
         out += ' at ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }
     return out;
+}
+/* Local 'YYYY-MM-DD' for a date input (never UTC-shifted, so it cannot show yesterday). */
+function localDateValue(d) {
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
 /* Local 'YYYY-MM-DDTHH:MM' for a datetime-local input (never UTC-shifted). */
 function localDateTimeValue(d) {
@@ -2574,10 +2590,10 @@ function reqChips(r) {
 function signedOffLine(x) {
     const bits = [];
     if (x.authorised_by) {
-        bits.push(`<span title="Authorised by">✍ Authorised: ${esc(x.authorised_by)}${x.authorised_at ? ' · ' + esc(String(x.authorised_at).slice(0, 10)) : ''}</span>`);
+        bits.push(`<span title="Authorised by">✍ Authorised: ${esc(x.authorised_by)}${x.authorised_at ? ' · ' + esc(fmtDocDate(x.authorised_at)) : ''}</span>`);
     }
     if (x.approved_by) {
-        bits.push(`<span title="Approved by">✔ Approved: ${esc(x.approved_by)}${x.approved_at ? ' · ' + esc(String(x.approved_at).slice(0, 10)) : ''}</span>`);
+        bits.push(`<span title="Approved by">✔ Approved: ${esc(x.approved_by)}${x.approved_at ? ' · ' + esc(fmtDocDate(x.approved_at)) : ''}</span>`);
     }
     if (!bits.length) return '';
     return `<div style="font-size:0.56rem;color:#64748B;line-height:1.4;margin-top:2px;">${bits.join('<br>')}</div>`;
@@ -4554,9 +4570,9 @@ async function loadPOs() {
                 <td>${esc(po.requisition_ids || '—')}</td>
                 <td>${poBadge(po.status)}${po.funds_received_at ? ` <span class="pc-badge pc-badge-approved" title="Funds received ${esc(fmtDocDate(po.funds_received_at, true))}">💰 Funded</span>` : ''}${signedOffLine(po)}</td>
                 <td class="num">${fmtMoney(po.total_amount)}</td>
-                <td>${esc(po.expected_delivery || '—')}</td>
+                <td>${esc(fmtDocDate(po.expected_delivery))}</td>
                 <td>${esc(po.created_by || '—')}</td>
-                <td>${esc((po.created_at || '').slice(0,10))}</td>
+                <td>${esc(fmtDocDate(po.created_at))}</td>
                 <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                     ${po.attachments_count ? `<button class="pc-btn pc-btn-outline pc-btn-sm" title="${po.attachments_count} attachment(s)" onclick="viewPo(${po.id})"><i class="bi bi-paperclip"></i> ${po.attachments_count}</button>` : ''}
                     <button class="pc-btn pc-btn-outline pc-btn-sm" title="Download PDF" onclick="downloadPoPdfById(${po.id})"><i class="bi bi-file-earmark-pdf"></i></button>
@@ -4777,14 +4793,14 @@ window.viewPo = async function(id, openReceive) {
                 <div class="col-md-2"><strong>Total:</strong> $${fmtMoney(po.total_amount)}</div>
                 <div class="col-md-2"><strong>Created By:</strong> ${esc(po.created_by || '—')}</div>
                 <div class="col-md-4"><strong>Requested By:</strong> ${esc(po.requested_by || '—')}${po.requested_by_phone ? `<br><span style="color:#64748B;">${esc(po.requested_by_phone)}</span>` : ''}</div>
-                <div class="col-md-4"><strong>Authorised By:</strong> ${po.authorised_by ? `${esc(po.authorised_by)}<br><span style="color:#64748B;">${esc((po.authorised_at || '').slice(0,16))}</span>` : '—'}</div>
-                <div class="col-md-4"><strong>Authoriser:</strong> ${po.authoriser_name ? esc(po.authoriser_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
+                <div class="col-md-4"><strong>Authoriser:</strong> ${po.authorised_by ? `${esc(po.authorised_by)}<br><span style="color:#64748B;">${esc(fmtDocDate(po.authorised_at, true))}</span>` : (po.authoriser_name ? esc(po.authoriser_name) : '<span style="color:#94A3B8;">any eligible</span>')}</div>
                 <div class="col-md-4"><strong>Approver:</strong> ${po.approver_name ? esc(po.approver_name) : '<span style="color:#94A3B8;">any eligible</span>'}</div>
+                <div class="col-md-4"><strong>Approved By:</strong> ${po.approved_by ? `${esc(po.approved_by)}<br><span style="color:#64748B;">${esc(fmtDocDate(po.approved_at, true))}</span>` : '—'}</div>
                 <div class="col-md-3"><strong>Funds Received:</strong> ${po.funds_received_at ? `<span style="color:#15803D;font-weight:700;">${esc(fmtDocDate(po.funds_received_at, true))}</span>${po.funds_received_by ? `<br><span style="color:#64748B;">recorded by ${esc(po.funds_received_by)}</span>` : ''}` : '<span style="color:#B45309;font-weight:700;">Not yet recorded</span>'}</div>
-                <div class="col-md-3"><strong>Expected Delivery:</strong> ${esc(po.expected_delivery || '—')}</div>
+                <div class="col-md-3"><strong>Expected Delivery:</strong> ${esc(fmtDocDate(po.expected_delivery))}</div>
                 <div class="col-md-4"><strong>Requisitions:</strong> ${esc(po.requisition_ids || '—')}</div>
-                <div class="col-md-4"><strong>Created:</strong> ${esc(po.created_at || '—')}</div>
-                <div class="col-md-4"><strong>Received:</strong> ${esc(po.received_at || '—')}</div>
+                <div class="col-md-4"><strong>Created:</strong> ${esc(fmtDocDate(po.created_at, true))}</div>
+                <div class="col-md-4"><strong>Received:</strong> ${esc(fmtDocDate(po.received_at, true))}</div>
             </div>`;
         document.getElementById('viewPoItems').innerHTML = (po.lines || []).map((ln, i) => `
             <tr>
@@ -4803,17 +4819,27 @@ window.viewPo = async function(id, openReceive) {
                 </td>
             </tr>`).join('') || '<tr><td colspan="9" class="pc-empty">No items</td></tr>';
         const recBtn = document.getElementById('receiveBtn');
-        if (['ordered','partial'].includes(po.status)) {
+        const recBox = document.getElementById('viewPoReceiveBox');
+        const recDate = document.getElementById('poReceivedDate');
+        const canReceive = ['ordered','partial'].includes(po.status);
+        if (canReceive) {
             recBtn.style.display = 'inline-flex';
         } else {
             recBtn.style.display = 'none';
+        }
+        if (recBox) recBox.style.display = canReceive ? 'flex' : 'none';
+        if (recDate && canReceive) {
+            // Pre-fill with the date this PO was last received on (a second, partial
+            // receipt usually belongs to the same day) and otherwise today.
+            recDate.value = localDateValue(po.received_at ? new Date(String(po.received_at).replace(' ', 'T')) : new Date());
+            recDate.max = localDateValue(new Date());   // a receipt cannot be in the future
         }
         const atts = po.attachments || [];
         document.getElementById('poAttachList').innerHTML = atts.length ? atts.map(a => `
             <div class="pc-attach-item">
                 <i class="bi ${a.attachment_type === 'receipt' ? 'bi-receipt' : 'bi-file-earmark-text'}"></i>
                 <span class="flex-grow-1">${esc(a.original_name)} <span class="pc-attach-tag pc-attach-${a.attachment_type}">${a.attachment_type}</span></span>
-                <span style="color:#94A3B8;font-size:0.6rem;white-space:nowrap;">${esc(a.uploaded_by || '')} · ${esc((a.uploaded_at || '').slice(0,10))}</span>
+                <span style="color:#94A3B8;font-size:0.6rem;white-space:nowrap;">${esc(a.uploaded_by || '')} · ${esc(fmtDocDate(a.uploaded_at))}</span>
                 <button class="pc-btn pc-btn-outline pc-btn-sm" title="View" onclick="viewAttachment(${a.id})"><i class="bi bi-eye"></i></button>
                 <button class="pc-btn pc-btn-danger pc-btn-sm" title="Delete" data-perm-action="can_manage_purchase_orders" onclick="deleteAttachment(${a.id})"><i class="bi bi-trash"></i></button>
             </div>`).join('')
@@ -5156,13 +5182,19 @@ window.saveReceive = async function() {
         if (v > 0) { received[inp.dataset.line] = v; any = true; }
     });
     if (!any) { toast('Enter a quantity to receive for at least one item', 'error'); return; }
-    if (!confirm('Record receipt? The goods go into the WORKSHOP store, not the shop inventory.')) return;
+    const recDate = document.getElementById('poReceivedDate');
+    const received_at = recDate && recDate.value ? recDate.value : null;
+    if (received_at && received_at > localDateValue(new Date())) {
+        toast('The date received cannot be in the future.', 'error'); return;
+    }
+    if (!confirm('Record receipt?' + (received_at ? '\n\nDate received: ' + fmtDocDate(received_at) : '')
+                 + '\n\nThe goods go into the WORKSHOP store, not the shop inventory.')) return;
     try {
         const res = await fetch('/api/procurement/purchase-orders/' + VIEW_PO.id + '/receive', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ received })
+            body: JSON.stringify({ received, received_at })
         });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
