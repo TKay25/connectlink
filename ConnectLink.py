@@ -32292,10 +32292,17 @@ def _cl_company_branding():
 
     logo_base64 = None
     try:
-        logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
-        if os.path.exists(logo_path):
-            with open(logo_path, 'rb') as img:
-                logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+        # First name wins; the extra candidates are there so a renamed file does not
+        # silently drop the logo off every document.
+        for fname in ('web-logo.png', 'web-logo.jpg', 'logo.png'):
+            logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', fname)
+            if os.path.exists(logo_path):
+                with open(logo_path, 'rb') as img:
+                    logo_base64 = base64.b64encode(img.read()).decode('utf-8')
+                break
+        else:
+            print("⚠️ _cl_company_branding: no logo file in static/images "
+                  "(looked for web-logo.png) — PDFs will print the company name instead.")
     except Exception as exc:
         print(f"⚠️ Logo load: {exc}")
     return company, logo_base64
@@ -42186,7 +42193,7 @@ def _proc_pdf_kit():
         # Small PLAIN type for the second line of a table cell — the document or project
         # a quantity belongs to. ("tiny" is bold, which is too heavy stacked under a
         # figure.) Used by the workshop ledger; the other documents do not need it.
-        'sub': ParagraphStyle('sub', fontName='Helvetica', fontSize=6.6, leading=8.6, textColor=C['faint']),
+        'sub': ParagraphStyle('sub', fontName='Helvetica', fontSize=6.6, leading=7.8, textColor=C['faint']),
         'label': ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=7.2, leading=9.6, textColor=C['navy']),
         'bold': ParagraphStyle('bold', fontName='Helvetica-Bold', fontSize=9.5, leading=12, textColor=C['navy']),
         'name': ParagraphStyle('name', fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=C['text']),
@@ -42207,6 +42214,36 @@ def _proc_pdf_kit():
         'state': ParagraphStyle('state', fontName='Helvetica-Bold', fontSize=10, leading=13, textColor=C['text']),
         'ban': ParagraphStyle('ban', fontName='Helvetica-Bold', fontSize=9, leading=12,
                               textColor=C['white']),
+        'bans': ParagraphStyle('bans', fontName='Helvetica-Bold', fontSize=7.6, leading=9.8,
+                               textColor=C['white']),
+        # ---- dense variants: a STOCK ledger carries far more rows than a money table
+        # (and a second line of detail under some figures), so it gets its own smaller
+        # type rather than pushing eleven items onto a second page. The money documents
+        # keep the roomier defaults above. ----
+        'name_d': ParagraphStyle('name_d', fontName='Helvetica-Bold', fontSize=8.4, leading=11,
+                                 textColor=C['text']),
+        'cellc_d': ParagraphStyle('cellc_d', fontName='Helvetica', fontSize=8.4, leading=11,
+                                  textColor=C['text'], alignment=TA_CENTER),
+        'cellr_d': ParagraphStyle('cellr_d', fontName='Helvetica', fontSize=8.4, leading=11,
+                                  textColor=C['text'], alignment=TA_RIGHT),
+        'cellrb_d': ParagraphStyle('cellrb_d', fontName='Helvetica-Bold', fontSize=8.8, leading=11,
+                                   textColor=C['navy'], alignment=TA_RIGHT),
+        # ---- KPI band: the dashboard's number tiles, on paper ----
+        'kpi_lab': ParagraphStyle('kpi_lab', fontName='Helvetica-Bold', fontSize=6.2, leading=8.2,
+                                  textColor=C['muted']),
+        'kpi_lab_w': ParagraphStyle('kpi_lab_w', fontName='Helvetica-Bold', fontSize=6.2, leading=8.2,
+                                    textColor=colors.HexColor('#C9D3E3')),
+        'kpi_val': ParagraphStyle('kpi_val', fontName='Helvetica-Bold', fontSize=13, leading=15,
+                                  textColor=C['navy']),
+        'kpi_val_w': ParagraphStyle('kpi_val_w', fontName='Helvetica-Bold', fontSize=15.5, leading=17.5,
+                                    textColor=C['white']),
+        'kpi_sub': ParagraphStyle('kpi_sub', fontName='Helvetica', fontSize=6.3, leading=8.2,
+                                  textColor=C['faint']),
+        'kpi_sub_w': ParagraphStyle('kpi_sub_w', fontName='Helvetica', fontSize=6.3, leading=8.2,
+                                    textColor=colors.HexColor('#D7DFEC')),
+        # White caps for the inside of a coloured status chip.
+        'chipc': ParagraphStyle('chipc', fontName='Helvetica-Bold', fontSize=6.2, leading=8.2,
+                                textColor=C['white'], alignment=TA_CENTER),
     }
     return S, C
 
@@ -42256,7 +42293,12 @@ def _proc_pdf_header(company, logo_b64, badge, subtitle, meta_rows, S, C):
                 ratio = max_w / float(logo.drawWidth)
                 logo.drawWidth = max_w
                 logo.drawHeight = float(logo.drawHeight) * ratio
-        except Exception:
+        except Exception as e:
+            # LOUD on purpose. reportlab needs Pillow to read a PNG (it only handles JPEG
+            # natively), and the old silent `except: logo = None` is exactly why the live
+            # server printed the company NAME instead of the logo on every PDF.
+            print(f"⚠️ PDF header: logo not usable ({type(e).__name__}: {e}) — "
+                  f"printing the company name instead. Is Pillow installed?")
             logo = None
 
     name = _proc_esc(company.get('name') or 'ConnectLink')
@@ -42396,6 +42438,79 @@ def _proc_pdf_summary(pill_label, pill_bg, meta_label, meta_value, amount_label,
     return t
 
 
+def _proc_pdf_kpi_band(tiles, S, C):
+    """ONE band of number tiles across the page — the dashboard's KPI cards on paper.
+
+    `tiles` is [(label, value, sub, bg)]. A tile carrying a `bg` colour is the HERO: it
+    gets that background with white type, so a single figure leads the document instead
+    of every number shouting equally. Used by the workshop report, where the old
+    summary strip plus two key/value boxes said the same thing three times.
+    """
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Table, TableStyle, Paragraph
+
+    n = max(1, len(tiles))
+    gap = 1.4
+    col = (_PROC_PAGE_W - gap * (n - 1)) / float(n)
+    cells = []
+    for label, value, sub, bg in tiles:
+        hero = bg is not None
+        inner = Table([[Paragraph(_proc_esc(label).upper(), S['kpi_lab_w' if hero else 'kpi_lab'])],
+                       [Paragraph(str(value), S['kpi_val_w' if hero else 'kpi_val'])],
+                       [Paragraph(_proc_esc(sub) or '&nbsp;', S['kpi_sub_w' if hero else 'kpi_sub'])]],
+                      colWidths=[(col * mm) - 12])
+        inner.setStyle(TableStyle([
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (0, 0), 0),
+            ('BOTTOMPADDING', (0, 0), (0, 0), 1),
+            ('TOPPADDING', (0, 1), (0, 1), 0),
+            ('BOTTOMPADDING', (0, 1), (0, 1), 1),
+            ('TOPPADDING', (0, 2), (0, 2), 0),
+            ('BOTTOMPADDING', (0, 2), (0, 2), 0),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        cells.append(inner)
+
+    row = Table([cells], colWidths=[col * mm] * n)
+    style = [
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6.5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('BACKGROUND', (0, 0), (-1, -1), C['boxbg']),
+        ('BOX', (0, 0), (-1, -1), 0.6, C['border']),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, C['soft']),
+    ]
+    for idx, tile in enumerate(tiles):
+        if tile[3] is not None:
+            style.append(('BACKGROUND', (idx, 0), (idx, 0), tile[3]))
+    row.setStyle(TableStyle(style))
+    return row
+
+
+def _proc_pdf_section_label(title, right_text, S, C):
+    """A small navy caps section heading with a rule beneath it, plus optional
+    right-hand context (a period, a count) — what gives a longer report its shape on
+    the page instead of one undifferentiated run of tables."""
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Table, TableStyle, Paragraph
+    left = Paragraph(_proc_esc(title).upper(), S['label'])
+    right = Paragraph(_proc_esc(right_text) if right_text else '&nbsp;', S['small'])
+    t = Table([[left, right]], colWidths=[90 * mm, (_PROC_PAGE_W - 90) * mm])
+    t.setStyle(TableStyle([
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.8, C['navy']),
+    ]))
+    return t
+
+
 def _proc_pdf_box(title, body, S, C, width_mm=_PROC_PAGE_W):
     """A titled box: faint grey header bar with a navy uppercase label + content."""
     from reportlab.lib.units import mm
@@ -42469,8 +42584,13 @@ def _proc_pdf_two_boxes(left_box, right_box):
     return t
 
 
-def _proc_pdf_table(header, rows, widths_mm, S, C):
-    """Striped table with a faint header band and navy uppercase headings."""
+def _proc_pdf_table(header, rows, widths_mm, S, C, pad=5.5):
+    """Striped table with a faint header band and navy uppercase headings.
+
+    `pad` is the cell padding in points; a dense ledger (the workshop's, with a second
+    line of detail under some figures) asks for less so the whole table stays on one
+    page, while the money documents keep the roomier default.
+    """
     from reportlab.lib.units import mm
     from reportlab.platypus import Table, TableStyle, Paragraph
     data = [[Paragraph(_proc_esc(h).upper(), S['label']) for h in header]] + rows
@@ -42481,8 +42601,8 @@ def _proc_pdf_table(header, rows, widths_mm, S, C):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
         ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 5.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5.5),
+        ('TOPPADDING', (0, 0), (-1, -1), pad),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), pad),
     ]
     for i in range(1, len(data)):
         if i % 2 == 0:
@@ -42517,8 +42637,12 @@ def _proc_pdf_grand_total(label, value, widths_mm, S, C):
     return t
 
 
-def _proc_pdf_signatures(cells, S, C):
-    """Signature strip: label (+ who signed) above a rule and a caption."""
+def _proc_pdf_signatures(cells, S, C, caption=True):
+    """Signature strip: label (+ who signed) above a rule, with room to sign.
+
+    `caption=False` drops the 'Name & signature' hint (the workshop stock report asks
+    for it off); the money documents keep it.
+    """
     from reportlab.lib.units import mm
     from reportlab.platypus import Table, TableStyle, Paragraph
     n = max(1, len(cells))
@@ -42528,9 +42652,12 @@ def _proc_pdf_signatures(cells, S, C):
         line = f'<b>{_proc_esc(label)}</b>'
         if who:
             line += f' &nbsp;<font color="{_PROC_MUTED}">{_proc_esc(who)}</font>'
-        paras.append(Paragraph(line + '<br/><br/>'
-                               f'<font size="6" color="{_PROC_FAINT}">Name &amp; signature</font>',
-                               S['base']))
+        body = line + '<br/><br/>'
+        if caption:
+            body += f'<font size="6" color="{_PROC_FAINT}">Name &amp; signature</font>'
+        else:
+            body += '&nbsp;'          # keep the signing space itself
+        paras.append(Paragraph(body, S['base']))
     t = Table([paras], colWidths=[col_mm * mm] * n)
     t.setStyle(TableStyle([
         ('LINEABOVE', (0, 0), (-1, 0), 0.7, C['faint']),
@@ -44282,73 +44409,94 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     story.append(_proc_pdf_company_line(company, S, C))
     story.append(Spacer(1, 4 * mm))
 
-    story.append(_proc_pdf_summary(
-        'ON HAND', C['navy'], 'Reporting period', _proc_esc(period_label),
-        'Closing stock (units)', qty(t['closing']), S, C))
-    story.append(Spacer(1, 4 * mm))
+    # ---- the numbers that matter, as ONE band ----
+    # This replaces the old receipt-style summary strip plus two key/value boxes, which
+    # between them said "closing stock" three times and pushed an 11-item report onto a
+    # second page. Five tiles, the important one leading in navy.
+    in_n = sum(1 for m in data['movements'] if m['type'] == 'in')
+    out_n = sum(1 for m in data['movements'] if m['type'] == 'out')
 
-    report_rows = [
-        ('Period', f'{_proc_short_date(start_dt)} to {_proc_short_date(end_dt)}'),
-        ('Items in ledger', str(t['items'])),
-        ('Items with stock', str(t['on_hand_items'])),
-        ('Below minimum', str(t['low_stock'])),
-    ]
-    move_rows = [
-        ('Opening stock', qty(t['opening'])),
-        ('Received (in)', f"+{qty(t['received'])}"),
-        ('Issued (out)', f"-{qty(t['issued'])}"),
-        ('Closing stock', qty(t['closing'])),
-        ('Movements', str(t['movements'])),
-    ]
-    story.append(_proc_pdf_two_boxes(
-        _proc_pdf_kv_box('Report Details', report_rows, S, C, width_mm=89),
-        _proc_pdf_kv_box('Movement Summary', move_rows, S, C, width_mm=89)))
-    story.append(Spacer(1, 6 * mm))
+    def plural(k):
+        return 'movement' if k == 1 else 'movements'
 
-    # ---- ledger summary table — the ONLY table in the report ----
-    # The per-movement detail now lives INSIDE the Received and Issued columns (which
-    # order the goods came in on, which project they went out to), so the second table
-    # that repeated what this one already said is gone.
+    story.append(_proc_pdf_kpi_band([
+        ('Closing stock', qty(t['closing']),
+         f"{t['on_hand_items']} of {t['items']} items held", C['navy']),
+        ('Opening stock', qty(t['opening']), 'At period start', None),
+        ('Received', f"+{qty(t['received'])}", f"{in_n} {plural(in_n)} in", None),
+        ('Issued', f"-{qty(t['issued'])}", f"{out_n} {plural(out_n)} out", None),
+        ('Below minimum', str(t['low_stock']),
+         'Needs reordering' if t['low_stock'] else 'All above minimum', None),
+    ], S, C))
+
+    # Anything under its minimum level gets said out loud, by name — a count in a box
+    # makes somebody hunt through the table to find out WHICH item is short.
+    low_names = [s['name'] for s in (data.get('stock') or []) if s.get('low')]
+    if low_names:
+        note = ('<b>Below minimum:</b> ' + _proc_esc('; '.join(low_names))
+                + ' — reorder before the next job.')
+        strip = Table([[Paragraph(note, S['bans'])]], colWidths=[_PROC_PAGE_W * mm])
+        strip.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), C['amber']),
+            ('LEFTPADDING', (0, 0), (-1, -1), 9),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 9),
+            ('TOPPADDING', (0, 0), (-1, -1), 3.4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3.4),
+        ]))
+        story.append(Spacer(1, 3 * mm))
+        story.append(strip)
+
+    story.append(Spacer(1, 5 * mm))
+    story.append(_proc_pdf_section_label(
+        'Stock ledger', f'{_proc_short_date(start_dt)} to {_proc_short_date(end_dt)}', S, C))
+    story.append(Spacer(1, 2.5 * mm))
+
+    # ---- ledger table — the ONLY table in the report ----
+    # The per-movement detail lives INSIDE the Received and Issued columns (which order
+    # the goods came in on, which project they went out to), so the second table that
+    # repeated what this one already said is gone.
     #
     # No Category column: an item that arrives by receiving a purchase order never gets
     # one, so on a register built that way the column is blank on every single row.
+    # No Status column either (asked for by name): the amber banner already names the
+    # items below minimum, and the chips were the busiest thing on the page.
     targets = _workshop_movement_targets(data['movements'])
 
     def amount_cell(total, detail):
         """The figure, with the documents behind it underneath in small type."""
-        cell = [Paragraph(qty(total), S['cellr'])]
+        cell = [Paragraph(qty(total), S['cellr_d'])]
         for label, q in detail or []:
             cell.append(Paragraph(f'{_proc_esc(label)} — {_proc_qty_str(q)}', S['sub']))
         return cell
 
-    widths = [8, 50, 18, 24, 60, 22]                  # = 182mm
+    widths = [7, 58, 21, 34, 34, 28]                   # = 182mm
     rows = []
     for i, x in enumerate(data['ledger'], 1):
         tgt = targets.get(x['name']) or {}
         rows.append([
-            Paragraph(str(i), S['cellc']),
-            Paragraph(_proc_esc(x['name']) or '—', S['name']),
-            Paragraph(qty(x['opening']), S['cellr']),
+            Paragraph(str(i), S['cellc_d']),
+            Paragraph(_proc_esc(x['name']) or '—', S['name_d']),
+            Paragraph(qty(x['opening']), S['cellr_d']),
             amount_cell(x['received'], tgt.get('in')),
             amount_cell(x['issued'], tgt.get('out')),
-            Paragraph(f"<b>{qty(x['closing'])}</b>", S['cellr']),
+            Paragraph(f"<b>{qty(x['closing'])}</b>", S['cellrb_d']),
         ])
     if not rows:
-        rows.append([Paragraph('—', S['cellc']),
+        rows.append([Paragraph('—', S['cellc_d']),
                      Paragraph('No stock recorded for this period', S['base'])] +
                     [Paragraph('', S['base'])] * 4)
     story.append(_proc_pdf_table(
         ['#', 'Item', 'Opening', 'Received', 'Issued', 'Closing'],
-        rows, widths, S, C))
+        rows, widths, S, C, pad=2.8))
     # Totals row. The house grand-total helper is built for the money tables, where the
     # label spans the first two columns and the figures follow; this ledger needs its
     # own column widths, so it is built here with the label spanning '# and Item'
     # (two columns) and the four figures landing under their own headings.
     tot = [Paragraph('TOTAL — ALL ITEMS', S['bold']) if i == 0 else
-           Paragraph(f"<b>{qty(v)}</b>", S['cellrb']) if i >= 2 else
+           Paragraph(f"<b>{qty(v)}</b>", S['cellrb_d']) if 2 <= i <= 5 else
            Paragraph('', S['base'])
-           for i, v in enumerate([None, None,
-                                  t['opening'], t['received'], t['issued'], t['closing']])]
+           for i, v in enumerate([None, None, t['opening'], t['received'],
+                                  t['issued'], t['closing']])]
     tot_table = Table([tot], colWidths=[w * mm for w in widths])
     tot_table.setStyle(TableStyle([
         ('SPAN', (0, 0), (1, 0)),
@@ -44358,11 +44506,11 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('LEFTPADDING', (0, 0), (-1, -1), 6),
         ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.8),
     ]))
     story.append(tot_table)
-    story.append(Spacer(1, 7 * mm))
+    story.append(Spacer(1, 4 * mm))
 
     # The per-movement table that used to sit here has gone. On a day when everything
     # was opening stock it was eleven identical 'Opening stock' lines that the Opening
@@ -44370,21 +44518,24 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     # it had nothing left to add. The counts above still report how many movements the
     # period contained.
     if targets:
-        story.append(Spacer(1, 2 * mm))
         story.append(Paragraph(
             'Received and Issued name the order or project each quantity belongs to.',
             S['small']))
-    story.append(Spacer(1, 14 * mm))
+    story.append(Spacer(1, 12 * mm))
     story.append(_proc_pdf_signatures([
         ('Prepared by', prepared_by),
         ('Store keeper', None),
         ('Approved by', None),
-    ], S, C))
-    story.append(Spacer(1, 7 * mm))
+    ], S, C, caption=False))
+    story.append(Spacer(1, 6 * mm))
     story.append(_proc_pdf_footer([
-        f'This workshop stock report was generated by {company.get("name") or "ConnectLink"}.',
-        f'Period: {_proc_esc(period_label)}  |  Closing stock: {qty(t["closing"])} units',
-        f'Generated on {_proc_short_date(datetime.now())} at {datetime.now().strftime("%H:%M")}',
+        # The name on this line is the PERSON who prepared it, matching "Prepared By" in
+        # the header — the document is named at the top, so repeating the company here
+        # made the same report look like it had two different authors.
+        f'This workshop stock report was generated by '
+        f'{_proc_esc(prepared_by) or (company.get("name") or "ConnectLink")}',
+        f'Generated {_proc_short_date(datetime.now())} at {datetime.now().strftime("%H:%M")}'
+        f'  |  Closing stock {qty(t["closing"])} units  |  {_proc_esc(period_label)}',
     ], S, C))
 
     doc.build(story)

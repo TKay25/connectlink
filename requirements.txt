@@ -31,3 +31,7 @@ PyPDF2
 # Used by the procurement PDFs (purchase orders, requisitions, GRN) — reportlab is
 # pure-Python so it works on Render; weasyprint needs GTK and is NOT used for these.
 reportlab
+# The COMPANY LOGO on every one of those PDFs is a PNG, and reportlab can only read a
+# PNG through Pillow (it reads JPEG natively). Without this the logo silently falls back
+# to printing the company name — which is what happened on the live server.
+Pillow

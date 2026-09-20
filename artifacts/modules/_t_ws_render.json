@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TWsRender",
+  "file": "_t_ws_render.py",
+  "purpose": "Render the WORKSHOP STOCK PDF from the real ConnectLink code, with realistic data.",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_Cur.execute(sql, params = None) → ast.parse, ast.literal_eval, name.startswith, ast.get_source_segment"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: WS = 'c:\\\\Users\\\\tzvakasikwa\\\\OneDrive - CBZ Bank Limited\\\\Documents\\\\GitHub\\\\connectlink', SRC = WS + '\\\\ConnectLink.py', OUT = sys.argv[1] if len(sys.argv) > 1 else WS + '\\\\_preview_workshop_stock.pdf', PREFIXES = ('_proc_', '_cl_', '_ws_', '_workshop_', '_req_', '_render_'), LEDGER = [{'id': 1, 'name': 'Black Gloss', 'category': 'Boards', 'opening': 0, 'received': 0.5, 'issued': 0, 'closing': 0.5}, {'id': 2, 'name': 'Congo', 'category': 'Boards', 'opening': 0, 'received': 1, 'issued': 1, 'closing': 0}, {'id': 3, 'name': 'Dublin', 'category': 'Boards', 'opening': 0, 'received': 0.5, 'issued': 0, 'closing': 0.5}, {'id': 4, 'name': 'Dublin Gloss', 'category': 'Boards', 'opening': 0, 'received': 1, 'issued': 0, 'closing': 1}, {'id': 5, 'name': 'Kitchen Unit Base 600mm', 'category': 'Kitchen', 'opening': 2, 'received': 4, 'issued': 3, 'closing': 3}, {'id': 6, 'name': 'Marine Ply 12mm', 'category': 'Timber', 'opening': 0, 'received': 24.5, 'issued': 6, 'closing': 18.5}, {'id': 7, 'name': 'MDF Board 16mm', 'category': 'Boards', 'opening': 6, 'received': 0, 'issued': 5, 'closing': 1}, {'id': 8, 'name': 'Melamine Board 18mm White', 'category': 'Boards', 'opening': 24, 'received': 0, 'issued': 20, 'closing': 4}, {'id': 9, 'name': 'Granite Top 2.4m', 'category': 'Kitchen', 'opening': 3, 'received': 0, 'issued': 1, 'closing': 2}, {'id': 10, 'name': 'Edging Tape 22mm', 'category': 'Fittings', 'opening': 2, 'received': 0, 'issued': 0, 'closing': 2}, {'id': 11, 'name': 'Clip-on Hinge 35mm', 'category': 'Fittings', 'opening': 148, 'received': 0, 'issued': 36, 'closing': 112}], STOCK = [{'id': 1, 'name': 'Black Gloss', 'category': 'Boards', 'unit': 'sheet', 'stock': 0.5, 'min_level': 0, 'low': False, 'active': True}, {'id': 2, 'name': 'Congo', 'category': 'Boards', 'unit': 'sheet', 'stock': 0, 'min_level': 0, 'low': False, 'active': True}, {'id': 3, 'name': 'Dublin', 'category': 'Boards', 'unit': 'sheet', 'stock': 0.5, 'min_level': 0, 'low': False, 'active': True}, {'id': 4, 'name': 'Dublin Gloss', 'category': 'Boards', 'unit': 'sheet', 'stock': 1, 'min_level': 0, 'low': False, 'active': True}, {'id': 5, 'name': 'Kitchen Unit Base 600mm', 'category': 'Kitchen', 'unit': 'unit', 'stock': 3, 'min_level': 2, 'low': False, 'active': True}, {'id': 6, 'name': 'Marine Ply 12mm', 'category': 'Timber', 'unit': 'sheet', 'stock': 18.5, 'min_level': 5, 'low': False, 'active': True}, {'id': 7, 'name': 'MDF Board 16mm', 'category': 'Boards', 'unit': 'sheet', 'stock': 1, 'min_level': 12, 'low': True, 'active': True}, {'id': 8, 'name': 'Melamine Board 18mm White', 'category': 'Boards', 'unit': 'sheet', 'stock': 4, 'min_level': 10, 'low': True, 'active': True}, {'id': 9, 'name': 'Granite Top 2.4m', 'category': 'Kitchen', 'unit': 'length', 'stock': 2, 'min_level': 1, 'low': False, 'active': True}, {'id': 10, 'name': 'Edging Tape 22mm', 'category': 'Fittings', 'unit': 'roll', 'stock': 2, 'min_level': 5, 'low': True, 'active': True}, {'id': 11, 'name': 'Clip-on Hinge 35mm', 'category': 'Fittings', 'unit': 'piece', 'stock': 112, 'min_level': 50, 'low': False, 'active': True}]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "587cff38db86b329",
+  "file_mtime": 1789932010028.7373,
+  "file_size": 7869,
+  "file_birthtime": 1789932009796.1765,
+  "generated_at": "2026-09-20T19:36:34.234022Z",
+  "stale": false
+}
