@@ -43105,22 +43105,39 @@ def procurement_api_export():
 #       No buttons.
 # All sends are best-effort: missing numbers / unapproved templates / API
 # errors only print a warning — the in-app action always succeeds.
+#
+# !!! THE NAMES BELOW ARE ONLY DEFAULTS -- THEY ARE NOT CONFIRMED AGAINST META !!!
+# `purchase_order_approval_request` (authorisation) and
+# `purchase_order_final_approval_request` (approval) were given by the user and DO
+# exist in Meta. The three REQUISITION names were picked here while building the
+# module and were never confirmed with the user or checked against the live Meta
+# account — that is why requisition sends failed with
+#   132001 "template name (requisition_approval_request) does not exist in en".
+# Every name is therefore overridable by ENVIRONMENT VARIABLE, so a template that
+# exists in Meta under a different name can be corrected on the server
+# (Render -> Environment -> add the var -> restart) WITHOUT a code change.
 # ============================================================================
 
-PROC_REQ_APPROVAL_TEMPLATE = 'requisition_approval_request'
-PROC_REQ_STATUS_TEMPLATE = 'requisition_status_update'
+
+def _wa_tpl_name(env_key, default):
+    """Meta template name, overridable by env var (blank/unset -> the default)."""
+    return (os.environ.get(env_key) or '').strip() or default
+
+
+PROC_REQ_APPROVAL_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_AUTHORISE', 'requisition_approval_request')
+PROC_REQ_STATUS_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_STATUS', 'requisition_status_update')
 # INFO-ONLY notice to the approver when a requisition has been AUTHORISED and the
 # logger ticked "notify the approver" on the requisition form (6 vars, NO buttons).
 # Sent through a TEMPLATE because the approver has not messaged us, so no 24h
 # customer-service window is open for a free-form text.
-PROC_REQ_AUTHORISED_TEMPLATE = 'requisition_authorised_notice'
-# 2nd layer, final APPROVAL (15 vars, Approve/Decline)
-PROC_PO_APPROVAL_TEMPLATE = 'purchase_order_final_approval_request'
-# 1st layer, AUTHORISATION (13 vars, Authorise/Decline) — Meta name is the
-# historical 'purchase_order_approval_request' (already approved there)
-PROC_PO_AUTHORISATION_TEMPLATE = 'purchase_order_approval_request'
+PROC_REQ_AUTHORISED_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_AUTHORISED', 'requisition_authorised_notice')
+# 2nd layer, final APPROVAL (15 vars, Approve/Decline) — name given by the user
+PROC_PO_APPROVAL_TEMPLATE = _wa_tpl_name('WA_TPL_PO_APPROVE', 'purchase_order_final_approval_request')
+# 1st layer, AUTHORISATION (13 vars, Authorise/Decline) — name given by the user;
+# the Meta name is the historical 'purchase_order_approval_request'
+PROC_PO_AUTHORISATION_TEMPLATE = _wa_tpl_name('WA_TPL_PO_AUTHORISE', 'purchase_order_approval_request')
 # Status update to the requester / logger / authoriser (8 vars, no buttons)
-PROC_PO_STATUS_TEMPLATE = 'purchase_order_status_update'
+PROC_PO_STATUS_TEMPLATE = _wa_tpl_name('WA_TPL_PO_STATUS', 'purchase_order_status_update')
 
 
 def _wa_normalize_phone(phone):
