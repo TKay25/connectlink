@@ -43502,7 +43502,7 @@ def _workshop_period(period, ref=None, start=None, end=None):
                 continue
         return None
 
-    period = (period or 'month').strip().lower()
+    period = (period or 'day').strip().lower()
     ref_dt = _parse(ref) or datetime.now()
     ref_dt = ref_dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -43533,7 +43533,7 @@ def _workshop_period(period, ref=None, start=None, end=None):
         s = ref_dt.replace(month=1, day=1, hour=0, minute=0, second=0)
         e = ref_dt.replace(month=12, day=31, hour=23, minute=59, second=59)
         label = str(s.year)
-    else:   # month (default)
+    else:   # month
         s = ref_dt.replace(day=1, hour=0, minute=0, second=0)
         e = ((s + timedelta(days=32)).replace(day=1, hour=0, minute=0, second=0)
              - timedelta(seconds=1))
