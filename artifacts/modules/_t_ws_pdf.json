@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TWsPdf",
+  "file": "_t_ws_pdf.py",
+  "purpose": "Verify the reworked workshop PDF without a database.",
+  "entry_function": "flat(cell)",
+  "entry_flows": [
+    "_Table.__init__(rows, colWidths = None) → ast.parse, ast.get_source_segment, sys.exit, ast.walk",
+    "_Cur.execute(sql, params) → ast.parse, ast.get_source_segment, sys.exit, ast.walk"
+  ],
+  "public_api": [
+    "flat(cell)"
+  ],
+  "dependencies": [
+    "reportlab"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: SRC = 'c:\\\\Users\\\\tzvakasikwa\\\\OneDrive - CBZ Bank Limited\\\\Documents\\\\GitHub\\\\connectlink\\\\ConnectLink.py', WANT = {'_render_workshop_pdf', '_workshop_movement_targets', '_proc_pdf_kit', '_proc_qty_of', '_req_projects_line', '_proc_esc', '_proc_short_date'}, LEDGER = [{'name': 'Black Gloss Board', 'category': '', 'opening': 0, 'received': 0, 'issued': 0, 'closing': 0}, {'name': 'White Board', 'category': '', 'opening': 0, 'received': 3, 'issued': 0, 'closing': 3}, {'name': 'Marine Ply 12mm', 'category': 'Timber', 'opening': 0, 'received': 24.5, 'issued': 6, 'closing': 18.5}, {'name': 'Edge Banding', 'category': '', 'opening': 12, 'received': 0, 'issued': 2, 'closing': 10}, {'name': 'Contact Glue', 'category': '', 'opening': 0, 'received': 0, 'issued': 1, 'closing': -1}], MOVES = [{'id': 1, 'date': datetime.datetime(2026, 9, 20, 9, 0), 'reference': 'Opening', 'item': 'White Board', 'category': '', 'type': 'in', 'label': 'Opening stock', 'reason': 'opening', 'undoable': False, 'qty_in': 3, 'qty_out': 0, 'by': 'System', 'notes': ''}, {'id': 2, 'date': datetime.datetime(2026, 9, 20, 9, 0), 'reference': 'Opening', 'item': 'Edge Banding', 'category': '', 'type': 'in', 'label': 'Opening stock', 'reason': 'opening', 'undoable': False, 'qty_in': 12, 'qty_out': 0, 'by': 'System', 'notes': ''}, {'id': 3, 'date': datetime.datetime(2026, 9, 21, 10, 0), 'reference': 'PO-0007', 'item': 'Marine Ply 12mm', 'category': 'Timber', 'type': 'in', 'label': 'Received', 'reason': 'received', 'undoable': False, 'qty_in': 24.5, 'qty_out': 0, 'by': 'Tendai M.', 'notes': ''}, {'id': 4, 'date': datetime.datetime(2026, 9, 22, 11, 0), 'reference': 'REQ-0031', 'item': 'Marine Ply 12mm', 'category': 'Timber', 'type': 'out', 'label': 'Issued to requisition', 'reason': 'requisition_in_stock', 'undoable': False, 'qty_in': 0, 'qty_out': 4, 'by': 'Tendai M.', 'notes': ''}, {'id': 5, 'date': datetime.datetime(2026, 9, 22, 14, 0), 'reference': 'REQ-0033', 'item': 'Marine Ply 12mm', 'category': 'Timber', 'type': 'out', 'label': 'Issued to requisition', 'reason': 'requisition_in_stock', 'undoable': False, 'qty_in': 0, 'qty_out': 2, 'by': 'Tendai M.', 'notes': ''}, {'id': 6, 'date': datetime.datetime(2026, 9, 23, 9, 0), 'reference': 'JOB-991', 'item': 'Edge Banding', 'category': '', 'type': 'out', 'label': 'Issued', 'reason': 'issued', 'undoable': True, 'qty_in': 0, 'qty_out': 2, 'by': 'Rudo C.', 'notes': ''}, {'id': 7, 'date': datetime.datetime(2026, 9, 24, 9, 0), 'reference': '', 'item': 'Contact Glue', 'category': '', 'type': 'out', 'label': 'Damage / write-off', 'reason': 'write_off', 'undoable': True, 'qty_in': 0, 'qty_out': 1, 'by': 'Rudo C.', 'notes': ''}, {'id': 8, 'date': datetime.datetime(2026, 9, 24, 16, 0), 'reference': '—', 'item': 'White Board', 'category': '', 'type': 'in', 'label': 'Adjustment', 'reason': 'adjustment', 'undoable': True, 'qty_in': 0.5, 'qty_out': 0, 'by': 'System', 'notes': ''}], AV_W = A4[0] - 28 * mm, AV_H = A4[1] - 27 * mm",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7e8377a42f95020a",
+  "file_mtime": 1789929551944.1094,
+  "file_size": 10772,
+  "file_birthtime": 1789929551693.447,
+  "generated_at": "2026-09-20T18:39:14.704190Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

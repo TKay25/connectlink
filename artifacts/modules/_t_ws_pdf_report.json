@@ -1,18 +1,16 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "TestServer",
-  "file": "_test_server.py",
-  "purpose": "Index",
-  "entry_function": "index()",
-  "entry_flows": [
-    "_test_server → app.route, app.run"
-  ],
+  "module": "TWsPdfReport",
+  "file": "_t_ws_pdf_report.txt",
+  "purpose": "<!-- Describe what TWsPdfReport does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
   "public_api": [
-    "index()"
+    "<!-- list public functions/methods here -->"
   ],
   "dependencies": [
-    "flask"
+    "<!-- list module dependencies here -->"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -27,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "7954b921466a103f",
-  "file_mtime": 1783366678982.6572,
-  "file_size": 377,
-  "file_birthtime": 1783366678756.6213,
-  "generated_at": "2026-09-20T18:44:39.683211Z",
-  "stale": false,
+  "file_hash": "e3b0c44298fc1c14",
+  "file_mtime": 1789929673851.354,
+  "file_size": 0,
+  "file_birthtime": 1789929673851.354,
+  "generated_at": "2026-09-20T18:41:15.555Z",
+  "stale": true,
   "stale_reason": "source file deleted"
 }

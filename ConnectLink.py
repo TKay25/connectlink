@@ -42183,6 +42183,10 @@ def _proc_pdf_kit():
         'base': ParagraphStyle('base', fontName='Helvetica', fontSize=9, leading=12.4, textColor=C['text']),
         'small': ParagraphStyle('small', fontName='Helvetica', fontSize=7.5, leading=10, textColor=C['muted']),
         'tiny': ParagraphStyle('tiny', fontName='Helvetica-Bold', fontSize=6.2, leading=8.6, textColor=C['faint']),
+        # Small PLAIN type for the second line of a table cell — the document or project
+        # a quantity belongs to. ("tiny" is bold, which is too heavy stacked under a
+        # figure.) Used by the workshop ledger; the other documents do not need it.
+        'sub': ParagraphStyle('sub', fontName='Helvetica', fontSize=6.6, leading=8.6, textColor=C['faint']),
         'label': ParagraphStyle('label', fontName='Helvetica-Bold', fontSize=7.2, leading=9.6, textColor=C['navy']),
         'bold': ParagraphStyle('bold', fontName='Helvetica-Bold', fontSize=9.5, leading=12, textColor=C['navy']),
         'name': ParagraphStyle('name', fontName='Helvetica-Bold', fontSize=9, leading=12, textColor=C['text']),
@@ -43796,6 +43800,72 @@ def _workshop_user_name():
         return 'System'
 
 
+def _workshop_movement_targets(movements):
+    """For every item, WHAT its stock moved against — the half of the story the ledger
+    totals cannot tell: which project the boards were issued to, which order the sheets
+    came in on.
+
+    Returns {item: {'in': [(label, qty), ...], 'out': [(label, qty), ...]}}.
+
+    An issue against a requisition is labelled with the PROJECTS on that requisition,
+    because "which site did this go to" is the question a store keeper actually gets
+    asked. Anything entered by hand is labelled with whatever reference was typed (a
+    job number, usually). Receipts are labelled with the purchase order.
+
+    This is a LABEL lookup only: it reads `requisitions.project_ref` to NAME a
+    destination and never for quantities, so the workshop's own tables stay the single
+    source of stock.
+    """
+    reqs = sorted({(m['reference'] or '').strip() for m in movements
+                   if m['reason'] == 'requisition_in_stock'
+                   and (m['reference'] or '').strip() not in ('', '\u2014')})
+    projects = {}
+    if reqs:
+        try:
+            placeholders = ', '.join(['%s'] * len(reqs))
+            with get_db() as (cursor, connection):
+                cursor.execute(
+                    f"SELECT req_no, project_ref FROM requisitions "
+                    f"WHERE req_no IN ({placeholders})", tuple(reqs))
+                for req_no, pref in cursor.fetchall() or []:
+                    # Short project NAMES only: the full '<id>--<name>--<location>--<client>'
+                    # label is far too wide for a table cell.
+                    projects[req_no] = _req_projects_line(pref) or req_no
+        except Exception as e:
+            print(f"Workshop movement-target lookup error: {e}")
+            projects = {}
+
+    out = {}
+    for m in movements:
+        qty = _proc_qty_of(m['qty_out'] if m['type'] == 'out' else m['qty_in'])
+        if qty <= 0:
+            continue
+        ref = (m['reference'] or '').strip()
+        if m['type'] == 'out':
+            if m['reason'] == 'requisition_in_stock':
+                label = projects.get(ref) or (ref if ref not in ('', '\u2014') else 'Issued')
+            elif ref not in ('', '\u2014'):
+                label = ref
+            else:
+                label = m['label'] or 'Issued'       # e.g. 'Damage / write-off'
+            side = 'out'
+        else:
+            # Receipts name the DOCUMENT behind them. An opening quantity is skipped on
+            # purpose: the figure already says what it is, and repeating 'Opening stock'
+            # under Received is exactly the noise that made the old movement table
+            # unreadable on a day when everything was opening stock.
+            if m['reason'] == 'opening':
+                continue
+            label = ref if ref not in ('', '\u2014') else (m['label'] or 'Received')
+            side = 'in'
+        item = m['item'] or '\u2014'
+        bucket = out.setdefault(item, {'in': {}, 'out': {}})[side]
+        bucket[label] = bucket.get(label, 0) + qty
+    return {k: {'in': sorted(v['in'].items(), key=lambda kv: -kv[1]),
+                'out': sorted(v['out'].items(), key=lambda kv: -kv[1])}
+            for k, v in out.items()}
+
+
 # ---- Workshop: the register and its movements (the ONLY writers) ----
 
 def _ws_int(value, default=0):
@@ -44159,6 +44229,12 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     def n(v):
         return f'{int(v or 0):,}'
 
+    def qty(v):
+        """A STOCK quantity as it should read. `n()` above truncates to whole numbers,
+        which is right for money but wrong here: the workshop stores NUMERIC quantities,
+        so 24.5 must not print as 24 or the row stops adding up on paper."""
+        return _proc_qty_str(v)
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
@@ -44178,7 +44254,7 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
 
     story.append(_proc_pdf_summary(
         'ON HAND', C['navy'], 'Reporting period', _proc_esc(period_label),
-        'Closing stock (units)', n(t['closing']), S, C))
+        'Closing stock (units)', qty(t['closing']), S, C))
     story.append(Spacer(1, 4 * mm))
 
     report_rows = [
@@ -44188,10 +44264,10 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
         ('Below minimum', str(t['low_stock'])),
     ]
     move_rows = [
-        ('Opening stock', n(t['opening'])),
-        ('Received (in)', f"+{n(t['received'])}"),
-        ('Issued (out)', f"-{n(t['issued'])}"),
-        ('Closing stock', n(t['closing'])),
+        ('Opening stock', qty(t['opening'])),
+        ('Received (in)', f"+{qty(t['received'])}"),
+        ('Issued (out)', f"-{qty(t['issued'])}"),
+        ('Closing stock', qty(t['closing'])),
         ('Movements', str(t['movements'])),
     ]
     story.append(_proc_pdf_two_boxes(
@@ -44199,40 +44275,53 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
         _proc_pdf_kv_box('Movement Summary', move_rows, S, C, width_mm=89)))
     story.append(Spacer(1, 6 * mm))
 
-    # ---- ledger summary table ----
-    # No Unit column: the workshop does not record units, so a Unit column would be a
-    # constant placeholder on every row. Widths still sum to one full page width.
-    widths = [8, 66, 34, 18, 18, 18, 20]              # = 182mm
+    # ---- ledger summary table — the ONLY table in the report ----
+    # The per-movement detail now lives INSIDE the Received and Issued columns (which
+    # order the goods came in on, which project they went out to), so the second table
+    # that repeated what this one already said is gone.
+    #
+    # No Category column: an item that arrives by receiving a purchase order never gets
+    # one, so on a register built that way the column is blank on every single row.
+    targets = _workshop_movement_targets(data['movements'])
+
+    def amount_cell(total, detail):
+        """The figure, with the documents behind it underneath in small type."""
+        cell = [Paragraph(qty(total), S['cellr'])]
+        for label, q in detail or []:
+            cell.append(Paragraph(f'{_proc_esc(label)} — {_proc_qty_str(q)}', S['sub']))
+        return cell
+
+    widths = [8, 50, 18, 24, 60, 22]                  # = 182mm
     rows = []
     for i, x in enumerate(data['ledger'], 1):
+        tgt = targets.get(x['name']) or {}
         rows.append([
             Paragraph(str(i), S['cellc']),
             Paragraph(_proc_esc(x['name']) or '—', S['name']),
-            Paragraph(_proc_esc(x['category']) or '—', S['small']),
-            Paragraph(n(x['opening']), S['cellr']),
-            Paragraph(n(x['received']), S['cellr']),
-            Paragraph(n(x['issued']), S['cellr']),
-            Paragraph(f"<b>{n(x['closing'])}</b>", S['cellr']),
+            Paragraph(qty(x['opening']), S['cellr']),
+            amount_cell(x['received'], tgt.get('in')),
+            amount_cell(x['issued'], tgt.get('out')),
+            Paragraph(f"<b>{qty(x['closing'])}</b>", S['cellr']),
         ])
     if not rows:
         rows.append([Paragraph('—', S['cellc']),
                      Paragraph('No stock recorded for this period', S['base'])] +
-                    [Paragraph('', S['base'])] * 5)
+                    [Paragraph('', S['base'])] * 4)
     story.append(_proc_pdf_table(
-        ['#', 'Item', 'Category', 'Opening', 'Received', 'Issued', 'Closing'],
+        ['#', 'Item', 'Opening', 'Received', 'Issued', 'Closing'],
         rows, widths, S, C))
-    # Totals row. The house grand-total helper is built for the 6-column money tables,
-    # so on these 8 columns it drops its label into the 16mm 'Unit' cell and wraps it
-    # vertically ('CLOSI / NG / STOCK'). Built here instead, with the label spanning the
-    # four text columns and the four figures lining up under their own headings.
+    # Totals row. The house grand-total helper is built for the money tables, where the
+    # label spans the first two columns and the figures follow; this ledger needs its
+    # own column widths, so it is built here with the label spanning '# and Item'
+    # (two columns) and the four figures landing under their own headings.
     tot = [Paragraph('TOTAL — ALL ITEMS', S['bold']) if i == 0 else
-           Paragraph(f"<b>{n(v)}</b>", S['cellrb']) if i >= 3 else
+           Paragraph(f"<b>{qty(v)}</b>", S['cellrb']) if i >= 2 else
            Paragraph('', S['base'])
-           for i, v in enumerate([None, None, None,
+           for i, v in enumerate([None, None,
                                   t['opening'], t['received'], t['issued'], t['closing']])]
     tot_table = Table([tot], colWidths=[w * mm for w in widths])
     tot_table.setStyle(TableStyle([
-        ('SPAN', (0, 0), (2, 0)),
+        ('SPAN', (0, 0), (1, 0)),
         ('BACKGROUND', (0, 0), (-1, -1), C['headbg']),
         ('LINEABOVE', (0, 0), (-1, -1), 1.0, C['border']),
         ('GRID', (0, 0), (-1, -1), 0.5, C['soft']),
@@ -44245,26 +44334,16 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     story.append(tot_table)
     story.append(Spacer(1, 7 * mm))
 
-    # ---- movement detail table ----
-    story.append(Paragraph('STOCK MOVEMENTS IN THIS PERIOD', S['label']))
-    story.append(Spacer(1, 2 * mm))
-    m_widths = [22, 26, 58, 44, 16, 16]                # = 182mm
-    m_rows = []
-    for m in data['movements']:
-        m_rows.append([
-            Paragraph(_proc_short_date(m['date']), S['small']),
-            Paragraph(_proc_esc(m['reference']), S['small']),
-            Paragraph(_proc_esc(m['item']) or '—', S['base']),
-            Paragraph(_proc_esc(m['label']), S['small']),
-            Paragraph(n(m['qty_in']) if m['qty_in'] else '', S['cellr']),
-            Paragraph(n(m['qty_out']) if m['qty_out'] else '', S['cellr']),
-        ])
-    if not m_rows:
-        m_rows.append([Paragraph('—', S['cellc']),
-                       Paragraph('No stock moved in this period', S['base'])] +
-                      [Paragraph('', S['base'])] * 4)
-    story.append(_proc_pdf_table(['Date', 'Document', 'Item', 'Movement', 'In', 'Out'],
-                                 m_rows, m_widths, S, C))
+    # The per-movement table that used to sit here has gone. On a day when everything
+    # was opening stock it was eleven identical 'Opening stock' lines that the Opening
+    # column already stated, and now that Received and Issued name their own documents
+    # it had nothing left to add. The counts above still report how many movements the
+    # period contained.
+    if targets:
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(
+            'Received and Issued name the order or project each quantity belongs to.',
+            S['small']))
     story.append(Spacer(1, 14 * mm))
     story.append(_proc_pdf_signatures([
         ('Prepared by', prepared_by),
@@ -44274,7 +44353,7 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     story.append(Spacer(1, 7 * mm))
     story.append(_proc_pdf_footer([
         f'This workshop stock report was generated by {company.get("name") or "ConnectLink"}.',
-        f'Period: {_proc_esc(period_label)}  |  Closing stock: {n(t["closing"])} units',
+        f'Period: {_proc_esc(period_label)}  |  Closing stock: {qty(t["closing"])} units',
         f'Generated on {_proc_short_date(datetime.now())} at {datetime.now().strftime("%H:%M")}',
     ], S, C))
 
@@ -44308,6 +44387,14 @@ def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
 
     data = _workshop_ledger(start_dt, end_dt)
     t = data['totals']
+    # What each received/issued figure belongs to — the same detail the PDF puts inside
+    # its columns. In Excel it gets its own columns, because a cell holding both a number
+    # and a document name stops being a number you can sum.
+    targets = _workshop_movement_targets(data['movements'])
+
+    def detail_text(detail):
+        # _proc_qty_str, not the int() below: a 4.5 must read as 4.5.
+        return ' · '.join(f'{lab} — {_proc_qty_str(q)}' for lab, q in (detail or []))
 
     hfill = PatternFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
     sfill = PatternFill(start_color='EEF1F6', end_color='EEF1F6', fill_type='solid')
@@ -44317,7 +44404,8 @@ def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
     mfont = Font(color='666666', size=9)
 
     def n(v):
-        return int(v or 0)
+        # Keep the decimal: the cells hold numbers the user sums, so 24.5 must stay 24.5.
+        return _proc_qty_of(v)
 
     wb = Workbook()
 
@@ -44334,7 +44422,8 @@ def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
                   f'By: {generated_by or "—"}').font = mfont
     r += 2
 
-    cols = ['Item', 'Category', 'Opening', 'Received (In)', 'Issued (Out)', 'Closing']
+    cols = ['Item', 'Category', 'Opening', 'Received (In)', 'Issued (Out)', 'Closing',
+            'Received From', 'Issued To']
     for c, name in enumerate(cols, 1):
         cell = ws.cell(row=r, column=c, value=name)
         cell.font = hfont
@@ -44342,21 +44431,24 @@ def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
         cell.alignment = Alignment(horizontal='center', vertical='center')
     r += 1
     for x in data['ledger']:
+        tgt = targets.get(x['name']) or {}
         ws.cell(row=r, column=1, value=x['name'])
         ws.cell(row=r, column=2, value=x['category'])
         ws.cell(row=r, column=3, value=n(x['opening']))
         ws.cell(row=r, column=4, value=n(x['received']))
         ws.cell(row=r, column=5, value=n(x['issued']))
         ws.cell(row=r, column=6, value=n(x['closing'])).font = bfont
+        ws.cell(row=r, column=7, value=detail_text(tgt.get('in')))
+        ws.cell(row=r, column=8, value=detail_text(tgt.get('out')))
         r += 1
     for c, val in enumerate(['TOTAL (all items)', '', n(t['opening']), n(t['received']),
-                             n(t['issued']), n(t['closing'])], 1):
+                             n(t['issued']), n(t['closing']), '', ''], 1):
         cell = ws.cell(row=r, column=c, value=val)
         cell.font = bfont
         cell.fill = sfill
     r += 2
     ws.cell(row=r, column=1, value='Opening + Received - Issued = Closing').font = mfont
-    for col, width in zip('ABCDEF', (46, 26, 14, 16, 15, 12)):
+    for col, width in zip('ABCDEFGH', (46, 26, 14, 16, 15, 12, 30, 34)):
         ws.column_dimensions[col].width = width
     ws.freeze_panes = 'A6'
 

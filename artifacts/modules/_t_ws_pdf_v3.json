@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TWsPdfV3",
+  "file": "_t_ws_pdf_v3.py",
+  "purpose": "Workshop PDF verification, v3 — builds the REAL PDF (reportlab included) and inspects",
+  "entry_function": "spy_table(header, rows, widths_mm, S, C)",
+  "entry_flows": [
+    "_Cur.execute(sql, params) → stdout.write, stdout.flush, _REPORT.write, _REPORT.flush"
+  ],
+  "public_api": [
+    "spy_table(header, rows, widths_mm, S, C)",
+    "flat(cell)"
+  ],
+  "dependencies": [
+    "openpyxl",
+    "reportlab"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: WS = 'c:\\\\Users\\\\tzvakasikwa\\\\OneDrive - CBZ Bank Limited\\\\Documents\\\\GitHub\\\\connectlink', SRC = WS + '\\\\ConnectLink.py', _REPORT = open(WS + '\\\\_t_ws_pdf_report.txt', 'w', encoding='utf-8'), PREFIXES = ('_proc_', '_cl_', '_ws_', '_workshop_', '_req_', '_render_', '_activity_'), LEDGER = [{'name': 'Black Gloss Board', 'category': '', 'opening': 0, 'received': 0, 'issued': 0, 'closing': 0}, {'name': 'White Board', 'category': '', 'opening': 0, 'received': 3, 'issued': 0, 'closing': 3}, {'name': 'Marine Ply 12mm', 'category': 'Timber', 'opening': 0, 'received': 24.5, 'issued': 6, 'closing': 18.5}, {'name': 'Edge Banding', 'category': '', 'opening': 12, 'received': 0.5, 'issued': 2, 'closing': 10.5}, {'name': 'Contact Glue', 'category': '', 'opening': 0, 'received': 0, 'issued': 1, 'closing': -1}, {'name': 'Long Project Name Item', 'category': '', 'opening': 0, 'received': 10, 'issued': 5, 'closing': 5}], MOVES = [{'id': 1, 'date': datetime.datetime(2026, 9, 20, 9, 0), 'reference': 'Opening', 'item': 'White Board', 'category': '', 'type': 'in', 'label': 'Opening stock', 'reason': 'opening', 'undoable': False, 'qty_in': 3, 'qty_out': 0, 'by': 'System', 'notes': ''}, {'id': 2, 'date': datetime.datetime(2026, 9, 20, 9, 0), 'reference': 'Opening', 'item': 'Edge Banding', 'category': '', 'type': 'in', 'label': 'Opening stock', 'reason': 'opening', 'undoable': False, 'qty_in': 12, 'qty_out': 0, 'by': 'System', 'notes': ''}, {'id': 3, 'date': datetime.datetime(2026, 9, 21, 10, 0), 'reference': 'PO-0007', 'item': 'Marine Ply 12mm', 'category': 'Timber', 'type': 'in', 'label': 'Received', 'reason': 'received', 'undoable': False, 'qty_in': 20, 'qty_out': 0, 'by': 'Tendai M.', 'notes': ''}, {'id': 3.1, 'date': datetime.datetime(2026, 9, 21, 12, 0), 'reference': 'PO-0011', 'item': 'Marine Ply 12mm', 'category': 'Timber', 'type': 'in', 'label': 'Received', 'reason': 'received', 'undoable': False, 'qty_in': 4.5, 'qty_out': 0, 'by': 'Tendai M.', 'notes': ''}, {'id': 4, 'date': datetime.datetime(2026, 9, 22, 11, 0), 'reference': 'REQ-0031', 'item': 'Marine Ply 12mm', 'category': 'Timber', 'type': 'out', 'label': 'Issued to requisition', 'reason': 'requisition_in_stock', 'undoable': False, 'qty_in': 0, 'qty_out': 4, 'by': 'Tendai M.', 'notes': ''}, {'id': 5, 'date': datetime.datetime(2026, 9, 22, 14, 0), 'reference': 'REQ-0033', 'item': 'Marine Ply 12mm', 'category': 'Timber', 'type': 'out', 'label': 'Issued to requisition', 'reason': 'requisition_in_stock', 'undoable': False, 'qty_in': 0, 'qty_out': 2, 'by': 'Tendai M.', 'notes': ''}, {'id': 6, 'date': datetime.datetime(2026, 9, 23, 9, 0), 'reference': 'JOB-991', 'item': 'Edge Banding', 'category': '', 'type': 'out', 'label': 'Issued', 'reason': 'issued', 'undoable': True, 'qty_in': 0, 'qty_out': 2, 'by': 'Rudo C.', 'notes': ''}, {'id': 7, 'date': datetime.datetime(2026, 9, 24, 9, 0), 'reference': '', 'item': 'Contact Glue', 'category': '', 'type': 'out', 'label': 'Damage / write-off', 'reason': 'write_off', 'undoable': True, 'qty_in': 0, 'qty_out': 1, 'by': 'Rudo C.', 'notes': ''}, {'id': 8, 'date': datetime.datetime(2026, 9, 24, 16, 0), 'reference': '—', 'item': 'Edge Banding', 'category': '', 'type': 'in', 'label': 'Adjustment', 'reason': 'adjustment', 'undoable': True, 'qty_in': 0.5, 'qty_out': 0, 'by': 'System', 'notes': ''}, {'id': 9, 'date': datetime.datetime(2026, 9, 25, 9, 0), 'reference': 'PO-0014', 'item': 'Long Project Name Item', 'category': '', 'type': 'in', 'label': 'Received', 'reason': 'received', 'undoable': False, 'qty_in': 10, 'qty_out': 0, 'by': 'Tendai M.', 'notes': ''}, {'id': 10, 'date': datetime.datetime(2026, 9, 25, 15, 0), 'reference': 'REQ-0040', 'item': 'Long Project Name Item', 'category': '', 'type': 'out', 'label': 'Issued to requisition', 'reason': 'requisition_in_stock', 'undoable': False, 'qty_in': 0, 'qty_out': 5, 'by': 'Tendai M.', 'notes': ''}]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7745142ab1ba872a",
+  "file_mtime": 1789929780214.4204,
+  "file_size": 10697,
+  "file_birthtime": 1789929779948.0537,
+  "generated_at": "2026-09-20T18:46:20.467521Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
