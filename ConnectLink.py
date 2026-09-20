@@ -39863,16 +39863,20 @@ def _req_projects_line(project_ref):
     return '; '.join(names)
 
 
-def _req_items_with_projects(item_summary, projects):
-    """The item listing with the attached project name(s) appended.
+def _req_item_line(name, qty, project_ref):
+    """One line item for a WhatsApp item list, WITH the project it is needed for.
 
-    The projects are appended HERE rather than given a template variable of their own,
-    so the Meta template needs no extra placeholder: the authoriser still sees which
-    project(s) the goods are for, on the item line. Returns the plain item list when
-    there are no projects, so the suffix never appears empty."""
-    items = (item_summary or '').strip() or '—'
-    proj = (projects or '').strip()
-    return f"{items} — Projects: {proj}" if proj else items
+    e.g. 'Cement 50kg (x40 — Rainham Park)'. The project is folded into the ITEM text
+    instead of taking a template variable of its own, because the whole listing is a
+    single variable — so per-item projects cost NO extra placeholder in Meta. An item
+    with no project still reads 'Cement 50kg (x40)'."""
+    label = (name or '').strip()
+    proj = _req_projects_line(project_ref)
+    if qty:
+        label += f" (x{qty}{' — ' + proj if proj else ''})"
+    elif proj:
+        label += f" — {proj}"
+    return label
 
 
 def _req_funds_status(value):
@@ -40991,7 +40995,10 @@ def procurement_api_create_purchase_order():
     expected_delivery = data.get('expected_delivery')
     requested_by = (data.get('requested_by') or '').strip()[:150]
     requested_by_phone = (data.get('requested_by_phone') or '').strip()[:50]
-    authoriser_id = data.get('authoriser_id')
+    # NO AUTHORISER. The user's rule: a requisition must be AUTHORISED before it can be
+    # attached to a purchase order, so the PO has nothing left to authorise at PO level
+    # and goes STRAIGHT to the approver. `authoriser_id` is no longer read (an older
+    # cached page may still post it — it is ignored rather than rejected).
     approver_id = data.get('approver_id')
     user = _procurement_user()
     if not req_ids or not isinstance(req_ids, list):
@@ -41019,7 +41026,6 @@ def procurement_api_create_purchase_order():
                     return None, ''
                 return au[0], (au[1] or au[2] or f'User {au[0]}')
 
-            authoriser_uid, authoriser_nm = _resolve_assignee(authoriser_id, _procurement_can_authorise)
             approver_uid, approver_nm = _resolve_assignee(approver_id, _procurement_can_approve)
 
             supplier_name = ''
@@ -41038,6 +41044,12 @@ def procurement_api_create_purchase_order():
                 FROM requisition_items ri
                 JOIN requisitions r ON r.id = ri.requisition_id
                 WHERE r.id IN ({placeholders}) AND r.status IN ('approved', 'authorised')
+                  -- THE RULE: a requisition must have been AUTHORISED before it can be
+                  -- attached to a purchase order. `authorised_at` is stamped by BOTH
+                  -- authorisation paths (the in-app button and the WhatsApp tap), so it
+                  -- is the reliable marker — status alone is not, because the requisition
+                  -- approve route also accepts 'submitted'/'draft'.
+                  AND r.authorised_at IS NOT NULL
             """
             item_params = list(req_ids)
             if excluded_item_ids:
@@ -41050,18 +41062,26 @@ def procurement_api_create_purchase_order():
                     return jsonify({'success': False,
                                     'error': 'Every line of the selected requisition(s) was deselected — '
                                              'nothing left to order. Re-tick the lines you need.'}), 400
+                # Say WHICH rule failed rather than a blanket 'no refused requisitions'.
+                cursor.execute(f"""
+                    SELECT req_no FROM requisitions
+                    WHERE id IN ({placeholders}) AND status IN ('approved', 'authorised')
+                      AND authorised_at IS NULL
+                    LIMIT 1
+                """, req_ids)
+                _unauth = cursor.fetchone()
+                if _unauth:
+                    return jsonify({'success': False,
+                                    'error': f'{_unauth[0]} has not been authorised yet — a purchase order can '
+                                             f'only be raised from an authorised requisition.'}), 400
                 return jsonify({'success': False, 'error': 'No authorised requisitions with items were selected.'}), 400
 
-            # AUTHORISATION SHORTCUT: when EVERY attached requisition has already been
-            # authorised, the PO has nothing left to authorise, so it SKIPS the
-            # authorisation layer and goes STRAIGHT to the approver.
-            cursor.execute(f"""
-                SELECT COUNT(*), COUNT(authorised_at)
-                FROM requisitions WHERE id IN ({placeholders}) AND status IN ('approved', 'authorised')
-            """, req_ids)
-            _cnt = cursor.fetchone()
-            skip_authorisation = bool(_cnt and _cnt[0] and _cnt[1] == _cnt[0])
-            po_status = 'pending_approval' if skip_authorisation else 'pending_authorisation'
+            # NO AUTHORISATION LAYER. Because every attached requisition is already
+            # authorised, the PO always goes STRAIGHT to the approver. (The
+            # `pending_authorisation` status, its /authorise route and its Authorise
+            # buttons are kept ONLY for any PO created before this change that is still
+            # sitting in that state.)
+            po_status = 'pending_approval'
 
             cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM purchase_orders")
             po_id = cursor.fetchone()[0]
@@ -41074,12 +41094,12 @@ def procurement_api_create_purchase_order():
                 INSERT INTO purchase_orders (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids,
                                              status, total_amount, expected_delivery, created_by, requested_by,
                                              requested_by_phone, funding_source,
-                                             authoriser_user_id, authoriser_name, approver_user_id, approver_name)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                             approver_user_id, approver_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (po_no, supplier_id, supplier_name, supplier_phone, ','.join(str(x) for x in req_ids),
                   po_status, total,
                   expected_delivery or None, user['name'], requested_by or None, requested_by_phone or None,
-                  funding_source, authoriser_uid, authoriser_nm or None, approver_uid, approver_nm or None))
+                  funding_source, approver_uid, approver_nm or None))
             for it in items:
                 cursor.execute("""
                     INSERT INTO grn_lines (purchase_order_id, product_id, product_name,
@@ -41089,22 +41109,19 @@ def procurement_api_create_purchase_order():
             cursor.execute(f"""
                 UPDATE requisitions SET status='po_created', updated_at=CURRENT_TIMESTAMP
                 WHERE id IN ({placeholders}) AND status IN ('approved', 'authorised')
+                  AND authorised_at IS NOT NULL
             """, req_ids)
             connection.commit()
             log_activity('po_create', f'Created {po_no} ({supplier_name or "No supplier"}) from {len(req_ids)} requisition(s)', 'purchase_order', po_id)
-            # The linked requisition(s) were already authorised, so the PO goes straight
-            # to the APPROVER for final approval. Otherwise it needs authorisation first.
+            # Every attached requisition is already authorised, so the PO goes STRAIGHT
+            # to the APPROVER — there is no PO-level authorisation step.
             try:
-                if skip_authorisation:
-                    _procurement_notify_po_approvers(po_id, approver_uid)
-                else:
-                    _procurement_notify_po_authorisers(po_id, authoriser_uid)
+                _procurement_notify_po_approvers(po_id, approver_uid)
             except Exception as nfe:
                 print(f"PO notify error: {nfe}")
-            if skip_authorisation:
-                return jsonify({'success': True,
-                                'message': f'{po_no} created — requisition already authorised, sent straight to approval. Total: ${total:,.2f}'})
-            return jsonify({'success': True, 'message': f'{po_no} created (pending authorisation). Total: ${total:,.2f}'})
+            return jsonify({'success': True,
+                            'message': f'{po_no} created — sent to the approver '
+                                       f'(attached requisition already authorised). Total: ${total:,.2f}'})
     except Exception as e:
         print(f"Create PO error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -43191,8 +43208,8 @@ def procurement_api_export():
 #                  {{4}}=requested by, {{5}}=requested-by phone,
 #                  {{6}}=total USD, {{7}}=items required before,
 #                  {{8}}=STOCK availability (full sentence, from _req_stock_label),
-#                  {{9}}=item count, {{10}}=item summary WITH the attached project
-#                  name(s) appended ("<items> — Projects: <names>", no extra placeholder),
+#                  {{9}}=item count, {{10}}=item summary WITH each item's PROJECT in the
+#                  item text ("Cement 50kg (x40 — Rainham Park)", no extra placeholder),
 #                  {{11}}=logged by, {{12}}=logged date
 #       Buttons: quick_reply "Authorise" / "Decline" — the PAYLOAD is replaced on
 #                every send, so the tap carries reqappr_<id>/reqdecl_<id> for a
@@ -43630,7 +43647,7 @@ def _procurement_req_details(req_id):
             if not r:
                 return None
             cursor.execute("""
-                SELECT product_name, quantity FROM requisition_items
+                SELECT product_name, quantity, project_ref FROM requisition_items
                 WHERE requisition_id = %s ORDER BY id
             """, (req_id,))
             items = cursor.fetchall()
@@ -43648,11 +43665,12 @@ def _procurement_req_details(req_id):
                         requested_by_phone = by_id.get(au[3]) or by_name.get(nm) or ''
         count = len(items)
         parts = []
-        for name, qty in items:
+        for name, qty, pref in items:
             n = (name or '').strip()
             if not n:
                 continue
-            parts.append(f"{n} (x{qty})" if qty else n)
+            # Each line carries its own project (one project per requisition item).
+            parts.append(_req_item_line(n, qty, pref))
             if len(parts) >= 3:
                 break
         if count > len(parts):
@@ -43690,7 +43708,7 @@ def _procurement_notify_req_authorisers(req_id, target_user_id=None):
       1 authoriser name         7 required-before date
       2 department              8 STOCK availability (right after the date line)
       3 requisition no          9 item count
-      4 requested by           10 item summary WITH the attached project name(s)
+      4 requested by           10 item summary WITH each item's project in the text
       5 requester phone        11 logged by
       6 total USD              12 logged date
     (The supplier pair was dropped and the stock line added when the user re-specified
@@ -43742,7 +43760,7 @@ def _procurement_notify_req_authorisers(req_id, target_user_id=None):
                      fmt_date(d['required_by']),
                      d['stock_label'],           # sits beside the required-before line in the body
                      d['item_count'],
-                     _req_items_with_projects(d['item_summary'], d['projects']),
+                     d['item_summary'],
                      d['requested_by'] or '—',   # no created_by column: the logger IS the requester
                      fmt_date(d['created_at'])],
                     button_payloads=[f"reqappr_{req_id}", f"reqdecl_{req_id}"])
@@ -43814,21 +43832,47 @@ def _procurement_authorisers():
 
 
 def _procurement_po_item_summary(po_id):
-    """Return (item_count, one-line item summary) for a PO's GRN lines."""
+    """Return (item_count, one-line item summary) for a PO's GRN lines.
+
+    Each line also shows the PROJECT it is needed for. `grn_lines` has no project
+    column, so it is read from the requisition item the line came from (matched on
+    product_id, falling back to the product name because free-text items can have no
+    product_id). Read on the SAME connection, and folded into the item text by
+    _req_item_line() so no extra Meta template variable is needed."""
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT product_name, quantity_ordered FROM grn_lines
+                SELECT product_name, quantity_ordered, product_id FROM grn_lines
                 WHERE purchase_order_id = %s ORDER BY id
             """, (po_id,))
             rows = cursor.fetchall()
+            proj_by_id, proj_by_name = {}, {}
+            cursor.execute("SELECT requisition_ids FROM purchase_orders WHERE id = %s", (po_id,))
+            po_row = cursor.fetchone()
+            req_ids = [int(x) for x in str((po_row[0] if po_row else '') or '').split(',')
+                       if str(x).strip().isdigit()]
+            if req_ids:
+                ph = ','.join(['%s'] * len(req_ids))
+                cursor.execute(f"""
+                    SELECT product_id, product_name, project_ref FROM requisition_items
+                    WHERE requisition_id IN ({ph})
+                      AND project_ref IS NOT NULL AND project_ref <> ''
+                    ORDER BY id
+                """, req_ids)
+                for pid, pname, pref in cursor.fetchall():
+                    if pid is not None:
+                        proj_by_id.setdefault(pid, pref)
+                    nm = (pname or '').strip().lower()
+                    if nm:
+                        proj_by_name.setdefault(nm, pref)
         count = len(rows)
         parts = []
-        for name, qty in rows:
+        for name, qty, pid in rows:
             n = (name or '').strip()
             if not n:
                 continue
-            parts.append(f"{n} (x{qty})" if qty else n)
+            pref = proj_by_id.get(pid) or proj_by_name.get(n.lower())
+            parts.append(_req_item_line(n, qty, pref))
             if len(parts) >= 3:
                 break
         if count > len(parts):
@@ -43860,6 +43904,8 @@ def _procurement_po_details(po_id):
             fallback_req_user = None
             po_stock = 'not_in_stock'   # a PO exists to buy goods unless a linked requisition says otherwise
             po_projects = ''
+            req_auth_by = ''
+            req_auth_at = None
             if req_ids:
                 ph = ','.join(['%s'] * len(req_ids))
                 cursor.execute(f"""
@@ -43872,7 +43918,14 @@ def _procurement_po_details(po_id):
                                       ORDER BY CASE COALESCE(stock_status, 'not_in_stock')
                                                  WHEN 'not_in_stock' THEN 1
                                                  WHEN 'partial' THEN 2 ELSE 3 END))[1],
-                           string_agg(DISTINCT project_ref, ' | ')
+                           string_agg(DISTINCT project_ref, ' | '),
+                           -- The AUTHORISATION that cleared this PO may belong to the
+                           -- requisitions rather than the PO itself (see the
+                           -- skip_authorisation shortcut in the PO create route: a PO
+                           -- raised from already-authorised requisitions goes straight
+                           -- to pending_approval and never gets its own authoriser).
+                           string_agg(DISTINCT authorised_by, '; '),
+                           MAX(authorised_at)
                     FROM requisitions WHERE id IN ({ph})
                 """, req_ids)
                 row = cursor.fetchone()
@@ -43882,6 +43935,8 @@ def _procurement_po_details(po_id):
                 fallback_req_user = row[3]
                 po_stock = row[4]
                 po_projects = row[5]
+                req_auth_by = row[6] or ''
+                req_auth_at = row[7]
             requested_by = (po[7] or '').strip() or fallback_req
             requested_by_phone = (po[8] or '').strip()
             if not requested_by_phone and fallback_req_user:
@@ -43914,6 +43969,8 @@ def _procurement_po_details(po_id):
                 'projects': _req_projects_line(po_projects),
                 'authorised_by': po[10] or '',
                 'authorised_at': po[11],
+                'req_authorised_by': req_auth_by,
+                'req_authorised_at': req_auth_at,
                 'approved_by': po[12] or '',
                 'approved_at': po[13],
             }
@@ -43978,7 +44035,7 @@ def _procurement_notify_po_authorisers(po_id, target_user_id=None):
                      fmt_date(d['required_by']),
                      d['stock_label'],           # sits beside the required-before line in the body
                      count,
-                     _req_items_with_projects(summary, d['projects']),
+                     summary,
                      d['created_by'] or '—',
                      fmt_date(d['created_at'])],
                     button_payloads=[f"poauth_{po_id}", f"podeclauth_{po_id}"])
@@ -44026,6 +44083,18 @@ def _procurement_notify_po_approvers(po_id, target_user_id=None):
             except Exception:
                 return str(v)
 
+        # WHO AUTHORISED IT. A PO raised from already-authorised requisitions SKIPS its
+        # own authorisation layer, so purchase_orders.authorised_by/at are NULL and the
+        # approver's "Authorised by {{14}} on {{15}}" line arrived BLANK. The
+        # authorisation that actually cleared this PO is the one on the requisitions
+        # behind it — which is exactly WHY it skipped — so fall back to that and label
+        # it, instead of sending an empty field.
+        auth_by = (d['authorised_by'] or '').strip()
+        auth_at = d['authorised_at']
+        if not auth_by and d['req_authorised_by']:
+            auth_by = f"{d['req_authorised_by']} (requisition)"
+            auth_at = auth_at or d['req_authorised_at']
+
         for ap in targets:
             try:
                 ok, txt = _procurement_send_template(
@@ -44043,8 +44112,8 @@ def _procurement_notify_po_approvers(po_id, target_user_id=None):
                      d['supplier_phone'] or '',
                      d['created_by'] or '—',
                      fmt_date(d['created_at']),
-                     d['authorised_by'] or '—',
-                     fmt_date(d['authorised_at'])],
+                     auth_by or '—',
+                     fmt_date(auth_at)],
                     button_payloads=[f"poappr_{po_id}", f"podecl_{po_id}"])
                 _procurement_log_send(f"PO approval request -> {ap['name']}", ok, txt)
             except Exception as e:

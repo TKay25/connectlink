@@ -1514,15 +1514,6 @@
                         <input type="text" class="pc-input" id="poRequestedPhoneShow" readonly placeholder="Pick a name — number auto-fills">
                     </div>
                     <div class="col-12">
-                        <label class="pc-form-label">Authoriser <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(1st sign-off — users with "Authorise Purchase Orders" in User Management; blank = all eligible)</span></label>
-                        <div style="position:relative;">
-                            <input type="text" class="pc-input" id="poAuthoriser" placeholder="Search eligible users..." autocomplete="off">
-                            <input type="hidden" id="poAuthoriserId">
-                            <div class="pc-suggest" id="poAuthoriserList"></div>
-                        </div>
-                        <div class="pc-phone-hint" id="poAuthoriserPhone">— select to see their WhatsApp</div>
-                    </div>
-                    <div class="col-12">
                         <label class="pc-form-label">Approver <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(final approval — users with "Approve Requisitions"/"Manage Purchase Orders"; blank = all eligible)</span></label>
                         <div style="position:relative;">
                             <input type="text" class="pc-input" id="poApprover" placeholder="Search eligible users..." autocomplete="off">
@@ -2752,9 +2743,8 @@ function setupAssigneeCombo(inputId, listId, hiddenId, key, emptyMsg, getSource,
 }
 
 function setupPoAssigneesCombo() {
-    setupAssigneeCombo('poAuthoriser', 'poAuthoriserList', 'poAuthoriserId', 'authorisers',
-        'No user has "Authorise Purchase Orders" — grant it in User Management, or leave blank.',
-        null, 'poAuthoriserPhone');
+    // No Authoriser picker: the attached requisition is already authorised, so the PO
+    // goes straight to the approver (see the PO create route).
     setupAssigneeCombo('poApprover', 'poApproverList', 'poApproverId', 'approvers',
         'No user can approve POs — grant "Approve Requisitions" in User Management, or leave blank.',
         null, 'poApproverPhone');
@@ -3552,9 +3542,9 @@ window.openPoModal = function() {
     const poReqShow = document.getElementById('poRequestedPhoneShow');
     if (poReqShow) poReqShow.value = '';
     // reset the authoriser / approver pickers
-    ['poAuthoriser', 'poApprover'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    ['poAuthoriserId', 'poApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    ['poAuthoriserPhone', 'poApproverPhone'].forEach(id => setAssigneePhone(document.getElementById(id), null));
+    ['poApprover'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['poApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['poApproverPhone'].forEach(id => setAssigneePhone(document.getElementById(id), null));
     const supSel = document.getElementById('poSupplier');
     if (supSel && !SUPPLIERS.length) supSel.innerHTML = '<option value="">Loading suppliers…</option>';
     const list = document.getElementById('poReqList');
@@ -3709,7 +3699,7 @@ window.savePo = async function() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ requisition_ids: reqIds, excluded_item_ids: excluded, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null, requested_by: document.getElementById('poRequestedBy').value.trim(), requested_by_phone: document.getElementById('poRequestedPhone').value.trim(), authoriser_id: parseInt(document.getElementById('poAuthoriserId').value || '', 10) || null, approver_id: parseInt(document.getElementById('poApproverId').value || '', 10) || null, funding_source: (document.getElementById('poFunding') ? document.getElementById('poFunding').value : 'business') })
+            body: JSON.stringify({ requisition_ids: reqIds, excluded_item_ids: excluded, supplier_id, expected_delivery: document.getElementById('poExpectedDelivery').value || null, requested_by: document.getElementById('poRequestedBy').value.trim(), requested_by_phone: document.getElementById('poRequestedPhone').value.trim(), approver_id: parseInt(document.getElementById('poApproverId').value || '', 10) || null, funding_source: (document.getElementById('poFunding') ? document.getElementById('poFunding').value : 'business') })
         });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
