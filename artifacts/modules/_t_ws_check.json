@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TWsCheck",
+  "file": "_t_ws_check.py",
+  "purpose": "Prove the workshop PDF has NO signature strip any more.",
+  "entry_function": "spy_signatures(cells, S, C)",
+  "entry_flows": [
+    "_t_ws_check → ast.parse, ast.literal_eval, name.startswith, ast.get_source_segment, sigs.append"
+  ],
+  "public_api": [
+    "spy_signatures(cells, S, C)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: WS = Path('c:\\\\Users\\\\tzvakasikwa\\\\OneDrive - CBZ Bank Limited\\\\Documents\\\\GitHub\\\\connectlink'), LEDGER = [{'id': i + 1, 'name': n, 'category': 'Boards', 'opening': 0, 'received': q, 'issued': 0, 'closing': q} for i, (n, q) in enumerate([('Black Gloss', 0.5), ('Congo', 1), ('Dublin', 0.5), ('Dublin Gloss', 1), ('Marine Ply 12mm', 24.5), ('MDF Board 16mm', 1), ('Edging Tape 22mm', 2)])], MOVES = [{'id': 1, 'date': datetime.datetime(2026, 9, 20, 9, 0), 'reference': 'PO-0004', 'item': 'Marine Ply 12mm', 'category': 'Timber', 'type': 'in', 'label': 'Goods received', 'reason': 'received', 'undoable': False, 'qty_in': 24.5, 'qty_out': 0, 'by': 'T. Chikerema', 'notes': ''}]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "177f21c57c9a26a6",
+  "file_mtime": 1789933940524.225,
+  "file_size": 3995,
+  "file_birthtime": 1789933940427.896,
+  "generated_at": "2026-09-20T19:52:22.603107Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

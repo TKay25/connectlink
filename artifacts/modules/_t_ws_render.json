@@ -31,6 +31,7 @@
   "file_mtime": 1789932010028.7373,
   "file_size": 7869,
   "file_birthtime": 1789932009796.1765,
-  "generated_at": "2026-09-20T19:36:34.234022Z",
-  "stale": false
+  "generated_at": "2026-09-20T19:37:29.748105Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
 }

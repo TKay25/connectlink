@@ -44521,13 +44521,12 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
         story.append(Paragraph(
             'Received and Issued name the order or project each quantity belongs to.',
             S['small']))
-    story.append(Spacer(1, 12 * mm))
-    story.append(_proc_pdf_signatures([
-        ('Prepared by', prepared_by),
-        ('Store keeper', None),
-        ('Approved by', None),
-    ], S, C, caption=False))
-    story.append(Spacer(1, 6 * mm))
+
+    # NO SIGNATURE STRIP on this document (asked for twice, by name): a stock report is a
+    # register, not a sign-off form, and whoever it was prepared for is already named in
+    # the header as "Prepared By". `_proc_pdf_signatures` is left in the kit for the
+    # documents that ARE signed (purchase orders, requisitions, GRNs).
+    story.append(Spacer(1, 10 * mm))
     story.append(_proc_pdf_footer([
         # The name on this line is the PERSON who prepared it, matching "Prepared By" in
         # the header — the document is named at the top, so repeating the company here
