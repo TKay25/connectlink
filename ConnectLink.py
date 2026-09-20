@@ -45745,28 +45745,37 @@ def _procurement_approvers():
 def _procurement_notify_requester(req_id, new_status):
     """Notify the requester/logger that their requisition changed status.
 
-    Sends `requisition_status_update`, which has FIVE body variables, in this order:
-      1 requester name      3 title            5 ITEMS REQUESTED, each item with the
-      2 requisition no      4 new status         project it is for in the same bracket
-    Every requisition item carries its OWN project (one project per line item — see
+    The Meta template is `requisition_status_update` and it has FOUR placeholders — the
+    user's own submitted body — so this payload sends exactly FOUR, in its order:
+
+        Hello {{1}} 👋
+        Your {{2}} Requisition has been {{3}}.
+        Items requested:
+        {{4}}
+
+      1 requester name                 3 new status: 'authorised' / 'approved' / 'rejected'
+      2 requisition TITLE              4 ITEMS REQUESTED, each with the project it is for
+    The requisition NUMBER is deliberately NOT sent: their body has no placeholder for it
+    ("i dropped req number not the req title"), and the title identifies it. It is still
+    read for the LOG line, so a failed send names the right requisition.
+    Send one variable too many or too few and Meta answers 132000 — the count here must
+    always equal the number of placeholders in the template.
+    Every item carries its OWN project (one project per requisition item — see
     _req_sync_projects), so the projects ride INSIDE the item list:
         'Cement 50kg (x40 — Rainham Park); Boards (x6 — Chisipite House)'
-    A separate 'projects attached' value was tried and dropped: with the projects already
-    beside each item it just repeated them.
-    Change the variable count or order here and the Meta template MUST change with it,
-    or Meta answers 132000. Blank values become '—' inside _procurement_send_template,
-    so a requisition with no items or no projects cannot fail the send.
+    Blank values become '—' inside _procurement_send_template, so a requisition with no
+    title or no items cannot fail the send.
     """
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT req_no, title, requested_by, requested_by_user_id
+                SELECT title, req_no, requested_by, requested_by_user_id
                 FROM requisitions WHERE id = %s
             """, (req_id,))
             row = cursor.fetchone()
             if not row:
                 return
-            req_no, req_title, req_by, req_user_id = row[:4]
+            req_title, req_no, req_by, req_user_id = row[:4]
             cursor.execute("""
                 SELECT product_name, quantity, project_ref FROM requisition_items
                 WHERE requisition_id = %s ORDER BY id
@@ -45777,9 +45786,9 @@ def _procurement_notify_requester(req_id, new_status):
         phone = _procurement_user_whatsapp(req_user_id) if req_user_id else None
         if phone:
             ok, txt = _procurement_send_template(phone, PROC_REQ_STATUS_TEMPLATE,
-                                                 [req_by or 'there', req_no, req_title,
+                                                 [req_by or 'there', req_title or '',
                                                   new_status, items_text])
-            _procurement_log_send(f"Procurement status '{new_status}' -> {req_by}", ok, txt)
+            _procurement_log_send(f"Procurement status '{new_status}' for {req_no} -> {req_by}", ok, txt)
     except Exception as e:
         print(f"Procurement notify requester error: {e}")
 
