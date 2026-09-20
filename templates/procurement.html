@@ -971,7 +971,7 @@
                         <input type="date" class="pc-input" id="wsStart" style="width:150px;display:none;" onchange="loadWorkshop()" title="Range start">
                         <input type="date" class="pc-input" id="wsEnd" style="width:150px;display:none;" onchange="loadWorkshop()" title="Range end">
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="openWsMove()" data-perm-action="can_manage_purchase_orders" title="Record goods received, something made, boards cut, an issue or damage"><i class="bi bi-arrow-left-right"></i> Record Movement</button>
-                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openWsItem()" data-perm-action="can_manage_purchase_orders" title="Add an item to the workshop register"><i class="bi bi-plus-lg"></i> Add Item</button>
+                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openWsItem()" data-perm-action="can_manage_purchase_orders" title="Add an item to the workshop register (needs a passcode — or bring goods in by receiving a purchase order)"><i class="bi bi-plus-lg"></i> Add Item</button>
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="workshopExport('pdf')" title="Download the report as a PDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="workshopExport('xlsx')" title="Download the report as an Excel workbook"><i class="bi bi-file-earmark-excel"></i> Excel</button>
                     </div>
@@ -1017,6 +1017,13 @@
                         <thead><tr><th>Item</th><th>Category</th><th class="num">In Stock</th><th class="num">Min Level</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
                         <tbody id="wsStockBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                     </table>
+                </div>
+                <div style="font-size:0.56rem;color:#94A3B8;padding:8px 18px 0;">
+                    <i class="bi bi-info-circle"></i>
+                    The designated way for items to enter the workshop needs <b>no passcode</b>: on the
+                    <b>Purchase Orders</b> tab, open the order and record that its items have been
+                    <b>received</b> — the goods then join this register by themselves. Adding an item by hand
+                    with <b>Add Item</b> is passcode-gated.
                 </div>
             </div>
         </section>
@@ -1722,6 +1729,18 @@
                     <label class="pc-form-label">Notes</label>
                     <textarea class="pc-textarea" id="wsItemNotes" rows="2"></textarea>
                 </div>
+                <div id="wsItemPassWrap">
+                    <label class="pc-form-label mt-2">Passcode *</label>
+                    <input type="password" class="pc-input" id="wsItemPass" autocomplete="off" placeholder="Required to add an item by hand">
+                </div>
+                <div class="pc-rv-banner" style="margin-top:8px;">
+                    <i class="bi bi-info-circle-fill"></i><span>
+                        <b>Adding items by hand needs a passcode.</b> The designated route that needs <b>no</b>
+                        passcode is to go to the <b>Purchase Orders</b> tab, open the order and record that its
+                        items have been <b>received</b> — the goods it brings then join the workshop register by
+                        themselves.
+                    </span>
+                </div>
                 <div id="wsItemMsg" style="display:none;margin-top:8px;font-size:0.6rem;font-weight:800;color:#DC2626;"></div>
             </div>
             <div class="modal-footer">
@@ -1751,6 +1770,14 @@
                 <label class="pc-form-label mt-2">Item *</label>
                 <select class="pc-select" id="wsMoveItem" onchange="wsMoveItemChanged()"></select>
                 <input class="pc-input mt-1" id="wsMoveNewName" placeholder="Name of the new item" style="display:none;">
+                <div id="wsMovePassWrap" style="display:none;">
+                    <label class="pc-form-label mt-2">Passcode *</label>
+                    <input type="password" class="pc-input" id="wsMovePass" autocomplete="off" placeholder="Required to add a new item by hand">
+                    <div style="font-size:0.56rem;color:#94A3B8;margin-top:4px;">
+                        Or add it the designated way — record that a purchase order's items have been
+                        <b>received</b> on the <b>Purchase Orders</b> tab — which needs no passcode.
+                    </div>
+                </div>
                 <div class="row g-2 mt-0">
                     <div class="col-4">
                         <label class="pc-form-label">Quantity *</label>
@@ -4976,6 +5003,7 @@ window.wsMoveItemChanged = function() {
     const sel = document.getElementById('wsMoveItem');
     const isNew = !sel.value;
     document.getElementById('wsMoveNewName').style.display = isNew ? '' : 'none';
+    document.getElementById('wsMovePassWrap').style.display = isNew ? '' : 'none';
     const dir = document.getElementById('wsMoveDir').value;
     const avail = document.getElementById('wsMoveAvail');
     const it = ((WS_DATA || {}).stock || []).find(s => String(s.id) === String(sel.value));
@@ -4998,6 +5026,7 @@ window.openWsMove = function(direction, itemId) {
     document.getElementById('wsMoveRef').value = '';
     document.getElementById('wsMoveNotes').value = '';
     document.getElementById('wsMoveNewName').value = '';
+    document.getElementById('wsMovePass').value = '';
     wsMoveDirChanged();
     showModal('wsMoveModal');
 };
@@ -5013,7 +5042,8 @@ window.saveWsMovement = async function() {
         reference: document.getElementById('wsMoveRef').value.trim(),
         notes: document.getElementById('wsMoveNotes').value.trim(),
         item_id: itemId || null,
-        name: itemId ? null : document.getElementById('wsMoveNewName').value.trim()
+        name: itemId ? null : document.getElementById('wsMoveNewName').value.trim(),
+        passcode: document.getElementById('wsMovePass').value.trim()
     };
     if (!body.item_id && !body.name) {
         msg.textContent = 'Choose an item, or type the name of a new one.';
@@ -5064,6 +5094,9 @@ window.openWsItem = function(id) {
     document.getElementById('wsItemMin').value = it ? it.min_level : 0;
     document.getElementById('wsItemNotes').value = '';
     document.getElementById('wsItemOpening').value = 0;
+    document.getElementById('wsItemPass').value = '';
+    // The passcode is only needed to ADD an item; editing one is not gated.
+    document.getElementById('wsItemPassWrap').style.display = it ? 'none' : '';
     // The opening quantity only makes sense when the item is first created — after
     // that, stock moves through movements like everything else.
     document.getElementById('wsItemOpeningWrap').style.display = it ? 'none' : '';
@@ -5089,9 +5122,15 @@ window.saveWsItem = async function() {
         min_stock_level: document.getElementById('wsItemMin').value,
         notes: document.getElementById('wsItemNotes').value.trim(),
         opening_qty: document.getElementById('wsItemOpening').value,
+        passcode: document.getElementById('wsItemPass').value.trim(),
         is_active: true
     };
     if (!body.name) { msg.textContent = 'An item name is required.'; msg.style.display = ''; return; }
+    if (!id && !body.passcode) {
+        msg.textContent = 'A passcode is required to add an item by hand — or bring it in by receiving a purchase order.';
+        msg.style.display = '';
+        return;
+    }
     try {
         const res = await fetch('/api/procurement/workshop/items' + (id ? '/' + id : ''), {
             method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },

@@ -39904,6 +39904,15 @@ REQ_FUNDS_STATUSES = ('yes', 'partial', 'no')
 # Passcode required to DELETE a requisition — same admin-passcode convention used by
 # the rest of the app, overridable via the PROCUREMENT_DELETE_PASSCODE env var.
 PROC_REQ_DELETE_PASSCODE = os.environ.get('PROCUREMENT_DELETE_PASSCODE', 'conlink01admin01')
+
+# Passcode required to put an item into the WORKSHOP register BY HAND. The same
+# convention as the delete passcode above, overridable via the env var.
+# THE DESIGNATED ROUTE THAT NEEDS NO PASSCODE is receiving a purchase order: marking
+# its items as received on the Purchase Orders tab brings those goods into the
+# workshop register automatically. That is the whole point of the gate — items are
+# meant to arrive through a document, and adding one by hand is the exception.
+PROC_WORKSHOP_ITEM_PASSCODE = os.environ.get('PROCUREMENT_WORKSHOP_PASSCODE',
+                                             'conlink01admin01')
 # Statuses a requisition may be deleted from. A delete is passcode-gated AND the
 # whole record (header, items, quotes, attachments) is snapshotted into
 # `deleted_requisitions` first, so deleting is never destructive. Only a
@@ -43732,8 +43741,19 @@ def procurement_api_workshop_item_add():
 
     The opening quantity is written as a normal 'opening' movement rather than being
     stamped onto the balance, so the balance and the movement history can never
-    disagree and there is no back door that skips the ledger."""
+    disagree and there is no back door that skips the ledger.
+
+    PASSCODE-GATED: items are meant to arrive through a document. The designated route
+    that needs no passcode is receiving the purchase order that brought them.
+    """
     data = request.get_json() or {}
+    passcode = str(data.get('passcode') or '').strip()
+    if not passcode:
+        return jsonify({'success': False, 'passcode_required': True,
+                        'error': 'A passcode is required to add an item by hand.'}), 400
+    if passcode != PROC_WORKSHOP_ITEM_PASSCODE:
+        return jsonify({'success': False, 'passcode_required': True,
+                        'error': 'Invalid passcode.'}), 403
     name = str(data.get('name') or '').strip()
     if not name:
         return jsonify({'success': False, 'error': 'An item name is required.'}), 400
@@ -43885,6 +43905,15 @@ def procurement_api_workshop_movement_add():
                 if not item_name:
                     return jsonify({'success': False,
                                     'error': 'Choose an item, or type the name of a new one.'}), 400
+                # A movement may name an item that is not in the register yet, which
+                # would otherwise be a way round the passcode on "Add Item".
+                passcode = str(data.get('passcode') or '').strip()
+                if not passcode:
+                    return jsonify({'success': False, 'passcode_required': True,
+                                    'error': 'A passcode is required to add a new item by hand.'}), 400
+                if passcode != PROC_WORKSHOP_ITEM_PASSCODE:
+                    return jsonify({'success': False, 'passcode_required': True,
+                                    'error': 'Invalid passcode.'}), 403
                 item_id = _workshop_ensure_item(cursor, item_name,
                                                 category=data.get('category'),
                                                 unit=data.get('unit'),

@@ -969,7 +969,7 @@
                         <input type="date" class="pc-input" id="wsStart" style="width:150px;display:none;" onchange="loadWorkshop()" title="Range start">
                         <input type="date" class="pc-input" id="wsEnd" style="width:150px;display:none;" onchange="loadWorkshop()" title="Range end">
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="openWsMove()" data-perm-action="can_manage_purchase_orders" title="Record goods received, something made, boards cut, an issue or damage"><i class="bi bi-arrow-left-right"></i> Record Movement</button>
-                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openWsItem()" data-perm-action="can_manage_purchase_orders" title="Add an item to the workshop register"><i class="bi bi-plus-lg"></i> Add Item</button>
+                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="openWsItem()" data-perm-action="can_manage_purchase_orders" title="Add an item to the workshop register (needs a passcode — or bring goods in by receiving a purchase order)"><i class="bi bi-plus-lg"></i> Add Item</button>
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="workshopExport('pdf')" title="Download the report as a PDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
                         <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="workshopExport('xlsx')" title="Download the report as an Excel workbook"><i class="bi bi-file-earmark-excel"></i> Excel</button>
                     </div>
@@ -979,8 +979,8 @@
                     <div id="wsReconciledBanner" class="pc-rv-banner" style="display:none;margin-bottom:8px;"></div>
                     <div class="pc-table-wrap">
                         <table class="pc-table">
-                            <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">Opening</th><th class="num">Received (In)</th><th class="num">Issued (Out)</th><th class="num">Closing</th></tr></thead>
-                            <tbody id="wsLedgerBody"><tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                            <thead><tr><th>Item</th><th>Category</th><th class="num">Opening</th><th class="num">Received (In)</th><th class="num">Issued (Out)</th><th class="num">Closing</th></tr></thead>
+                            <tbody id="wsLedgerBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                             <tbody id="wsLedgerTotals"></tbody>
                         </table>
                     </div>
@@ -1012,9 +1012,16 @@
                 </div>
                 <div class="pc-panel-body pc-table-wrap">
                     <table class="pc-table">
-                        <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">In Stock</th><th class="num">Min Level</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
-                        <tbody id="wsStockBody"><tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                        <thead><tr><th>Item</th><th>Category</th><th class="num">In Stock</th><th class="num">Min Level</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="wsStockBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                     </table>
+                </div>
+                <div style="font-size:0.56rem;color:#94A3B8;padding:8px 18px 0;">
+                    <i class="bi bi-info-circle"></i>
+                    The designated way for items to enter the workshop needs <b>no passcode</b>: on the
+                    <b>Purchase Orders</b> tab, open the order and record that its items have been
+                    <b>received</b> — the goods then join this register by themselves. Adding an item by hand
+                    with <b>Add Item</b> is passcode-gated.
                 </div>
             </div>
         </section>
@@ -1692,11 +1699,15 @@
                 <div class="row g-2 mt-0">
                     <div class="col-6">
                         <label class="pc-form-label">Category</label>
-                        <input class="pc-input" id="wsItemCategory" placeholder="Boards / Kitchen">
+                        <select class="pc-select" id="wsItemCategory" onchange="wsItemCategoryChanged()">
+                            <option value="Board">Board</option>
+                            <option value="Stones">Stones</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
-                    <div class="col-6">
-                        <label class="pc-form-label">Unit</label>
-                        <input class="pc-input" id="wsItemUnit" placeholder="sheet / unit / length">
+                    <div class="col-6" id="wsItemCustomCatWrap" style="display:none;">
+                        <label class="pc-form-label">Category name *</label>
+                        <input class="pc-input" id="wsItemCustomCat" placeholder="e.g. Fittings">
                     </div>
                     <div class="col-6">
                         <label class="pc-form-label">Minimum level</label>
@@ -1714,6 +1725,18 @@
                 <div class="mt-2">
                     <label class="pc-form-label">Notes</label>
                     <textarea class="pc-textarea" id="wsItemNotes" rows="2"></textarea>
+                </div>
+                <div id="wsItemPassWrap">
+                    <label class="pc-form-label mt-2">Passcode *</label>
+                    <input type="password" class="pc-input" id="wsItemPass" autocomplete="off" placeholder="Required to add an item by hand">
+                </div>
+                <div class="pc-rv-banner" style="margin-top:8px;">
+                    <i class="bi bi-info-circle-fill"></i><span>
+                        <b>Adding items by hand needs a passcode.</b> The designated route that needs <b>no</b>
+                        passcode is to go to the <b>Purchase Orders</b> tab, open the order and record that its
+                        items have been <b>received</b> — the goods it brings then join the workshop register by
+                        themselves.
+                    </span>
                 </div>
                 <div id="wsItemMsg" style="display:none;margin-top:8px;font-size:0.6rem;font-weight:800;color:#DC2626;"></div>
             </div>
@@ -1744,6 +1767,14 @@
                 <label class="pc-form-label mt-2">Item *</label>
                 <select class="pc-select" id="wsMoveItem" onchange="wsMoveItemChanged()"></select>
                 <input class="pc-input mt-1" id="wsMoveNewName" placeholder="Name of the new item" style="display:none;">
+                <div id="wsMovePassWrap" style="display:none;">
+                    <label class="pc-form-label mt-2">Passcode *</label>
+                    <input type="password" class="pc-input" id="wsMovePass" autocomplete="off" placeholder="Required to add a new item by hand">
+                    <div style="font-size:0.56rem;color:#94A3B8;margin-top:4px;">
+                        Or add it the designated way — record that a purchase order's items have been
+                        <b>received</b> on the <b>Purchase Orders</b> tab — which needs no passcode.
+                    </div>
+                </div>
                 <div class="row g-2 mt-0">
                     <div class="col-4">
                         <label class="pc-form-label">Quantity *</label>
@@ -5108,17 +5139,16 @@ function renderWsLedger() {
         <tr>
             <td><strong>${esc(x.name)}</strong></td>
             <td>${esc(x.category || '—')}</td>
-            <td>${esc(x.unit || '')}</td>
             <td class="num">${wsNum(x.opening)}</td>
             <td class="num" style="color:#047857;">${x.received ? '+' + wsNum(x.received) : '—'}</td>
             <td class="num" style="color:#b91c1c;">${x.issued ? '−' + wsNum(x.issued) : '—'}</td>
             <td class="num"><strong>${wsNum(x.closing)}</strong></td>
         </tr>`).join('') ||
-        '<tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Nothing moved and nothing is in stock for this period.</td></tr>';
+        '<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Nothing moved and nothing is in stock for this period.</td></tr>';
     const t = WS_DATA.totals || {};
     totals.innerHTML = rows.length ? `
         <tr style="background:#F1F5F9;font-weight:700;">
-            <td>TOTAL</td><td></td><td></td>
+            <td>TOTAL</td><td></td>
             <td class="num">${wsNum(t.opening)}</td>
             <td class="num" style="color:#047857;">+${wsNum(t.received)}</td>
             <td class="num" style="color:#b91c1c;">−${wsNum(t.issued)}</td>
@@ -5156,7 +5186,6 @@ function renderWsStock() {
         <tr>
             <td><strong>${esc(s.name)}</strong>${s.active ? '' : ' <span class="pc-badge pc-badge-cancelled" title="This item is no longer active">inactive</span>'}</td>
             <td>${esc(s.category || '—')}</td>
-            <td>${esc(s.unit || '')}</td>
             <td class="num"><strong>${wsNum(s.stock)}</strong></td>
             <td class="num">${wsNum(s.min_level)}</td>
             <td>${s.low ? '<span class="pc-badge pc-badge-rejected">Below minimum</span>'
@@ -5168,7 +5197,7 @@ function renderWsStock() {
                 <button class="pc-btn pc-btn-danger pc-btn-sm" title="Remove from the register" onclick="deleteWsItem(${s.id}, '${esc(s.name)}')" data-perm-action="can_manage_purchase_orders"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`).join('') ||
-        '<tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Nothing in the workshop register yet — use “Add Item”, or receive a purchase order.</td></tr>';
+        '<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Nothing in the workshop register yet — use “Add Item”, or receive a purchase order.</td></tr>';
 }
 
 /* The PDF and Excel reports are the SAME report as the screen — same period, same
@@ -5204,6 +5233,7 @@ window.wsMoveItemChanged = function() {
     const sel = document.getElementById('wsMoveItem');
     const isNew = !sel.value;
     document.getElementById('wsMoveNewName').style.display = isNew ? '' : 'none';
+    document.getElementById('wsMovePassWrap').style.display = isNew ? '' : 'none';
     const dir = document.getElementById('wsMoveDir').value;
     const avail = document.getElementById('wsMoveAvail');
     const it = ((WS_DATA || {}).stock || []).find(s => String(s.id) === String(sel.value));
@@ -5226,6 +5256,7 @@ window.openWsMove = function(direction, itemId) {
     document.getElementById('wsMoveRef').value = '';
     document.getElementById('wsMoveNotes').value = '';
     document.getElementById('wsMoveNewName').value = '';
+    document.getElementById('wsMovePass').value = '';
     wsMoveDirChanged();
     showModal('wsMoveModal');
 };
@@ -5241,7 +5272,8 @@ window.saveWsMovement = async function() {
         reference: document.getElementById('wsMoveRef').value.trim(),
         notes: document.getElementById('wsMoveNotes').value.trim(),
         item_id: itemId || null,
-        name: itemId ? null : document.getElementById('wsMoveNewName').value.trim()
+        name: itemId ? null : document.getElementById('wsMoveNewName').value.trim(),
+        passcode: document.getElementById('wsMovePass').value.trim()
     };
     if (!body.item_id && !body.name) {
         msg.textContent = 'Choose an item, or type the name of a new one.';
@@ -5271,20 +5303,34 @@ window.undoWsMovement = async function(id, item) {
     } catch (e) { toast('Connection error', 'error'); }
 };
 
+window.wsItemCategoryChanged = function() {
+    const isOther = document.getElementById('wsItemCategory').value === 'Other';
+    document.getElementById('wsItemCustomCatWrap').style.display = isOther ? '' : 'none';
+};
+
 window.openWsItem = function(id) {
     const it = id ? ((WS_DATA || {}).stock || []).find(s => s.id === id) : null;
     document.getElementById('wsItemMsg').style.display = 'none';
     document.getElementById('wsItemId').value = it ? it.id : '';
     document.getElementById('wsItemTitle').textContent = it ? 'Edit Workshop Item' : 'Add Workshop Item';
     document.getElementById('wsItemName').value = it ? it.name : '';
-    document.getElementById('wsItemCategory').value = it ? (it.category || '') : '';
-    document.getElementById('wsItemUnit').value = it ? (it.unit || '') : '';
+    // Category is one of the three fixed answers, or a name of the user's own — an
+    // existing item whose category is neither Board nor Stones therefore reopens as
+    // "Other" with its name filled in, so editing never silently drops it.
+    const FIXED = ['Board', 'Stones'];
+    const cat = it ? (it.category || '') : 'Board';
+    document.getElementById('wsItemCategory').value = FIXED.indexOf(cat) > -1 ? cat : 'Other';
+    document.getElementById('wsItemCustomCat').value = FIXED.indexOf(cat) > -1 ? '' : cat;
     document.getElementById('wsItemMin').value = it ? it.min_level : 0;
     document.getElementById('wsItemNotes').value = '';
     document.getElementById('wsItemOpening').value = 0;
+    document.getElementById('wsItemPass').value = '';
+    // The passcode is only needed to ADD an item; editing one is not gated.
+    document.getElementById('wsItemPassWrap').style.display = it ? 'none' : '';
     // The opening quantity only makes sense when the item is first created — after
     // that, stock moves through movements like everything else.
     document.getElementById('wsItemOpeningWrap').style.display = it ? 'none' : '';
+    wsItemCategoryChanged();
     showModal('wsItemModal');
 };
 
@@ -5292,16 +5338,29 @@ window.saveWsItem = async function() {
     const msg = document.getElementById('wsItemMsg');
     msg.style.display = 'none';
     const id = document.getElementById('wsItemId').value;
+    const catSel = document.getElementById('wsItemCategory').value;
+    const category = catSel === 'Other'
+        ? document.getElementById('wsItemCustomCat').value.trim() : catSel;
+    if (catSel === 'Other' && !category) {
+        msg.textContent = 'Type the category name, or pick Board or Stones.';
+        msg.style.display = '';
+        return;
+    }
     const body = {
         name: document.getElementById('wsItemName').value.trim(),
-        category: document.getElementById('wsItemCategory').value.trim(),
-        unit: document.getElementById('wsItemUnit').value.trim(),
+        category: category,
         min_stock_level: document.getElementById('wsItemMin').value,
         notes: document.getElementById('wsItemNotes').value.trim(),
         opening_qty: document.getElementById('wsItemOpening').value,
+        passcode: document.getElementById('wsItemPass').value.trim(),
         is_active: true
     };
     if (!body.name) { msg.textContent = 'An item name is required.'; msg.style.display = ''; return; }
+    if (!id && !body.passcode) {
+        msg.textContent = 'A passcode is required to add an item by hand — or bring it in by receiving a purchase order.';
+        msg.style.display = '';
+        return;
+    }
     try {
         const res = await fetch('/api/procurement/workshop/items' + (id ? '/' + id : ''), {
             method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
