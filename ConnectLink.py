@@ -41240,6 +41240,63 @@ def procurement_api_approve_po(po_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/procurement/purchase-orders/<int:po_id>/resend', methods=['POST'])
+@login_required
+def procurement_api_resend_po(po_id):
+    """Re-send the sign-off request for a PO that is still awaiting a signature.
+
+    STAGE-AWARE, because the two layers notify DIFFERENT people through DIFFERENT
+    templates:
+      pending_authorisation -> _procurement_notify_po_authorisers()
+                               (the AUTHORISATION template, Authorise/Decline)
+      pending_approval      -> _procurement_notify_po_approvers()
+                               (the final APPROVAL template, Approve/Decline)
+    This is the RETRY path for a WhatsApp notification that never arrived — the PO
+    itself is not modified. Allowed for whoever can sign at that stage, plus anyone
+    who can manage purchase orders (normally the person who raised it)."""
+    perms = _procurement_perms()
+    user = _procurement_user()
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, po_no, status, authoriser_user_id, approver_user_id
+                FROM purchase_orders WHERE id = %s
+            """, (po_id,))
+            po = cursor.fetchone()
+        if not po:
+            return jsonify({'success': False, 'error': 'PO not found.'}), 404
+        status = po[2]
+        if status == 'pending_authorisation':
+            allowed = _procurement_can_authorise(perms) or bool(perms.get('can_manage_purchase_orders'))
+            stage, who, target = 'authorisation', 'authoriser', po[3]
+        elif status == 'pending_approval':
+            allowed = _procurement_can_approve(perms)
+            stage, who, target = 'approval', 'approver', po[4]
+        else:
+            return jsonify({'success': False,
+                            'error': f'Nothing is awaiting a signature — {po[1]} is '
+                                     f'{str(status or "").replace("_", " ")}.'}), 400
+        if not allowed:
+            return jsonify({'success': False,
+                            'error': f'Access denied: you cannot act on the PO {stage} stage.'}), 403
+        # Send OUTSIDE the connection — each notification is an HTTP call to Meta and
+        # the pool only holds 3 (same reason the requisition re-send does this).
+        try:
+            if status == 'pending_authorisation':
+                _procurement_notify_po_authorisers(po_id, target)
+            else:
+                _procurement_notify_po_approvers(po_id, target)
+        except Exception as nfe:
+            print(f"PO resend notify error: {nfe}")
+        log_activity('po_resend', f'Re-sent {po[1]} for {stage} ({who}) by {user["name"]}',
+                     'purchase_order', po_id)
+        return jsonify({'success': True,
+                        'message': f'{po[1]} re-sent to the {who}.',
+                        'stage': stage})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/procurement/purchase-orders/<int:po_id>/reject', methods=['POST'])
 @login_required
 def procurement_api_reject_po(po_id):

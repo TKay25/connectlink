@@ -1592,8 +1592,10 @@
                 <button class="pc-btn pc-btn-outline" onclick="downloadPoGrn()"><i class="bi bi-file-earmark-richtext"></i> GRN PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="sendPoPdf()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-whatsapp"></i> Send PDF</button>
                 <button class="pc-btn pc-btn-outline" onclick="openPoFunds()" data-perm-action="can_manage_purchase_orders"><i class="bi bi-cash-coin"></i> Funds Received</button>
+                <button class="pc-btn pc-btn-outline" onclick="resendPo(VIEW_PO.id)" id="poResendAuthBtn" data-perm-action="can_authorise_purchase_orders,can_manage_purchase_orders" style="display:none;"><i class="bi bi-send"></i> Re-send to Authoriser</button>
                 <button class="pc-btn pc-btn-info" onclick="authorisePo(VIEW_PO.id)" id="poAuthoriseBtn" data-perm-action="can_authorise_purchase_orders" style="display:none;"><i class="bi bi-patch-check"></i> Authorise</button>
                 <button class="pc-btn pc-btn-danger" onclick="openPoDecline()" id="poDeclineAuthBtn" data-perm-action="can_authorise_purchase_orders" style="display:none;"><i class="bi bi-x-lg"></i> Decline</button>
+                <button class="pc-btn pc-btn-outline" onclick="resendPo(VIEW_PO.id)" id="poResendBtn" data-perm-action="can_approve_requisitions,can_manage_purchase_orders" style="display:none;"><i class="bi bi-send"></i> Re-send to Approver</button>
                 <button class="pc-btn pc-btn-success" onclick="approvePo(VIEW_PO.id)" id="poApproveBtn" data-perm-action="can_approve_requisitions" style="display:none;"><i class="bi bi-check-lg"></i> Approve</button>
                 <button class="pc-btn pc-btn-danger" onclick="openPoDecline()" id="poDeclineBtn" data-perm-action="can_approve_requisitions" style="display:none;"><i class="bi bi-x-lg"></i> Decline</button>
                 <button class="pc-btn pc-btn-primary" onclick="saveReceive()" id="receiveBtn" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Record Receipt</button>
@@ -3523,9 +3525,11 @@ async function loadPOs() {
                     <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewPo(${po.id})"><i class="bi bi-eye"></i></button>
                     ${['ordered','partial'].includes(po.status) ? `<button class="pc-btn pc-btn-success pc-btn-sm" onclick="viewPo(${po.id}, true)" data-perm-action="can_manage_purchase_orders"><i class="bi bi-box-arrow-in-down"></i> Receive</button>` : ''}
                     ${po.status === 'pending_authorisation' ? `
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="resendPo(${po.id})" data-perm-action="can_authorise_purchase_orders,can_manage_purchase_orders" title="Re-send the authorisation request"><i class="bi bi-send"></i> Re-send</button>
                     <button class="pc-btn pc-btn-info pc-btn-sm" onclick="authorisePo(${po.id})" data-perm-action="can_authorise_purchase_orders" title="Authorise PO (first sign-off)"><i class="bi bi-patch-check"></i> Authorise</button>
                     <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="disapprovePo(${po.id})" data-perm-action="can_authorise_purchase_orders" title="Decline PO"><i class="bi bi-x-lg"></i> Decline</button>` : ''}
                     ${po.status === 'pending_approval' ? `
+                    <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="resendPo(${po.id})" data-perm-action="can_approve_requisitions,can_manage_purchase_orders" title="Re-send the approval request"><i class="bi bi-send"></i> Re-send</button>
                     <button class="pc-btn pc-btn-success pc-btn-sm" onclick="approvePo(${po.id})" data-perm-action="can_approve_requisitions" title="Approve PO"><i class="bi bi-check-lg"></i> Approve</button>
                     <button class="pc-btn pc-btn-danger pc-btn-sm" onclick="disapprovePo(${po.id})" data-perm-action="can_approve_requisitions" title="Decline PO"><i class="bi bi-x-lg"></i> Decline</button>` : ''}
                 </td>
@@ -3786,6 +3790,11 @@ window.viewPo = async function(id, openReceive) {
         const poDeclAuthBtn = document.getElementById('poDeclineAuthBtn');
         const poApproveBtn = document.getElementById('poApproveBtn');
         const poDeclineBtn = document.getElementById('poDeclineBtn');
+        // Re-sending only makes sense while a signature is still outstanding.
+        const poResendAuthBtn = document.getElementById('poResendAuthBtn');
+        const poResendBtn = document.getElementById('poResendBtn');
+        if (poResendAuthBtn) poResendAuthBtn.style.display = isAwaitingAuth ? '' : 'none';
+        if (poResendBtn) poResendBtn.style.display = isPending ? '' : 'none';
         if (poAuthBtn) poAuthBtn.style.display = (isAwaitingAuth && canAuthorisePo) ? '' : 'none';
         if (poDeclAuthBtn) poDeclAuthBtn.style.display = (isAwaitingAuth && canAuthorisePo) ? '' : 'none';
         if (poApproveBtn) poApproveBtn.style.display = (isPending && canApprovePo) ? '' : 'none';
@@ -3864,6 +3873,24 @@ window.sendPoPdf = async function() {
         const res = await fetch('/api/procurement/purchase-orders/' + VIEW_PO.id + '/pdf/send', { method: 'POST', credentials: 'include' });
         const data = await res.json();
         toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+    } catch (e) { toast('Connection error', 'error'); }
+};
+
+/* Re-send the sign-off request. The PO is NOT changed — this only re-runs the
+   notification, which is how you retry after a WhatsApp delivery failure. The server
+   works out which layer the PO is sitting in and notifies the matching person with the
+   matching template. */
+window.resendPo = async function(id) {
+    const po = (PURCHASE_ORDERS || []).find(x => x.id === id)
+            || ((VIEW_PO && VIEW_PO.id === id) ? VIEW_PO : null);
+    const who = (po && po.status === 'pending_authorisation') ? 'authoriser'
+              : (po && po.status === 'pending_approval') ? 'approver' : 'signer';
+    if (!confirm('Re-send this purchase order to the ' + who + '?\n\nThe purchase order itself is not changed.')) return;
+    try {
+        const res = await fetch('/api/procurement/purchase-orders/' + id + '/resend', { method: 'POST', credentials: 'include' });
+        const data = await res.json();
+        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
+        if (data.success) { loadPOs(); loadDashboard(); }
     } catch (e) { toast('Connection error', 'error'); }
 };
 
