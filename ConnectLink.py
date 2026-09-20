@@ -1747,10 +1747,14 @@ def initialize_database_tables():
 
             # ========== PROCUREMENT & REQUISITIONS MODULE ==========
             # Permission flags that grey-out action buttons on the Procurement portal.
-            # NOTE: can_authorise_requisitions is the first sign-off layer of the
-            # REQUISITION workflow (submitted -> authorised -> logger raises a PO);
-            # can_authorise_purchase_orders is the first sign-off layer of the PO
-            # workflow (created -> pending_authorisation -> pending_approval -> ordered).
+            # NOTE: can_authorise_requisitions is the sign-off layer of the REQUISITION
+            # workflow (submitted -> authorised -> the logger raises a PO).
+            # A purchase order has NO authorisation layer any more: it is raised straight
+            # into pending_approval, so it needs a single approval (can_approve_requisitions)
+            # and that permission is the one User Management offers as "Approve Purchase
+            # Orders". `can_authorise_purchase_orders` is deliberately still created and
+            # still honoured server-side: POs left in 'pending_authorisation' by the old
+            # flow must remain clearable. It is just no longer offered as a toggle.
             for _proc_col in ['can_create_requisitions', 'can_approve_requisitions',
                               'can_authorise_requisitions',
                               'can_authorise_purchase_orders',
@@ -3555,6 +3559,18 @@ def webhook():
 
                                         try:
                                             
+                                            # WHO IS THIS? Filled in by the lookups below. The defaults
+                                            # are not decoration: when NEITHER table matched, `id_user`
+                                            # used to be left undefined, and the button handlers further
+                                            # down hit a NameError that a bare `except: pass` swallowed
+                                            # and reported as "you do not have permission to access the
+                                            # Projects system" — a wrong answer for an unregistered
+                                            # number. With a default, the permission check simply finds
+                                            # nothing and the real message can be shown.
+                                            is_from_admin_users = False
+                                            id_user = None
+                                            admin_name = None
+
                                             # Check admin_users first (new unified admin table), then fallback to connectlinkusers
                                             query = """
                                                 SELECT id, source_id, full_name, username, email, whatsapp
@@ -3577,14 +3593,26 @@ def webhook():
                                                 found = True
                                                 # admin_users query returns: id, source_id, full_name, ...
                                                 # connectlinkusers returns: id, datecreated, name, ...
-                                                # source_id is an int, datecreated is a datetime/string
-                                                is_from_admin_users = len(result) >= 6 and result[1] is not None and not isinstance(result[1], str)
+                                                #
+                                                # WHICH TABLE it came from decides which column is the user id,
+                                                # and the old test — "result[1] is set and is not a str" —
+                                                # could not tell them apart: connectlinkusers' second column
+                                                # is datecreated, which is neither None nor a string, so a
+                                                # legacy user's DATE CREATED was handed to
+                                                # get_user_permissions() as their user id and Postgres
+                                                # answered "operator does not exist: integer = date".
+                                                # source_id is an INT column, so an integer is the only thing
+                                                # that can mean "this row is from admin_users".
+                                                _src = result[1]
+                                                is_from_admin_users = (
+                                                    isinstance(_src, int)
+                                                    or (isinstance(_src, str) and _src.strip().isdigit()))
                                                 if is_from_admin_users:
-                                                    id_user = result[1]  # source_id for admin_users
-                                                    admin_name = result[2]  # full_name
+                                                    id_user = int(_src)      # source_id for admin_users
+                                                    admin_name = result[2]   # full_name
                                                 else:
-                                                    id_user = result[0]  # id from connectlinkusers
-                                                    admin_name = result[2]  # name
+                                                    id_user = result[0]      # id from connectlinkusers
+                                                    admin_name = result[2]   # name
 
                                                 print(id_user)
                                                 print(admin_name)
@@ -33240,6 +33268,19 @@ def close_db(error):
 
 def get_user_permissions(user_type, user_id):
     """Get permissions for a user, creating default super admin if first user"""
+    # `user_id` is an INTEGER column. A caller that hands us anything else — a DATE, for
+    # instance, which is what the webhook's admin_users/connectlinkusers probe used to do
+    # — reaches Postgres as a quoted literal and comes back with the thoroughly confusing
+    # "operator does not exist: integer = date", naming neither the caller nor the table.
+    # A numeric value is coerced; anything else is refused HERE, in one place, by name.
+    if user_id is not None and not isinstance(user_id, int):
+        _uid = str(user_id).strip()
+        if _uid.lstrip('-').isdigit():
+            user_id = int(_uid)
+        else:
+            print(f"Permissions error: refusing non-numeric user_id {user_id!r} "
+                  f"(user_type={user_type!r}) — a caller passed the wrong column")
+            return {}
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
@@ -33369,7 +33410,13 @@ def um_permissions_api():
                       'hr_access',
                       'can_create_requisitions', 'can_approve_requisitions',
                       'can_manage_purchase_orders', 'can_manage_suppliers',
-                      'can_authorise_purchase_orders', 'can_authorise_requisitions']
+                      'can_authorise_requisitions']
+            # NOTE `can_authorise_purchase_orders` is deliberately ABSENT: a purchase order
+            # no longer has an authorisation layer (it goes straight to the approver), so
+            # the toggle is gone from User Management. Leaving the column out of this list
+            # means saving somebody's permissions does NOT silently clear a flag they still
+            # hold — the only place it is read now is a legacy PO left in
+            # 'pending_authorisation' by the old flow, which a super admin can clear.
 
             with get_db() as (cursor, connection):
                 # Upsert
@@ -39599,6 +39646,66 @@ except Exception as e:
 # action buttons grey out on the page based on the 4 procurement permissions.
 # ============================================================================
 
+PROC_PERM_COLUMNS = ('can_create_requisitions', 'can_approve_requisitions',
+                     'can_manage_purchase_orders', 'can_manage_suppliers',
+                     'can_authorise_purchase_orders', 'can_authorise_requisitions')
+
+# Every permission that means "this person runs procurement", and therefore "they may do
+# the FIRST requisition sign-off". Any ONE of them is enough — see
+# _procurement_can_authorise_req below.
+PROC_REQ_SIGNOFF_PERMS = ('can_authorise_requisitions', 'can_approve_requisitions',
+                          'can_manage_purchase_orders', 'can_authorise_purchase_orders',
+                          'can_manage_suppliers')
+
+
+def _procurement_flags_for(source_system=None, source_id=None, admin_user_id=None,
+                           cursor=None):
+    """A person's PROCUREMENT permission flags, found WHEREVER they were granted.
+
+    User Management lists and edits the PROJECTS permission row (`user_type='projects'`)
+    for anybody who has one — that is the row an administrator actually ticks. An
+    admin_users record, however, may declare a different `source_system`, or a NULL
+    `source_id` in which case the code falls back to the admin_users id. Reading ONLY the
+    declared pair therefore missed grants that are plainly visible in the UI, and the
+    workaround was to hand out "Projects access" as well, just to make a procurement
+    permission take effect.
+
+    This looks at both rows — the declared one AND the projects row for the same id — and
+    ORs the flags together. ONLY these procurement flags are merged: `is_super_admin` and
+    every portal-wide flag keep coming from the declared row, so this can widen a
+    person's procurement sign-off rights and nothing else.
+    """
+    pairs = []
+    if source_id:
+        pairs.append((source_system or 'projects', source_id))
+        pairs.append(('projects', source_id))
+    elif admin_user_id is not None:
+        pairs.append((source_system or 'projects', admin_user_id))
+    if not pairs:
+        return {}
+    pairs = list(dict.fromkeys(pairs))              # keep order, drop duplicates
+    where = ' OR '.join(['(user_type = %s AND user_id = %s)'] * len(pairs))
+    params = tuple(x for pair in pairs for x in pair)
+    sql = (f"SELECT {', '.join(PROC_PERM_COLUMNS)} FROM user_permissions "
+           f"WHERE {where}")
+    flags = {}
+    try:
+        if cursor is not None:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall() or []
+        else:
+            with get_db() as (c, _connection):
+                c.execute(sql, params)
+                rows = c.fetchall() or []
+        for row in rows:
+            for i, col in enumerate(PROC_PERM_COLUMNS):
+                if row[i]:
+                    flags[col] = True
+    except Exception as e:
+        print(f"Permissions error: procurement flag lookup: {e}")
+    return flags
+
+
 def _procurement_perms():
     """Current user's procurement permission flags, resolved and cached in session."""
     perms = session.get('procurement_permissions')
@@ -39613,6 +39720,20 @@ def _procurement_perms():
             source_sys = session.get('source_system') or 'projects'
             source_id = session.get('source_id') or userid
             perms = get_user_permissions(source_sys, source_id)
+            # ...then WIDEN with the procurement flags wherever they were granted, so a
+            # tick in User Management counts even when this account's source_system /
+            # source_id point at a different permission row (see _procurement_flags_for
+            # — this is what stopped a procurement-only user needing "Projects access").
+            for _flag, _on in _procurement_flags_for(source_sys, session.get('source_id'),
+                                                     userid).items():
+                if _on:
+                    perms[_flag] = True
+            # A CAPABILITY view, not the raw row: the sign-off gates accept ANY of the
+            # procurement permissions, so the buttons must agree with the server —
+            # otherwise a Manage-POs user sees Authorise greyed out while the server
+            # would have allowed it.
+            if _procurement_can_authorise_req(perms):
+                perms['can_authorise_requisitions'] = True
             session['procurement_permissions'] = perms
     return perms or {}
 
@@ -45450,17 +45571,25 @@ def _procurement_signoff_people(cursor=None):
     """
     sql = """
         SELECT au.id, au.full_name, au.username, au.whatsapp,
-               COALESCE(up.is_super_admin, FALSE),
-               COALESCE(up.can_authorise_purchase_orders, FALSE),
-               COALESCE(up.can_approve_requisitions, FALSE),
-               COALESCE(up.can_manage_purchase_orders, FALSE),
-               COALESCE(up.can_authorise_requisitions, FALSE),
-               au.source_id
+               COALESCE(BOOL_OR(up.is_super_admin), FALSE),
+               COALESCE(BOOL_OR(up.can_authorise_purchase_orders), FALSE),
+               COALESCE(BOOL_OR(up.can_approve_requisitions), FALSE),
+               COALESCE(BOOL_OR(up.can_manage_purchase_orders), FALSE),
+               COALESCE(BOOL_OR(up.can_authorise_requisitions), FALSE),
+               au.source_id,
+               COALESCE(BOOL_OR(up.can_manage_suppliers), FALSE)
         FROM admin_users au
         LEFT JOIN user_permissions up
-               ON up.user_type = COALESCE(au.source_system, 'projects')
-              AND up.user_id   = COALESCE(au.source_id, au.id)
+               ON (up.user_type = COALESCE(au.source_system, 'projects')
+                   AND up.user_id   = COALESCE(au.source_id, au.id))
+               -- ...PLUS the PROJECTS permission row for the same id: that is the row User
+               -- Management lists and edits, so a procurement grant usually lives there
+               -- even when the account's source_system says hardware or hr. BOOL_OR +
+               -- GROUP BY keeps one row per person whichever rows matched.
+               OR (up.user_type = 'projects' AND au.source_id IS NOT NULL
+                   AND up.user_id = au.source_id)
         WHERE au.is_active = TRUE
+        GROUP BY au.id, au.full_name, au.username, au.whatsapp, au.source_id
         ORDER BY au.full_name, au.id
     """
 
@@ -45540,22 +45669,37 @@ def _procurement_can_approve(perms):
 
 
 def _procurement_can_authorise_req(perms):
-    """Super admin or the dedicated REQUISITION authorisation permission.
+    """Super admin, or ANY procurement sign-off permission.
+
     This is the FIRST sign-off layer of the requisition workflow
-    (submitted -> authorised -> the logger may raise a purchase order)."""
-    return bool(perms and (perms.get('is_super_admin', False)
-                           or perms.get('can_authorise_requisitions', False)))
+    (submitted -> authorised -> the logger may raise a purchase order).
+
+    It used to insist on `can_authorise_requisitions` specifically, which locked out
+    perfectly trusted procurement users — somebody granted Approve Requisitions, Manage
+    Purchase Orders or Manage Suppliers could not do the first sign-off, and the
+    "fix" was to hand them Projects access as well. Any one of
+    PROC_REQ_SIGNOFF_PERMS is now enough.
+    """
+    if not perms:
+        return False
+    if perms.get('is_super_admin', False):
+        return True
+    return any(perms.get(p, False) for p in PROC_REQ_SIGNOFF_PERMS)
 
 
 def _procurement_req_authorisers():
-    """Active admin_users who can AUTHORISE requisitions (or super admin) and
-    have a WhatsApp number saved."""
+    """Active admin_users who can AUTHORISE requisitions and have a WhatsApp number.
+
+    The filter matches the WORKFLOW's definition of that right (any
+    PROC_REQ_SIGNOFF_PERMS, or super admin) rather than the single dedicated flag, so
+    the people who receive the authorisation template are exactly the people the server
+    would let authorise it."""
     try:
         out = []
         for r in _procurement_signoff_people():
             if not r[3]:
                 continue
-            if r[4] or (len(r) > 8 and r[8]):
+            if r[4] or any(r[i] for i in (5, 6, 7, 8) if len(r) > i):
                 out.append({'id': r[0], 'name': r[1] or 'Authoriser', 'whatsapp': r[3]})
         return out
     except Exception as e:
@@ -46224,13 +46368,19 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
             perms = {}
             try:
                 cursor.execute("""
-                    SELECT full_name, source_system, source_id FROM admin_users
+                    SELECT full_name, source_system, source_id, id FROM admin_users
                     WHERE REPLACE(whatsapp, ' ', '') LIKE %s LIMIT 1
                 """, (f"%{sender_number}%",))
                 au = cursor.fetchone()
                 if au:
                     sender_name = au[0] or sender_name
                     perms = get_user_permissions(au[1] or 'projects', au[2] or sender_id)
+                    # ...plus the procurement flags WHEREVER they were granted (see
+                    # _procurement_flags_for).
+                    for _flag, _on in _procurement_flags_for(au[1], au[2], au[3],
+                                                             cursor).items():
+                        if _on:
+                            perms[_flag] = True
             except Exception as pe:
                 print(f"PO sender lookup error: {pe}")
             allowed = (_procurement_can_authorise(perms) if stage == 'authorisation'
@@ -46365,6 +46515,13 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
                     sender_name = au[0] or sender_name
                     sender_uid = au[3]
                     perms = get_user_permissions(au[1] or 'projects', au[2] or sender_id)
+                    # ...plus the procurement flags WHEREVER they were granted, so a tick
+                    # in User Management counts even when this account's
+                    # source_system / source_id point at a different row.
+                    for _flag, _on in _procurement_flags_for(au[1], au[2], au[3],
+                                                             cursor).items():
+                        if _on:
+                            perms[_flag] = True
             except Exception as pe:
                 print(f"Sender lookup error: {pe}")
             if stage == 'authorisation':

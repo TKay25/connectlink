@@ -1260,16 +1260,12 @@
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_create_requisitions"><span class="toggle-slider"></span></label>
             </div>
             <div class="perm-row">
-                <span class="perm-label"><i class="bi bi-check2-circle"></i> Approve Requisitions</span>
-                <label class="toggle-switch"><input type="checkbox" id="toggle-can_approve_requisitions"><span class="toggle-slider"></span></label>
-            </div>
-            <div class="perm-row">
-                <span class="perm-label"><i class="bi bi-shield-check"></i> Authorise Requisitions <span style="font-size:0.5rem;color:var(--text-muted);">(1st sign-off: submitted &rarr; authorised)</span></span>
+                <span class="perm-label"><i class="bi bi-shield-check"></i> Authorise Requisitions <span style="font-size:0.5rem;color:var(--text-muted);">(the requisition sign-off: submitted &rarr; authorised)</span></span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_authorise_requisitions"><span class="toggle-slider"></span></label>
             </div>
             <div class="perm-row">
-                <span class="perm-label"><i class="bi bi-patch-check"></i> Authorise Purchase Orders <span style="font-size:0.5rem;color:var(--text-muted);">(1st sign-off after a PO is raised)</span></span>
-                <label class="toggle-switch"><input type="checkbox" id="toggle-can_authorise_purchase_orders"><span class="toggle-slider"></span></label>
+                <span class="perm-label"><i class="bi bi-check2-circle"></i> Approve Purchase Orders <span style="font-size:0.5rem;color:var(--text-muted);">(final sign-off &mdash; a PO goes straight to the approver)</span></span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_approve_requisitions"><span class="toggle-slider"></span></label>
             </div>
             <div class="perm-row">
                 <span class="perm-label"><i class="bi bi-receipt-cutoff"></i> Manage Purchase Orders <span style="font-size:0.5rem;color:var(--text-muted);">(create POs, receive stock)</span></span>
@@ -1971,9 +1967,7 @@ const PERM_TOGGLE_IDS = [
     'can_add_users', 'can_edit_users', 'can_delete_users',
     'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments',
     'can_edit_projects', 'can_download_master_file',
-    'can_create_requisitions', 'can_approve_requisitions',
-    'can_authorise_requisitions',
-    'can_authorise_purchase_orders',
+    'can_create_requisitions', 'can_authorise_requisitions', 'can_approve_requisitions',
     'can_manage_purchase_orders', 'can_manage_suppliers'
 ];
 
@@ -2009,7 +2003,7 @@ async function loadPermModalData(userType, userId) {
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file',
-                     'can_create_requisitions','can_approve_requisitions','can_authorise_requisitions','can_authorise_purchase_orders',
+                     'can_create_requisitions','can_authorise_requisitions','can_approve_requisitions',
                      'can_manage_purchase_orders','can_manage_suppliers'];
     // Reset all toggles to off
     toggles.forEach(t => {
@@ -2044,7 +2038,7 @@ async function savePermModal() {
                      'can_add_users','can_edit_users','can_delete_users','can_export_data',
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file',
-                     'can_create_requisitions','can_approve_requisitions','can_authorise_requisitions','can_authorise_purchase_orders',
+                     'can_create_requisitions','can_authorise_requisitions','can_approve_requisitions',
                      'can_manage_purchase_orders','can_manage_suppliers'];  
     const payload = {
         user_type: permModalUserType,
