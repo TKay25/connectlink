@@ -240,6 +240,40 @@
         .pc-toast-info { background: #2563eb; }
         @keyframes pcToastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
 
+        /* ----- Saving overlay: the same idea as the loader on the main app pages -----
+           A blurred sheet over everything while a save is in flight, so the click has
+           visibly registered, nobody can press the button twice, and the page behind is
+           still recognisable rather than blanked out. Sits above the Bootstrap modal
+           (1055) but below the toasts, so the result is still readable. */
+        .pc-saving-overlay {
+            position: fixed; inset: 0; z-index: 20000;
+            display: none; align-items: center; justify-content: center;
+            background: rgba(15,23,42,0.42);
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
+            animation: pcOverlayIn 0.18s ease;
+        }
+        .pc-saving-overlay.active { display: flex; }
+        @keyframes pcOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+        .pc-saving-card {
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
+            padding: 22px 30px; border-radius: 16px;
+            background: rgba(255,255,255,0.92); border: 1px solid rgba(15,23,42,0.06);
+            box-shadow: 0 26px 60px -18px rgba(15,23,42,0.55);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        }
+        body.dark-theme .pc-saving-card { background: rgba(17,26,46,0.94); border-color: rgba(255,255,255,0.08); }
+        .pc-saving-spinner {
+            width: 34px; height: 34px; border-radius: 50%;
+            border: 3px solid rgba(193,43,62,0.18); border-top-color: #C12B3E;
+            animation: pcSpin 0.8s cubic-bezier(0.4,0,0.2,1) infinite;
+        }
+        @keyframes pcSpin { to { transform: rotate(360deg); } }
+        .pc-saving-text { font-size: 0.7rem; font-weight: 800; color: #0F172A; letter-spacing: 0.2px; }
+        body.dark-theme .pc-saving-text { color: #e2e8f0; }
+        .pc-saving-sub { font-size: 0.58rem; color: #64748B; text-align: center; }
+        body.dark-theme .pc-saving-sub { color: #94A3B8; }
+
         /* ===== MODAL BODY ===== */
         .pc-modal-body { max-height: 70vh; overflow-y: auto; }
 
@@ -381,7 +415,10 @@
         body.dark-theme .pc-page-sub { color:#94A3B8; }
 
         /* ----- KPI cards: premium glass tiles with accent bar + entrance ----- */
-        .pc-kpi-grid { gap: 14px; }
+        /* Back to a 150px minimum, so the browser fits as many cards per row as the
+           window allows. The FIGURE is what gives way now, not the column — see
+           .kpi-value below. */
+        .pc-kpi-grid { gap: 14px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
         .pc-kpi-card {
             background: rgba(255,255,255,0.82);
             backdrop-filter: blur(10px);
@@ -420,20 +457,35 @@
         #kpiSuppliers { --kpi-accent:#7C3AED; }
         #kpiApprovedValue { --kpi-accent:#D97706; }
 
-        /* ----- Requisition-status tiles: icon and figure SIDE BY SIDE -----
-           These five read as one group, so the number sits beside its icon instead of
-           under it and the count is the first thing the eye lands on. Grid (not flex)
-           because the label has to keep the full card width underneath. */
-        .pc-kpi-card.kpi-inline {
+        /* ----- KPI tiles: the icon and the figure sit SIDE BY SIDE, on every card -----
+           The number is the whole point of a KPI card, so it belongs beside its icon
+           rather than under it — on ALL of them (dashboard, workshop, payments,
+           analytics, expenses) so no two grids look different. Grid rather than flex,
+           because the label must still keep the full width underneath.
+
+           Sharing its row with the icon costs the figure about 40px, so the figure now
+           SCALES WITH THE CARD: `cqi` is a percentage of the card's own width, so a
+           narrow card gets a smaller figure instead of a clipped one while a wide card
+           still gets the original 1.4rem. The plain `1.15rem` above the clamp is the
+           fallback for a browser without container-query units. */
+        .pc-kpi-card {
             display: grid;
             grid-template-columns: auto minmax(0, 1fr);
             align-items: center;
-            column-gap: 10px; row-gap: 3px;
-            padding: 11px 14px;
+            column-gap: 8px; row-gap: 3px;
+            padding: 11px 13px;
+            container-type: inline-size;
         }
-        .pc-kpi-card.kpi-inline .kpi-icon { grid-area: 1 / 1 / 2 / 2; margin-bottom: 0; flex: 0 0 auto; }
-        .pc-kpi-card.kpi-inline .kpi-value { grid-area: 1 / 2 / 2 / 3; }
-        .pc-kpi-card.kpi-inline .kpi-label { grid-area: 2 / 1 / 3 / 3; margin-top: 0; }
+        .pc-kpi-card .kpi-icon {
+            grid-area: 1 / 1 / 2 / 2; margin-bottom: 0;
+            width: 30px; height: 30px; border-radius: 9px; font-size: 0.82rem;
+        }
+        .pc-kpi-card .kpi-value {
+            grid-area: 1 / 2 / 2 / 3;
+            font-size: 1.15rem;
+            font-size: clamp(0.95rem, 10.5cqi, 1.4rem);
+        }
+        .pc-kpi-card .kpi-label { grid-area: 2 / 1 / 3 / 3; margin-top: 0; }
 
         /* ----- Panels: glass with refined header ----- */
         .pc-panel {
@@ -886,11 +938,11 @@
         <!-- ============ DASHBOARD ============ -->
         <section class="pc-module active" id="module-dashboard">
             <div class="pc-kpi-grid" id="dashKpis">
-                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-file-earmark-plus"></i></div><div class="kpi-value" id="kpiDraft">0</div><div class="kpi-label">Draft Requisitions</div></div>
-                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="kpiSubmitted">0</div><div class="kpi-label">Awaiting Approval</div></div>
-                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div class="kpi-value" id="kpiApproved">0</div><div class="kpi-label">Approved</div></div>
-                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-x-circle"></i></div><div class="kpi-value" id="kpiRejected">0</div><div class="kpi-label">Rejected</div></div>
-                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-patch-check"></i></div><div class="kpi-value" id="kpiAwaitingAuth">0</div><div class="kpi-label">Awaiting Authorisation</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-file-earmark-plus"></i></div><div class="kpi-value" id="kpiDraft">0</div><div class="kpi-label">Draft Requisitions</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="kpiSubmitted">0</div><div class="kpi-label">Awaiting Approval</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div class="kpi-value" id="kpiApproved">0</div><div class="kpi-label">Approved</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-x-circle"></i></div><div class="kpi-value" id="kpiRejected">0</div><div class="kpi-label">Rejected</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-patch-check"></i></div><div class="kpi-value" id="kpiAwaitingAuth">0</div><div class="kpi-label">Awaiting Authorisation</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-box-seam"></i></div><div class="kpi-value" id="kpiOpenPos">0</div><div class="kpi-label">Open POs</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div><div class="kpi-value" id="kpiPoValue" data-money="1">$0</div><div class="kpi-label">Open PO Value</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-truck"></i></div><div class="kpi-value" id="kpiSuppliers">0</div><div class="kpi-label">Active Suppliers</div></div>
@@ -1765,7 +1817,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="pc-btn pc-btn-primary" onclick="saveWsItem()"><i class="bi bi-check-lg"></i> Save</button>
+                <button type="button" class="pc-btn pc-btn-primary" id="wsItemSaveBtn" onclick="saveWsItem()"><i class="bi bi-check-lg"></i> Save</button>
             </div>
         </div>
     </div>
@@ -1935,6 +1987,15 @@
 
 <div class="pc-toast-wrap" id="pcToasts"></div>
 
+<!-- ==================== SAVING OVERLAY ==================== -->
+<div class="pc-saving-overlay" id="pcSavingOverlay" role="status" aria-live="polite" aria-hidden="true">
+    <div class="pc-saving-card">
+        <div class="pc-saving-spinner"></div>
+        <div class="pc-saving-text" id="pcSavingText">Saving…</div>
+        <div class="pc-saving-sub" id="pcSavingSub"></div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 // ===== THEME =====
@@ -2077,6 +2138,17 @@ function modal(id) {
 }
 function showModal(id) { const m = modal(id); if (m) m.show(); }
 function hideModal(id) { const m = modal(id); if (m) m.hide(); }
+
+/* A save is a round trip to the server. Rather than leaving the button looking dead —
+   or letting it be pressed twice — blur the page and say what is being done. */
+function pcSaving(on, text, sub) {
+    const el = document.getElementById('pcSavingOverlay');
+    if (!el) return;
+    if (text) document.getElementById('pcSavingText').textContent = text;
+    if (sub !== undefined) document.getElementById('pcSavingSub').textContent = sub || '';
+    el.classList.toggle('active', !!on);
+    el.setAttribute('aria-hidden', on ? 'false' : 'true');
+}
 
 function reqBadge(status) {
     const map = { draft:'pc-badge-draft', submitted:'pc-badge-submitted', authorised:'pc-badge-authorisation', approved:'pc-badge-approved', po_created:'pc-badge-pocreated', rejected:'pc-badge-rejected', cancelled:'pc-badge-cancelled' };
@@ -5193,6 +5265,12 @@ window.saveWsItem = async function() {
         msg.style.display = '';
         return;
     }
+    // The overlay is cleared in a `finally`, so a refusal or a dropped connection can
+    // never leave the screen stuck behind a spinner.
+    const btn = document.getElementById('wsItemSaveBtn');
+    if (btn) btn.disabled = true;
+    pcSaving(true, id ? 'Saving the item…' : 'Adding the item…',
+             'Writing it to the workshop register.');
     try {
         const res = await fetch('/api/procurement/workshop/items' + (id ? '/' + id : ''), {
             method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
@@ -5204,6 +5282,7 @@ window.saveWsItem = async function() {
         hideModal('wsItemModal');
         loadWorkshop();
     } catch (e) { msg.textContent = 'Connection error'; msg.style.display = ''; }
+    finally { pcSaving(false); if (btn) btn.disabled = false; }
 };
 
 window.deleteWsItem = function(id, name) {
