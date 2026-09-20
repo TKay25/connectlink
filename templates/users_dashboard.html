@@ -734,6 +734,60 @@
         .toggle-slider { box-shadow: inset 0 1px 2px rgba(15,23,42,0.2); }
         .toggle-switch input:checked + .toggle-slider { background: linear-gradient(135deg, var(--wc-accent), var(--wc-accent-2)); box-shadow: 0 2px 8px -2px rgba(193,43,62,0.5); }
 
+        /* ---------- Toasts (permission saves etc.) ---------- */
+        /* Self-contained ON PURPOSE. Two traps this avoids:
+           1) bootstrap.min.css ships `.toast:not(.show){display:none}` (specificity 0,2,0) which
+              BEATS the house `.toast{display:flex}` in design-system.css (0,1,0) — a toast that
+              relied on that sheet for `display` would never appear. Every rule below is scoped
+              to the container id so it wins outright.
+           2) the container sits ABOVE the modal overlay (z-index 1050) and the full-screen
+              loader (9999), otherwise a toast fired from inside a modal is hidden behind it. */
+        #umToastContainer {
+            position: fixed; top: 16px; right: 16px; z-index: 10050;
+            display: flex; flex-direction: column; gap: 9px;
+            max-width: 340px; pointer-events: none;
+        }
+        #umToastContainer .toast {
+            display: flex; align-items: center; gap: 9px;
+            width: auto; max-width: 100%;
+            padding: 11px 13px; border-radius: 12px; background: #FFFFFF;
+            border-left: 4px solid #10B981;
+            font-size: 0.66rem; font-weight: 600;
+            box-shadow: 0 18px 40px -14px rgba(10,26,58,0.42), 0 0 0 1px rgba(15,23,42,0.05);
+            animation: umToastIn .28s cubic-bezier(0.34,1.56,0.64,1);
+            pointer-events: auto;
+        }
+        #umToastContainer .toast-message { flex: 1; font-size: 0.66rem; font-weight: 600; line-height: 1.45; color: var(--text-primary, #0F172A); }
+        #umToastContainer .toast-icon { font-size: 0.95rem; flex-shrink: 0; color: #10B981; }
+        #umToastContainer .toast-close {
+            background: none; border: 0; cursor: pointer; padding: 2px; border-radius: 6px;
+            color: var(--text-muted, #94A3B8); font-size: 0.9rem; line-height: 1;
+        }
+        #umToastContainer .toast-close:hover { color: var(--wc-accent, #C12B3E); }
+        #umToastContainer .toast-success { border-left-color: #10B981; }
+        #umToastContainer .toast-success .toast-icon { color: #10B981; }
+        #umToastContainer .toast-error { border-left-color: #EF4444; }
+        #umToastContainer .toast-error .toast-icon { color: #EF4444; }
+        #umToastContainer .toast-warning { border-left-color: #F59E0B; }
+        #umToastContainer .toast-warning .toast-icon { color: #F59E0B; }
+        #umToastContainer .toast-info { border-left-color: #3B82F6; }
+        #umToastContainer .toast-info .toast-icon { color: #3B82F6; }
+        #umToastContainer .toast.um-toast-out { animation: umToastOut .22s ease forwards; }
+        @keyframes umToastIn { from { opacity: 0; transform: translateX(26px) scale(0.96); } to { opacity: 1; transform: translateX(0) scale(1); } }
+        @keyframes umToastOut { to { opacity: 0; transform: translateX(26px) scale(0.96); } }
+        body.dark-theme #umToastContainer .toast { background: #141a2b; box-shadow: 0 18px 40px -14px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.07); }
+        body.dark-theme #umToastContainer .toast-message { color: #d1d5db; }
+        body.dark-theme #umToastContainer .toast-close { color: #9ca3af; }
+        /* ---------- Button loader (in-button spinner) ---------- */
+        .btn-um-loading { position: relative; pointer-events: none; opacity: 0.85; }
+        .btn-um-loading::after {
+            content: ''; width: 10px; height: 10px; margin-left: 6px;
+            display: inline-block; vertical-align: -1px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.35); border-top-color: #ffffff;
+            animation: spin 0.7s linear infinite;
+        }
+        .btn-um-loading i { display: none; }
+
         /* ---------- Animations ---------- */
         .um-module.active { animation: wcModuleIn .4s cubic-bezier(0.22,1,0.36,1); }
         @keyframes wcModuleIn {
@@ -793,6 +847,10 @@
     <img src="/static/images/web-logo-white.png" style="width:100px;opacity:0.8;margin-bottom:12px;">
     <p style="color:white;font-size:0.85rem;font-weight:600;">Processing <span style="color:var(--primary);">...</span></p>
 </div>
+
+<!-- Toast stack (permission saves, errors). Deliberately OUTSIDE every modal so a toast is
+     never clipped by the modal box or hidden behind the overlay backdrop. -->
+<div class="toast-container" id="umToastContainer"></div>
 
 <nav class="app-navbar">
     <div class="brand">
@@ -1279,7 +1337,7 @@
         </div>
         <div class="modal-footer-custom">
             <button class="btn btn-danger" onclick="closeModal('permModal')">Cancel</button>
-            <button class="btn btn-primary" onclick="savePermModal()"><i class="bi bi-check-circle"></i> Save Permissions</button>
+            <button class="btn btn-primary" id="permSaveBtn" onclick="savePermModal()"><i class="bi bi-check-circle"></i> Save Permissions</button>
         </div>
     </div>
 </div>
@@ -1976,11 +2034,56 @@ function toggleAllPermissions(checked) {
         const el = document.getElementById('toggle-' + id);
         if (el) el.checked = checked;
     });
-    const msg = document.getElementById('permModalMsg');
-    if (msg) {
-        msg.textContent = checked ? '✅ Super Admin: all permissions enabled' : 'ℹ️ Individual permissions can now be set';
-        msg.style.color = checked ? '#2e7d32' : '#ef6c00';
-        setTimeout(() => { if (msg) msg.textContent = ''; }, 2000);
+    showToast(checked ? 'All permissions switched on — press Save Permissions to apply.'
+                      : 'All permissions switched off — individual permissions can now be set.',
+              checked ? 'success' : 'info');
+}
+
+// ===== TOASTS =====
+// Replaces the inline "Permissions saved" line that used to sit at the bottom of the
+// permission modal: transient feedback belongs in a toast, and the modal body stays quiet.
+window.showToast = function(message, type, timeout) {
+    const box = document.getElementById('umToastContainer');
+    if (!box) { alert(message); return; }
+    type = type || 'success';
+    const icons = { success: 'bi-check-circle-fill', error: 'bi-exclamation-octagon-fill',
+                    warning: 'bi-exclamation-triangle-fill', info: 'bi-info-circle-fill' };
+    const el = document.createElement('div');
+    // `show` is included defensively: bootstrap.min.css ships `.toast:not(.show){display:none}`.
+    el.className = 'toast show toast-' + type;
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<i class="bi ' + (icons[type] || icons.info) + ' toast-icon"></i>' +
+                   '<span class="toast-message"></span>' +
+                   '<button class="toast-close" aria-label="Dismiss">&times;</button>';
+    el.querySelector('.toast-message').textContent = message;   // textContent: never inject HTML
+    el.querySelector('.toast-close').addEventListener('click', () => killToast(el));
+    box.appendChild(el);
+    const life = timeout || (type === 'error' ? 7000 : 3800);
+    const timer = setTimeout(() => killToast(el), life);
+    el.addEventListener('mouseenter', () => clearTimeout(timer));
+    el.addEventListener('mouseleave', () => setTimeout(() => killToast(el), 1500));
+    return el;
+};
+
+function killToast(el) {
+    if (!el || !el.parentElement) return;
+    el.classList.add('um-toast-out');
+    setTimeout(() => el.remove(), 220);
+}
+
+// In-button loader: disables the button, swaps its icon for a spinner and restores the
+// original markup afterwards. Used by savePermModal so a slow round trip is visible.
+function setBtnLoading(btn, on, busyText) {
+    if (!btn) return;
+    if (on) {
+        if (btn.dataset.origHtml === undefined) btn.dataset.origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.classList.add('btn-um-loading');
+        btn.innerHTML = busyText || 'Saving';
+    } else {
+        btn.disabled = false;
+        btn.classList.remove('btn-um-loading');
+        if (btn.dataset.origHtml !== undefined) btn.innerHTML = btn.dataset.origHtml;
     }
 }
 
@@ -2049,7 +2152,8 @@ async function savePermModal() {
         if (el) payload[t] = el.checked;
     });
 
-    document.getElementById('permModalMsg').textContent = 'Saving...';
+    const saveBtn = document.getElementById('permSaveBtn');
+    setBtnLoading(saveBtn, true, 'Saving permissions');
     try {
         const res = await fetch('/api/user-management/permissions', {
             method: 'POST',
@@ -2058,22 +2162,26 @@ async function savePermModal() {
         });
         const data = await res.json();
         if (data.success) {
-            document.getElementById('permModalMsg').textContent = '✅ Permissions saved! Refreshing...';
-            document.getElementById('permModalMsg').style.color = '#2e7d32';
+            showToast('Permissions saved for ' + permModalUserName() + '.', 'success');
             // Reload all data so permission-filtered tables update immediately
-            setTimeout(async () => {
-                await loadAllData(true); // skipLoader to avoid full-screen overlay while modal is open
-                document.getElementById('permModalMsg').textContent = '✅ Permissions saved!';
-                setTimeout(() => { document.getElementById('permModalMsg').textContent = ''; }, 1500);
-            }, 300);
+            // (skipLoader: the full-screen overlay would cover the whole page while the
+            // modal is still open, and the button spinner already shows the work).
+            setTimeout(() => { loadAllData(true); }, 250);
         } else {
-            document.getElementById('permModalMsg').textContent = '❌ ' + (data.error || 'Failed');
-            document.getElementById('permModalMsg').style.color = '#d32f2f';
+            showToast(data.error || 'Could not save the permissions.', 'error');
         }
     } catch(e) {
-        document.getElementById('permModalMsg').textContent = 'Error: ' + e.message;
-        document.getElementById('permModalMsg').style.color = '#d32f2f';
+        showToast('Could not save the permissions: ' + e.message, 'error');
+    } finally {
+        setBtnLoading(saveBtn, false);
     }
+}
+
+// Friendly name of whoever is being edited, for the toast wording.
+function permModalUserName() {
+    const label = (document.getElementById('permModalUserLabel') || {}).textContent || '';
+    const name = label.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return name || ('user #' + permModalUserId);
 }
 
 // ===== INIT =====
