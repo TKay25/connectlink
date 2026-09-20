@@ -1700,11 +1700,11 @@
                     </div>
                     <div class="col-6">
                         <label class="pc-form-label">Minimum level</label>
-                        <input type="number" min="0" class="pc-input" id="wsItemMin" value="0">
+                        <input type="number" min="0" step="0.5" class="pc-input" id="wsItemMin" value="0">
                     </div>
                     <div class="col-6" id="wsItemOpeningWrap">
                         <label class="pc-form-label">Opening quantity</label>
-                        <input type="number" min="0" class="pc-input" id="wsItemOpening" value="0">
+                        <input type="number" min="0" step="0.5" class="pc-input" id="wsItemOpening" value="0">
                     </div>
                 </div>
                 <div style="font-size:0.56rem;color:#94A3B8;margin-top:5px;">
@@ -1747,7 +1747,7 @@
                 <div class="row g-2 mt-0">
                     <div class="col-4">
                         <label class="pc-form-label">Quantity *</label>
-                        <input type="number" min="1" class="pc-input" id="wsMoveQty" value="1">
+                        <input type="number" min="0.5" step="0.5" class="pc-input" id="wsMoveQty" value="1">
                     </div>
                     <div class="col-8">
                         <label class="pc-form-label">Document / reference</label>
@@ -2577,7 +2577,7 @@ function addItemRow(data) {
                 <div class="pc-suggest"></div>
             </div>
         </td>
-        <td><input type="number" class="pc-input pc-item-qty" min="1" value="${data.quantity || 1}" oninput="recalcReqTotal()"></td>
+        <td><input type="number" class="pc-input pc-item-qty" min="0.5" step="0.5" value="${data.quantity || 1}" oninput="recalcReqTotal()"></td>
         <td class="pc-col-cost"><input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()"></td>
         <td class="num pc-col-total"><span class="pc-item-line-total">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span></td>
         <td><input type="text" class="pc-input pc-item-notes" placeholder="Notes" value="${esc(data.notes || '')}"></td>
@@ -2686,7 +2686,7 @@ function collectReqItems(includeFiles) {
     const inStock = !!_stockEl && _stockEl.value === 'in_stock';
     document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
         const name = row.querySelector('.pc-prod-input').value.trim();
-        const qty = parseInt(row.querySelector('.pc-item-qty').value || '0', 10);
+        const qty = parseFloat(row.querySelector('.pc-item-qty').value || '0') || 0;
         if (!name || qty <= 0) return;
         const suppliers = inStock ? [] : (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).map(s => {
             const o = {
@@ -4178,7 +4178,7 @@ window.viewPo = async function(id, openReceive) {
                 <td class="num">${ln.on_order != null ? ln.on_order : '—'}</td>
                 <td class="num" style="min-width:90px;">
                     ${['ordered','partial'].includes(po.status)
-                        ? `<input type="number" class="pc-input pc-input-sm po-rec" data-line="${ln.id}" min="0" max="${Math.max(0, ln.quantity_ordered - ln.quantity_received)}" placeholder="0" style="width:80px;text-align:right;">`
+                        ? `<input type="number" class="pc-input pc-input-sm po-rec" data-line="${ln.id}" min="0" step="0.5" max="${Math.max(0, ln.quantity_ordered - ln.quantity_received)}" placeholder="0" style="width:80px;text-align:right;">`
                         : `<span style="color:#94A3B8;">—</span>`}
                 </td>
             </tr>`).join('') || '<tr><td colspan="9" class="pc-empty">No items</td></tr>';
@@ -4532,7 +4532,7 @@ window.saveReceive = async function() {
     const received = {};
     let any = false;
     document.querySelectorAll('.po-rec').forEach(inp => {
-        const v = parseInt(inp.value || '0', 10);
+        const v = parseFloat(inp.value || '0') || 0;
         if (v > 0) { received[inp.dataset.line] = v; any = true; }
     });
     if (!any) { toast('Enter a quantity to receive for at least one item', 'error'); return; }

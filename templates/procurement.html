@@ -981,8 +981,8 @@
                     <div id="wsReconciledBanner" class="pc-rv-banner" style="display:none;margin-bottom:8px;"></div>
                     <div class="pc-table-wrap">
                         <table class="pc-table">
-                            <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">Opening</th><th class="num">Received (In)</th><th class="num">Issued (Out)</th><th class="num">Closing</th></tr></thead>
-                            <tbody id="wsLedgerBody"><tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                            <thead><tr><th>Item</th><th>Category</th><th class="num">Opening</th><th class="num">Received (In)</th><th class="num">Issued (Out)</th><th class="num">Closing</th></tr></thead>
+                            <tbody id="wsLedgerBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                             <tbody id="wsLedgerTotals"></tbody>
                         </table>
                     </div>
@@ -1014,8 +1014,8 @@
                 </div>
                 <div class="pc-panel-body pc-table-wrap">
                     <table class="pc-table">
-                        <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">In Stock</th><th class="num">Min Level</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
-                        <tbody id="wsStockBody"><tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                        <thead><tr><th>Item</th><th>Category</th><th class="num">In Stock</th><th class="num">Min Level</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+                        <tbody id="wsStockBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -1695,19 +1695,23 @@
                 <div class="row g-2 mt-0">
                     <div class="col-6">
                         <label class="pc-form-label">Category</label>
-                        <input class="pc-input" id="wsItemCategory" placeholder="Boards / Kitchen">
+                        <select class="pc-select" id="wsItemCategory" onchange="wsItemCategoryChanged()">
+                            <option value="Board">Board</option>
+                            <option value="Stones">Stones</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
-                    <div class="col-6">
-                        <label class="pc-form-label">Unit</label>
-                        <input class="pc-input" id="wsItemUnit" placeholder="sheet / unit / length">
+                    <div class="col-6" id="wsItemCustomCatWrap" style="display:none;">
+                        <label class="pc-form-label">Category name *</label>
+                        <input class="pc-input" id="wsItemCustomCat" placeholder="e.g. Fittings">
                     </div>
                     <div class="col-6">
                         <label class="pc-form-label">Minimum level</label>
-                        <input type="number" min="0" class="pc-input" id="wsItemMin" value="0">
+                        <input type="number" min="0" step="0.5" class="pc-input" id="wsItemMin" value="0">
                     </div>
                     <div class="col-6" id="wsItemOpeningWrap">
                         <label class="pc-form-label">Opening quantity</label>
-                        <input type="number" min="0" class="pc-input" id="wsItemOpening" value="0">
+                        <input type="number" min="0" step="0.5" class="pc-input" id="wsItemOpening" value="0">
                     </div>
                 </div>
                 <div style="font-size:0.56rem;color:#94A3B8;margin-top:5px;">
@@ -1750,7 +1754,7 @@
                 <div class="row g-2 mt-0">
                     <div class="col-4">
                         <label class="pc-form-label">Quantity *</label>
-                        <input type="number" min="1" class="pc-input" id="wsMoveQty" value="1">
+                        <input type="number" min="0.5" step="0.5" class="pc-input" id="wsMoveQty" value="1">
                     </div>
                     <div class="col-8">
                         <label class="pc-form-label">Document / reference</label>
@@ -2374,7 +2378,7 @@ function addItemRow(data) {
                 <div class="pc-suggest"></div>
             </div>
         </td>
-        <td><input type="number" class="pc-input pc-item-qty" min="1" value="${data.quantity || 1}" oninput="recalcReqTotal()"></td>
+        <td><input type="number" class="pc-input pc-item-qty" min="0.5" step="0.5" value="${data.quantity || 1}" oninput="recalcReqTotal()"></td>
         <td class="pc-col-cost"><input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()"></td>
         <td class="num pc-col-total"><span class="pc-item-line-total">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span></td>
         <td><input type="text" class="pc-input pc-item-notes" placeholder="Notes" value="${esc(data.notes || '')}"></td>
@@ -2485,7 +2489,7 @@ function collectReqItems(includeFiles) {
     const inStock = !!_stockEl && _stockEl.value === 'in_stock';
     document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
         const name = row.querySelector('.pc-prod-input').value.trim();
-        const qty = parseInt(row.querySelector('.pc-item-qty').value || '0', 10);
+        const qty = parseFloat(row.querySelector('.pc-item-qty').value || '0') || 0;
         if (!name || qty <= 0) return;
         const suppliers = inStock ? [] : (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).map(s => {
             const o = {
@@ -3948,7 +3952,7 @@ window.viewPo = async function(id, openReceive) {
                 <td class="num">${ln.on_order != null ? ln.on_order : '—'}</td>
                 <td class="num" style="min-width:90px;">
                     ${['ordered','partial'].includes(po.status)
-                        ? `<input type="number" class="pc-input pc-input-sm po-rec" data-line="${ln.id}" min="0" max="${Math.max(0, ln.quantity_ordered - ln.quantity_received)}" placeholder="0" style="width:80px;text-align:right;">`
+                        ? `<input type="number" class="pc-input pc-input-sm po-rec" data-line="${ln.id}" min="0" step="0.5" max="${Math.max(0, ln.quantity_ordered - ln.quantity_received)}" placeholder="0" style="width:80px;text-align:right;">`
                         : `<span style="color:#94A3B8;">—</span>`}
                 </td>
             </tr>`).join('') || '<tr><td colspan="9" class="pc-empty">No items</td></tr>';
@@ -4302,7 +4306,7 @@ window.saveReceive = async function() {
     const received = {};
     let any = false;
     document.querySelectorAll('.po-rec').forEach(inp => {
-        const v = parseInt(inp.value || '0', 10);
+        const v = parseFloat(inp.value || '0') || 0;
         if (v > 0) { received[inp.dataset.line] = v; any = true; }
     });
     if (!any) { toast('Enter a quantity to receive for at least one item', 'error'); return; }
@@ -4878,17 +4882,16 @@ function renderWsLedger() {
         <tr>
             <td><strong>${esc(x.name)}</strong></td>
             <td>${esc(x.category || '—')}</td>
-            <td>${esc(x.unit || '')}</td>
             <td class="num">${wsNum(x.opening)}</td>
             <td class="num" style="color:#047857;">${x.received ? '+' + wsNum(x.received) : '—'}</td>
             <td class="num" style="color:#b91c1c;">${x.issued ? '−' + wsNum(x.issued) : '—'}</td>
             <td class="num"><strong>${wsNum(x.closing)}</strong></td>
         </tr>`).join('') ||
-        '<tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Nothing moved and nothing is in stock for this period.</td></tr>';
+        '<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Nothing moved and nothing is in stock for this period.</td></tr>';
     const t = WS_DATA.totals || {};
     totals.innerHTML = rows.length ? `
         <tr style="background:#F1F5F9;font-weight:700;">
-            <td>TOTAL</td><td></td><td></td>
+            <td>TOTAL</td><td></td>
             <td class="num">${wsNum(t.opening)}</td>
             <td class="num" style="color:#047857;">+${wsNum(t.received)}</td>
             <td class="num" style="color:#b91c1c;">−${wsNum(t.issued)}</td>
@@ -4926,7 +4929,6 @@ function renderWsStock() {
         <tr>
             <td><strong>${esc(s.name)}</strong>${s.active ? '' : ' <span class="pc-badge pc-badge-cancelled" title="This item is no longer active">inactive</span>'}</td>
             <td>${esc(s.category || '—')}</td>
-            <td>${esc(s.unit || '')}</td>
             <td class="num"><strong>${wsNum(s.stock)}</strong></td>
             <td class="num">${wsNum(s.min_level)}</td>
             <td>${s.low ? '<span class="pc-badge pc-badge-rejected">Below minimum</span>'
@@ -4938,7 +4940,7 @@ function renderWsStock() {
                 <button class="pc-btn pc-btn-danger pc-btn-sm" title="Remove from the register" onclick="deleteWsItem(${s.id}, '${esc(s.name)}')" data-perm-action="can_manage_purchase_orders"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`).join('') ||
-        '<tr><td colspan="7" class="pc-empty"><i class="bi bi-inbox"></i> Nothing in the workshop register yet — use “Add Item”, or receive a purchase order.</td></tr>';
+        '<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Nothing in the workshop register yet — use “Add Item”, or receive a purchase order.</td></tr>';
 }
 
 /* The PDF and Excel reports are the SAME report as the screen — same period, same
@@ -5041,20 +5043,31 @@ window.undoWsMovement = async function(id, item) {
     } catch (e) { toast('Connection error', 'error'); }
 };
 
+window.wsItemCategoryChanged = function() {
+    const isOther = document.getElementById('wsItemCategory').value === 'Other';
+    document.getElementById('wsItemCustomCatWrap').style.display = isOther ? '' : 'none';
+};
+
 window.openWsItem = function(id) {
     const it = id ? ((WS_DATA || {}).stock || []).find(s => s.id === id) : null;
     document.getElementById('wsItemMsg').style.display = 'none';
     document.getElementById('wsItemId').value = it ? it.id : '';
     document.getElementById('wsItemTitle').textContent = it ? 'Edit Workshop Item' : 'Add Workshop Item';
     document.getElementById('wsItemName').value = it ? it.name : '';
-    document.getElementById('wsItemCategory').value = it ? (it.category || '') : '';
-    document.getElementById('wsItemUnit').value = it ? (it.unit || '') : '';
+    // Category is one of the three fixed answers, or a name of the user's own — an
+    // existing item whose category is neither Board nor Stones therefore reopens as
+    // "Other" with its name filled in, so editing never silently drops it.
+    const FIXED = ['Board', 'Stones'];
+    const cat = it ? (it.category || '') : 'Board';
+    document.getElementById('wsItemCategory').value = FIXED.indexOf(cat) > -1 ? cat : 'Other';
+    document.getElementById('wsItemCustomCat').value = FIXED.indexOf(cat) > -1 ? '' : cat;
     document.getElementById('wsItemMin').value = it ? it.min_level : 0;
     document.getElementById('wsItemNotes').value = '';
     document.getElementById('wsItemOpening').value = 0;
     // The opening quantity only makes sense when the item is first created — after
     // that, stock moves through movements like everything else.
     document.getElementById('wsItemOpeningWrap').style.display = it ? 'none' : '';
+    wsItemCategoryChanged();
     showModal('wsItemModal');
 };
 
@@ -5062,10 +5075,17 @@ window.saveWsItem = async function() {
     const msg = document.getElementById('wsItemMsg');
     msg.style.display = 'none';
     const id = document.getElementById('wsItemId').value;
+    const catSel = document.getElementById('wsItemCategory').value;
+    const category = catSel === 'Other'
+        ? document.getElementById('wsItemCustomCat').value.trim() : catSel;
+    if (catSel === 'Other' && !category) {
+        msg.textContent = 'Type the category name, or pick Board or Stones.';
+        msg.style.display = '';
+        return;
+    }
     const body = {
         name: document.getElementById('wsItemName').value.trim(),
-        category: document.getElementById('wsItemCategory').value.trim(),
-        unit: document.getElementById('wsItemUnit').value.trim(),
+        category: category,
         min_stock_level: document.getElementById('wsItemMin').value,
         notes: document.getElementById('wsItemNotes').value.trim(),
         opening_qty: document.getElementById('wsItemOpening').value,

@@ -1844,7 +1844,7 @@ def initialize_database_tables():
                     -- deduped roll-up of these (see _req_sync_projects).
                     project_id INTEGER,
                     project_ref VARCHAR(200),
-                    quantity INTEGER NOT NULL,
+                    quantity NUMERIC(12,2) NOT NULL,
                     unit_cost DECIMAL(12,2) DEFAULT 0,
                     total_cost DECIMAL(12,2) DEFAULT 0,
                     notes VARCHAR(200)
@@ -1951,8 +1951,8 @@ def initialize_database_tables():
                     purchase_order_id INTEGER REFERENCES purchase_orders(id) ON DELETE CASCADE,
                     product_id INTEGER,
                     product_name VARCHAR(150),
-                    quantity_ordered INTEGER DEFAULT 0,
-                    quantity_received INTEGER DEFAULT 0,
+                    quantity_ordered NUMERIC(12,2) DEFAULT 0,
+                    quantity_received NUMERIC(12,2) DEFAULT 0,
                     unit_cost DECIMAL(12,2) DEFAULT 0
                 )
             """)
@@ -1970,12 +1970,12 @@ def initialize_database_tables():
                     name VARCHAR(150) NOT NULL,
                     category VARCHAR(80),
                     unit VARCHAR(30) DEFAULT 'unit',
-                    min_stock_level INTEGER DEFAULT 0,
+                    min_stock_level NUMERIC(12,2) DEFAULT 0,
                     notes TEXT,
                     -- Running balance. Only _workshop_record_movement() changes it, in
                     -- the same transaction as the movement row, so it can never drift
                     -- away from the movement history.
-                    stock INTEGER DEFAULT 0,
+                    stock NUMERIC(12,2) DEFAULT 0,
                     is_active BOOLEAN DEFAULT TRUE,
                     created_by VARCHAR(150),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -1993,7 +1993,7 @@ def initialize_database_tables():
                     item_id INTEGER REFERENCES workshop_items(id) ON DELETE SET NULL,
                     item_name VARCHAR(150) NOT NULL,
                     direction VARCHAR(3) NOT NULL,
-                    quantity INTEGER NOT NULL,
+                    quantity NUMERIC(12,2) NOT NULL,
                     reason VARCHAR(40) NOT NULL,
                     reference VARCHAR(60),
                     notes TEXT,
@@ -2014,6 +2014,24 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add workshop indexes: {e}")
+
+            # QUANTITIES MAY NOW BE FRACTIONAL ("be able to enter half"). Whole-number
+            # columns silently rounded 0.5 away, so the requisition, purchase-order and
+            # workshop quantity columns are widened to NUMERIC(12,2) — for existing
+            # databases as well as new ones. USING ...::numeric keeps the old values.
+            for stmt in (
+                "ALTER TABLE requisition_items ALTER COLUMN quantity TYPE NUMERIC(12,2) USING quantity::numeric(12,2)",
+                "ALTER TABLE grn_lines ALTER COLUMN quantity_ordered TYPE NUMERIC(12,2) USING quantity_ordered::numeric(12,2)",
+                "ALTER TABLE grn_lines ALTER COLUMN quantity_received TYPE NUMERIC(12,2) USING quantity_received::numeric(12,2)",
+                "ALTER TABLE workshop_items ALTER COLUMN stock TYPE NUMERIC(12,2) USING stock::numeric(12,2)",
+                "ALTER TABLE workshop_items ALTER COLUMN min_stock_level TYPE NUMERIC(12,2) USING min_stock_level::numeric(12,2)",
+                "ALTER TABLE workshop_movements ALTER COLUMN quantity TYPE NUMERIC(12,2) USING quantity::numeric(12,2)",
+            ):
+                try:
+                    cursor.execute(stmt)
+                    connection.commit()
+                except Exception as e:
+                    print(f"Note: quantity column widen skipped ({stmt.split()[2]}): {e}")
 
 
             # Supplier phone snapshot on POs (for existing databases)
@@ -39940,6 +39958,23 @@ def _req_projects_line(project_ref):
     return '; '.join(names)
 
 
+def _proc_qty_of(v):
+    """Parse a quantity, allowing HALVES and other fractions (0.5, 1.25).
+
+    Quantities used to be whole numbers everywhere; the user asked for halves in
+    requisitions, purchase orders and the workshop, so every quantity now goes
+    through a decimal. Rounded to 2 dp to match the NUMERIC(12,2) columns."""
+    try:
+        return round(float(str(v).strip()), 2)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _proc_qty_str(v):
+    """A quantity as it should READ: '2' rather than '2.0', and '0.5' rather than '.5'."""
+    return f'{_proc_qty_of(v):g}'
+
+
 def _req_item_line(name, qty, project_ref):
     """One line item for a WhatsApp item list, WITH the project it is needed for.
 
@@ -39950,7 +39985,7 @@ def _req_item_line(name, qty, project_ref):
     label = (name or '').strip()
     proj = _req_projects_line(project_ref)
     if qty:
-        label += f" (x{qty}{' — ' + proj if proj else ''})"
+        label += f" (x{_proc_qty_str(qty)}{' — ' + proj if proj else ''})"
     elif proj:
         label += f" — {proj}"
     return label
@@ -40237,7 +40272,7 @@ def procurement_api_create_requisition():
                 pname = (it.get('product_name') or '').strip()
                 if not pname:
                     continue
-                qty = int(it.get('quantity') or 0)
+                qty = _proc_qty_of(it.get('quantity'))
                 if qty <= 0:
                     continue
                 unit = float(it.get('unit_cost') or 0)
@@ -40311,7 +40346,7 @@ def procurement_api_requisition_detail(rid):
             for i in items:
                 item_dict = {
                     'id': i[0], 'product_id': i[1], 'product_name': i[2], 'category': i[3],
-                    'quantity': i[4], 'unit_cost': float(i[5] or 0), 'total_cost': float(i[6] or 0), 'notes': i[7],
+                    'quantity': _proc_qty_of(i[4]), 'unit_cost': float(i[5] or 0), 'total_cost': float(i[6] or 0), 'notes': i[7],
                     'project_id': i[8], 'project_ref': i[9] or '',
                     # current stock, so the PO form can flag lines already in the company
                     'current_stock': int(i[10]) if i[10] is not None else None
@@ -40406,7 +40441,7 @@ def procurement_api_update_requisition(rid):
                 pname = (it.get('product_name') or '').strip()
                 if not pname:
                     continue
-                qty = int(it.get('quantity') or 0)
+                qty = _proc_qty_of(it.get('quantity'))
                 if qty <= 0:
                     continue
                 unit = float(it.get('unit_cost') or 0)
@@ -40572,12 +40607,12 @@ def _procurement_issue_req_stock(cursor, rid, user_id=None, user_name=None, when
     written, shortages = 0, []
     for it in items:
         item_name = (it[1] or '').strip()
-        qty = int(it[2] or 0)
+        qty = _proc_qty_of(it[2])
         if qty <= 0 or not item_name:
             continue
         ws_item = _workshop_ensure_item(cursor, item_name, user_name=actor)
         cursor.execute("SELECT COALESCE(stock, 0) FROM workshop_items WHERE id = %s", (ws_item,))
-        available = int((cursor.fetchone() or [0])[0] or 0)
+        available = _proc_qty_of((cursor.fetchone() or [0])[0])
         note = ('Issued on authorisation of ' + str(req_no)
                 + (f' ({department})' if department else ''))
         applied, _balance = _workshop_record_movement(
@@ -41276,7 +41311,7 @@ def procurement_api_create_purchase_order():
                     INSERT INTO grn_lines (purchase_order_id, product_id, product_name,
                                            quantity_ordered, quantity_received, unit_cost)
                     VALUES (%s, %s, %s, %s, 0, %s)
-                """, (po_id, it[0], it[1], int(it[2] or 0), float(it[3] or 0)))
+                """, (po_id, it[0], it[1], _proc_qty_of(it[2]), float(it[3] or 0)))
             cursor.execute(f"""
                 UPDATE requisitions SET status='po_created', updated_at=CURRENT_TIMESTAMP
                 WHERE id IN ({placeholders}) AND status IN ('approved', 'authorised')
@@ -41559,7 +41594,8 @@ def procurement_api_po_detail(po_id):
             lines = cursor.fetchall()
             po['lines'] = [{
                 'id': l[0], 'product_id': l[1], 'product_name': l[2],
-                'quantity_ordered': l[3], 'quantity_received': l[4], 'unit_cost': float(l[5] or 0),
+                'quantity_ordered': _proc_qty_of(l[3]), 'quantity_received': _proc_qty_of(l[4]),
+                'unit_cost': float(l[5] or 0),
                 'current_stock': int(l[6] or 0),
                 'on_order': int(l[3] or 0) - int(l[4] or 0)
             } for l in lines]
@@ -41616,7 +41652,7 @@ def procurement_api_receive_po(po_id):
             any_received = False
             for ln in lines:
                 ln_id = ln[0]
-                qty_rec = int(received.get(str(ln_id), received.get(ln_id, 0)) or 0)
+                qty_rec = _proc_qty_of(received.get(str(ln_id), received.get(ln_id, 0)))
                 if qty_rec <= 0:
                     if ln[4] < ln[3]:
                         all_done = False
@@ -42563,14 +42599,14 @@ def _render_po_pdf(po_id):
     rows = []
     computed = 0.0
     for i, ln in enumerate(lines, 1):
-        nm, qty_o, qty_r, unit = ln[0], int(ln[1] or 0), int(ln[2] or 0), float(ln[3] or 0)
+        nm, qty_o, qty_r, unit = ln[0], _proc_qty_of(ln[1]), _proc_qty_of(ln[2]), float(ln[3] or 0)
         amount = unit * qty_o
         computed += amount
         rows.append([
             Paragraph(str(i), S['cellc']),
             Paragraph(_proc_esc(nm) or '—', S['name']),
-            Paragraph(str(qty_o), S['cellc']),
-            Paragraph(str(qty_r), S['cellc']),
+            Paragraph(_proc_qty_str(qty_o), S['cellc']),
+            Paragraph(_proc_qty_str(qty_r), S['cellc']),
             Paragraph(_proc_money(unit), S['cellr']),
             Paragraph(_proc_money(amount), S['cellr']),
         ])
@@ -42794,7 +42830,7 @@ def _render_req_pdf(rid):
                 Paragraph(_proc_esc(it['name']) or '—', S['name']),
                 Paragraph(_proc_esc(it['category']) or '—', S['small']),
                 Paragraph(_proc_esc(it['project_ref']) or '—', S['small']),
-                Paragraph(str(int(it['quantity'] or 0)), S['cellc']),
+                Paragraph(_proc_qty_str(it['quantity']), S['cellc']),
             ])
         if not rows:
             rows.append([Paragraph('—', S['cellc']),
@@ -42811,7 +42847,7 @@ def _render_req_pdf(rid):
                 Paragraph(_proc_esc(it['name']) or '—', S['name']),
                 Paragraph(_proc_esc(it['category']) or '—', S['small']),
                 Paragraph(_proc_esc(it['project_ref']) or '—', S['small']),
-                Paragraph(str(int(it['quantity'] or 0)), S['cellc']),
+                Paragraph(_proc_qty_str(it['quantity']), S['cellc']),
                 Paragraph(_proc_money(it['unit_cost']), S['cellr']),
                 Paragraph(_proc_money(it['total_cost']), S['cellr']),
             ])
@@ -42995,11 +43031,11 @@ def procurement_api_po_print(po_id):
     rows = []
     grand = 0.0
     for i, (pname, qty_o, qty_r, unit) in enumerate(lines, 1):
-        qty_o = int(qty_o or 0)
+        qty_o = _proc_qty_of(qty_o)
         unit = float(unit or 0)
         line_total = qty_o * unit
         grand += line_total
-        rows.append(f'<tr><td>{i}</td><td>{esc(pname)}</td><td class="num">{qty_o}</td>'
+        rows.append(f'<tr><td>{i}</td><td>{esc(pname)}</td><td class="num">{_proc_qty_str(qty_o)}</td>'
                     f'<td class="num">{money(unit)}</td><td class="num">{money(line_total)}</td></tr>')
     if not rows:
         rows.append('<tr><td colspan="5" style="color:#94A3B8;text-align:center;padding:16px;">No line items</td></tr>')
@@ -43228,13 +43264,13 @@ def _render_grn_pdf(po_id):
     for i, ln in enumerate(lines, 1):
         name, qty_o, qty_r, unit = ln
         unit = float(unit or 0)
-        qty_o = int(qty_o or 0)
-        qty_r = int(qty_r or 0)
+        qty_o = _proc_qty_of(qty_o)
+        qty_r = _proc_qty_of(qty_r)
         total = unit * qty_r
         total_received += total
         data.append([
             Paragraph(str(i), cellc), Paragraph(_s(name), base),
-            Paragraph(str(qty_o), cellc), Paragraph(str(qty_r), cellc),
+            Paragraph(_proc_qty_str(qty_o), cellc), Paragraph(_proc_qty_str(qty_r), cellc),
             Paragraph(f'{unit:,.2f}', cellr), Paragraph(f'{total:,.2f}', cellr),
         ])
     data.append([
@@ -43422,7 +43458,7 @@ def _workshop_ensure_item(cursor, name, category=None, unit=None, min_level=None
         INSERT INTO workshop_items (name, category, unit, min_stock_level, stock, created_by)
         VALUES (%s, %s, %s, %s, 0, %s) RETURNING id
     """, (name, ((category or '').strip() or None), ((unit or '').strip() or 'unit'),
-          int(min_level or 0), user_name))
+          _proc_qty_of(min_level), user_name))
     return cursor.fetchone()[0]
 
 
@@ -43446,10 +43482,7 @@ def _workshop_record_movement(cursor, item_id, direction, quantity, reason,
     ask for.
     """
     direction = 'in' if str(direction or '').lower().startswith('i') else 'out'
-    try:
-        quantity = int(quantity or 0)
-    except (TypeError, ValueError):
-        return 0, None
+    quantity = _proc_qty_of(quantity)
     if quantity <= 0 or not item_id:
         return 0, None
 
@@ -43458,7 +43491,7 @@ def _workshop_record_movement(cursor, item_id, direction, quantity, reason,
     row = cursor.fetchone()
     if not row:
         return 0, None
-    available = int(row[0] or 0)
+    available = _proc_qty_of(row[0])
 
     applied = quantity
     if direction == 'out' and applied > available:
@@ -43473,7 +43506,6 @@ def _workshop_record_movement(cursor, item_id, direction, quantity, reason,
         UPDATE workshop_items SET stock = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s
     """, (new_balance, item_id))
 
-    stamp = 'CURRENT_TIMESTAMP' if when is None else '%s'
     params = [item_id, direction, applied, reason, reference, notes, user_id, user_name]
     if when is not None:
         params.append(when)
@@ -43584,7 +43616,8 @@ def _workshop_ledger(start_dt, end_dt):
             WHERE item_id IS NOT NULL
             GROUP BY item_id
         """, (start_dt, start_dt, start_dt, end_dt, start_dt, end_dt))
-        move_map = {r[0]: (int(r[1] or 0), int(r[2] or 0), int(r[3] or 0), int(r[4] or 0))
+        move_map = {r[0]: (_proc_qty_of(r[1]), _proc_qty_of(r[2]),
+                           _proc_qty_of(r[3]), _proc_qty_of(r[4]))
                     for r in (cursor.fetchall() or [])}
 
         cursor.execute("""
@@ -43601,8 +43634,8 @@ def _workshop_ledger(start_dt, end_dt):
     # ---- on-hand snapshot -------------------------------------------------
     stock = []
     for it in items:
-        qty = int(it[4] or 0)
-        minv = int(it[5] or 0)
+        qty = _proc_qty_of(it[4])
+        minv = _proc_qty_of(it[5])
         stock.append({
             'id': it[0], 'name': it[1] or '', 'category': it[2] or '',
             'unit': it[3] or 'unit', 'stock': qty, 'min_level': minv,
@@ -43614,7 +43647,7 @@ def _workshop_ledger(start_dt, end_dt):
     ledger = []
     for it in items:
         pid = it[0]
-        balance = int(it[4] or 0)
+        balance = _proc_qty_of(it[4])
         in_after, out_after, in_win, out_win = move_map.get(pid, (0, 0, 0, 0))
         opening = balance - (in_after - out_after)     # balance at the window start
         closing = opening + in_win - out_win           # ties to the live balance
@@ -43640,8 +43673,8 @@ def _workshop_ledger(start_dt, end_dt):
             # requisition issue) belongs to that document's history and cannot be
             # undone from here; a hand-entered one can.
             'undoable': (m[7] or '') not in ('received', 'requisition_in_stock'),
-            'qty_in': int(m[6] or 0) if direction == 'in' else 0,
-            'qty_out': int(m[6] or 0) if direction == 'out' else 0,
+            'qty_in': _proc_qty_of(m[6]) if direction == 'in' else 0,
+            'qty_out': _proc_qty_of(m[6]) if direction == 'out' else 0,
             'by': m[8] or 'System', 'notes': m[9] or '',
         })
 
@@ -43705,7 +43738,7 @@ def procurement_api_workshop_item_add():
     if not name:
         return jsonify({'success': False, 'error': 'An item name is required.'}), 400
     user = _procurement_user() or {}
-    opening = max(_ws_int(data.get('opening_qty')), 0)
+    opening = max(_proc_qty_of(data.get('opening_qty')), 0)
     try:
         with get_db() as (cursor, connection):
             cursor.execute("SELECT id FROM workshop_items WHERE lower(name) = lower(%s) LIMIT 1",
@@ -43718,7 +43751,7 @@ def procurement_api_workshop_item_add():
                 VALUES (%s, %s, %s, %s, %s, 0, %s) RETURNING id
             """, (name, _ws_clean(data.get('category')),
                   (_ws_clean(data.get('unit')) or 'unit'),
-                  max(_ws_int(data.get('min_stock_level')), 0),
+                  max(_proc_qty_of(data.get('min_stock_level')), 0),
                   _ws_clean(data.get('notes')), user.get('name')))
             item_id = cursor.fetchone()[0]
             if opening > 0:
@@ -43773,7 +43806,7 @@ def procurement_api_workshop_item_update(item_id):
                 WHERE id = %s
             """, (name, _ws_clean(data.get('category')),
                   str(data.get('unit') or '').strip(),
-                  max(_ws_int(data.get('min_stock_level')), 0),
+                  max(_proc_qty_of(data.get('min_stock_level')), 0),
                   _ws_clean(data.get('notes')),
                   bool(data.get('is_active', True)), item_id))
             connection.commit()
@@ -43833,7 +43866,7 @@ def procurement_api_workshop_movement_add():
     if reason not in allowed:
         return jsonify({'success': False,
                         'error': f'"{reason}" is not a valid reason for stock going {direction}.'}), 400
-    qty = _ws_int(data.get('quantity'))
+    qty = _proc_qty_of(data.get('quantity'))
     if qty <= 0:
         return jsonify({'success': False, 'error': 'Enter a quantity greater than zero.'}), 400
     user = _procurement_user() or {}
@@ -43846,7 +43879,7 @@ def procurement_api_workshop_movement_add():
                 row = cursor.fetchone()
                 if not row:
                     return jsonify({'success': False, 'error': 'Workshop item not found.'}), 404
-                item_name, available = row[0], int(row[1] or 0)
+                item_name, available = row[0], _proc_qty_of(row[1])
             else:
                 item_name = str(data.get('name') or '').strip()
                 if not item_name:
@@ -43857,7 +43890,7 @@ def procurement_api_workshop_movement_add():
                                                 unit=data.get('unit'),
                                                 user_name=user.get('name'))
                 cursor.execute("SELECT COALESCE(stock, 0) FROM workshop_items WHERE id = %s", (item_id,))
-                available = int((cursor.fetchone() or [0])[0] or 0)
+                available = _proc_qty_of((cursor.fetchone() or [0])[0])
             # Refuse rather than silently trim: a person typing 40 when only 25 are
             # there has made a mistake worth being told about.
             if direction == 'out' and qty > available:
@@ -43907,7 +43940,7 @@ def procurement_api_workshop_movement_delete(mv_id):
                                          f'adjustment instead.'}), 400
             if item_id:
                 reverse = 'out' if direction == 'in' else 'in'
-                _workshop_record_movement(cursor, item_id, reverse, int(qty or 0), 'adjustment',
+                _workshop_record_movement(cursor, item_id, reverse, _proc_qty_of(qty), 'adjustment',
                                           reference='Reversal',
                                           notes=f'Reversal of movement #{mv_id}',
                                           user_name='System')
@@ -44010,14 +44043,15 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     story.append(Spacer(1, 6 * mm))
 
     # ---- ledger summary table ----
-    widths = [8, 58, 30, 16, 18, 18, 16, 18]          # = 182mm, one full page width
+    # No Unit column: the workshop does not record units, so a Unit column would be a
+    # constant placeholder on every row. Widths still sum to one full page width.
+    widths = [8, 66, 34, 18, 18, 18, 20]              # = 182mm
     rows = []
     for i, x in enumerate(data['ledger'], 1):
         rows.append([
             Paragraph(str(i), S['cellc']),
             Paragraph(_proc_esc(x['name']) or '—', S['name']),
             Paragraph(_proc_esc(x['category']) or '—', S['small']),
-            Paragraph(_proc_esc(x['unit']) or '—', S['cellc']),
             Paragraph(n(x['opening']), S['cellr']),
             Paragraph(n(x['received']), S['cellr']),
             Paragraph(n(x['issued']), S['cellr']),
@@ -44026,22 +44060,22 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     if not rows:
         rows.append([Paragraph('—', S['cellc']),
                      Paragraph('No stock recorded for this period', S['base'])] +
-                    [Paragraph('', S['base'])] * 6)
+                    [Paragraph('', S['base'])] * 5)
     story.append(_proc_pdf_table(
-        ['#', 'Item', 'Category', 'Unit', 'Opening', 'Received', 'Issued', 'Closing'],
+        ['#', 'Item', 'Category', 'Opening', 'Received', 'Issued', 'Closing'],
         rows, widths, S, C))
     # Totals row. The house grand-total helper is built for the 6-column money tables,
     # so on these 8 columns it drops its label into the 16mm 'Unit' cell and wraps it
     # vertically ('CLOSI / NG / STOCK'). Built here instead, with the label spanning the
     # four text columns and the four figures lining up under their own headings.
     tot = [Paragraph('TOTAL — ALL ITEMS', S['bold']) if i == 0 else
-           Paragraph(f"<b>{n(v)}</b>", S['cellrb']) if i >= 4 else
+           Paragraph(f"<b>{n(v)}</b>", S['cellrb']) if i >= 3 else
            Paragraph('', S['base'])
-           for i, v in enumerate([None, None, None, None,
+           for i, v in enumerate([None, None, None,
                                   t['opening'], t['received'], t['issued'], t['closing']])]
     tot_table = Table([tot], colWidths=[w * mm for w in widths])
     tot_table.setStyle(TableStyle([
-        ('SPAN', (0, 0), (3, 0)),
+        ('SPAN', (0, 0), (2, 0)),
         ('BACKGROUND', (0, 0), (-1, -1), C['headbg']),
         ('LINEABOVE', (0, 0), (-1, -1), 1.0, C['border']),
         ('GRID', (0, 0), (-1, -1), 0.5, C['soft']),
@@ -44143,7 +44177,7 @@ def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
                   f'By: {generated_by or "—"}').font = mfont
     r += 2
 
-    cols = ['Item', 'Category', 'Unit', 'Opening', 'Received (In)', 'Issued (Out)', 'Closing']
+    cols = ['Item', 'Category', 'Opening', 'Received (In)', 'Issued (Out)', 'Closing']
     for c, name in enumerate(cols, 1):
         cell = ws.cell(row=r, column=c, value=name)
         cell.font = hfont
@@ -44153,20 +44187,19 @@ def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
     for x in data['ledger']:
         ws.cell(row=r, column=1, value=x['name'])
         ws.cell(row=r, column=2, value=x['category'])
-        ws.cell(row=r, column=3, value=x['unit'])
-        ws.cell(row=r, column=4, value=n(x['opening']))
-        ws.cell(row=r, column=5, value=n(x['received']))
-        ws.cell(row=r, column=6, value=n(x['issued']))
-        ws.cell(row=r, column=7, value=n(x['closing'])).font = bfont
+        ws.cell(row=r, column=3, value=n(x['opening']))
+        ws.cell(row=r, column=4, value=n(x['received']))
+        ws.cell(row=r, column=5, value=n(x['issued']))
+        ws.cell(row=r, column=6, value=n(x['closing'])).font = bfont
         r += 1
-    for c, val in enumerate(['TOTAL (all items)', '', '',
-                             n(t['opening']), n(t['received']), n(t['issued']), n(t['closing'])], 1):
+    for c, val in enumerate(['TOTAL (all items)', '', n(t['opening']), n(t['received']),
+                             n(t['issued']), n(t['closing'])], 1):
         cell = ws.cell(row=r, column=c, value=val)
         cell.font = bfont
         cell.fill = sfill
     r += 2
     ws.cell(row=r, column=1, value='Opening + Received - Issued = Closing').font = mfont
-    for col, width in zip('ABCDEFG', (46, 24, 12, 12, 15, 14, 12)):
+    for col, width in zip('ABCDEF', (46, 26, 14, 16, 15, 12)):
         ws.column_dimensions[col].width = width
     ws.freeze_panes = 'A6'
 
