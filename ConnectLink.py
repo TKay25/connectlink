@@ -40130,6 +40130,32 @@ def _req_item_line(name, qty, project_ref):
     return label
 
 
+def _req_items_summary(items, limit=3, with_projects=True):
+    """'Cement 50kg (x40 — Rainham Park); Boards (x6) +2 more' for a requisition.
+
+    SHARED by the two WhatsApp messages so they always read the same way:
+      • the AUTHORISATION request ({{10}}) folds each item's project into the item text,
+      • the requester's STATUS update ({{5}}) has a projects variable of its OWN, so it
+        passes with_projects=False and the project is not repeated in every line.
+    Capped at `limit` items plus a '+N more' tail: a WhatsApp body has to stay short.
+    Blank item names are skipped, exactly as the authorisation summary always did.
+    """
+    parts = []
+    for name, qty, pref in items:
+        n = (name or '').strip()
+        if not n:
+            continue
+        # _req_item_line with project_ref=None renders the bare '<name> (x<qty>)' form,
+        # so no separate formatting code is needed for the no-project variant.
+        parts.append(_req_item_line(n, qty, pref if with_projects else None))
+        if len(parts) >= limit:
+            break
+    count = len(items)
+    if count > len(parts):
+        parts.append(f"+{count - len(parts)} more")
+    return '; '.join(parts) if parts else '—'
+
+
 def _req_funds_status(value):
     """Whitelist the requisition funds-check value. None = not checked yet
     (distinct from 'no', which means someone actively confirmed there is no money)."""
@@ -45717,19 +45743,42 @@ def _procurement_approvers():
 
 
 def _procurement_notify_requester(req_id, new_status):
-    """Notify the requester that their requisition changed status via the
-    requisition_status_update template."""
+    """Notify the requester/logger that their requisition changed status.
+
+    Sends `requisition_status_update`, which has FIVE body variables, in this order:
+      1 requester name      3 title            5 ITEMS REQUESTED, each item with the
+      2 requisition no      4 new status         project it is for in the same bracket
+    Every requisition item carries its OWN project (one project per line item — see
+    _req_sync_projects), so the projects ride INSIDE the item list:
+        'Cement 50kg (x40 — Rainham Park); Boards (x6 — Chisipite House)'
+    A separate 'projects attached' value was tried and dropped: with the projects already
+    beside each item it just repeated them.
+    Change the variable count or order here and the Meta template MUST change with it,
+    or Meta answers 132000. Blank values become '—' inside _procurement_send_template,
+    so a requisition with no items or no projects cannot fail the send.
+    """
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT req_no, title, requested_by, requested_by_user_id FROM requisitions WHERE id = %s", (req_id,))
+            cursor.execute("""
+                SELECT req_no, title, requested_by, requested_by_user_id
+                FROM requisitions WHERE id = %s
+            """, (req_id,))
             row = cursor.fetchone()
             if not row:
                 return
-            req_no, req_title, req_by, req_user_id = row
+            req_no, req_title, req_by, req_user_id = row[:4]
+            cursor.execute("""
+                SELECT product_name, quantity, project_ref FROM requisition_items
+                WHERE requisition_id = %s ORDER BY id
+            """, (req_id,))
+            items = cursor.fetchall()
+        # Built OUTSIDE the connection: _procurement_user_whatsapp opens its own.
+        items_text = _req_items_summary(items)
         phone = _procurement_user_whatsapp(req_user_id) if req_user_id else None
         if phone:
             ok, txt = _procurement_send_template(phone, PROC_REQ_STATUS_TEMPLATE,
-                                                 [req_by or 'there', req_no, req_title, new_status])
+                                                 [req_by or 'there', req_no, req_title,
+                                                  new_status, items_text])
             _procurement_log_send(f"Procurement status '{new_status}' -> {req_by}", ok, txt)
     except Exception as e:
         print(f"Procurement notify requester error: {e}")
@@ -45827,17 +45876,7 @@ def _procurement_req_details(req_id):
                         nm = re.sub(r'\s+', ' ', str(au[1] or au[2] or '').strip().lower())
                         requested_by_phone = by_id.get(au[3]) or by_name.get(nm) or ''
         count = len(items)
-        parts = []
-        for name, qty, pref in items:
-            n = (name or '').strip()
-            if not n:
-                continue
-            # Each line carries its own project (one project per requisition item).
-            parts.append(_req_item_line(n, qty, pref))
-            if len(parts) >= 3:
-                break
-        if count > len(parts):
-            parts.append(f"+{count - len(parts)} more")
+        item_summary = _req_items_summary(items)
         return {
             'req_no': r[0],
             'department': r[1] or '',
@@ -45850,7 +45889,7 @@ def _procurement_req_details(req_id):
             'stock_status': r[7] or 'not_in_stock',
             'projects': _req_projects_line(r[8]),
             'item_count': count,
-            'item_summary': ('; '.join(parts) if parts else '—'),
+            'item_summary': item_summary,
         }
     except Exception as e:
         print(f"Requisition details error: {e}")
