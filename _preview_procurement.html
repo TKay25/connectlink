@@ -200,6 +200,9 @@
         .pc-items-table .pc-prod-wrap, .pc-items-table .pc-cat-wrap { position: relative; }
         .pc-items-table input.pc-input { width: 100%; min-width: 70px; }
         .pc-items-table .pc-prod-input { min-width: 190px; }
+        /* The in-stock alternative to the product box: a SEARCHABLE list of the workshop
+           store's own items. */
+        .pc-items-table .pc-item-ws { min-width: 190px; width: 100%; }
         .pc-items-table .pc-item-cat { min-width: 120px; }
         .pc-items-table .pc-proj-wrap { position: relative; }
         .pc-items-table .pc-item-proj { min-width: 230px; }
@@ -2270,6 +2273,13 @@ let PERMS = {};
         if (u.startsWith('data:')) return _nativeFetch(url, opts);
         if (u.indexOf('/api/procurement/audit') > -1) return json(auditPayload(u));
         if (u.indexOf('/api/procurement/workshop/stock') > -1) return json(wsPayload(u));
+        // The workshop register as a plain pick list — what an "in stock" requisition
+        // line chooses from. Read straight off WS_NOW so it tracks the live fixture.
+        if (u.indexOf('/api/procurement/workshop/catalogue') > -1) {
+            return json({ success: true, data: Object.keys(WS_NOW).map((n, i) => ({
+                id: i + 1, name: n, category: WS_NOW[n].cat,
+                unit: WS_NOW[n].unit, stock: WS_NOW[n].stock })) });
+        }
         // Workshop item add / rename / edit / remove. Previewing these matters for two
         // reasons: the register actually changes as you use it, and the save takes a
         // beat — which is what makes the saving overlay visible here at all (a real
@@ -2688,6 +2698,7 @@ async function init() {
     setupPoAssigneesCombo();
     setupReqAssigneesCombo();
     loadPoAssignees();   // one fetch fills BOTH the PO and requisition pickers
+    loadWsItems();       // the workshop register, for "in stock" requisition lines
     showModule('dashboard');
 }
 
@@ -2899,6 +2910,8 @@ function addItemRow(data) {
         <td style="min-width:210px;">
             <div class="pc-prod-wrap">
                 <input type="text" class="pc-input pc-prod-input" placeholder="Search product or type item" value="${esc(data.product_name || '')}" autocomplete="off">
+                <input type="text" class="pc-input pc-item-ws pc-hide" placeholder="Search the workshop store" autocomplete="off">
+                <input type="hidden" class="pc-ws-name" value="">
                 <input type="hidden" class="pc-prod-id" value="${data.product_id || ''}">
                 <div class="pc-suggest"></div>
             </div>
@@ -2916,7 +2929,7 @@ function addItemRow(data) {
                 <div class="pc-suggest"></div>
             </div>
         </td>
-        <td><input type="number" class="pc-input pc-item-qty" min="0.5" step="0.5" value="${data.quantity || 1}" oninput="recalcReqTotal()"></td>
+        <td><input type="number" class="pc-input pc-item-qty" min="0.5" step="0.5" value="${data.quantity || 1}" oninput="recalcReqTotal(); applyWsQtyLimits()"></td>
         <td class="pc-col-cost"><input type="number" class="pc-input pc-item-cost" min="0" step="0.01" value="${data.unit_cost || ''}" placeholder="0.00" oninput="recalcReqTotal()"></td>
         <td class="num pc-col-total"><span class="pc-item-line-total">${fmtMoney((data.quantity||0) * (data.unit_cost||0))}</span></td>
         <td><input type="text" class="pc-input pc-item-notes" placeholder="Notes" value="${esc(data.notes || '')}"></td>
@@ -2939,6 +2952,9 @@ function addItemRow(data) {
     wireProductSearch(row.querySelector('.pc-prod-input'), row);
     wireCategoryCombo(row.querySelector('.pc-item-cat'), row);
     wireProjectCombo(row.querySelector('.pc-item-proj'), row);
+    wireWsItemSearch(row.querySelector('.pc-item-ws'), row);
+    setWsItem(row, data.product_name || '');
+    applyStockItemMode();
     updateQuoteCount(row);
     recalcReqTotal();
 }
@@ -3024,7 +3040,9 @@ function collectReqItems(includeFiles) {
     const _stockEl = document.getElementById('reqStockStatus');
     const inStock = !!_stockEl && _stockEl.value === 'in_stock';
     document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
-        const name = row.querySelector('.pc-prod-input').value.trim();
+        // In-stock lines are PICKED from the workshop store's searchable list — only a
+        // bound name counts, so text typed but never picked cannot be saved.
+        const name = (inStock ? wsRowItem(row) : row.querySelector('.pc-prod-input').value).trim();
         const qty = parseFloat(row.querySelector('.pc-item-qty').value || '0') || 0;
         if (!name || qty <= 0) return;
         const suppliers = inStock ? [] : (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).map(s => {
@@ -3042,7 +3060,9 @@ function collectReqItems(includeFiles) {
             return o;
         });
         items.push({
-            product_id: row.querySelector('.pc-prod-id').value ? parseInt(row.querySelector('.pc-prod-id').value, 10) : null,
+            // A workshop item is NOT a catalogue product (the store matches goods by
+            // name when the requisition is authorised), so an in-stock line saves no id.
+            product_id: inStock ? null : (row.querySelector('.pc-prod-id').value ? parseInt(row.querySelector('.pc-prod-id').value, 10) : null),
             product_name: name,
             category: row.querySelector('.pc-item-cat').value.trim(),
             project_id: row.querySelector('.pc-item-proj-id').value ? parseInt(row.querySelector('.pc-item-proj-id').value, 10) : null,
@@ -3080,6 +3100,233 @@ function toggleReqStockColumns() {
     if (table) table.classList.toggle('no-cost', inStock);
     const gtWrap = document.getElementById('reqGrandTotalWrap');
     if (gtWrap) gtWrap.classList.toggle('pc-hide', inStock);
+    // "In stock" also changes WHERE the item comes from — see the block below.
+    applyStockItemMode();
+    applyWsQtyLimits();
+}
+
+/* ===== IN-STOCK REQUISITIONS PICK FROM THE WORKSHOP STORE =====
+   "In stock — already bought (no purchase needed)" means the goods come OUT of the
+   workshop store, so the lines are chosen from the WORKSHOP register instead of being
+   typed into the shop's product catalogue — and it is a SEARCHABLE list (type to
+   filter, then pick), because the register is a list of names nobody should retype.
+   Both controls share the item cell and one of them is hidden. The line saves the
+   workshop item's NAME, because that is how the store matches its own goods (a
+   workshop item is not a catalogue product, so no product id is stored — the fix for
+   these lines is `_workshop_ensure_item`). The picked name is held in a HIDDEN field,
+   so text that was typed but never picked cannot reach the store and invent a new
+   zero-stock item at authorisation time. */
+let WS_ITEMS = [];            // [{id, name, category, unit, stock}]
+let WS_ITEMS_LOADED = false;
+
+async function loadWsItems() {
+    try {
+        const res = await fetch('/api/procurement/workshop/catalogue', { credentials: 'include' });
+        const data = await res.json();
+        WS_ITEMS = (data && data.data) || [];
+    } catch (e) { WS_ITEMS = []; }
+    WS_ITEMS_LOADED = true;
+    // Anything already bound can now be measured against the register.
+    applyWsQtyLimits();
+}
+
+function wsItemByName(name) {
+    const k = String(name || '').trim().toLowerCase();
+    if (!k) return null;
+    return WS_ITEMS.find(i => (i.name || '').toLowerCase() === k) || null;
+}
+
+/* The item this line is COMMITTED to. Only a real pick (or an exactly typed name) sets
+   it, so a half-typed name can never be saved. */
+function wsRowItem(row) {
+    const hid = row && row.querySelector('.pc-ws-name');
+    return hid ? (hid.value || '').trim() : '';
+}
+
+function setWsItem(row, name) {
+    const hid = row.querySelector('.pc-ws-name');
+    const inp = row.querySelector('.pc-item-ws');
+    if (hid) hid.value = name || '';
+    if (inp) { inp.value = name || ''; inp.title = ''; }
+}
+
+/* What the OTHER lines already claim of this item, so the list can say how much is left
+   for this one (the same item may legitimately be listed on two lines). */
+function wsClaimedByOthers(name, skipRow) {
+    let n = 0;
+    document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
+        if (row === skipRow) return;
+        if (wsRowItem(row).toLowerCase() === String(name || '').toLowerCase()) {
+            n += parseFloat(row.querySelector('.pc-item-qty').value || '0') || 0;
+        }
+    });
+    return n;
+}
+
+function wireWsItemSearch(input, row) {
+    if (!input) return;
+    const list = row.querySelector('.pc-prod-wrap .pc-suggest');
+    if (!list) return;
+    const show = (items) => {
+        if (!items.length) {
+            list.innerHTML = WS_ITEMS.length
+                ? '<div class="pc-sug-item" style="pointer-events:none;"><span>No match in the workshop store</span>'
+                  + '<span class="sub">Clear the box to list everything on hand</span></div>'
+                : '<div class="pc-sug-item" style="pointer-events:none;"><span>Nothing in the workshop store yet</span>'
+                  + '<span class="sub">Stock arrives by receiving a purchase order, or by hand on the Workshop tab</span></div>';
+            floatSuggestOnAnchor(input, list, 460, true);
+            list.style.display = 'block';
+            return;
+        }
+        list.innerHTML = items.map((i, idx) => {
+            const claimed = wsClaimedByOthers(i.name, row);
+            const have = Number(i.stock) || 0;
+            const left = Math.max(0, have - claimed);
+            return `<div class="pc-sug-item" data-i="${idx}"><span>${esc(i.name)}</span>`
+                + `<span class="sub">${esc(i.category || 'Uncategorised')} • ${have}${i.unit ? ' ' + esc(i.unit) : ''} on hand`
+                + (claimed ? ` • ${claimed} already on this requisition` : '')
+                + ` • ${left} left</span></div>`;
+        }).join('');
+        floatSuggestOnAnchor(input, list, 460, true);
+        list.style.display = 'block';
+        list.querySelectorAll('.pc-sug-item').forEach(el => {
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                setWsItem(row, items[+el.dataset.i].name);
+                list.style.display = 'none';
+                applyWsQtyLimits();
+            });
+        });
+    };
+    const matches = () => {
+        const q = input.value.trim().toLowerCase();
+        return WS_ITEMS.filter(i => !q
+            || (i.name || '').toLowerCase().includes(q)
+            || (i.category || '').toLowerCase().includes(q)).slice(0, 40);
+    };
+    input.addEventListener('focus', () => {
+        if (!WS_ITEMS_LOADED) loadWsItems();
+        show(matches());
+    });
+    input.addEventListener('input', () => {
+        // Typing invalidates the previous pick — it counts again only when it resolves
+        // back to a real item (on blur, or by picking from the list).
+        const hid = row.querySelector('.pc-ws-name');
+        if (hid) hid.value = '';
+        show(matches());
+    });
+    input.addEventListener('blur', () => setTimeout(() => {
+        list.style.display = 'none';
+        const typed = input.value.trim();
+        const hit = wsItemByName(typed);
+        if (hit) { setWsItem(row, hit.name); }
+        else if (typed) {
+            const hid = row.querySelector('.pc-ws-name');
+            if (hid) hid.value = '';
+            input.title = 'Not in the workshop store — pick an item from the list';
+        }
+        applyWsQtyLimits();
+    }, 150));
+}
+
+function applyStockItemMode() {
+    const el = document.getElementById('reqStockStatus');
+    const inStock = !!el && el.value === 'in_stock';
+    document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
+        const prod = row.querySelector('.pc-prod-input');
+        const wsInp = row.querySelector('.pc-item-ws');
+        const hid = row.querySelector('.pc-ws-name');
+        if (prod) prod.classList.toggle('pc-hide', inStock);
+        if (wsInp) {
+            wsInp.classList.toggle('pc-hide', !inStock);
+            wsInp.title = inStock ? 'Search the workshop store — type to filter, then pick an item' : '';
+        }
+        if (!inStock) {
+            // A workshop binding must not survive into a buying requisition.
+            if (hid) hid.value = '';
+            return;
+        }
+        // Carry a name that was already typed over when it really is a workshop item;
+        // otherwise leave the box empty and let them search.
+        if (hid && !hid.value && prod && prod.value.trim()) {
+            const hit = wsItemByName(prod.value.trim());
+            if (hit) setWsItem(row, hit.name);
+        }
+        // The store matches goods by NAME, so never let a product id ride along with a
+        // workshop item — it would point at an unrelated row of the shop's catalogue.
+        const pid = row.querySelector('.pc-prod-id');
+        if (pid) pid.value = '';
+    });
+    if (inStock && !WS_ITEMS_LOADED) loadWsItems();
+}
+
+/* How much of an item the store can give: on hand MINUS what has already been claimed.
+   The SAME item may be listed on more than one line, so the cap is CUMULATIVE — walk
+   the rows in order, remember what each item has been asked for, and let each line take
+   only what is left. Otherwise two lines of 20 each look fine against a stock of 24
+   while together asking for 40. */
+function applyWsQtyLimits() {
+    const el = document.getElementById('reqStockStatus');
+    const inStock = !!el && el.value === 'in_stock';
+    const used = {};
+    document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
+        const qtyEl = row.querySelector('.pc-item-qty');
+        if (!qtyEl) return;
+        const name = inStock ? wsRowItem(row) : '';
+        if (!name) {
+            // Nothing coming out of the store (or nothing picked yet): no cap at all —
+            // a max left over from a previous in-stock pass must not linger.
+            qtyEl.removeAttribute('max');
+            qtyEl.title = inStock ? 'Pick an item from the workshop store list first' : '';
+            return;
+        }
+        const item = wsItemByName(name);
+        if (!item) {
+            // Bound to a name the register no longer holds (renamed or removed): leave
+            // the quantity alone rather than pretend we know what is available.
+            qtyEl.removeAttribute('max');
+            qtyEl.title = name + ' is not in the workshop register — availability unknown';
+            return;
+        }
+        const key = name.toLowerCase();
+        const have = Number(item.stock) || 0;
+        const already = used[key] || 0;
+        const left = Math.max(0, have - already);
+        let q = parseFloat(qtyEl.value || '0') || 0;
+        if (q > left) {
+            q = left;
+            // Nothing left for this line: blank it (an empty quantity simply drops the
+            // line, whereas a 0 would look like a figure someone chose).
+            qtyEl.value = left > 0 ? left : '';
+        }
+        qtyEl.max = left;
+        qtyEl.title = `${have}${item.unit ? ' ' + item.unit : ''} in the workshop store`
+            + (already ? `, ${already} already on this requisition` : '')
+            + ` — ${left} still available for this line`;
+        used[key] = already + (q || 0);
+    });
+    recalcReqTotal();
+}
+
+/* The same cumulative rule, checked once more on save — the rows could have been filled
+   programmatically, or the register read a while ago. A name the register does not hold
+   is reported separately: it cannot be measured, so it is refused rather than guessed. */
+function wsStockShortfalls(items) {
+    const want = {};
+    (items || []).forEach(it => {
+        const k = (it.product_name || '').trim().toLowerCase();
+        if (k) want[k] = (want[k] || 0) + (it.quantity || 0);
+    });
+    const short = [], unknown = [];
+    Object.keys(want).forEach(k => {
+        const item = wsItemByName(k);
+        if (!item) { unknown.push(k); return; }
+        const have = Number(item.stock) || 0;
+        if (want[k] > have) {
+            short.push({ name: item.name, unit: item.unit || '', want: want[k], have: have });
+        }
+    });
+    return { short: short, unknown: unknown };
 }
 
 // ===== ITEM SUPPLIER QUOTES (editor modal) =====
@@ -3097,7 +3344,7 @@ function emptyQuote() {
 window.openItemSuppliers = async function(rowEl) {
     if (!rowEl) return;
     CUR_SUP_ROW = rowEl;
-    const nameEl = rowEl.querySelector('.pc-prod-input');
+    const nameEl = rowEl.querySelector('.pc-item-ws:not(.pc-hide)') || rowEl.querySelector('.pc-prod-input');
     document.getElementById('itemSupTitle').textContent = 'Supplier Quotes — ' + (nameEl ? (nameEl.value || 'Item') : 'Item');
     if (!rowEl._suppliers || !rowEl._suppliers.length) rowEl._suppliers = [emptyQuote()];
     await ensureSuppliersLoaded();
@@ -3614,6 +3861,7 @@ window.openReqModal = function() {
     addItemRow();
     if (!PROJECTS.length) loadProjects();
     if (!REQ_ASSIGNEES.req_authorisers.length && !REQ_ASSIGNEES.req_approvers.length) loadPoAssignees();
+    if (!WS_ITEMS_LOADED) loadWsItems();
     showModal('reqModal');
 };
 window.editReq = async function(id) {
@@ -3670,7 +3918,40 @@ window.saveReq = async function() {
     const dept = document.getElementById('reqDepartment').value.trim();
     if (!title) { toast('Title is required', 'error'); return; }
     const collected = collectReqItems(true);
+    const _inStockNow = (document.getElementById('reqStockStatus').value || '') === 'in_stock';
+    // An in-stock line whose item was typed but never PICKED is dropped from `collected`
+    // (only a bound name counts), so it has to be reported BEFORE the empty check —
+    // otherwise a typo gets answered with "add at least one item", which is not the
+    // problem and gives no hint how to fix it.
+    if (_inStockNow) {
+        const typed = [];
+        document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
+            const inp = row.querySelector('.pc-item-ws');
+            if (inp && !inp.classList.contains('pc-hide') && inp.value.trim() && !wsRowItem(row)) {
+                typed.push(inp.value.trim());
+            }
+        });
+        if (typed.length) {
+            toast('Not in the workshop store: ' + typed.join(', ') + '. Pick the item from the list.', 'error');
+            return;
+        }
+    }
     if (!collected.length) { toast('Add at least one item with a quantity', 'error'); return; }
+    // Goods coming OUT of the workshop store cannot exceed what it holds — and an item
+    // listed on two lines counts TWICE, so this is per item, not per line.
+    if (_inStockNow) {
+        const check = wsStockShortfalls(collected);
+        if (check.unknown.length) {
+            toast('Not in the workshop store: ' + check.unknown.join(', ') + '.', 'error');
+            return;
+        }
+        if (check.short.length) {
+            const s = check.short[0];
+            toast(s.name + ': ' + s.want + ' requested but the workshop store holds ' + s.have
+                + (s.unit ? ' ' + s.unit : '') + '.', 'error');
+            return;
+        }
+    }
     // Projects live ON the line items, so the Production rule is enforced per item.
     if (dept.toLowerCase() === 'production') {
         const missing = collected.filter(it => !it.project_id).length;

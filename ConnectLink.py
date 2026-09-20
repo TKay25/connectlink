@@ -44210,6 +44210,36 @@ def procurement_api_workshop_stock():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/procurement/workshop/catalogue', methods=['GET'])
+@login_required
+def procurement_api_workshop_catalogue():
+    """The workshop register as a plain PICK LIST — id, name, category, unit, stock.
+
+    The requisition form offers this when "Stock Availability" is answered "In stock —
+    already bought (no purchase needed)": the goods then come OUT of the workshop store
+    instead of being bought, so the picker must offer the workshop's OWN items, with
+    their on-hand figures, rather than the shop's product catalogue. Deliberately NOT
+    `_workshop_ledger()` — a dropdown needs the item list, not a period's arithmetic
+    plus the reconciliation pass.
+    """
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, name, COALESCE(category, ''), COALESCE(unit, 'unit'),
+                       COALESCE(stock, 0)
+                FROM workshop_items
+                WHERE COALESCE(is_active, TRUE)
+                ORDER BY lower(name)
+            """)
+            rows = cursor.fetchall() or []
+        return jsonify({'success': True, 'data': [
+            {'id': r[0], 'name': r[1] or '', 'category': r[2],
+             'unit': r[3], 'stock': _proc_qty_of(r[4])} for r in rows]})
+    except Exception as e:
+        print(f"Workshop catalogue error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ---- Workshop stock report: PDF ----
 
 def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
