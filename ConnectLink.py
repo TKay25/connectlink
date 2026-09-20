@@ -1618,6 +1618,8 @@ def initialize_database_tables():
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at DESC);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_log_action_type ON activity_log(action_type);")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_log_reference ON activity_log(reference_type, reference_id);")
+                # The procurement audit trail filters by person as often as by date.
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_name);")
             except Exception as e:
                 connection.rollback()
                 print(f"Note: Could not create activity_log indexes: {e}")
@@ -41779,7 +41781,15 @@ def procurement_api_attachment_delete(att_id):
     """Delete an attachment and remove its file from disk."""
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT stored_name FROM procurement_attachments WHERE id = %s", (att_id,))
+            # Also fetch WHAT it was and which order it belonged to: deleting a supplier
+            # invoice is exactly the kind of change an audit trail exists to capture, and
+            # the file is about to be gone for good.
+            cursor.execute("""
+                SELECT a.stored_name, a.original_name, a.attachment_type, a.po_id, po.po_no
+                FROM procurement_attachments a
+                LEFT JOIN purchase_orders po ON po.id = a.po_id
+                WHERE a.id = %s
+            """, (att_id,))
             r = cursor.fetchone()
             if not r:
                 return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
@@ -41792,7 +41802,12 @@ def procurement_api_attachment_delete(att_id):
                 os.remove(path)
             except Exception:
                 pass
-        return jsonify({'success': True, 'message': 'Attachment deleted.'})
+        said = r[1] or r[0]
+        where = r[4] or (f'PO #{r[3]}' if r[3] else 'a purchase order')
+        log_activity('po_attachment_delete',
+                     f'Deleted the {r[2] or "attachment"} \u201c{said}\u201d from {where}',
+                     'purchase_order', r[3])
+        return jsonify({'success': True, 'message': f'Attachment \u201c{said}\u201d deleted.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -41806,8 +41821,16 @@ def procurement_api_item_supplier_attachment_upload(sid):
     """Attach an invoice supporting a requisition item's supplier quote."""
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT id FROM requisition_item_suppliers WHERE id = %s", (sid,))
-            if not cursor.fetchone():
+            # The quote's requisition, so the trail entry says which document it belongs to.
+            cursor.execute("""
+                SELECT ris.id, r.id, r.req_no, ris.supplier_name
+                FROM requisition_item_suppliers ris
+                LEFT JOIN requisition_items ri ON ri.id = ris.item_id
+                LEFT JOIN requisitions r ON r.id = ri.requisition_id
+                WHERE ris.id = %s
+            """, (sid,))
+            quote = cursor.fetchone()
+            if not quote:
                 return jsonify({'success': False, 'error': 'Supplier quote not found.'}), 404
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file selected.'}), 400
@@ -41828,6 +41851,10 @@ def procurement_api_item_supplier_attachment_upload(sid):
             """, (sid, file.filename, stored, file.content_type or 'application/octet-stream',
                   os.path.getsize(os.path.join(folder, stored)), user['name']))
             connection.commit()
+        where = quote[2] or (f'requisition #{quote[1]}' if quote[1] else 'a requisition')
+        log_activity('requisition_attachment',
+                     f'Attached \u201c{file.filename}\u201d to the {quote[3] or "supplier"} quote on {where}',
+                     'requisition', quote[1])
         return jsonify({'success': True, 'message': 'Invoice attached.'})
     except Exception as e:
         print(f"Upload req invoice error: {e}")
@@ -41860,7 +41887,15 @@ def procurement_api_requisition_attachment_delete(att_id):
     """Delete an invoice attached to a requisition item supplier quote."""
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT stored_name FROM requisition_item_attachments WHERE id = %s", (att_id,))
+            # Name the requisition it belonged to before the row disappears.
+            cursor.execute("""
+                SELECT a.stored_name, a.original_name, ri.requisition_id, r.req_no
+                FROM requisition_item_attachments a
+                LEFT JOIN requisition_item_suppliers ris ON ris.id = a.item_supplier_id
+                LEFT JOIN requisition_items ri ON ri.id = ris.item_id
+                LEFT JOIN requisitions r ON r.id = ri.requisition_id
+                WHERE a.id = %s
+            """, (att_id,))
             r = cursor.fetchone()
             if not r:
                 return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
@@ -41873,7 +41908,12 @@ def procurement_api_requisition_attachment_delete(att_id):
                 os.remove(path)
             except Exception:
                 pass
-        return jsonify({'success': True, 'message': 'Attachment deleted.'})
+        said = r[1] or r[0]
+        where = r[3] or (f'requisition #{r[2]}' if r[2] else 'a requisition')
+        log_activity('requisition_attachment_delete',
+                     f'Deleted the invoice \u201c{said}\u201d from {where}',
+                     'requisition', r[2])
+        return jsonify({'success': True, 'message': f'Attachment \u201c{said}\u201d deleted.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -43399,6 +43439,13 @@ def procurement_api_export():
         wb.save(bio)
         bio.seek(0)
         fname = f"procurement_{scope}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        # An export takes procurement data OUT of the system, so it is recorded. The
+        # reference type follows the scope, which also files it under the right area of
+        # the audit trail.
+        ref_type = {'requisitions': 'requisition', 'purchase_orders': 'purchase_order',
+                    'suppliers': 'supplier'}.get(scope, 'requisition')
+        log_activity('procurement_export',
+                     f'Exported the {scope.replace("_", " ")} list to Excel', ref_type, None)
         return send_file(bio, as_attachment=True, download_name=fname,
                          mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     except Exception as e:
@@ -44019,7 +44066,20 @@ def procurement_api_workshop_movement_delete(mv_id):
 
     Refused for a movement that came from a DOCUMENT (a purchase-order receipt or a
     requisition issue) — that belongs to that document's own history, and a correcting
-    adjustment is the honest way to fix it."""
+    adjustment is the honest way to fix it.
+
+    PASSCODE-GATED, like every other hand-written change to the register: undoing moves
+    the balance and ERASES a line of history, so it is at least as powerful as adding
+    one. The passcode may arrive in the JSON body or as a query parameter, so an older
+    client cannot slip past the gate."""
+    data = request.get_json(silent=True) or {}
+    passcode = str(data.get('passcode') or request.args.get('passcode') or '').strip()
+    if not passcode:
+        return jsonify({'success': False, 'passcode_required': True,
+                        'error': 'A passcode is required to undo a movement.'}), 400
+    if passcode != PROC_WORKSHOP_ITEM_PASSCODE:
+        return jsonify({'success': False, 'passcode_required': True,
+                        'error': 'Invalid passcode.'}), 403
     try:
         with get_db() as (cursor, connection):
             cursor.execute("""
@@ -44351,6 +44411,402 @@ def procurement_api_workshop_excel():
                          mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     except Exception as e:
         print(f"Workshop excel error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
+# PROCUREMENT AUDIT TRAIL
+# ----------------------------------------------------------------------------
+# A VIEW over the shared `activity_log` table — never a second store. Every action in
+# this portal already writes there through log_activity(), so there is nothing to
+# duplicate and no way for the trail to drift from the actions it describes.
+#
+# SCOPE. Rows are matched by REFERENCE TYPE rather than by a hand-written list of
+# action types, so a new procurement action is picked up the moment it passes one of
+# these — there is no list to remember to update. Checked against every log_activity()
+# call in the app: NO other module uses any of these seven, so the trail cannot pick
+# up someone else's rows. `download_payments_history` is deliberately NOT included —
+# it carries reference_type='project' and is the PROJECTS payments export, not this
+# module's.
+PROC_AUDIT_REF_TYPES = ('requisition', 'purchase_order', 'supplier', 'workshop',
+                        'workshop_item', 'expense_request', 'asset')
+
+# 'user_login' is the ONE action type shared with other modules (the admin, HR and
+# user-management logins all use it), so a procurement login is identified by the
+# description prefix procurement_login() itself writes.
+PROC_AUDIT_LOGIN_PREFIX = 'Procurement:%'
+
+# Which area of the portal a row belongs to — as SQL, so the same expression can be
+# selected, grouped AND filtered by. One definition means the filter and the column
+# can never disagree.
+PROC_AUDIT_AREA_SQL = """
+    CASE
+        WHEN reference_type IN ('workshop', 'workshop_item') THEN 'workshop'
+        WHEN reference_type = 'purchase_order'               THEN 'purchase_orders'
+        WHEN reference_type = 'requisition'                  THEN 'requisitions'
+        WHEN reference_type = 'supplier'                     THEN 'suppliers'
+        WHEN reference_type IN ('expense_request', 'asset')  THEN 'expenses'
+        ELSE 'portal'
+    END
+"""
+
+PROC_AUDIT_AREAS = {
+    'requisitions':    'Requisitions',
+    'purchase_orders': 'Purchase Orders',
+    'workshop':        'Workshop',
+    'suppliers':       'Suppliers & Payments',
+    'expenses':        'Logistics & Expenses',
+    'portal':          'Portal Access',
+}
+
+# The columns the trail reads, in the order _procurement_audit_fetch() unpacks them.
+# Kept in one place so the SELECT and the unpacking cannot drift apart.
+PROC_AUDIT_COLUMNS = ('id, created_at, user_name, action_type, description, '
+                      'reference_type, reference_id')
+
+# A downloaded trail is read into memory to build the workbook, so it is capped. The
+# file states how many entries matched, so a truncated export can never be mistaken
+# for a complete one.
+PROC_AUDIT_EXPORT_CAP = 20000
+
+
+def _procurement_audit_scope_sql():
+    """The single condition that defines 'the procurement system' inside activity_log."""
+    refs = ', '.join(['%s'] * len(PROC_AUDIT_REF_TYPES))
+    return (f"(reference_type IN ({refs})"
+            f" OR (action_type = 'user_login' AND description LIKE %s))")
+
+
+def _proc_audit_date(v):
+    """'YYYY-MM-DD' -> the same string, or '' when missing or not a date.
+
+    Never raises: a hand-typed query string must not be able to 500 the trail."""
+    v = (v or '').strip()
+    if not v:
+        return ''
+    try:
+        datetime.strptime(v, '%Y-%m-%d')
+        return v
+    except ValueError:
+        return ''
+
+
+def _procurement_audit_args(args):
+    """Read and validate the trail's filters from a query string.
+
+    Shared by the screen and the download so a filter means the same thing in both —
+    the date handling in particular is exactly where the two would otherwise drift.
+    Returns the parameters for _procurement_audit_filters() plus what was understood,
+    so the page can show the filters back to the user.
+    """
+    start = _proc_audit_date(args.get('from'))
+    end = _proc_audit_date(args.get('to'))
+    if start and end and end < start:
+        start, end = end, start      # a reversed range reads as that range, not as empty
+    area = (args.get('area') or '').strip().lower()
+    if area not in PROC_AUDIT_AREAS:
+        area = ''
+    action = (args.get('action') or '').strip()
+    user = (args.get('user') or '').strip()
+    search = (args.get('q') or '').strip()
+    return {
+        'filters': {'start': start, 'end': end, 'area': area, 'action': action,
+                    'user_name': user, 'search': search},
+        'echo': {'from': start, 'to': end, 'area': area, 'action': action,
+                 'user': user, 'q': search},
+    }
+
+
+def _procurement_audit_filters(start=None, end=None, area=None, action=None,
+                               user_name=None, search=None):
+    """WHERE clause + params for the trail.
+
+    ONE builder, used by the screen, the tiles and the download, so no two of them can
+    disagree about what the trail contains. Each condition appends its own parameters
+    in the same order as its placeholders — the only way to keep the two in step.
+    """
+    conds = [_procurement_audit_scope_sql()]
+    params = list(PROC_AUDIT_REF_TYPES) + [PROC_AUDIT_LOGIN_PREFIX]
+    if start:
+        conds.append("created_at >= %s")
+        params.append(start)
+    if end:
+        conds.append("created_at <= %s")
+        params.append(end + ' 23:59:59')
+    if area:
+        conds.append(f"({PROC_AUDIT_AREA_SQL}) = %s")
+        params.append(area)
+    if action:
+        conds.append("action_type = %s")
+        params.append(action)
+    if user_name:
+        conds.append("user_name = %s")
+        params.append(user_name)
+    if search:
+        conds.append("(description ILIKE %s OR action_type ILIKE %s OR user_name ILIKE %s)")
+        params.extend([f'%{search}%'] * 3)
+    return "WHERE " + " AND ".join(conds), params
+
+
+def _procurement_audit_row(r):
+    """One activity_log row -> the shape BOTH the screen and the workbook use.
+
+    `r` arrives in the order of PROC_AUDIT_COLUMNS plus the computed area, which is
+    id, created_at, user_name, action_type, description, reference_type, reference_id,
+    area — the unpacking below is that order and must stay that order.
+
+    Only JSON-safe values live in here: no raw datetime, so the payload can be
+    serialised without a special encoder (the workbook parses `at_iso` back when it
+    needs a real date to sort on).
+    """
+    rid, when, who, action, desc, ref_type, ref_id, area = r
+    ref = ''
+    if ref_type:
+        ref = str(ref_type).replace('_', ' ')
+        if ref_id:
+            ref += f' #{ref_id}'
+    return {
+        'id': rid,
+        'at': when.strftime('%d/%m/%Y %H:%M') if when else '',
+        'at_iso': when.strftime('%Y-%m-%d %H:%M:%S') if when else '',
+        'user': who or 'System',
+        'action': action or '',
+        'action_label': (action or '').replace('_', ' ').strip().title(),
+        'description': desc or '',
+        'reference_type': ref_type or '',
+        'reference_id': ref_id,
+        'reference': ref.strip(),
+        'area': area or 'portal',
+        'area_label': PROC_AUDIT_AREAS.get(area or 'portal', 'Portal'),
+    }
+
+
+def _procurement_audit_fetch(where_sql, params, limit=None):
+    """Rows for the trail, newest first, plus how many entries matched in total.
+
+    The total comes from its own COUNT so the screen can say 'showing the most recent
+    500 of 3,412' rather than quietly truncating."""
+    base = f"""
+        SELECT {PROC_AUDIT_COLUMNS}, ({PROC_AUDIT_AREA_SQL}) AS area
+        FROM activity_log
+        {where_sql}
+        ORDER BY created_at DESC, id DESC
+    """
+    with get_db() as (cursor, connection):
+        cursor.execute(f"SELECT COUNT(*) FROM activity_log {where_sql}", tuple(params))
+        total = int((cursor.fetchone() or [0])[0] or 0)
+        if limit:
+            cursor.execute(base + " LIMIT %s", tuple(params) + (limit,))
+        else:
+            cursor.execute(base, tuple(params))
+        raw = cursor.fetchall() or []
+    return [_procurement_audit_row(r) for r in raw], total
+
+
+def _procurement_audit_counts(where_sql, params):
+    """Counts over the WHOLE filtered set, not just the page on screen — so the tiles
+    and the workbook summary stay true even when the table is truncated."""
+    out = {'area': {}, 'user': {}, 'action': {}}
+    with get_db() as (cursor, connection):
+        cursor.execute(f"SELECT ({PROC_AUDIT_AREA_SQL}) AS area, COUNT(*) "
+                       f"FROM activity_log {where_sql} GROUP BY 1", tuple(params))
+        for a, n in cursor.fetchall() or []:
+            out['area'][a or 'portal'] = int(n or 0)
+        cursor.execute(f"SELECT COALESCE(NULLIF(user_name, ''), 'System'), COUNT(*) "
+                       f"FROM activity_log {where_sql} GROUP BY 1", tuple(params))
+        for u, n in cursor.fetchall() or []:
+            out['user'][u or 'System'] = int(n or 0)
+        cursor.execute(f"SELECT action_type, COUNT(*) FROM activity_log {where_sql} GROUP BY 1",
+                       tuple(params))
+        for a, n in cursor.fetchall() or []:
+            out['action'][a or ''] = int(n or 0)
+    return out
+
+
+def _procurement_audit_facets():
+    """The values the filters can be set to, taken from the WHOLE trail rather than
+    from the current filter — otherwise narrowing would make a wider choice
+    unreachable, which is the trap this exists to avoid."""
+    scope_sql, scope_params = _procurement_audit_filters()
+    users, actions = [], []
+    with get_db() as (cursor, connection):
+        cursor.execute(f"SELECT COALESCE(NULLIF(user_name, ''), 'System') AS who, COUNT(*) "
+                       f"FROM activity_log {scope_sql} GROUP BY 1 ORDER BY 2 DESC",
+                       tuple(scope_params))
+        users = [{'name': u, 'count': int(n or 0)} for u, n in cursor.fetchall() or []]
+        cursor.execute(f"SELECT action_type, COUNT(*) FROM activity_log {scope_sql} "
+                       f"GROUP BY 1 ORDER BY 2 DESC", tuple(scope_params))
+        actions = [{'action': a or '', 'label': (a or '').replace('_', ' ').strip().title(),
+                    'count': int(n or 0)} for a, n in cursor.fetchall() or []]
+    return {'users': users, 'actions': actions,
+            'areas': [{'area': k, 'label': v} for k, v in PROC_AUDIT_AREAS.items()]}
+
+
+def _procurement_audit_filter_text(echo):
+    """The filters as a sentence, so a downloaded trail explains what it is."""
+    bits = []
+    if echo['from'] or echo['to']:
+        bits.append(f"{echo['from'] or 'the beginning'} to {echo['to'] or 'today'}")
+    else:
+        bits.append('all dates')
+    if echo['area']:
+        bits.append(PROC_AUDIT_AREAS.get(echo['area'], echo['area']))
+    if echo['action']:
+        bits.append(echo['action'].replace('_', ' '))
+    if echo['user']:
+        bits.append(f"by {echo['user']}")
+    if echo['q']:
+        bits.append(f"search \"{echo['q']}\"")
+    return ' \u00b7 '.join(bits)
+
+
+def _procurement_audit_excel_bytes(rows, total, echo, counts, generated_by):
+    """The trail as a workbook — the same rows the screen is showing.
+
+    Sheet 1 is the trail with a header stating the filters used, so a downloaded file
+    still explains itself months later; sheet 2 is the summary an audit actually gets
+    asked for (how many changes, by whom, in which area).
+    """
+    from openpyxl.styles import Alignment
+
+    hfill = PatternFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+    sfill = PatternFill(start_color='EEF1F6', end_color='EEF1F6', fill_type='solid')
+    hfont = Font(bold=True, color='FFFFFF', size=10)
+    tfont = Font(bold=True, color='1E2A56', size=14)
+    bfont = Font(bold=True, color='1E2A56')
+    mfont = Font(color='666666', size=9)
+    filters = _procurement_audit_filter_text(echo)
+
+    wb = Workbook()
+
+    # -------- sheet 1: the trail --------
+    ws = wb.active
+    ws.title = 'Audit Trail'
+    r = 1
+    ws.cell(row=r, column=1, value='PROCUREMENT AUDIT TRAIL').font = tfont
+    r += 1
+    ws.cell(row=r, column=1, value=f'Filters: {filters}').font = Font(bold=True, size=10)
+    r += 1
+    note = (f"{total} entr" + ('y' if total == 1 else 'ies') + ' matched'
+            + (f', this file holds the most recent {len(rows)}' if len(rows) < total else '')
+            + f".   Generated {datetime.now().strftime('%d %b %Y %H:%M')}"
+            + f" by {generated_by or '\u2014'}.")
+    ws.cell(row=r, column=1, value=note).font = mfont
+    r += 2
+    for c, name in enumerate(['When', 'Who', 'Area', 'Action', 'Reference', 'Detail'], 1):
+        cell = ws.cell(row=r, column=c, value=name)
+        cell.font = hfont
+        cell.fill = hfill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    r += 1
+    for x in rows:
+        when_dt = None
+        if x['at_iso']:
+            try:
+                when_dt = datetime.strptime(x['at_iso'], '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                when_dt = None
+        cell = ws.cell(row=r, column=1, value=when_dt) if when_dt else ws.cell(row=r, column=1, value=x['at'])
+        cell.number_format = 'dd/mm/yyyy hh:mm'
+        ws.cell(row=r, column=2, value=x['user'])
+        ws.cell(row=r, column=3, value=x['area_label'])
+        ws.cell(row=r, column=4, value=x['action_label'])
+        ws.cell(row=r, column=5, value=x['reference'])
+        ws.cell(row=r, column=6, value=x['description'])
+        r += 1
+    for col, width in zip('ABCDEF', (18, 22, 22, 26, 24, 70)):
+        ws.column_dimensions[col].width = width
+    ws.freeze_panes = 'A5'
+
+    # -------- sheet 2: the summary --------
+    ws2 = wb.create_sheet('Summary')
+    r = 1
+    ws2.cell(row=r, column=1, value='AUDIT TRAIL SUMMARY').font = tfont
+    r += 1
+    ws2.cell(row=r, column=1, value=f'Filters: {filters}').font = Font(bold=True, size=10)
+    r += 2
+    by_area = [(PROC_AUDIT_AREAS.get(a, a), n)
+               for a, n in sorted(counts['area'].items(), key=lambda kv: -kv[1])]
+    by_user = sorted(counts['user'].items(), key=lambda kv: -kv[1])
+    by_action = [((a or '').replace('_', ' '), n)
+                 for a, n in sorted(counts['action'].items(), key=lambda kv: -kv[1])]
+    for title, items in (('Changes by area', by_area),
+                         ('Changes by person', by_user),
+                         ('Changes by action', by_action)):
+        ws2.cell(row=r, column=1, value=title).font = bfont
+        r += 1
+        for c, name in enumerate(['', 'Entries'], 1):
+            cell = ws2.cell(row=r, column=c, value=name)
+            cell.font = hfont
+            cell.fill = hfill
+        r += 1
+        for k, v in items:
+            ws2.cell(row=r, column=1, value=k)
+            ws2.cell(row=r, column=2, value=v).font = bfont
+            r += 1
+        r += 1
+    for c, val in enumerate(['TOTAL matched', total], 1):
+        cell = ws2.cell(row=r, column=c, value=val)
+        cell.font = bfont
+        cell.fill = sfill
+    ws2.column_dimensions['A'].width = 34
+    ws2.column_dimensions['B'].width = 12
+
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    return bio.getvalue()
+
+
+@app.route('/api/procurement/audit', methods=['GET'])
+@login_required
+@_procurement_perm_required('can_view_audit')
+def procurement_api_audit():
+    """The procurement audit trail: what changed, who changed it, and when.
+
+    READ-ONLY by design — nothing here writes to the trail (an export is not logged;
+    see the note in the UI). It is a view of activity_log scoped to this module."""
+    try:
+        parsed = _procurement_audit_args(request.args)
+        where_sql, params = _procurement_audit_filters(**parsed['filters'])
+        limit = min(max(request.args.get('limit', 500, type=int) or 500, 1), 5000)
+        rows, total = _procurement_audit_fetch(where_sql, params, limit=limit)
+        counts = _procurement_audit_counts(where_sql, params)
+        return jsonify({
+            'success': True,
+            'rows': rows,
+            'count': len(rows),
+            'total': total,
+            'truncated': len(rows) < total,
+            'people': len(counts['user']),
+            'by_area': counts['area'],
+            'areas': PROC_AUDIT_AREAS,
+            'facets': _procurement_audit_facets(),
+            'filters': parsed['echo'],
+        })
+    except Exception as e:
+        print(f"Procurement audit error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/procurement/audit.xlsx', methods=['GET'])
+@login_required
+@_procurement_perm_required('can_view_audit')
+def procurement_api_audit_excel():
+    """Download the audit trail as an Excel workbook — same filters as the screen."""
+    try:
+        parsed = _procurement_audit_args(request.args)
+        where_sql, params = _procurement_audit_filters(**parsed['filters'])
+        rows, total = _procurement_audit_fetch(where_sql, params, limit=PROC_AUDIT_EXPORT_CAP)
+        counts = _procurement_audit_counts(where_sql, params)
+        blob = _procurement_audit_excel_bytes(rows, total, parsed['echo'], counts,
+                                              _workshop_user_name())
+        span = (f"{parsed['echo']['from'] or 'start'}_{parsed['echo']['to'] or 'today'}")
+        fname = f'procurement_audit_{span}.xlsx'.replace(' ', '')
+        return send_file(io.BytesIO(blob), as_attachment=True, download_name=fname,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        print(f"Procurement audit excel error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -46551,7 +47007,13 @@ def procurement_api_expense_attachment_delete(att_id):
     """Delete an expense attachment and remove its file from disk."""
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT stored_name FROM expense_attachments WHERE id = %s", (att_id,))
+            # Name the expense request before the row disappears.
+            cursor.execute("""
+                SELECT a.stored_name, a.original_name, a.expense_id, e.exp_no
+                FROM expense_attachments a
+                LEFT JOIN expense_requests e ON e.id = a.expense_id
+                WHERE a.id = %s
+            """, (att_id,))
             r = cursor.fetchone()
             if not r:
                 return jsonify({'success': False, 'error': 'Attachment not found.'}), 404
@@ -46564,7 +47026,12 @@ def procurement_api_expense_attachment_delete(att_id):
                 os.remove(path)
             except Exception:
                 pass
-        return jsonify({'success': True, 'message': 'Attachment deleted.'})
+        said = r[1] or r[0]
+        where = r[3] or (f'expense #{r[2]}' if r[2] else 'an expense request')
+        log_activity('expense_attachment_delete',
+                     f'Deleted the receipt \u201c{said}\u201d from {where}',
+                     'expense_request', r[2])
+        return jsonify({'success': True, 'message': f'Attachment \u201c{said}\u201d deleted.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

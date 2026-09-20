@@ -921,6 +921,7 @@
         <button class="pc-nav-btn" data-module="payments" onclick="showModule('payments')"><i class="bi bi-cash-stack"></i> <span>Payments</span></button>
         <button class="pc-nav-btn" data-module="analytics" onclick="showModule('analytics')"><i class="bi bi-graph-up-arrow"></i> <span>Analytics</span></button>
         <button class="pc-nav-btn" data-module="expenses" onclick="showModule('expenses')"><i class="bi bi-fuel-pump"></i> <span>Logistics &amp; Expenses</span></button>
+        <button class="pc-nav-btn" data-module="audit" onclick="showModule('audit')" data-perm-action="can_view_audit" title="Every change made in this portal — who made it, and when. Downloadable."><i class="bi bi-clipboard-data"></i> <span>Audit Trail</span></button>
         <div class="pc-sup"><i class="bi bi-info-circle"></i> Requisitions → Approvals → POs → Stock-in</div>
     </aside>
 
@@ -1090,8 +1091,8 @@
                     The designated way for items to enter the workshop needs <b>no passcode</b>: on the
                     <b>Purchase Orders</b> tab, open the order and record that its items have been
                     <b>received</b> — the goods then join this register by themselves. Everything typed by
-                    hand — <b>Add Item</b>, renaming or editing an item, and removing one — is
-                    passcode-gated.
+                    hand — <b>Add Item</b>, renaming or editing an item, removing one, and undoing a
+                    movement — is passcode-gated.
                 </div>
             </div>
         </section>
@@ -1220,6 +1221,44 @@
                         <thead><tr><th>Name</th><th>Type</th><th>Plate No</th><th>Notes</th><th class="num">Expenses</th><th style="text-align:right;">Actions</th></tr></thead>
                         <tbody id="assetBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
                     </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ AUDIT TRAIL ============ -->
+        <section class="pc-module" id="module-audit">
+            <div class="pc-kpi-grid">
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-clipboard-data"></i></div><div class="kpi-value" id="audKpiEntries">0</div><div class="kpi-label">Entries</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-people"></i></div><div class="kpi-value" id="audKpiPeople">0</div><div class="kpi-label">People</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-file-earmark-text"></i></div><div class="kpi-value" id="audKpiDocs">0</div><div class="kpi-label">Document Changes</div></div>
+                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-tools"></i></div><div class="kpi-value" id="audKpiWorkshop">0</div><div class="kpi-label">Workshop Changes</div></div>
+            </div>
+            <div class="pc-panel">
+                <div class="pc-panel-head">
+                    <div class="pc-panel-title"><i class="bi bi-clock-history"></i> Procurement Audit Trail</div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <input type="date" class="pc-input" id="audFrom" style="width:150px;" onchange="loadAudit()" title="From this date (inclusive)">
+                        <input type="date" class="pc-input" id="audTo" style="width:150px;" onchange="loadAudit()" title="Up to this date (inclusive)">
+                        <select class="pc-select" id="audArea" style="width:175px;" onchange="loadAudit()"></select>
+                        <select class="pc-select" id="audUser" style="width:180px;" onchange="loadAudit()"></select>
+                        <input class="pc-input" id="audSearch" style="width:180px;" placeholder="Search details…" oninput="auditSearchChanged()">
+                        <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="auditClear()"><i class="bi bi-x-circle"></i> Clear</button>
+                        <button class="pc-btn pc-btn-primary pc-btn-sm" onclick="auditExport()" data-perm-action="can_view_audit" title="Download what the filters are showing as an Excel workbook"><i class="bi bi-file-earmark-excel"></i> Download</button>
+                    </div>
+                </div>
+                <div class="pc-panel-body pc-table-wrap">
+                    <div id="audBanner" style="font-size:0.62rem;color:#64748B;margin-bottom:8px;"></div>
+                    <table class="pc-table">
+                        <thead><tr><th>When</th><th>Who</th><th>Area</th><th>Action</th><th>Reference</th><th>Detail</th></tr></thead>
+                        <tbody id="audBody"><tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Loading…</td></tr></tbody>
+                    </table>
+                </div>
+                <div style="font-size:0.56rem;color:#94A3B8;padding:8px 18px 0;">
+                    <i class="bi bi-info-circle"></i>
+                    This is the portal's own activity log, filtered to this module — requisitions, purchase orders,
+                    workshop, suppliers &amp; payments and logistics &amp; expenses — read from the same table the rest
+                    of the app writes to, so it cannot drift from the actions it describes. <b>Download</b> exports
+                    exactly what the filters above are showing. Opening the trail is not itself recorded.
                 </div>
             </div>
         </section>
@@ -1823,31 +1862,27 @@
     </div>
 </div>
 
-<!-- ==================== WORKSHOP: REMOVE ITEM (PASSCODE) ==================== -->
-<div class="modal fade" id="wsDeleteModal" tabindex="-1" aria-hidden="true">
+<!-- ============ WORKSHOP: CONFIRM WITH A PASSCODE ============ -->
+<div class="modal fade" id="wsPassModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title pc-modal-title"><i class="bi bi-trash me-2 text-danger"></i>Remove Workshop Item</h5>
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-shield-lock me-2 text-danger"></i><span id="wsPassTitle">Confirm</span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body pc-modal-body">
                 <div class="pc-rv-banner red" style="margin-top:0;">
-                    <i class="bi bi-exclamation-triangle-fill"></i><span>
-                        About to remove <b id="wsDeleteName">this item</b> from the workshop register. An item
-                        that already has movements against it cannot be removed — deactivate it instead, so
-                        everything it moved through is still on record.
-                    </span>
+                    <i class="bi bi-exclamation-triangle-fill"></i><span id="wsPassText"></span>
                 </div>
                 <div style="margin-top:12px;">
                     <label class="pc-form-label">Passcode *</label>
-                    <input type="password" class="pc-input" id="wsDeletePass" autocomplete="off" placeholder="Required to remove an item">
+                    <input type="password" class="pc-input" id="wsPassInput" autocomplete="off" placeholder="Required for this change">
                 </div>
-                <div id="wsDeleteMsg" style="display:none;font-size:0.6rem;margin-top:8px;font-weight:800;color:#DC2626;"></div>
+                <div id="wsPassMsg" style="display:none;font-size:0.6rem;margin-top:8px;font-weight:800;color:#DC2626;"></div>
             </div>
             <div class="modal-footer">
                 <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
-                <button class="pc-btn pc-btn-danger" id="wsDeleteBtn" onclick="confirmWsDelete()"><i class="bi bi-trash"></i> Remove</button>
+                <button class="pc-btn pc-btn-danger" id="wsPassBtn" onclick="confirmWsPass()"><i class="bi bi-check-lg"></i> <span id="wsPassBtnLabel">Confirm</span></button>
             </div>
         </div>
     </div>
@@ -2077,7 +2112,8 @@ const PAGE_META = {
     suppliers: { title: 'Suppliers', sub: 'Manage your supplier register, lead times, terms and ratings.' },
     payments: { title: 'Payments', sub: 'Track what you owe suppliers and record payments.' },
     analytics: { title: 'Analytics', sub: 'Procurement spend, trends and supplier performance.' },
-    expenses: { title: 'Logistics & Expenses', sub: 'Fuel, maintenance, service and freight — request, approve and track operational spend.' }
+    expenses: { title: 'Logistics & Expenses', sub: 'Fuel, maintenance, service and freight — request, approve and track operational spend.' },
+    audit: { title: 'Audit Trail', sub: 'Every change made in this portal — who, what and when — and the same list as a download.' }
 };
 
 // ===== HELPERS =====
@@ -2262,6 +2298,7 @@ function showModule(name) {
     if (name === 'payments') loadPayables();
     if (name === 'analytics') loadAnalytics();
     if (name === 'expenses') loadExpenses();
+    if (name === 'audit') loadAudit();
 }
 
 // ===== NAVBAR =====
@@ -5066,7 +5103,7 @@ function renderWsMovements() {
             <td class="num" style="color:#047857;">${m.qty_in ? wsNum(m.qty_in) : ''}</td>
             <td class="num" style="color:#b91c1c;">${m.qty_out ? wsNum(m.qty_out) : ''}</td>
             <td>${esc(m.by || 'System')}</td>
-            <td style="text-align:right;">${m.undoable ? `<button class="pc-btn pc-btn-outline pc-btn-sm" title="Undo this movement" onclick="undoWsMovement(${m.id}, '${esc(m.item)}')" data-perm-action="can_manage_purchase_orders"><i class="bi bi-arrow-counterclockwise"></i></button>` : `<span style="font-size:0.55rem;color:#CBD5E1;" title="Part of a document's history (a receipt or a requisition)">from document</span>`}</td>
+            <td style="text-align:right;">${m.undoable ? `<button class="pc-btn pc-btn-outline pc-btn-sm" title="Undo this movement (needs a passcode)" onclick="undoWsMovement(${m.id}, '${esc(m.item)}')" data-perm-action="can_manage_purchase_orders"><i class="bi bi-arrow-counterclockwise"></i></button>` : `<span style="font-size:0.55rem;color:#CBD5E1;" title="Part of a document's history (a receipt or a requisition)">from document</span>`}</td>
         </tr>`).join('') ||
         '<tr><td colspan="8" class="pc-empty"><i class="bi bi-inbox"></i> No stock moved in this period.</td></tr>';
 }
@@ -5190,14 +5227,51 @@ window.saveWsMovement = async function() {
     } catch (e) { msg.textContent = 'Connection error'; msg.style.display = ''; }
 };
 
-window.undoWsMovement = async function(id, item) {
-    if (!confirm('Undo this movement of ' + item + '?\n\nThe quantity goes back where it was and the line is removed from the history.')) return;
-    try {
-        const res = await fetch('/api/procurement/workshop/movements/' + id, { method: 'DELETE', credentials: 'include' });
-        const data = await res.json();
-        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
-        if (data.success) loadWorkshop();
-    } catch (e) { toast('Connection error', 'error'); }
+window.undoWsMovement = function(id, item) {
+    wsAskPasscode({
+        title: 'Undo a workshop movement',
+        text: '<b>' + esc(item) + '</b> — the line is removed from the history and the quantity goes '
+            + 'back where it was. This cannot be undone again.',
+        button: 'Undo movement',
+        run: async (pass, msg) => {
+            const res = await fetch('/api/procurement/workshop/movements/' + id, {
+                method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', body: JSON.stringify({ passcode: pass })
+            });
+            const data = await res.json();
+            if (!data.success) { msg.textContent = data.error || 'Could not undo it.'; msg.style.display = ''; return; }
+            toast(data.message || 'Movement undone');
+            hideModal('wsPassModal');
+            loadWorkshop();
+        }
+    });
+};
+
+/* ONE dialog for every workshop change that needs the passcode, so the gate lives in a
+   single place: add / rename / edit / remove an item, and undo a movement. `run` is
+   handed the passcode once it has been supplied. */
+function wsAskPasscode(opts) {
+    document.getElementById('wsPassTitle').textContent = opts.title;
+    document.getElementById('wsPassText').innerHTML = opts.text;
+    document.getElementById('wsPassBtnLabel').textContent = opts.button || 'Confirm';
+    document.getElementById('wsPassInput').value = '';
+    document.getElementById('wsPassMsg').style.display = 'none';
+    WS_PASS_RUN = opts.run;
+    showModal('wsPassModal');
+}
+let WS_PASS_RUN = null;
+window.confirmWsPass = async function() {
+    const pass = document.getElementById('wsPassInput').value.trim();
+    const msg = document.getElementById('wsPassMsg');
+    if (!pass) { msg.textContent = 'Passcode is required.'; msg.style.display = ''; return; }
+    const btn = document.getElementById('wsPassBtn');
+    btn.disabled = true;
+    msg.style.display = 'none';
+    // The action itself decides what to say about a refusal; this catch is only for a
+    // dropped connection, so a failure can never leave the dialog sitting there mute.
+    try { await WS_PASS_RUN(pass, msg); }
+    catch (e) { msg.textContent = 'Connection error'; msg.style.display = ''; }
+    finally { btn.disabled = false; }
 };
 
 window.wsItemCategoryChanged = function() {
@@ -5286,38 +5360,129 @@ window.saveWsItem = async function() {
 };
 
 window.deleteWsItem = function(id, name) {
-    document.getElementById('wsDeleteName').textContent = '"' + name + '"';
-    document.getElementById('wsDeleteModal').dataset.itemId = id;
-    document.getElementById('wsDeletePass').value = '';
-    document.getElementById('wsDeleteMsg').style.display = 'none';
-    showModal('wsDeleteModal');
+    wsAskPasscode({
+        title: 'Remove Workshop Item',
+        text: 'About to remove <b>' + esc(name) + '</b> from the workshop register. An item that '
+            + 'already has movements against it cannot be removed — deactivate it instead, so '
+            + 'everything it moved through is still on record.',
+        button: 'Remove',
+        run: async (pass, msg) => {
+            const res = await fetch('/api/procurement/workshop/items/' + id, {
+                method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', body: JSON.stringify({ passcode: pass })
+            });
+            const data = await res.json();
+            if (!data.success) { msg.textContent = data.error || 'Could not remove it.'; msg.style.display = ''; return; }
+            toast(data.message || 'Removed');
+            hideModal('wsPassModal');
+            loadWorkshop();
+        }
+    });
 };
 
-window.confirmWsDelete = async function() {
-    const id = document.getElementById('wsDeleteModal').dataset.itemId;
-    const passcode = document.getElementById('wsDeletePass').value.trim();
-    const msg = document.getElementById('wsDeleteMsg');
-    if (!passcode) { msg.textContent = 'Passcode is required.'; msg.style.display = ''; return; }
-    const btn = document.getElementById('wsDeleteBtn');
-    btn.disabled = true;
-    msg.style.display = 'none';
-    try {
-        const res = await fetch('/api/procurement/workshop/items/' + id, {
-            method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', body: JSON.stringify({ passcode: passcode })
-        });
-        const data = await res.json();
-        if (data.success) {
-            toast(data.message || 'Removed', 'success');
-            hideModal('wsDeleteModal');
-            loadWorkshop();
-        } else {
-            msg.textContent = data.error || 'Could not remove it.';
-            msg.style.display = '';
-        }
-    } catch (e) { msg.textContent = 'Connection error'; msg.style.display = ''; }
-    btn.disabled = false;
+// ===================== AUDIT TRAIL =====================
+/* A read-only view of the portal's activity log. The filters are read from the controls
+   in ONE place (auditQuery) and used by both the screen and the download, so a download
+   can never cover a different set from what is on screen. */
+let AUDIT_DATA = null;
+let AUDIT_SEARCH_T = null;
+const AUD_BADGE = { requisitions: 'pc-badge-submitted', purchase_orders: 'pc-badge-pocreated',
+                    workshop: 'pc-badge-pending', suppliers: 'pc-badge-approved',
+                    expenses: 'pc-badge-partial', portal: 'pc-badge-cancelled' };
+const audNum = v => Number(v || 0).toLocaleString();
+
+function auditQuery(extra) {
+    const g = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    const qs = new URLSearchParams();
+    if (g('audFrom')) qs.set('from', g('audFrom'));
+    if (g('audTo')) qs.set('to', g('audTo'));
+    if (g('audArea')) qs.set('area', g('audArea'));
+    if (g('audUser')) qs.set('user', g('audUser'));
+    if (g('audSearch')) qs.set('q', g('audSearch'));
+    if (extra) Object.keys(extra).forEach(k => qs.set(k, extra[k]));
+    return qs.toString();
+}
+/* Rebuild a filter list but keep whatever the user had chosen — new people appear
+   without a refresh, and an active filter is never silently reset. */
+function auditFillSelect(id, allLabel, items, valueKey, labelFn) {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const keep = sel.value;
+    sel.innerHTML = `<option value="">${esc(allLabel)}</option>` +
+        items.map(it => `<option value="${esc(it[valueKey])}">${esc(labelFn(it))}</option>`).join('');
+    if (keep && Array.from(sel.options).some(o => o.value === keep)) sel.value = keep;
+}
+window.auditSearchChanged = function() {
+    clearTimeout(AUDIT_SEARCH_T);
+    AUDIT_SEARCH_T = setTimeout(loadAudit, 350);     // one request per pause, not per keystroke
 };
+window.auditClear = function() {
+    ['audFrom', 'audTo', 'audSearch', 'audArea', 'audUser'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    loadAudit();
+};
+window.auditExport = function() {
+    const qs = auditQuery();
+    window.location = '/api/procurement/audit.xlsx' + (qs ? '?' + qs : '');
+};
+window.loadAudit = async function() {
+    const body = document.getElementById('audBody');
+    if (!body) return;
+    showSkeleton(body, 6, 4);
+    try {
+        const qs = auditQuery();
+        const res = await fetch('/api/procurement/audit' + (qs ? '?' + qs : ''), { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) {
+            body.innerHTML = `<tr><td colspan="6" class="pc-empty text-danger">${esc(data.error || 'Could not load the audit trail')}</td></tr>`;
+            return;
+        }
+        AUDIT_DATA = data;
+        const f = data.facets || {};
+        auditFillSelect('audArea', 'All areas', f.areas || [], 'area', a => a.label);
+        auditFillSelect('audUser', 'Everyone', f.users || [], 'name', u => u.name + ' (' + u.count + ')');
+        renderAudit();
+    } catch (e) {
+        body.innerHTML = '<tr><td colspan="6" class="pc-empty text-danger">Could not reach the server.</td></tr>';
+    }
+};
+function renderAudit() {
+    const body = document.getElementById('audBody');
+    const d = AUDIT_DATA || {};
+    const rows = d.rows || [];
+    const byArea = d.by_area || {};
+    document.getElementById('audKpiEntries').textContent = audNum(d.total);
+    document.getElementById('audKpiPeople').textContent = audNum(d.people);
+    document.getElementById('audKpiDocs').textContent = audNum(
+        (byArea.requisitions || 0) + (byArea.purchase_orders || 0) +
+        (byArea.suppliers || 0) + (byArea.expenses || 0));
+    document.getElementById('audKpiWorkshop').textContent = audNum(byArea.workshop || 0);
+
+    const f = d.filters || {};
+    const bits = [f.from || f.to ? `${f.from || 'the beginning'} to ${f.to || 'today'}` : 'All dates'];
+    if (f.area) bits.push((d.areas || {})[f.area] || f.area);
+    if (f.user) bits.push('by ' + f.user);
+    if (f.q) bits.push('matching "' + f.q + '"');
+    let line = `<b>${audNum(d.total)}</b> ${d.total === 1 ? 'entry' : 'entries'} &middot; ` +
+               bits.map(esc).join(' &middot; ');
+    if (d.truncated) {
+        line += ` — showing the most recent <b>${audNum(d.count)}</b>. Narrow the dates to see the rest, or download.`;
+    }
+    document.getElementById('audBanner').innerHTML = line;
+
+    body.innerHTML = rows.map(r => `
+        <tr>
+            <td style="white-space:nowrap;">${esc(r.at)}</td>
+            <td>${esc(r.user)}</td>
+            <td><span class="pc-badge ${AUD_BADGE[r.area] || 'pc-badge-draft'}">${esc(r.area_label)}</span></td>
+            <td>${esc(r.action_label)}</td>
+            <td style="color:#94A3B8;">${esc(r.reference || '—')}</td>
+            <td>${esc(r.description)}</td>
+        </tr>`).join('') ||
+        `<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Nothing recorded for these filters.</td></tr>`;
+}
 
 init();
 </script>
