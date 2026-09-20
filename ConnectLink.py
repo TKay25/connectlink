@@ -43277,17 +43277,29 @@ def _procurement_send_template(to_phone, template_name, body_params, button_payl
         headers_wa = {'Authorization': f'Bearer {ACCESS_TOKEN}', 'Content-Type': 'application/json'}
         components = []
         if body_params:
-            components.append({
-                "type": "body",
-                "parameters": [{"type": "text", "text": str(p)} for p in body_params]
-            })
+            # Meta REJECTS an EMPTY text parameter with
+            #   131008 "Required parameter is missing - Parameter of type text is
+            #   missing text value"
+            # and several of these values are genuinely optional in our data: a
+            # requester with no WhatsApp number, a supplier with no phone, a PO status
+            # change with no detail line. Send a visible dash instead, so ONE unknown
+            # field cannot kill the whole notification. (This is why the PO approval
+            # notice failed for an approver while others succeeded.)
+            params = []
+            for p in body_params:
+                txt = '' if p is None else str(p).strip()
+                params.append({"type": "text", "text": txt or '—'})
+            components.append({"type": "body", "parameters": params})
         if button_payloads:
             for idx, pld in enumerate(button_payloads):
+                pld_txt = '' if pld is None else str(pld).strip()
                 components.append({
                     "type": "button",
                     "sub_type": "quick_reply",
                     "index": idx,
-                    "parameters": [{"type": "payload", "payload": str(pld)}]
+                    # A blank payload would be rejected / leave the tap unmatched;
+                    # 'noop' is harmless because the webhook ignores unknown prefixes.
+                    "parameters": [{"type": "payload", "payload": pld_txt or 'noop'}]
                 })
 
         candidates = _wa_template_lang_candidates(template_name)
