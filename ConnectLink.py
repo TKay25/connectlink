@@ -43795,11 +43795,23 @@ def procurement_api_workshop_item_add():
 @login_required
 @_procurement_perm_required('can_manage_purchase_orders')
 def procurement_api_workshop_item_update(item_id):
-    """Edit a workshop item's details.
+    """Edit a workshop item's details, INCLUDING its name — this is how an item in
+    stock is renamed.
 
     The BALANCE IS NOT EDITABLE — that is what movements are for. Allowing a direct
-    edit here would create stock the ledger cannot explain."""
+    edit here would create stock the ledger cannot explain.
+
+    PASSCODE-GATED, the same as adding one: a rename rewrites the item's name on every
+    movement recorded against it, so it edits the register just as much as a new line
+    does. Items are still meant to arrive through a document."""
     data = request.get_json() or {}
+    passcode = str(data.get('passcode') or '').strip()
+    if not passcode:
+        return jsonify({'success': False, 'passcode_required': True,
+                        'error': 'A passcode is required to rename or edit an item by hand.'}), 400
+    if passcode != PROC_WORKSHOP_ITEM_PASSCODE:
+        return jsonify({'success': False, 'passcode_required': True,
+                        'error': 'Invalid passcode.'}), 403
     try:
         with get_db() as (cursor, connection):
             cursor.execute("SELECT id FROM workshop_items WHERE id = %s", (item_id,))
@@ -43829,10 +43841,23 @@ def procurement_api_workshop_item_update(item_id):
                   max(_proc_qty_of(data.get('min_stock_level')), 0),
                   _ws_clean(data.get('notes')),
                   bool(data.get('is_active', True)), item_id))
+            # A RENAME CARRIES INTO THE MOVEMENT HISTORY. Each movement stores the item
+            # name as it was, so that renaming could never rewrite the past — but in a
+            # register that is still being set up a rename is nearly always a
+            # correction, and leaving the old name on the movements would make the
+            # ledger and the movement list disagree about the same item. The item_id
+            # (the real identity) and the document reference are untouched, so WHAT
+            # moved, when, and against which document is exactly as recorded.
+            if name:
+                cursor.execute("UPDATE workshop_movements SET item_name = %s WHERE item_id = %s",
+                               (name, item_id))
             connection.commit()
-        log_activity('workshop_item_edit', f'Edited workshop item #{item_id}',
+        log_activity('workshop_item_edit',
+                     f'Renamed/edited workshop item #{item_id}' + (f' to "{name}"' if name else ''),
                      'workshop_item', item_id)
-        return jsonify({'success': True, 'message': 'Workshop item updated.'})
+        return jsonify({'success': True,
+                        'message': (f'Saved — this item is now called "{name}", including on its '
+                                    f'past movements.' if name else 'Workshop item saved.')})
     except Exception as e:
         print(f"Workshop item update error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -43846,7 +43871,18 @@ def procurement_api_workshop_item_delete(item_id):
 
     Refused once the item has ANY movement: deleting it would silently change every
     report already produced. Deactivate it instead, so it drops out of the day-to-day
-    list but history stays intact."""
+    list but history stays intact.
+
+    PASSCODE-GATED, like adding and renaming. The passcode may arrive in the JSON body
+    or as a query parameter, so an older client cannot slip past the gate."""
+    data = request.get_json(silent=True) or {}
+    passcode = str(data.get('passcode') or request.args.get('passcode') or '').strip()
+    if not passcode:
+        return jsonify({'success': False, 'passcode_required': True,
+                        'error': 'A passcode is required to remove an item.'}), 400
+    if passcode != PROC_WORKSHOP_ITEM_PASSCODE:
+        return jsonify({'success': False, 'passcode_required': True,
+                        'error': 'Invalid passcode.'}), 403
     try:
         with get_db() as (cursor, connection):
             cursor.execute("SELECT name FROM workshop_items WHERE id = %s", (item_id,))

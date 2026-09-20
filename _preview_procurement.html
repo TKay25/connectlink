@@ -420,6 +420,21 @@
         #kpiSuppliers { --kpi-accent:#7C3AED; }
         #kpiApprovedValue { --kpi-accent:#D97706; }
 
+        /* ----- Requisition-status tiles: icon and figure SIDE BY SIDE -----
+           These five read as one group, so the number sits beside its icon instead of
+           under it and the count is the first thing the eye lands on. Grid (not flex)
+           because the label has to keep the full card width underneath. */
+        .pc-kpi-card.kpi-inline {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: center;
+            column-gap: 10px; row-gap: 3px;
+            padding: 11px 14px;
+        }
+        .pc-kpi-card.kpi-inline .kpi-icon { grid-area: 1 / 1 / 2 / 2; margin-bottom: 0; flex: 0 0 auto; }
+        .pc-kpi-card.kpi-inline .kpi-value { grid-area: 1 / 2 / 2 / 3; }
+        .pc-kpi-card.kpi-inline .kpi-label { grid-area: 2 / 1 / 3 / 3; margin-top: 0; }
+
         /* ----- Panels: glass with refined header ----- */
         .pc-panel {
             background: rgba(255,255,255,0.82);
@@ -869,11 +884,11 @@
         <!-- ============ DASHBOARD ============ -->
         <section class="pc-module active" id="module-dashboard">
             <div class="pc-kpi-grid" id="dashKpis">
-                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-file-earmark-plus"></i></div><div class="kpi-value" id="kpiDraft">0</div><div class="kpi-label">Draft Requisitions</div></div>
-                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="kpiSubmitted">0</div><div class="kpi-label">Awaiting Approval</div></div>
-                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div class="kpi-value" id="kpiApproved">0</div><div class="kpi-label">Approved</div></div>
-                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-x-circle"></i></div><div class="kpi-value" id="kpiRejected">0</div><div class="kpi-label">Rejected</div></div>
-                <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-patch-check"></i></div><div class="kpi-value" id="kpiAwaitingAuth">0</div><div class="kpi-label">Awaiting Authorisation</div></div>
+                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-file-earmark-plus"></i></div><div class="kpi-value" id="kpiDraft">0</div><div class="kpi-label">Draft Requisitions</div></div>
+                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div><div class="kpi-value" id="kpiSubmitted">0</div><div class="kpi-label">Awaiting Approval</div></div>
+                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-check2-circle"></i></div><div class="kpi-value" id="kpiApproved">0</div><div class="kpi-label">Approved</div></div>
+                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-x-circle"></i></div><div class="kpi-value" id="kpiRejected">0</div><div class="kpi-label">Rejected</div></div>
+                <div class="pc-kpi-card kpi-inline"><div class="kpi-icon"><i class="bi bi-patch-check"></i></div><div class="kpi-value" id="kpiAwaitingAuth">0</div><div class="kpi-label">Awaiting Authorisation</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-box-seam"></i></div><div class="kpi-value" id="kpiOpenPos">0</div><div class="kpi-label">Open POs</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-cash-stack"></i></div><div class="kpi-value" id="kpiPoValue" data-money="1">$0</div><div class="kpi-label">Open PO Value</div></div>
                 <div class="pc-kpi-card"><div class="kpi-icon"><i class="bi bi-truck"></i></div><div class="kpi-value" id="kpiSuppliers">0</div><div class="kpi-label">Active Suppliers</div></div>
@@ -1020,8 +1035,9 @@
                     <i class="bi bi-info-circle"></i>
                     The designated way for items to enter the workshop needs <b>no passcode</b>: on the
                     <b>Purchase Orders</b> tab, open the order and record that its items have been
-                    <b>received</b> — the goods then join this register by themselves. Adding an item by hand
-                    with <b>Add Item</b> is passcode-gated.
+                    <b>received</b> — the goods then join this register by themselves. Everything typed by
+                    hand — <b>Add Item</b>, renaming or editing an item, and removing one — is
+                    passcode-gated.
                 </div>
             </div>
         </section>
@@ -1696,6 +1712,10 @@
                 <input type="hidden" id="wsItemId">
                 <label class="pc-form-label">Item name *</label>
                 <input class="pc-input" id="wsItemName" placeholder="e.g. Melamine Board 18mm, Kitchen Unit Base 600mm">
+                <div id="wsItemRenameHint" style="display:none;font-size:0.56rem;color:#94A3B8;margin-top:4px;">
+                    Changing the name renames the item everywhere — including on the movements already
+                    recorded against it. The quantities and the documents behind them are not touched.
+                </div>
                 <div class="row g-2 mt-0">
                     <div class="col-6">
                         <label class="pc-form-label">Category</label>
@@ -1732,10 +1752,10 @@
                 </div>
                 <div class="pc-rv-banner" style="margin-top:8px;">
                     <i class="bi bi-info-circle-fill"></i><span>
-                        <b>Adding items by hand needs a passcode.</b> The designated route that needs <b>no</b>
-                        passcode is to go to the <b>Purchase Orders</b> tab, open the order and record that its
-                        items have been <b>received</b> — the goods it brings then join the workshop register by
-                        themselves.
+                        <b>Adding, renaming or editing an item by hand needs a passcode.</b> The designated
+                        route that needs <b>no</b> passcode is to go to the <b>Purchase Orders</b> tab, open the
+                        order and record that its items have been <b>received</b> — the goods it brings then
+                        join the workshop register by themselves.
                     </span>
                 </div>
                 <div id="wsItemMsg" style="display:none;margin-top:8px;font-size:0.6rem;font-weight:800;color:#DC2626;"></div>
@@ -1743,6 +1763,36 @@
             <div class="modal-footer">
                 <button type="button" class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="pc-btn pc-btn-primary" onclick="saveWsItem()"><i class="bi bi-check-lg"></i> Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== WORKSHOP: REMOVE ITEM (PASSCODE) ==================== -->
+<div class="modal fade" id="wsDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title pc-modal-title"><i class="bi bi-trash me-2 text-danger"></i>Remove Workshop Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pc-modal-body">
+                <div class="pc-rv-banner red" style="margin-top:0;">
+                    <i class="bi bi-exclamation-triangle-fill"></i><span>
+                        About to remove <b id="wsDeleteName">this item</b> from the workshop register. An item
+                        that already has movements against it cannot be removed — deactivate it instead, so
+                        everything it moved through is still on record.
+                    </span>
+                </div>
+                <div style="margin-top:12px;">
+                    <label class="pc-form-label">Passcode *</label>
+                    <input type="password" class="pc-input" id="wsDeletePass" autocomplete="off" placeholder="Required to remove an item">
+                </div>
+                <div id="wsDeleteMsg" style="display:none;font-size:0.6rem;margin-top:8px;font-weight:800;color:#DC2626;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="pc-btn pc-btn-outline" data-bs-dismiss="modal">Cancel</button>
+                <button class="pc-btn pc-btn-danger" id="wsDeleteBtn" onclick="confirmWsDelete()"><i class="bi bi-trash"></i> Remove</button>
             </div>
         </div>
     </div>
@@ -5193,8 +5243,8 @@ function renderWsStock() {
                                       : '<span class="pc-badge pc-badge-draft">None</span>')}</td>
             <td style="text-align:right;white-space:nowrap;">
                 <button class="pc-btn pc-btn-outline pc-btn-sm" title="Record a movement for this item" onclick="openWsMove('in', ${s.id})" data-perm-action="can_manage_purchase_orders"><i class="bi bi-arrow-left-right"></i></button>
-                <button class="pc-btn pc-btn-outline pc-btn-sm" title="Edit" onclick="openWsItem(${s.id})" data-perm-action="can_manage_purchase_orders"><i class="bi bi-pencil"></i></button>
-                <button class="pc-btn pc-btn-danger pc-btn-sm" title="Remove from the register" onclick="deleteWsItem(${s.id}, '${esc(s.name)}')" data-perm-action="can_manage_purchase_orders"><i class="bi bi-trash"></i></button>
+                <button class="pc-btn pc-btn-outline pc-btn-sm" title="Rename or edit this item" onclick="openWsItem(${s.id})" data-perm-action="can_manage_purchase_orders"><i class="bi bi-pencil"></i></button>
+                <button class="pc-btn pc-btn-danger pc-btn-sm" title="Remove this item from the register (needs a passcode)" onclick="deleteWsItem(${s.id}, '${esc(s.name)}')" data-perm-action="can_manage_purchase_orders"><i class="bi bi-trash"></i></button>
             </td>
         </tr>`).join('') ||
         '<tr><td colspan="6" class="pc-empty"><i class="bi bi-inbox"></i> Nothing in the workshop register yet — use “Add Item”, or receive a purchase order.</td></tr>';
@@ -5312,7 +5362,7 @@ window.openWsItem = function(id) {
     const it = id ? ((WS_DATA || {}).stock || []).find(s => s.id === id) : null;
     document.getElementById('wsItemMsg').style.display = 'none';
     document.getElementById('wsItemId').value = it ? it.id : '';
-    document.getElementById('wsItemTitle').textContent = it ? 'Edit Workshop Item' : 'Add Workshop Item';
+    document.getElementById('wsItemTitle').textContent = it ? 'Rename / Edit Workshop Item' : 'Add Workshop Item';
     document.getElementById('wsItemName').value = it ? it.name : '';
     // Category is one of the three fixed answers, or a name of the user's own — an
     // existing item whose category is neither Board nor Stones therefore reopens as
@@ -5325,8 +5375,13 @@ window.openWsItem = function(id) {
     document.getElementById('wsItemNotes').value = '';
     document.getElementById('wsItemOpening').value = 0;
     document.getElementById('wsItemPass').value = '';
-    // The passcode is only needed to ADD an item; editing one is not gated.
-    document.getElementById('wsItemPassWrap').style.display = it ? 'none' : '';
+    // The passcode gates everything that SHAPES the register by hand — adding an item,
+    // renaming one, editing one. Only the documents arrive without it.
+    document.getElementById('wsItemPass').placeholder = it
+        ? 'Required to rename or edit this item'
+        : 'Required to add an item by hand';
+    document.getElementById('wsItemPassWrap').style.display = '';
+    document.getElementById('wsItemRenameHint').style.display = it ? '' : 'none';
     // The opening quantity only makes sense when the item is first created — after
     // that, stock moves through movements like everything else.
     document.getElementById('wsItemOpeningWrap').style.display = it ? 'none' : '';
@@ -5356,8 +5411,10 @@ window.saveWsItem = async function() {
         is_active: true
     };
     if (!body.name) { msg.textContent = 'An item name is required.'; msg.style.display = ''; return; }
-    if (!id && !body.passcode) {
-        msg.textContent = 'A passcode is required to add an item by hand — or bring it in by receiving a purchase order.';
+    if (!body.passcode) {
+        msg.textContent = (id ? 'A passcode is required to rename or edit an item by hand —'
+                              : 'A passcode is required to add an item by hand —')
+            + ' or bring it in by receiving a purchase order.';
         msg.style.display = '';
         return;
     }
@@ -5374,14 +5431,38 @@ window.saveWsItem = async function() {
     } catch (e) { msg.textContent = 'Connection error'; msg.style.display = ''; }
 };
 
-window.deleteWsItem = async function(id, name) {
-    if (!confirm('Remove "' + name + '" from the workshop register?')) return;
+window.deleteWsItem = function(id, name) {
+    document.getElementById('wsDeleteName').textContent = '"' + name + '"';
+    document.getElementById('wsDeleteModal').dataset.itemId = id;
+    document.getElementById('wsDeletePass').value = '';
+    document.getElementById('wsDeleteMsg').style.display = 'none';
+    showModal('wsDeleteModal');
+};
+
+window.confirmWsDelete = async function() {
+    const id = document.getElementById('wsDeleteModal').dataset.itemId;
+    const passcode = document.getElementById('wsDeletePass').value.trim();
+    const msg = document.getElementById('wsDeleteMsg');
+    if (!passcode) { msg.textContent = 'Passcode is required.'; msg.style.display = ''; return; }
+    const btn = document.getElementById('wsDeleteBtn');
+    btn.disabled = true;
+    msg.style.display = 'none';
     try {
-        const res = await fetch('/api/procurement/workshop/items/' + id, { method: 'DELETE', credentials: 'include' });
+        const res = await fetch('/api/procurement/workshop/items/' + id, {
+            method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', body: JSON.stringify({ passcode: passcode })
+        });
         const data = await res.json();
-        toast(data.message || (data.error || 'Done'), data.success ? 'success' : 'error');
-        if (data.success) loadWorkshop();
-    } catch (e) { toast('Connection error', 'error'); }
+        if (data.success) {
+            toast(data.message || 'Removed', 'success');
+            hideModal('wsDeleteModal');
+            loadWorkshop();
+        } else {
+            msg.textContent = data.error || 'Could not remove it.';
+            msg.style.display = '';
+        }
+    } catch (e) { msg.textContent = 'Connection error'; msg.style.display = ''; }
+    btn.disabled = false;
 };
 
 init();
