@@ -1076,6 +1076,9 @@
             </div>
             <div class="modal-body pc-modal-body">
                 <input type="hidden" id="reqId" value="">
+                <!-- Filled in only when a DECLINED requisition is being corrected, so the
+                     requester can see what was wrong while they edit it. -->
+                <div id="reqRejectBanner" class="pc-rv-banner red mb-3" style="display:none;"></div>
                 <div class="row g-3 mb-3">
                     <div class="col-md-4">
                         <label class="pc-form-label">Title *</label>
@@ -1708,11 +1711,17 @@ let REQUISITIONS = [];
 // ConnectLink.py — a delete is passcode-gated and archived, so it is offered for
 // any status except one already committed to a purchase order.
 const REQ_DELETABLE_STATUSES = ['draft', 'submitted', 'authorised', 'approved', 'cancelled', 'rejected'];
+// Statuses a requisition may be EDITED from. Mirrors REQ_EDITABLE_STATUSES in
+// ConnectLink.py — a DECLINED requisition can now be corrected and resubmitted, so a
+// rejection is no longer a dead end (it used to be: edit and submit were draft-only).
+const REQ_EDITABLE_STATUSES = ['draft', 'rejected'];
 let PURCHASE_ORDERS = [];
 let SUPPLIERS = [];
 let VIEW_REQ = null;
 let VIEW_PO = null;
 let EDIT_REQ_ID = null;
+let EDIT_REQ_STATUS = null; // status of the requisition currently being edited (drives the resubmit prompt)
+let PROC_USER = null;      // current procurement user id — used for owner checks in the UI
 let PO_HR_PEOPLE = []; // HR-portal names/phones for the PO requester picker
 let PO_ASSIGNEES = { authorisers: [], approvers: [] }; // eligible sign-off people (from User Management perms)
 let REQ_ASSIGNEES = { req_authorisers: [], req_approvers: [] }; // same, for the requisition form
@@ -1761,6 +1770,17 @@ const PAGE_META = {
 // ===== HELPERS =====
 function can(permName) {
     return PERMS && (PERMS.is_super_admin || PERMS[permName]);
+}
+/* Who may EDIT a requisition: needs the create permission and to be the requester
+   (super admin always). Unknown user id => allow, so the UI never hides an action the
+   server would accept. */
+function reqCanEdit(r) {
+    if (!can('can_create_requisitions')) return false;
+    if (can('is_super_admin')) return true;
+    if (!PROC_USER) return true;
+    const owner = r && r.requested_by_user_id;
+    if (owner === null || owner === undefined) return true;
+    return String(owner) === String(PROC_USER);
 }
 function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -1875,6 +1895,9 @@ function ratingStars(r) {
 function applyProcurementPermissions() {
     if (!PERMS) return;
     document.querySelectorAll('[data-perm-action]').forEach(el => {
+        // Remember the button's OWN tooltip the first time we see it — this pass used
+        // to blank it, which silently killed every title on a perm-gated button.
+        if (el.dataset.permTitle === undefined) el.dataset.permTitle = el.getAttribute('title') || '';
         // `data-perm-action` accepts several comma-separated perms — ANY of them is
         // enough. Used where the server accepts more than one route into an action.
         const permList = String(el.dataset.permAction || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1886,7 +1909,7 @@ function applyProcurementPermissions() {
         } else {
             el.classList.remove('pc-disabled');
             el.removeAttribute('disabled');
-            el.title = '';
+            el.title = el.dataset.permTitle;
         }
     });
 }
@@ -1941,6 +1964,7 @@ async function init() {
         const res = await fetch('/api/procurement/permissions', { credentials: 'include' });
         const data = await res.json();
         PERMS = data.perms || {};
+        PROC_USER = (data.user && data.user.id) || null;
     } catch (e) { PERMS = SERVER_PERMS || {}; }
 
     applyProcurementPermissions();
@@ -2018,8 +2042,8 @@ async function loadRequisitions() {
                 <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                     <button class="pc-btn pc-btn-outline pc-btn-sm" onclick="viewReq(${r.id})"><i class="bi bi-eye"></i></button>
                     <button class="pc-btn pc-btn-outline pc-btn-sm" title="Download PDF" onclick="downloadReqPdfById(${r.id})"><i class="bi bi-file-earmark-pdf"></i></button>
-                    ${['draft'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="editReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-pencil"></i></button>` : ''}
-                    ${['draft','submitted'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" onclick="submitReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-send"></i></button>` : ''}
+                    ${REQ_EDITABLE_STATUSES.includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" title="Edit" onclick="editReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-pencil"></i></button>` : ''}
+                    ${['draft','submitted','rejected'].includes(r.status) ? `<button class="pc-btn pc-btn-outline pc-btn-sm" title="${r.status === 'rejected' ? 'Resubmit for authorisation' : 'Submit'}" onclick="submitReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-send"></i></button>` : ''}
                     ${REQ_DELETABLE_STATUSES.includes(r.status) ? `<button class="pc-btn pc-btn-danger pc-btn-sm" onclick="deleteReq(${r.id})" data-perm-action="can_create_requisitions,can_manage_purchase_orders"><i class="bi bi-trash"></i></button>` : ''}
                 </td>
             </tr>`).join('') || '<tr><td colspan="9" class="pc-empty"><i class="bi bi-inbox"></i> No requisitions found</td></tr>';
@@ -2821,8 +2845,27 @@ function growReqNotes() {
     if (el) el.addEventListener('input', growReqNotes);
 })();
 
+/* Show/clear the "this was declined" banner at the top of the requisition form —
+   only used while correcting a DECLINED requisition. */
+function setReqRejectBanner(r) {
+    const el = document.getElementById('reqRejectBanner');
+    if (!el) return;
+    if (!r || !r.reject_reason) {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+    }
+    el.style.display = 'flex';
+    el.innerHTML = '<i class="bi bi-x-octagon-fill"></i><span><b>This requisition was declined</b> — '
+        + esc(r.reject_reason)
+        + (r.rejected_by ? ' <span style="font-weight:600;">(' + esc(r.rejected_by) + ')</span>' : '')
+        + '<br>Correct it, save, then resubmit it for authorisation.</span>';
+}
+
 window.openReqModal = function() {
     EDIT_REQ_ID = null;
+    EDIT_REQ_STATUS = null;
+    setReqRejectBanner(null);
     document.getElementById('reqModalTitle').textContent = 'New Requisition';
     document.getElementById('reqId').value = '';
     document.getElementById('reqTitle').value = '';
@@ -2855,7 +2898,10 @@ window.editReq = async function(id) {
         if (!data.success) { toast(data.error || 'Failed to load', 'error'); return; }
         const r = data.data;
         EDIT_REQ_ID = id;
-        document.getElementById('reqModalTitle').textContent = 'Edit ' + r.req_no;
+        EDIT_REQ_STATUS = r.status || null;
+        // Fixing a declined requisition: keep the reason in front of the requester.
+        setReqRejectBanner(r.status === 'rejected' ? r : null);
+        document.getElementById('reqModalTitle').textContent = (r.status === 'rejected' ? 'Revise ' : 'Edit ') + r.req_no;
         document.getElementById('reqId').value = id;
         document.getElementById('reqTitle').value = r.title || '';
         document.getElementById('reqDepartment').value = r.department || '';
@@ -2936,10 +2982,19 @@ window.saveReq = async function() {
         const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
         const data = await res.json();
         if (data.success) {
+            const wasDeclined = (EDIT_REQ_STATUS === 'rejected');
+            const editedId = EDIT_REQ_ID;
             hideModal('reqModal');
             toast(data.message, 'success');
             await uploadPendingInvoices(collected, data.items || []);
             loadRequisitions(); loadDashboard();
+            // A corrected declined requisition still needs sending back for
+            // authorisation — offer it right away instead of making them hunt for it.
+            if (wasDeclined && editedId) {
+                if (confirm('Requisition updated.\n\nResubmit it for authorisation now?')) {
+                    await submitReq(editedId, true);
+                }
+            }
         } else {
             toast(data.error || data.message || 'Failed to save', 'error');
         }
@@ -3003,11 +3058,20 @@ window.viewReq = async function(id) {
         // actions based on status + perms
         // The PDF is always offered — it needs no special permission.
         let actions = `<button class="pc-btn pc-btn-outline" onclick="downloadReqPdfById(${r.id})"><i class="bi bi-file-earmark-pdf"></i> Download PDF</button>`;
-        if (r.status === 'draft') {
-            const canEdit = can('can_create_requisitions');
-            if (canEdit) {
+        if (r.status === 'draft' || r.status === 'rejected') {
+            // A DECLINED requisition is editable and resubmittable — otherwise a
+            // rejection was a dead end (edit and submit were both draft-only).
+            const declined = (r.status === 'rejected');
+            if (reqCanEdit(r)) {
                 actions += `<button class="pc-btn pc-btn-outline" onclick="editReq(${r.id})"><i class="bi bi-pencil"></i> Edit</button>`;
-                actions += `<button class="pc-btn pc-btn-primary" onclick="submitReq(${r.id})"><i class="bi bi-send"></i> Submit</button>`;
+                actions += declined
+                    ? `<button class="pc-btn pc-btn-primary" onclick="submitReq(${r.id})"><i class="bi bi-arrow-repeat"></i> Resubmit for Authorisation</button>`
+                    : `<button class="pc-btn pc-btn-primary" onclick="submitReq(${r.id})"><i class="bi bi-send"></i> Submit</button>`;
+            }
+            if (declined && (can('can_approve_requisitions') || reqCanEdit(r))) {
+                actions += `<button class="pc-btn pc-btn-outline" onclick="cancelReq(${r.id})"><i class="bi bi-slash-circle"></i> Withdraw</button>`;
+            }
+            if (reqCanEdit(r) || can('can_manage_purchase_orders')) {
                 actions += `<button class="pc-btn pc-btn-danger" onclick="deleteReq(${r.id})"><i class="bi bi-trash"></i> Delete</button>`;
             } else {
                 actions += `<button class="pc-btn pc-btn-danger pc-disabled" disabled title="Requires permission: create requisitions"><i class="bi bi-lock"></i> Delete</button>`;
@@ -3017,6 +3081,10 @@ window.viewReq = async function(id) {
             if (can('can_authorise_requisitions')) {
                 actions += `<button class="pc-btn pc-btn-success" onclick="authoriseReq(${r.id})" data-perm-action="can_authorise_requisitions"><i class="bi bi-shield-check"></i> Authorise</button>`;
                 actions += `<button class="pc-btn pc-btn-danger" onclick="openReject(${r.id})" data-perm-action="can_authorise_requisitions"><i class="bi bi-x-lg"></i> Decline</button>`;
+            }
+            if (can('can_create_requisitions')) {
+                // Also the way to RETRY after a WhatsApp delivery failure.
+                actions += `<button class="pc-btn pc-btn-outline" onclick="submitReq(${r.id})" data-perm-action="can_create_requisitions"><i class="bi bi-send"></i> Re-send to Authoriser</button>`;
             }
             if (can('can_create_requisitions')) {
                 actions += `<button class="pc-btn pc-btn-outline" onclick="cancelReq(${r.id})"><i class="bi bi-slash-circle"></i> Cancel</button>`;
@@ -3038,7 +3106,7 @@ window.viewReq = async function(id) {
         }
         // Delete is offered for every status except one already on a purchase order
         // (draft already has its own Delete above). Passcode-gated + archived.
-        if (r.status !== 'draft' && REQ_DELETABLE_STATUSES.includes(r.status)
+        if (r.status !== 'draft' && r.status !== 'rejected' && REQ_DELETABLE_STATUSES.includes(r.status)
             && (can('can_create_requisitions') || can('can_manage_purchase_orders'))) {
             actions += `<button class="pc-btn pc-btn-danger" onclick="deleteReq(${r.id})"><i class="bi bi-trash"></i> Delete</button>`;
         }
@@ -3051,8 +3119,23 @@ window.viewReq = async function(id) {
     } catch (e) { toast('Failed to load requisition', 'error'); }
 };
 
-window.submitReq = async function(id) {
-    if (!confirm('Submit this requisition for authorisation?')) return;
+window.submitReq = async function(id, skipConfirm) {
+    // Three meanings, told apart by the status: submit a draft, RE-SEND the
+    // authorisation request on an already-submitted one, or RESUBMIT a declined one.
+    const r = (REQUISITIONS || []).find(x => x.id === id)
+           || ((VIEW_REQ && VIEW_REQ.id === id) ? VIEW_REQ : null);
+    const st = r && r.status;
+    const already = (st === 'submitted');
+    const declined = (st === 'rejected');
+    let msg = 'Submit this requisition for authorisation?';
+    if (already) {
+        msg = 'This requisition is already awaiting authorisation. Re-send the authorisation request?';
+    } else if (declined) {
+        msg = 'This requisition was DECLINED'
+            + (r.reject_reason ? ':\n\n' + r.reject_reason : '.')
+            + '\n\nResubmit it for authorisation?';
+    }
+    if (!skipConfirm && !confirm(msg)) return;
     try {
         const res = await fetch('/api/procurement/requisitions/' + id + '/submit', { method: 'POST', credentials: 'include' });
         const data = await res.json();

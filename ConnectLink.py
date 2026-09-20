@@ -39814,6 +39814,14 @@ PROC_REQ_DELETE_PASSCODE = os.environ.get('PROCUREMENT_DELETE_PASSCODE', 'conlin
 # `deleted_requisitions` first, so deleting is never destructive. Only a
 # requisition that is already committed to a purchase order is refused.
 REQ_DELETABLE_STATUSES = ('draft', 'submitted', 'authorised', 'approved', 'cancelled', 'rejected')
+# Statuses a requisition may be EDITED from. A `rejected` (declined) requisition used
+# to be a dead end — it could not be edited and could not be submitted again, so the
+# only ways out were Cancel or Delete. Editing keeps it `rejected` (so the decline
+# reason stays visible while the requester fixes it); submitting it then RESUBMITS it
+# back to `submitted` and re-notifies the authorisers. Editing a `rejected`
+# requisition deliberately does NOT reset it to draft, so a half-fixed declined
+# requisition can never be mistaken for a brand-new request awaiting authorisation.
+REQ_EDITABLE_STATUSES = ('draft', 'rejected')
 
 
 def _req_stock_status(value):
@@ -40216,7 +40224,11 @@ def procurement_api_requisition_detail(rid):
 @login_required
 @_procurement_perm_required('can_create_requisitions')
 def procurement_api_update_requisition(rid):
-    """Edit a draft requisition (requester/creator or super admin)."""
+    """Edit a draft OR a DECLINED requisition (requester/creator or super admin).
+
+    A declined requisition stays declined after the edit — the decline reason keeps
+    showing so the requester can see what to fix — and is then resubmitted with the
+    normal submit route."""
     data = request.get_json() or {}
     title = (data.get('title') or '').strip()
     items = data.get('items') or []
@@ -40229,8 +40241,10 @@ def procurement_api_update_requisition(rid):
             row = cursor.fetchone()
             if not row:
                 return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
-            if row[2] != 'draft':
-                return jsonify({'success': False, 'error': 'Only draft requisitions can be edited.'}), 400
+            if row[2] not in REQ_EDITABLE_STATUSES:
+                return jsonify({'success': False,
+                                'error': 'Only a draft or a declined requisition can be edited — '
+                                         f'this requisition is {str(row[2] or "").replace("_", " ")}. '}), 400
             perms = _procurement_perms()
             is_owner = (row[3] == user['id'])
             if not perms.get('is_super_admin', False) and not is_owner:
@@ -40312,6 +40326,20 @@ def procurement_api_update_requisition(rid):
 @app.route('/api/procurement/requisitions/<int:rid>/submit', methods=['POST'])
 @login_required
 def procurement_api_submit_requisition(rid):
+    """Submit a requisition for authorisation. THREE cases, distinguished by status:
+
+    * `draft`     — the normal path: becomes `submitted`.
+    * `submitted` — only RE-SENDS the authorisation request and leaves the status
+                    alone. That is what the Send button on a submitted row means, and
+                    it is how you retry after a WhatsApp delivery failure (the button
+                    was always offered for submitted rows, but the route used to reject
+                    them with 'Only drafts can be submitted').
+    * `rejected`  — RESUBMITS a declined requisition: back to `submitted`, the decline
+                    reason is cleared (it was already recorded in the activity log)
+                    and the authorisers are notified again. This is the other half of
+                    letting a declined requisition be edited — without it the fix would
+                    go nowhere.
+    """
     perms = _procurement_perms()
     user = _procurement_user()
     try:
@@ -40320,19 +40348,41 @@ def procurement_api_submit_requisition(rid):
             row = cursor.fetchone()
             if not row:
                 return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
-            if row[2] != 'draft':
-                return jsonify({'success': False, 'error': 'Only drafts can be submitted.'}), 400
+            status = row[2]
+            if status not in ('draft', 'submitted', 'rejected'):
+                return jsonify({'success': False,
+                                'error': f'Only a draft or a declined requisition can be submitted — '
+                                         f'this requisition is {str(status or "").replace("_", " ")}.'}), 400
             is_owner = (row[3] == user['id'])
             if not perms.get('is_super_admin', False) and not perms.get('can_create_requisitions', False) and not is_owner:
                 return jsonify({'success': False, 'error': 'Access denied.'}), 403
-            cursor.execute("""
-                UPDATE requisitions SET status='submitted', submitted_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
-                WHERE id=%s
-            """, (rid,))
-            connection.commit()
-            log_activity('requisition_submit', f'Submitted requisition {row[1]} for authorisation', 'requisition', rid)
-            _procurement_notify_req_authorisers(rid, row[4])  # best-effort WhatsApp, never blocks
-            return jsonify({'success': True, 'message': 'Requisition submitted for authorisation.'})
+            resend = (status == 'submitted')
+            resubmit = (status == 'rejected')
+            if not resend:
+                # reject_reason is cleared so the red 'Declined' banner does not linger
+                # on a requisition that is awaiting authorisation again; who declined it
+                # and why stays in the activity log.
+                cursor.execute("""
+                    UPDATE requisitions SET status='submitted', submitted_at=CURRENT_TIMESTAMP,
+                        reject_reason=NULL, updated_at=CURRENT_TIMESTAMP
+                    WHERE id=%s
+                """, (rid,))
+                connection.commit()
+                log_activity('requisition_resubmit' if resubmit else 'requisition_submit',
+                             ('Resubmitted declined requisition ' if resubmit else 'Submitted requisition ') + row[1] + ' for authorisation',
+                             'requisition', rid)
+        # Notify OUTSIDE the `with` so the pooled DB connection is not held open for
+        # the duration of the WhatsApp API calls (best-effort, never blocks).
+        _procurement_notify_req_authorisers(rid, row[4])
+        if resend:
+            log_activity('requisition_resend', f'Re-sent the authorisation request for {row[1]}', 'requisition', rid)
+            return jsonify({'success': True,
+                            'message': f'{row[1]} is already awaiting authorisation — the request was re-sent.'})
+        if resubmit:
+            return jsonify({'success': True,
+                            'message': f'{row[1]} resubmitted for authorisation.',
+                            'resubmitted': True})
+        return jsonify({'success': True, 'message': 'Requisition submitted for authorisation.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -40543,7 +40593,7 @@ def procurement_api_cancel_requisition(rid):
             row = cursor.fetchone()
             if not row:
                 return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
-            if row[2] not in ('draft', 'submitted', 'authorised', 'approved'):
+            if row[2] not in ('draft', 'submitted', 'authorised', 'approved', 'rejected'):
                 return jsonify({'success': False, 'error': f'Requisition cannot be cancelled in status {row[2]}.'}), 400
             is_owner = (row[3] == user['id'])
             if not perms.get('is_super_admin', False) and not is_owner and not perms.get('can_approve_requisitions', False):
