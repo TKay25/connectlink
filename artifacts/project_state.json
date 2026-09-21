@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-09-19T10:09:15.445Z",
-  "module_count": 64,
+  "last_sync": "2026-09-21T14:27:14.391Z",
+  "module_count": 65,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 63,
+  "orphaned_count": 75,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -238,8 +238,56 @@
       "source": "_tmp_js_check.py"
     },
     {
+      "artifact": "artifacts/modules/_tmp_pdf_new.json",
+      "source": "_tmp_pdf_new.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_pdf_v2.json",
+      "source": "_tmp_pdf_v2.py"
+    },
+    {
       "artifact": "artifacts/modules/_tmp_sched_test.json",
       "source": "_tmp_sched_test.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_short_stream.json",
+      "source": "_tmp_short_stream.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_t_scope_fixture.json",
+      "source": "_t_scope_fixture.js"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ws_check.json",
+      "source": "_t_ws_check.py"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ws_measure.json",
+      "source": "_t_ws_measure.py"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ws_pdf.json",
+      "source": "_t_ws_pdf.py"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ws_pdf_out.json",
+      "source": "_t_ws_pdf_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ws_pdf_report.json",
+      "source": "_t_ws_pdf_report.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ws_pdf_v2.json",
+      "source": "_t_ws_pdf_v2.py"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ws_pdf_v3.json",
+      "source": "_t_ws_pdf_v3.py"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ws_render.json",
+      "source": "_t_ws_render.py"
     },
     {
       "artifact": "artifacts/modules/_verify_aug_payroll.json",
@@ -258,5 +306,14 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "_t_scope_fixture.js",
+      "ts": "2026-09-21T14:19:42.620Z"
+    },
+    {
+      "rel": "_t_scope_fixture.js",
+      "ts": "2026-09-21T14:19:42.460Z"
+    }
+  ]
 }

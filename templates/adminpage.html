@@ -3688,6 +3688,32 @@ body { font-family: Arial; margin: 20px; }
                 th { background: #f8f9fa; padding: 10px; text-align: left; }
                 td { padding: 8px; border-bottom: 1px solid #ddd; }
 </style>
+<style>
+/* ===== 2- / 3-COLUMN PROJECT SCOPE LISTS =====
+   The Project Scope editors carry "2 col" / "3 col" buttons. All they do is put
+   ONE of these classes on the list itself, so the layout travels with the text:
+   this one stylesheet covers the editor, the Confirm Project Details screen, the
+   View Project screen and Ctrl+P, and the same rules are repeated inside the
+   printed contract / payment-history documents that the server generates.
+
+   GRID, deliberately, not column-count: column-count fills the first column
+   before it starts the second, so the items would still read down the page
+   (1,2,3 down, then 4,5,6). Grid puts them across the row, which is what
+   "2 or 3 items per row" means: 1,2,3 / 4,5,6. */
+.cl-cols-2, .cl-cols-3 { display: grid; column-gap: 18px; align-items: start; }
+.cl-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cl-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cl-cols-2 > li, .cl-cols-3 > li { break-inside: avoid; page-break-inside: avoid; }
+@media print {
+    .cl-cols-2, .cl-cols-3 { column-gap: 14px; }
+    .cl-cols-2 > li, .cl-cols-3 > li { break-inside: avoid; page-break-inside: avoid; }
+}
+/* The two column buttons. Quill ignores them (they carry no ql- class), and they
+   are type=button so they can never submit the form they sit in. */
+.cl-cols-btn { width: auto !important; min-width: 32px; padding: 2px 4px !important;
+               font-size: 10px !important; font-weight: 700; white-space: nowrap; }
+.cl-cols-btn.cl-on { color: #C12B3E !important; }
+</style>
 </head>
 
 <body>
@@ -13606,9 +13632,10 @@ body { font-family: Arial; margin: 20px; }
                                         <span class="ql-formats"><select class="ql-color"></select><select class="ql-background"></select></span>
                                         <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button><button class="ql-indent" value="-1"></button><button class="ql-indent" value="+1"></button></span>
                                         <span class="ql-formats"><select class="ql-align"></select></span>
+                                        <span class="ql-formats"><button type="button" class="cl-cols-btn" data-scope-cols="2" title="Lay this list out in 2 columns (items read across the row)">2 col</button><button type="button" class="cl-cols-btn" data-scope-cols="3" title="Lay this list out in 3 columns (items read across the row)">3 col</button></span>
                                         <span class="ql-formats"><button class="ql-blockquote"></button><button class="ql-code-block"></button><button class="ql-link"></button><button class="ql-clean"></button></span>
                                     </div>
-                                    <div id="projectScopeEditor" class="editable-field" style="height:60px;background:var(--bg-card);font-size:0.7rem;"></div>
+                                    <div id="projectScopeEditor" class="editable-field" style="height:180px;min-height:80px;resize:vertical;overflow:auto;background:var(--bg-card);font-size:0.7rem;"></div>
                                     <input type="hidden" id="project_description" name="project_description" required>
                                 </div>
                                 <div class="mb-1">
@@ -14012,6 +14039,7 @@ body { font-family: Arial; margin: 20px; }
                             <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button><button class="ql-indent" value="-1"></button><button class="ql-indent" value="+1"></button></span>
                             <span class="ql-formats"><select class="ql-align"></select></span>
                             <span class="ql-formats"><button class="ql-blockquote"></button><button class="ql-code-block"></button><button class="ql-link"></button><button class="ql-clean"></button></span>
+                            <span class="ql-formats"><button type="button" class="cl-cols-btn" data-scope-cols="2" title="Lay this list out in 2 columns (items read across the row)">2 col</button><button type="button" class="cl-cols-btn" data-scope-cols="3" title="Lay this list out in 3 columns (items read across the row)">3 col</button></span>
                         </div>
                         <div id="updateProjectScopeEditor" class="editable-field" style="height:110px;background:var(--bg-card);font-size:0.75rem;"></div>
                         <input type="hidden" id="updateProjectScope" name="projscope">
@@ -21042,6 +21070,8 @@ function openModal(modalId) {
                         
                         // Focus the editor
                         quillProjectScope.focus();
+                        // The list can be laid out 2 or 3 items per row (see wireScopeColumns)
+                        wireScopeColumns(quillProjectScope, 'projectScopeToolbar', syncProjectScope);
                     }
                 } catch (e) {
                     console.error('Error reinitializing Quill:', e);
@@ -31121,6 +31151,7 @@ document.getElementById("saveNewInstallmentDateBtn")?.addEventListener("click", 
                 modules: { toolbar: '#updateProjectScopeToolbar' }
             });
             quillUpdateScope.on('text-change', syncUpdateScope);
+            wireScopeColumns(quillUpdateScope, 'updateProjectScopeToolbar', syncUpdateScope);
         } catch (e) {
             console.error('Could not start the project scope editor:', e);
             quillUpdateScope = null;
@@ -31131,6 +31162,109 @@ document.getElementById("saveNewInstallmentDateBtn")?.addEventListener("click", 
     function syncUpdateScope() {
         var hid = document.getElementById('updateProjectScope');
         if (hid && quillUpdateScope) hid.value = quillUpdateScope.root.innerHTML;
+    }
+
+    /* ===== 2- / 3-COLUMN LISTS IN EITHER PROJECT SCOPE =====
+       "2 col" / "3 col" put ONE class on the list itself (cl-cols-2 / cl-cols-3).
+       Nothing else is stored, which is the point: the class rides through the
+       server sanitiser (which allows class on every tag), so the same list prints
+       in columns on the confirmation screen, in View Project and in the contract
+       document. The CSS is in the <style> block near the bottom of this page and
+       in the server's contract documents.
+
+       These are NOT Quill formats, so Quill's model knows nothing about them:
+       the list is found by walking the DOM from the caret. */
+    var SCOPE_COL_CLASSES = ['cl-cols-2', 'cl-cols-3'];
+
+    function syncProjectScope() {
+        var hid = document.getElementById('project_description');
+        if (hid && quillProjectScope) hid.value = quillProjectScope.root.innerHTML;
+    }
+
+    /* The <ul>/<ol> the caret is inside, or null. */
+    function scopeListAtCursor(quill) {
+        if (!quill) return null;
+        var sel = window.getSelection();
+        if (sel && sel.rangeCount) {
+            var r = sel.getRangeAt(0);
+            if (quill.root.contains(r.startContainer)) {
+                var el = r.startContainer.nodeType === 3 ? r.startContainer.parentNode : r.startContainer;
+                while (el && el !== quill.root) {
+                    if (el.tagName === 'UL' || el.tagName === 'OL') return el;
+                    el = el.parentNode;
+                }
+            }
+        }
+        return null;
+    }
+
+    /* The list a button should act on: the one the caret is in, or — only when the
+       editor has lost focus (there is no live selection to read) — the last list the
+       caret was in. A list that has since gone from the editor is never returned. */
+    function currentScopeList(quill) {
+        if (!quill) return null;
+        var list = scopeListAtCursor(quill) || quill.__scopeList || null;
+        if (list && !quill.root.contains(list)) list = null;
+        return list;
+    }
+
+    function scopeColButtonState(quill, toolbarId) {
+        var bar = document.getElementById(toolbarId);
+        if (!bar) return;
+        var list = currentScopeList(quill);
+        var have = '';
+        if (list && list.classList) {
+            if (list.classList.contains('cl-cols-2')) have = '2';
+            else if (list.classList.contains('cl-cols-3')) have = '3';
+        }
+        bar.querySelectorAll('[data-scope-cols]').forEach(function (b) {
+            b.classList.toggle('cl-on', b.getAttribute('data-scope-cols') === have);
+        });
+    }
+
+    /* Clicking the same button again takes the list back to one column. */
+    function applyScopeColumns(quill, cols, toolbarId, syncFn) {
+        if (!quill) return;
+        var list = currentScopeList(quill);
+        if (!list) {
+            alert('Put the cursor inside the numbered or bulleted list first, then choose 2 col or 3 col.\n\nHeading lines (like "Main Bathroom") stay full width.');
+            return;
+        }
+        var cls = 'cl-cols-' + cols;
+        var wasOn = list.classList.contains(cls);
+        SCOPE_COL_CLASSES.forEach(function (c) { list.classList.remove(c); });
+        if (!wasOn) list.classList.add(cls);
+        quill.__scopeList = wasOn ? null : list;
+        if (typeof syncFn === 'function') syncFn();
+        scopeColButtonState(quill, toolbarId);
+        return !wasOn;
+    }
+
+    /* One wiring call per editor. mousedown is cancelled so the caret never leaves
+       the editor — otherwise the click would blur it and there would be no list
+       left to find when the click handler runs. */
+    function wireScopeColumns(quill, toolbarId, syncFn) {
+        if (!quill || quill.__scopeWired) return;
+        quill.__scopeWired = true;
+        var bar = document.getElementById(toolbarId);
+        if (bar) {
+            bar.querySelectorAll('[data-scope-cols]').forEach(function (btn) {
+                btn.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    applyScopeColumns(quill, btn.getAttribute('data-scope-cols'), toolbarId, syncFn);
+                });
+            });
+        }
+        quill.on('selection-change', function (range) {
+            /* Caret inside the editor: remember the list it is in — and FORGET it the
+               moment the caret moves into a heading or a plain paragraph, so a list
+               the caret has left can never be the thing a button changes. When range
+               is null the editor was blurred; the last list is kept, which is the one
+               case this fallback exists for. */
+            if (range) quill.__scopeList = scopeListAtCursor(quill);
+            scopeColButtonState(quill, toolbarId);
+        });
     }
 
     /* Load a scope AS HTML — it is html, and stripping it was the bug. Falls back to the

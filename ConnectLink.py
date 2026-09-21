@@ -9632,6 +9632,19 @@ def webhook():
                                                                                     padding: 10px;
                                                                                     font-size: 11px;
                                                                                     min-height: 60px;
+                                                                                }}
+
+                                                                                /* --- 2- / 3-column scope lists: the Project Scope editor's "2 col" / "3 col"
+                                                                                   buttons put these classes on the list. grid, not column-count, so the
+                                                                                   items read ACROSS the row (1,2,3 then 4,5,6) --- */
+                                                                                .cl-cols-2, .cl-cols-3 {{ display: grid; column-gap: 16px; align-items: start; }}
+                                                                                .cl-cols-2 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+                                                                                .cl-cols-3 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+                                                                                .cl-cols-2 > li, .cl-cols-3 > li {{ break-inside: avoid; page-break-inside: avoid; }}
+
+                                                                                /* .scope-box (continued) — split only so the column rules can sit in
+                                                                                   between; both halves are the one .scope-box rule. */
+                                                                                .scope-box {{
                                                                                     background: #fafbff;
                                                                                     margin-bottom: 15px;
                                                                                     line-height: 1.4;
@@ -10036,6 +10049,19 @@ def webhook():
                                                                                     padding: 10px;
                                                                                     font-size: 11px;
                                                                                     min-height: 100px;
+                                                                                }}
+
+                                                                                /* --- 2- / 3-column scope lists: the Project Scope editor's "2 col" / "3 col"
+                                                                                   buttons put these classes on the list. grid, not column-count, so the
+                                                                                   items read ACROSS the row (1,2,3 then 4,5,6) --- */
+                                                                                .cl-cols-2, .cl-cols-3 {{ display: grid; column-gap: 16px; align-items: start; }}
+                                                                                .cl-cols-2 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+                                                                                .cl-cols-3 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+                                                                                .cl-cols-2 > li, .cl-cols-3 > li {{ break-inside: avoid; page-break-inside: avoid; }}
+
+                                                                                /* .scope-box (continued) — split only so the column rules can sit in
+                                                                                   between; both halves are the one .scope-box rule. */
+                                                                                .scope-box {{
                                                                                     background: #fafbff;
                                                                                     margin-bottom: 15px;
                                                                                     line-height: 1.3;
@@ -23089,6 +23115,19 @@ def download_contract(project_id):
                         padding: 8px;
                         font-size: 11px;
                         min-height: 70px;
+                    }}
+
+                    /* --- 2- / 3-column scope lists: the Project Scope editor's "2 col" / "3 col"
+                       buttons put these classes on the list. grid, not column-count, so the
+                       items read ACROSS the row (1,2,3 then 4,5,6) --- */
+                    .cl-cols-2, .cl-cols-3 {{ display: grid; column-gap: 16px; align-items: start; }}
+                    .cl-cols-2 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+                    .cl-cols-3 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+                    .cl-cols-2 > li, .cl-cols-3 > li {{ break-inside: avoid; page-break-inside: avoid; }}
+
+                    /* .scope-box (continued) — split only so the column rules can sit in
+                       between; both halves are the one .scope-box rule. */
+                    .scope-box {{
                         background: #fafbff;
                         margin-bottom: 15px;
                         line-height: 1.3;
