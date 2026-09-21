@@ -975,7 +975,8 @@ def initialize_database_tables():
                     nextofkinrelationship VARCHAR (100),
                     projectname VARCHAR (100),
                     projectlocation VARCHAR (100),
-                    projectdescription VARCHAR (500),
+                    -- The description is RICH TEXT, so it is TEXT, not VARCHAR(500).
+                    projectdescription TEXT,
                     projectadministratorname VARCHAR (100),
                     projectstartdate date,
                     projectduration INT,
@@ -1029,7 +1030,8 @@ def initialize_database_tables():
                     nextofkinrelationship VARCHAR (100),
                     projectname VARCHAR (100),
                     projectlocation VARCHAR (100),
-                    projectdescription VARCHAR (500),
+                    -- The description is RICH TEXT, so it is TEXT, not VARCHAR(500).
+                    projectdescription TEXT,
                     projectadministratorname VARCHAR (100),
                     projectstartdate date,
                     projectduration INT,
@@ -1114,7 +1116,18 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientname varchar(100);",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientwanumber INT;",
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientnextofkinnumber INT;",
-                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS project_notes TEXT;"
+                "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS project_notes TEXT;",
+
+                # "Failed to insert project: value too long for type character varying(500)" —
+                # a project's description comes from a rich-text editor, so a paragraph or
+                # three (or a little leftover markup) blows past 500 characters and the whole
+                # save fails. The description is user prose: it belongs in TEXT. CREATE TABLE
+                # IF NOT EXISTS never changes an existing column, so an EXISTING deployment
+                # needs the ALTER as well — and the deleted-projects archive must move with
+                # it, because deleting a project copies the description across (otherwise
+                # deleting one with a long description would fail instead of saving).
+                "ALTER TABLE connectlinkdatabase ALTER COLUMN projectdescription TYPE TEXT;",
+                "ALTER TABLE connectlinkdatabasedeletedprojects ALTER COLUMN projectdescription TYPE TEXT;"
 
             ]
 
