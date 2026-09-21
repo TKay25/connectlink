@@ -1824,7 +1824,9 @@ def initialize_database_tables():
                     authorised_at TIMESTAMP,
                     -- Ticked by the logger on the form: when the requisition is
                     -- authorised, send the approver an info-only notice (no buttons).
-                    notify_approver_on_authorisation BOOLEAN DEFAULT TRUE,
+                    -- UNTICKED BY DEFAULT (Sep 2026): the approver acts on the purchase
+                    -- order, so the notice is opt-in rather than something to switch off.
+                    notify_approver_on_authorisation BOOLEAN DEFAULT FALSE,
                     -- Who the requisition is ROUTED to, picked on the form. NULL = notify
                     -- everyone eligible. Distinct from authorised_by / approved_by,
                     -- which record who ACTUALLY signed.
@@ -1877,7 +1879,11 @@ def initialize_database_tables():
                 cursor.execute("ALTER TABLE requisition_items ADD COLUMN IF NOT EXISTS project_ref VARCHAR(200)")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authorised_by VARCHAR(150)")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authorised_at TIMESTAMP")
-                cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS notify_approver_on_authorisation BOOLEAN DEFAULT TRUE")
+                cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS notify_approver_on_authorisation BOOLEAN DEFAULT FALSE")
+                # An existing deployment already HAS the column, and ADD COLUMN IF NOT EXISTS
+                # leaves its old DEFAULT TRUE in place — so move the default itself. Stored
+                # values are deliberately NOT rewritten: a logger's earlier tick stands.
+                cursor.execute("ALTER TABLE requisitions ALTER COLUMN notify_approver_on_authorisation SET DEFAULT FALSE")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authoriser_user_id INTEGER")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authoriser_name VARCHAR(150)")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS approver_user_id INTEGER")
@@ -40448,7 +40454,7 @@ def procurement_api_create_requisition():
                   _req_project_labels(data), _req_project_ids(data.get('project_ids', data.get('project_id'))),
                   data.get('priority', 'Medium'), data.get('notes'),
                   data.get('needed_by') or None, _req_stock_status(data.get('stock_status')),
-                  bool(data.get('notify_approver_on_authorisation', True)),
+                  bool(data.get('notify_approver_on_authorisation', False)),
                   req_authoriser_uid, req_authoriser_nm or None,
                   req_approver_uid, req_approver_nm or None,
                   req_funds_status, req_funds_note,
@@ -40617,7 +40623,7 @@ def procurement_api_update_requisition(rid):
                   data.get('priority', 'Medium'),
                   data.get('notes'), data.get('needed_by') or None,
                   _req_stock_status(data.get('stock_status')),
-                  bool(data.get('notify_approver_on_authorisation', True)),
+                  bool(data.get('notify_approver_on_authorisation', False)),
                   req_authoriser_uid, req_authoriser_nm or None,
                   req_approver_uid, req_approver_nm or None,
                   req_funds_status, req_funds_note,

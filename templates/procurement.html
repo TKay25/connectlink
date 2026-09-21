@@ -1317,10 +1317,10 @@
                     </div>
                     <div class="col-md-6 d-flex align-items-end">
                         <div style="display:flex;gap:8px;align-items:flex-start;">
-                            <input type="checkbox" id="reqNotifyApprover" checked style="margin-top:2px;">
+                            <input type="checkbox" id="reqNotifyApprover" onchange="toggleReqNotifyApprover()" style="margin-top:2px;">
                             <label for="reqNotifyApprover" style="font-size:0.6rem;line-height:1.35;cursor:pointer;margin:0;">
                                 <b>Notify the approver when this requisition is authorised</b>
-                                <div style="color:#64748B;font-size:0.56rem;">The approver only gets an <b>informational</b> message (no approve buttons) — they act once a purchase order is raised.</div>
+                                <div style="color:#64748B;font-size:0.56rem;">The approver only gets an <b>informational</b> message (no approve buttons) — they act once a purchase order is raised. Tick this to name them below.</div>
                             </label>
                         </div>
                     </div>
@@ -1350,7 +1350,10 @@
                         </div>
                         <div class="pc-phone-hint" id="reqAuthoriserPhone">— select to see their WhatsApp</div>
                     </div>
-                    <div class="col-md-6">
+                    <!-- Only meaningful when the tick above is on: the approver is told about
+                         the AUTHORISED requisition, so the picker stays hidden until the box
+                         is ticked (toggleReqNotifyApprover clears it when it is not). -->
+                    <div class="col-md-6" id="reqApproverWrap" style="display:none;">
                         <label class="pc-form-label">Approver <span style="font-size:0.5rem;color:#94A3B8;font-weight:500;">(notified after authorisation, per the tick above)</span></label>
                         <div style="position:relative;">
                             <input type="text" class="pc-input" id="reqApprover" placeholder="Search eligible users..." autocomplete="off">
@@ -2247,6 +2250,22 @@ window.toggleReqFundsHint = function() {
     // Nothing to fund when it is already in stock — hide the funds block.
     if (fundsFields) fundsFields.style.display = (sel.value === 'in_stock') ? 'none' : '';
 };
+
+/* The approver picker is only shown when the tick above is on, because that tick is what
+   decides whether the approver hears anything at all. Hiding it CLEARS the pick: an
+   assignment nobody can see is how a notice ends up going to the wrong person. */
+window.toggleReqNotifyApprover = function() {
+    const cb = document.getElementById('reqNotifyApprover');
+    const wrap = document.getElementById('reqApproverWrap');
+    if (!cb || !wrap) return;
+    wrap.style.display = cb.checked ? '' : 'none';
+    if (cb.checked) return;
+    const txt = document.getElementById('reqApprover');
+    const hid = document.getElementById('reqApproverId');
+    if (txt) txt.value = '';
+    if (hid) hid.value = '';
+    setAssigneePhone(document.getElementById('reqApproverPhone'), null);
+};
 function prioBadge(p) {
     const map = { High:'pc-badge-high', Urgent:'pc-badge-high', Medium:'pc-badge-medium', Low:'pc-badge-low' };
     return `<span class="pc-badge ${map[p] || 'pc-badge-medium'}">${esc(p || 'Medium')}</span>`;
@@ -2696,15 +2715,15 @@ function collectReqItems(includeFiles) {
     // the lines carry no cost and no supplier quotes. The Unit Cost / Total / Quotes
     // columns are hidden by toggleReqStockColumns(); whatever lingers in them is dropped
     // HERE so a stale figure can never inflate the requisition total.
-    const _stockEl = document.getElementById('reqStockStatus');
-    const inStock = !!_stockEl && _stockEl.value === 'in_stock';
+    const useStore = reqUsesWorkshopStore();     // the line names a workshop-register item
+    const nothingBought = reqNothingBought();    // ...and no money changes hands for it
     document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
-        // In-stock lines are PICKED from the workshop store's searchable list — only a
+        // Store lines are PICKED from the workshop register's searchable list — only a
         // bound name counts, so text typed but never picked cannot be saved.
-        const name = (inStock ? wsRowItem(row) : row.querySelector('.pc-prod-input').value).trim();
+        const name = (useStore ? wsRowItem(row) : row.querySelector('.pc-prod-input').value).trim();
         const qty = parseFloat(row.querySelector('.pc-item-qty').value || '0') || 0;
         if (!name || qty <= 0) return;
-        const suppliers = inStock ? [] : (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).map(s => {
+        const suppliers = nothingBought ? [] : (row._suppliers || []).filter(s => (s.supplier_name || '').trim()).map(s => {
             const o = {
                 supplier_id: s.supplier_id || null,
                 supplier_name: (s.supplier_name || '').trim(),
@@ -2720,14 +2739,14 @@ function collectReqItems(includeFiles) {
         });
         items.push({
             // A workshop item is NOT a catalogue product (the store matches goods by
-            // name when the requisition is authorised), so an in-stock line saves no id.
-            product_id: inStock ? null : (row.querySelector('.pc-prod-id').value ? parseInt(row.querySelector('.pc-prod-id').value, 10) : null),
+            // name when the requisition is authorised), so a store line saves no id.
+            product_id: useStore ? null : (row.querySelector('.pc-prod-id').value ? parseInt(row.querySelector('.pc-prod-id').value, 10) : null),
             product_name: name,
             category: row.querySelector('.pc-item-cat').value.trim(),
             project_id: row.querySelector('.pc-item-proj-id').value ? parseInt(row.querySelector('.pc-item-proj-id').value, 10) : null,
             project_ref: row.querySelector('.pc-item-proj').value.trim(),
             quantity: qty,
-            unit_cost: inStock ? 0 : (parseFloat(row.querySelector('.pc-item-cost').value || '0') || 0),
+            unit_cost: nothingBought ? 0 : (parseFloat(row.querySelector('.pc-item-cost').value || '0') || 0),
             notes: row.querySelector('.pc-item-notes').value.trim(),
             suppliers
         });
@@ -2888,19 +2907,39 @@ function wireWsItemSearch(input, row) {
     }, 150));
 }
 
+/* Which picker the Product/Item cell shows. The goods come OUT of the workshop store
+   whenever the answer is "in stock" OR "partly in stock" — a partly-held line still names
+   a register item, and the shortfall is what gets bought — so BOTH use the register's
+   searchable list. Only "not in stock" buys everything, and keeps the product catalogue. */
+function reqUsesWorkshopStore() {
+    const v = (document.getElementById('reqStockStatus') || {}).value || '';
+    return v === 'in_stock' || v === 'partial';
+}
+/* True only when NOTHING is being bought. The quantity cap, the save-time shortfall guard,
+   the hidden cost columns and the dropped quotes all hang off THIS — not off the picker —
+   because a partly-held line is allowed to request more than the store actually holds. */
+function reqNothingBought() {
+    const v = (document.getElementById('reqStockStatus') || {}).value || '';
+    return v === 'in_stock';
+}
+
 function applyStockItemMode() {
-    const el = document.getElementById('reqStockStatus');
-    const inStock = !!el && el.value === 'in_stock';
+    const usesStore = reqUsesWorkshopStore();
+    const nothingBought = reqNothingBought();
     document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
         const prod = row.querySelector('.pc-prod-input');
         const wsInp = row.querySelector('.pc-item-ws');
         const hid = row.querySelector('.pc-ws-name');
-        if (prod) prod.classList.toggle('pc-hide', inStock);
+        if (prod) prod.classList.toggle('pc-hide', usesStore);
         if (wsInp) {
-            wsInp.classList.toggle('pc-hide', !inStock);
-            wsInp.title = inStock ? 'Search the workshop store — type to filter, then pick an item' : '';
+            wsInp.classList.toggle('pc-hide', !usesStore);
+            wsInp.title = usesStore
+                ? (nothingBought
+                    ? 'Search the workshop store — type to filter, then pick an item'
+                    : 'Search the workshop store — the shortfall is bought on a purchase order')
+                : '';
         }
-        if (!inStock) {
+        if (!usesStore) {
             // A workshop binding must not survive into a buying requisition.
             if (hid) hid.value = '';
             return;
@@ -2916,7 +2955,7 @@ function applyStockItemMode() {
         const pid = row.querySelector('.pc-prod-id');
         if (pid) pid.value = '';
     });
-    if (inStock && !WS_ITEMS_LOADED) loadWsItems();
+    if (usesStore && !WS_ITEMS_LOADED) loadWsItems();
 }
 
 /* How much of an item the store can give: on hand MINUS what has already been claimed.
@@ -2925,8 +2964,10 @@ function applyStockItemMode() {
    only what is left. Otherwise two lines of 20 each look fine against a stock of 24
    while together asking for 40. */
 function applyWsQtyLimits() {
-    const el = document.getElementById('reqStockStatus');
-    const inStock = !!el && el.value === 'in_stock';
+    // ONLY "in stock" takes the whole quantity out of the store, so ONLY that mode is
+    // capped. A PARTLY-held line may legitimately ask for more than the register holds —
+    // the shortfall is exactly what the purchase order is for.
+    const inStock = reqNothingBought();
     const used = {};
     document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
         const qtyEl = row.querySelector('.pc-item-qty');
@@ -3512,7 +3553,7 @@ window.openReqModal = function() {
     document.getElementById('reqNeededBy').value = '';
     document.getElementById('reqNotes').value = '';
     document.getElementById('reqStockStatus').value = 'not_in_stock';
-    document.getElementById('reqNotifyApprover').checked = true;
+    document.getElementById('reqNotifyApprover').checked = false;
     const rfS = document.getElementById('reqFundsStatusInput');
     const rfN = document.getElementById('reqFundsNoteInput');
     if (rfS) rfS.value = '';
@@ -3521,6 +3562,7 @@ window.openReqModal = function() {
     ['reqAuthoriserId', 'reqApproverId'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['reqAuthoriserPhone', 'reqApproverPhone'].forEach(id => setAssigneePhone(document.getElementById(id), null));
     toggleReqFundsHint();
+    toggleReqNotifyApprover();
     toggleReqStockColumns();
     growReqNotes();
     toggleReqProjectField();
@@ -3572,6 +3614,9 @@ window.editReq = async function(id) {
             assigneeById('req_approvers', r.approver_user_id, () => REQ_ASSIGNEES)
             || (r.approver_name ? { _unknown: true } : null));
         toggleReqFundsHint();
+        // AFTER the approver has been prefilled: the toggle clears the pick when the
+        // stored tick is off, and shows the picker when it is on.
+        toggleReqNotifyApprover();
         toggleReqStockColumns();
         growReqNotes();
         document.getElementById('itemRows').innerHTML = '';
@@ -3585,12 +3630,13 @@ window.saveReq = async function() {
     const dept = document.getElementById('reqDepartment').value.trim();
     if (!title) { toast('Title is required', 'error'); return; }
     const collected = collectReqItems(true);
-    const _inStockNow = (document.getElementById('reqStockStatus').value || '') === 'in_stock';
-    // An in-stock line whose item was typed but never PICKED is dropped from `collected`
-    // (only a bound name counts), so it has to be reported BEFORE the empty check —
-    // otherwise a typo gets answered with "add at least one item", which is not the
-    // problem and gives no hint how to fix it.
-    if (_inStockNow) {
+    const _storeNow = reqUsesWorkshopStore();   // the item cell is the workshop list
+    const _inStockNow = reqNothingBought();     // ...and NOTHING is being bought
+    // A workshop-store line whose item was typed but never PICKED is dropped from
+    // `collected` (only a bound name counts), so it has to be reported BEFORE the empty
+    // check — otherwise a typo gets answered with "add at least one item", which is not
+    // the problem and gives no hint how to fix it. Applies to "partly in stock" too.
+    if (_storeNow) {
         const typed = [];
         document.querySelectorAll('#itemRows .pc-item-row').forEach(row => {
             const inp = row.querySelector('.pc-item-ws');
