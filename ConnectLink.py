@@ -40120,7 +40120,7 @@ def _proc_qty_str(v):
     return f'{_proc_qty_of(v):g}'
 
 
-def _proc_received_on(raw):
+def _proc_received_on(raw, now=None):
     """A user-supplied RECEIPT date -> a datetime, or None meaning "use the server clock".
 
     Accepts what a date input posts ('YYYY-MM-DD') and what a datetime input posts
@@ -40129,18 +40129,43 @@ def _proc_received_on(raw):
     every other sign-off ('23 August 2026 at 14:33') instead of a suspicious 00:00 — and
     so a receipt recorded late still lands in the right reporting period in the
     workshop ledger. An unparseable or empty value returns None = "now" (the previous
-    behaviour), so a bad payload can never lose the receipt."""
+    behaviour), so a bad payload can never lose the receipt.
+
+    `now` is the clock the time of day is read from, and the caller MUST pass the
+    DATABASE clock. This app container runs UTC while the database session runs
+    Africa/Harare, so `datetime.now()` here stamped a dated receipt two hours before the
+    database stamped the very same transaction — the movement read 21:23 while the item's
+    `updated_at` said 23:23, and a receipt recorded just after midnight could be filed a
+    day early. None keeps the old behaviour for a caller with no cursor (there is none)."""
     s = str(raw or '').strip().replace('T', ' ')
     if not s:
         return None
+    now = now or datetime.now()
     for fmt, cut in (('%Y-%m-%d %H:%M:%S', 19), ('%Y-%m-%d %H:%M', 16), ('%Y-%m-%d', 10)):
         try:
             d = datetime.strptime(s[:cut], fmt)
-            return datetime.combine(d.date(), datetime.now().time()).replace(microsecond=0)
+            return datetime.combine(d.date(), now.time()).replace(microsecond=0)
         except ValueError:
             continue
     print(f"Receipt date not understood ({raw!r}) — using the server clock")
     return None
+
+
+def _req_nos_for_ids(cursor, ids_csv):
+    """'4,5' -> 'REQ-0001, REQ-0005' — the requisition NUMBERS behind a purchase order.
+
+    The PO list, the View PO modal and the PO PDF all printed the raw
+    `purchase_orders.requisition_ids` ('4'), which tells a reader nothing: 4 is a row id,
+    not the REQ-0001 it points at. One query for the whole CSV; an id that no longer
+    exists (a deleted requisition is archived away, not kept in the table) falls back to
+    the bare id so the line still says something. Returns '' when there is nothing."""
+    ids = [i.strip() for i in str(ids_csv or '').split(',') if i.strip()]
+    if not ids:
+        return ''
+    cursor.execute("SELECT id::text, req_no FROM requisitions WHERE id::text = ANY(%s)",
+                   (ids,))
+    nos = {r[0]: (r[1] or r[0]) for r in cursor.fetchall()}
+    return ', '.join(nos.get(i, i) for i in ids)
 
 
 def _req_item_line(name, qty, project_ref):
@@ -41293,6 +41318,24 @@ def procurement_api_purchase_orders():
                     # APPENDED last on purpose — this SELECT is unpacked positionally.
                     'funds_received_at': str(r[24]) if r[24] else None
                 })
+            # The Requisitions column used to print the raw ids ('4'). Resolve them to the
+            # requisition NUMBERS in ONE query for the whole page.
+            want = []
+            for p in pos:
+                for i in str(p.get('requisition_ids') or '').split(','):
+                    i = i.strip()
+                    if i and i not in want:
+                        want.append(i)
+            nos = {}
+            if want:
+                cursor.execute(
+                    "SELECT id::text, req_no FROM requisitions WHERE id::text = ANY(%s)",
+                    (want,))
+                nos = {r[0]: (r[1] or r[0]) for r in cursor.fetchall()}
+            for p in pos:
+                p['requisition_nos'] = ', '.join(
+                    nos.get(i.strip(), i.strip())
+                    for i in str(p.get('requisition_ids') or '').split(',') if i.strip())
             project_map, po_proj = _po_overcost_data(cursor)
             for p in pos:
                 pid = po_proj.get(p['id'])
@@ -41813,6 +41856,8 @@ def procurement_api_po_detail(po_id):
                 'mime_type': a[4], 'file_size': a[5], 'uploaded_by': a[6],
                 'uploaded_at': str(a[7]) if a[7] else None
             } for a in atts]
+            # The modal showed the raw ids ('4') — hand it the requisition NUMBERS.
+            po['requisition_nos'] = _req_nos_for_ids(cursor, po.get('requisition_ids'))
             project_map, po_proj = _po_overcost_data(cursor)
             pid = po_proj.get(po['id'])
             info = project_map.get(pid) if pid else None
@@ -41837,7 +41882,6 @@ def procurement_api_receive_po(po_id):
     in the right reporting period. Omit it and the server clock is used, as before."""
     data = request.get_json() or {}
     received = data.get('received') or {}
-    received_on = _proc_received_on(data.get('received_at') or data.get('received_on'))
     user = _procurement_user()
     try:
         with get_db() as (cursor, connection):
@@ -41845,9 +41889,18 @@ def procurement_api_receive_po(po_id):
             po = cursor.fetchone()
             if not po:
                 return jsonify({'success': False, 'error': 'PO not found.'}), 404
+            # THE CLOCK COMES FROM THE DATABASE, the same clock the ledger's date
+            # boundaries use ("respects session timezone Africa/Harare"). This container
+            # runs UTC, so datetime.now() would stamp a receipt two hours before the
+            # database stamps the very same transaction, and a receipt recorded just
+            # after midnight could be filed a day early.
+            cursor.execute("SELECT LOCALTIMESTAMP")
+            db_now = cursor.fetchone()[0]
+            received_on = _proc_received_on(data.get('received_at') or data.get('received_on'),
+                                            db_now)
             # A receipt cannot be dated in the future — that would put stock into a
             # period that has not happened yet.
-            if received_on and received_on > datetime.now():
+            if received_on and received_on > db_now:
                 return jsonify({'success': False,
                                 'error': 'The date received cannot be in the future.'}), 400
             if po[2] == 'received':
@@ -42963,6 +43016,8 @@ def _render_po_pdf(po_id):
             FROM grn_lines WHERE purchase_order_id = %s ORDER BY id
         """, (po_id,))
         lines = cursor.fetchall()
+        # r[4] is requisition_ids: the PDF used to print it raw ('4').
+        req_nos = _req_nos_for_ids(cursor, r[4])
 
     (po_no, supplier_id, supplier_name, supplier_phone, requisition_ids, status,
      total_amount, expected_delivery, created_by, created_at, received_at,
@@ -43016,7 +43071,7 @@ def _render_po_pdf(po_id):
     else:
         funds_txt = 'Not yet recorded'
     order_rows = [('Logged by', _proc_esc(created_by) or '—'),
-                  ('Requisitions', _proc_esc(requisition_ids) or '—'),
+                  ('Requisitions', _proc_esc(req_nos) or '—'),
                   ('Funding', funding_label),
                   ('Funds received', funds_txt),
                   ('Received', _proc_long_date(received_at))]
@@ -43063,7 +43118,7 @@ def _render_po_pdf(po_id):
     story.append(Spacer(1, 7 * mm))
     story.append(_proc_pdf_footer([
         f'This purchase order was generated by {company.get("name") or "ConnectLink"}.',
-        f'Requisitions: {_proc_esc(requisition_ids) or "—"}  |  Supplier: {_proc_esc(supplier_name) or "—"}',
+        f'Requisitions: {_proc_esc(req_nos) or "—"}  |  Supplier: {_proc_esc(supplier_name) or "—"}',
         f'Generated {_proc_long_date(datetime.now(), with_time=True)}',
     ], S, C))
 
@@ -44364,15 +44419,20 @@ def procurement_api_workshop_item_add():
 @login_required
 @_procurement_perm_required('can_manage_purchase_orders')
 def procurement_api_workshop_item_update(item_id):
-    """Edit a workshop item's details, INCLUDING its name — this is how an item in
-    stock is renamed.
+    """Edit a workshop item's details, INCLUDING its name and its stock — this is how an
+    item in stock is renamed, and how a wrong balance is corrected.
 
-    The BALANCE IS NOT EDITABLE — that is what movements are for. Allowing a direct
-    edit here would create stock the ledger cannot explain.
+    THE BALANCE IS STILL NOT A FREE-TEXT FIELD. Passing `stock` does not overwrite
+    workshop_items.stock: it works out the DIFFERENCE and records it as an adjustment
+    movement ('Adjustment (increase)' / 'Adjustment (decrease)', reference 'Manual
+    correction'), so the register's balance always equals its movements and the ledger
+    stays explainable. A balance typed straight in would be stock no report could account
+    for. To ADD stock the normal route stays 'Record Movement' (goods received, made,
+    returned) or receiving a purchase order.
 
     PASSCODE-GATED, the same as adding one: a rename rewrites the item's name on every
-    movement recorded against it, so it edits the register just as much as a new line
-    does. Items are still meant to arrive through a document."""
+    movement recorded against it, and an adjustment writes to the register, so both edit
+    the history just as much as a new line does."""
     data = request.get_json() or {}
     passcode = str(data.get('passcode') or '').strip()
     if not passcode:
@@ -44381,11 +44441,15 @@ def procurement_api_workshop_item_update(item_id):
     if passcode != PROC_WORKSHOP_ITEM_PASSCODE:
         return jsonify({'success': False, 'passcode_required': True,
                         'error': 'Invalid passcode.'}), 403
+    user = _procurement_user() or {}
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT id FROM workshop_items WHERE id = %s", (item_id,))
-            if not cursor.fetchone():
+            cursor.execute("SELECT id, COALESCE(stock, 0) FROM workshop_items WHERE id = %s",
+                           (item_id,))
+            cur_row = cursor.fetchone()
+            if not cur_row:
                 return jsonify({'success': False, 'error': 'Workshop item not found.'}), 404
+            current_stock = _proc_qty_of(cur_row[1])
             name = str(data.get('name') or '').strip()
             if name:
                 cursor.execute("""
@@ -44420,13 +44484,34 @@ def procurement_api_workshop_item_update(item_id):
             if name:
                 cursor.execute("UPDATE workshop_movements SET item_name = %s WHERE item_id = %s",
                                (name, item_id))
+            # A HAND-MADE STOCK CORRECTION: the difference becomes a movement, never a
+            # silent overwrite of the balance.
+            stock_msg = ''
+            if data.get('stock') not in (None, ''):
+                target = _proc_qty_of(data.get('stock'))
+                if target < 0:
+                    return jsonify({'success': False,
+                                    'error': 'Stock on hand cannot be a negative number.'}), 400
+                delta = round(target - current_stock, 2)
+                if delta:
+                    _workshop_record_movement(
+                        cursor, item_id, 'in' if delta > 0 else 'out', abs(delta), 'adjustment',
+                        reference='Manual correction',
+                        notes=(f'Stock corrected from {_proc_qty_str(current_stock)} to '
+                               f'{_proc_qty_str(target)}'),
+                        user_id=user.get('id'), user_name=user.get('name'))
+                    stock_msg = (f' Stock adjusted by {_proc_qty_str(abs(delta))} — from '
+                                 f'{_proc_qty_str(current_stock)} to {_proc_qty_str(target)} — and '
+                                 f'recorded as a movement.')
             connection.commit()
         log_activity('workshop_item_edit',
-                     f'Renamed/edited workshop item #{item_id}' + (f' to "{name}"' if name else ''),
+                     f'Renamed/edited workshop item #{item_id}' + (f' to "{name}"' if name else '')
+                     + (stock_msg or ''),
                      'workshop_item', item_id)
         return jsonify({'success': True,
-                        'message': (f'Saved — this item is now called "{name}", including on its '
-                                    f'past movements.' if name else 'Workshop item saved.')})
+                        'message': ((f'Saved — this item is now called "{name}", including on its '
+                                     f'past movements.' if name else 'Workshop item saved.')
+                                    + stock_msg)})
     except Exception as e:
         print(f"Workshop item update error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

@@ -1847,10 +1847,22 @@
                         <label class="pc-form-label">Opening quantity</label>
                         <input type="number" min="0" step="0.5" class="pc-input" id="wsItemOpening" value="0">
                     </div>
+                    <!-- Editing an item that is already in the register: correcting a wrong
+                         balance. The DIFFERENCE is recorded as an adjustment movement, so
+                         the register's balance always equals its movements. -->
+                    <div class="col-6" id="wsItemStockWrap" style="display:none;">
+                        <label class="pc-form-label">Stock on hand</label>
+                        <input type="number" min="0" step="0.5" class="pc-input" id="wsItemStock" value="0">
+                    </div>
                 </div>
                 <div style="font-size:0.56rem;color:#94A3B8;margin-top:5px;">
                     Anything already on the workshop floor is entered as the opening quantity.
                     After that, stock only moves through recorded movements.
+                </div>
+                <div id="wsItemStockHint" style="display:none;font-size:0.56rem;color:#94A3B8;margin-top:3px;">
+                    Change <b>Stock on hand</b> to correct a wrong figure — the difference is recorded as an
+                    <b>adjustment movement</b>, so the register stays explainable. To <b>add</b> stock use
+                    <b>Record Movement</b> (goods received, made, returned) or receive a purchase order.
                 </div>
                 <div class="mt-2">
                     <label class="pc-form-label">Notes</label>
@@ -4232,7 +4244,7 @@ async function loadPOs() {
             <tr style="cursor:pointer;" onclick="viewPo(${po.id})">
                 <td>${esc(po.po_no)}${po.overcost ? ` <span style="color:#b91c1c;background:#fee2e2;border:1px solid #fca5a5;border-radius:4px;font-size:0.56rem;font-weight:800;padding:1px 5px;white-space:nowrap;" title="Linked purchase orders for ${esc(po.project_name || 'this project')} ($${fmtMoney(po.po_total)}) exceed the in-house budget ($${fmtMoney(po.base_cost)})">⚠ OVER BUDGET</span>` : ''}</td>
                 <td>${esc(po.supplier_name || '—')}${po.supplier_phone ? `<div style="color:#94A3B8;font-size:0.58rem;">${esc(po.supplier_phone)}</div>` : ''}${po.funding_source === 'injection' ? `<div style="color:#B45309;font-size:0.56rem;font-weight:700;">◈ Capital injection</div>` : ''}</td>
-                <td>${esc(po.requisition_ids || '—')}</td>
+                <td>${esc(po.requisition_nos || po.requisition_ids || '—')}</td>
                 <td>${poBadge(po.status)}${po.funds_received_at ? ` <span class="pc-badge pc-badge-approved" title="Funds received ${esc(fmtDocDate(po.funds_received_at, true))}">💰 Funded</span>` : ''}${signedOffLine(po)}</td>
                 <td class="num">${fmtMoney(po.total_amount)}</td>
                 <td>${esc(fmtDocDate(po.expected_delivery))}</td>
@@ -4459,7 +4471,7 @@ window.viewPo = async function(id, openReceive) {
                 <div class="col-md-3"><strong>Funding:</strong> ${po.funding_source === 'injection' ? '<span style="color:#B45309;font-weight:700;">Capital injection</span>' : '<span style="color:#15803D;font-weight:700;">Business cash flows</span>'}</div>
                 <div class="col-md-3"><strong>Funds Received:</strong> ${po.funds_received_at ? `<span style="color:#15803D;font-weight:700;">${esc(fmtDocDate(po.funds_received_at, true))}</span>${po.funds_received_by ? `<br><span style="color:#64748B;">recorded by ${esc(po.funds_received_by)}</span>` : ''}` : '<span style="color:#B45309;font-weight:700;">Not yet recorded</span>'}</div>
                 <div class="col-md-3"><strong>Expected Delivery:</strong> ${esc(fmtDocDate(po.expected_delivery))}</div>
-                <div class="col-md-4"><strong>Requisitions:</strong> ${esc(po.requisition_ids || '—')}</div>
+                <div class="col-md-4"><strong>Requisitions:</strong> ${esc(po.requisition_nos || po.requisition_ids || '—')}</div>
                 <div class="col-md-4"><strong>Created:</strong> ${esc(fmtDocDate(po.created_at, true))}</div>
                 <div class="col-md-4"><strong>Received:</strong> ${esc(fmtDocDate(po.received_at, true))}</div>
             </div>`;
@@ -5646,6 +5658,7 @@ window.openWsItem = function(id) {
     document.getElementById('wsItemMin').value = it ? it.min_level : 0;
     document.getElementById('wsItemNotes').value = '';
     document.getElementById('wsItemOpening').value = 0;
+    document.getElementById('wsItemStock').value = it ? (Number(it.stock) || 0) : 0;
     document.getElementById('wsItemPass').value = '';
     // The passcode gates everything that SHAPES the register by hand — adding an item,
     // renaming one, editing one. Only the documents arrive without it.
@@ -5657,6 +5670,10 @@ window.openWsItem = function(id) {
     // The opening quantity only makes sense when the item is first created — after
     // that, stock moves through movements like everything else.
     document.getElementById('wsItemOpeningWrap').style.display = it ? 'none' : '';
+    // The balance can only be CORRECTED on an item that already exists (a new one is
+    // given its opening figure instead), and the hint says how that is recorded.
+    document.getElementById('wsItemStockWrap').style.display = it ? '' : 'none';
+    document.getElementById('wsItemStockHint').style.display = it ? '' : 'none';
     wsItemCategoryChanged();
     showModal('wsItemModal');
 };
@@ -5682,6 +5699,9 @@ window.saveWsItem = async function() {
         passcode: document.getElementById('wsItemPass').value.trim(),
         is_active: true
     };
+    // Only sent when EDITING — a new item is given its opening quantity instead. The
+    // server records the difference as an adjustment movement, never a silent overwrite.
+    if (id) body.stock = document.getElementById('wsItemStock').value;
     if (!body.name) { msg.textContent = 'An item name is required.'; msg.style.display = ''; return; }
     if (!body.passcode) {
         msg.textContent = (id ? 'A passcode is required to rename or edit an item by hand —'

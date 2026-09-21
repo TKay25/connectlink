@@ -42,7 +42,7 @@
   ],
   "prompt_locations": [
     "INSTRUCTIONS @ line 15120",
-    "# The register starts EMPTY (the user's  @ line 43897"
+    "# The register starts EMPTY (the user's  @ line 43952"
   ],
   "token_controls": [
     "max_length = 0 @ line 26393",
@@ -70,6 +70,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-09-21T04:51:21.265659Z",
+  "generated_at": "2026-09-21T05:46:59.954316Z",
   "stale": false
 }
