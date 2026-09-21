@@ -9638,9 +9638,37 @@ def webhook():
                                                                                    buttons put these classes on the list. grid, not column-count, so the
                                                                                    items read ACROSS the row (1,2,3 then 4,5,6) --- */
                                                                                 .cl-cols-2, .cl-cols-3 {{ display: grid; column-gap: 16px; align-items: start; }}
-                                                                                .cl-cols-2 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-                                                                                .cl-cols-3 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+                                                                                .cl-cols-2 {{ grid-template-columns: 1fr 1fr; grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+                                                                                .cl-cols-3 {{ grid-template-columns: 1fr 1fr 1fr; grid-template-columns: repeat(3, minmax(0, 1fr)); }}
                                                                                 .cl-cols-2 > li, .cl-cols-3 > li {{ break-inside: avoid; page-break-inside: avoid; }}
+
+                                                                                /* --- Every format the scope editor offers must also survive a PDF. On
+                                                                                   screen quill.snow.css (CDN) styles these classes; a PDF loads no Quill
+                                                                                   stylesheet at all, so alignment, size, indent, blockquote and code
+                                                                                   blocks would silently disappear on paper without the rules below. --- */
+                                                                                .scope-box p {{ margin: 0 0 6px 0; }}
+                                                                                .scope-box li {{ margin-bottom: 3px; }}
+                                                                                .scope-box h1 {{ font-size: 17px; margin: 8px 0 5px 0; }}
+                                                                                .scope-box h2 {{ font-size: 14px; margin: 8px 0 5px 0; }}
+                                                                                .scope-box h3 {{ font-size: 12.5px; margin: 8px 0 5px 0; }}
+                                                                                .scope-box blockquote {{ border-left: 4px solid #ccc; margin: 5px 0; padding-left: 14px; color: #555; }}
+                                                                                .scope-box pre, .scope-box .ql-syntax {{ background: #f4f5f7; border-radius: 3px; padding: 5px 10px; white-space: pre-wrap; font-family: Consolas, monospace; font-size: 10px; }}
+                                                                                .ql-align-center {{ text-align: center; }}
+                                                                                .ql-align-right {{ text-align: right; }}
+                                                                                .ql-align-justify {{ text-align: justify; }}
+                                                                                .ql-size-small {{ font-size: 0.75em; }}
+                                                                                .ql-size-large {{ font-size: 1.5em; }}
+                                                                                .ql-size-huge {{ font-size: 2.5em; }}
+                                                                                .ql-font-serif {{ font-family: Georgia, 'Times New Roman', serif; }}
+                                                                                .ql-font-monospace {{ font-family: Monaco, 'Courier New', monospace; }}
+                                                                                .ql-indent-1 {{ padding-left: 3em; }}
+                                                                                .ql-indent-2 {{ padding-left: 6em; }}
+                                                                                .ql-indent-3 {{ padding-left: 9em; }}
+                                                                                .ql-indent-4 {{ padding-left: 12em; }}
+                                                                                .ql-indent-5 {{ padding-left: 15em; }}
+                                                                                .ql-indent-6 {{ padding-left: 18em; }}
+                                                                                .ql-indent-7 {{ padding-left: 21em; }}
+                                                                                .ql-indent-8 {{ padding-left: 24em; }}
 
                                                                                 /* .scope-box (continued) — split only so the column rules can sit in
                                                                                    between; both halves are the one .scope-box rule. */
@@ -10055,9 +10083,37 @@ def webhook():
                                                                                    buttons put these classes on the list. grid, not column-count, so the
                                                                                    items read ACROSS the row (1,2,3 then 4,5,6) --- */
                                                                                 .cl-cols-2, .cl-cols-3 {{ display: grid; column-gap: 16px; align-items: start; }}
-                                                                                .cl-cols-2 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-                                                                                .cl-cols-3 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+                                                                                .cl-cols-2 {{ grid-template-columns: 1fr 1fr; grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+                                                                                .cl-cols-3 {{ grid-template-columns: 1fr 1fr 1fr; grid-template-columns: repeat(3, minmax(0, 1fr)); }}
                                                                                 .cl-cols-2 > li, .cl-cols-3 > li {{ break-inside: avoid; page-break-inside: avoid; }}
+
+                                                                                /* --- Every format the scope editor offers must also survive a PDF. On
+                                                                                   screen quill.snow.css (CDN) styles these classes; a PDF loads no Quill
+                                                                                   stylesheet at all, so alignment, size, indent, blockquote and code
+                                                                                   blocks would silently disappear on paper without the rules below. --- */
+                                                                                .scope-box p {{ margin: 0 0 6px 0; }}
+                                                                                .scope-box li {{ margin-bottom: 3px; }}
+                                                                                .scope-box h1 {{ font-size: 17px; margin: 8px 0 5px 0; }}
+                                                                                .scope-box h2 {{ font-size: 14px; margin: 8px 0 5px 0; }}
+                                                                                .scope-box h3 {{ font-size: 12.5px; margin: 8px 0 5px 0; }}
+                                                                                .scope-box blockquote {{ border-left: 4px solid #ccc; margin: 5px 0; padding-left: 14px; color: #555; }}
+                                                                                .scope-box pre, .scope-box .ql-syntax {{ background: #f4f5f7; border-radius: 3px; padding: 5px 10px; white-space: pre-wrap; font-family: Consolas, monospace; font-size: 10px; }}
+                                                                                .ql-align-center {{ text-align: center; }}
+                                                                                .ql-align-right {{ text-align: right; }}
+                                                                                .ql-align-justify {{ text-align: justify; }}
+                                                                                .ql-size-small {{ font-size: 0.75em; }}
+                                                                                .ql-size-large {{ font-size: 1.5em; }}
+                                                                                .ql-size-huge {{ font-size: 2.5em; }}
+                                                                                .ql-font-serif {{ font-family: Georgia, 'Times New Roman', serif; }}
+                                                                                .ql-font-monospace {{ font-family: Monaco, 'Courier New', monospace; }}
+                                                                                .ql-indent-1 {{ padding-left: 3em; }}
+                                                                                .ql-indent-2 {{ padding-left: 6em; }}
+                                                                                .ql-indent-3 {{ padding-left: 9em; }}
+                                                                                .ql-indent-4 {{ padding-left: 12em; }}
+                                                                                .ql-indent-5 {{ padding-left: 15em; }}
+                                                                                .ql-indent-6 {{ padding-left: 18em; }}
+                                                                                .ql-indent-7 {{ padding-left: 21em; }}
+                                                                                .ql-indent-8 {{ padding-left: 24em; }}
 
                                                                                 /* .scope-box (continued) — split only so the column rules can sit in
                                                                                    between; both halves are the one .scope-box rule. */
@@ -23121,9 +23177,37 @@ def download_contract(project_id):
                        buttons put these classes on the list. grid, not column-count, so the
                        items read ACROSS the row (1,2,3 then 4,5,6) --- */
                     .cl-cols-2, .cl-cols-3 {{ display: grid; column-gap: 16px; align-items: start; }}
-                    .cl-cols-2 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-                    .cl-cols-3 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+                    .cl-cols-2 {{ grid-template-columns: 1fr 1fr; grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+                    .cl-cols-3 {{ grid-template-columns: 1fr 1fr 1fr; grid-template-columns: repeat(3, minmax(0, 1fr)); }}
                     .cl-cols-2 > li, .cl-cols-3 > li {{ break-inside: avoid; page-break-inside: avoid; }}
+
+                    /* --- Every format the scope editor offers must also survive a PDF. On
+                       screen quill.snow.css (CDN) styles these classes; a PDF loads no Quill
+                       stylesheet at all, so alignment, size, indent, blockquote and code
+                       blocks would silently disappear on paper without the rules below. --- */
+                    .scope-box p {{ margin: 0 0 6px 0; }}
+                    .scope-box li {{ margin-bottom: 3px; }}
+                    .scope-box h1 {{ font-size: 17px; margin: 8px 0 5px 0; }}
+                    .scope-box h2 {{ font-size: 14px; margin: 8px 0 5px 0; }}
+                    .scope-box h3 {{ font-size: 12.5px; margin: 8px 0 5px 0; }}
+                    .scope-box blockquote {{ border-left: 4px solid #ccc; margin: 5px 0; padding-left: 14px; color: #555; }}
+                    .scope-box pre, .scope-box .ql-syntax {{ background: #f4f5f7; border-radius: 3px; padding: 5px 10px; white-space: pre-wrap; font-family: Consolas, monospace; font-size: 10px; }}
+                    .ql-align-center {{ text-align: center; }}
+                    .ql-align-right {{ text-align: right; }}
+                    .ql-align-justify {{ text-align: justify; }}
+                    .ql-size-small {{ font-size: 0.75em; }}
+                    .ql-size-large {{ font-size: 1.5em; }}
+                    .ql-size-huge {{ font-size: 2.5em; }}
+                    .ql-font-serif {{ font-family: Georgia, 'Times New Roman', serif; }}
+                    .ql-font-monospace {{ font-family: Monaco, 'Courier New', monospace; }}
+                    .ql-indent-1 {{ padding-left: 3em; }}
+                    .ql-indent-2 {{ padding-left: 6em; }}
+                    .ql-indent-3 {{ padding-left: 9em; }}
+                    .ql-indent-4 {{ padding-left: 12em; }}
+                    .ql-indent-5 {{ padding-left: 15em; }}
+                    .ql-indent-6 {{ padding-left: 18em; }}
+                    .ql-indent-7 {{ padding-left: 21em; }}
+                    .ql-indent-8 {{ padding-left: 24em; }}
 
                     /* .scope-box (continued) — split only so the column rules can sit in
                        between; both halves are the one .scope-box rule. */

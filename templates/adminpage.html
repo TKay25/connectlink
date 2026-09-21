@@ -3701,9 +3701,44 @@ body { font-family: Arial; margin: 20px; }
    (1,2,3 down, then 4,5,6). Grid puts them across the row, which is what
    "2 or 3 items per row" means: 1,2,3 / 4,5,6. */
 .cl-cols-2, .cl-cols-3 { display: grid; column-gap: 18px; align-items: start; }
-.cl-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.cl-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cl-cols-2 { grid-template-columns: 1fr 1fr; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cl-cols-3 { grid-template-columns: 1fr 1fr 1fr; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cl-cols-2 > li, .cl-cols-3 > li { break-inside: avoid; page-break-inside: avoid; }
+/* Quill scopes its own formats to .ql-editor (quill.snow.css), so alignment, size,
+   indent, blockquote and code blocks were lost everywhere the SAME html is shown
+   outside an editor — the Confirm Project Details screen, View Project, Ctrl+P and
+   the PDFs. They are repeated here (and inside the server's documents) so what you
+   format is what prints. */
+.ql-align-center { text-align: center; }
+.ql-align-right { text-align: right; }
+.ql-align-justify { text-align: justify; }
+.ql-size-small { font-size: 0.75em; }
+.ql-size-large { font-size: 1.5em; }
+.ql-size-huge { font-size: 2.5em; }
+.ql-font-serif { font-family: Georgia, 'Times New Roman', serif; }
+.ql-font-monospace { font-family: Monaco, 'Courier New', monospace; }
+.ql-indent-1 { padding-left: 3em; }
+.ql-indent-2 { padding-left: 6em; }
+.ql-indent-3 { padding-left: 9em; }
+.ql-indent-4 { padding-left: 12em; }
+.ql-indent-5 { padding-left: 15em; }
+.ql-indent-6 { padding-left: 18em; }
+.ql-indent-7 { padding-left: 21em; }
+.ql-indent-8 { padding-left: 24em; }
+.ql-syntax, pre.ql-syntax, .ql-editor .ql-syntax, .ql-editor pre { background: #f4f5f7; color: #2C3E50; border: 1px solid #e5e7eb; border-radius: 3px; padding: 5px 10px; white-space: pre-wrap; font-family: Consolas, monospace; }
+/* the editor shows the same heading sizes and code block as the printed copy.
+   Quill writes these as ".ql-snow .ql-editor h2" / ".ql-snow .ql-editor pre.ql-syntax",
+   so the override has to carry the same specificity or Quill wins. */
+.ql-snow .ql-editor h1 { font-size: 17px; }
+.ql-snow .ql-editor h2 { font-size: 14px; }
+.ql-snow .ql-editor h3 { font-size: 12.5px; }
+.ql-snow .ql-editor pre.ql-syntax, .ql-snow .ql-editor pre { background: #f4f5f7; color: #2C3E50; border: 1px solid #e5e7eb; }
+#confirmProjectScope p, #projectDetailsBody p { margin: 0 0 6px 0; }
+#confirmProjectScope li, #projectDetailsBody li { margin-bottom: 3px; }
+#confirmProjectScope h1, #projectDetailsBody h1 { font-size: 17px; margin: 8px 0 5px 0; }
+#confirmProjectScope h2, #projectDetailsBody h2 { font-size: 14px; margin: 8px 0 5px 0; }
+#confirmProjectScope h3, #projectDetailsBody h3 { font-size: 12.5px; margin: 8px 0 5px 0; }
+#confirmProjectScope blockquote, #projectDetailsBody blockquote { border-left: 4px solid #ccc; margin: 5px 0; padding-left: 14px; color: #555; }
 @media print {
     .cl-cols-2, .cl-cols-3 { column-gap: 14px; }
     .cl-cols-2 > li, .cl-cols-3 > li { break-inside: avoid; page-break-inside: avoid; }
