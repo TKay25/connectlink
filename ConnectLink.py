@@ -29642,6 +29642,38 @@ def update_other_details():
             'message': f'Error updating details: {str(e)}'
         }), 500
 
+# ---- PROJECT SCOPE / DESCRIPTION: ONE SANITISER FOR BOTH PROJECT FORMS ----
+# The scope is RICH TEXT — the editor offers bold, italic, underline and bullet /
+# numbered lists — so an allow-list is the only safe place to keep it: everything the
+# editor can produce must survive, everything else is stripped.
+_PROJECT_SCOPE_TAGS = frozenset(bleach.sanitizer.ALLOWED_TAGS).union(
+    {'p', 'br', 'ul', 'ol', 'li', 'span', 'strong', 'em', 'u', 's', 'blockquote'}
+)
+_PROJECT_SCOPE_ATTRS = {'*': ['style'], 'span': ['class']}
+
+
+def _clean_project_scope(html):
+    """Sanitise a project scope/description, keeping the formatting the editor offers.
+
+    Used by BOTH project routes (a new project, and the progress update) so the same
+    field cannot be safe on one page and raw on the other: the update route used to
+    store whatever arrived, tags and all.
+
+    `u` and `s` are listed explicitly because bleach's defaults do NOT include them —
+    the toolbar has an Underline button, so every underlined word was being silently
+    stripped out of the saved scope. `span`+`class`/`style` are what Quill puts on
+    formatted runs. Anything unrecognised (a script, an onclick, an iframe) is removed
+    rather than escaped, and a failure here degrades to plain text rather than losing
+    the user's typing."""
+    raw = html or ''
+    try:
+        return bleach.clean(raw, tags=_PROJECT_SCOPE_TAGS, attributes=_PROJECT_SCOPE_ATTRS,
+                            strip=True)
+    except Exception as e:
+        print(f"⚠️ Could not sanitise the project scope ({e}) — storing plain text instead")
+        return re.sub(r'<[^>]+>', '', raw)
+
+
 @app.route('/update_project', methods=['POST'])
 def update_project():
 
@@ -29653,7 +29685,9 @@ def update_project():
         completion_status = request.form.get('completion_status')
         project_name = request.form.get('ProjectName')
         project_start_date = request.form.get('ProjectStartDate')
-        projscope = request.form.get('projscope')
+        # The scope arrives as the editor's HTML (bold, bullet / numbered lists) and is
+        # sanitised by the SAME helper the New Project route uses.
+        projscope = _clean_project_scope(request.form.get('projscope'))
         contractamount = request.form.get('TotalContractAmount')
         monthstopay = request.form.get('MonthsToPay')
         depositpaid = request.form.get('depositpaid')
@@ -30457,21 +30491,10 @@ def contract_log():
                 months_to_completion = request.form.get('months_to_completion')
                 project_description = request.form.get('project_description') or ""
 
-                ALLOWED_TAGS = set(bleach.sanitizer.ALLOWED_TAGS).union({
-                    'p', 'br', 'ul', 'ol', 'li', 'span', 'strong', 'em'
-                })
-
-                ALLOWED_ATTRIBUTES = {
-                    '*': ['style'],
-                    'span': ['class']
-                }
-
-                clean_html = bleach.clean(
-                    request.form.get("project_description", ""),
-                    tags=ALLOWED_TAGS,
-                    attributes=ALLOWED_ATTRIBUTES,
-                    strip=True
-                )
+                # ONE sanitiser for both project forms — see _clean_project_scope. It
+                # keeps the formatting the editor offers, including <u> (Underline),
+                # which this allow-list used to drop.
+                clean_html = _clean_project_scope(request.form.get("project_description", ""))
 
                 agreement_date = request.form.get('agreement_date')
                 total_contract_price = request.form.get('total_contract_price')

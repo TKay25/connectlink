@@ -13997,7 +13997,14 @@ body { font-family: Arial; margin: 20px; }
 
                     <div class="col-md-7">
                         <label for="updateProjectScope" class="form-label fw-bold">Project Scope</label>
-                        <textarea class="form-control editable-field" id="updateProjectScope" rows="5" name="projscope"></textarea>
+                        <!-- Rich text, exactly like the New Project form. The editor mirrors its HTML into the
+                             hidden input, which keeps the SAME id and name the textarea had — so the POST and
+                             every $('#updateProjectScope') call keep working. -->
+                        <div id="updateProjectScopeToolbar" style="margin-bottom:2px;">
+                            <span class="ql-formats"><button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button><button class="ql-list" value="bullet"></button><button class="ql-list" value="ordered"></button></span>
+                        </div>
+                        <div id="updateProjectScopeEditor" class="editable-field" style="height:110px;background:var(--bg-card);font-size:0.75rem;"></div>
+                        <input type="hidden" id="updateProjectScope" name="projscope">
                     </div>
                 </div>
 
@@ -31086,6 +31093,51 @@ document.getElementById("saveNewInstallmentDateBtn")?.addEventListener("click", 
             document.getElementById("project_description").value = quillProjectScope.root.innerHTML;
         }
     });
+
+    /* ===== PROJECT PROGRESS UPDATE: THE SAME RICH-TEXT SCOPE =====
+       That form used to be a plain textarea AND the stored scope was stripped of its
+       tags before being put in it, so bold text and bullet / numbered lists were lost
+       every time a project was updated through it. The editor keeps the hidden input
+       current on every keystroke. */
+    var quillUpdateScope = null;
+
+    function initUpdateScopeQuill() {
+        if (quillUpdateScope) return quillUpdateScope;
+        if (typeof Quill === 'undefined') return null;
+        if (!document.getElementById('updateProjectScopeEditor')) return null;
+        try {
+            quillUpdateScope = new Quill('#updateProjectScopeEditor', {
+                theme: 'snow',
+                modules: { toolbar: '#updateProjectScopeToolbar' }
+            });
+            quillUpdateScope.on('text-change', syncUpdateScope);
+        } catch (e) {
+            console.error('Could not start the project scope editor:', e);
+            quillUpdateScope = null;
+        }
+        return quillUpdateScope;
+    }
+
+    function syncUpdateScope() {
+        var hid = document.getElementById('updateProjectScope');
+        if (hid && quillUpdateScope) hid.value = quillUpdateScope.root.innerHTML;
+    }
+
+    /* Load a scope AS HTML — it is html, and stripping it was the bug. Falls back to the
+       hidden input alone if Quill could not start, so the field still submits. */
+    function setUpdateProjectScope(html) {
+        var value = html || '';
+        var q = initUpdateScopeQuill();
+        var hid = document.getElementById('updateProjectScope');
+        if (q) { q.root.innerHTML = value; syncUpdateScope(); }
+        else if (hid) { hid.value = value; }
+    }
+
+    // Registered on the DOCUMENT in the capture phase so it is guaranteed to run before
+    // the form's own submit handler reads the field.
+    document.addEventListener('submit', function (e) {
+        if (e.target && e.target.id === 'updateProjectForm') syncUpdateScope();
+    }, true);
 </script>
 
 
@@ -31712,8 +31764,9 @@ $(document).on('click', '.update-project-btn', function () {
         completionStatus, installment1Amount, installment1DueDate, quotationId
     });
 
-    // Strip HTML tags from project scope
-    const plainText = projectScope ? projectScope.replace(/<[^>]*>/g, '') : '';
+    // The scope is RICH TEXT, so it is handed to the editor AS HTML. It used to be
+    // stripped to plain text here — which is exactly why bold text and bullet or
+    // numbered lists disappeared every time a project was updated from this form.
 
     // Set values in the modal - FIXED duplicate assignment
     $('#updateProjectId').val(id);
@@ -31741,7 +31794,7 @@ $(document).on('click', '.update-project-btn', function () {
     $('#updateAdminName').val(adminName);
     $('#updateTotalContractAmount').val(totalcontractamount);
     $('#updateMonthsToPay').val(monthstopay);
-    $('#updateProjectScope').val(plainText);
+    setUpdateProjectScope(projectScope);
     
     // Set completion status
     if (completionStatus) {
