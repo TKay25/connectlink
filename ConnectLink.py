@@ -29646,10 +29646,31 @@ def update_other_details():
 # The scope is RICH TEXT — the editor offers bold, italic, underline and bullet /
 # numbered lists — so an allow-list is the only safe place to keep it: everything the
 # editor can produce must survive, everything else is stripped.
-_PROJECT_SCOPE_TAGS = frozenset(bleach.sanitizer.ALLOWED_TAGS).union(
-    {'p', 'br', 'ul', 'ol', 'li', 'span', 'strong', 'em', 'u', 's', 'blockquote'}
-)
-_PROJECT_SCOPE_ATTRS = {'*': ['style'], 'span': ['class']}
+_PROJECT_SCOPE_TAGS = frozenset(bleach.sanitizer.ALLOWED_TAGS).union({
+    'p', 'br', 'ul', 'ol', 'li', 'span', 'strong', 'em', 'u', 's',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'sub', 'sup', 'hr',
+})
+# Quill puts its CLASS-based formats on the element itself (ql-align-center, ql-size-large,
+# ql-indent-1, ql-syntax…) and sends colours/sizes as inline style, so BOTH have to be
+# allowed on every tag — restricting class to span (as this used to) silently dropped
+# alignment, size and indent, and the styles were emptied too.
+_PROJECT_SCOPE_ATTRS = {
+    '*': ['class', 'style'],
+    'a': ['href', 'target', 'rel'],
+}
+# ONLY the properties that toolbar can produce. Everything else that could appear in a
+# style attribute (position, z-index, url(…)) is dropped by bleach.
+_PROJECT_SCOPE_CSS = ('color', 'background-color', 'font-size', 'font-family', 'font-weight',
+                       'font-style', 'text-align', 'text-decoration', 'line-height',
+                       'padding-left', 'margin-left', 'white-space')
+try:
+    from bleach.css_sanitizer import CSSSanitizer as _BleachCSSSanitizer
+    _PROJECT_SCOPE_CSS_SANITIZER = _BleachCSSSanitizer(
+        allowed_css_properties=list(_PROJECT_SCOPE_CSS))
+except Exception as _css_e:      # bleach's CSS support needs tinycss2 — see requirements.txt
+    _PROJECT_SCOPE_CSS_SANITIZER = None
+    print(f"⚠️ Project scope: inline colours and sizes are OFF ({_css_e}) — add tinycss2 "
+          f"(bleach[css]) to requirements.txt to switch them on.")
 
 
 def _clean_project_scope(html):
@@ -29661,14 +29682,16 @@ def _clean_project_scope(html):
 
     `u` and `s` are listed explicitly because bleach's defaults do NOT include them —
     the toolbar has an Underline button, so every underlined word was being silently
-    stripped out of the saved scope. `span`+`class`/`style` are what Quill puts on
-    formatted runs. Anything unrecognised (a script, an onclick, an iframe) is removed
-    rather than escaped, and a failure here degrades to plain text rather than losing
-    the user's typing."""
+    stripped out of the saved scope. `class` is allowed on EVERY tag because that is how
+    Quill stores alignment, size and indent (ql-align-center, ql-size-large, ql-indent-1);
+    colours ride in a style attribute and pass through `_PROJECT_SCOPE_CSS_SANITIZER`, so
+    a property nobody's toolbar can produce never reaches the database. Anything
+    unrecognised (a script, an onclick, a javascript: link, an iframe) is removed rather
+    than escaped, and a failure here degrades to plain text rather than losing typing."""
     raw = html or ''
     try:
         return bleach.clean(raw, tags=_PROJECT_SCOPE_TAGS, attributes=_PROJECT_SCOPE_ATTRS,
-                            strip=True)
+                            strip=True, css_sanitizer=_PROJECT_SCOPE_CSS_SANITIZER)
     except Exception as e:
         print(f"⚠️ Could not sanitise the project scope ({e}) — storing plain text instead")
         return re.sub(r'<[^>]+>', '', raw)

@@ -35,3 +35,8 @@ reportlab
 # PNG through Pillow (it reads JPEG natively). Without this the logo silently falls back
 # to printing the company name — which is what happened on the live server.
 Pillow
+# bleach's CSS sanitiser — used for the inline colours and font sizes on a project's
+# scope/description — imports tinycss2. bleach alone does NOT pull it in, and without it
+# every `style` attribute is silently EMPTIED (alignment/colour would appear to work in
+# the editor and then vanish on save). Same failure mode as the missing Pillow above.
+tinycss2
