@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-09-21T14:27:14.391Z",
+  "last_sync": "2026-09-22T08:37:16.708Z",
   "module_count": 65,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 75,
+  "orphaned_count": 74,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -252,10 +252,6 @@
     {
       "artifact": "artifacts/modules/_tmp_short_stream.json",
       "source": "_tmp_short_stream.txt"
-    },
-    {
-      "artifact": "artifacts/modules/_t_scope_fixture.json",
-      "source": "_t_scope_fixture.js"
     },
     {
       "artifact": "artifacts/modules/_t_ws_check.json",
