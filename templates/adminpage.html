@@ -13932,6 +13932,27 @@ body { font-family: Arial; margin: 20px; }
                         <textarea class="form-control" id="updateClientNextOfKinAddress" name="client_next_of_kin_address" rows="3"></textarea>
                     </div>
 
+                    <!-- Contract Information -->
+                    <div class="col-12 mt-3">
+                        <h6 class="fw-bold" style="color: var(--primary, #1E2A56);">Contract Information</h6>
+                        <hr class="mt-0">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="updateProjectLocation" class="form-label fw-bold">Project Location</label>
+                        <input type="text" class="form-control" id="updateProjectLocation" name="project_location" placeholder="e.g. 38A Coronation Avenue, Greendale, Harare">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="updateProjectDuration" class="form-label fw-bold">Project Duration (Days)</label>
+                        <input type="number" class="form-control" id="updateProjectDuration" name="project_duration" min="0" step="1" placeholder="e.g. 120">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="updateLatePaymentInterest" class="form-label fw-bold">Late Payment Interest (% p.a.)</label>
+                        <input type="number" class="form-control" id="updateLatePaymentInterest" name="late_payment_interest" min="0" step="0.01" placeholder="e.g. 5">
+                    </div>
+
                     <!-- Completion Status Section -->
                     <div class="col-12">
                         <h6 class="fw-bold" style="color: var(--primary, #1E2A56);">Project Status & Quotation</h6>
@@ -31868,6 +31889,10 @@ $(document).on('click', '.update-project-btn', function () {
     const installment10Date = getData(55);
     
     const completionStatus = getData(56);
+    // Contract information (edited via the "Other Details" modal)
+    const projectLocation = getData(11);
+    const projectDuration = getData(15);
+    const latePaymentInterest = getData(57);
     const id = getData(58);
     const quotationRef = getData(59);
 
@@ -31968,6 +31993,11 @@ $(document).on('click', '.update-project-btn', function () {
     $('#updateClientNextOfKinAddress').val(clientnextofkinaddress);
     $('#updateClientNextOfKinPhone').val(clientnextofkinphone);
     $('#updateClientNextOfKinRelationship').val(clientnextofkinrelationship);
+
+    // Contract information fields shown in the Other Details modal
+    $('#updateProjectLocation').val(projectLocation);
+    $('#updateProjectDuration').val(projectDuration);
+    $('#updateLatePaymentInterest').val(latePaymentInterest);
 
     $('#updateProjectName').val(projectName);
     $('#updateAdminName').val(adminName);

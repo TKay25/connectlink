@@ -29671,6 +29671,9 @@ def update_other_details():
             clientnextofkinaddress = request.form.get('client_next_of_kin_address')
             projectcompletionstatus = request.form.get('completion_status')
             agreement_date = request.form.get('agreement_date')
+            project_location = request.form.get('project_location')
+            project_duration = request.form.get('project_duration')
+            late_payment_interest = request.form.get('late_payment_interest')
             quotation_id = request.form.get('quotation_id')
 
             # Build update list with proper type casting
@@ -29702,6 +29705,29 @@ def update_other_details():
             if projectcompletionstatus:
                 updates.append("projectcompletionstatus = %s")
                 values.append(projectcompletionstatus)
+
+            # Contract information (Project Location, Duration, Late Payment Interest)
+            # These feed the generated contract document, so they must be editable
+            # from the same "Other Details" screen.
+            if project_location and project_location.strip():
+                updates.append("projectlocation = %s")
+                values.append(project_location.strip())
+
+            if project_duration not in (None, ''):
+                try:
+                    duration_int = int(round(float(project_duration)))
+                    updates.append("projectduration = %s")
+                    values.append(duration_int)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid project duration: {project_duration}")
+
+            if late_payment_interest not in (None, ''):
+                try:
+                    interest_int = int(round(float(late_payment_interest)))
+                    updates.append("latepaymentinterest = %s")
+                    values.append(interest_int)
+                except (ValueError, TypeError):
+                    print(f"Warning: Invalid late payment interest: {late_payment_interest}")
             
             # Numeric fields (INT) - convert to int or ignore if empty
             if clientwhatsapp:

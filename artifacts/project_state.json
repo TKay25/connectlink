@@ -1,5 +1,5 @@
 {
-  "last_sync": "2026-09-22T08:37:16.708Z",
+  "last_sync": "2026-09-24T09:40:56.922Z",
   "module_count": 65,
   "empty_project": false,
   "planning_ready": true,
@@ -302,14 +302,5 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": [
-    {
-      "rel": "_t_scope_fixture.js",
-      "ts": "2026-09-21T14:19:42.620Z"
-    },
-    {
-      "rel": "_t_scope_fixture.js",
-      "ts": "2026-09-21T14:19:42.460Z"
-    }
-  ]
+  "recent_deletions": []
 }
