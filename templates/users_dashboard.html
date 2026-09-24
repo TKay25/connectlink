@@ -502,7 +502,9 @@
         }
 
         /* ---------- Custom scrollbar, selection, focus ---------- */
-        * { scrollbar-width: thin; scrollbar-color: rgba(193,43,62,0.45) transparent; }
+        /* NOTE: no scrollbar-width / scrollbar-color here. Setting either one makes
+           Chromium (121+) ignore ::-webkit-scrollbar and fall back to the native
+           bar, which would knock out the crimson scrollbars from design-system.css. */
         ::-webkit-scrollbar { width: 9px; height: 9px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb {

@@ -530,3 +530,57 @@ body:has(.app-navbar) {
   line-height: 1.3;
 }
 .app-footer strong { color: #0F1B2D; }
+
+/* ==================================================================
+   HOUSE SCROLLBARS - crimson, consistent across the whole system
+   ------------------------------------------------------------------
+   This file is linked by EVERY page, so it is the single place that
+   decides how scrollbars look. Pages still carry their own older
+   scrollbar rules (grey #CBD5E1, indigo rgba(79,70,229,.2), #C4CDD9...)
+   in their inline <style> blocks, and those are parsed AFTER this file,
+   so the declarations below are deliberately !important - whoever adds
+   the next page theme does not have to remember to restyle scrollbars.
+
+   The thumb paints a crimson gradient inside a transparent border
+   (background-clip: content-box), which turns the 12px hit area into a
+   slim 6px floating pill that grows to 8px on hover. The size has to be
+   enforced as well: pages used to request 4px / 6px / 8px / 9px bars, and
+   a 3px inset border on a 4px bar would leave NO visible thumb at all.
+   Note that the `background` shorthand RESETS background-clip, so the clip
+   has to be repeated in the :hover / :active rules.
+   ================================================================== */
+::-webkit-scrollbar {
+  width: 12px !important;
+  height: 12px !important;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #C12B3E 0%, #9E1F2E 100%) !important;
+  border: 3px solid transparent !important;
+  background-clip: content-box !important;
+  border-radius: var(--radius-full, 9999px) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #D54556 0%, #C12B3E 100%) !important;
+  border-width: 2px !important;
+  background-clip: content-box !important;
+}
+::-webkit-scrollbar-thumb:active {
+  background: #9E1F2E !important;
+  border-width: 2px !important;
+  background-clip: content-box !important;
+}
+::-webkit-scrollbar-corner { background: transparent !important; }
+
+/* Firefox has no ::-webkit-scrollbar, so it is served separately.
+   scrollbar-width is intentionally NOT !important: areas that hide their
+   scrollbar on purpose (.category-chips in the POS) must stay hidden. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #C12B3E transparent;
+  }
+}

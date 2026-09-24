@@ -613,12 +613,13 @@
         .modal-xl { --bs-modal-width: min(90vw, 1240px); }
         .modal-lg { --bs-modal-width: min(90vw, 980px); }
 
-        /* Scrollable line-items area inside the requisition modal */
+        /* Scrollable line-items area inside the requisition modal.
+           No scrollbar-width here: it would make Chromium drop the crimson
+           ::-webkit-scrollbar styling from design-system.css. */
         .pc-item-scroll {
             max-height: 250px;
             overflow-y: auto;
             padding-right: 6px;
-            scrollbar-width: thin;
         }
 
         /* New Requisition modal: taller, so line items aren't cramped and the

@@ -3614,9 +3614,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 canvas { border-radius: 12px; }
 
 /* ---------- Scroll fade on product grid ---------- */
-.products-scroll {
-    scrollbar-width: thin;
-}
+/* .products-scroll must NOT set scrollbar-width/scrollbar-color - either would
+   make Chromium ignore the crimson ::-webkit-scrollbar styling. */
 
 /* ---------- Payment method tiles refinement ---------- */
 .payment-method .small { font-size: 0.66rem !important; font-weight: 600; }
@@ -3756,7 +3755,7 @@ canvas { border-radius: 12px; }
 :focus-visible { outline: 2px solid rgba(193,43,62,0.5); outline-offset: 2px; }
 
 /* ---------- Scroll area polish ---------- */
-.products-scroll, .cart-scroll { scrollbar-color: #C4CDD9 transparent; scrollbar-width: thin; }
+/* (colours come from the house crimson scrollbars in design-system.css) */
 
 /* ================================================================
    DARK THEME  (activates the existing theme toggle button)
@@ -4597,7 +4596,6 @@ body.dark-theme .cat-chip.active { background: linear-gradient(135deg, #C12B3E, 
     gap: 8px;
     overflow-x: auto;
     max-width: 100%;
-    scrollbar-width: thin;
     padding: 2px;
 }
 .pos-header-cashiers::-webkit-scrollbar { height: 6px; }

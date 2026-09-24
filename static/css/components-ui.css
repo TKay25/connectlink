@@ -1,5 +1,5 @@
 /* ================================================================
-   COMPONENTS UI — Additional reusable components
+   COMPONENTS UI ï¿½ Additional reusable components
    ================================================================ */
 
 /* Notifications container */
@@ -69,11 +69,11 @@
 .ql-container { border-radius: 0 0 var(--radius-md) var(--radius-md) !important; border-color: var(--border) !important; min-height: 120px; }
 .ql-editor { font-size: 0.9rem; font-family: var(--font); }
 
-/* Scrollbar styling */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+/* Scrollbar styling
+   The house crimson scrollbars are defined once in design-system.css, which
+   every page links FIRST alongside this file. The grey rules that used to sit
+   here (#CBD5E1 thumb) fought with the per-page inline scrollbar rules and made
+   the colour depend on load order - they now live in design-system.css only. */
 
 /* Print styles */
 @media print {
