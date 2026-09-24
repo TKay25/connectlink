@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preview - Other Details modal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+/* ---- copied from the real page (same order as the template) ---- */
+:root {
+  --primary: #C12B3E; --primary-dark: #9B1D2C; --primary-light: rgba(193, 43, 62, 0.08);
+  --slate-50:#F8FAFC; --slate-100:#F1F5F9; --slate-200:#E2E8F0; --slate-300:#CBD5E1;
+  --slate-400:#94A3B8; --slate-500:#64748B; --slate-600:#475569; --slate-700:#334155;
+  --slate-800:#1E293B; --slate-900:#0F172A; --white:#FFFFFF;
+  --danger:#EF4444;
+  --text-primary: var(--slate-900); --text-secondary: var(--slate-500); --text-muted: var(--slate-400);
+  --bg-body: var(--slate-50); --bg-card: var(--white); --border-color: var(--slate-200);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --radius-sm:6px; --radius-md:10px; --radius-lg:16px;
+  --dark-blue-deep: var(--slate-800);
+  --crimson-bright: var(--primary);
+  --gray-50: var(--slate-50); --gray-100: var(--slate-100); --gray-200: var(--slate-200);
+  --gray-300: var(--slate-300); --gray-400: var(--slate-400);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 14px; }
+body { font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background: var(--bg-body);
+       font-size:0.7rem; line-height:1.4; color: var(--text-primary); }
+
+.modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%;
+  background: rgba(10, 26, 58, 0.6); z-index:1050; display:none; justify-content:center; align-items:center; }
+.modal-overlay.active { display:flex; }
+.modal-container { background: linear-gradient(135deg,#FFF 0%,#F8F9FC 100%); border:1px solid rgba(79,70,229,.1);
+  border-radius:16px; width:auto; min-width:420px; max-width:680px; max-height:90vh; overflow:hidden;
+  box-shadow:0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(79,70,229,.08);
+  display:flex; flex-direction:column; }
+.modal-container.large { max-width: 800px; }
+.modal-header-custom { background: linear-gradient(135deg,#0E1F42 0%,#152B5A 100%); padding:10px 14px;
+  border-radius:16px 16px 0 0; border-bottom:2px solid var(--crimson-bright);
+  display:flex; justify-content:space-between; align-items:center; flex:0 0 auto; }
+.modal-header-custom h3 { color:#fff; font-size:0.85rem; font-weight:700; margin:0;
+  display:flex; align-items:center; gap:6px; letter-spacing:.3px; }
+.modal-header-custom h3 i { font-size:.75rem; color: var(--crimson-bright);
+  background: rgba(255,255,255,.08); padding:4px; border-radius:6px; }
+.close-modal { background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.7); width:30px; height:30px; border-radius:8px; display:flex;
+  align-items:center; justify-content:center; cursor:pointer; font-size:.7rem; }
+.modal-body-custom { padding: 8px 12px; flex:1; min-height:0; overflow-y:auto; color: var(--text-primary); }
+.modal-footer-custom { padding:8px 14px; border-top:1px solid var(--gray-200); display:flex;
+  justify-content:flex-end; align-items:center; gap:8px; flex:0 0 auto; background: var(--gray-50);
+  border-radius:0 0 16px 16px; }
+.modal-footer-custom .btn { min-width:70px; justify-content:center; }
+/* second definitions, as in the template */
+.modal-body-custom { padding: 12px; color: var(--dark-blue-deep); }
+.modal-body-custom .form-control, .modal-body-custom .form-select {
+  border:1px solid rgba(79,70,229,.2); border-radius:8px; padding:8px 10px; font-size:.75rem;
+  background:#fff; color: var(--dark-blue-deep); }
+.modal-body-custom .form-label { color: var(--dark-blue-deep); font-weight:600;
+  font-size:.75rem; margin-bottom:6px; }
+.modal-body-custom hr { border:none; border-top:1px solid rgba(79,70,229,.1); margin:20px 0; }
+.modal-footer-custom .btn { border-radius:8px; font-weight:600; font-size:.75rem; padding:8px 12px;
+  border:none; cursor:pointer; }
+.modal-footer-custom .btn-primary { background: linear-gradient(135deg, var(--dark-blue-deep) 0%, #1A3A5C 100%); color:#fff; }
+.modal-footer-custom .btn-danger { background: var(--danger); color:#fff; }
+.btn { border-radius: var(--radius-sm); font-size:.7rem !important; font-weight:600; padding:4px 12px;
+  border:none; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
+.form-control, .form-select { background:#fff; border:1px solid var(--gray-300); color: var(--text-primary);
+  border-radius: var(--radius-sm); font-size:.7rem; padding:4px 8px; height:auto; }
+.form-control:focus, .form-select:focus { border-color: var(--crimson-bright); outline:none;
+  box-shadow: 0 0 0 3px rgba(193,43,62,.15); transform: translateY(-2px); }
+
+/* ================= THE NEW BLOCK, EXACTLY AS SHIPPED ================= */
+#otherDetailsModal .modal-body-custom {
+    padding: 12px 14px 16px;
+    background: var(--gray-50);
+}
+#otherDetailsModal .od-form { display: flex; flex-direction: column; gap: 12px; }
+#otherDetailsModal .od-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: visible;
+}
+#otherDetailsModal .od-card-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 12px;
+    border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
+    background: linear-gradient(90deg, var(--primary-light) 0%, rgba(255, 255, 255, 0) 72%);
+    border-bottom: 1px solid var(--gray-200);
+}
+#otherDetailsModal .od-ico {
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--primary);
+    background: #fff;
+    border: 1px solid var(--primary-light);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+#otherDetailsModal .od-card-title h6 {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+#otherDetailsModal .od-card-title p {
+    margin: 1px 0 0;
+    font-size: 0.64rem;
+    line-height: 1.25;
+    color: var(--text-muted);
+}
+#otherDetailsModal .od-card-body { padding: 0 12px 14px; }
+#otherDetailsModal .od-card-body > .row {
+    --bs-gutter-x: 20px;
+    --bs-gutter-y: 14px;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+#otherDetailsModal .form-label {
+    margin-bottom: 3px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1px;
+    color: var(--slate-600);
+}
+#otherDetailsModal .form-control,
+#otherDetailsModal .form-select {
+    font-size: 0.74rem;
+    padding: 6px 9px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text-primary);
+}
+#otherDetailsModal .form-control:focus,
+#otherDetailsModal .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+    transform: none;
+}
+#otherDetailsModal textarea.form-control {
+    min-height: 56px;
+    line-height: 1.35;
+    resize: vertical;
+}
+#otherDetailsModal .od-hint {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.64rem;
+    line-height: 1.3;
+    color: var(--text-muted);
+}
+#otherDetailsModal .choices__inner {
+    min-height: 30px !important;
+    padding: 3px 8px !important;
+    border: 1px solid var(--gray-300) !important;
+    border-radius: 8px !important;
+    font-size: 0.74rem !important;
+    align-items: center;
+}
+#otherDetailsModal .choices__list--single { padding: 1px 12px 1px 2px !important; }
+#otherDetailsModal .choices__list--dropdown {
+    border-radius: 8px !important;
+    border-color: var(--gray-300) !important;
+    box-shadow: var(--shadow-md);
+}
+/* the page's own Choices overrides, reproduced so the preview matches */
+.choices__inner { background: #fff !important; border: 1px solid var(--gray-200) !important;
+    border-radius: var(--radius-sm) !important; padding: 1px 4px !important;
+    min-height: 22px !important; font-size: 0.7rem !important; }
+.choices__list--dropdown { background:#fff !important; border:1px solid var(--gray-200) !important; z-index:9999 !important; }
+.choices__list--dropdown .choices__item { color: var(--text-primary) !important; background-color:#fff !important;
+    font-size: 0.7rem !important; padding: 3px 6px !important; }
+#otherDetailsModal .od-quote-preview {
+    display: none;
+    margin-top: 6px;
+    padding: 5px 8px;
+    background: var(--primary-light);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 6px 6px 0;
+    font-size: 0.68rem;
+    color: var(--text-primary);
+}
+#otherDetailsModal .od-quote-preview strong { color: var(--primary); }
+#otherDetailsModal #updateClientNameother:not(:empty) {
+    margin-left: 2px;
+    padding: 1px 8px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+#otherDetailsModal .modal-footer-custom {
+    padding: 10px 14px;
+    background: #fff;
+    border-top: 1px solid var(--gray-200);
+}
+#otherDetailsModal .modal-footer-custom .btn { padding: 7px 16px; }
+/* dark */
+body.dark-theme { --slate-50:#0f1729; --slate-100:#1a1f35; --slate-200:#252b45; --slate-300:#3a4058;
+  --slate-400:#6b7280; --slate-500:#9ca3af; --slate-600:#cbd5e1; --slate-700:#e2e8f0; --slate-800:#f1f5f9;
+  --slate-900:#f8fafc; --white:#1a1f35; --text-primary:#f1f5f9; --text-secondary:#94a3b8;
+  --text-muted:#64748b; --bg-body:#0f1729; --bg-card:#1a1f35; --border-color:#2a3050;
+  --dark-blue-deep:#1e2a4a; --gray-50:var(--slate-50); --gray-100:var(--slate-100);
+  --gray-200:var(--slate-200); --gray-300:var(--slate-300); --gray-400:var(--slate-400); }
+body.dark-theme .modal-container { background: linear-gradient(135deg,#1a1f35 0%,#1e2745 100%) !important; }
+body.dark-theme input, body.dark-theme select, body.dark-theme textarea,
+body.dark-theme .form-control, body.dark-theme .form-select {
+  background:#252b45 !important; border-color:#3a4058 !important; color: var(--text-primary) !important; }
+body.dark-theme #otherDetailsModal .modal-body-custom { background: rgba(0,0,0,0.18); }
+body.dark-theme #otherDetailsModal .od-card { background: var(--bg-card); border-color: var(--border-color); box-shadow: none; }
+body.dark-theme #otherDetailsModal .od-card-head { background: linear-gradient(90deg, rgba(193,43,62,0.14) 0%, rgba(255,255,255,0) 72%); border-color: var(--border-color); }
+body.dark-theme #otherDetailsModal .od-ico { background: rgba(255,255,255,0.06); border-color: var(--border-color); box-shadow: none; }
+body.dark-theme #otherDetailsModal .od-card-title p,
+body.dark-theme #otherDetailsModal .od-hint { color: var(--text-secondary); }
+body.dark-theme #otherDetailsModal .form-label { color: var(--text-secondary); }
+body.dark-theme #otherDetailsModal .form-control,
+body.dark-theme #otherDetailsModal .form-select { border-color: #3a4058; }
+body.dark-theme #otherDetailsModal .modal-footer-custom { background: transparent; border-color: var(--border-color); }
+
+.pv-bar { position:fixed; top:0; left:0; right:0; z-index:2000; background:#0E1F42; color:#fff;
+  padding:8px 14px; font-size:0.72rem; display:flex; gap:12px; align-items:center; font-weight:600; }
+.pv-bar button { background: var(--primary); color:#fff; border:none; border-radius:6px;
+  padding:5px 12px; font-size:0.7rem; font-weight:700; cursor:pointer; }
+.pv-note { position:fixed; bottom:8px; left:8px; right:8px; z-index:2000; background:rgba(255,255,255,.95);
+  border:1px solid var(--slate-200); border-radius:8px; padding:6px 10px; font-size:0.66rem; color:#334155; }
+</style>
+</head>
+<body>
+
+<div class="pv-bar">
+  <span>OTHER DETAILS modal - preview</span>
+  <button onclick="document.body.classList.toggle('dark-theme')">Toggle dark theme</button>
+  <button onclick="document.getElementById('otherDetailsModal').classList.toggle('active')">Open / close</button>
+</div>
+
+<div class="pv-note">Standalone preview: real Bootstrap + the same reset/overrides, then the new block exactly as added to <code>adminpage.html</code>.</div>
+
+<!-- ===== real modal markup (unchanged ids/names) ===== -->
+<div id="otherDetailsModal" class="modal-overlay active">
+    <div class="modal-container large">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-file-person"></i> OTHER DETAILS <span id="updateClientNameother">Tendai Moyo</span></h3>
+            <button class="close-modal" onclick="document.getElementById('otherDetailsModal').classList.remove('active')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <form id="updateotherdetailsForm" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+            <div class="modal-body-custom">
+                <input type="hidden" id="updateProjectIdother" name="project_id">
+                <input type="hidden" id="otherDetailsSelectedQuotationId" name="quotation_id" value="">
+
+                <div class="od-form">
+
+                    <!-- Client Information -->
+                    <section class="od-card">
+                        <div class="od-card-head">
+                            <span class="od-ico"><i class="bi bi-person-vcard"></i></span>
+                            <div class="od-card-title">
+                                <h6>Client Information</h6>
+                                <p>Identity and contact details</p>
+                            </div>
+                        </div>
+                        <div class="od-card-body">
+                        <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label for="updateClientNationalIdNumber" class="form-label fw-bold">National ID</label>
+                        <input type="text" class="form-control" id="updateClientNationalIdNumber" name="client_national_id" value="63-1234567-A-42">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="updateClientEmail" class="form-label fw-bold">Email Address</label>
+                        <input type="email" class="form-control" id="updateClientEmail" name="client_email" value="tendai.moyo@example.co.zw">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="updateClientWhatsAppNumber" class="form-label fw-bold">WhatsApp Number</label>
+                        <input type="tel" class="form-control" id="updateClientWhatsAppNumber" name="client_whatsapp" value="0773368558">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="updateClientResidentialAddress" class="form-label fw-bold">Street Address</label>
+                        <textarea class="form-control" id="updateClientResidentialAddress" name="client_address" rows="3">38A Coronation Avenue, Greendale, Harare</textarea>
+                    </div>
+
+                        </div><!-- /row -->
+                        </div><!-- /od-card-body -->
+                    </section>
+
+                    <!-- Next of Kin Information -->
+                    <section class="od-card">
+                        <div class="od-card-head">
+                            <span class="od-ico"><i class="bi bi-people"></i></span>
+                            <div class="od-card-title">
+                                <h6>Next of Kin</h6>
+                                <p>Emergency contact person</p>
+                            </div>
+                        </div>
+                        <div class="od-card-body">
+                        <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label for="updateClientNextOfKinName" class="form-label fw-bold">Full Name</label>
+                        <input type="text" class="form-control" id="updateClientNextOfKinName" name="client_next_of_kin" placeholder="John Doe" value="Rudo Moyo">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="updateClientNextOfKinRelationship" class="form-label fw-bold">Relationship</label>
+                        <input type="text" class="form-control" id="updateClientNextOfKinRelationship" name="client_next_of_kin_relation" placeholder="Spouse, Parent, etc." value="Spouse">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="updateClientNextOfKinPhone" class="form-label fw-bold">Phone Number</label>
+                        <input type="tel" class="form-control" id="updateClientNextOfKinPhone" name="client_next_of_kin_phone" placeholder="+1 234 567 8900" value="0771234567">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="updateClientNextOfKinAddress" class="form-label fw-bold">Street Address</label>
+                        <textarea class="form-control" id="updateClientNextOfKinAddress" name="client_next_of_kin_address" rows="3">14 Josiah Chinamano Ave, Harare</textarea>
+                    </div>
+
+                        </div><!-- /row -->
+                        </div><!-- /od-card-body -->
+                    </section>
+
+                    <!-- Contract Information -->
+                    <section class="od-card">
+                        <div class="od-card-head">
+                            <span class="od-ico"><i class="bi bi-file-earmark-text"></i></span>
+                            <div class="od-card-title">
+                                <h6>Contract Information</h6>
+                                <p>Printed on the generated contract</p>
+                            </div>
+                        </div>
+                        <div class="od-card-body">
+                        <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label for="updateProjectLocation" class="form-label fw-bold">Project Location</label>
+                        <input type="text" class="form-control" id="updateProjectLocation" name="project_location" placeholder="e.g. 38A Coronation Avenue, Greendale, Harare" value="Stand 4421, Budiriro 5B">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="updateProjectDuration" class="form-label fw-bold">Project Duration (Days)</label>
+                        <input type="number" class="form-control" id="updateProjectDuration" name="project_duration" min="0" step="1" placeholder="e.g. 120" value="120">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="updateLatePaymentInterest" class="form-label fw-bold">Late Payment Interest (% p.a.)</label>
+                        <input type="number" class="form-control" id="updateLatePaymentInterest" name="late_payment_interest" min="0" step="0.01" placeholder="e.g. 5" value="5">
+                    </div>
+
+                        </div><!-- /row -->
+                        </div><!-- /od-card-body -->
+                    </section>
+
+                    <!-- Completion Status Section -->
+                    <section class="od-card">
+                        <div class="od-card-head">
+                            <span class="od-ico"><i class="bi bi-clipboard-check"></i></span>
+                            <div class="od-card-title">
+                                <h6>Project Status &amp; Quotation</h6>
+                                <p>Progress and linked work plan</p>
+                            </div>
+                        </div>
+                        <div class="od-card-body">
+                        <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label for="updateAgreementDate" class="form-label fw-bold">Agreement Date</label>
+                        <input type="date" class="form-control" id="updateAgreementDate" name="agreement_date" value="2026-09-24">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Completion Status</label>
+                        <select class="form-select" id="updateCompletionStatus" name="completion_status">
+                            <option value="ph" disabled hidden>Select Status</option>
+                            <option value="Not Started">Not Started</option>
+                            <option value="Ongoing" selected>Ongoing</option>
+                            <option value="On Hold">On Hold</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <label for="otherDetails_quotation_select" class="form-label fw-bold">Link Quotation (Work Plan)</label>
+                        <div class="choices">
+                          <div class="choices__inner">
+                            <div class="choices__list choices__list--single">
+                              <div class="choices__item choices__item--selectable">Tendai Moyo - Single Storey Construction (180 Sq.M) - $45,000.00</div>
+                            </div>
+                          </div>
+                          <div class="choices__list choices__list--dropdown is-active">
+                            <div class="choices__list">
+                              <div class="choices__item choices__item--choice">Tendai Moyo - Single Storey Construction (180 Sq.M) - $45,000.00</div>
+                              <div class="choices__item choices__item--choice">Rudo Chikafu - Kitchen and Cabinets (12 Sq.M) - $3,400.00</div>
+                            </div>
+                          </div>
+                        </div>
+                        <select id="otherDetails_quotation_select" name="quotation_select" style="display:none;"></select>
+                        <small class="od-hint">Select a quotation to update the work plan attached to this project</small>
+                        <div id="otherDetails_selected_quotation_preview" class="od-quote-preview" style="display:block;">
+                            <strong>Selected:</strong> <span id="otherDetails_selected_quotation_name">Tendai Moyo - Single Storey Construction (180 Sq.M)</span>
+                        </div>
+                    </div>
+                        </div><!-- /row -->
+                        </div><!-- /od-card-body -->
+                    </section>
+                </div><!-- /od-form -->
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-danger" onclick="document.getElementById('otherDetailsModal').classList.remove('active')">Close</button>
+                <button type="button" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Save Details
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

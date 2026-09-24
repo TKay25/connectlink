@@ -13864,6 +13864,180 @@ body { font-family: Arial; margin: 20px; }
     </div>
 </div>
 
+<style>
+/* ===== OTHER DETAILS modal - evenly spaced section cards =====
+   The page-wide `* { margin: 0 }` reset kills the h6 / hr margins this modal used
+   to rely on, so a heading sat FLUSH on its rule and the gap to the next field was
+   whatever the grid gutter happened to be. Everything below is scoped to this one
+   modal (ID selector beats the generic .modal-body-custom rules) and uses the theme
+   variables so dark mode follows automatically. */
+#otherDetailsModal .modal-body-custom {
+    padding: 12px 14px 16px;
+    background: var(--gray-50);
+}
+#otherDetailsModal .od-form { display: flex; flex-direction: column; gap: 12px; }
+
+#otherDetailsModal .od-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    /* NOT overflow:hidden - Choices.js renders the quotation dropdown INSIDE
+       this card, so clipping would cut the option list off. The header rounds
+       its own top corners instead. */
+    overflow: visible;
+}
+#otherDetailsModal .od-card-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 12px;
+    border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
+    background: linear-gradient(90deg, var(--primary-light) 0%, rgba(255, 255, 255, 0) 72%);
+    border-bottom: 1px solid var(--gray-200);
+}
+#otherDetailsModal .od-ico {
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--primary);
+    background: #fff;
+    border: 1px solid var(--primary-light);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+#otherDetailsModal .od-card-title h6 {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+#otherDetailsModal .od-card-title p {
+    margin: 1px 0 0;
+    font-size: 0.64rem;
+    line-height: 1.25;
+    color: var(--text-muted);
+}
+/* The row keeps Bootstrap's column gutters. Only its NEGATIVE top offset is
+   dropped, so the first label sits a predictable 14px under the header and every
+   following field row is separated by exactly the same 14px. */
+#otherDetailsModal .od-card-body { padding: 0 12px 14px; }
+#otherDetailsModal .od-card-body > .row {
+    --bs-gutter-x: 20px;
+    --bs-gutter-y: 14px;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+#otherDetailsModal .form-label {
+    margin-bottom: 3px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1px;
+    color: var(--slate-600);
+}
+#otherDetailsModal .form-control,
+#otherDetailsModal .form-select {
+    font-size: 0.74rem;
+    padding: 6px 9px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text-primary);
+}
+#otherDetailsModal .form-control:focus,
+#otherDetailsModal .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+    transform: none;
+}
+#otherDetailsModal textarea.form-control {
+    min-height: 56px;
+    line-height: 1.35;
+    resize: vertical;
+}
+#otherDetailsModal .od-hint {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.64rem;
+    line-height: 1.3;
+    color: var(--text-muted);
+}
+/* Choices.js gives this dropdown its own smaller box (global .choices__inner rule)
+   which made the quotation field shorter than every other input in this modal. */
+#otherDetailsModal .choices__inner {
+    min-height: 30px !important;
+    padding: 3px 8px !important;
+    border: 1px solid var(--gray-300) !important;
+    border-radius: 8px !important;
+    font-size: 0.74rem !important;
+    align-items: center;
+}
+#otherDetailsModal .choices__list--single { padding: 1px 12px 1px 2px !important; }
+#otherDetailsModal .choices__list--dropdown {
+    border-radius: 8px !important;
+    border-color: var(--gray-300) !important;
+    box-shadow: var(--shadow-md);
+}
+#otherDetailsModal .od-quote-preview {
+    display: none;
+    margin-top: 6px;
+    padding: 5px 8px;
+    background: var(--primary-light);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 6px 6px 0;
+    font-size: 0.68rem;
+    color: var(--text-primary);
+}
+#otherDetailsModal .od-quote-preview strong { color: var(--primary); }
+#otherDetailsModal #updateClientNameother:not(:empty) {
+    margin-left: 2px;
+    padding: 1px 8px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+#otherDetailsModal .modal-footer-custom {
+    padding: 10px 14px;
+    background: #fff;
+    border-top: 1px solid var(--gray-200);
+}
+#otherDetailsModal .modal-footer-custom .btn { padding: 7px 16px; }
+
+/* Dark theme */
+body.dark-theme #otherDetailsModal .modal-body-custom { background: rgba(0, 0, 0, 0.18); }
+body.dark-theme #otherDetailsModal .od-card {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+    box-shadow: none;
+}
+body.dark-theme #otherDetailsModal .od-card-head {
+    background: linear-gradient(90deg, rgba(193, 43, 62, 0.14) 0%, rgba(255, 255, 255, 0) 72%);
+    border-color: var(--border-color);
+}
+body.dark-theme #otherDetailsModal .od-ico {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--border-color);
+    box-shadow: none;
+}
+body.dark-theme #otherDetailsModal .od-card-title p,
+body.dark-theme #otherDetailsModal .od-hint { color: var(--text-secondary); }
+body.dark-theme #otherDetailsModal .form-label { color: var(--text-secondary); }
+body.dark-theme #otherDetailsModal .form-control,
+body.dark-theme #otherDetailsModal .form-select { border-color: #3a4058; }
+body.dark-theme #otherDetailsModal .modal-footer-custom {
+    background: transparent;
+    border-color: var(--border-color);
+}
+</style>
+
 <!-- Other Details Modal - Blur Overlay Version -->
 <div id="otherDetailsModal" class="modal-overlay">
     <div class="modal-container large">
@@ -13878,13 +14052,19 @@ body { font-family: Arial; margin: 20px; }
                 <input type="hidden" id="updateProjectIdother" name="project_id">
                 <input type="hidden" id="otherDetailsSelectedQuotationId" name="quotation_id" value="">
 
-                <div class="row g-3">
+                <div class="od-form">
                     
-                    <!-- Contact Information -->
-                    <div class="col-12 mt-3">
-                        <h6 class="fw-bold" style="color: var(--primary, #1E2A56);">Client Information</h6>
-                        <hr class="mt-0">
-                    </div>
+                    <!-- Client Information -->
+                    <section class="od-card">
+                        <div class="od-card-head">
+                            <span class="od-ico"><i class="bi bi-person-vcard"></i></span>
+                            <div class="od-card-title">
+                                <h6>Client Information</h6>
+                                <p>Identity and contact details</p>
+                            </div>
+                        </div>
+                        <div class="od-card-body">
+                        <div class="row g-3">
 
                     <div class="col-md-6">
                         <label for="updateClientNationalIdNumber" class="form-label fw-bold">National ID</label>
@@ -13906,11 +14086,21 @@ body { font-family: Arial; margin: 20px; }
                         <textarea class="form-control" id="updateClientResidentialAddress" name="client_address" rows="3"></textarea>
                     </div>
                     
+                        </div><!-- /row -->
+                        </div><!-- /od-card-body -->
+                    </section>
+
                     <!-- Next of Kin Information -->
-                    <div class="col-12 mt-3">
-                        <h6 class="fw-bold" style="color: var(--primary, #1E2A56);">Next of Kin</h6>
-                        <hr class="mt-0">
-                    </div>
+                    <section class="od-card">
+                        <div class="od-card-head">
+                            <span class="od-ico"><i class="bi bi-people"></i></span>
+                            <div class="od-card-title">
+                                <h6>Next of Kin</h6>
+                                <p>Emergency contact person</p>
+                            </div>
+                        </div>
+                        <div class="od-card-body">
+                        <div class="row g-3">
                     
                     <div class="col-md-6">
                         <label for="updateClientNextOfKinName" class="form-label fw-bold">Full Name</label>
@@ -13932,11 +14122,21 @@ body { font-family: Arial; margin: 20px; }
                         <textarea class="form-control" id="updateClientNextOfKinAddress" name="client_next_of_kin_address" rows="3"></textarea>
                     </div>
 
+                        </div><!-- /row -->
+                        </div><!-- /od-card-body -->
+                    </section>
+
                     <!-- Contract Information -->
-                    <div class="col-12 mt-3">
-                        <h6 class="fw-bold" style="color: var(--primary, #1E2A56);">Contract Information</h6>
-                        <hr class="mt-0">
-                    </div>
+                    <section class="od-card">
+                        <div class="od-card-head">
+                            <span class="od-ico"><i class="bi bi-file-earmark-text"></i></span>
+                            <div class="od-card-title">
+                                <h6>Contract Information</h6>
+                                <p>Printed on the generated contract</p>
+                            </div>
+                        </div>
+                        <div class="od-card-body">
+                        <div class="row g-3">
 
                     <div class="col-md-6">
                         <label for="updateProjectLocation" class="form-label fw-bold">Project Location</label>
@@ -13953,11 +14153,21 @@ body { font-family: Arial; margin: 20px; }
                         <input type="number" class="form-control" id="updateLatePaymentInterest" name="late_payment_interest" min="0" step="0.01" placeholder="e.g. 5">
                     </div>
 
+                        </div><!-- /row -->
+                        </div><!-- /od-card-body -->
+                    </section>
+
                     <!-- Completion Status Section -->
-                    <div class="col-12">
-                        <h6 class="fw-bold" style="color: var(--primary, #1E2A56);">Project Status & Quotation</h6>
-                        <hr class="mt-0">
-                    </div>
+                    <section class="od-card">
+                        <div class="od-card-head">
+                            <span class="od-ico"><i class="bi bi-clipboard-check"></i></span>
+                            <div class="od-card-title">
+                                <h6>Project Status &amp; Quotation</h6>
+                                <p>Progress and linked work plan</p>
+                            </div>
+                        </div>
+                        <div class="od-card-body">
+                        <div class="row g-3">
                     
                     <div class="col-md-6">
                         <label for="updateAgreementDate" class="form-label fw-bold">Agreement Date</label>
@@ -13976,17 +14186,20 @@ body { font-family: Arial; margin: 20px; }
                         </select>
                     </div>
 
-                    <div class="col-md-6">
-                        <label for="otherDetails_quotation_select" class="form-label fw-bold">Link Quotation (Work Plan):</label>
-                        <select class="form-control editable-field" id="otherDetails_quotation_select" name="quotation_select" style="color: var(--dark-blue-deep); font-size:0.7rem;">
-                            <option value="" selected disabled style="color: var(--dark-blue-deep);font-size: 0.85rem;">-- Select a Quotation to Link Work Plan --</option>
+                    <div class="col-12">
+                        <label for="otherDetails_quotation_select" class="form-label fw-bold">Link Quotation (Work Plan)</label>
+                        <select class="form-control editable-field" id="otherDetails_quotation_select" name="quotation_select">
+                            <option value="" selected disabled>-- Select a Quotation to Link Work Plan --</option>
                         </select>
-                        <small style="font-size:0.7rem;">Select a quotation to update the work plan attached to this project</small>
-                        <div id="otherDetails_selected_quotation_preview" style="margin-top: 6px; padding: 4px; background: #f0f5ff; border-left: 3px solid #1E2A56; display: none; color: var(--dark-blue-deep);">
-                            <strong style="color: #1E2A56;">Selected:</strong> <span id="otherDetails_selected_quotation_name" style="color: #2A3A78;"></span>
+                        <small class="od-hint">Select a quotation to update the work plan attached to this project</small>
+                        <div id="otherDetails_selected_quotation_preview" class="od-quote-preview">
+                            <strong>Selected:</strong> <span id="otherDetails_selected_quotation_name"></span>
                         </div>
                     </div>
-                </div>
+                        </div><!-- /row -->
+                        </div><!-- /od-card-body -->
+                    </section>
+                </div><!-- /od-form -->
             </div>
             <div class="modal-footer-custom">
                 <button type="button" class="btn btn-danger" onclick="closeModal('otherDetailsModal')">Close</button>
