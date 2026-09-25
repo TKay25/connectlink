@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestDayend",
+  "file": "_test_dayend.py",
+  "purpose": "Throwaway test for the branch-aware day-end report (+ the new Branch columns in",
+  "entry_function": "check(label, cond, detail = '')",
+  "entry_flows": [
+    "_test_dayend → types.ModuleType, modules.setdefault, app.test_client, failures.append, datetime.datetime"
+  ],
+  "public_api": [
+    "check(label, cond, detail = '')",
+    "rows_for(single_branch = False)",
+    "call(session_branch, single_branch = False)"
+  ],
+  "dependencies": [
+    "ConnectLink"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: D = datetime.datetime(2026, 9, 25, 9, 15, 0)",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "6d635062c36e7c00",
+  "file_mtime": 1790346613633.2698,
+  "file_size": 5393,
+  "file_birthtime": 1790346613499.1096,
+  "generated_at": "2026-09-25T14:30:16.180390Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

@@ -15691,9 +15691,12 @@ def day_end_report():
                        FROM transaction_items ti
                        LEFT JOIN products p ON ti.product_id = p.id
                        WHERE ti.transaction_id = t.id
-                   ), '[]'::json) as items
+                   ), '[]'::json) as items,
+                   t.branch_id,
+                   b.name as branch_name
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
+            LEFT JOIN branches b ON b.id = t.branch_id
             WHERE t.created_at::date = %s::date
               AND t.voided = FALSE
         """
@@ -15705,6 +15708,7 @@ def day_end_report():
 
         from collections import OrderedDict
         cashier_map = OrderedDict()
+        branch_map = OrderedDict()
         overall_pm = {}
 
         def add_pm(totals, method, amount):
@@ -15712,25 +15716,43 @@ def day_end_report():
             totals[key] = totals.get(key, 0.0) + amount
 
         for r in rows:
+            branch_name = r[9] or 'Unassigned'
             cashier = r[3] or 'Unknown'
             total = float(r[4] or 0)
             method = (r[5] or 'other').lower()
             created = r[6].isoformat() if r[6] else None
             items = r[7] if r[7] else []
 
-            if cashier not in cashier_map:
-                cashier_map[cashier] = {
+            # Group by BRANCH and cashier: on the consolidated view someone who
+            # worked in two shops on the same day must appear once per shop rather
+            # than being merged into a single line.
+            key = (branch_name, cashier)
+            if key not in cashier_map:
+                cashier_map[key] = {
                     'cashier': cashier,
+                    'branch_id': r[8],
+                    'branch_name': branch_name,
                     'total': 0.0,
                     'transaction_count': 0,
                     'payment_methods': {},
                     'transactions': []
                 }
-            c = cashier_map[cashier]
+                if branch_name not in branch_map:
+                    branch_map[branch_name] = {
+                        'branch_id': r[8],
+                        'branch_name': branch_name,
+                        'total': 0.0,
+                        'transaction_count': 0,
+                        'payment_methods': {}
+                    }
+            c = cashier_map[key]
             c['total'] += total
             c['transaction_count'] += 1
             add_pm(c['payment_methods'], method, total)
             add_pm(overall_pm, method, total)
+            add_pm(branch_map[branch_name]['payment_methods'], method, total)
+            branch_map[branch_name]['total'] += total
+            branch_map[branch_name]['transaction_count'] += 1
             c['transactions'].append({
                 'id': r[0],
                 'transaction_number': r[1],
@@ -15741,11 +15763,16 @@ def day_end_report():
             })
 
         cashiers = list(cashier_map.values())
+        branches = list(branch_map.values())
 
         return jsonify({
             'success': True,
             'date': day,
+            # Which books this report covers: a shop name, or All Branches.
+            'scope': session.get('branch_name') or 'All Branches',
+            'multi_branch': len(branches) > 1,
             'cashiers': cashiers,
+            'branches': branches,
             'grand_total': sum(c['total'] for c in cashiers),
             'transaction_count': sum(c['transaction_count'] for c in cashiers),
             'payment_methods': overall_pm

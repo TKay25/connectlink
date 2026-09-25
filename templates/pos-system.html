@@ -2933,6 +2933,37 @@ body {
 }
 #posThemeToggle:hover { background: #F1F5F9 !important; color: var(--crimson-bright) !important; }
 
+/* ---------- Branch switcher chip ----------
+   The top bar is WHITE in the light theme (rgba(255,255,255,0.82)) and dark
+   under body.dark-theme, so the chip CANNOT use fixed colours -- white text
+   on a white bar is invisible. Colours live here, keyed off .is-readonly
+   which renderPOSBranch() toggles. */
+#posBranchChip {
+    background: #F1F5F9;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    color: #1E293B;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+#posBranchChip:hover {
+    background: #E2E8F0;
+    border-color: var(--crimson-bright);
+    color: var(--crimson-dark);
+}
+/* Read-only "All Branches" view: amber, matching #posReadOnlyBanner */
+#posBranchChip.is-readonly {
+    background: #FEF3C7;
+    border-color: #F59E0B;
+    color: #92400E;
+}
+#posBranchChip.is-readonly:hover {
+    background: #FDE68A;
+    border-color: #D97706;
+    color: #78350F;
+}
+
 /* ---------- Stat cards ---------- */
 .stat-card {
     border-radius: var(--radius-md);
@@ -3773,6 +3804,24 @@ body.dark-theme .top-bar {
     background: rgba(19,25,38,0.85);
     border-color: rgba(255,255,255,0.08);
 }
+/* The branch chip needs its own dark palette: the light-theme chip is dark
+   text on a light pill, which vanishes on the dark top bar. */
+body.dark-theme #posBranchChip {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.18);
+    color: #F1F5F9;
+}
+body.dark-theme #posBranchChip:hover {
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(193,43,62,0.6);
+    color: #FFB4BE;
+}
+body.dark-theme #posBranchChip.is-readonly {
+    background: rgba(245,158,11,0.18);
+    border-color: rgba(245,158,11,0.65);
+    color: #FDE68A;
+}
+body.dark-theme #posBranchChip.is-readonly span { color: #FDE68A !important; }
 body.dark-theme .top-bar .fw-bold,
 body.dark-theme .top-bar span { color: #F1F5F9 !important; }
 body.dark-theme #currentDate { color: #94A3B8; }
@@ -4769,6 +4818,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 .top-bar .user-chip { font-size: 0.56rem !important; padding: 3px 9px 3px 3px !important; gap: 5px; }
 .top-bar .user-chip i { width: 20px; height: 20px; font-size: 0.5rem !important; }
 .top-bar #posThemeToggle { font-size: 0.5rem !important; padding: 1px 5px !important; }
+.top-bar #posBranchChip { font-size: 0.5rem !important; padding: 1px 5px !important; }
 .top-bar .logout-top-btn { font-size: 0.56rem !important; padding: 3px 9px !important; }
 .top-bar .logout-top-btn i { font-size: 0.52rem !important; }
 
@@ -4881,6 +4931,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 .top-bar .user-chip { font-size: 0.61rem !important; padding: 3px 10px 3px 3px !important; gap: 6px; }
 .top-bar .user-chip i { width: 22px; height: 22px; font-size: 0.58rem !important; }
 .top-bar #posThemeToggle { font-size: 0.54rem !important; padding: 2px 6px !important; }
+.top-bar #posBranchChip { font-size: 0.54rem !important; padding: 2px 8px !important; }
 .top-bar .logout-top-btn { font-size: 0.61rem !important; padding: 3px 10px !important; }
 .top-bar .logout-top-btn i { font-size: 0.58rem !important; }
 
@@ -5462,7 +5513,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                                 <i id="posThemeIcon" class="fas fa-moon"></i>
                             </button>
                             <button id="posBranchChip" onclick="openBranchSwitchModal()" title="Switch branch"
-                                    style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:2px 8px;cursor:pointer;color:#fff;font-size:0.6rem;display:inline-flex;align-items:center;gap:5px;">
+                                    style="padding:2px 8px;cursor:pointer;font-size:0.6rem;display:inline-flex;align-items:center;gap:5px;">
                                 <i class="fas fa-store"></i><span id="posBranchName">Branch</span><i class="fas fa-chevron-down" style="font-size:0.5rem;opacity:0.7;"></i>
                             </button>
                             <span class="user-chip"><i class="fas fa-user"></i><span id="userName">Administrator</span></span>
@@ -11911,7 +11962,8 @@ function renderFilteredTransactions() {
             'Items': t.items ? t.items.map(i => `${i.product_name || i.name} x${i.quantity}`).join(', ') : '',
             'Total': (t.total || 0).toFixed(2),
             'Payment Method': t.payment_method || '',
-            'Cashier': t.cashier || 'Admin'
+            'Cashier': t.cashier || 'Admin',
+            'Branch': t.branch_name || ''
         }));
         
         const ws = XLSX.utils.json_to_sheet(excelData);
@@ -11976,7 +12028,16 @@ function renderFilteredTransactions() {
         const cashiers = data.cashiers || [];
         const pm = data.payment_methods || {};
 
+        const branchList = data.branches || [];
+        const scopeLabel = data.scope || '';
+
         document.getElementById('dayEndSummary').innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-light border small mb-1 d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-store me-1"></i><strong>${escapeHtml(scopeLabel)}</strong>${data.multi_branch ? ' &mdash; every branch, ' + escapeHtml(data.date || '') : ''}</span>
+                    <span class="text-muted">${cashiers.length} cashier group(s)</span>
+                </div>
+            </div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Total Sales</div><div class="fw-bold">$${data.grand_total.toFixed(2)}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transactions</div><div class="fw-bold">${data.transaction_count || 0}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cashiers</div><div class="fw-bold">${cashiers.length}</div></div></div>
@@ -11984,6 +12045,17 @@ function renderFilteredTransactions() {
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Card</div><div class="fw-bold">$${(pm.card || 0).toFixed(2)}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transfer</div><div class="fw-bold">$${(pm.transfer || 0).toFixed(2)}</div></div></div>
         `;
+
+        // When the day spans more than one shop, show each shop's own total so the
+        // figures can be read per branch as well as combined.
+        if (branchList.length > 1) {
+            document.getElementById('dayEndSummary').innerHTML += branchList.map(b => `
+                <div class="col-md-3 col-sm-6"><div class="stat-card">
+                    <div class="small text-muted">${escapeHtml(b.branch_name || '')}</div>
+                    <div class="fw-bold">$${(b.total || 0).toFixed(2)}</div>
+                    <div class="small text-muted">${b.transaction_count || 0} sale(s)</div>
+                </div></div>`).join('');
+        }
 
         const tabs = document.getElementById('dayEndTabs');
         const content = document.getElementById('dayEndTabContent');
@@ -12001,7 +12073,7 @@ function renderFilteredTransactions() {
             tabs.innerHTML += `
                 <li class="nav-item">
                     <button class="nav-link ${idx === 0 ? 'active' : ''}" data-bs-toggle="tab" data-bs-target="#${tabId}" type="button" role="tab">
-                        ${escapeHtml(c.cashier)} <span class="badge bg-secondary">$${c.total.toFixed(2)}</span>
+                        ${escapeHtml(c.cashier)}${c.branch_name ? ` <span class="badge bg-primary">${escapeHtml(c.branch_name)}</span>` : ''} <span class="badge bg-secondary">$${c.total.toFixed(2)}</span>
                     </button>
                 </li>`;
             const txRows = (c.transactions || []).map(t => `
@@ -12033,14 +12105,21 @@ function renderFilteredTransactions() {
         const data = dayEndReportData;
         const rows = [];
         (data.cashiers || []).forEach(c => {
-            rows.push({ 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2) });
+            rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2) });
         });
-        rows.push({ 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2) });
+        if ((data.branches || []).length > 1) {
+            rows.push({});
+            rows.push({ 'Branch': 'BRANCH TOTALS' });
+            (data.branches || []).forEach(b => {
+                rows.push({ 'Branch': b.branch_name || '', 'Total Sales': (b.total || 0).toFixed(2), 'Cash': ((b.payment_methods || {}).cash || 0).toFixed(2), 'Card': ((b.payment_methods || {}).card || 0).toFixed(2), 'Transfer': ((b.payment_methods || {}).transfer || 0).toFixed(2) });
+            });
+        }
+        rows.push({ 'Branch': '', 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2) });
         rows.push({});
-        rows.push({ 'Cashier': 'Cashier', 'Total Sales': 'Receipt #', 'Cash': 'Items', 'Card': 'Total', 'Transfer': 'Payment' });
+        rows.push({ 'Branch': 'Branch', 'Cashier': 'Cashier', 'Total Sales': 'Receipt #', 'Cash': 'Items', 'Card': 'Total', 'Transfer': 'Payment' });
         (data.cashiers || []).forEach(c => {
             (c.transactions || []).forEach(t => {
-                rows.push({ 'Cashier': c.cashier, 'Total Sales': t.transaction_number || '', 'Cash': t.items ? t.items.map(i => `${i.product_name || ''} x${i.quantity}`).join(', ') : '', 'Card': (t.total || 0).toFixed(2), 'Transfer': pmLabel(t.payment_method) });
+                rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': t.transaction_number || '', 'Cash': t.items ? t.items.map(i => `${i.product_name || ''} x${i.quantity}`).join(', ') : '', 'Card': (t.total || 0).toFixed(2), 'Transfer': pmLabel(t.payment_method) });
             });
         });
         const ws = XLSX.utils.json_to_sheet(rows);
@@ -12084,6 +12163,7 @@ function renderFilteredTransactions() {
                         <th style="padding: 10px; border: 1px solid #ddd;">Total</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Payment</th>
                         <th style="padding: 10px; border: 1px solid #ddd;">Cashier</th>
+                        <th style="padding: 10px; border: 1px solid #ddd;">Branch</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -12095,6 +12175,7 @@ function renderFilteredTransactions() {
                             <td style="padding: 8px; border: 1px solid #ddd;">$${(t.total || 0).toFixed(2)}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.payment_method || 'N/A'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.cashier || 'Admin'}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${t.branch_name || '\u2014'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -12306,11 +12387,11 @@ async function fetchTransactionsData() {
         const banner = document.getElementById('posReadOnlyBanner');
         if (banner) banner.style.display = branchIsReadOnly() ? 'flex' : 'none';
 
+        // Colours are owned by the stylesheet (#posBranchChip / .is-readonly), which
+        // knows about the light AND dark top bar. Never set raw colours here -- doing
+        // so is what made the chip invisible on the white navbar.
         const chip = document.getElementById('posBranchChip');
-        if (chip) {
-            chip.style.background = branchIsReadOnly() ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.12)';
-            chip.style.borderColor = branchIsReadOnly() ? 'rgba(245,158,11,0.7)' : 'rgba(255,255,255,0.25)';
-        }
+        if (chip) chip.classList.toggle('is-readonly', branchIsReadOnly());
     }
 
     function branchWriteBlockedToast() {

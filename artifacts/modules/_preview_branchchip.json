@@ -1,0 +1,44 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PreviewBranchchip",
+  "file": "_preview_branchchip.py",
+  "purpose": "Throwaway mock: renders pos-system.html with stubbed APIs so the branch",
+  "entry_function": "pos_system()",
+  "entry_flows": [
+    "_preview_branchchip → app.route, app.run"
+  ],
+  "public_api": [
+    "pos_system()",
+    "check_auth()",
+    "branches()",
+    "categories()",
+    "products()",
+    "transactions()",
+    "stats()",
+    "by_cashier()"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "f5985bccfb7cc133",
+  "file_mtime": 1790347238748.5576,
+  "file_size": 1863,
+  "file_birthtime": 1790347238439.8293,
+  "generated_at": "2026-09-25T14:40:41.899884Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

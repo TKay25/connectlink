@@ -1,0 +1,44 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PreviewDayend",
+  "file": "_preview_dayend.py",
+  "purpose": "Throwaway mock for the day-end UI check. Delete after use.",
+  "entry_function": "pos()",
+  "entry_flows": [
+    "_preview_dayend → fh.read, app.route"
+  ],
+  "public_api": [
+    "pos()",
+    "static_files(path)",
+    "check_auth()",
+    "branches()",
+    "categories()",
+    "products()",
+    "stats()",
+    "by_cashier()"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: BASE = os.path.dirname(os.path.abspath(__file__))",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "4aac2ab81e2ce9fe",
+  "file_mtime": 1790346705813.0537,
+  "file_size": 4445,
+  "file_birthtime": 1790346705656.3015,
+  "generated_at": "2026-09-25T14:31:48.257298Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
