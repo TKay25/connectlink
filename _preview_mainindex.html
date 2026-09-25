@@ -2318,6 +2318,21 @@
                             <button type="button" class="password-toggle-modal" onclick="toggleHardwarePassword(event)"><i class="fas fa-eye"></i></button>
                         </div>
                     </div>
+                    <div class="form-group">
+                        <label>Branch</label>
+                        <div class="input-group-modal">
+                            <select class="form-input-modal" id="hardwareBranch" required>
+                                <option value="">Loading branches…</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Branch Code</label>
+                        <div class="input-group-modal">
+                            <input type="password" class="form-input-modal" id="hardwareBranchCode" placeholder="Branch access code" required>
+                            <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                        </div>
+                    </div>
                     <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
                 </form>
                 <div class="modal-footer-links">
@@ -2823,6 +2838,8 @@
             projectsPassword: document.getElementById('projectsPassword'),
             hardwareUsername: document.getElementById('hardwareUsername'),
             hardwarePassword: document.getElementById('hardwarePassword'),
+            hardwareBranch: document.getElementById('hardwareBranch'),
+            hardwareBranchCode: document.getElementById('hardwareBranchCode'),
             hrEmail: document.getElementById('hrEmail'),
             hrPassword: document.getElementById('hrPassword'),
             usersEmail: document.getElementById('usersEmail'),
@@ -2917,6 +2934,7 @@
             Object.keys(state.modals).forEach(k => state.modals[k] = false);
             Object.keys(state.errors).forEach(k => state.errors[k] = '');
             state.modals[portal] = true;
+            if (portal === 'hardware') loadHardwareBranches();
             console.log('[openPortal] state.modals:', JSON.stringify(state.modals));
             // Use setTimeout to ensure render happens after any pending DOM tasks
             setTimeout(() => {
@@ -3364,6 +3382,47 @@
             });
         });
 
+        // POS branches for the login card. Access codes are NEVER sent to the
+        // browser -- this dropdown only ever carries branch ids and names, and the
+        // code the user types is compared server-side.
+        let hardwareBranchesLoaded = false;
+
+        function escapeBranchLabel(text) {
+            return String(text == null ? '' : text)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function loadHardwareBranches() {
+            const select = document.getElementById('hardwareBranch');
+            if (!select || hardwareBranchesLoaded) return;
+            select.innerHTML = '<option value="">Loading…</option>';
+            fetch('/api/branches', { credentials: 'include' })
+                .then(res => res.json())
+                .then(data => {
+                    const branches = (data && data.branches) || [];
+                    if (!branches.length) {
+                        select.innerHTML = '<option value="">No branches available</option>';
+                        return;
+                    }
+                    let html = '<option value="">Select branch</option>';
+                    branches.forEach(b => {
+                        html += '<option value="' + b.id + '">' + escapeBranchLabel(b.name) + '</option>';
+                    });
+                    if (data.all_branches) {
+                        html += '<option value="' + data.all_branches.id + '">' +
+                                escapeBranchLabel(data.all_branches.name) + '</option>';
+                    }
+                    select.innerHTML = html;
+                    hardwareBranchesLoaded = true;
+                })
+                .catch(() => {
+                    // Leave the flag unset so the next open retries.
+                    select.innerHTML = '<option value="">Could not load branches</option>';
+                });
+        }
+        window.loadHardwareBranches = loadHardwareBranches;
+
         // Hardware Login
         dom.hardwareForm.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -3371,9 +3430,19 @@
 
             const username = dom.hardwareUsername.value.trim();
             const password = dom.hardwarePassword.value;
+            const branchId = dom.hardwareBranch ? dom.hardwareBranch.value : '';
+            const branchCode = dom.hardwareBranchCode ? dom.hardwareBranchCode.value : '';
 
             if (!username || !password) {
                 setError('hardware', 'Please fill in all fields');
+                return;
+            }
+            if (!branchId) {
+                setError('hardware', 'Please select a branch');
+                return;
+            }
+            if (!branchCode) {
+                setError('hardware', 'Please enter the branch access code');
                 return;
             }
 
@@ -3383,18 +3452,20 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password, branch_id: branchId, branch_code: branchCode })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
                     localStorage.setItem('isLoggedIn', 'true');
                     if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+                    if (data.branch) localStorage.setItem('posBranch', JSON.stringify(data.branch));
                     window.location.href = '/pos-system.html';
                 } else {
                     setLoading(false);
                     setError('hardware', data.message || 'Invalid credentials');
-                    dom.hardwarePassword.value = '';
+                    if (dom.hardwareBranchCode) dom.hardwareBranchCode.value = '';
+                    if (data.needs_branch) loadHardwareBranches();
                 }
             })
             .catch(() => {

@@ -1,0 +1,45 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CluiTestServer",
+  "file": "_clui_test_server.py",
+  "purpose": "Throw-away test server for verifying static/js/cl-ui.js in a real browser.",
+  "entry_function": "class Handler(http.server.SimpleHTTPRequestHandler)  # line 19",
+  "entry_flows": [
+    "Handler.__init__() → pathlib.Path, wfile.write, path.startswith, time.sleep"
+  ],
+  "public_api": [
+    "class Handler(http.server.SimpleHTTPRequestHandler)  # line 19",
+    "  Handler.__init__()",
+    "  Handler.log_message()",
+    "  Handler.do_GET()",
+    "  Handler.do_POST()",
+    "class Server(socketserver.ThreadingTCPServer)  # line 55"
+  ],
+  "dependencies": [
+    "http",
+    "socketserver"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Detected patterns: threading: extends Thread; threading: daemon=True | Key constants: ROOT = pathlib.Path(__file__).parent, PORT = 8777",
+  "why": {
+    "Server.run()": "runs in background thread — do not call directly, use start()",
+    "Server daemon=True": "dies with main thread — intentional, no cleanup needed"
+  },
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "610eb3e47bb9c933",
+  "file_mtime": 1790246294995.4812,
+  "file_size": 1876,
+  "file_birthtime": 1790246294659.99,
+  "generated_at": "2026-09-25T14:21:50.178625Z",
+  "stale": false
+}

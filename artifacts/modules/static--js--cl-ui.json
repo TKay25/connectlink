@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ClUi",
+  "file": "static/js/cl-ui.js",
+  "purpose": "Cl-ui",
+  "entry_function": "if",
+  "entry_flows": [],
+  "public_api": [
+    "if",
+    "return",
+    "getClientRects",
+    "for"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "27356e6bf61e9ab8",
+  "file_mtime": 1790246187094.5527,
+  "file_size": 13116,
+  "file_birthtime": 1790246186996.1125,
+  "generated_at": "2026-09-25T13:21:14.707649Z",
+  "stale": false
+}

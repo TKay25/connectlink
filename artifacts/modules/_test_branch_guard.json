@@ -1,0 +1,40 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestBranchGuard",
+  "file": "_test_branch_guard.py",
+  "purpose": "Throwaway test: prove the read-only consolidated view is enforced SERVER-side.",
+  "entry_function": "check(label, cond, detail = '')",
+  "entry_flows": [
+    "_test_branch_guard → types.ModuleType, modules.setdefault, app.test_client, failures.append, client.session_transaction"
+  ],
+  "public_api": [
+    "check(label, cond, detail = '')",
+    "session_for(branch_id)",
+    "helpers_for(branch_id)"
+  ],
+  "dependencies": [
+    "ConnectLink",
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: WRITES = [('POST', '/api/transactions', {'items': []}), ('POST', '/api/products', {'name': 'x', 'category': 'DIY'}), ('PUT', '/api/products/1', {'name': 'x'}), ('PUT', '/api/products/1/price', {'sell_price': 1}), ('PUT', '/api/products/1/subtract-stock', {'quantity': 1}), ('DELETE', '/api/products/1', None), ('POST', '/api/inventory/remove-all-stock', {'password': 'Fibo011235'}), ('DELETE', '/api/transactions/clear-all', None), ('POST', '/api/transactions/1/revert', {'pin': 'x'}), ('PUT', '/api/stock-additions/1', {'quantity': 1}), ('DELETE', '/api/stock-additions/1', None)]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "8c2337446f70368b",
+  "file_mtime": 1790344209324.422,
+  "file_size": 4517,
+  "file_birthtime": 1790344209245.1802,
+  "generated_at": "2026-09-25T13:53:49.111942Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

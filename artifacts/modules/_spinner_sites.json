@@ -1,0 +1,41 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "SpinnerSites",
+  "file": "_spinner_sites.json",
+  "purpose": "JSON array — 52 items",
+  "entry_function": "array[52] of {file, line, target, ...}",
+  "entry_flows": [],
+  "public_api": [
+    "item[].file",
+    "item[].line",
+    "item[].target",
+    "item[].fn",
+    "item[].has_restore_innerhtml",
+    "item[].has_reenable",
+    "item[].sets_disabled",
+    "item[].adds_disabled_attr"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "d9edd753be197262",
+  "file_mtime": 1790247191514.6316,
+  "file_size": 18186,
+  "file_birthtime": 1790247191513.6248,
+  "generated_at": "2026-09-25T13:21:14.707440Z",
+  "stale": false
+}

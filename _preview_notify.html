@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>cl-ui.js notification tests</title>
+<link rel="stylesheet" href="static/css/design-system.css">
+<script src="static/js/cl-ui.js"></script>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; padding: 18px; background: #F0F2F5; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  .muted { color: #64748B; font-size: 12px; margin-bottom: 14px; }
+  .row { background: #fff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px;
+         margin-bottom: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .row b { font-size: 12px; min-width: 260px; }
+  button { border: none; border-radius: 6px; padding: 7px 14px; font-weight: 600; font-size: 12px;
+           cursor: pointer; background: #0F1B2D; color: #fff; }
+  button.alt { background: #C12B3E; }
+  .say { font-size: 12px; color: #334155; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: #E2E8F0; color: #0F1B2D; }
+</style>
+</head>
+<body>
+
+<h1>cl-ui.js — notification layer tests</h1>
+<div class="muted">window.alert is shimmed by cl-ui.js. This page starts with NO page toast, so the built-in one is exercised first.</div>
+
+<div class="row">
+  <b>1 built-in fallback (no page toast here)</b>
+  <button class="alt" id="b1">alert('✅ Saved successfully!')</button>
+  <span class="badge" id="s1"></span>
+</div>
+
+<div class="row">
+  <b>2 delegate to a page showToast</b>
+  <button id="b2">define showToast, then alert</button>
+  <span class="badge" id="s2"></span>
+</div>
+
+<div class="row">
+  <b>3 page showToast THROWS</b>
+  <button id="b3">alert must still be shown</button>
+  <span class="badge" id="s3"></span>
+</div>
+
+<div class="row">
+  <b>4 page showToast silently no-ops</b>
+  <button id="b4">alert must still be shown</button>
+  <span class="badge" id="s4"></span>
+</div>
+
+<div class="row">
+  <b>5 multi-line error message</b>
+  <button id="b5">alert('❌ FAILED!\n\nFailed to send receipt: boom')</button>
+  <span class="badge" id="s5"></span>
+</div>
+
+<div class="row">
+  <b>6 severity inference (no emoji)</b>
+  <button id="b6">run 8 real message shapes</button>
+  <span class="badge" id="s6"></span>
+</div>
+
+<div class="row">
+  <b>7 recursion: showToast calls alert()</b>
+  <button id="b7">must not loop</button>
+  <span class="badge" id="s7"></span>
+</div>
+
+<div class="row">
+  <b>8 escape hatch clAlertShimOff</b>
+  <button id="b8">should NOT create a toast</button>
+  <span class="badge" id="s8"></span>
+</div>
+
+<div class="row">
+  <b>9 toast then immediate reload</b>
+  <button id="b9">alert + location.reload()</button>
+  <span class="badge" id="s9"></span>
+</div>
+
+<div class="row">
+  <b>10 stack cap (7 alerts in a loop)</b>
+  <button id="b10">fire 7</button>
+  <span class="badge" id="s10"></span>
+</div>
+
+<div class="row">
+  <b>11 confirm() must stay native</b>
+  <button id="b11">call confirm</button>
+  <span class="badge" id="s11"></span>
+</div>
+
+<div class="row">
+  <b>12 clNotify API + clNativeAlert</b>
+  <button id="b12">check exposure</button>
+  <span class="badge" id="s12"></span>
+</div>
+
+<script>
+/* ---- helpers used by the tests (a "page" implementation) ----------------- */
+window.__calls = [];
+window.__defineStub = function (mode) {
+  window.showToast = function (message, type) {
+    window.__calls.push([message, type, mode]);
+    if (mode === 'throws') { throw new Error('page toast is broken'); }
+    if (mode === 'noop') { return; }                 // e.g. missing container
+    var box = document.querySelector('.toast-container') ||
+      (function () { var d = document.createElement('div'); d.className = 'toast-container'; document.body.appendChild(d); return d; })();
+    var el = document.createElement('div');
+    el.className = 'toast show toast-' + type;
+    el.setAttribute('data-from', 'page-stub');
+    el.innerHTML = '<span class="toast-icon">x</span><span class="toast-message"></span>';
+    el.querySelector('.toast-message').textContent = message;
+    box.appendChild(el);
+  };
+};
+window.__reset = function () { window.__calls = []; try { delete window.showToast; } catch (e) { window.showToast = undefined; } };
+window.__toasts = function () { return Array.prototype.slice.call(document.querySelectorAll('.toast')); };
+window.__wipe = function () { window.__toasts().forEach(function (t) { t.remove(); }); };
+window.__p = function (id, txt) { document.getElementById(id).textContent = txt; };
+
+document.getElementById('b1').addEventListener('click', function () { alert('✅ Saved successfully!'); });
+document.getElementById('b2').addEventListener('click', function () { window.__defineStub('ok'); alert('✅ Saved successfully!'); });
+document.getElementById('b3').addEventListener('click', function () { window.__defineStub('throws'); alert('❌ Could not save the project'); });
+document.getElementById('b4').addEventListener('click', function () { window.__defineStub('noop'); alert('❌ Could not save the project'); });
+document.getElementById('b5').addEventListener('click', function () { alert('❌ FAILED!\n\nFailed to send receipt: boom'); });
+document.getElementById('b6').addEventListener('click', function () {
+  [
+    '✅ Project updated successfully!',
+    'Error: Delete failed',
+    'No quotation data available. Please generate a quotation first.',
+    'Please fill in all required fields.',
+    '⚠️ No project selected!',
+    'Reminder resent successfully!',
+    '§',
+    'Deposit recorded'
+  ].forEach(function (m) { window.clNotify(m); });
+});
+document.getElementById('b7').addEventListener('click', function () {
+  window.__inner = 0;
+  window.showToast = function () { window.__inner++; alert('inner message'); };   // must not recurse
+  alert('outer message');
+});
+document.getElementById('b8').addEventListener('click', function () {
+  window.clAlertShimOff = true;
+  window.__before = window.__toasts().length;
+  window.clNativeAlert('native path');            // never create a toast
+  window.clAlertShimOff = false;
+});
+document.getElementById('b9').addEventListener('click', function () {
+  alert('✅ Administrator added!');
+  location.reload();
+});
+document.getElementById('b10').addEventListener('click', function () {
+  for (var i = 1; i <= 7; i++) { window.clNotify('message ' + i, 'info'); }
+});
+document.getElementById('b11').addEventListener('click', function () {
+  var r = window.confirm('native confirm?');
+  window.__confirmResult = r;
+  window.__confirmIsNative = String(window.confirm).indexOf('native code') !== -1;
+});
+document.getElementById('b12').addEventListener('click', function () {
+  window.__api = {
+    clNotify: typeof window.clNotify, clBusy: typeof window.clBusy,
+    clDone: typeof window.clDone, clBusyWhile: typeof window.clBusyWhile,
+    clNativeAlert: typeof window.clNativeAlert, alertShimOffFlag: window.clAlertShimOff
+  };
+});
+
+/* reload-replay marker */
+if (sessionStorage.getItem('cl-reload-test') === '1') {
+  sessionStorage.removeItem('cl-reload-test');
+  window.__reloaded = true;
+}
+document.getElementById('b9').addEventListener('click', function () { sessionStorage.setItem('cl-reload-test', '1'); }, true);
+</script>
+
+</body>
+</html>

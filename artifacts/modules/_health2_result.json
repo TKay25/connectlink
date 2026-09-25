@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Health2Result",
+  "file": "_health2_result.txt",
+  "purpose": "<!-- Describe what Health2Result does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "9900333bb411d581",
+  "file_mtime": 1790346475361.8413,
+  "file_size": 1550,
+  "file_birthtime": 1790346475356.5837,
+  "generated_at": "2026-09-25T14:27:59.576Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

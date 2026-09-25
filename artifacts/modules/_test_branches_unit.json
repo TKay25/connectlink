@@ -1,0 +1,48 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestBranchesUnit",
+  "file": "_test_branches_unit.py",
+  "purpose": "Throwaway unit test for the multi-branch bootstrap. Delete after use.",
+  "entry_function": "class FakeCursor  # line 29",
+  "entry_flows": [
+    "FakeCursor.__init__(fail_on = (), first_id = 1) → SRC.index, sql.split, executed.append, flat.startswith",
+    "FakeConn.__init__() → SRC.index, sql.split, executed.append, flat.startswith"
+  ],
+  "public_api": [
+    "class FakeCursor  # line 29",
+    "  FakeCursor.__init__(fail_on = (), first_id = 1)",
+    "  FakeCursor.execute(sql, params = None)",
+    "  FakeCursor.fetchone()",
+    "  FakeCursor.of(prefix)",
+    "class FakeConn  # line 55",
+    "  FakeConn.__init__()",
+    "  FakeConn.commit()",
+    "  FakeConn.rollback()",
+    "check(label, cond, detail = '')",
+    "run(fail_on = (), first_id = 1)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: SRC = open('ConnectLink.py', encoding='utf-8').read(), BLOCK = SRC[_start:_end], BRANCH_SCOPED_TABLES = ns['BRANCH_SCOPED_TABLES'], POS_ALL_BRANCHES_ID = ns['POS_ALL_BRANCHES_ID'], POS_ALL_BRANCHES_CODE = ns['POS_ALL_BRANCHES_CODE'], BRANCH_BOOTSTRAP_SEED = ns['BRANCH_BOOTSTRAP_SEED']",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "e93b630a75bb2b7d",
+  "file_mtime": 1790343528937.8408,
+  "file_size": 6524,
+  "file_birthtime": 1790343528793.3594,
+  "generated_at": "2026-09-25T13:39:02.286065Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

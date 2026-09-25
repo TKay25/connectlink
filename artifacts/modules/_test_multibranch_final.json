@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestMultibranchFinal",
+  "file": "_test_multibranch_final.py",
+  "purpose": "Throwaway final check for the multi-branch backend. Delete after use.",
+  "entry_function": "check(label, cond, detail = '')",
+  "entry_flows": [
+    "_test_multibranch_final → types.ModuleType, modules.setdefault, app.test_client, failures.append, client.session_transaction"
+  ],
+  "public_api": [
+    "check(label, cond, detail = '')",
+    "session_for(branch_id)"
+  ],
+  "dependencies": [
+    "ConnectLink",
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "661b4defa95e6cc2",
+  "file_mtime": 1790345037770.6406,
+  "file_size": 5588,
+  "file_birthtime": 1790345037695.657,
+  "generated_at": "2026-09-25T14:04:01.314262Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

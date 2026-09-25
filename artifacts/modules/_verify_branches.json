@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "VerifyBranches",
+  "file": "_verify_branches.py",
+  "purpose": "Throwaway verification for the multi-branch bootstrap. Delete after use.",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_verify_branches → types.ModuleType, modules.setdefault, CL.initialize_database_tables, cursor.execute, cursor.fetchall"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "ConnectLink",
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7b26fb2be9bd61c5",
+  "file_mtime": 1790343220751.7683,
+  "file_size": 3555,
+  "file_birthtime": 1790343220677.785,
+  "generated_at": "2026-09-25T13:38:22.869807Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

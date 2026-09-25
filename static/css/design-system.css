@@ -303,6 +303,40 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
 }
 
 /* ==================================================================
+ BRAND PALETTE  (single source of truth)
+ ==================================================================
+ These names are unambiguous on purpose. Use them in NEW code instead of raw
+ hex, so a shade never has to be guessed again.
+
+ WHY THEY EXIST - the one real inconsistency left in the app:
+ `--primary` is redefined at page level and currently means SIX different
+ things across nine templates:
+
+     #C12B3E  (brand crimson)   <- the design-system value
+     #0F1B2D  #1E293B  #0A2540  #0A2B3E  #1A3A5C   (navies)
+
+ On those pages `--primary` is the sidebar/header background, so it CANNOT be
+ forced back to crimson without repainting their chrome - that is a deliberate
+ design decision to make, not a bug to patch. Until it is made, prefer
+ --cl-crimson in new code and treat --primary as page-local.
+
+ The 312 imperceptible near-duplicate navies/crimsons (max channel delta <= 10)
+ have already been folded into these values, so the dark themes across pages now
+ match each other instead of each being a slightly different navy.
+================================================================== */
+:root {
+  --cl-crimson: #C12B3E;
+  --cl-crimson-dark: #9E1F2E;
+  --cl-crimson-hover: #D54556;
+  --cl-navy: #1E293B;
+  --cl-navy-deep: #0F1B2D;
+  --cl-success: #10B981;
+  --cl-danger: #EF4444;
+  --cl-warning: #F59E0B;
+  --cl-info: #3B82F6;
+}
+
+/* ==================================================================
  ALERTS / TOASTS
  ================================================================== */
 .alert {
@@ -334,6 +368,37 @@ table.table-hr tbody tr:last-child td { border-bottom: none; }
 .toast-info .toast-icon { color: var(--info); }
 .toast-message { flex: 1; font-size: 0.85rem; color: var(--text-primary); font-weight: 500; }
 .toast-close { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1rem; padding: 2px; }
+
+/* ---- shared toast polish, driven by static/js/cl-ui.js -----------------------
+   Every alert() in the app now lands here (directly, or through the page's own
+   showToast), so these rules apply system-wide. Kept additive on purpose. */
+
+/* several alert strings are "title\n\ndetail" (e.g. FAILED! + reason) */
+.toast-message { white-space: pre-line; max-height: 40vh; overflow-y: auto; }
+
+/* the built-in toasts draw their icon with inline SVG, so they must not depend on
+   an icon font being loaded on that particular page */
+.toast-icon svg { display: block; width: 1em; height: 1em; }
+
+.toast.cl-toast-out { animation: clToastOut 0.22s ease forwards; }
+@keyframes clToastOut { to { transform: translateX(110%); opacity: 0; } }
+
+/* 99999 is what the pages use for their own toast wrappers; without raising this,
+   a toast raised from inside a modal (all of them now, since alert() is a toast)
+   could sit behind the modal that triggered it. `body` = specificity 0,1,1, which
+   beats a page's bare `.toast-container` without needing !important. */
+body .toast-container { z-index: 999999; }
+
+body.dark-theme .toast { background: #141a2b; box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.07); }
+body.dark-theme .toast-message { color: #d1d5db; }
+body.dark-theme .toast-close { color: #9ca3af; }
+
+@media (max-width: 480px) {
+  .toast-container { left: 12px; right: 12px; max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
 
 /* ==================================================================
  SIDEBAR (HR, admin)
@@ -584,3 +649,131 @@ body:has(.app-navbar) {
     scrollbar-color: #C12B3E transparent;
   }
 }
+
+/* ==================================================================
+   UNIFORM INTERACTION RULES
+   ------------------------------------------------------------------
+   These are the "every section behaves the same" rules. They are
+   deliberately limited to focus, disabled and transition - never to
+   size, spacing or colour of a component - so they cannot pull an
+   existing screen out of shape.
+   ================================================================== */
+
+/* One focus ring everywhere (pages that define their own keep it: this
+   file is linked first, so a page rule of the same weight still wins). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Disabled controls read as disabled in every section. */
+button:disabled,
+.btn:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+[aria-disabled="true"] { cursor: not-allowed; }
+
+/* Buttons react to hover/press with the same timing everywhere.
+   (No !important: page-specific button styles still take precedence.) */
+button,
+.btn,
+input[type="submit"],
+input[type="button"],
+input[type="reset"] {
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease,
+              box-shadow 0.16s ease, transform 0.08s ease;
+}
+button:active:not(:disabled),
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* ==================================================================
+   BACKEND-FEEDBACK LAYER  (driven by static/js/cl-ui.js)
+   ------------------------------------------------------------------
+   Every committing control - form submit, fetch POST, jQuery $.ajax -
+   gets this same spinner, so feedback no longer depends on whether a
+   page author hand-rolled one. The label is made transparent (by the
+   script) and the spinner sits on top of it, so the button NEVER
+   changes width and nothing on the page shifts while it works.
+   ================================================================== */
+
+.cl-busy {
+  cursor: progress !important;
+  pointer-events: none !important;   /* swallows the accidental double click */
+  position: relative;
+}
+.cl-busy > * { visibility: hidden !important; }
+.cl-busy > .cl-spin { visibility: visible !important; }
+
+/* `cl-busy-own` = the page is already showing its own spinner (52 hand-rolled
+   sites, many with a label worth reading: "Saving...", "Generating PDF..."). In
+   that case nothing is hidden and no spinner is injected - the layer only adds the
+   click-blocking and the progress bar. Doing otherwise silently threw away those
+   labels, which is exactly the kind of "uniformity" nobody wants. */
+.cl-busy-own > * { visibility: visible !important; }
+
+.cl-spin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  box-sizing: border-box;
+  border: 2px solid var(--cl-spin-color, currentColor);
+  border-top-color: transparent;
+  border-radius: 50%;
+  visibility: visible !important;
+  pointer-events: none;
+  animation: clSpin 0.6s linear infinite;
+}
+@keyframes clSpin { to { transform: rotate(360deg); } }
+
+/* Inputs/selects cannot hold a spinner, so they get a quiet dim instead. */
+input.cl-busy,
+select.cl-busy,
+textarea.cl-busy {
+  opacity: 0.65 !important;
+}
+input.cl-busy > .cl-spin,
+select.cl-busy > .cl-spin,
+textarea.cl-busy > .cl-spin { display: none; }
+
+/* Slim commitment bar at the top of the viewport - only for writes, so
+   polling dashboards never make it flicker. */
+.cl-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 2147483000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.cl-progress-on { opacity: 1; }
+.cl-progress::before {
+  content: '';
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(90deg, rgba(193, 43, 62, 0) 0%, #C12B3E 35%, #D54556 60%, rgba(193, 43, 62, 0) 100%);
+  animation: clBar 1.1s ease-in-out infinite;
+}
+@keyframes clBar {
+  0%   { transform: translateX(-45%); }
+  100% { transform: translateX(260%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-spin { animation-duration: 1.4s; }
+  .cl-progress::before { animation-duration: 2.4s; }
+}
+

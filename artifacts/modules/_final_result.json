@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "FinalResult",
+  "file": "_final_result.txt",
+  "purpose": "<!-- Describe what FinalResult does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "904b75a16fd2f220",
+  "file_mtime": 1790345069944.3535,
+  "file_size": 9834,
+  "file_birthtime": 1790345069944.3535,
+  "generated_at": "2026-09-25T14:04:34.111Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

@@ -6,17 +6,17 @@
   "purpose": "Initialize database tables",
   "entry_function": "numberfmt_filter(value)",
   "entry_flows": [
-    "ConnectLink → environ.setdefault, app.template_filter"
+    "ConnectLink → environ.setdefault, stdout.reconfigure, stderr.reconfigure, app.template_filter"
   ],
   "public_api": [
     "numberfmt_filter(value)",
     "add_no_cache_headers(response)",
+    "add_cl_ui_feedback_layer(response)",
     "initialize_database_tables()",
     "get_table_columns(table_name)",
-    "migrate_product_categories()",
-    "webhook()",
-    "send_whatsapp_button_image_message(recipient, text, image_url, buttons, footer_text = None)",
-    "send_whatsapp_message(to, text, buttons = None, footer_text = None)"
+    "ensure_branches_schema(cursor, connection)",
+    "current_branch_id()",
+    "resolve_first_branch_id()"
   ],
   "dependencies": [
     "ai_classifier",
@@ -41,26 +41,26 @@
     "pytz"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 15215",
-    "# The register starts EMPTY (the user's  @ line 44160"
+    "INSTRUCTIONS @ line 16270",
+    "# The register starts EMPTY (the user's  @ line 45215"
   ],
   "token_controls": [
-    "max_length = 0 @ line 26529",
-    "max_length = len(str(cell.value)) @ line 26534",
-    "adjusted_width = min(max_length + 2, 50) @ line 26537",
-    "max_length = 0 @ line 27361",
-    "max_length = cell_length @ line 27368",
-    "adjusted_width = min(max_length + 2, 50) @ line 27371",
-    "max_length = 0 @ line 28356",
-    "max_length = cell_length @ line 28363",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 28366"
+    "max_length = 0 @ line 27584",
+    "max_length = len(str(cell.value)) @ line 27589",
+    "adjusted_width = min(max_length + 2, 50) @ line 27592",
+    "max_length = 0 @ line 28416",
+    "max_length = cell_length @ line 28423",
+    "adjusted_width = min(max_length + 2, 50) @ line 28426",
+    "max_length = 0 @ line 29411",
+    "max_length = cell_length @ line 29418",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 29421"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "Key constants: GEMINI_API_KEY = 'AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g', DEFAULT_QUOTATION_RATES = [('Land Clearing', 0.05, 3), ('Setting out', 0.05, 1.2), ('Excavation', 0.05, 3.2), ('Footing', 0.0375, 6.48), ('Box', 0.075, 16), ('Removal', 0, 1.2), ('Backfilling and Compaction', 0.025, 2.4), ('Slab', 0.025, 15.6), ('Window sill level', 0.058333333, 19), ('Window head', 0.025974026, 18), ('Ring Beam', 0.032467532, 14.04), ('Wall plate', 0.038961039, 18), ('Roofing', 0.083333333, 32), ('Aluminium', 0.041666667, 15.8), ('Shattering', 0.038961039, 10), ('Steel Fixing', 0.097402597, 23), ('Deck Pouring', 0.032467532, 20), ('1st Fix Electricals', 0.02597403, 3.6), ('1st Fix Plumbing', 0.025974026, 7.2), ('External Plastering', 0.045454545, 9.6), ('Internal Plastering', 0.051948052, 6), ('Ceiling', 0.064935065, 19.2), ('Skimming', 0.045454545, 4.8), ('Flooring', 0.032467532, 10.14), ('Tiling', 0.051948052, 35), ('Wall Tiling', 0.023529412, 9.6), ('Painting', 0.051948052, 21.6), ('Screeding', 0, 10.14), ('Review', 0, 6.78), ('Beam filling', 0, 3.6), ('TnCs', 0, 8.4), ('Final fix Plumbing', 0.025974026, 18), ('Final fix Electricals', 0.025974026, 15.6), ('Doors and door frames', 0, 10.8), ('Cleaning', 0, 0)], VERIFY_TOKEN = '2012753506232550', ACCESS_TOKEN = 'EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD', PHONE_NUMBER_ID = '977519838770637', VERIFY_TOKEN = '2012753506232550'",
+  "notes": "Key constants: _CL_UI_TAG_BYTES = b'<script src=\"/static/js/cl-ui.js\" defer></script>', GEMINI_API_KEY = 'AIzaSyBJ8hqTuCjDhpabMtgJ-MXO9aQ3_f-if2g', DEFAULT_QUOTATION_RATES = [('Land Clearing', 0.05, 3), ('Setting out', 0.05, 1.2), ('Excavation', 0.05, 3.2), ('Footing', 0.0375, 6.48), ('Box', 0.075, 16), ('Removal', 0, 1.2), ('Backfilling and Compaction', 0.025, 2.4), ('Slab', 0.025, 15.6), ('Window sill level', 0.058333333, 19), ('Window head', 0.025974026, 18), ('Ring Beam', 0.032467532, 14.04), ('Wall plate', 0.038961039, 18), ('Roofing', 0.083333333, 32), ('Aluminium', 0.041666667, 15.8), ('Shattering', 0.038961039, 10), ('Steel Fixing', 0.097402597, 23), ('Deck Pouring', 0.032467532, 20), ('1st Fix Electricals', 0.02597403, 3.6), ('1st Fix Plumbing', 0.025974026, 7.2), ('External Plastering', 0.045454545, 9.6), ('Internal Plastering', 0.051948052, 6), ('Ceiling', 0.064935065, 19.2), ('Skimming', 0.045454545, 4.8), ('Flooring', 0.032467532, 10.14), ('Tiling', 0.051948052, 35), ('Wall Tiling', 0.023529412, 9.6), ('Painting', 0.051948052, 21.6), ('Screeding', 0, 10.14), ('Review', 0, 6.78), ('Beam filling', 0, 3.6), ('TnCs', 0, 8.4), ('Final fix Plumbing', 0.025974026, 18), ('Final fix Electricals', 0.025974026, 15.6), ('Doors and door frames', 0, 10.8), ('Cleaning', 0, 0)], BRANCH_SHURUGWI_CODE = os.environ.get('BRANCH_SHURUGWI_CODE', 'shurugwi01'), BRANCH_CHEGUTU_CODE = os.environ.get('BRANCH_CHEGUTU_CODE', 'chegutu01'), POS_ALL_BRANCHES_CODE = os.environ.get('POS_ALL_BRANCHES_CODE', 'conlink01owner01')",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -70,6 +70,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-09-24T09:51:33.000382Z",
+  "generated_at": "2026-09-25T14:27:26.347662Z",
   "stale": false
 }

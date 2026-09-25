@@ -1,0 +1,50 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestBranchHealth2",
+  "file": "_test_branch_health2.py",
+  "purpose": "Throwaway test for /api/branch-health, driven with a fake database so the",
+  "entry_function": "class FakeCursor  # line 14",
+  "entry_flows": [
+    "FakeCursor.__init__() → types.ModuleType, modules.setdefault, sql.split, s.startswith",
+    "FakeConn.commit() → types.ModuleType, modules.setdefault, sql.split, s.startswith",
+    "FakeDB.__init__(healthy = False) → types.ModuleType, modules.setdefault, sql.split, s.startswith"
+  ],
+  "public_api": [
+    "class FakeCursor  # line 14",
+    "  FakeCursor.__init__()",
+    "  FakeCursor.execute(sql, params = None)",
+    "  FakeCursor.fetchone()",
+    "  FakeCursor.fetchall()",
+    "class FakeConn  # line 46",
+    "  FakeConn.commit()",
+    "  FakeConn.rollback()",
+    "class FakeDB  # line 54",
+    "  FakeDB.__init__(healthy = False)",
+    "check(label, cond, detail = '')",
+    "call(healthy)"
+  ],
+  "dependencies": [
+    "ConnectLink"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "179de21bffcb760e",
+  "file_mtime": 1790346450536.667,
+  "file_size": 4454,
+  "file_birthtime": 1790346450416.6704,
+  "generated_at": "2026-09-25T14:27:32.943822Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

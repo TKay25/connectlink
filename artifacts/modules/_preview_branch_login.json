@@ -1,0 +1,44 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PreviewBranchLogin",
+  "file": "_preview_branch_login.py",
+  "purpose": "Throwaway mock server to eyeball the new branch login + POS branch UI.",
+  "entry_function": "index()",
+  "entry_flows": [
+    "_preview_branch_login → fh.read, app.route, CALLS.append, data.get, CODES.get"
+  ],
+  "public_api": [
+    "index()",
+    "pos()",
+    "static_files(path)",
+    "branches()",
+    "login()",
+    "check_auth()",
+    "switch()",
+    "set_branch(bid)"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: BASE = os.path.dirname(os.path.abspath(__file__)), BRANCHES = [{'id': 1, 'code': 'SHU', 'name': 'Shurugwi'}, {'id': 2, 'code': 'CHG', 'name': 'Chegutu'}], CODES = {1: 'shurugwi01', 2: 'chegutu01', 0: 'conlink01owner01'}, CURRENT = {'id': 1, 'name': 'Shurugwi', 'read_only': False}, CALLS = []",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "fecad0113e0bb48c",
+  "file_mtime": 1790344086853.6567,
+  "file_size": 4368,
+  "file_birthtime": 1790344086778.6907,
+  "generated_at": "2026-09-25T13:48:10.220834Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

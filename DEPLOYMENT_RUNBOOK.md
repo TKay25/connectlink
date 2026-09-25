@@ -6,12 +6,13 @@
 2. [Installation on Windows](#installation-windows)
 3. [Installation on macOS/Linux](#installation-macos-linux)
 4. [Installation on Production Server](#installation-production)
-5. [Configuration & Setup](#configuration)
-6. [Database Management](#database-management)
-7. [Backup & Recovery](#backup-recovery)
-8. [Monitoring & Maintenance](#monitoring)
-9. [Troubleshooting](#troubleshooting)
-10. [Upgrade Procedures](#upgrade)
+5. [Multi-Branch POS (Shurugwi + Chegutu)](#multi-branch-pos-shurugwi--chegutu)
+6. [Configuration & Setup](#configuration)
+7. [Database Management](#database-management)
+8. [Backup & Recovery](#backup-recovery)
+9. [Monitoring & Maintenance](#monitoring)
+10. [Troubleshooting](#troubleshooting)
+11. [Upgrade Procedures](#upgrade)
 
 ---
 
@@ -391,6 +392,104 @@ sudo systemctl status connectlink
 ```bash
 curl https://yourdomain.com
 ```
+
+---
+
+## MULTI-BRANCH POS (Shurugwi + Chegutu)
+
+The hardware POS runs as ONE system serving multiple shops. Each shop sees the same
+interface and the same shared product catalogue, but its own stock, sales, stock
+movements and audit history.
+
+### How it works (in one paragraph)
+
+`products` is the **shared catalogue** (same item, same barcode, same prices in every
+shop). The **quantity per shop** lives in `product_stock`. Every sale, stock movement,
+product removal and activity entry is stamped with the branch it belongs to, and every
+POS screen and report is filtered by the branch held in the **session** — never by
+anything the browser sends. `products.stock` is a maintained total across all branches
+(it is what the procurement picker and the Finance balance sheet read), so never edit
+it by hand: use the stock helpers, which keep it in step.
+
+### Environment variables — SET THESE BEFORE GO-LIVE
+
+The branch codes are **credentials, not labels**: whoever knows a branch's code can open
+that shop's till. The shipped defaults are placeholders. Set these in the Render
+environment and rotate them periodically:
+
+| Variable | Purpose | Default (CHANGE IT) |
+|---|---|---|
+| `BRANCH_SHURUGWI_CODE` | Opens the Shurugwi till | `shurugwi01` |
+| `BRANCH_CHEGUTU_CODE` | Opens the Chegutu till | `chegutu01` |
+| `POS_ALL_BRANCHES_CODE` | Opens the read-only **All Branches** view | `conlink01owner01` |
+
+If a variable is absent the built-in default is used, so a missing value fails **open**.
+Always set all three explicitly.
+
+Also worth setting (pre-existing behaviour, unchanged):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `TRANSACTION_REVERT_PIN` | PIN required to revert a sale | `Conlink01Admin011235` |
+| `PROCUREMENT_DELETE_PASSCODE` | Passcode to delete a requisition | `conlink01admin01` |
+
+### Roles
+
+* **A shop's staff** know only their own branch code. They cannot open another shop
+  even if they pick it in the dropdown — the code check is what authorises the branch.
+* **Owners** know both branch codes plus the owner code, so they can move between shops
+  and open the consolidated view. No per-user branch permissions are needed.
+* **All Branches is read-only.** Sales, stock changes, transfers and both inventory
+  wipes are refused server-side (`403 read_only`), not merely hidden in the UI.
+
+### Go-live checklist
+
+1. Set the three branch codes in the environment (and rotate them from the defaults).
+2. Deploy and confirm BOTH of these lines in the boot log:
+   ```
+   [ok] Branch schema ready: SHU backfilled -> transactions(+N), ...
+   [ok] product_stock ready (N product row(s) seeded to SHU)
+   ```
+   The first run seeds Chegutu as branch 2 and moves all existing stock/history to
+   Shurugwi (the shop that was live first).
+3. **Confirm the environment variables took effect.** Sign in as an admin and open
+   ```
+   /api/branch-health
+   ```
+   It answers "is everything set?" without ever showing a code. You want:
+   * `env_check` — all three flags **false** (a `true` means that variable did NOT
+     take effect and the shipped default is still in use — almost always a typo),
+   * `problem_count` — **0**,
+   * `branches` — Shurugwi and Chegutu, both `active`.
+
+   `problems` also reports any row that has no branch yet; such rows would be
+   invisible inside a branch view, so it must stay empty.
+4. **Rehearse on Shurugwi data before Chegutu opens**: ring one sale, add stock,
+   open the Audit Report, print a receipt, and make one small transfer.
+5. Check that the POS top bar shows the right branch name, and that a receipt prints
+   it (e.g. "Shurugwi Branch").
+
+> **First boot is slower than usual.** The schema migration (branches, per-branch
+> stock, backfill) runs on the first request after a deploy, not at import, so the
+> first page load can take noticeably longer. That is expected — watch the log for
+> the two `[ok]` lines above.
+
+### Behaviour worth knowing
+
+* **Logging in** — the Hardware POS card needs username, password, **branch** and the
+  **branch code**. Five wrong codes locks that user's code step for 15 minutes.
+* **Switching branch** — the branch chip in the POS top bar switches at any time
+  (from any branch, including out of the read-only view). **The cart is cleared** so a
+  sale can never span two shops.
+* **Transfers** — Inventory → *Transfer Stock*, or the **Transfer** button on any
+  inventory row. Stock can only leave the branch you are working in, so nobody can
+  drain another shop. Both sides appear in each shop's audit report.
+* **Wipes** — *Remove All Items & History* and *Clear All Transactions* are
+  **branch-scoped**. They clear the shop you are in, and *cannot* touch the other shop.
+* **Old sessions** — a session created before the branch step existed is given
+  Shurugwi automatically, so nobody loses sight of their data on deploy day.
+* **Stock shown** — on a real branch every figure is that branch's. On the read-only
+  All Branches view, stock figures are the company total.
 
 ---
 

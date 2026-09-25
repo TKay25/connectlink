@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>cl-ui.js behaviour tests</title>
+<link rel="stylesheet" href="static/css/design-system.css">
+
+<script>
+/* Compress ONLY the watchdogs so they can be observed in a test run.
+   20000ms (ajax) -> 300ms, 8000ms (form) -> 1500ms. Everything else, including
+   the 250ms classic-submit delay and the 180ms bar delay, is left alone. */
+(function () {
+    var native = window.setTimeout;
+    window.setTimeout = function (fn, ms) {
+        if (ms >= 20000) { ms = 3000; }   // ajax watchdog 20s -> 3s (> /slow 0.7s, so a
+                                          // clear before 3s proves the REQUEST did it)
+        else if (ms === 8000) { ms = 1500; }   // form watchdog 8s -> 1.5s
+        return native(fn, ms);
+    };
+})();
+</script>
+<script src="static/js/cl-ui.js"></script>
+
+<style>
+  body { font-family: Inter, system-ui, sans-serif; padding: 18px; background: #F0F2F5; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  .muted { color: #64748B; font-size: 12px; margin-bottom: 14px; }
+  .row { background: #fff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px;
+         margin-bottom: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .row b { font-size: 12px; min-width: 250px; }
+  button { border: none; border-radius: 6px; padding: 7px 16px; font-weight: 600; font-size: 13px;
+           cursor: pointer; background: #0F1B2D; color: #fff; }
+  button.alt { background: #C12B3E; }
+  .say { font-size: 12px; color: #334155; }
+  #results { margin-top: 14px; background: #0F1B2D; color: #E2E8F0; border-radius: 8px;
+             padding: 12px; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+  .badge { min-width: auto; font-size: 11px; padding: 2px 8px; border-radius: 20px;
+           background: #E2E8F0; color: #0F1B2D; }
+  /* Bootstrap ships this rule, and the real pages rely on it. Without it here the
+     "hidden declarative spinner" tests would be meaningless. */
+  .d-none { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>cl-ui.js — backend-feedback layer behaviour tests</h1>
+<div class="muted">Real HTTP server, real fetch/XHR, real form submits. Watchdogs compressed to 300ms for the test.</div>
+
+<form id="f1" action="/ok" method="post" target="sink">
+  <div class="row">
+    <b>T1 classic (navigating) submit + double-click</b>
+    <button type="submit" id="t1btn" class="alt">Save Changes</button>
+    <span class="badge" id="t1count">submits: 0</span>
+    <span class="say" id="t1say"></span>
+  </div>
+</form>
+
+<form id="f11">
+  <div class="row">
+    <b>T11 AJAX form (preventDefault + fetch POST)</b>
+    <button type="submit" id="t11btn" class="alt">Save via AJAX</button>
+    <span class="badge" id="t11count">submits: 0</span>
+    <span class="say" id="t11say"></span>
+  </div>
+</form>
+
+<form id="f12">
+  <div class="row">
+    <b>T12 validation blocked the submit (no request)</b>
+    <button type="submit" id="t12btn">Save (invalid)</button>
+    <span class="badge" id="t12count">submits: 0</span>
+    <span class="say" id="t12say"></span>
+  </div>
+</form>
+<iframe name="sink" style="display:none"></iframe>
+
+<div class="row">
+  <b>T2 fetch POST (spinner + bar)</b>
+  <button id="t2btn">Post it</button>
+  <span class="say" id="t2say"></span>
+</div>
+
+<div class="row">
+  <b>T3 jQuery-style XHR POST</b>
+  <button id="t3btn">ajax it</button>
+  <span class="say" id="t3say"></span>
+</div>
+
+<div class="row">
+  <b>T4 fetch GET (must NOT raise the bar)</b>
+  <button id="t4btn">Get it</button>
+  <span class="say" id="t4say"></span>
+</div>
+
+<div class="row">
+  <b>T5 request fails (500) - state must clear</b>
+  <button id="t5btn">Fail it</button>
+  <span class="say" id="t5say"></span>
+</div>
+
+<div class="row">
+  <b>T6 watchdog: fetch that never settles</b>
+  <button id="t6btn">Hang it</button>
+  <span class="say" id="t6say"></span>
+</div>
+
+<div class="row">
+  <b>T7 opt-out (data-cl-busy-off)</b>
+  <button id="t7btn" data-cl-busy-off>No feedback</button>
+  <span class="say" id="t7say"></span>
+</div>
+
+<div class="row">
+  <b>T8 a page-disabled button stays disabled</b>
+  <button id="t8btn" disabled>Disabled on purpose</button>
+  <span class="say" id="t8say"></span>
+</div>
+
+<div class="row">
+  <b>T9 button width never changes while busy</b>
+  <button id="t9btn">Width probe</button>
+  <span class="say" id="t9say"></span>
+</div>
+
+<div class="row">
+  <b>T10 label hidden, not duplicated (already has its own spinner)</b>
+  <button id="t10btn">Save<span id="t10own" class="cl-own-spin"></span></button>
+  <span class="say" id="t10say"></span>
+</div>
+
+<div class="row">
+  <b>T13 page shows its OWN spinner + label</b>
+  <button id="t13btn">Save Changes</button>
+  <span class="say" id="t13say"></span>
+</div>
+
+<div class="row">
+  <b>T14 hidden (d-none) declarative spinner must not count</b>
+  <button id="t14btn">Save<span class="spinner-border spinner-border-sm d-none"></span></button>
+  <span class="say" id="t14say"></span>
+</div>
+
+<div class="row">
+  <b>T15 declarative spinner hidden inline (style=display:none)</b>
+  <button id="t15btn">Save<span class="spinner-border spinner-border-sm" style="display:none"></span></button>
+  <span class="say" id="t15say"></span>
+</div>
+
+<div id="results">running…</div>
+
+<script>
+var results = [];
+function check(name, pass, detail) {
+  results.push({ name: name, pass: !!pass, detail: detail || '' });
+  var pre = document.getElementById('results');
+  pre.textContent = results.map(function (r) {
+    return (r.pass ? 'PASS  ' : 'FAIL  ') + r.name + (r.detail ? '   [' + r.detail + ']' : '');
+  }).join('\n');
+}
+window.__clResults = function () { return results; };
+
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function hasBar() { var b = document.querySelector('.cl-progress'); return !!(b && b.classList.contains('cl-progress-on')); }
+
+/* ---------- T1: classic navigating submit (posts into the hidden iframe so
+   the test page itself stays put). No preventDefault anywhere: this is the real
+   "the browser is doing the post" path. --------------------------------- */
+var t1submits = 0;
+document.getElementById('f1').addEventListener('submit', function () {
+  t1submits++;
+  document.getElementById('t1count').textContent = 'submits: ' + t1submits;
+});
+
+/* ---------- T11: AJAX-intercepted form (the common shape in this app) ------ */
+var t11submits = 0;
+document.getElementById('f11').addEventListener('submit', function (e) {
+  e.preventDefault();
+  t11submits++;
+  document.getElementById('t11count').textContent = 'submits: ' + t11submits;
+  fetch('/slow', { method: 'POST' });
+});
+
+/* ---------- T12: validation refused the submit - no request at all --------- */
+var t12submits = 0;
+document.getElementById('f12').addEventListener('submit', function (e) {
+  e.preventDefault();                       // e.g. a field failed validation
+  t12submits++;
+  document.getElementById('t12count').textContent = 'submits: ' + t12submits;
+});
+
+/* ---------- T2/T4/T5/T6: fetch ------------------------------------------- */
+function wireFetch(id, url, opts, sayId, done) {
+  document.getElementById(id).addEventListener('click', function () {
+    var btn = this, say = document.getElementById(sayId);
+    var p = fetch(url, opts);
+    setTimeout(function () {
+      say.textContent = 'in flight: busy=' + btn.classList.contains('cl-busy') +
+                        ' spinner=' + !!btn.querySelector('.cl-spin') + ' bar=' + hasBar();
+      if (done) { done(btn, say); }
+    }, 250);
+    return p;
+  });
+}
+wireFetch('t2btn', '/slow', { method: 'POST' }, 't2say', null);
+wireFetch('t4btn', '/slow', { method: 'GET' }, 't4say', null);
+wireFetch('t5btn', '/fail', { method: 'POST' }, 't5say', null);
+
+/* T6: /hang never answers, so only the watchdog can clear the button. Reported
+   after 600ms, i.e. well past the compressed 300ms watchdog. */
+wireFetch('t6btn', '/hang', { method: 'POST' }, 't6say', function () {
+  setTimeout(function () {
+    var b = document.getElementById('t6btn');
+    document.getElementById('t6say').textContent +=
+      ' | after watchdog: busy=' + b.classList.contains('cl-busy') +
+      ' spinner=' + !!b.querySelector('.cl-spin');
+  }, 400);
+});
+
+/* ---------- T3: XMLHttpRequest (what jQuery $.ajax uses) ------------------ */
+document.getElementById('t3btn').addEventListener('click', function () {
+  var btn = this, say = document.getElementById('t3say');
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/slow');
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  setTimeout(function () {
+    say.textContent = 'in flight: busy=' + btn.classList.contains('cl-busy') +
+                      ' spinner=' + !!btn.querySelector('.cl-spin') + ' bar=' + hasBar();
+  }, 250);
+  xhr.onloadend = function () {
+    setTimeout(function () { say.textContent += ' | settled: busy=' + btn.classList.contains('cl-busy'); }, 50);
+  };
+  xhr.send('{"a":1}');
+}, false);
+
+/* ---------- T7: opt-out --------------------------------------------------- */
+document.getElementById('t7btn').addEventListener('click', function () {
+  var btn = this, say = document.getElementById('t7say');
+  fetch('/slow', { method: 'POST' });
+  setTimeout(function () { say.textContent = 'busy=' + btn.classList.contains('cl-busy') + ' (expected false)'; }, 250);
+});
+
+/* ---------- T9: width stability ------------------------------------------ */
+document.getElementById('t9btn').addEventListener('click', function () {
+  var btn = this, say = document.getElementById('t9say');
+  var before = btn.getBoundingClientRect().width;
+  fetch('/slow', { method: 'POST' });
+  setTimeout(function () {
+    var during = btn.getBoundingClientRect().width;
+    say.textContent = 'width before=' + before + ' during=' + during +
+                      ' spinner=' + !!btn.querySelector('.cl-spin');
+    window.__t9 = { before: before, during: during };
+  }, 250);
+});
+
+/* ---------- T10: existing inner spinner is hidden, ours shows ------------- */
+document.getElementById('t10btn').addEventListener('click', function () {
+  var btn = this, own = document.getElementById('t10own');
+  own.style.display = 'inline-block';            // page shows its own spinner
+  fetch('/slow', { method: 'POST' });
+  setTimeout(function () {
+    var mine = btn.querySelector('.cl-spin');
+    window.__t10 = {
+      ownVisibility: getComputedStyle(own).visibility,
+      mineVisible: mine ? getComputedStyle(mine).visibility : 'missing',
+      spinners: btn.querySelectorAll('.cl-spin').length
+    };
+    document.getElementById('t10say').textContent =
+      'own=' + window.__t10.ownVisibility + ' mine=' + window.__t10.mineVisible +
+      ' count=' + window.__t10.spinners;
+  }, 250);
+});
+
+/* ---------- T8: page-disabled button is never re-enabled ------------------ */
+window.t8 = function () {
+  var b = document.getElementById('t8btn');
+  var wasDisabled = b.disabled;
+  window.clBusy(b); window.clDone(b);
+  return { wasDisabled: wasDisabled, stillDisabled: b.disabled };
+};
+
+/* ---------- T13: a spinner the PAGE shows must survive, label and all ----- */
+document.getElementById('t13btn').addEventListener('pointerdown', function () {
+  window.__t13pre = { width: +this.getBoundingClientRect().width.toFixed(2), inlineColor: this.style.color || '' };
+});
+document.getElementById('t13btn').addEventListener('click', function () {
+  var btn = this;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+  fetch('/slow', { method: 'POST' });
+  setTimeout(function () {
+    var own = btn.querySelector('.spinner-border');
+    window.__t13 = {
+      busy: btn.classList.contains('cl-busy'),
+      ownFlag: btn.classList.contains('cl-busy-own'),
+      ownSpinnerVisibility: own ? getComputedStyle(own).visibility : 'missing',
+      buttonColor: getComputedStyle(btn).color,
+      labelStillReadable: getComputedStyle(btn).color !== 'rgba(0, 0, 0, 0)',
+      ourSpinnerInjected: btn.querySelectorAll('.cl-spin').length,
+      pointerEvents: getComputedStyle(btn).pointerEvents
+    };
+    document.getElementById('t13say').textContent = 'own spinner kept: own=' + window.__t13.ownFlag +
+      ' ours=' + window.__t13.ourSpinnerInjected;
+  }, 250);
+});
+
+/* ---------- T14: a d-none declarative spinner is NOT feedback -------------- */
+document.getElementById('t14btn').addEventListener('click', function () {
+  var btn = this;
+  fetch('/slow', { method: 'POST' });
+  setTimeout(function () {
+    window.__t14 = {
+      ownFlag: btn.classList.contains('cl-busy-own'),
+      ourSpinnerInjected: btn.querySelectorAll('.cl-spin').length,
+      hiddenSpinnerNow: getComputedStyle(btn.querySelector('.spinner-border')).visibility,
+      buttonColor: getComputedStyle(btn).color
+    };
+    document.getElementById('t14say').textContent = 'ours=' + window.__t14.ourSpinnerInjected + ' own=' + window.__t14.ownFlag;
+  }, 250);
+});
+
+/* ---------- T15: hidden via inline style, same conclusion as T14 ---------- */
+document.getElementById('t15btn').addEventListener('click', function () {
+  var btn = this;
+  fetch('/slow', { method: 'POST' });
+  setTimeout(function () {
+    window.__t15 = {
+      ownFlag: btn.classList.contains('cl-busy-own'),
+      ourSpinnerInjected: btn.querySelectorAll('.cl-spin').length,
+      buttonColor: getComputedStyle(btn).color
+    };
+    document.getElementById('t15say').textContent = 'ours=' + window.__t15.ourSpinnerInjected + ' own=' + window.__t15.ownFlag;
+  }, 250);
+});
+
+window.__t1 = function () { return t1submits; };
+window.__t11 = function () { return t11submits; };
+window.__t12 = function () { return t12submits; };
+</script>
+
+</body>
+</html>

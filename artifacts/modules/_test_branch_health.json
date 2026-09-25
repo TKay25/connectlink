@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestBranchHealth",
+  "file": "_test_branch_health.py",
+  "purpose": "Throwaway check for the branch-health diagnostic. Delete after use.",
+  "entry_function": "check(label, cond, detail = '')",
+  "entry_flows": [
+    "_test_branch_health → types.ModuleType, modules.setdefault, app.test_client, failures.append, url_map.iter_rules"
+  ],
+  "public_api": [
+    "check(label, cond, detail = '')"
+  ],
+  "dependencies": [
+    "ConnectLink"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "bcbf0b54852d4db1",
+  "file_mtime": 1790346358726.8345,
+  "file_size": 2303,
+  "file_birthtime": 1790346358415.11,
+  "generated_at": "2026-09-25T14:26:02.499593Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

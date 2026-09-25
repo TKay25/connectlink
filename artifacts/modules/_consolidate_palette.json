@@ -1,0 +1,43 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ConsolidatePalette",
+  "file": "_consolidate_palette.py",
+  "purpose": "Consolidate imperceptible near-duplicate brand colours in the templates.",
+  "entry_function": "rgb(h)",
+  "entry_flows": [
+    "_consolidate_palette → system.css, pathlib.Path, STYLE_BLOCK.finditer, spans.append, m.start"
+  ],
+  "public_api": [
+    "rgb(h)",
+    "delta(a, b)",
+    "build_map(seen)",
+    "css_regions(text)",
+    "rewrite(text, mapping, stats)",
+    "mask_css(text)",
+    "verify(before, after)",
+    "braces(text)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = pathlib.Path(__file__).parent, TEMPLATES = sorted((ROOT / 'templates').glob('*.html')), CANONICAL = {'#c12b3e': 'primary (brand crimson)', '#9e1f2e': 'primary-dark', '#d54556': 'primary-hover', '#1e293b': 'navy', '#0f1b2d': 'navy-deep'}, MAX_DELTA = 10, HEX = re.compile('#[0-9a-fA-F]{6}\\\\b'), SCALE_TOKEN = re.compile('--(slate|gray|grey|zinc|neutral|stone)-\\\\d+\\\\s*:')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "ce6971f1f39e49c0",
+  "file_mtime": 1790247388835.6575,
+  "file_size": 6551,
+  "file_birthtime": 1790247388236.694,
+  "generated_at": "2026-09-25T14:21:53.556352Z",
+  "stale": false
+}

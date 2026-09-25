@@ -32,6 +32,7 @@ from collections import Counter
 #from paynow import Paynow
 import time
 import threading
+import sys
 import random
 import logging
 from decimal import Decimal
@@ -47,6 +48,18 @@ import pytz
 
 
 from apscheduler.schedulers.background import BackgroundScheduler
+
+
+# The Windows dev console is cp1252 and cannot encode the ✓/✅/❌ glyphs used
+# throughout this file. When such a print runs inside a try block, the
+# UnicodeEncodeError REPLACES the error being handled -- which has masked real
+# failures before. Never let console encoding break the application: characters
+# the console cannot represent degrade to '?' instead of raising.
+try:
+    sys.stdout.reconfigure(errors='replace')
+    sys.stderr.reconfigure(errors='replace')
+except Exception:
+    pass  # streams that cannot be reconfigured are fine as they are
 
 
 app = Flask(__name__)
@@ -74,6 +87,51 @@ def add_no_cache_headers(response):
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
+    return response
+
+
+# ---- ONE shared front-end feedback layer, injected on every HTML page --------
+# Roughly 169 hand-written "Saving..." snippets live in only 6 of the 16
+# templates, so a button that commits to the backend had a spinner only where
+# somebody remembered to add one - the Project Progress Update "Save Changes"
+# button, the sign-in buttons in mainindex.html and test1.html's "Create Project"
+# had none at all.  static/js/cl-ui.js gives every form submit, fetch() and
+# $.ajax the same spinner + double-click guard, so it is wired in HERE instead of
+# being added to 16 templates: one implementation, impossible to forget.
+#
+# Guarded so it can only ever touch a COMPLETE html document - never an AJAX
+# fragment, a download, a redirect, a streamed response or a JSON payload - and
+# it can never raise into the request: a cosmetic layer must not 500 a page.
+_CL_UI_TAG_BYTES = b'<script src="/static/js/cl-ui.js" defer></script>'
+
+
+@app.after_request
+def add_cl_ui_feedback_layer(response):
+    try:
+        if response.direct_passthrough or response.is_streamed:
+            return response
+        if response.status_code not in (200, 201):
+            return response
+        if 'text/html' not in (response.headers.get('Content-Type') or '').lower():
+            return response
+        if 'attachment' in (response.headers.get('Content-Disposition') or '').lower():
+            return response
+        body = response.get_data()
+        if not body or b'</body>' not in body:
+            return response
+        if b'<html' not in body[:2000].lower():
+            return response           # AJAX fragment / HTML partial -> leave untouched
+        if b'js/cl-ui.js' in body:
+            return response           # already injected
+        # Use the LAST </body>: several templates contain "</body>" inside JS
+        # strings that build print/PDF documents, and injecting into one of those
+        # would corrupt the script instead of loading the layer.
+        idx = body.rfind(b'</body>')
+        new_body = body[:idx] + _CL_UI_TAG_BYTES + body[idx:]
+        response.set_data(new_body)
+        response.headers['Content-Length'] = str(len(new_body))
+    except Exception as exc:
+        print(f"cl-ui injection skipped: {exc}")
     return response
 
 database = 'connectlinkdata'
@@ -2730,11 +2788,445 @@ def initialize_database_tables():
             connection.commit()
             print("✅ Payroll archives table initialized!")
 
+            # Multi-branch POS bootstrap (Shurugwi + Chegutu). Additive and
+            # idempotent -- see ensure_branches_schema() below for the details.
+            ensure_branches_schema(cursor, connection)
+
+        # Report success explicitly: _ensure_db_initialized must NOT treat a
+        # swallowed failure as "initialized", or it would never retry and the
+        # worker would run against a missing schema for its whole lifetime.
+        return True
+
     except Exception as e:
-        print(f"❌ Error initializing database tables: {e}")
+        # ASCII only on purpose: this is the ERROR path, so the report itself
+        # must never raise and hide the failure it is describing.
+        print(f"Error initializing database tables: {e}")
+        return False
+
+
+# ===================== MULTI-BRANCH POS (Shurugwi + Chegutu) =====================
+# Shurugwi and Chegutu run the SAME interface and the SAME functionality off ONE
+# codebase and ONE product catalogue; what differs is the DATA. Every POS record
+# therefore carries a branch_id, and every POS query is filtered by the branch
+# held in the SESSION -- never by anything the browser sends -- so one shop can
+# never read or write another shop's books.
+
+# Per-branch access codes. THESE ARE CREDENTIALS, NOT LABELS: whoever knows a
+# branch's code can open that branch's till. Set BRANCH_SHURUGWI_CODE /
+# BRANCH_CHEGUTU_CODE in the Render environment and ROTATE the defaults below
+# before Chegutu goes live -- the env value wins on every boot.
+BRANCH_SHURUGWI_CODE = os.environ.get('BRANCH_SHURUGWI_CODE', 'shurugwi01')
+BRANCH_CHEGUTU_CODE = os.environ.get('BRANCH_CHEGUTU_CODE', 'chegutu01')
+
+# "All Branches" in the POS branch dropdown is a READ-ONLY consolidated view:
+# no sales, no stock edits, no wipes, ever. It carries its own code so it stays
+# out of reach of everyone below owner level.
+POS_ALL_BRANCHES_CODE = os.environ.get('POS_ALL_BRANCHES_CODE', 'conlink01owner01')
+
+# Sentinel stored in session['branch_id'] while the operator is looking at the
+# consolidated view. It is never a real branch row, so it has no stock and can
+# never be written to. Real branches start at id 1, which is why every write
+# guard can simply reject a falsy branch_id.
+POS_ALL_BRANCHES_ID = 0
+
+# The shop that was live first: every pre-existing row is backfilled to it, so
+# the history that already exists stays attached to the right till.
+BRANCH_FIRST_CODE = 'SHU'
+
+BRANCH_BOOTSTRAP_SEED = (
+    # (code, name, address, phone, access_code)
+    ('SHU', 'Shurugwi', '', '', BRANCH_SHURUGWI_CODE),
+    ('CHG', 'Chegutu', '', '', BRANCH_CHEGUTU_CODE),
+)
+
+# Tables that carry branch_id. `products` is deliberately NOT in this list: the
+# catalogue is SHARED by both shops (same item, same barcode, same prices), and
+# the per-branch QUANTITY lands in product_stock when the POS wiring phase
+# replaces products.stock. Until then every product row's stock is Shurugwi's.
+BRANCH_SCOPED_TABLES = (
+    'transactions',
+    'stock_additions',
+    'stock_reductions',
+    'product_removals',
+    'activity_log',
+)
+
+# Tables where a branch is MANDATORY. activity_log is deliberately excluded: it
+# is written by every portal (projects, HR, procurement) and those rows have no
+# branch, so the column must stay nullable there. Every insert site for the
+# four below stamps the session branch.
+BRANCH_MANDATORY_TABLES = (
+    'transactions',
+    'stock_additions',
+    'stock_reductions',
+    'product_removals',
+)
+
+
+def ensure_branches_schema(cursor, connection):
+    """Create + seed `branches` and branch-scope the POS record tables.
+
+    Runs at the end of initialize_database_tables(), after every table it touches
+    already exists, and is safe to run on every boot:
+
+      * `branches` is created and the two shops are seeded by code,
+      * a NULLABLE branch_id is added to each POS record table,
+      * every pre-existing row is backfilled to Shurugwi (history stays intact),
+      * branch_id is indexed so the branch-filtered queries stay fast.
+
+    branch_id is deliberately left NULLABLE here. Writes only begin stamping it
+    in the phase that wires the login branch into the POS endpoints, and a NOT
+    NULL column would reject every insert until that phase lands. NOT NULL comes
+    with that phase, once nothing writes an unstamped row any more.
+    """
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS branches (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(10) UNIQUE NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                address VARCHAR(255) DEFAULT '',
+                phone VARCHAR(50) DEFAULT '',
+                access_code VARCHAR(60) NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        connection.commit()
+
+        # Codes come from the environment and are re-asserted on every boot so a
+        # rotation can never silently fail to apply; name/address/phone are left
+        # alone so edits made in the database survive.
+        for code, name, address, phone, access_code in BRANCH_BOOTSTRAP_SEED:
+            cursor.execute("""
+                INSERT INTO branches (code, name, address, phone, access_code, is_active)
+                VALUES (%s, %s, %s, %s, %s, TRUE)
+                ON CONFLICT (code) DO UPDATE SET access_code = EXCLUDED.access_code
+            """, (code, name, address, phone, access_code))
+        connection.commit()
+
+        cursor.execute("SELECT id FROM branches WHERE code = %s", (BRANCH_FIRST_CODE,))
+        first_row = cursor.fetchone()
+        first_branch_id = first_row[0] if first_row else None
+
+        # ---- Per-branch stock -------------------------------------------------
+        # products stays the SHARED catalogue (same item, same barcode, same
+        # prices in both shops); the QUANTITY lives here per branch.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS product_stock (
+                product_id INTEGER NOT NULL,
+                branch_id INTEGER NOT NULL,
+                stock INTEGER DEFAULT 0,
+                min_stock_level INTEGER DEFAULT 10,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (product_id, branch_id)
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_stock_branch ON product_stock (branch_id)")
+        connection.commit()
+
+        # Stock transfers between shops. A completed transfer writes a
+        # 'transfer_out' reduction on the source and a 'TRANSFER' addition on the
+        # destination, so the existing audit trail and the Excel/PDF reports show
+        # the movement with no extra reporting work.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS stock_transfers (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER NOT NULL,
+                product_name VARCHAR(100),
+                from_branch_id INTEGER NOT NULL,
+                to_branch_id INTEGER NOT NULL,
+                quantity INTEGER NOT NULL,
+                status VARCHAR(20) DEFAULT 'completed',
+                notes TEXT,
+                user_id INTEGER,
+                user_name VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_stock_transfers_created ON stock_transfers (created_at)")
+        connection.commit()
+
+        if first_branch_id:
+            # Everything that existed before this change was this shop's stock.
+            cursor.execute("""
+                INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level)
+                SELECT p.id, %s, COALESCE(p.stock, 0), COALESCE(p.min_stock_level, 10)
+                FROM products p
+                ON CONFLICT (product_id, branch_id) DO NOTHING
+            """, (first_branch_id,))
+            seeded = cursor.rowcount
+            # products.stock keeps meaning "total across all branches" so the
+            # shared-catalogue consumers (procurement picker, Finance balance
+            # sheet) stay correct without being re-derived per branch.
+            cursor.execute("""
+                UPDATE products p
+                SET stock = COALESCE((SELECT SUM(ps.stock) FROM product_stock ps
+                                      WHERE ps.product_id = p.id), 0)
+                WHERE p.stock IS DISTINCT FROM
+                      COALESCE((SELECT SUM(ps.stock) FROM product_stock ps
+                                WHERE ps.product_id = p.id), 0)
+            """)
+            connection.commit()
+            print(f"[ok] product_stock ready ({seeded} product row(s) seeded to {BRANCH_FIRST_CODE})")
+
+        scoped = []
+        for table in BRANCH_SCOPED_TABLES:
+            try:
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS branch_id INTEGER")
+                if first_branch_id:
+                    cursor.execute(
+                        f"UPDATE {table} SET branch_id = %s WHERE branch_id IS NULL",
+                        (first_branch_id,))
+                    backfilled = cursor.rowcount
+                else:
+                    backfilled = 0
+                cursor.execute(
+                    f"CREATE INDEX IF NOT EXISTS idx_{table}_branch_id ON {table} (branch_id)")
+                connection.commit()
+                scoped.append(f"{table}(+{backfilled})")
+            except Exception as e:
+                connection.rollback()
+                print(f"Note: could not branch-scope {table}: {e}")
+
+        # ASCII only on purpose: this codebase has been bitten by cp1252
+        # UnicodeEncodeError when a print with an emoji runs inside a try block
+        # (the console on Windows cannot encode it, the handler throws instead).
+        print(f"[ok] Branch schema ready: {BRANCH_FIRST_CODE} backfilled -> {', '.join(scoped)}")
+
+        # Make the branch mandatory on the POS record tables. Every insert site
+        # stamps it, so a NULL can only mean an orphan row -- which is exactly
+        # what this stops. Any stragglers are repaired first, and if the column
+        # cannot be tightened the table is simply left nullable rather than
+        # failing the whole boot.
+        for table in BRANCH_MANDATORY_TABLES:
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE branch_id IS NULL")
+                orphans = cursor.fetchone()[0]
+                if orphans and first_branch_id:
+                    cursor.execute(
+                        f"UPDATE {table} SET branch_id = %s WHERE branch_id IS NULL",
+                        (first_branch_id,))
+                    connection.commit()
+                cursor.execute(f"ALTER TABLE {table} ALTER COLUMN branch_id SET NOT NULL")
+                connection.commit()
+            except Exception as e:
+                connection.rollback()
+                print(f"Note: {table}.branch_id left nullable: {e}")
+    except Exception as e:
+        connection.rollback()
+        print(f"Note: Branch bootstrap skipped: {e}")
+
+
+def current_branch_id():
+    """The branch the POS session is working in.
+
+    Returns a real branch id (1, 2, ...), or POS_ALL_BRANCHES_ID (0) for the
+    read-only consolidated view.
+
+    A session that carries NO branch predates the branch step, so it inherits
+    the first branch (the shop that was live before) rather than suddenly losing
+    sight of its own stock and sales on deploy day. This is transitional and
+    stops mattering as those sessions expire.
+    """
+    branch_id = session.get('branch_id')
+    if branch_id is None:
+        branch_id = resolve_first_branch_id()
+        if branch_id:
+            session['branch_id'] = branch_id
+            session.setdefault('branch_name', BRANCH_FIRST_CODE)
+    return branch_id
+
+
+_first_branch_id_cache = {}
+
+
+def resolve_first_branch_id():
+    """Id of BRANCH_FIRST_CODE (Shurugwi), resolved once per process."""
+    if _first_branch_id_cache.get('id'):
+        return _first_branch_id_cache['id']
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id FROM branches WHERE code = %s", (BRANCH_FIRST_CODE,))
+            row = cursor.fetchone()
+        if row:
+            _first_branch_id_cache['id'] = row[0]
+    except Exception as e:
+        print(f"Note: could not resolve the first branch: {e}")
+    return _first_branch_id_cache.get('id')
+
+
+def branch_read_clause(column='branch_id'):
+    """SQL fragment + params limiting a query to the session's branch.
+
+    Returns ('', []) on the consolidated "All Branches" view: that view is
+    deliberately allowed to READ every branch (it can never write). Every
+    branch-aware read must append the fragment and extend its params with them.
+    """
+    branch_id = current_branch_id()
+    if not branch_id:
+        return '', []
+    return f" AND {column} = %s", [branch_id]
+
+
+def get_branch_stock(cursor, product_id, branch_id):
+    """Current stock of a product in one branch (0 when it is not stocked there)."""
+    cursor.execute(
+        "SELECT stock FROM product_stock WHERE product_id = %s AND branch_id = %s",
+        (product_id, branch_id))
+    row = cursor.fetchone()
+    return int(row[0] or 0) if row else 0
+
+
+def recalc_product_total_stock(cursor, product_id):
+    """Refresh products.stock as the TOTAL across branches.
+
+    product_stock is the per-branch truth. products.stock is a denormalised
+    total kept because the shared-catalogue consumers (the procurement product
+    picker and the Finance balance-sheet inventory valuation) legitimately want
+    the company-wide figure. It is ONLY ever computed here -- never hand-edited
+    -- so it cannot drift.
+    """
+    cursor.execute("""
+        UPDATE products
+        SET stock = COALESCE((SELECT SUM(stock) FROM product_stock WHERE product_id = %s), 0),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (product_id, product_id))
+
+
+def set_branch_stock(cursor, product_id, branch_id, new_stock, min_stock_level=None):
+    """Set one branch's stock for a product and refresh the catalogue total."""
+    cursor.execute("""
+        INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
+        VALUES (%s, %s, %s, COALESCE(%s, 10), CURRENT_TIMESTAMP)
+        ON CONFLICT (product_id, branch_id) DO UPDATE
+            SET stock = EXCLUDED.stock,
+                min_stock_level = COALESCE(EXCLUDED.min_stock_level, product_stock.min_stock_level),
+                updated_at = CURRENT_TIMESTAMP
+    """, (product_id, branch_id, int(new_stock or 0), min_stock_level))
+    recalc_product_total_stock(cursor, product_id)
+
+
+def add_branch_stock(cursor, product_id, branch_id, delta):
+    """Add (or subtract, with a negative delta) stock for ONE branch, then refresh the total."""
+    if not delta:
+        return
+    cursor.execute("""
+        INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
+        VALUES (%s, %s, %s, 10, CURRENT_TIMESTAMP)
+        ON CONFLICT (product_id, branch_id) DO UPDATE
+            SET stock = product_stock.stock + EXCLUDED.stock,
+                updated_at = CURRENT_TIMESTAMP
+    """, (product_id, branch_id, int(delta)))
+    recalc_product_total_stock(cursor, product_id)
+
+
+BRANCH_WRITE_BLOCKED_MESSAGE = (
+    'The All Branches view is read-only. Pick a branch from the branch menu to '
+    'sell or move stock.'
+)
+
+# Brute-force guard for the branch codes. A branch code is shared by everyone in
+# that shop, so unlike a personal password it is guessable by design -- the code
+# step therefore locks out after this many consecutive failures.
+BRANCH_CODE_MAX_ATTEMPTS = 5
+BRANCH_CODE_LOCKOUT_SECONDS = 900
+_branch_code_failures = {}
+_branch_code_lock = threading.Lock()
+
+
+def _codes_match(supplied, expected):
+    """Constant-time compare, falling back for non-ASCII codes."""
+    try:
+        return secrets.compare_digest(supplied, expected)
+    except TypeError:
+        return supplied == expected
+
+
+def branch_is_read_only():
+    """True while the session is on the consolidated "All Branches" view.
+
+    Only the EXPLICIT sentinel blocks writes. A session with no branch is given
+    the first branch by current_branch_id(), so it keeps working normally.
+    """
+    return session.get('branch_id') == POS_ALL_BRANCHES_ID
+
+
+def branch_code_lockout_remaining(username):
+    """Seconds left on the branch-code lockout for this user (0 when unlocked)."""
+    now = time.time()
+    with _branch_code_lock:
+        entry = _branch_code_failures.get(username)
+        if not entry:
+            return 0
+        count, first_ts = entry
+        if count < BRANCH_CODE_MAX_ATTEMPTS:
+            return 0
+        remaining = int(first_ts + BRANCH_CODE_LOCKOUT_SECONDS - now)
+        if remaining <= 0:
+            _branch_code_failures.pop(username, None)
+            return 0
+        return remaining
+
+
+def record_branch_code_attempt(username, succeeded):
+    """Count a wrong branch code, or clear the slate after a correct one."""
+    with _branch_code_lock:
+        if succeeded:
+            _branch_code_failures.pop(username, None)
+            return
+        now = time.time()
+        count, first_ts = _branch_code_failures.get(username, (0, now))
+        # Start a fresh window once the previous lockout has expired.
+        if count >= BRANCH_CODE_MAX_ATTEMPTS and (first_ts + BRANCH_CODE_LOCKOUT_SECONDS) <= now:
+            count, first_ts = 0, now
+        _branch_code_failures[username] = (count + 1, first_ts)
+
+
+def verify_branch_code(branch_id, code):
+    """Check a branch selection against its access code.
+
+    Returns (ok, display_name). POS_ALL_BRANCHES_ID is checked against the OWNER
+    code instead, so the consolidated view stays out of reach of everyone below
+    owner level without needing a per-user grant.
+    """
+    supplied = (code or '').strip()
+    if not supplied:
+        return False, None
+    if branch_id == POS_ALL_BRANCHES_ID:
+        return _codes_match(supplied, POS_ALL_BRANCHES_CODE), 'All Branches'
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                "SELECT name, access_code FROM branches WHERE id = %s AND is_active = TRUE",
+                (branch_id,))
+            row = cursor.fetchone()
+    except Exception as e:
+        print(f"Note: branch code check failed: {e}")
+        return False, None
+    if not row:
+        return False, None
+    return _codes_match(supplied, (row[1] or '')), row[0]
+
+
+def block_writes_in_consolidated_view(f):
+    """Refuse stock/money changes while the session sits on All Branches.
+
+    Applied to every endpoint that moves stock or money, so the consolidated view
+    can be trusted even if the UI ever fails to hide a button.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if branch_is_read_only():
+            return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE,
+                            'read_only': True}), 403
+        return f(*args, **kwargs)
+    return wrapper
+
 
 def migrate_product_categories():
-    """Migrate existing products to new category structure"""
+    """Migrate existing products to new category structure. Returns True on success."""
     try:
         print("🔄 Migrating product categories...")
         
@@ -2857,9 +3349,11 @@ def migrate_product_categories():
                     print(f"Note: Could not rename category '{old}' to '{new}': {e}")
             
             print("✅ Product categories migrated successfully!")
+            return True
             
     except Exception as e:
         print(f"⚠️ Category migration error: {e}")
+        return False
 
 # Lazy one-time DB schema init. Running this at module import made gunicorn
 # workers run the full migration BEFORE binding the port, so Render's health/
@@ -2877,10 +3371,16 @@ def _ensure_db_initialized():
         if _db_init_done:
             return
         try:
-            initialize_database_tables()
+            # Gate ONLY on the schema result: the category tidy-up is best-effort
+            # and self-heals on later boots, but a schema that was never created
+            # must keep retrying.
+            schema_ok = initialize_database_tables()
             migrate_product_categories()
-            _db_init_done = True
-            print("✅ Database schema initialized (lazy, on first request)")
+            if schema_ok:
+                _db_init_done = True
+                print("✅ Database schema initialized (lazy, on first request)")
+            else:
+                print("⚠️ DB init did not complete (will retry on next request)")
         except Exception as e:
             print(f"⚠️ DB init failed on first request (will retry on next request): {e}")
 
@@ -3712,7 +4212,12 @@ def webhook():
                                                                     action = parts[0]  # 'approve' or 'decline'
                                                                     leave_id = int(parts[-1])
                                                                     sender = message.get("from", "")
-                                                                    sender_name = push_name or sender
+                                                                    # `push_name` never existed anywhere in this file, so
+                                                                    # tapping Approve/Decline on a leave request raised
+                                                                    # NameError instead of processing it. Use the same
+                                                                    # sender name the rest of this webhook uses (set at
+                                                                    # the top of the handler), falling back to the number.
+                                                                    sender_name = profile_name or sender
 
                                                                     with get_db() as (leave_cursor, leave_conn):
                                                                         # Verify the leave exists and is pending
@@ -12956,21 +13461,26 @@ def log_activity(action_type, description, reference_type=None, reference_id=Non
     try:
         # Prefer the full name (user_name) so logs read as a person, not a login handle
         user_name = username or session.get('user_name') or session.get('username') or 'System'
+        # Deliberately NOT current_branch_id(): log_activity runs for EVERY portal
+        # (projects, HR, procurement, enquiries), and those users have no branch.
+        # Auto-adopting here would stamp their activity as belonging to a shop.
+        branch_id = session.get('branch_id')
         with get_db() as (cursor, connection):
             cursor.execute("""
-                INSERT INTO activity_log (action_type, description, user_name, reference_type, reference_id, details)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO activity_log (action_type, description, user_name, reference_type, reference_id, details, branch_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 action_type,
                 description,
                 user_name,
                 reference_type,
                 reference_id,
-                psycopg2.extras.Json(details) if details else None
+                psycopg2.extras.Json(details) if details else None,
+                branch_id if branch_id else None
             ))
             connection.commit()
     except Exception as e:
-        print(f"❌ Failed to log activity: {e}")
+        print(f"Note: failed to log activity: {e}")
 
 
 @app.route('/api/hr/leave-accrual/trigger', methods=['POST'])
@@ -13107,6 +13617,13 @@ def handle_activity_log():
                 conditions.append("(description ILIKE %s OR user_name ILIKE %s OR action_type ILIKE %s)")
                 like_term = f'%{search_term}%'
                 params.extend([like_term, like_term, like_term])
+
+            # The activity log follows the branch too (rows written by other
+            # portals carry no branch and stay visible to nobody but All Branches).
+            log_branch_where, log_branch_params = branch_read_clause('branch_id')
+            if log_branch_where:
+                conditions.append("branch_id = %s")
+                params.extend(log_branch_params)
             
             where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
             
@@ -13156,19 +13673,47 @@ def get_activity_log_users():
 
 
 def run1hardware():
-    """Fetch all active products from the Products table"""
-    query = """
-        SELECT id, name, category, unit_type, unit_details, buy_price, sell_price, stock,
-               min_stock_level, description, barcode, created_at, updated_at
-        FROM products
-        WHERE is_active = TRUE
-        ORDER BY name
+    """Fetch all active products with THIS branch's stock levels.
+
+    The catalogue is shared, so name/price/barcode come from `products` while the
+    quantity comes from `product_stock` for the session's branch. On the
+    consolidated view every branch is summed so the figure still means something.
     """
-    result = execute_query(query, fetch_all=True)
-    
+    branch_id = current_branch_id()
+    if branch_id:
+        query = """
+            SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, p.buy_price, p.sell_price,
+                   COALESCE(ps.stock, 0) AS stock,
+                   COALESCE(ps.min_stock_level, p.min_stock_level, 10) AS min_stock_level,
+                   p.description, p.barcode, p.created_at, p.updated_at,
+                   COALESCE((SELECT SUM(a.stock) FROM product_stock a
+                             WHERE a.product_id = p.id), 0) AS total_stock
+            FROM products p
+            LEFT JOIN product_stock ps ON ps.product_id = p.id AND ps.branch_id = %s
+            WHERE p.is_active = TRUE
+            ORDER BY p.name
+        """
+        result = execute_query(query, (branch_id,), fetch_all=True)
+    else:
+        query = """
+            SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, p.buy_price, p.sell_price,
+                   COALESCE(allb.total, 0) AS stock,
+                   COALESCE(p.min_stock_level, 10) AS min_stock_level,
+                   p.description, p.barcode, p.created_at, p.updated_at,
+                   COALESCE(allb.total, 0) AS total_stock
+            FROM products p
+            LEFT JOIN (SELECT product_id, SUM(stock) AS total
+                       FROM product_stock GROUP BY product_id) allb ON allb.product_id = p.id
+            WHERE p.is_active = TRUE
+            ORDER BY p.name
+        """
+        result = execute_query(query, fetch_all=True)
+
     products = []
     if result:
         for row in result:
+            stock = row[7] if row[7] is not None else 0
+            min_stock = row[8] if row[8] else 10
             products.append({
                 'id': row[0],
                 'name': row[1],
@@ -13177,13 +13722,14 @@ def run1hardware():
                 'unit_details': row[4],
                 'buy_price': float(row[5]) if row[5] else 0.00,
                 'sell_price': float(row[6]) if row[6] else 0.00,  # Make sure this exists
-                'stock': row[7] if row[7] else 0,
-                'min_stock_level': row[8] if row[8] else 10,
+                'stock': stock,
+                'min_stock_level': min_stock,
                 'description': row[9] if row[9] else '',
                 'barcode': row[10] if row[10] else '',
                 'created_at': row[11].isoformat() if row[11] else None,
                 'updated_at': row[12].isoformat() if row[12] else None,
-                'low_stock': row[7] < row[8] if row[7] and row[8] else False
+                'total_stock': row[13] if row[13] is not None else 0,
+                'low_stock': stock < min_stock
             })
     
     return products
@@ -13196,6 +13742,7 @@ def run1hardware():
 @app.route('/api/stock-additions/<int:addition_id>', methods=['GET'])
 @login_required
 def get_stock_addition(addition_id):
+    branch_where, branch_params = branch_read_clause('sa.branch_id')
     query = """
         SELECT sa.id, sa.product_id, p.name as product_name, sa.quantity, 
                sa.buy_price, sa.total_cost, sa.funding_source, 
@@ -13204,11 +13751,21 @@ def get_stock_addition(addition_id):
         FROM stock_additions sa
         LEFT JOIN products p ON sa.product_id = p.id
         WHERE sa.id = %s
-    """
-    result = execute_query(query, (addition_id,), fetch_one=True)
+    """ + branch_where
+    result = execute_query(query, (addition_id,) + tuple(branch_params), fetch_one=True)
     
     if not result:
         return jsonify({'error': 'Stock addition not found'}), 404
+
+    # The modal labels this "current stock", so it must be THIS branch's figure.
+    current_stock = result[7]
+    try:
+        with get_db() as (cursor, connection):
+            branch_id = current_branch_id()
+            if branch_id:
+                current_stock = get_branch_stock(cursor, result[1], branch_id)
+    except Exception as stock_err:
+        print(f"Warning: could not read branch stock: {stock_err}")
     
     return jsonify({
         'success': True,
@@ -13220,7 +13777,7 @@ def get_stock_addition(addition_id):
             'total_cost': float(result[5]),
             'cost_per_unit': float(result[8]),
             'funding_source': result[6],
-            'current_stock': result[7]
+            'current_stock': current_stock
         }
     })
 
@@ -13228,18 +13785,24 @@ def get_stock_addition(addition_id):
 # Update stock addition - FIXED to properly update product stock
 @app.route('/api/stock-additions/<int:addition_id>', methods=['PUT'])
 @login_required
+@block_writes_in_consolidated_view
 def update_stock_addition(addition_id):
     try:
         data = request.json
         
         # Get old stock addition data
         old_data = execute_query(
-            "SELECT product_id, quantity, buy_price, total_cost, funding_source FROM stock_additions WHERE id = %s",
+            "SELECT product_id, quantity, buy_price, total_cost, funding_source, branch_id FROM stock_additions WHERE id = %s",
             (addition_id,), fetch_one=True
         )
         
         if not old_data:
             return jsonify({'error': 'Stock addition not found'}), 404
+
+        # A branch may only touch its OWN stock records, even by guessing an id.
+        session_branch = current_branch_id()
+        if old_data[5] and session_branch and old_data[5] != session_branch:
+            return jsonify({'error': 'That stock addition belongs to another branch.'}), 403
         
         old_product_id = old_data[0]
         old_quantity = old_data[1]
@@ -13264,13 +13827,11 @@ def update_stock_addition(addition_id):
             addition_id
         ), commit=True)
         
-        # Update product stock - CRITICAL: This updates the actual product inventory
-        update_stock_query = """
-            UPDATE products 
-            SET stock = stock + %s, updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s
-        """
-        execute_query(update_stock_query, (stock_difference, old_product_id), commit=True)
+        # Branch stock is the truth; the catalogue total is refreshed for us.
+        with get_db() as (cursor, connection):
+            target_branch = old_data[5] or current_branch_id()
+            add_branch_stock(cursor, old_product_id, target_branch, stock_difference)
+            connection.commit()
         
         return jsonify({
             'success': True, 
@@ -13285,29 +13846,33 @@ def update_stock_addition(addition_id):
 # Delete stock addition - FIXED to properly remove stock
 @app.route('/api/stock-additions/<int:addition_id>', methods=['DELETE'])
 @login_required
+@block_writes_in_consolidated_view
 def delete_stock_addition(addition_id):
     try:
         data = request.json
         
         # Get the addition details
         addition = execute_query(
-            "SELECT product_id, quantity FROM stock_additions WHERE id = %s",
+            "SELECT product_id, quantity, branch_id FROM stock_additions WHERE id = %s",
             (addition_id,), fetch_one=True
         )
         
         if not addition:
             return jsonify({'error': 'Stock addition not found'}), 404
+
+        # A branch may only touch its OWN stock records, even by guessing an id.
+        session_branch = current_branch_id()
+        if addition[2] and session_branch and addition[2] != session_branch:
+            return jsonify({'error': 'That stock addition belongs to another branch.'}), 403
         
         product_id = addition[0]
         quantity_to_remove = addition[1]
         
-        # Remove stock from product (subtract the quantity)
-        update_stock_query = """
-            UPDATE products 
-            SET stock = stock - %s, updated_at = CURRENT_TIMESTAMP
-            WHERE id = %s AND stock >= %s
-        """
-        execute_query(update_stock_query, (quantity_to_remove, product_id, quantity_to_remove), commit=True)
+        # Remove this branch's stock (the catalogue total is refreshed for us)
+        with get_db() as (cursor, connection):
+            target_branch = addition[2] or current_branch_id()
+            add_branch_stock(cursor, product_id, target_branch, -quantity_to_remove)
+            connection.commit()
         
         # Delete the addition record
         delete_query = "DELETE FROM stock_additions WHERE id = %s"
@@ -13337,10 +13902,13 @@ def get_stock_additions():
         FROM stock_additions sa
         LEFT JOIN products p ON sa.product_id = p.id
         LEFT JOIN admin_users u ON sa.user_id = u.id
+    """
+    spend_branch_where, spend_params = branch_read_clause('sa.branch_id')
+    query = query + spend_branch_where + """
         ORDER BY sa.added_at DESC
         LIMIT 100
     """
-    result = execute_query(query, fetch_all=True)
+    result = execute_query(query, tuple(spend_params) if spend_params else None, fetch_all=True)
     
     additions = []
     if result:
@@ -13417,52 +13985,70 @@ def get_stock_movements():
     additions_query = """
         SELECT sa.id, sa.product_id, p.name as product_name, p.category,
                'addition' as movement_type, sa.quantity, sa.buy_price, sa.total_cost,
-               sa.funding_source, u.full_name as user_name, sa.added_at as movement_date
+               sa.funding_source, u.full_name as user_name, sa.added_at as movement_date,
+               b.name as branch_name
         FROM stock_additions sa
         LEFT JOIN products p ON sa.product_id = p.id
         LEFT JOIN admin_users u ON sa.user_id = u.id
+        LEFT JOIN branches b ON b.id = sa.branch_id
         WHERE sa.added_at >= %s::timestamp AND sa.added_at <= (%s::timestamp + INTERVAL '1 day')
+    """
+    add_branch_where, add_params = branch_read_clause('sa.branch_id')
+    additions_query = additions_query + add_branch_where + """
         ORDER BY sa.added_at DESC
     """
-    additions = execute_query(additions_query, (start_date, end_date), fetch_all=True) or []
+    additions = execute_query(additions_query, (start_date, end_date) + tuple(add_params), fetch_all=True) or []
     
     # Get reductions in the period
     reductions_query = """
         SELECT sr.id, sr.product_id, p.name as product_name, p.category,
                'reduction' as movement_type, sr.quantity, 0 as buy_price, 0 as total_cost,
-               sr.reason as funding_source, u.full_name as user_name, sr.reduced_at as movement_date
+               sr.reason as funding_source, u.full_name as user_name, sr.reduced_at as movement_date,
+               b.name as branch_name
         FROM stock_reductions sr
         LEFT JOIN products p ON sr.product_id = p.id
         LEFT JOIN admin_users u ON sr.user_id = u.id
+        LEFT JOIN branches b ON b.id = sr.branch_id
         WHERE sr.reduced_at >= %s::timestamp AND sr.reduced_at <= (%s::timestamp + INTERVAL '1 day')
+    """
+    red_branch_where, red_params = branch_read_clause('sr.branch_id')
+    reductions_query = reductions_query + red_branch_where + """
         ORDER BY sr.reduced_at DESC
     """
-    reductions = execute_query(reductions_query, (start_date, end_date), fetch_all=True) or []
+    reductions = execute_query(reductions_query, (start_date, end_date) + tuple(red_params), fetch_all=True) or []
     
     # Also get sales from transaction_items (captures ALL sales, including historical ones
     # that were never logged to stock_reductions)
     sales_query = """
         SELECT ti.id, ti.product_id, p.name as product_name, p.category,
                'reduction' as movement_type, ti.quantity, 0 as buy_price, 0 as total_cost,
-               'item_sale' as funding_source, u.full_name as user_name, t.created_at as movement_date
+               'item_sale' as funding_source, u.full_name as user_name, t.created_at as movement_date,
+               b.name as branch_name
         FROM transaction_items ti
         JOIN transactions t ON ti.transaction_id = t.id
         LEFT JOIN products p ON ti.product_id = p.id
         LEFT JOIN admin_users u ON t.user_id = u.id
+        LEFT JOIN branches b ON b.id = t.branch_id
         WHERE t.created_at >= %s::timestamp AND t.created_at <= (%s::timestamp + INTERVAL '1 day')
+    """
+    sales_branch_where, sales_params = branch_read_clause('t.branch_id')
+    sales_query = sales_query + sales_branch_where + """
         ORDER BY t.created_at DESC
     """
-    transaction_sales = execute_query(sales_query, (start_date, end_date), fetch_all=True) or []
+    transaction_sales = execute_query(sales_query, (start_date, end_date) + tuple(sales_params), fetch_all=True) or []
 
     # Get product removals / deletions in the period (audit trail)
+    removals_branch_where, removals_params = branch_read_clause('r.branch_id')
     removals_query = """
-        SELECT id, product_id, product_name, category, action, quantity,
-               user_name, details, removed_at
-        FROM product_removals
-        WHERE removed_at >= %s::timestamp AND removed_at <= (%s::timestamp + INTERVAL '1 day')
-        ORDER BY removed_at DESC
+        SELECT r.id, r.product_id, r.product_name, r.category, r.action, r.quantity,
+               r.user_name, r.details, r.removed_at, b.name as branch_name
+        FROM product_removals r
+        LEFT JOIN branches b ON b.id = r.branch_id
+        WHERE r.removed_at >= %s::timestamp AND r.removed_at <= (%s::timestamp + INTERVAL '1 day')
+    """ + removals_branch_where + """
+        ORDER BY r.removed_at DESC
     """
-    removals = execute_query(removals_query, (start_date, end_date), fetch_all=True) or []
+    removals = execute_query(removals_query, (start_date, end_date) + tuple(removals_params), fetch_all=True) or []
 
     removal_list = []
     for row in removals:
@@ -13475,7 +14061,8 @@ def get_stock_movements():
             'quantity': row[5] or 0,
             'user': row[6] or 'System',
             'details': row[7] or '',
-            'date': row[8].isoformat() if row[8] else ''
+            'date': row[8].isoformat() if row[8] else '',
+            'branch_name': row[9] if len(row) > 9 else None
         })
 
     # Separate reductions by type (from stock_reductions table)
@@ -13517,8 +14104,20 @@ def get_stock_movements():
                 'sales_reductions': 0
             }
     
-    # Get current stock for all products
-    current_stocks = execute_query("SELECT id, stock FROM products WHERE is_active = TRUE OR is_active IS NULL", fetch_all=True) or []
+    # Current stock is THIS BRANCH's quantity. On the consolidated view it is the
+    # cross-branch total (products.stock is maintained as exactly that total).
+    if current_branch_id():
+        current_stocks = execute_query("""
+            SELECT p.id, COALESCE(ps.stock, 0)
+            FROM products p
+            LEFT JOIN product_stock ps ON ps.product_id = p.id AND ps.branch_id = %s
+            WHERE p.is_active = TRUE OR p.is_active IS NULL
+        """, (current_branch_id(),), fetch_all=True) or []
+    else:
+        current_stocks = execute_query("""
+            SELECT id, COALESCE(stock, 0) FROM products
+            WHERE is_active = TRUE OR is_active IS NULL
+        """, fetch_all=True) or []
     current_stock_map = {}
     for row in current_stocks:
         current_stock_map[row[0]] = row[1]
@@ -13573,7 +14172,8 @@ def get_stock_movements():
                 'details': f"Funding: {row[8]}" if row[8] else '',
                 'user': row[9] or 'System',
                 'date': row[10].isoformat() if row[10] else '',
-                'reduction_type': None
+                'reduction_type': None,
+                'branch_name': row[11] if len(row) > 11 else None
             })
     
     # Parse movements - inventory edit reductions
@@ -13591,7 +14191,8 @@ def get_stock_movements():
                 'details': f"Reason: {row[8]}" if row[8] else '',
                 'user': row[9] or 'System',
                 'date': row[10].isoformat() if row[10] else '',
-                'reduction_type': 'inventory_edit'
+                'reduction_type': 'inventory_edit',
+                'branch_name': row[11] if len(row) > 11 else None
             })
     
     # Parse movements - sales reductions
@@ -13609,7 +14210,8 @@ def get_stock_movements():
                 'details': f"Sale: {row[8]}" if row[8] else '',
                 'user': row[9] or 'System',
                 'date': row[10].isoformat() if row[10] else '',
-                'reduction_type': 'item_sale'
+                'reduction_type': 'item_sale',
+                'branch_name': row[11] if len(row) > 11 else None
             })
     
     # Sort movements by date descending
@@ -13633,6 +14235,30 @@ def get_stock_movements():
         'removals': removal_list,
         'summary': summary
     })
+
+@app.route('/api/branches', methods=['GET'])
+def get_branches():
+    """Branch list for the POS login dropdown.
+
+    Unauthenticated on purpose -- the login card needs it BEFORE sign-in. It
+    returns branch names only; access codes are never exposed here or anywhere
+    else, they are only ever compared server-side.
+    """
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                "SELECT id, code, name FROM branches WHERE is_active = TRUE ORDER BY id")
+            rows = cursor.fetchall()
+        return jsonify({
+            'success': True,
+            'branches': [{'id': r[0], 'code': r[1], 'name': r[2]} for r in rows],
+            'all_branches': {'id': POS_ALL_BRANCHES_ID, 'name': 'All Branches (Read-only)'}
+        })
+    except Exception as e:
+        print(f"Note: could not list branches: {e}")
+        return jsonify({'success': False, 'branches': [],
+                        'error': 'Could not load branches'}), 500
+
 
 @app.route('/api/login', methods=['POST'])
 def api_login():
@@ -13685,6 +14311,41 @@ def api_login():
                     'message': 'Access denied. Your account does not have hardware/POS permissions. Contact an administrator.'
                 }), 403
 
+            # ----- Branch step: Shurugwi / Chegutu / All Branches -----
+            # Which shop's books this session may touch is settled HERE, against
+            # the branch's own access code, and then held in the session. The
+            # browser never gets to name a branch later, so a sale can never be
+            # filed against the wrong shop.
+            branch_id_raw = data.get('branch_id')
+            if branch_id_raw is None or branch_id_raw == '':
+                return jsonify({
+                    'success': False, 'needs_branch': True,
+                    'message': 'Select a branch and enter its access code.'
+                }), 428
+            try:
+                branch_id = int(branch_id_raw)
+            except (TypeError, ValueError):
+                return jsonify({
+                    'success': False, 'needs_branch': True,
+                    'message': 'Select a valid branch.'
+                }), 400
+
+            locked_for = branch_code_lockout_remaining(username)
+            if locked_for:
+                return jsonify({
+                    'success': False,
+                    'message': (f'Too many incorrect branch codes. Try again in '
+                                f'{max(1, locked_for // 60)} minute(s).')
+                }), 429
+
+            code_ok, branch_name = verify_branch_code(branch_id, data.get('branch_code'))
+            record_branch_code_attempt(username, code_ok)
+            if not code_ok:
+                return jsonify({
+                    'success': False,
+                    'message': 'That branch code is not valid for the selected branch.'
+                }), 403
+
             session.permanent = True
             session['user_id'] = userid
             session['username'] = user[1]
@@ -13692,8 +14353,12 @@ def api_login():
             session['role'] = user[4]
             session['userid'] = userid
             session['user_name'] = user[3]
+            session['branch_id'] = branch_id
+            session['branch_name'] = branch_name
             
-            log_activity('pos_login', f'POS login via admin_users: {username}', 'user', userid)
+            log_activity('pos_login',
+                         f'POS login via admin_users: {username} -> {branch_name}',
+                         'user', userid)
             
             return jsonify({
                 'success': True,
@@ -13702,6 +14367,11 @@ def api_login():
                     'username': user[1],
                     'full_name': user[3],
                     'role': user[4]
+                },
+                'branch': {
+                    'id': branch_id,
+                    'name': branch_name,
+                    'read_only': branch_id == POS_ALL_BRANCHES_ID
                 },
                 'message': 'Login successful',
                 'redirect': '/pos-system.html'
@@ -13722,6 +14392,11 @@ def api_logout():
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
     """Check if user is authenticated via session"""
+    branch = {
+        'id': session.get('branch_id'),
+        'name': session.get('branch_name'),
+        'read_only': branch_is_read_only()
+    }
     if 'user_id' in session:
         return jsonify({
             'authenticated': True,
@@ -13730,7 +14405,8 @@ def check_auth():
                 'username': session.get('username'),
                 'full_name': session.get('full_name'),
                 'role': session.get('role', 'user')
-            }
+            },
+            'branch': branch
         })
     elif 'userid' in session:
         # For building project users without role
@@ -13741,9 +14417,254 @@ def check_auth():
                 'username': session.get('user_name', 'User'),
                 'full_name': session.get('user_name', 'User'),
                 'role': 'admin'
-            }
+            },
+            'branch': branch
         })
     return jsonify({'authenticated': False}), 401
+
+
+@app.route('/api/pos/switch-branch', methods=['POST'])
+def pos_switch_branch():
+    """Move the POS session to another branch, or to the read-only All Branches view.
+
+    Gated by the same branch code as login: someone who only knows their own
+    shop's code cannot move the till anywhere else. The client clears the cart on
+    success -- a single sale must never straddle two shops.
+    """
+    if 'user_id' not in session and 'userid' not in session:
+        return jsonify({'success': False, 'message': 'Not signed in.'}), 401
+
+    data = request.json or {}
+    try:
+        branch_id = int(data.get('branch_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'message': 'Select a valid branch.'}), 400
+
+    username = session.get('username') or session.get('user_name') or 'unknown'
+
+    locked_for = branch_code_lockout_remaining(username)
+    if locked_for:
+        return jsonify({
+            'success': False,
+            'message': (f'Too many incorrect branch codes. Try again in '
+                        f'{max(1, locked_for // 60)} minute(s).')
+        }), 429
+
+    code_ok, branch_name = verify_branch_code(branch_id, data.get('branch_code'))
+    record_branch_code_attempt(username, code_ok)
+    if not code_ok:
+        return jsonify({
+            'success': False,
+            'message': 'That branch code is not valid for the selected branch.'
+        }), 403
+
+    previous = session.get('branch_name') or 'no branch'
+    session['branch_id'] = branch_id
+    session['branch_name'] = branch_name
+    log_activity('pos_branch_switch',
+                 f'POS moved from {previous} to {branch_name}',
+                 'user', session.get('user_id') or session.get('userid'))
+
+    return jsonify({
+        'success': True,
+        'branch': {'id': branch_id, 'name': branch_name,
+                   'read_only': branch_id == POS_ALL_BRANCHES_ID}
+    })
+
+
+@app.route('/api/pos/transfer-stock', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_transfer_stock():
+    """Move stock from the session's branch to another branch.
+
+    A branch can only give away ITS OWN stock -- the source is always the branch
+    the till is working in, so nobody can drain another shop. Both sides are
+    written through the normal movement tables, so the transfer shows up in the
+    audit report and the Excel/PDF exports automatically.
+    """
+    data = request.get_json() or {}
+    from_branch = current_branch_id()
+    if not from_branch:
+        return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
+    try:
+        to_branch = int(data.get('to_branch_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Choose a destination branch.'}), 400
+    if to_branch == from_branch:
+        return jsonify({'success': False, 'error': 'Choose a different branch to transfer to.'}), 400
+    try:
+        product_id = int(data.get('product_id'))
+        quantity = int(data.get('quantity'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Product and quantity are required.'}), 400
+    if quantity <= 0:
+        return jsonify({'success': False, 'error': 'Quantity must be greater than zero.'}), 400
+
+    user_name = session.get('user_name') or session.get('username') or 'System'
+    user_id = session.get('user_id') or session.get('userid') or 0
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT name FROM products WHERE id = %s", (product_id,))
+            prow = cursor.fetchone()
+            if not prow:
+                return jsonify({'success': False, 'error': 'Product not found.'}), 404
+            product_name = prow[0]
+
+            cursor.execute("SELECT id, name FROM branches WHERE id IN (%s, %s) AND is_active = TRUE",
+                           (from_branch, to_branch))
+            branch_names = {r[0]: r[1] for r in cursor.fetchall()}
+            if to_branch not in branch_names:
+                return jsonify({'success': False, 'error': 'Destination branch not found.'}), 404
+
+            available = get_branch_stock(cursor, product_id, from_branch)
+            if quantity > available:
+                return jsonify({
+                    'success': False,
+                    'error': f'Only {available} unit(s) of that product in this branch.'
+                }), 400
+
+            cursor.execute("""
+                INSERT INTO stock_transfers
+                    (product_id, product_name, from_branch_id, to_branch_id, quantity, status, notes, user_id, user_name)
+                VALUES (%s, %s, %s, %s, %s, 'completed', %s, %s, %s)
+                RETURNING id
+            """, (product_id, product_name, from_branch, to_branch, quantity,
+                  data.get('notes', ''), user_id, user_name))
+            transfer_id = cursor.fetchone()[0]
+
+            # Out of the source...
+            add_branch_stock(cursor, product_id, from_branch, -quantity)
+            cursor.execute("""
+                INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
+                VALUES (%s, %s, 'transfer_out', %s, %s, CURRENT_TIMESTAMP, %s)
+            """, (product_id, quantity, f"Transfer #{transfer_id} to {branch_names.get(to_branch)}",
+                  user_id, from_branch))
+
+            # ...and into the destination.
+            add_branch_stock(cursor, product_id, to_branch, quantity)
+            cursor.execute("""
+                INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
+                VALUES (%s, %s, %s, %s, 'TRANSFER', %s, CURRENT_TIMESTAMP, %s)
+            """, (product_id, quantity, 0, 0, user_id, to_branch))
+
+            connection.commit()
+
+        log_activity('stock_transfer',
+                     f'Transferred {quantity} x "{product_name}" to {branch_names.get(to_branch)}',
+                     'product', product_id,
+                     {'transfer_id': transfer_id, 'quantity': quantity,
+                      'to_branch': branch_names.get(to_branch)})
+        return jsonify({'success': True, 'transfer_id': transfer_id,
+                        'message': f'{quantity} x {product_name} sent to {branch_names.get(to_branch)}.'})
+    except Exception as e:
+        print(f"Transfer error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pos/transfers', methods=['GET'])
+@login_required
+def pos_list_transfers():
+    """Recent stock transfers involving the session's branch (either direction)."""
+    try:
+        branch_id = current_branch_id()
+        with get_db() as (cursor, connection):
+            where = ""
+            params = []
+            if branch_id:
+                where = "WHERE t.from_branch_id = %s OR t.to_branch_id = %s"
+                params = [branch_id, branch_id]
+            cursor.execute(f"""
+                SELECT t.id, t.product_name, t.quantity, t.created_at, t.user_name, t.notes,
+                       fb.name AS from_name, tb.name AS to_name, t.product_id
+                FROM stock_transfers t
+                LEFT JOIN branches fb ON fb.id = t.from_branch_id
+                LEFT JOIN branches tb ON tb.id = t.to_branch_id
+                {where}
+                ORDER BY t.created_at DESC
+                LIMIT 100
+            """, tuple(params) if params else None)
+            rows = cursor.fetchall()
+        return jsonify({
+            'success': True,
+            'transfers': [{
+                'id': r[0], 'product_name': r[1], 'quantity': r[2],
+                'created_at': r[3].isoformat() if r[3] else None,
+                'user_name': r[4] or 'System', 'notes': r[5] or '',
+                'from_name': r[6] or '?', 'to_name': r[7] or '?', 'product_id': r[8]
+            } for r in rows]
+        })
+    except Exception as e:
+        print(f"Transfers list error: {e}")
+        return jsonify({'success': False, 'transfers': [], 'error': str(e)}), 500
+
+
+@app.route('/api/branch-health', methods=['GET'])
+@login_required
+def branch_health():
+    """Go-live diagnostic for the multi-branch setup (admin only).
+
+    Answers "is everything set?" WITHOUT ever revealing a code: it reports only
+    whether each code is still the value SHIPPED in the source, which is exactly
+    what tells you whether your environment variables took effect. It also lists
+    any row that is not yet stamped with a branch -- those rows would be invisible
+    inside a branch view, so this must show zero.
+    """
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+
+    shipped = {
+        'BRANCH_SHURUGWI_CODE': 'shurugwi01',
+        'BRANCH_CHEGUTU_CODE': 'chegutu01',
+        'POS_ALL_BRANCHES_CODE': 'conlink01owner01',
+    }
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, code, name, is_active FROM branches ORDER BY id")
+            branch_rows = cursor.fetchall()
+
+            unstamped = {}
+            for table in BRANCH_SCOPED_TABLES:
+                try:
+                    cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE branch_id IS NULL")
+                    unstamped[table] = cursor.fetchone()[0]
+                except Exception as table_err:
+                    unstamped[table] = f'error: {table_err}'
+
+            cursor.execute("SELECT COUNT(*) FROM products WHERE is_active = TRUE")
+            active_products = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(DISTINCT product_id) FROM product_stock")
+            products_with_stock = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM product_stock")
+            stock_rows = cursor.fetchone()[0]
+
+        problems = []
+        if len(branch_rows) < 2:
+            problems.append('Fewer than 2 branches exist - Shurugwi and Chegutu were not both seeded.')
+        for table, count in unstamped.items():
+            if isinstance(count, int) and count > 0:
+                problems.append(f'{count} row(s) in "{table}" have no branch; they will be invisible in a branch view.')
+        if active_products and products_with_stock < active_products:
+            problems.append(f'{active_products - products_with_stock} active product(s) have no product_stock row.')
+
+        return jsonify({
+            'success': True,
+            'branches': [{'id': r[0], 'code': r[1], 'name': r[2], 'active': r[3]} for r in branch_rows],
+            'env_check': {
+                'BRANCH_SHURUGWI_CODE_still_shipped_default': BRANCH_SHURUGWI_CODE == shipped['BRANCH_SHURUGWI_CODE'],
+                'BRANCH_CHEGUTU_CODE_still_shipped_default': BRANCH_CHEGUTU_CODE == shipped['BRANCH_CHEGUTU_CODE'],
+                'POS_ALL_BRANCHES_CODE_still_shipped_default': POS_ALL_BRANCHES_CODE == shipped['POS_ALL_BRANCHES_CODE'],
+                'note': 'All three should read false. Any true means that environment variable did not take effect and the shipped default is still in use.'
+            },
+            'unstamped_rows': unstamped,
+            'products': {'active': active_products, 'with_stock_row': products_with_stock, 'stock_rows': stock_rows},
+            'problem_count': len(problems),
+            'problems': problems
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/debug/hardware-users', methods=['GET'])
@@ -13812,6 +14733,18 @@ def get_product(product_id):
     
     if not product:
         return jsonify({'error': 'Product not found'}), 404
+
+    # Stock is per branch: report THIS branch's quantity plus the company total.
+    branch_id = current_branch_id()
+    branch_stock = product[7] or 0
+    total_stock = product[7] or 0
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT COALESCE(SUM(stock), 0) FROM product_stock WHERE product_id = %s", (product_id,))
+            total_stock = int(cursor.fetchone()[0] or 0)
+            branch_stock = get_branch_stock(cursor, product_id, branch_id) if branch_id else total_stock
+    except Exception as stock_err:
+        print(f"Warning: could not read branch stock: {stock_err}")
     
     return jsonify({
         'success': True,
@@ -13823,7 +14756,8 @@ def get_product(product_id):
             'unit_details': product[4],
             'buy_price': float(product[5]) if product[5] else 0.00,
             'sell_price': float(product[6]),
-            'stock': product[7],
+            'stock': branch_stock,
+            'total_stock': total_stock,
             'min_stock_level': product[8],
             'description': product[9],
             'barcode': product[10] if product[10] else ''
@@ -13846,6 +14780,17 @@ def get_product_by_barcode(barcode):
         result = execute_query(query, (code,), fetch_one=True)
         if not result:
             return jsonify({'success': False, 'error': 'No product found for this barcode'}), 404
+
+        # Scanning respects the branch: the same barcode can be plentiful in one
+        # shop and out of stock in the other.
+        branch_id = current_branch_id()
+        branch_stock = result[7] or 0
+        try:
+            with get_db() as (cursor, connection):
+                branch_stock = get_branch_stock(cursor, result[0], branch_id) if branch_id else (result[7] or 0)
+        except Exception as stock_err:
+            print(f"Warning: could not read branch stock: {stock_err}")
+
         return jsonify({
             'success': True,
             'product': {
@@ -13856,7 +14801,7 @@ def get_product_by_barcode(barcode):
                 'unit_details': result[4],
                 'buy_price': float(result[5]) if result[5] else 0.00,
                 'sell_price': float(result[6]) if result[6] else 0.00,
-                'stock': result[7] if result[7] else 0,
+                'stock': branch_stock,
                 'min_stock_level': result[8] if result[8] else 10,
                 'description': result[9] if result[9] else '',
                 'barcode': result[10] if result[10] else ''
@@ -13867,6 +14812,7 @@ def get_product_by_barcode(barcode):
 
 @app.route('/api/products', methods=['POST'])
 @login_required
+@block_writes_in_consolidated_view
 def create_product():
     """Create new product"""
     data = request.json
@@ -13908,6 +14854,18 @@ def create_product():
         print(f"Error creating product: {e}")
         return jsonify({'error': 'Failed to create product. Please check the details and try again.'}), 500
 
+    # The catalogue row is shared; the OPENING STOCK belongs to the branch that
+    # created it. products.stock is then refreshed to the cross-branch total.
+    try:
+        branch_id = current_branch_id()
+        if branch_id:
+            with get_db() as (cursor, connection):
+                set_branch_stock(cursor, result[0], branch_id, data.get('stock', 0),
+                                 data.get('min_stock_level', 10))
+                connection.commit()
+    except Exception as stock_err:
+        print(f"Warning: could not set opening branch stock: {stock_err}")
+
     # Log the creation to the activity log (best-effort, never blocks the response)
     try:
         log_activity(
@@ -13931,6 +14889,7 @@ def create_product():
 
 @app.route('/api/products/<int:product_id>/price', methods=['PUT'])
 @login_required
+@block_writes_in_consolidated_view
 def update_product_price(product_id):
     """Update product selling price - using ONLY sell_price"""
     try:
@@ -13983,13 +14942,24 @@ def update_product_price(product_id):
 
 @app.route('/api/products/<int:product_id>', methods=['PUT'])
 @login_required
+@block_writes_in_consolidated_view
 def update_product(product_id):
     data = request.json
+    branch_id = current_branch_id()
 
     # Capture current product state so the activity log can describe what changed
     old_product = execute_query(
-        "SELECT name, category, buy_price, sell_price, stock FROM products WHERE id = %s",
+        "SELECT name, category, buy_price, sell_price FROM products WHERE id = %s",
         (product_id,), fetch_one=True)
+
+    # Stock is PER BRANCH now, so the "old" figure the log compares against is
+    # this branch's stock, not the catalogue total.
+    old_stock = 0
+    try:
+        with get_db() as (cursor, connection):
+            old_stock = get_branch_stock(cursor, product_id, branch_id)
+    except Exception as stock_err:
+        print(f"Warning: could not read branch stock: {stock_err}")
 
     # Refuse to assign a barcode that belongs to another product
     if 'barcode' in data and data.get('barcode'):
@@ -14005,53 +14975,61 @@ def update_product(product_id):
     # NOTE: 'price' is intentionally NOT here — the legacy 'price' column was
     # renamed to 'sell_price' (see migration below). If a client sends a 'price'
     # key (legacy alias), ignore it; writing it would raise UndefinedColumn.
-    updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'stock', 'min_stock_level', 'description', 'barcode']
+    # 'stock'/'min_stock_level' are NOT here either: they live in product_stock
+    # per branch and are handled below.
+    updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'description', 'barcode']
     
     for field in updatable_fields:
         if field in data:
             update_fields.append(f"{field} = %s")
             params.append(data[field])
+
+    wants_stock_change = ('stock' in data) or ('min_stock_level' in data)
     
+    if not update_fields and not wants_stock_change:
+        return jsonify({'error': 'No fields to update'}), 400
+
+    if update_fields:
+        params.append(product_id)
+        query = f"UPDATE products SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = %s"
+        execute_query(query, tuple(params), commit=True)
+
     # If this is a stock addition, track funding source in a separate table
     if 'funding_source' in data and 'total_cost' in data:
-        # Log this stock addition with funding source (best-effort — never block the update)
         try:
-            stock_log_query = """
-                INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at)
-                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            """
-            # Get current stock to calculate quantity added
-            current_stock = execute_query("SELECT stock FROM products WHERE id = %s", (product_id,), fetch_one=True)
-            if current_stock:
-                quantity_added = data.get('stock') - current_stock[0]
-            else:
-                quantity_added = data.get('stock', 0)
-
-            execute_query(stock_log_query, (
+            quantity_added = (int(data.get('stock') or 0) - old_stock) if 'stock' in data else 0
+            execute_query("""
+                INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
+                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
+            """, (
                 product_id,
                 quantity_added,
                 data.get('buy_price', 0),
                 data.get('total_cost', 0),
                 data.get('funding_source'),
-                session.get('user_id')
+                session.get('user_id'),
+                branch_id
             ), commit=True)
         except Exception as stock_log_err:
             print(f"Warning: Could not log stock addition: {stock_log_err}")
-    
-    if not update_fields:
-        return jsonify({'error': 'No fields to update'}), 400
-    
-    params.append(product_id)
-    query = f"UPDATE products SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = %s"
-    
-    execute_query(query, tuple(params), commit=True)
+
+    # Branch stock change (per-branch truth + refresh the catalogue total)
+    if wants_stock_change:
+        try:
+            with get_db() as (cursor, connection):
+                new_branch_stock = int(data['stock']) if 'stock' in data else old_stock
+                set_branch_stock(cursor, product_id, branch_id, new_branch_stock,
+                                 data.get('min_stock_level'))
+                connection.commit()
+        except Exception as stock_err:
+            print(f"Warning: could not update branch stock: {stock_err}")
+            return jsonify({'error': f'Could not update stock: {stock_err}'}), 500
 
     # Log the change (rename / price change / stock addition) to the activity log
     try:
         old_name = old_product[0] if old_product else ''
         old_buy = float(old_product[2] or 0) if old_product else 0
         old_sell = float(old_product[3] or 0) if old_product else 0
-        old_stock = old_product[4] if old_product else 0
         new_name = str(data.get('name', old_name) or old_name)
         changes = []
         action_type = 'product_update'
@@ -14081,12 +15059,22 @@ def update_product(product_id):
 
 @app.route('/api/products/<int:product_id>', methods=['DELETE'])
 @login_required
+@block_writes_in_consolidated_view
 def delete_product(product_id):
-    # Capture product info BEFORE deactivating so the removal is auditable
+    # Capture product info BEFORE deactivating so the removal is auditable.
+    # Stock is per branch, so the quantity recorded is THIS branch's.
     product = execute_query("""
-        SELECT name, category, stock, COALESCE(buy_price, 0)
+        SELECT name, category, COALESCE(buy_price, 0)
         FROM products WHERE id = %s
     """, (product_id,), fetch_one=True)
+
+    branch_id = current_branch_id()
+    stock_at_deletion = 0
+    try:
+        with get_db() as (cursor, connection):
+            stock_at_deletion = get_branch_stock(cursor, product_id, branch_id)
+    except Exception as stock_err:
+        print(f"Warning: could not read branch stock: {stock_err}")
 
     # Log the removal to the audit trail (survives the soft delete)
     if product:
@@ -14096,10 +15084,11 @@ def delete_product(product_id):
             execute_query("""
                 INSERT INTO product_removals
                     (product_id, product_name, category, action, quantity,
-                     user_id, user_name, details, removed_at)
-                VALUES (%s, %s, %s, 'deleted', %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            """, (product_id, product[0], product[1], product[2], user_id, user_name,
-                  f"Stock at deletion: {product[2]} | Buy price: ${float(product[3]):.2f}"), commit=True)
+                     user_id, user_name, details, removed_at, branch_id)
+                VALUES (%s, %s, %s, 'deleted', %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
+            """, (product_id, product[0], product[1], stock_at_deletion, user_id, user_name,
+                  f"Stock at deletion: {stock_at_deletion} | Buy price: ${float(product[2]):.2f}",
+                  branch_id), commit=True)
         except Exception as log_error:
             print(f"Warning: Could not log product removal: {str(log_error)}")
         # Log to the user activity log (best-effort)
@@ -14108,7 +15097,7 @@ def delete_product(product_id):
                 'product_delete',
                 f'Deleted product "{product[0]}" (category: {product[1]})',
                 'product', product_id,
-                {'name': product[0], 'category': product[1], 'stock_at_deletion': product[2]}
+                {'name': product[0], 'category': product[1], 'stock_at_deletion': stock_at_deletion}
             )
         except Exception as log_error:
             print(f"Warning: Could not log product deletion activity: {str(log_error)}")
@@ -14124,6 +15113,7 @@ def delete_product(product_id):
 
 @app.route('/api/products/<int:product_id>/subtract-stock', methods=['PUT'])
 @login_required
+@block_writes_in_consolidated_view
 def subtract_stock(product_id):
     """Subtract stock from a product with reason tracking"""
     try:
@@ -14143,7 +15133,10 @@ def subtract_stock(product_id):
         if not product:
             return jsonify({'error': 'Product not found'}), 404
         
-        current_stock = product[1]
+        # THIS BRANCH's stock, not the catalogue-wide total
+        with get_db() as (cursor, connection):
+            branch_stock = get_branch_stock(cursor, product_id, current_branch_id())
+        current_stock = branch_stock
         product_name = product[2]
         
         # Check if there's enough stock
@@ -14163,24 +15156,22 @@ def subtract_stock(product_id):
             dup = execute_query("SELECT id FROM products WHERE barcode = %s AND id != %s", (barcode, product_id), fetch_one=True)
             if dup:
                 return jsonify({'error': f'Barcode {barcode} is already assigned to another product'}), 400
-            execute_query("""
-                UPDATE products
-                SET stock = %s, barcode = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (new_stock, barcode, product_id), commit=True)
-        else:
-            execute_query("""
-                UPDATE products
-                SET stock = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (new_stock, product_id), commit=True)
+
+        # Branch stock is the truth; the catalogue total is refreshed for us.
+        with get_db() as (cursor, connection):
+            set_branch_stock(cursor, product_id, current_branch_id(), new_stock)
+            if barcode is not None:
+                cursor.execute("""
+                    UPDATE products SET barcode = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s
+                """, (barcode, product_id))
+            connection.commit()
         
         # Try to log the stock reduction (table may not exist yet)
         try:
             execute_query("""
-                INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at)
-                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            """, (product_id, quantity, reason, notes, session.get('user_id', 0)), commit=True)
+                INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
+                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
+            """, (product_id, quantity, reason, notes, session.get('user_id', 0), current_branch_id()), commit=True)
         except Exception as log_error:
             # If the table doesn't exist, just log to console and continue
             print(f"Warning: Could not log stock reduction: {str(log_error)}")
@@ -14210,6 +15201,7 @@ def subtract_stock(product_id):
 
 @app.route('/api/inventory/remove-all-stock', methods=['POST'])
 @login_required
+@block_writes_in_consolidated_view
 def remove_all_stock():
     """Wipe the entire inventory: delete ALL products and ALL history
     (stock additions, stock reductions, and sales/transactions).
@@ -14246,13 +15238,29 @@ def remove_all_stock():
         except Exception as log_error:
             print(f"Warning: Could not log wipe-all: {str(log_error)}")
 
+        branch_id = current_branch_id()
         with get_db() as (cursor, connection):
-            # Clear history first (FK dependencies), then all products
-            cursor.execute("DELETE FROM transaction_items")
-            cursor.execute("DELETE FROM transactions")
-            cursor.execute("DELETE FROM stock_additions")
-            cursor.execute("DELETE FROM stock_reductions")
-            cursor.execute("DELETE FROM products")
+            # BRANCH-SCOPED. This used to delete EVERY product and every movement
+            # in the database -- with two shops, one manager wiping their own
+            # inventory would have destroyed the other shop's books.
+            cursor.execute("""
+                DELETE FROM transaction_items
+                WHERE transaction_id IN (SELECT id FROM transactions WHERE branch_id = %s)
+            """, (branch_id,))
+            cursor.execute("DELETE FROM transactions WHERE branch_id = %s", (branch_id,))
+            cursor.execute("DELETE FROM stock_additions WHERE branch_id = %s", (branch_id,))
+            cursor.execute("DELETE FROM stock_reductions WHERE branch_id = %s", (branch_id,))
+            # Zero THIS branch's stock. The shared catalogue rows stay because the
+            # other branch may still stock them; an item nobody stocks any more is
+            # retired so the POS grid stays clean.
+            cursor.execute("DELETE FROM product_stock WHERE branch_id = %s", (branch_id,))
+            cursor.execute("""
+                UPDATE products p
+                SET stock = COALESCE((SELECT SUM(ps.stock) FROM product_stock ps WHERE ps.product_id = p.id), 0),
+                    is_active = CASE WHEN COALESCE((SELECT SUM(ps.stock) FROM product_stock ps WHERE ps.product_id = p.id), 0) > 0
+                                     THEN p.is_active ELSE FALSE END,
+                    updated_at = CURRENT_TIMESTAMP
+            """)
             connection.commit()
 
         # Log the wipe to the user activity log (activity_log is NOT cleared by the wipe)
@@ -14489,6 +15497,7 @@ def create_new_category():
 
 @app.route('/api/transactions', methods=['POST'])
 @login_required
+@block_writes_in_consolidated_view
 def create_transaction():
     """Create new transaction"""
     try:
@@ -14512,8 +15521,8 @@ def create_transaction():
         
         # Insert transaction with explicit Zimbabwe time
         trans_query = """
-            INSERT INTO transactions (transaction_number, user_id, subtotal, tax, total, payment_method, amount_paid, change_amount, notes, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO transactions (transaction_number, user_id, subtotal, tax, total, payment_method, amount_paid, change_amount, notes, created_at, branch_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """
         
@@ -14527,7 +15536,8 @@ def create_transaction():
             data.get('amount_paid', total),
             data.get('change_amount', 0),
             data.get('notes', ''),
-            zimbabwe_now
+            zimbabwe_now,
+            current_branch_id()
         )
         
         trans_result = execute_query(trans_query, trans_params, fetch_one=True, commit=True)
@@ -14556,17 +15566,19 @@ def create_transaction():
             )
             execute_query(item_query, item_params, commit=True)
             
-            stock_query = "UPDATE products SET stock = stock - %s WHERE id = %s"
-            execute_query(stock_query, (item['quantity'], item['id']), commit=True)
-            
-            # Log sale reduction to stock_reductions for audit trail
+            # Stock moves in THIS branch only; the catalogue total is refreshed
+            # by add_branch_stock.
             try:
-                execute_query("""
-                    INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at)
-                    VALUES (%s, %s, 'item_sale', %s, %s, CURRENT_TIMESTAMP)
-                """, (item['id'], item['quantity'], f"Sale #{transaction_number}", session.get('user_id', 0)), commit=True)
+                with get_db() as (cursor, connection):
+                    add_branch_stock(cursor, item['id'], current_branch_id(), -int(item['quantity']))
+                    cursor.execute("""
+                        INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
+                        VALUES (%s, %s, 'item_sale', %s, %s, CURRENT_TIMESTAMP, %s)
+                    """, (item['id'], item['quantity'], f"Sale #{transaction_number}",
+                          session.get('user_id', 0), current_branch_id()))
+                    connection.commit()
             except Exception as log_err:
-                print(f"Warning: Could not log sale reduction: {str(log_err)}")
+                print(f"Warning: Could not apply sale stock movement: {str(log_err)}")
 
         # Log the sale to the user activity log (best-effort)
         try:
@@ -14617,15 +15629,20 @@ def get_transactions():
                    FROM transaction_items ti
                    LEFT JOIN products p ON ti.product_id = p.id
                    WHERE ti.transaction_id = t.id
-               ), '[]'::json) as items
+               ), '[]'::json) as items,
+               b.name as branch_name
         FROM transactions t
         LEFT JOIN admin_users u ON t.user_id = u.id
+        LEFT JOIN branches b ON b.id = t.branch_id
         WHERE t.voided = FALSE
+    """
+    branch_where, branch_params = branch_read_clause('t.branch_id')
+    query = query + branch_where + """
         ORDER BY t.created_at DESC
         LIMIT %s
     """
     
-    transactions = execute_query(query, (limit,), fetch_all=True)
+    transactions = execute_query(query, tuple(branch_params) + (limit,), fetch_all=True)
     
     transaction_list = []
     for t in transactions:
@@ -14642,7 +15659,8 @@ def get_transactions():
             'change_amount': float(t[9]),
             'status': t[10],
             'created_at': t[11].isoformat() if t[11] else None,
-            'items': t[12] if t[12] else []
+            'items': t[12] if t[12] else [],
+            'branch_name': t[13] if len(t) > 13 else None
         })
     
     return jsonify({
@@ -14678,9 +15696,12 @@ def day_end_report():
             LEFT JOIN admin_users u ON t.user_id = u.id
             WHERE t.created_at::date = %s::date
               AND t.voided = FALSE
+        """
+        branch_where, branch_params = branch_read_clause('t.branch_id')
+        query = query + branch_where + """
             ORDER BY t.created_at ASC
         """
-        rows = execute_query(query, (day,), fetch_all=True)
+        rows = execute_query(query, (day,) + tuple(branch_params), fetch_all=True)
 
         from collections import OrderedDict
         cashier_map = OrderedDict()
@@ -14768,6 +15789,7 @@ def get_daily_summary():
 
 @app.route('/api/transactions/clear-all', methods=['DELETE'])
 @login_required
+@block_writes_in_consolidated_view
 def clear_all_transactions():
     """Clear all transaction history - ADMIN ONLY"""
     try:
@@ -14777,17 +15799,22 @@ def clear_all_transactions():
             return jsonify({'success': False, 'error': 'Unauthorized: Admin access required'}), 403
         
         with get_db() as (cursor, connection):
-            # Delete transaction items first (has foreign key to transactions)
-            cursor.execute("DELETE FROM transaction_items")
+            # BRANCH-SCOPED. This used to delete every transaction in the
+            # database; with two shops that would let one branch erase the
+            # other's takings.
+            branch_id = current_branch_id()
+            cursor.execute("""
+                DELETE FROM transaction_items
+                WHERE transaction_id IN (SELECT id FROM transactions WHERE branch_id = %s)
+            """, (branch_id,))
             deleted_items = cursor.rowcount
             
-            # Delete transactions
-            cursor.execute("DELETE FROM transactions")
+            cursor.execute("DELETE FROM transactions WHERE branch_id = %s", (branch_id,))
             deleted_transactions = cursor.rowcount
             
             connection.commit()
             
-            print(f"✓ Cleared {deleted_transactions} transactions and {deleted_items} transaction items")
+            print(f"Cleared {deleted_transactions} transactions and {deleted_items} items for branch {branch_id}")
             
             return jsonify({
                 'success': True,
@@ -14803,6 +15830,7 @@ def clear_all_transactions():
 
 @app.route('/api/transactions/<int:transaction_id>/revert', methods=['POST'])
 @login_required
+@block_writes_in_consolidated_view
 def revert_transaction(transaction_id):
     """Revert/void a sale from the POS Transaction History tab.
     - Marks the transaction as voided so it disappears from sales history.
@@ -14819,14 +15847,17 @@ def revert_transaction(transaction_id):
         user_name = session.get('user_name') or session.get('username') or 'System'
         user_id = session.get('user_id') or session.get('userid') or 0
 
+        branch_id = current_branch_id()
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT id, transaction_number, status, voided, total
+                SELECT id, transaction_number, status, voided, total, branch_id
                 FROM transactions WHERE id = %s
             """, (transaction_id,))
             t = cursor.fetchone()
             if not t:
                 return jsonify({'success': False, 'error': 'Transaction not found'}), 404
+            if t[5] != branch_id:
+                return jsonify({'success': False, 'error': 'That sale belongs to another branch.'}), 403
             if t[3]:
                 return jsonify({'success': False, 'error': f'Transaction {t[1]} has already been reverted'}), 400
 
@@ -14847,14 +15878,14 @@ def revert_transaction(transaction_id):
                 buy = float(it[2] or 0)
                 if not pid or qty <= 0:
                     continue
-                # Restore stock to inventory
-                cursor.execute("UPDATE products SET stock = stock + %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s", (qty, pid))
+                # Restore stock to THIS branch's inventory
+                add_branch_stock(cursor, pid, branch_id, qty)
                 # Log the restoration for the audit trail (best-effort)
                 try:
                     cursor.execute("""
-                        INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at)
-                        VALUES (%s, %s, %s, %s, 'VOID', %s, CURRENT_TIMESTAMP)
-                    """, (pid, qty, buy, round(buy * qty, 2), user_id))
+                        INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
+                        VALUES (%s, %s, %s, %s, 'VOID', %s, CURRENT_TIMESTAMP, %s)
+                    """, (pid, qty, buy, round(buy * qty, 2), user_id, branch_id))
                 except Exception as sa_err:
                     print(f"Warning: Could not log reverted stock addition: {sa_err}")
                 restored += 1
@@ -14863,8 +15894,8 @@ def revert_transaction(transaction_id):
             try:
                 cursor.execute("""
                     DELETE FROM stock_reductions
-                    WHERE reason = 'item_sale' AND notes = %s
-                """, (f"Sale #{t[1]}",))
+                    WHERE reason = 'item_sale' AND notes = %s AND branch_id = %s
+                """, (f"Sale #{t[1]}", branch_id))
             except Exception as sr_err:
                 print(f"Warning: Could not remove sale reductions: {sr_err}")
 
@@ -14901,6 +15932,11 @@ def get_voided_transactions():
         end = request.args.get('end_date', '').strip()
         where = "WHERE t.voided = TRUE"
         params = []
+        # Voided sales are a branch view too, unless the owner is on All Branches.
+        voided_branch_where, voided_params = branch_read_clause('t.branch_id')
+        if voided_branch_where:
+            where += voided_branch_where
+            params.extend(voided_params)
         if start and end:
             where += " AND t.voided_at::date BETWEEN %s AND %s"
             params += [start, end]
@@ -14981,10 +16017,19 @@ def get_dashboard_stats():
         AND status = 'completed'
         AND voided = FALSE
     """
-    today_result = execute_query(today_query, fetch_one=True)
+    branch_where, branch_params = branch_read_clause('branch_id')
+    today_query = today_query + branch_where
+    today_result = execute_query(today_query, tuple(branch_params) if branch_params else None, fetch_one=True)
     
-    low_stock_query = "SELECT COUNT(*) FROM products WHERE stock < COALESCE(min_stock_level, 10)"
-    low_stock_result = execute_query(low_stock_query, fetch_one=True)
+    # Low stock is a PER-BRANCH figure: the same catalogue item can be plentiful
+    # in one shop and nearly out in the other.
+    ls_branch_where, ls_params = branch_read_clause('ps.branch_id')
+    low_stock_query = f"""
+        SELECT COUNT(*) FROM products p
+        JOIN product_stock ps ON ps.product_id = p.id
+        WHERE ps.stock < COALESCE(ps.min_stock_level, 10){ls_branch_where}
+    """
+    low_stock_result = execute_query(low_stock_query, tuple(ls_params) if ls_params else None, fetch_one=True)
     
     total_products_query = "SELECT COUNT(*) FROM products"
     total_products_result = execute_query(total_products_query, fetch_one=True)
@@ -15000,7 +16045,9 @@ def get_dashboard_stats():
         WHERE t.status = 'completed'
           AND t.voided = FALSE
     """
-    profit_result = execute_query(profit_query, fetch_one=True)
+    profit_branch_where, profit_params = branch_read_clause('t.branch_id')
+    profit_query = profit_query + profit_branch_where
+    profit_result = execute_query(profit_query, tuple(profit_params) if profit_params else None, fetch_one=True)
     total_profit = float(profit_result[0]) if profit_result else 0
     
     return jsonify({
@@ -15036,10 +16083,13 @@ def today_by_cashier():
             WHERE DATE(t.created_at) = CURRENT_DATE
               AND t.status = 'completed'
               AND t.voided = FALSE
+        """
+        tbc_where, tbc_params = branch_read_clause('t.branch_id')
+        totals_query = totals_query + tbc_where + """
             GROUP BY u.full_name
             ORDER BY total DESC
         """
-        rows = execute_query(totals_query, fetch_all=True)
+        rows = execute_query(totals_query, tuple(tbc_params) if tbc_params else None, fetch_all=True)
 
         pm_query = """
             SELECT COALESCE(u.full_name, 'Unknown') AS cashier,
@@ -15050,9 +16100,12 @@ def today_by_cashier():
             WHERE DATE(t.created_at) = CURRENT_DATE
               AND t.status = 'completed'
               AND t.voided = FALSE
+        """
+        pm_where, pm_params = branch_read_clause('t.branch_id')
+        pm_query = pm_query + pm_where + """
             GROUP BY u.full_name, t.payment_method
         """
-        pm_rows = execute_query(pm_query, fetch_all=True)
+        pm_rows = execute_query(pm_query, tuple(pm_params) if pm_params else None, fetch_all=True)
 
         cashier_map = OrderedDict()
         for r in rows:
@@ -15091,9 +16144,11 @@ def today_by_cashier():
 
 
 # ==================== INITIALIZE DATABASE ====================
-
-with app.app_context():
-    initialize_database_tables()    
+# Schema init is LAZY on purpose -- see _ensure_db_initialized(). Running the
+# whole migration here, at import, made gunicorn finish it BEFORE binding the
+# port (Render: "No open ports detected") and repeated it in every worker. The
+# @app.before_request hook now runs it once, on the first request, so the worker
+# binds the port immediately.    
 
 
 
@@ -48217,6 +49272,36 @@ def api_finance_statements():
             cursor.execute("SELECT COALESCE(SUM(p.stock * COALESCE(p.buy_price, 0)), 0) FROM products p")
             inventory_value = float(cursor.fetchone()[0] or 0)
 
+            # Per-branch split of the same figures. products.stock is maintained as
+            # the cross-branch total, so the company inventory_value above is the
+            # SUM of these rows -- this only explains the number, it never replaces it.
+            cursor.execute("""
+                SELECT b.id, b.name,
+                       COALESCE((SELECT SUM(ps.stock * COALESCE(p.buy_price, 0))
+                                 FROM product_stock ps JOIN products p ON p.id = ps.product_id
+                                 WHERE ps.branch_id = b.id), 0) AS inventory_value,
+                       COALESCE((SELECT COUNT(*) FROM product_stock ps
+                                 WHERE ps.branch_id = b.id AND ps.stock > 0), 0) AS stocked_items
+                FROM branches b
+                WHERE b.is_active = TRUE
+                ORDER BY b.id
+            """)
+            branch_value_rows = cursor.fetchall()
+
+            # POS takings per branch for the same period, so the branch split of
+            # revenue can be seen alongside the inventory split.
+            cursor.execute("""
+                SELECT COALESCE(t.branch_id, 0),
+                       COALESCE(SUM(CASE WHEN LOWER(COALESCE(t.payment_method,'')) = 'cash'
+                                         THEN t.total ELSE 0 END), 0) AS cash_total,
+                       COALESCE(SUM(t.total), 0) AS total
+                FROM transactions t
+                WHERE t.voided = FALSE
+                  AND t.created_at::date BETWEEN %s AND %s
+                GROUP BY COALESCE(t.branch_id, 0)
+            """, (start, end))
+            branch_revenue_rows = cursor.fetchall()
+
             # Accounts receivable = unpaid project balances (contract amount - deposit paid - paid installments)
             cursor.execute("""
                 SELECT id, clientname, projectname, totalcontractamount,
@@ -48282,6 +49367,35 @@ def api_finance_statements():
         derived_cash = max(0.0, supplier_payables + equity - assets_no_cash)
         total_assets = inventory_value + receivables + derived_cash
 
+        # Per-branch breakdown: explains the consolidated inventory + POS revenue.
+        # Sales recorded before the branch column existed come back as branch_id 0
+        # and are labelled Unassigned rather than being quietly dropped.
+        revenue_by_branch = {int(r[0]): (float(r[1] or 0), float(r[2] or 0)) for r in branch_revenue_rows}
+        by_branch = []
+        for r in branch_value_rows:
+            cash_total, revenue_total = revenue_by_branch.get(int(r[0]), (0.0, 0.0))
+            by_branch.append({
+                'branch_id': r[0],
+                'branch': r[1],
+                'inventory_value': float(r[2] or 0),
+                'stocked_items': int(r[3] or 0),
+                'pos_cash': cash_total,
+                'pos_revenue': revenue_total
+            })
+        for branch_key, (cash_total, revenue_total) in revenue_by_branch.items():
+            if branch_key == 0:
+                by_branch.append({
+                    'branch_id': 0, 'branch': 'Unassigned (pre-branch sales)',
+                    'inventory_value': 0.0, 'stocked_items': 0,
+                    'pos_cash': cash_total, 'pos_revenue': revenue_total
+                })
+            elif not any(b['branch_id'] == branch_key for b in by_branch):
+                by_branch.append({
+                    'branch_id': branch_key, 'branch': f'Branch {branch_key}',
+                    'inventory_value': 0.0, 'stocked_items': 0,
+                    'pos_cash': cash_total, 'pos_revenue': revenue_total
+                })
+
         return jsonify({'success': True, 'data': {
             'range': {'start_date': start, 'end_date': end},
             'income': {
@@ -48322,7 +49436,8 @@ def api_finance_statements():
                 'injections_total': injections_total,
                 'retained_earnings': retained_earnings,
                 'total_equity_liabilities': supplier_payables + equity
-            }
+            },
+            'by_branch': by_branch
         }})
     except Exception as e:
         print(f"Finance statements error: {e}")

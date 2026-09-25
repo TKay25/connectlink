@@ -1,0 +1,44 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PreviewFinal",
+  "file": "_preview_final.py",
+  "purpose": "Throwaway mock server to verify the final multi-branch UI work. Delete after use.",
+  "entry_function": "pos()",
+  "entry_flows": [
+    "_preview_final → fh.read, app.route"
+  ],
+  "public_api": [
+    "pos()",
+    "static_files(path)",
+    "branches()",
+    "check_auth()",
+    "products()",
+    "categories()",
+    "stats()",
+    "by_cashier()"
+  ],
+  "dependencies": [
+    "flask"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: BASE = os.path.dirname(os.path.abspath(__file__)), BRANCHES = [{'id': 1, 'code': 'SHU', 'name': 'Shurugwi'}, {'id': 2, 'code': 'CHG', 'name': 'Chegutu'}], CODES = {1: 'shurugwi01', 2: 'chegutu01', 0: 'conlink01owner01'}, CURRENT = {'id': 1, 'name': 'Shurugwi', 'read_only': False}, PRODUCTS = [{'id': 11, 'name': 'Cement 50kg', 'category': 'DIY', 'unit_type': 'bag', 'unit_details': '50kg', 'buy_price': 8.0, 'sell_price': 11.5, 'stock': 40, 'min_stock_level': 10, 'description': '', 'barcode': '111', 'created_at': None, 'updated_at': None, 'total_stock': 55, 'low_stock': False}, {'id': 12, 'name': 'LED Bulb 9W', 'category': 'Electricals', 'unit_type': 'piece', 'unit_details': '9W', 'buy_price': 1.2, 'sell_price': 2.5, 'stock': 3, 'min_stock_level': 10, 'description': '', 'barcode': '222', 'created_at': None, 'updated_at': None, 'total_stock': 30, 'low_stock': True}, {'id': 13, 'name': 'Roofing Nails 1kg', 'category': 'DIY', 'unit_type': 'pack', 'unit_details': '1kg', 'buy_price': 2.0, 'sell_price': 3.5, 'stock': 0, 'min_stock_level': 10, 'description': '', 'barcode': '333', 'created_at': None, 'updated_at': None, 'total_stock': 25, 'low_stock': True}], TRANSFERS = []",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "bfae67079251f634",
+  "file_mtime": 1790345390792.7498,
+  "file_size": 5535,
+  "file_birthtime": 1790345390712.8298,
+  "generated_at": "2026-09-25T14:10:49.174062Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

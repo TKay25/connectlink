@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestSqlParams",
+  "file": "_test_sql_params.py",
+  "purpose": "Throwaway check: every SQL statement in the branch-aware report endpoints must",
+  "entry_function": "fake_execute(query, params = None, fetch_all = False, fetch_one = False, commit = False)",
+  "entry_flows": [
+    "_test_sql_params → types.ModuleType, modules.setdefault, app.test_client, query.count, statements.append"
+  ],
+  "public_api": [
+    "fake_execute(query, params = None, fetch_all = False, fetch_one = False, commit = False)"
+  ],
+  "dependencies": [
+    "ConnectLink"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ENDPOINTS = [('/api/stock-movements?start_date=2026-09-01&end_date=2026-09-25', 'audit / stock movements'), ('/api/products', 'products'), ('/api/transactions', 'transaction history'), ('/api/transactions/day-end?date=2026-09-25', 'day-end report'), ('/api/transactions/daily-summary', 'daily summary'), ('/api/transactions/voided', 'voided sales'), ('/api/dashboard/stats', 'dashboard stats'), ('/api/dashboard/today-by-cashier', 'cashier breakdown'), ('/api/activity-log?date_range=this_month', 'activity log'), ('/api/stock-additions', 'stock additions'), ('/api/pos/transfers', 'transfers list'), ('/api/branches', 'branch list'), ('/api/categories', 'categories')]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "9a2301153b51810a",
+  "file_mtime": 1790345515004.2998,
+  "file_size": 3095,
+  "file_birthtime": 1790345514747.8213,
+  "generated_at": "2026-09-25T14:12:00.912177Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
