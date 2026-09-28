@@ -24289,8 +24289,9 @@ def download_contract(project_id):
             print(df_list)
 
             # Format agreement date
-            agreement_date = row[16] 
-            formatted_agreement_date = agreement_date.strftime("%d %B %Y")
+            agreement_date = row[16]
+            # agreement_date can be NULL on partially-completed projects — never crash the PDF
+            formatted_agreement_date = agreement_date.strftime("%d %B %Y") if agreement_date else ""
 
             # Fetch company details
             cursor.execute("SELECT * FROM connectlinkdetails;")
@@ -24307,6 +24308,10 @@ def download_contract(project_id):
 
             # Calculate days difference
             def days_between(date1, date2):
+                # A NULL start/deposit date used to raise TypeError and kill the
+                # whole download — treat a missing date as 0 days instead.
+                if date1 is None or date2 is None:
+                    return 0
                 delta = date1 - date2
                 return abs(delta.days)
 
@@ -25371,7 +25376,20 @@ def download_contract(project_id):
 
             response = make_response(pdf)
             response.headers['Content-Type'] = 'application/pdf'
-            response.headers['Content-Disposition'] = f'attachment; filename={project["client_name"]} {project["project_name"]} contract_{project["project_id_num"]} ConnectLink Properties.pdf'
+            # Build a safe, QUOTED download filename. An unquoted filename breaks
+            # when the client/project name contains a comma (the header is parsed as
+            # two parameters, so the browser saves a truncated / garbled name), and
+            # quotes / newlines / non-Latin-1 characters can make it fail outright.
+            raw_name = f'{project["client_name"] or ""} {project["project_name"] or ""} contract_{project["project_id_num"]} ConnectLink Properties'
+            safe_name = re.sub(r'[\r\n\t]+', ' ', raw_name)      # header-splitting chars
+            safe_name = safe_name.replace('"', "'")              # no double quotes
+            safe_name = re.sub(r'[\\/:*?<>|]+', ' ', safe_name)   # filesystem-reserved chars
+            safe_name = re.sub(r'\s+', ' ', safe_name).strip() or f'contract_{project["project_id_num"]}'
+            try:
+                safe_name.encode('latin-1')
+            except UnicodeEncodeError:
+                safe_name = safe_name.encode('ascii', 'ignore').decode('ascii').strip() or f'contract_{project["project_id_num"]}'
+            response.headers['Content-Disposition'] = f'attachment; filename="{safe_name}.pdf"'
             
             # Log the contract download
             log_activity(
@@ -25385,7 +25403,15 @@ def download_contract(project_id):
             return response
 
         except Exception as e:
-            return str(e), 500
+            # Surface the REAL error (adminpage shows the response body) and log the
+            # full traceback so it is visible in the server logs.
+            import traceback
+            traceback.print_exc()
+            print(f"[contract-download] FAILED project={project_id}: {type(e).__name__}: {e}")
+            return (
+                f"Contract PDF failed for project {project_id}\n"
+                f"{type(e).__name__}: {e}"
+            ), 500, {'Content-Type': 'text/plain; charset=utf-8'}
 
 
 @app.route('/api/project/<int:project_id>/has-gantt', methods=['GET'])
@@ -25875,12 +25901,30 @@ def download_payments_history(project_id):
             
             response = make_response(pdf)
             response.headers["Content-Type"] = "application/pdf"
-            response.headers["Content-Disposition"] = f"attachment; filename={row[1]} {row[10]} payments history_{project_id}_ConnectLink Properties.pdf"
+            # Quoted + sanitized filename (an unquoted name with a comma makes the
+            # browser save a truncated filename; quotes/newlines can fail outright).
+            raw_name = f'{row[1] or ""} {row[10] or ""} payments history_{project_id}_ConnectLink Properties'
+            safe_name = re.sub(r'[\r\n\t]+', ' ', raw_name)
+            safe_name = safe_name.replace('"', "'")
+            safe_name = re.sub(r'[\\/:*?<>|]+', ' ', safe_name)
+            safe_name = re.sub(r'\s+', ' ', safe_name).strip() or f'payments_history_{project_id}'
+            try:
+                safe_name.encode('latin-1')
+            except UnicodeEncodeError:
+                safe_name = safe_name.encode('ascii', 'ignore').decode('ascii').strip() or f'payments_history_{project_id}'
+            response.headers["Content-Disposition"] = f'attachment; filename="{safe_name}.pdf"'
 
             return response
 
         except Exception as e:
-            return str(e), 500
+            # Surface the REAL error and log the full traceback
+            import traceback
+            traceback.print_exc()
+            print(f"[payments-history-download] FAILED project={project_id}: {type(e).__name__}: {e}")
+            return (
+                f"Payments history PDF failed for project {project_id}\n"
+                f"{type(e).__name__}: {e}"
+            ), 500, {'Content-Type': 'text/plain; charset=utf-8'}
 
 
 @app.route('/create-system-user', methods=['POST'])
