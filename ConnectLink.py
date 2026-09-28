@@ -18949,27 +18949,22 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
         print(f"✅ Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
 
         # ---- Second document: the Payroll Calculation Breakdown ----
-        # Same page as the HR portal's "Breakdown" (calculator) link, rendered to PDF.
-        # Fetched in-process through the normal route so there is exactly ONE copy of
-        # that page's tax logic (/payroll-breakdown) — the same approach the contract
-        # button already uses. Its "Print / Save PDF" button carries class="no-print",
-        # which both weasyprint and Chromium hide when printing, so it is not in the PDF.
+        # Same breakdown as the HR portal's "Breakdown" (calculator) link, built by
+        # render_payroll_breakdown_html() so there is exactly ONE copy of the tax
+        # logic. Called DIRECTLY, not over HTTP: the page route is @login_required
+        # and this webhook has no session. The page's "Print / Save PDF" button
+        # carries class="no-print", which both weasyprint and Chromium hide when
+        # printing, so it is not rendered into the PDF.
         # This must NEVER break the payslip that was just delivered, hence the guard.
         try:
-            with app.test_client() as _bd_client:
-                _bd_resp = _bd_client.get(f'/payroll-breakdown?employee_id={emp_id}&period={period}')
-            if _bd_resp.status_code == 200:
-                breakdown_pdf = render_html_to_pdf_bytes(_bd_resp.get_data(as_text=True))
-                send_pdf_document_whatsapp(
-                    sender_id,
-                    breakdown_pdf,
-                    f"Payroll_Breakdown_{full_name}_{period_label}.pdf",
-                    f"📊 Payroll calculation breakdown for {full_name} - {period_label}"
-                )
-                print(f"✅ Payroll breakdown PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
-            else:
-                print(f"⚠️ Payroll breakdown page returned HTTP {_bd_resp.status_code} — breakdown not sent "
-                      f"(emp {emp_id}, period {period})")
+            breakdown_pdf = render_html_to_pdf_bytes(render_payroll_breakdown_html(emp_id, period))
+            send_pdf_document_whatsapp(
+                sender_id,
+                breakdown_pdf,
+                f"Payroll_Breakdown_{full_name}_{period_label}.pdf",
+                f"📊 Payroll calculation breakdown for {full_name} - {period_label}"
+            )
+            print(f"✅ Payroll breakdown PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
         except Exception as breakdown_err:
             print(f"⚠️ Payroll breakdown PDF not sent for emp {emp_id} ({period}): {breakdown_err}")
 
@@ -20240,16 +20235,21 @@ def hr_payroll_calculate_full():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/payroll-breakdown')
-def payroll_breakdown():
-    """Render a print-friendly HTML page showing the detailed net pay calculation for an employee."""
+def render_payroll_breakdown_html(employee_id, period):
+    """Build the payroll calculation breakdown HTML for one employee and period.
+
+    Shared by the /payroll-breakdown page and by the WhatsApp payslip flow, which
+    sends the same breakdown as a second PDF — so the step-by-step statutory
+    calculation exists in exactly ONE place.
+
+    Carries NO auth of its own: the /payroll-breakdown route is @login_required, and
+    the WhatsApp flow only ever builds the breakdown for the employee who tapped the
+    button on their own payslip. Calling this directly (instead of over HTTP) is what
+    lets the session-less webhook keep using it.
+
+    Raises ValueError when the employee does not exist.
+    """
     try:
-        employee_id = request.args.get('employee_id')
-        period = request.args.get('period', datetime.now().strftime('%Y-%m'))
-
-        if not employee_id:
-            return '<h2>Please provide an employee_id parameter.</h2>', 400
-
         with get_db() as (cursor, connection):
             # 1. Fetch employee details and payroll record
             cursor.execute("""
@@ -20265,7 +20265,7 @@ def payroll_breakdown():
             """, (period, int(employee_id)))
             row = cursor.fetchone()
             if not row:
-                return f'<h2>Employee #{employee_id} not found.</h2>', 404
+                raise ValueError(f'Employee #{employee_id} not found.')
 
             emp = {
                 'id': row[0], 'first_name': row[1], 'last_name': row[2],
@@ -20448,8 +20448,33 @@ def payroll_breakdown():
             now=datetime.now()
         )
 
+    except ValueError:
+        raise  # "employee not found" — the /payroll-breakdown route turns this into a 404
     except Exception as e:
         logging.error(f'Payroll breakdown error: {str(e)}')
+        raise
+
+
+@app.route('/payroll-breakdown')
+@login_required
+def payroll_breakdown():
+    """Render a print-friendly HTML page showing the detailed net pay calculation for an employee."""
+    raw_employee_id = request.args.get('employee_id')
+    period = request.args.get('period', datetime.now().strftime('%Y-%m'))
+
+    if not raw_employee_id:
+        return '<h2>Please provide an employee_id parameter.</h2>', 400
+
+    try:
+        employee_id = int(raw_employee_id)
+    except (TypeError, ValueError):
+        return '<h2>Please provide a valid numeric employee_id parameter.</h2>', 400
+
+    try:
+        return render_payroll_breakdown_html(employee_id, period)
+    except ValueError as not_found:
+        return f'<h2>{not_found}</h2>', 404
+    except Exception as e:
         return f'<h2>Error generating breakdown: {str(e)}</h2>', 500
 
 
