@@ -17384,6 +17384,12 @@ def hr_employees_api():
                         'date_joined': str(r[17]) if r[17] else None,
                         'leave_balance': float(r[18] or 0), 'monthly_accrual': float(r[19] or 0),
                         'salary': float(r[20] or 0), 'employment_type': r[21], 'status': r[22],
+                        # Canonical hr_employees column names too. This endpoint only used to
+                        # expose the legacy aliases above, so anything reading basic_salary /
+                        # current_leave_balance / monthly_accumulation silently got 0.
+                        'basic_salary': float(r[20] or 0),
+                        'current_leave_balance': float(r[18] or 0),
+                        'monthly_accumulation': float(r[19] or 0),
                         'leave_approver_id': r[23], 'leave_approver_name': r[24] or '',
                         'medical_aid_package': r[25] or '',
                         'currency': r[26] or 'USD',
@@ -17427,6 +17433,7 @@ def hr_employees_api():
                         'date_joined': str(au[5])[:10] if au[5] else None,
                         'leave_balance': 21, 'monthly_accrual': 1.75,
                         'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'basic_salary': 0, 'current_leave_balance': 21, 'monthly_accumulation': 1.75,
                         'medical_aid_package': '', 'currency': 'USD',
                         'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
                         'omit_from_payroll': False, 'allowances': 0,
@@ -17463,6 +17470,7 @@ def hr_employees_api():
                         'date_joined': str(clu[3])[:10] if clu[3] else None,
                         'leave_balance': 21, 'monthly_accrual': 1.75,
                         'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'basic_salary': 0, 'current_leave_balance': 21, 'monthly_accumulation': 1.75,
                         'medical_aid_package': '', 'currency': 'USD',
                         'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
                         'omit_from_payroll': False, 'allowances': 0,
@@ -17489,22 +17497,35 @@ def hr_employees_api():
                 cursor.execute("""
                     INSERT INTO hr_employees
                         (first_name, last_name, whatsapp, email, address, role, classification, department,
-                         designation, gender, dob, marital_status, nationality, national_id, date_joined,
-                         current_leave_balance, monthly_accumulation, basic_salary, medical_aid_package, employment_type, status,
+                         subsidiary, designation, gender, dob, marital_status, nationality, national_id, date_joined,
+                         current_leave_balance, monthly_accumulation, basic_salary, allowances, medical_aid_package,
+                         employment_type, status,
+                         bank_holder_name, bank_holder_surname, bank_name, bank_account_number, bank_branch, bank_branch_code,
+                         currency, usd_percent, zwg_percent, exchange_rate, omit_from_payroll,
                          leave_approver_name, leave_approver_id, leave_approver_whatsapp, leave_approver_email)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                            %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                            %s,%s,%s,%s,%s,%s,%s,%s)
                     RETURNING id
                 """, (
                     data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
                     data.get('email'), data.get('address'), data.get('role', 'Ordinary User'),
                     data.get('classification', 'Ordinary'),
-                    data.get('department'), data.get('designation'), data.get('gender'),
+                    data.get('department'), data.get('subsidiary', ''), data.get('designation'), data.get('gender'),
                     data.get('dob'), data.get('marital_status'), data.get('nationality'),
                     data.get('national_id'),
                     data.get('date_joined'), data.get('leave_balance', 21),
-                    data.get('monthly_accrual', 1.75), data.get('salary', 0),
+                    data.get('monthly_accrual', 1.75), data.get('salary', data.get('basic_salary', 0)),
+                    data.get('allowances', 0),
                     data.get('medical_aid_package', ''),
                     data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
+                    data.get('bank_holder_name'), data.get('bank_holder_surname'),
+                    data.get('bank_name'), data.get('bank_account_number'),
+                    data.get('bank_branch'), data.get('bank_branch_code'),
+                    data.get('currency', 'USD'), data.get('usd_percent', 100),
+                    data.get('zwg_percent', 0), data.get('exchange_rate', 1),
+                    data.get('omit_from_payroll', False),
                     data.get('leave_approver_name'), data.get('leave_approver_id'),
                     data.get('leave_approver_whatsapp'), data.get('leave_approver_email')
                 ))
@@ -17697,7 +17718,7 @@ def hr_employee_detail(emp_id):
                         employment_type=%s, status=%s,
                         bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
                         bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
-                        usd_percent=%s, zwg_percent=%s, exchange_rate=%s,
+                        currency=%s, usd_percent=%s, zwg_percent=%s, exchange_rate=%s,
                         leave_approver_name=%s, leave_approver_id=%s,
                         leave_approver_whatsapp=%s, leave_approver_email=%s,
                         updated_at=CURRENT_TIMESTAMP
@@ -17719,6 +17740,7 @@ def hr_employee_detail(emp_id):
                     data.get('bank_holder_name'), data.get('bank_holder_surname'),
                     data.get('bank_name'), data.get('bank_account_number'),
                     data.get('bank_branch'), data.get('bank_branch_code'),
+                    data.get('currency', 'USD'),
                     data.get('usd_percent', 100), data.get('zwg_percent', 0),
                     data.get('exchange_rate', 1), data.get('leave_approver_name'),
                     data.get('leave_approver_id'),
@@ -21365,6 +21387,20 @@ def hr_export_employees():
             except (TypeError, ValueError):
                 return float(default)
 
+        def _pick(e, keys, default=0.0):
+            # The employee LIST api exposes legacy aliases (salary, leave_balance,
+            # monthly_accrual) while the detail api uses the real column names
+            # (basic_salary, current_leave_balance, monthly_accumulation). Accept either,
+            # so a numeric column can never silently come out as 0.
+            for k in keys:
+                v = e.get(k)
+                if v not in (None, ''):
+                    try:
+                        return float(v)
+                    except (TypeError, ValueError):
+                        continue
+            return float(default)
+
         def _fmt_num(v):
             try:
                 f = float(v)
@@ -21401,9 +21437,9 @@ def hr_export_employees():
             ('Leave Approver', lambda e: _txt(e, 'leave_approver_name')),
             ('Leave Approver WhatsApp', lambda e: _txt(e, 'leave_approver_whatsapp')),
             ('Leave Approver Email', lambda e: _txt(e, 'leave_approver_email')),
-            ('Leave Balance (Days)', lambda e: _num(e, 'current_leave_balance')),
-            ('Monthly Accrual', lambda e: _num(e, 'monthly_accumulation')),
-            ('Basic Salary (USD)', lambda e: _num(e, 'basic_salary')),
+            ('Leave Balance (Days)', lambda e: _pick(e, ('current_leave_balance', 'leave_balance'))),
+            ('Monthly Accrual', lambda e: _pick(e, ('monthly_accumulation', 'monthly_accrual'))),
+            ('Basic Salary (USD)', lambda e: _pick(e, ('basic_salary', 'salary'))),
             ('Allowances (USD)', lambda e: _num(e, 'allowances')),
             ('Currency', lambda e: _txt(e, 'currency', 'USD')),
             ('USD %', lambda e: _num(e, 'usd_percent', 100)),
