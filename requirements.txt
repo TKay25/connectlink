@@ -1,13 +1,13 @@
 # ---------------------------------------------------------------------------
-# pip behaviour on Render.
-# The build network sometimes times out against pypi.org (default timeout is
-# only 15s). When that happened to python-dateutil, pandas became unsatisfiable,
-# pip backtracked through 11 pandas versions and then tried to BUILD pandas from
-# source, which fails. These flags make the install patient and wheel-only.
+# pip flags that ARE valid inside a requirements file.
+#
+# NOTE: --timeout and --retries are NOT supported here (pip rejects them with
+# "no such option"), so those two live on the Render service instead. Either:
+#   Settings -> Build Command:
+#     pip install --timeout 120 --retries 10 -r requirements.txt
+#   ...or set environment variables PIP_TIMEOUT=120 and PIP_RETRIES=10.
 # ---------------------------------------------------------------------------
 --prefer-binary
---timeout 120
---retries 10
 # Never compile these from source: no guaranteed toolchain and minutes each.
 --only-binary=pandas,numpy,Pillow,psycopg2-binary
 
