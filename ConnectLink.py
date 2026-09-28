@@ -4621,7 +4621,6 @@ def webhook():
 
                                                                             # Generate PDF
                                                                             from flask import render_template
-                                                                            import pdfkit
                                                                             html = render_template('leave_slip.html',
                                                                                 emp_name=emp_name, leave_type=ltype, days=days,
                                                                                 from_date=from_fmt, to_date=to_fmt,
@@ -4631,14 +4630,8 @@ def webhook():
                                                                                 department=department,
                                                                                 leave_id=slip_leave_id, logo_b64=logo_b64
                                                                             )
-                                                                            pdf_bytes = pdfkit.from_string(html, False, options={
-                                                                                'page-size': 'A5',
-                                                                                'margin-top': '0',
-                                                                                'margin-bottom': '0',
-                                                                                'margin-left': '0',
-                                                                                'margin-right': '0',
-                                                                                'no-outline': None
-                                                                            })
+                                                                            # weasyprint (+ Playwright fallback) — leave_slip.html is A5 via its own @page rule
+                                                                            pdf_bytes = render_html_to_pdf_bytes(html)
 
                                                                             # Send PDF
                                                                             full_name = emp_name
@@ -4698,20 +4691,13 @@ def webhook():
 
                                                                     # Generate PDF
                                                                     from flask import render_template
-                                                                    import pdfkit
                                                                     html = render_template('leave_history.html',
                                                                         emp_name=emp_name, department=department,
                                                                         leaves=leaves, logo_b64=logo_b64,
                                                                         now=datetime.now()
                                                                     )
-                                                                    pdf_bytes = pdfkit.from_string(html, False, options={
-                                                                        'page-size': 'A4',
-                                                                        'margin-top': '0',
-                                                                        'margin-bottom': '0',
-                                                                        'margin-left': '0',
-                                                                        'margin-right': '0',
-                                                                        'no-outline': None
-                                                                    })
+                                                                    # weasyprint (+ Playwright fallback) — leave_history.html is A4 landscape via its own @page
+                                                                    pdf_bytes = render_html_to_pdf_bytes(html)
 
                                                                     filename = f"Leave_History_{emp_name}.pdf"
                                                                     caption = f"📋 Leave History Report - {emp_name}"
@@ -8939,7 +8925,7 @@ def webhook():
 
                                                             return jsonify({"status": "received"}), 200
                                                         elif payload.lower().startswith('download_payslip_'):
-                                                            handle_download_payslip_whatsapp(sender_id, payload)
+                                                            handle_download_payslip_whatsapp(sender_id, payload, send_text_message)
                                                             return jsonify({"status": "received"}), 200
                                                         else:
                                                             print(f"❌ Unknown payload: {payload}")
@@ -18726,8 +18712,21 @@ def hr_payroll_send_whatsapp():
 
 # ==================== DOWNLOAD PAYSLIP VIA WHATSAPP BUTTON ====================
 
-def handle_download_payslip_whatsapp(sender_id, payload):
-    """Handle 'download_payslip_{emp_id}_{period}' button click: generate & send PDF."""
+def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None):
+    """Handle 'download_payslip_{emp_id}_{period}' button click: generate & send PDF.
+
+    send_text_message: optional callable(to_number, text) supplied by the webhook.
+    Used to acknowledge the tap and to report a failure, so the employee is never
+    left in silence when the PDF cannot be produced.
+    """
+    def _say(text):
+        if not send_text_message:
+            return
+        try:
+            send_text_message(sender_id, text)
+        except Exception as send_err:
+            print(f"⚠️ Could not send payslip status message: {send_err}")
+
     try:
         parts = payload.split('_', 3)  # ['download', 'payslip', 'emp_id', 'period']
         if len(parts) < 4:
@@ -18736,6 +18735,7 @@ def handle_download_payslip_whatsapp(sender_id, payload):
         emp_id = int(parts[2])
         period_raw = parts[3]
         period = period_raw.split('|')[0]  # Strip run version if present (e.g. "2026-07|1" → "2026-07")
+        _say("⏳ Generating your payslip, please wait...")
 
         with get_db() as (cursor, connection):
             # Fetch employee details for PDF generation (same query as /api/payslip)
@@ -18768,6 +18768,7 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             row = cursor.fetchone()
             if not row:
                 print(f"⚠️ Employee {emp_id} not found for payslip download")
+                _say("❌ We could not find your employee record, so no payslip was generated. Please contact HR.")
                 return
 
             # Build emp dict (same format as payslip endpoint)
@@ -18890,7 +18891,6 @@ def handle_download_payslip_whatsapp(sender_id, payload):
 
         # Generate PDF using the template
         from flask import render_template
-        import pdfkit
         html = render_template('payslip.html',
             emp=emp, logo_b64=logo_b64,
             employer_nssa=employer_nssa, employer_medical_aid=employer_medical_aid,
@@ -18907,14 +18907,9 @@ def handle_download_payslip_whatsapp(sender_id, payload):
             exch_rate=emp['exchange_rate'],
             now=datetime.now()
         )
-        pdf_bytes = pdfkit.from_string(html, False, options={
-            'orientation': 'Landscape',
-            'page-size': 'A4',
-            'margin-top': '5mm',
-            'margin-bottom': '5mm',
-            'margin-left': '6mm',
-            'margin-right': '6mm'
-        })
+        # weasyprint (+ Playwright fallback) — payslip.html carries its own
+        # A4-landscape @page rule, the same geometry pdfkit used to be handed.
+        pdf_bytes = render_html_to_pdf_bytes(html)
 
         # Send PDF via WhatsApp
         full_name = f"{emp['first_name']} {emp['last_name']}".strip()
@@ -18937,6 +18932,7 @@ def handle_download_payslip_whatsapp(sender_id, payload):
         print(f"❌ Error handling payslip download via WhatsApp: {e}")
         import traceback
         traceback.print_exc()
+        _say("❌ Sorry, we could not generate your payslip right now. Please try again later or contact HR.")
 
 
 @app.route('/api/hr/payroll/periods', methods=['GET'])
@@ -37923,7 +37919,8 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
     return pdf_bytes, filename, caption
 
 
-def generate_pdf_via_playwright(html_content, format='A4'):
+def generate_pdf_via_playwright(html_content, format='A4', margin=None,
+                                landscape=False, prefer_css_page_size=False):
     """Render HTML to PDF using Playwright (headless Chromium).
     Generic helper — works with any HTML string (quotation, contract, etc.).
     Falls back from weasyprint when GTK libraries are unavailable.
@@ -37931,6 +37928,10 @@ def generate_pdf_via_playwright(html_content, format='A4'):
     Args:
         html_content: Full HTML document string
         format: Page format (default 'A4')
+        margin: Optional dict with top/bottom/left/right keys (default 6mm all round)
+        landscape: Render landscape instead of portrait
+        prefer_css_page_size: Let the document's own @page size beat `format`
+            (needed for A5 / A4-landscape templates)
 
     Returns: PDF bytes
     """
@@ -37939,14 +37940,53 @@ def generate_pdf_via_playwright(html_content, format='A4'):
     except ImportError:
         raise RuntimeError("Playwright not installed. Run: pip install playwright && playwright install chromium")
 
+    if not margin:
+        margin = {'top': '6mm', 'bottom': '6mm', 'left': '6mm', 'right': '6mm'}
+
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
         page = browser.new_page()
         page.set_content(html_content)
-        pdf_bytes = page.pdf(format=format, margin={'top': '6mm', 'bottom': '6mm', 'left': '6mm', 'right': '6mm'})
+        pdf_bytes = page.pdf(format=format, margin=margin, landscape=landscape,
+                             prefer_css_page_size=prefer_css_page_size)
         browser.close()
 
     return pdf_bytes
+
+
+def render_html_to_pdf_bytes(html_content):
+    """Render an HTML document to PDF bytes for WhatsApp / download delivery.
+
+    Uses weasyprint first — the same engine as every other PDF in ConnectLink —
+    and falls back to Playwright (headless Chromium) when weasyprint's native
+    libraries are unavailable.
+
+    Page geometry is deliberately NOT set here: each template declares its own
+    @page rule (payslip.html = A4 landscape 5mm/6mm, leave_slip.html = A5 margin 0,
+    leave_history.html = A4 landscape 10mm/12mm), so the template stays the single
+    source of truth for how it prints.
+
+    This replaces the old pdfkit calls. pdfkit is only a wrapper around the
+    external `wkhtmltopdf` binary, which is not installed on the server and is not
+    installed by anything in this repo, so those WhatsApp buttons failed with
+    "No wkhtmltopdf executable found" and the recipient got nothing at all.
+
+    Returns: PDF bytes. Raises RuntimeError carrying both engine errors if neither
+    weasyprint nor Playwright can produce a PDF.
+    """
+    weasy_error = ''
+    try:
+        from weasyprint import HTML as _WeasyHTML
+        return _WeasyHTML(string=html_content).write_pdf()
+    except Exception as weasy_err:
+        weasy_error = f'weasyprint: {weasy_err}'
+        print(f"⚠️ weasyprint render failed, falling back to Playwright: {weasy_err}")
+
+    try:
+        # prefer_css_page_size so the template's own @page size/orientation wins
+        return generate_pdf_via_playwright(html_content, prefer_css_page_size=True)
+    except Exception as pw_err:
+        raise RuntimeError(f"PDF rendering failed -> {weasy_error} | playwright: {pw_err}")
 
 
 def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, send_text_message=None):
