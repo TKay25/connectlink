@@ -1,42 +1,70 @@
-Flask
-mysql-connector-python
-pandas
-matplotlib
-seaborn
-xlsxwriter
-gunicorn
-psycopg2
-openpyxl
-requests
+# ---------------------------------------------------------------------------
+# pip behaviour on Render.
+# The build network sometimes times out against pypi.org (default timeout is
+# only 15s). When that happened to python-dateutil, pandas became unsatisfiable,
+# pip backtracked through 11 pandas versions and then tried to BUILD pandas from
+# source, which fails. These flags make the install patient and wheel-only.
+# ---------------------------------------------------------------------------
+--prefer-binary
+--timeout 120
+--retries 10
+# Never compile these from source: no guaranteed toolchain and minutes each.
+--only-binary=pandas,numpy,Pillow,psycopg2-binary
+
+# ---------------------------------------------------------------------------
+# PINNED. Nothing here floated before, so every deploy let pip re-resolve the
+# whole graph and explore dozens of versions (a network round-trip each).
+#
+# Also TRIMMED - verified as unused against the source (only mentioned in a
+# strategy .md / README, or commented out): seaborn, matplotlib, scikit-learn,
+# statsmodels, xlsxwriter, paynow, Flask-SocketIO, python-socketio,
+# Flask-Caching. Those pulled in SciPy + a dozen matplotlib deps for nothing.
+# Plain `psycopg2` was removed too - listing it beside psycopg2-binary installed
+# the same module twice and the plain one compiles from source.
+# ---------------------------------------------------------------------------
+
+# --- web framework + server -------------------------------------------------
+Flask==3.1.3
+Flask-CORS==6.0.5
+gunicorn==26.0.0
+
+# --- database ---------------------------------------------------------------
+psycopg2-binary==2.9.12
+
+# --- data (contract / quotation generators) ---------------------------------
+pandas==3.0.3
+numpy==2.5.0
+
+# --- documents ---------------------------------------------------------------
+openpyxl==3.1.5
+weasyprint==69.0
+PyPDF2==3.0.1
 pdfkit
-weasyprint
-paynow
-apscheduler
-bleach
+
+# --- misc --------------------------------------------------------------------
+requests==2.34.2
+pytz==2026.2
+APScheduler==3.11.3
+mysql-connector-python==9.7.0
+bleach==6.4.0
+
+# --- AI product classifier (fuzzy matching) ----------------------------------
+fuzzywuzzy==0.18.0
+python-Levenshtein>=0.25
+
+# --- Gemini (lazy-imported - only loads when AI features are used) -----------
 google-generativeai>=0.8.0
 protobuf>=5.27.0
 google-api-core>=2.19.0
-Flask-CORS
-psycopg2-binary
-pytz
-Flask-SocketIO
-Flask-Caching
-scikit-learn
-statsmodels
-numpy
-python-socketio
-fuzzywuzzy
-python-Levenshtein
-PyPDF2
 # Used by the procurement PDFs (purchase orders, requisitions, GRN) — reportlab is
 # pure-Python so it works on Render; weasyprint needs GTK and is NOT used for these.
-reportlab
+reportlab==5.0.1
 # The COMPANY LOGO on every one of those PDFs is a PNG, and reportlab can only read a
 # PNG through Pillow (it reads JPEG natively). Without this the logo silently falls back
 # to printing the company name — which is what happened on the live server.
-Pillow
+Pillow==12.2.0
 # bleach's CSS sanitiser — used for the inline colours and font sizes on a project's
 # scope/description — imports tinycss2. bleach alone does NOT pull it in, and without it
 # every `style` attribute is silently EMPTIED (alignment/colour would appear to work in
 # the editor and then vanish on save). Same failure mode as the missing Pillow above.
-tinycss2
+tinycss2==1.5.1
