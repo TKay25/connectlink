@@ -18755,7 +18755,7 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
         emp_id = int(parts[2])
         period_raw = parts[3]
         period = period_raw.split('|')[0]  # Strip run version if present (e.g. "2026-07|1" → "2026-07")
-        _say("⏳ Generating your payslip, please wait...")
+        _say("⏳ Generating your payslip and payroll breakdown, please wait...")
 
         with get_db() as (cursor, connection):
             # Fetch employee details for PDF generation (same query as /api/payslip)
@@ -18947,6 +18947,31 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
         caption = f"📄 Payslip for {full_name} - {period_label}"
         send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
         print(f"✅ Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
+
+        # ---- Second document: the Payroll Calculation Breakdown ----
+        # Same page as the HR portal's "Breakdown" (calculator) link, rendered to PDF.
+        # Fetched in-process through the normal route so there is exactly ONE copy of
+        # that page's tax logic (/payroll-breakdown) — the same approach the contract
+        # button already uses. Its "Print / Save PDF" button carries class="no-print",
+        # which both weasyprint and Chromium hide when printing, so it is not in the PDF.
+        # This must NEVER break the payslip that was just delivered, hence the guard.
+        try:
+            with app.test_client() as _bd_client:
+                _bd_resp = _bd_client.get(f'/payroll-breakdown?employee_id={emp_id}&period={period}')
+            if _bd_resp.status_code == 200:
+                breakdown_pdf = render_html_to_pdf_bytes(_bd_resp.get_data(as_text=True))
+                send_pdf_document_whatsapp(
+                    sender_id,
+                    breakdown_pdf,
+                    f"Payroll_Breakdown_{full_name}_{period_label}.pdf",
+                    f"📊 Payroll calculation breakdown for {full_name} - {period_label}"
+                )
+                print(f"✅ Payroll breakdown PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
+            else:
+                print(f"⚠️ Payroll breakdown page returned HTTP {_bd_resp.status_code} — breakdown not sent "
+                      f"(emp {emp_id}, period {period})")
+        except Exception as breakdown_err:
+            print(f"⚠️ Payroll breakdown PDF not sent for emp {emp_id} ({period}): {breakdown_err}")
 
     except Exception as e:
         print(f"❌ Error handling payslip download via WhatsApp: {e}")
