@@ -4619,6 +4619,9 @@ def webhook():
                                                                                 with open(logo_path, 'rb') as f:
                                                                                     logo_b64 = base64.b64encode(f.read()).decode()
 
+                                                                            # Let the user know we are working before the slow PDF step
+                                                                            send_whatsapp_message(sender, "⏳ Generating your leave slip PDF, please wait...")
+
                                                                             # Generate PDF
                                                                             from flask import render_template
                                                                             html = render_template('leave_slip.html',
@@ -4645,6 +4648,13 @@ def webhook():
                                                                     print(f"❌ Error sending leave slip: {e}")
                                                                     import traceback
                                                                     traceback.print_exc()
+                                                                    try:
+                                                                        send_whatsapp_message(
+                                                                            message.get("from", ""),
+                                                                            "❌ Sorry, we could not prepare that leave slip right now. Please try again or contact HR."
+                                                                        )
+                                                                    except Exception as notify_err:
+                                                                        print(f"⚠️ Could not send leave slip failure message: {notify_err}")
                                                                 continue
 
                                                             # === HANDLE MY LEAVE HISTORY ===
@@ -4689,6 +4699,9 @@ def webhook():
                                                                         with open(logo_path, 'rb') as f:
                                                                             logo_b64 = base64.b64encode(f.read()).decode()
 
+                                                                    # Let the user know we are working before the slow PDF step
+                                                                    send_whatsapp_message(sender, "⏳ Generating your leave history report, please wait...")
+
                                                                     # Generate PDF
                                                                     from flask import render_template
                                                                     html = render_template('leave_history.html',
@@ -4707,6 +4720,13 @@ def webhook():
                                                                     print(f"❌ Error sending leave history: {e}")
                                                                     import traceback
                                                                     traceback.print_exc()
+                                                                    try:
+                                                                        send_whatsapp_message(
+                                                                            message.get("from", ""),
+                                                                            "❌ Sorry, we could not prepare your leave history right now. Please try again later or contact HR."
+                                                                        )
+                                                                    except Exception as notify_err:
+                                                                        print(f"⚠️ Could not send leave history failure message: {notify_err}")
                                                                 continue
 
 
