@@ -4,9 +4,11 @@
   "module": "ClUi",
   "file": "static/js/cl-ui.js",
   "purpose": "Cl-ui",
-  "entry_function": "if",
+  "entry_function": "class actually",
   "entry_flows": [],
   "public_api": [
+    "class actually",
+    "class is",
     "if",
     "return",
     "getClientRects",
@@ -32,6 +34,6 @@
   "file_mtime": 1790246187094.5527,
   "file_size": 13116,
   "file_birthtime": 1790246186996.1125,
-  "generated_at": "2026-09-25T13:21:14.707649Z",
+  "generated_at": "2026-09-28T10:23:49.818585Z",
   "stale": false
 }

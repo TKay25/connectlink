@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>cl-ui duplicate-toast test</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>cl-ui duplicate-toast test</h1>
+<p>Mirrors <code>adminpage.html</code>: its own <code>showToast()</code> renders <code>.toast-notification</code>,
+   then <code>cl-ui.js</code> shims <code>alert()</code>.</p>
+<pre id="out">running…</pre>
+
+<!-- adminpage.html's own toast implementation (class .toast-notification) -->
+<script>
+function showToast(message, type, title) {
+    if (!type) type = 'info';
+    if (!title) title = type;
+    let container = document.getElementById('toast-container-global');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container-global';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.innerHTML = '<div class="toast-icon"></div><div class="toast-content">' +
+                      '<div class="toast-title">' + title + '</div>' +
+                      '<div class="toast-message">' + message + '</div></div>';
+    container.appendChild(toast);
+    window.__pageToasts = (window.__pageToasts || 0) + 1;
+}
+</script>
+
+<script src="static/js/cl-ui.js"></script>
+
+<script>
+function counts() {
+    return {
+        pageToasts: document.querySelectorAll('.toast-notification').length,   // adminpage-style
+        cluiToasts: document.querySelectorAll('.toast').length                  // cl-ui built-in
+    };
+}
+function reset() {
+    document.querySelectorAll('.toast-notification, .toast').forEach(e => e.remove());
+    window.__pageToasts = 0;
+}
+
+const results = [];
+
+// --- Scenario A: page provides showToast (adminpage.html) ---
+reset();
+alert('✅ Saved successfully!');
+results.push({ scenario: 'A: page has showToast, success alert', ...counts() });
+
+reset();
+alert('❌ Something failed');
+results.push({ scenario: 'A: page has showToast, error alert', ...counts() });
+
+// --- Scenario B: page has NO toast impl -> cl-ui fallback must show exactly 1 ---
+const savedShowToast = window.showToast;
+delete window.showToast;
+reset();
+alert('✅ No page toast available');
+results.push({ scenario: 'B: no page showToast (cl-ui fallback)', ...counts() });
+window.showToast = savedShowToast;
+
+document.getElementById('out').textContent = JSON.stringify(results, null, 2);
+window.__results = results;
+</script>
+</body>
+</html>

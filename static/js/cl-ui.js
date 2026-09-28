@@ -396,7 +396,11 @@
        synchronously, which no toast can do, and rewriting its 73 call sites is not
        worth the risk. window.clNativeAlert is there if blocking is ever needed. */
 
-    var TOAST_SEL = '.toast, .pc-toast, .toast-notify, .toast-msg';
+    /* Every toast class actually used by the templates must be listed here, or the
+       "did the page's own toast appear?" check below fails and the fallback toast is
+       added ON TOP of it (two identical toasts for one alert). adminpage.html and
+       whatsapp_app.html render '.toast-notification', so it MUST be in this list. */
+    var TOAST_SEL = '.toast, .pc-toast, .toast-notify, .toast-msg, .toast-notification';
     var inNotify = false;
     var lastNote = { at: 0, message: '', type: 'info' };
     var SUCCESS_LEAD = '\u2705\u2714\u2713';
@@ -476,12 +480,17 @@
         inNotify = true;
         try {
             var before = document.querySelectorAll(TOAST_SEL).length;
+            /* Also watch anything appended inside a toast container, so a page whose
+               toast class is not in TOAST_SEL still counts as "already shown". */
+            var beforeKids = document.querySelectorAll('.toast-container > *').length;
             var impl = window.clToastImpl ||
                 (typeof window.showToast === 'function' ? window.showToast : null) ||
                 (typeof window.toast === 'function' ? window.toast : null);
             if (impl) {
                 try { impl(text, sev); } catch (e) { impl = null; }
-                if (impl && document.querySelectorAll(TOAST_SEL).length > before) { return null; }
+                var pageToasted = document.querySelectorAll(TOAST_SEL).length > before ||
+                                  document.querySelectorAll('.toast-container > *').length > beforeKids;
+                if (impl && pageToasted) { return null; }
             }
             return builtinToast(text, sev);
         } catch (e) {
