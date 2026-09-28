@@ -17339,10 +17339,34 @@ def hr_employees_api():
                            role, classification, department, subsidiary, designation, gender, dob, marital_status,
                            nationality, national_id, date_joined, current_leave_balance, monthly_accumulation,
                            basic_salary, employment_type, status,
-                           leave_approver_id, leave_approver_name
+                           leave_approver_id, leave_approver_name,
+                           medical_aid_package, currency, usd_percent, zwg_percent, exchange_rate,
+                           omit_from_payroll, allowances,
+                           bank_holder_name, bank_holder_surname, bank_name,
+                           bank_account_number, bank_branch, bank_branch_code,
+                           leave_approver_whatsapp, leave_approver_email, created_at
                     FROM hr_employees ORDER BY last_name, first_name
                 """)
                 rows = cursor.fetchall()
+
+                # Per-type leave balances for every employee, in ONE query
+                balances_by_emp = {}
+                try:
+                    cursor.execute("""
+                        SELECT employee_id, leave_type, current_balance, monthly_accrual, annual_accrual, carry_forward
+                        FROM hr_employee_leave_balances ORDER BY employee_id, leave_type
+                    """)
+                    for lb in cursor.fetchall():
+                        balances_by_emp.setdefault(lb[0], []).append({
+                            'leave_type': lb[1] or '',
+                            'current_balance': float(lb[2] or 0),
+                            'monthly_accrual': float(lb[3] or 0),
+                            'annual_accrual': float(lb[4] or 0),
+                            'carry_forward': float(lb[5] or 0),
+                        })
+                except Exception as lb_err:
+                    print(f"Note: could not load per-type leave balances: {lb_err}")
+
                 employee_ids = set()
                 employee_emails = set()
                 employees = []
@@ -17361,6 +17385,23 @@ def hr_employees_api():
                         'leave_balance': float(r[18] or 0), 'monthly_accrual': float(r[19] or 0),
                         'salary': float(r[20] or 0), 'employment_type': r[21], 'status': r[22],
                         'leave_approver_id': r[23], 'leave_approver_name': r[24] or '',
+                        'medical_aid_package': r[25] or '',
+                        'currency': r[26] or 'USD',
+                        'usd_percent': float(r[27]) if r[27] is not None else 100,
+                        'zwg_percent': float(r[28]) if r[28] is not None else 0,
+                        'exchange_rate': float(r[29]) if r[29] is not None else 1,
+                        'omit_from_payroll': bool(r[30]),
+                        'allowances': float(r[31] or 0),
+                        'bank_holder_name': r[32] or '',
+                        'bank_holder_surname': r[33] or '',
+                        'bank_name': r[34] or '',
+                        'bank_account_number': r[35] or '',
+                        'bank_branch': r[36] or '',
+                        'bank_branch_code': r[37] or '',
+                        'leave_approver_whatsapp': r[38] or '',
+                        'leave_approver_email': r[39] or '',
+                        'created_at': str(r[40])[:10] if r[40] else None,
+                        'leave_balances': balances_by_emp.get(r[0], []),
                         'source': 'hr_employees'
                     })
 
@@ -17386,6 +17427,14 @@ def hr_employees_api():
                         'date_joined': str(au[5])[:10] if au[5] else None,
                         'leave_balance': 21, 'monthly_accrual': 1.75,
                         'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'medical_aid_package': '', 'currency': 'USD',
+                        'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
+                        'omit_from_payroll': False, 'allowances': 0,
+                        'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
+                        'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
+                        'leave_approver_whatsapp': '', 'leave_approver_email': '',
+                        'created_at': str(au[5])[:10] if au[5] else None,
+                        'leave_balances': [],
                         'source': 'admin_users'
                     })
                     employee_ids.add(au_id)
@@ -17414,6 +17463,14 @@ def hr_employees_api():
                         'date_joined': str(clu[3])[:10] if clu[3] else None,
                         'leave_balance': 21, 'monthly_accrual': 1.75,
                         'salary': 0, 'employment_type': 'Permanent', 'status': 'Active',
+                        'medical_aid_package': '', 'currency': 'USD',
+                        'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
+                        'omit_from_payroll': False, 'allowances': 0,
+                        'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
+                        'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
+                        'leave_approver_whatsapp': '', 'leave_approver_email': '',
+                        'created_at': str(clu[3])[:10] if clu[3] else None,
+                        'leave_balances': [],
                         'source': 'connectlinkusers'
                     })
                     employee_ids.add(clu_id)
@@ -21288,48 +21345,152 @@ def hr_export_employees():
         def _esc(val):
             return (str(val) if val is not None else '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-        cols = ['#', 'Employee Name', 'Email', 'National ID', 'Department',
-                'Position', 'Employment', 'Status', 'Date Joined']
+        def _txt(e, key, default=''):
+            v = e.get(key)
+            if v is None:
+                return default
+            if isinstance(v, bool):
+                return 'Yes' if v else 'No'
+            s = str(v).strip()
+            return s if s else default
 
-        rows = []
-        for idx, e in enumerate(employees, 1):
-            name = f"{(e.get('first_name') or '').strip()} {(e.get('last_name') or '').strip()}".strip() or 'Unknown'
-            rows.append([
-                idx,
-                name,
-                e.get('email') or '',
-                e.get('national_id') or '',
-                e.get('department') or 'N/A',
-                e.get('designation') or 'N/A',
-                e.get('employment_type') or 'Permanent',
-                e.get('status') or 'Active',
-                (str(e.get('date_joined') or '')[:10]) or ''
-            ])
+        def _date(e, key):
+            v = e.get(key)
+            return ('' if v is None else str(v))[:10]
 
-        if not rows:
+        def _num(e, key, default=0.0):
+            try:
+                v = e.get(key)
+                return float(v) if v not in (None, '') else float(default)
+            except (TypeError, ValueError):
+                return float(default)
+
+        def _fmt_num(v):
+            try:
+                f = float(v)
+            except (TypeError, ValueError):
+                return _esc(v)
+            return f"{f:,.0f}" if abs(f - round(f)) < 1e-9 else f"{f:,.2f}"
+
+        if not employees:
             return jsonify({'success': False, 'error': 'No employees to export with the current filters.'}), 400
 
-        total = len(rows)
-        active = sum(1 for r in rows if r[7] == 'Active')
-        on_leave = sum(1 for r in rows if r[7] == 'On Leave')
-        dept_count = len({r[4] for r in rows if r[4] and r[4] != 'N/A'})
+        # EVERY field captured on the Add/Edit Employee form. The initial login
+        # password is a credential and is deliberately never exported.
+        # (label, reader) — numeric readers return floats so Excel gets typed cells.
+        FIELDS = [
+            ('Employee ID', lambda e: e.get('id') if e.get('id') is not None else ''),
+            ('First Name', lambda e: _txt(e, 'first_name')),
+            ('Last Name', lambda e: _txt(e, 'last_name')),
+            ('Gender', lambda e: _txt(e, 'gender')),
+            ('Date of Birth', lambda e: _date(e, 'dob')),
+            ('Marital Status', lambda e: _txt(e, 'marital_status')),
+            ('Nationality', lambda e: _txt(e, 'nationality')),
+            ('National ID', lambda e: _txt(e, 'national_id')),
+            ('Email', lambda e: _txt(e, 'email')),
+            ('Phone / WhatsApp', lambda e: _txt(e, 'whatsapp')),
+            ('Address', lambda e: _txt(e, 'address')),
+            ('Subsidiary', lambda e: _txt(e, 'subsidiary')),
+            ('Department', lambda e: _txt(e, 'department')),
+            ('Designation', lambda e: _txt(e, 'designation')),
+            ('Employment Type', lambda e: _txt(e, 'employment_type', 'Permanent')),
+            ('Date Joined', lambda e: _date(e, 'date_joined')),
+            ('Classification', lambda e: _txt(e, 'classification', 'Ordinary')),
+            ('Role / Access Level', lambda e: _txt(e, 'role', 'Ordinary User')),
+            ('Status', lambda e: _txt(e, 'status', 'Active')),
+            ('Leave Approver', lambda e: _txt(e, 'leave_approver_name')),
+            ('Leave Approver WhatsApp', lambda e: _txt(e, 'leave_approver_whatsapp')),
+            ('Leave Approver Email', lambda e: _txt(e, 'leave_approver_email')),
+            ('Leave Balance (Days)', lambda e: _num(e, 'current_leave_balance')),
+            ('Monthly Accrual', lambda e: _num(e, 'monthly_accumulation')),
+            ('Basic Salary (USD)', lambda e: _num(e, 'basic_salary')),
+            ('Allowances (USD)', lambda e: _num(e, 'allowances')),
+            ('Currency', lambda e: _txt(e, 'currency', 'USD')),
+            ('USD %', lambda e: _num(e, 'usd_percent', 100)),
+            ('ZWG %', lambda e: _num(e, 'zwg_percent', 0)),
+            ('Exchange Rate', lambda e: _num(e, 'exchange_rate', 1)),
+            ('Medical Aid Package', lambda e: _txt(e, 'medical_aid_package')),
+            ('Omit from Payroll', lambda e: 'Yes' if e.get('omit_from_payroll') else 'No'),
+            ('Bank Account Holder Name', lambda e: _txt(e, 'bank_holder_name')),
+            ('Bank Account Holder Surname', lambda e: _txt(e, 'bank_holder_surname')),
+            ('Bank Name', lambda e: _txt(e, 'bank_name')),
+            ('Bank Account Number', lambda e: _txt(e, 'bank_account_number')),
+            ('Bank Branch', lambda e: _txt(e, 'bank_branch')),
+            ('Bank Branch Code', lambda e: _txt(e, 'bank_branch_code')),
+            ('Date Added', lambda e: _date(e, 'created_at')),
+        ]
+        FIELD_MAP = dict(FIELDS)
+        cols = ['#'] + [lbl for lbl, _ in FIELDS]
+        rows = [[i] + [reader(e) for _, reader in FIELDS] for i, e in enumerate(employees, 1)]
+
+        total = len(employees)
+        active = sum(1 for e in employees if _txt(e, 'status', 'Active') == 'Active')
+        on_leave = sum(1 for e in employees if _txt(e, 'status') == 'On Leave')
+        dept_count = len({_txt(e, 'department') for e in employees if _txt(e, 'department')})
+
+        NUMERIC_LABELS = {'Leave Balance (Days)', 'Monthly Accrual', 'Basic Salary (USD)',
+                          'Allowances (USD)', 'USD %', 'ZWG %', 'Exchange Rate'}
+
+        def _kv_html(labels, e, per_row=2):
+            pairs = []
+            for lbl in labels:
+                reader = FIELD_MAP.get(lbl)
+                raw = reader(e) if reader else ''
+                val = _fmt_num(raw) if lbl in NUMERIC_LABELS else (_esc(raw) if raw != '' else '-')
+                pairs.append((lbl, val))
+            out_html = ''
+            for i in range(0, len(pairs), per_row):
+                chunk = pairs[i:i + per_row]
+                cells = ''.join(f'<td class="k">{_esc(lb)}</td><td class="v">{v}</td>' for lb, v in chunk)
+                cells += '<td class="k"></td><td class="v"></td>' * (per_row - len(chunk))
+                out_html += f'<tr>{cells}</tr>'
+            return out_html
 
         if fmt == 'pdf':
-            rows_html = ''
-            for r in rows:
-                status_color = '#166534' if r[7] == 'Active' else '#92400e' if r[7] == 'On Leave' else '#b91c1c'
-                rows_html += f'''
-                <tr>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;text-align:center;">{r[0]}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;font-weight:600;">{_esc(r[1])}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[2])}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[3])}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[4])}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[5])}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[6])}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;color:{status_color};font-weight:600;">{_esc(r[7])}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[8])}</td>
-                </tr>'''
+            SECTIONS = [
+                ('PERSONAL DETAILS', ['First Name', 'Last Name', 'Gender', 'Date of Birth',
+                                      'Marital Status', 'Nationality', 'National ID']),
+                ('CONTACT DETAILS', ['Email', 'Phone / WhatsApp', 'Address']),
+                ('EMPLOYMENT DETAILS', ['Employee ID', 'Subsidiary', 'Department', 'Designation',
+                                        'Employment Type', 'Date Joined', 'Classification',
+                                        'Role / Access Level', 'Status', 'Leave Approver',
+                                        'Leave Approver WhatsApp', 'Leave Approver Email', 'Date Added']),
+                ('LEAVE - TOTALS', ['Leave Balance (Days)', 'Monthly Accrual']),
+                ('PAYROLL', ['Basic Salary (USD)', 'Allowances (USD)', 'Currency', 'USD %', 'ZWG %',
+                             'Exchange Rate', 'Medical Aid Package', 'Omit from Payroll']),
+                ('BANK DETAILS', ['Bank Account Holder Name', 'Bank Account Holder Surname', 'Bank Name',
+                                  'Bank Account Number', 'Bank Branch', 'Bank Branch Code']),
+            ]
+
+            blocks_html = ''
+            for i, e in enumerate(employees, 1):
+                full_name = f"{_txt(e, 'first_name')} {_txt(e, 'last_name')}".strip() or 'Unknown'
+                tag = ' - '.join([b for b in (_txt(e, 'department'), _txt(e, 'designation')) if b])
+                body = ''
+                for sec_title, labels in SECTIONS:
+                    body += f'<div class="sec">{_esc(sec_title)}</div>'
+                    body += f'<table class="kv">{_kv_html(labels, e)}</table>'
+                    if sec_title.startswith('LEAVE'):
+                        lb_rows = e.get('leave_balances') or []
+                        if lb_rows:
+                            body += ('<table class="kv kv-lb"><tr><th>Leave Type</th><th>Balance</th>'
+                                     '<th>Monthly Accrual</th><th>Annual Cap</th><th>Carry Forward</th></tr>')
+                            for b in lb_rows:
+                                body += ('<tr><td class="v">' + _esc(b.get('leave_type')) + '</td>'
+                                         '<td class="v num">' + _fmt_num(b.get('current_balance')) + '</td>'
+                                         '<td class="v num">' + _fmt_num(b.get('monthly_accrual')) + '</td>'
+                                         '<td class="v num">' + _fmt_num(b.get('annual_accrual')) + '</td>'
+                                         '<td class="v num">' + _fmt_num(b.get('carry_forward')) + '</td></tr>')
+                            body += '</table>'
+                blocks_html += f'''
+                <div class="emp">
+                    <div class="emp-head">
+                        <span class="emp-no">{i}</span>
+                        <span class="emp-name">{_esc(full_name)}</span>
+                        <span class="emp-tag">{_esc(tag)}</span>
+                    </div>
+                    {body}
+                </div>'''
 
             html = f'''<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -21353,26 +21514,34 @@ tr:nth-child(even) td {{ background: #F8FAFC; }}
 .summary .item {{ font-size: 9px; }}
 .summary .item strong {{ font-size: 12px; color: #1E2A56; }}
 .footer {{ position: fixed; bottom: 0; left: 35px; right: 35px; text-align: center; font-size: 8px; color: #94A3B8; border-top: 1px solid #e2e8f0; padding-top: 6px; }}
+.emp {{ border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; page-break-inside: avoid; }}
+.emp-head {{ display: flex; align-items: baseline; gap: 8px; border-bottom: 2px solid #1E2A56; padding-bottom: 4px; margin-bottom: 6px; }}
+.emp-no {{ background: #1E2A56; color: #fff; font-size: 9px; font-weight: 700; border-radius: 4px; padding: 1px 6px; }}
+.emp-name {{ font-size: 11px; font-weight: 800; color: #1E2A56; }}
+.emp-tag {{ font-size: 8px; color: #64748B; margin-left: auto; }}
+.sec {{ font-size: 8px; font-weight: 800; color: #C12B3E; letter-spacing: 0.6px; margin: 6px 0 3px; text-transform: uppercase; }}
+table.kv {{ width: 100%; border-collapse: collapse; margin: 0; }}
+table.kv td {{ border: 1px solid #e2e8f0; padding: 3px 6px; font-size: 8px; vertical-align: top; background: #FFFFFF; }}
+table.kv td.k {{ background: #F1F5F9; color: #475569; font-weight: 600; width: 14%; }}
+table.kv td.v {{ color: #1E2A56; width: 36%; }}
+table.kv td.num {{ text-align: right; }}
+table.kv-lb {{ margin-top: 3px; }}
+table.kv-lb th {{ background: #1E2A56; color: #fff; font-size: 8px; padding: 3px 6px; text-align: left; }}
 </style></head><body>
 <div class="watermark">EMPLOYEE LIST</div>
 <div class="header">
     <div><div class="logo">Connect<span>Link</span></div></div>
     <div class="meta"><strong>Employee List</strong><br>{now_str}<br>Prepared by: {_esc(user_name)}</div>
 </div>
-<h2>Employee List</h2>
-<div class="subtitle">Human Resources — Employee Register</div>
-<table>
-<thead><tr>
-    <th>#</th><th>Employee Name</th><th>Email</th><th>National ID</th><th>Department</th><th>Position</th><th>Employment</th><th>Status</th><th>Date Joined</th>
-</tr></thead>
-<tbody>{rows_html}</tbody>
-</table>
+<h2>Employee List - Full Record</h2>
+<div class="subtitle">Human Resources - every field captured on the employee record</div>
 <div class="summary">
     <div class="item">Total Employees<br><strong>{total}</strong></div>
     <div class="item">Active<br><strong>{active}</strong></div>
     <div class="item">On Leave<br><strong>{on_leave}</strong></div>
     <div class="item">Departments<br><strong>{dept_count}</strong></div>
 </div>
+{blocks_html}
 <div class="footer">ConnectLink Properties &amp; Hardware — Employee List — Generated {now_str}</div>
 </body></html>'''
 
@@ -21401,12 +21570,20 @@ tr:nth-child(even) td {{ background: #F8FAFC; }}
                 )
 
         else:
-            # Excel export
+            # Excel export — one row per employee, EVERY field as its own column
             wb = Workbook()
             ws = wb.active
             ws.title = "Employee List"
 
-            ws.merge_cells('A1:I1')
+            def _col_letter(n):
+                s = ''
+                while n:
+                    n, rem = divmod(n - 1, 26)
+                    s = chr(65 + rem) + s
+                return s
+
+            last_col = _col_letter(len(cols))
+            ws.merge_cells(f'A1:{last_col}1')
             title_cell = ws['A1']
             title_cell.value = f"Employee List — {user_name}"
             title_cell.font = ExcelFont(bold=True, size=13, color='1E2A56')
@@ -21425,24 +21602,123 @@ tr:nth-child(even) td {{ background: #F8FAFC; }}
                 cell = ws.cell(row=3, column=col_idx, value=col_name)
                 cell.fill = header_fill
                 cell.font = header_font
-                cell.alignment = ExcelAlign(horizontal='center', vertical='center')
+                cell.alignment = ExcelAlign(horizontal='center', vertical='center', wrap_text=True)
                 cell.border = thin_border
+            ws.row_dimensions[3].height = 30
 
             for row_idx, r in enumerate(rows, 4):
                 for col_idx, val in enumerate(r, 1):
                     cell = ws.cell(row=row_idx, column=col_idx, value=val if val is not None else '')
                     cell.font = ExcelFont(size=9)
                     cell.border = thin_border
-                    if col_idx == 1:
+                    label = cols[col_idx - 1]
+                    if label == '#':
                         cell.alignment = ExcelAlign(horizontal='center')
+                    elif label in NUMERIC_LABELS:
+                        cell.number_format = '#,##0.00'
+                        cell.alignment = ExcelAlign(horizontal='right')
 
-            # Summary rows
+            # Dropdowns (Excel data validation) for every field that is a dropdown in the app.
+            # Option lists mirror the Add/Edit Employee form and the import template.
+            DROPDOWNS = {
+                'Gender': ['Male', 'Female'],
+                'Marital Status': ['Single', 'Married', 'Divorced', 'Widowed'],
+                'Subsidiary': ['Construction', 'Hardware', 'Group', 'Kitchen & Cabinets'],
+                'Department': ['Sales and Marketing', 'Administration', 'Finance', 'HR', 'Logistics',
+                               'Management', 'Systems & IT', 'Production'],
+                'Employment Type': ['Permanent', 'Contract', 'Probation', 'Intern', 'Part-Time'],
+                'Classification': ['Top Management', 'Ordinary'],
+                'Role / Access Level': ['Ordinary User', 'Administrator'],
+                'Status': ['Active', 'Inactive', 'Terminated'],
+                'Medical Aid Package': ['Lite', 'Platinum'],
+                'Currency': ['USD', 'ZWG', 'Mixed'],
+                'Bank Name': ['CABS', 'CBZ', 'Ecobank', 'FBC', 'First Capital', 'NBS', 'Nedbank', 'POSB',
+                              'EcoCash', 'Standard Chartered', 'Stanbic', 'ZABG', 'ZB'],
+            }
+            for lbl, options in DROPDOWNS.items():
+                if lbl not in cols:
+                    continue
+                col_letter = _col_letter(cols.index(lbl) + 1)
+                dv = DataValidation(
+                    type="list",
+                    formula1='"' + ','.join(options) + '"',
+                    allow_blank=True
+                )
+                dv.error = "Please select a valid option from the dropdown"
+                dv.errorTitle = "Invalid Entry"
+                dv.prompt = "Select from dropdown"
+                dv.promptTitle = lbl
+                ws.add_data_validation(dv)
+                dv.add(f'{col_letter}4:{col_letter}1048576')
+
             summary_row = len(rows) + 5
             ws.cell(row=summary_row, column=1, value=f"TOTAL: {total}  |  Active: {active}  |  On Leave: {on_leave}  |  Departments: {dept_count}").font = ExcelFont(bold=True, size=10)
 
-            widths = [6, 26, 32, 18, 22, 22, 14, 12, 14]
-            for i, w in enumerate(widths, 1):
-                ws.column_dimensions[chr(64 + i)].width = w
+            width_map = {
+                'Employee ID': 11, 'First Name': 16, 'Last Name': 16, 'Gender': 10,
+                'Date of Birth': 14, 'Marital Status': 14, 'Nationality': 14, 'National ID': 18,
+                'Email': 30, 'Phone / WhatsApp': 18, 'Address': 34, 'Subsidiary': 14,
+                'Department': 20, 'Designation': 20, 'Employment Type': 14, 'Date Joined': 14,
+                'Classification': 14, 'Role / Access Level': 18, 'Status': 12,
+                'Leave Approver': 20, 'Leave Approver WhatsApp': 20, 'Leave Approver Email': 26,
+                'Leave Balance (Days)': 12, 'Monthly Accrual': 12,
+                'Basic Salary (USD)': 14, 'Allowances (USD)': 14, 'Currency': 10,
+                'USD %': 8, 'ZWG %': 8, 'Exchange Rate': 12, 'Medical Aid Package': 16,
+                'Omit from Payroll': 12, 'Bank Account Holder Name': 22,
+                'Bank Account Holder Surname': 24, 'Bank Name': 16,
+                'Bank Account Number': 20, 'Bank Branch': 16, 'Bank Branch Code': 14,
+                'Date Added': 13,
+            }
+            ws.column_dimensions['A'].width = 5
+            for i, (lbl, _) in enumerate(FIELDS, 2):
+                ws.column_dimensions[_col_letter(i)].width = width_map.get(lbl, 18)
+            ws.freeze_panes = 'B4'
+
+            # Second sheet — per-type leave balances (all four values per leave type)
+            lb_rows = []
+            for e in employees:
+                full = f"{_txt(e, 'first_name')} {_txt(e, 'last_name')}".strip()
+                for b in (e.get('leave_balances') or []):
+                    lb_rows.append([e.get('id'), full, _txt(b, 'leave_type'),
+                                    _num(b, 'current_balance'), _num(b, 'monthly_accrual'),
+                                    _num(b, 'annual_accrual'), _num(b, 'carry_forward')])
+            if lb_rows:
+                ws2 = wb.create_sheet("Leave Balances")
+                lb_cols = ['Employee ID', 'Employee Name', 'Leave Type', 'Balance',
+                           'Monthly Accrual', 'Annual Cap', 'Carry Forward']
+                ws2.merge_cells(f'A1:{_col_letter(len(lb_cols))}1')
+                t2 = ws2['A1']
+                t2.value = "Per-Type Leave Balances"
+                t2.font = ExcelFont(bold=True, size=13, color='1E2A56')
+                for col_idx, col_name in enumerate(lb_cols, 1):
+                    cell = ws2.cell(row=3, column=col_idx, value=col_name)
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = ExcelAlign(horizontal='center', vertical='center')
+                    cell.border = thin_border
+                for row_idx, r in enumerate(lb_rows, 4):
+                    for col_idx, val in enumerate(r, 1):
+                        cell = ws2.cell(row=row_idx, column=col_idx, value=val if val is not None else '')
+                        cell.font = ExcelFont(size=9)
+                        cell.border = thin_border
+                        if col_idx >= 4:
+                            cell.number_format = '#,##0.00'
+                for i, w in enumerate([12, 26, 18, 12, 16, 12, 14], 1):
+                    ws2.column_dimensions[_col_letter(i)].width = w
+                ws2.freeze_panes = 'A4'
+
+                # Leave Type is a dropdown in the app — same dropdown in Excel
+                lv_dv = DataValidation(
+                    type="list",
+                    formula1='"Annual Leave,Sick Leave,Study Leave,Family Responsibility,Maternity Leave,Unpaid Leave"',
+                    allow_blank=True
+                )
+                lv_dv.error = "Please select a valid option from the dropdown"
+                lv_dv.errorTitle = "Invalid Entry"
+                lv_dv.prompt = "Select from dropdown"
+                lv_dv.promptTitle = "Leave Type"
+                ws2.add_data_validation(lv_dv)
+                lv_dv.add('C4:C1048576')
 
             output = io.BytesIO()
             wb.save(output)
