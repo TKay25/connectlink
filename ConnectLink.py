@@ -18759,7 +18759,8 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                        COALESCE(p.medical_aid, 0) as medical_aid,
                        COALESCE(p.deductions, 0) as deductions,
                        COALESCE(p.net_pay, 0) as net_pay,
-                       e.whatsapp, p.period, p.status, p.processed_at
+                       e.whatsapp, p.period, p.status, p.processed_at,
+                       e.national_id
                 FROM hr_employees e
                 LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
                 WHERE e.id = %s
@@ -18795,6 +18796,7 @@ def handle_download_payslip_whatsapp(sender_id, payload):
                 'net_pay': float(row[34] or 0), 'whatsapp': row[35] or '',
                 'pay_status': row[37] or '',
                 'processed_at': row[38],
+                'national_id': row[39] or '',
                 'period': period
             }
 
@@ -20438,7 +20440,8 @@ def generate_payslip_pdf(employee_id):
                        COALESCE(p.medical_aid, 0) as medical_aid,
                        COALESCE(p.deductions, 0) as deductions,
                        COALESCE(p.net_pay, 0) as net_pay,
-                       p.period, p.status, p.processed_at
+                       p.period, p.status, p.processed_at,
+                       e.national_id
                 FROM hr_employees e
                 LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
                 WHERE e.id = %s
@@ -20477,7 +20480,8 @@ def generate_payslip_pdf(employee_id):
                 'medical_aid': float(row[32] or 0),
                 'total_deductions': float(row[33] or 0), 'net_pay': float(row[34] or 0),
                 'period': row[35] or period, 'status': row[36] or 'Not Processed',
-                'processed_at': row[37]
+                'processed_at': row[37],
+                'national_id': row[38] or ''
             }
 
             # Fetch employer NSSA config

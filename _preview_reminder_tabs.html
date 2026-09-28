@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Payment Reminders tab-switch test</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>body{font-family:system-ui,sans-serif;padding:16px}
+#paymentRemindersModal{border:1px solid #ccc;padding:12px}
+.tab-pane{background:#eef;padding:20px;font-weight:700}</style>
+</head>
+<body>
+<h1>Payment Reminders tab-switch test</h1>
+<p>Replica of the modal's tab markup, using real Bootstrap 5.3.</p>
+
+<div id="paymentRemindersModal">
+  <ul class="nav nav-tabs mb-3" id="reminderTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="dueSoon-tab" data-bs-toggle="tab" data-bs-target="#dueSoon" type="button" role="tab">Due within next 3 days</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="overdue-tab" data-bs-toggle="tab" data-bs-target="#overdue" type="button" role="tab">Overdue</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="outstanding-tab" data-bs-toggle="tab" data-bs-target="#outstanding" type="button" role="tab">Outstanding Payments</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all" type="button" role="tab">All Reminders</button>
+    </li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade" id="dueSoon" role="tabpanel">DUE SOON TABLE</div>
+    <div class="tab-pane fade show active" id="overdue" role="tabpanel">OVERDUE TABLE</div>
+    <div class="tab-pane fade" id="all" role="tabpanel">ALL REMINDERS TABLE</div>
+    <div class="tab-pane fade" id="outstanding" role="tabpanel">OUTSTANDING TABLE</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+window.__visible = function () {
+  return [].slice.call(document.querySelectorAll('#paymentRemindersModal .tab-pane'))
+    .filter(function (p) { return getComputedStyle(p).display !== 'none'; })
+    .map(function (p) { return p.id; });
+};
+window.__clearInline = function () {
+  document.querySelectorAll('#paymentRemindersModal .tab-pane').forEach(function (p) { p.style.display = ''; });
+};
+window.__activateOverdueClasses = function () {
+  document.getElementById('overdue').classList.add('show', 'active');
+  document.getElementById('overdue-tab').classList.add('active');
+};
+window.__bootstrapReady = function () { return typeof bootstrap !== 'undefined'; };
+</script>
+</body>
+</html>

@@ -23784,19 +23784,16 @@ function displayPaymentReminders(data) {
         
         if (dueSoonPane) { dueSoonPane.classList.remove('show', 'active'); }
         if (dueSoonBtn) { dueSoonBtn.classList.remove('active'); }
-        if (overduePane) {
-            overduePane.classList.add('show', 'active');
-            overduePane.style.display = 'block';
-        }
+        if (overduePane) { overduePane.classList.add('show', 'active'); }
         if (overdueBtn) { overdueBtn.classList.add('active'); }
         
-        // Fix tab switching - clear inline display style when other tabs clicked
-        document.querySelectorAll('#reminderTabs .nav-link').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('#paymentRemindersModal .tab-pane').forEach(function(p) {
-                    p.style.display = '';
-                });
-            });
+        // Clear any inline display left on a pane by the old code. An inline style
+        // beats Bootstrap's `.tab-content > .tab-pane { display:none }`, so the pane
+        // stayed visible after switching tabs - that is what made the Outstanding
+        // Payments and All Reminders tabs look broken. Bootstrap toggles
+        // .active/.show on the panes; never set display on them.
+        document.querySelectorAll('#paymentRemindersModal .tab-pane').forEach(function(p) {
+            p.style.display = '';
         });
         
         console.log('Overdue tab activated');

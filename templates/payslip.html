@@ -165,6 +165,7 @@
     <div class="ib"><div class="l">Pay Point</div><div class="v">001</div></div>
     <div class="ib"><div class="l">Employee No.</div><div class="v">{{ '%05d' % emp.id }}</div></div>
     <div class="ib"><div class="l">Name</div><div class="v">{{ emp.first_name }} {{ emp.last_name }}</div></div>
+    <div class="ib"><div class="l">National ID</div><div class="v">{{ emp.national_id or '—' }}</div></div>
     <div class="ib"><div class="l">Occupation</div><div class="v">{{ emp.designation }}</div></div>
     <div class="ib"><div class="l">Grade</div><div class="v">{{ emp.c8_type or '—' }}</div></div>
     <div class="ib"><div class="l">Dept</div><div class="v">{{ emp.department }}</div></div>
