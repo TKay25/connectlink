@@ -6298,10 +6298,13 @@ async function doExportEmployees(format) {
         }
         const blob = await res.blob();
         const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+        // Local date (NOT toISOString — that is UTC and would roll back a day in Harare)
+        const _d = new Date();
+        const stamp = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `employee_list_${new Date().toISOString().slice(0,10)}.${ext}`;
+        a.download = `employee_list_${stamp}.${ext}`;
         document.body.appendChild(a);
         a.click();
         a.remove();
