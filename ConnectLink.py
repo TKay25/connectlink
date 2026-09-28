@@ -21271,6 +21271,195 @@ tr:nth-child(even) td {{ background: #F8FAFC; }}
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/hr/export-employees', methods=['POST'])
+def hr_export_employees():
+    """Export the (currently filtered) Employee List as Excel (.xlsx) or PDF.
+
+    The frontend sends the employee rows that are visible under the active
+    filters so the downloaded file always matches what is on screen.
+    """
+    try:
+        data = request.get_json() or {}
+        fmt = (data.get('format') or 'excel').lower()
+        employees = data.get('employees') or []
+        user_name = session.get('user_name') or session.get('username') or 'Employee'
+        now_str = datetime.now().strftime('%d %B %Y')
+
+        def _esc(val):
+            return (str(val) if val is not None else '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+        cols = ['#', 'Employee Name', 'Email', 'National ID', 'Department',
+                'Position', 'Employment', 'Status', 'Date Joined']
+
+        rows = []
+        for idx, e in enumerate(employees, 1):
+            name = f"{(e.get('first_name') or '').strip()} {(e.get('last_name') or '').strip()}".strip() or 'Unknown'
+            rows.append([
+                idx,
+                name,
+                e.get('email') or '',
+                e.get('national_id') or '',
+                e.get('department') or 'N/A',
+                e.get('designation') or 'N/A',
+                e.get('employment_type') or 'Permanent',
+                e.get('status') or 'Active',
+                (str(e.get('date_joined') or '')[:10]) or ''
+            ])
+
+        if not rows:
+            return jsonify({'success': False, 'error': 'No employees to export with the current filters.'}), 400
+
+        total = len(rows)
+        active = sum(1 for r in rows if r[7] == 'Active')
+        on_leave = sum(1 for r in rows if r[7] == 'On Leave')
+        dept_count = len({r[4] for r in rows if r[4] and r[4] != 'N/A'})
+
+        if fmt == 'pdf':
+            rows_html = ''
+            for r in rows:
+                status_color = '#166534' if r[7] == 'Active' else '#92400e' if r[7] == 'On Leave' else '#b91c1c'
+                rows_html += f'''
+                <tr>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;text-align:center;">{r[0]}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;font-weight:600;">{_esc(r[1])}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[2])}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[3])}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[4])}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[5])}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[6])}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;color:{status_color};font-weight:600;">{_esc(r[7])}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{_esc(r[8])}</td>
+                </tr>'''
+
+            html = f'''<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+@page {{ size: A4 landscape; margin: 30px 35px; }}
+body {{ font-family: 'Roboto', 'Helvetica', sans-serif; color: #1E2A56; font-size: 10px; }}
+.watermark {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-45deg);
+    font-size: 120px; opacity: 0.03; color: #1E2A56; font-weight: 900; pointer-events: none; z-index: -1; }}
+.header {{ display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1E2A56; padding-bottom: 10px; margin-bottom: 14px; }}
+.header .logo {{ font-size: 20px; font-weight: 800; color: #1E2A56; letter-spacing: -0.5px; }}
+.header .logo span {{ color: #C12B3E; }}
+.header .meta {{ text-align: right; font-size: 9px; color: #475569; }}
+h2 {{ font-size: 14px; margin: 0 0 4px 0; color: #1E2A56; text-transform: uppercase; letter-spacing: 1px; }}
+.subtitle {{ font-size: 9px; color: #64748B; margin-bottom: 12px; }}
+table {{ width: 100%; border-collapse: collapse; margin-top: 6px; }}
+th {{ background: linear-gradient(135deg, #1E2A56, #2A3A78); color: #fff; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }}
+th:not(:last-child) {{ border-right: 1px solid rgba(255,255,255,0.15); }}
+td {{ padding: 5px 6px; border: 1px solid #e2e8f0; font-size: 9px; }}
+tr:nth-child(even) td {{ background: #F8FAFC; }}
+.summary {{ display: flex; gap: 20px; margin-top: 14px; padding: 10px 14px; background: #F1F5F9; border-radius: 6px; }}
+.summary .item {{ font-size: 9px; }}
+.summary .item strong {{ font-size: 12px; color: #1E2A56; }}
+.footer {{ position: fixed; bottom: 0; left: 35px; right: 35px; text-align: center; font-size: 8px; color: #94A3B8; border-top: 1px solid #e2e8f0; padding-top: 6px; }}
+</style></head><body>
+<div class="watermark">EMPLOYEE LIST</div>
+<div class="header">
+    <div><div class="logo">Connect<span>Link</span></div></div>
+    <div class="meta"><strong>Employee List</strong><br>{now_str}<br>Prepared by: {_esc(user_name)}</div>
+</div>
+<h2>Employee List</h2>
+<div class="subtitle">Human Resources — Employee Register</div>
+<table>
+<thead><tr>
+    <th>#</th><th>Employee Name</th><th>Email</th><th>National ID</th><th>Department</th><th>Position</th><th>Employment</th><th>Status</th><th>Date Joined</th>
+</tr></thead>
+<tbody>{rows_html}</tbody>
+</table>
+<div class="summary">
+    <div class="item">Total Employees<br><strong>{total}</strong></div>
+    <div class="item">Active<br><strong>{active}</strong></div>
+    <div class="item">On Leave<br><strong>{on_leave}</strong></div>
+    <div class="item">Departments<br><strong>{dept_count}</strong></div>
+</div>
+<div class="footer">ConnectLink Properties &amp; Hardware — Employee List — Generated {now_str}</div>
+</body></html>'''
+
+            try:
+                pdf_bytes = HTML(string=html).write_pdf()
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    as_attachment=True,
+                    download_name=f"employee_list_{datetime.now().strftime('%Y-%m-%d')}.pdf",
+                    mimetype='application/pdf'
+                )
+            except Exception as pdf_err:
+                print(f"Employee list PDF (weasyprint) failed, trying Playwright: {pdf_err}")
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    browser = p.chromium.launch()
+                    page = browser.new_page()
+                    page.set_content(html)
+                    pdf_bytes = page.pdf(format='A4', landscape=True, print_background=True)
+                    browser.close()
+                return send_file(
+                    io.BytesIO(pdf_bytes),
+                    as_attachment=True,
+                    download_name=f"employee_list_{datetime.now().strftime('%Y-%m-%d')}.pdf",
+                    mimetype='application/pdf'
+                )
+
+        else:
+            # Excel export
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Employee List"
+
+            ws.merge_cells('A1:I1')
+            title_cell = ws['A1']
+            title_cell.value = f"Employee List — {user_name}"
+            title_cell.font = ExcelFont(bold=True, size=13, color='1E2A56')
+            title_cell.alignment = ExcelAlign(horizontal='left')
+
+            header_fill = ExcelFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+            header_font = ExcelFont(bold=True, color='FFFFFF', size=10)
+            thin_border = ExcelBorder(
+                left=ExcelSide(style='thin', color='CBD5E1'),
+                right=ExcelSide(style='thin', color='CBD5E1'),
+                top=ExcelSide(style='thin', color='CBD5E1'),
+                bottom=ExcelSide(style='thin', color='CBD5E1')
+            )
+
+            for col_idx, col_name in enumerate(cols, 1):
+                cell = ws.cell(row=3, column=col_idx, value=col_name)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = ExcelAlign(horizontal='center', vertical='center')
+                cell.border = thin_border
+
+            for row_idx, r in enumerate(rows, 4):
+                for col_idx, val in enumerate(r, 1):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=val if val is not None else '')
+                    cell.font = ExcelFont(size=9)
+                    cell.border = thin_border
+                    if col_idx == 1:
+                        cell.alignment = ExcelAlign(horizontal='center')
+
+            # Summary rows
+            summary_row = len(rows) + 5
+            ws.cell(row=summary_row, column=1, value=f"TOTAL: {total}  |  Active: {active}  |  On Leave: {on_leave}  |  Departments: {dept_count}").font = ExcelFont(bold=True, size=10)
+
+            widths = [6, 26, 32, 18, 22, 22, 14, 12, 14]
+            for i, w in enumerate(widths, 1):
+                ws.column_dimensions[chr(64 + i)].width = w
+
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            return send_file(
+                output,
+                as_attachment=True,
+                download_name=f"employee_list_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+
+    except Exception as e:
+        print(f"Export employees error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ==================== HR COMMISSIONS ====================
 
 @app.route('/api/hr/commissions/periods', methods=['GET'])

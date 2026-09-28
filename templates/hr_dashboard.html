@@ -1377,7 +1377,7 @@
                     <button class="btn btn-primary btn-sm" onclick="openModal('employeeImportModal')">
                         <i class="bi bi-person-plus"></i> Add Employee
                     </button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="alert('Exporting employee list...')">
+                    <button class="btn btn-outline-primary btn-sm" onclick="openEmployeeExportModal()">
                         <i class="bi bi-download"></i> Export
                     </button>
                 </div>
@@ -2294,7 +2294,7 @@
                 <div class="card-body-custom">
                     <div class="row g-2">
                         <div class="col-md-3">
-                            <button class="btn btn-outline-primary btn-sm w-100" onclick="alert('Export employee list...')">
+                            <button class="btn btn-outline-primary btn-sm w-100" onclick="openEmployeeExportModal()">
                                 <i class="bi bi-file-earmark-spreadsheet"></i> Employees
                             </button>
                         </div>
@@ -3595,6 +3595,8 @@ async function loadEmployees() {
         const res = await fetch('/api/hr/employees');
         const data = await res.json();
         console.log('Employee list data:', JSON.stringify(data.data?.slice(0,3)));
+        // Cache the list so the export uses exactly what is on screen
+        window._employeesData = (data && Array.isArray(data.data)) ? data.data : [];
         const tbody = document.getElementById('employeesTableBody');
         if (!tbody) return;
 
@@ -3986,9 +3988,9 @@ function filterEmployeeTable() {
     rows.forEach(row => {
         if (row.querySelector('.text-muted')) return;
         const text = row.textContent.toLowerCase();
-        const rowDept = row.cells[2]?.textContent || '';
-        const rowStatus = row.cells[5]?.textContent || '';
-        const rowType = row.cells[4]?.textContent || '';
+        const rowDept = (row.cells[3]?.textContent || '').trim();
+        const rowStatus = (row.cells[6]?.textContent || '').trim();
+        const rowType = (row.cells[5]?.textContent || '').trim();
         let match = true;
         if (search && !text.includes(search)) match = false;
         if (dept && rowDept !== dept) match = false;
@@ -6241,6 +6243,75 @@ async function doExport(format) {
         alert('Export error: ' + e.message);
     }
 }
+
+// ===== EXPORT EMPLOYEE LIST =====
+function openEmployeeExportModal() {
+    openModal('employeeExportModal');
+}
+
+// Returns the employee rows currently visible under the active filters
+function getFilteredEmployees() {
+    const all = Array.isArray(window._employeesData) ? window._employeesData : [];
+    const search = (document.getElementById('employeeSearch')?.value || '').toLowerCase().trim();
+    const dept = document.getElementById('empDeptFilter')?.value || '';
+    const status = document.getElementById('empStatusFilter')?.value || '';
+    const type = document.getElementById('empTypeFilter')?.value || '';
+    return all.filter(emp => {
+        const name = `${emp.first_name || ''} ${emp.last_name || ''}`.trim();
+        const hay = `${name} ${emp.email || ''} ${emp.national_id || ''} ${emp.department || ''} ${emp.designation || ''} ${emp.employment_type || ''} ${emp.status || ''}`.toLowerCase();
+        if (search && !hay.includes(search)) return false;
+        if (dept && (emp.department || '') !== dept) return false;
+        if (status && (emp.status || 'Active') !== status) return false;
+        if (type && (emp.employment_type || 'Permanent') !== type) return false;
+        return true;
+    });
+}
+
+async function doExportEmployees(format) {
+    closeModal('employeeExportModal');
+    const loader = document.getElementById('hrLoader');
+    if (loader) loader.classList.add('active');
+    try {
+        // Make sure the employee list is available (e.g. exported from the dashboard)
+        if (!Array.isArray(window._employeesData) || window._employeesData.length === 0) {
+            const r = await fetch('/api/hr/employees');
+            const d = await r.json();
+            window._employeesData = (d && Array.isArray(d.data)) ? d.data : [];
+        }
+        const rows = getFilteredEmployees();
+        if (!rows.length) {
+            if (loader) loader.classList.remove('active');
+            alert('No employees match the current filters.');
+            return;
+        }
+        const res = await fetch('/api/hr/export-employees', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format: format, employees: rows })
+        });
+        if (!res.ok) {
+            let msg = 'Unknown error';
+            try { const err = await res.json(); msg = err.error || msg; } catch(_) {}
+            if (loader) loader.classList.remove('active');
+            alert('Export failed: ' + msg);
+            return;
+        }
+        const blob = await res.blob();
+        const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `employee_list_${new Date().toISOString().slice(0,10)}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        if (loader) loader.classList.remove('active');
+    } catch(e) {
+        if (loader) loader.classList.remove('active');
+        alert('Export error: ' + e.message);
+    }
+}
 </script>
 
 <!-- Export Modal -->
@@ -6269,6 +6340,36 @@ async function doExport(format) {
                 </button>
             </div>
             <button onclick="closeModal('exportAssetModal')" class="btn btn-sm btn-outline-primary" style="margin-top:16px;font-size:0.6rem;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Employee List Export Modal -->
+<div id="employeeExportModal" class="modal-overlay">
+    <div class="modal-container small">
+        <div class="modal-header-custom">
+            <h3><i class="bi bi-download"></i> Export Employee List</h3>
+            <button class="modal-close" onclick="closeModal('employeeExportModal')">&times;</button>
+        </div>
+        <div class="modal-body-custom" style="text-align:center;padding:24px 20px;">
+            <p style="font-size:0.65rem;color:var(--text-muted);margin-bottom:16px;">Choose export format</p>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button onclick="doExportEmployees('excel')" style="flex:1;padding:16px 12px;border:2px solid var(--gray-200);border-radius:12px;background:var(--white);cursor:pointer;transition:all 0.2s;text-align:center;"
+                    onmouseover="this.style.borderColor='#1a73e8';this.style.background='#e8f0fe';"
+                    onmouseout="this.style.borderColor='var(--gray-200)';this.style.background='var(--white)';">
+                    <i class="bi bi-file-earmark-spreadsheet" style="font-size:1.6rem;color:#1a73e8;display:block;margin-bottom:6px;"></i>
+                    <span style="font-size:0.65rem;font-weight:700;color:var(--text-primary);display:block;">Excel</span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">.xlsx format</span>
+                </button>
+                <button onclick="doExportEmployees('pdf')" style="flex:1;padding:16px 12px;border:2px solid var(--gray-200);border-radius:12px;background:var(--white);cursor:pointer;transition:all 0.2s;text-align:center;"
+                    onmouseover="this.style.borderColor='#d32f2f';this.style.background='#fce4ec';"
+                    onmouseout="this.style.borderColor='var(--gray-200)';this.style.background='var(--white)';">
+                    <i class="bi bi-file-earmark-pdf" style="font-size:1.6rem;color:#d32f2f;display:block;margin-bottom:6px;"></i>
+                    <span style="font-size:0.65rem;font-weight:700;color:var(--text-primary);display:block;">PDF</span>
+                    <span style="font-size:0.55rem;color:var(--text-muted);">Styled document</span>
+                </button>
+            </div>
+            <button onclick="closeModal('employeeExportModal')" class="btn btn-sm btn-outline-primary" style="margin-top:16px;font-size:0.6rem;">Cancel</button>
         </div>
     </div>
 </div>

@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-09-25T13:21:03.691Z",
+  "last_sync": "2026-09-28T09:51:57.108Z",
   "module_count": 73,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 74,
+  "orphaned_count": 96,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -106,6 +106,10 @@
       "source": "_ConnectLink_py_backup.txt"
     },
     {
+      "artifact": "artifacts/modules/_dayend_result.json",
+      "source": "_dayend_result.txt"
+    },
+    {
       "artifact": "artifacts/modules/_diag_aug_commissions.json",
       "source": "_diag_aug_commissions.py"
     },
@@ -124,6 +128,10 @@
     {
       "artifact": "artifacts/modules/_diag_user_link.json",
       "source": "_diag_user_link.py"
+    },
+    {
+      "artifact": "artifacts/modules/_final_result.json",
+      "source": "_final_result.txt"
     },
     {
       "artifact": "artifacts/modules/_fix_approve_msg.json",
@@ -150,6 +158,26 @@
       "source": "_fix_v3.py"
     },
     {
+      "artifact": "artifacts/modules/_guard_out.json",
+      "source": "_guard_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_guard_result.json",
+      "source": "_guard_result.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_health2_result.json",
+      "source": "_health2_result.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_health_result.json",
+      "source": "_health_result.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_params_result.json",
+      "source": "_params_result.txt"
+    },
+    {
       "artifact": "artifacts/modules/_patch_enq_notify.json",
       "source": "_patch_enq_notify.py"
     },
@@ -166,8 +194,28 @@
       "source": "_preview_audit_pdf.py"
     },
     {
+      "artifact": "artifacts/modules/_preview_branchchip.json",
+      "source": "_preview_branchchip.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_branch_login.json",
+      "source": "_preview_branch_login.py"
+    },
+    {
       "artifact": "artifacts/modules/_preview_cashier.json",
       "source": "_preview_cashier.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_dayend.json",
+      "source": "_preview_dayend.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_final.json",
+      "source": "_preview_final.py"
+    },
+    {
+      "artifact": "artifacts/modules/_preview_multibranch.json",
+      "source": "_preview_multibranch.py"
     },
     {
       "artifact": "artifacts/modules/_preview_server.json",
@@ -214,12 +262,44 @@
       "source": "_preview_statsfix.py"
     },
     {
+      "artifact": "artifacts/modules/_preview_verify.json",
+      "source": "_preview_verify.py"
+    },
+    {
       "artifact": "artifacts/modules/_report_today.json",
       "source": "_report_today.py"
     },
     {
       "artifact": "artifacts/modules/_rerun_aug_payroll.json",
       "source": "_rerun_aug_payroll.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_branches_unit.json",
+      "source": "_test_branches_unit.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_branch_guard.json",
+      "source": "_test_branch_guard.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_branch_health.json",
+      "source": "_test_branch_health.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_branch_health2.json",
+      "source": "_test_branch_health2.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_dayend.json",
+      "source": "_test_dayend.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_multibranch_final.json",
+      "source": "_test_multibranch_final.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_sql_params.json",
+      "source": "_test_sql_params.py"
     },
     {
       "artifact": "artifacts/modules/_tmp_flow_probe.json",
@@ -290,8 +370,16 @@
       "source": "_verify_aug_payroll.py"
     },
     {
+      "artifact": "artifacts/modules/_verify_branches.json",
+      "source": "_verify_branches.py"
+    },
+    {
       "artifact": "artifacts/modules/_verify_final_aug.json",
       "source": "_verify_final_aug.py"
+    },
+    {
+      "artifact": "artifacts/modules/_verify_out.json",
+      "source": "_verify_out.txt"
     },
     {
       "artifact": "artifacts/modules/_verify_payslip.json",
