@@ -25354,13 +25354,6 @@ def download_contract(project_id):
                         <p style="font-size:11px;">The Contractor's total liability arising from this Agreement shall not exceed the total Contract Price, except in cases of gross negligence or wilful misconduct.</p>
                     </div>
 
-                    <div class="section-header">INDEMNITY CLAUSE</div>
-                    <div class="terms-box">
-                        <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
-                    </div>
-
-
-
                     <!-- Page break -->
                     <div class="page-break"></div>
                     
@@ -25368,6 +25361,10 @@ def download_contract(project_id):
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
+                    <div class="section-header">INDEMNITY CLAUSE</div>
+                    <div class="terms-box">
+                        <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
+                    </div>
 
                     <div class="section-header">TERMINATION</div>
                     <div class="terms-box">
@@ -25406,6 +25403,13 @@ def download_contract(project_id):
                         <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
                     </div>
 
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 8 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                     <div class="section-header">NOTICES</div>
                     <div class="terms-box">
                         <ol>
@@ -25424,13 +25428,6 @@ def download_contract(project_id):
                     <div class="terms-box">
                         <p style="font-size:11px;">Before engaging Connectlink Properties, The client is responsible for paying for their plan approvals and all relevant stage inspections as required by the relevant Local Authority (City Council, Town Council or Rural District Council).</p>
                     </div>
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 8 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                     <div class="section-header">ENTIRE AGREEMENT</div>
                     <div class="terms-box">
