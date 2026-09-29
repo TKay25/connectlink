@@ -11034,7 +11034,7 @@ def webhook():
                                                                                     <ol>
                                                                                         <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
                                                                                         <li>The warranty shall not apply to:
-                                                                                            <ol>
+                                                                                            <ol style="display: flex; gap: 1rem; list-style-position: inside;">
                                                                                                 <li>Normal wear and tear;</li>
                                                                                                 <li>Misuse or negligence by the Client;</li>
                                                                                                 <li>Structural defects not attributable to the Contractor;</li>
@@ -11066,6 +11066,13 @@ def webhook():
                                                                                     <p style="font-size:11px;">The Client shall provide water or a suitable water supply and water storage tank(s) of at least 5000 liters for construction activities at their own expense.</p>
                                                                                 </div>
 
+                                                                                <div class="section-header">ZESA and Water Connections</div>
+                                                                                <div class="terms-box">
+                                                                                    <ul>
+                                                                                        <li>On Full House construction, all ZESA and water connection fees shall be borne or paid for by the Client.</li>
+                                                                                    </ul>
+                                                                                </div>
+
                                                                                 <div class="section-header">RISK AND INSURANCE</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -11088,6 +11095,13 @@ def webhook():
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">The Contractor's total liability arising from this Agreement shall not exceed the total Contract Price, except in cases of gross negligence or wilful misconduct.</p>
                                                                                 </div>
+
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 5 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                                                                                 <div class="section-header">INDEMNITY CLAUSE</div>
                                                                                 <div class="terms-box">
@@ -11115,15 +11129,6 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
-                                                                                <!-- Page break -->
-                                                                                <div class="page-break"></div>
-                                                                                
-                                                                                <!-- Page 5 -->
-
-                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
-
-
                                                                                 <div class="section-header">DISPUTE RESOLUTION</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -11139,6 +11144,13 @@ def webhook():
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
                                                                                 </div>
+
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 8 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                                                                                 <div class="section-header">NOTICES</div>
                                                                                 <div class="terms-box">
@@ -11158,13 +11170,6 @@ def webhook():
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">Before engaging Connectlink Properties, The client is responsible for paying for their plan approvals and all relevant stage inspections as required by the relevant Local Authority (City Council, Town Council or Rural District Council).</p>
                                                                                 </div>
-
-                                                                                <!-- Page break -->
-                                                                                <div class="page-break"></div>
-                                                                                
-                                                                                <!-- Page 8 -->
-
-                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                                                                                 <div class="section-header">ENTIRE AGREEMENT</div>
                                                                                 <div class="terms-box">
