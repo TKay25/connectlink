@@ -41,19 +41,19 @@
     "reportlab"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 16318",
-    "# The register starts EMPTY (the user's  @ line 45930"
+    "INSTRUCTIONS @ line 16317",
+    "# The register starts EMPTY (the user's  @ line 45931"
   ],
   "token_controls": [
-    "max_length = 0 @ line 28255",
-    "max_length = len(str(cell.value)) @ line 28260",
-    "adjusted_width = min(max_length + 2, 50) @ line 28263",
-    "max_length = 0 @ line 29087",
-    "max_length = cell_length @ line 29094",
-    "adjusted_width = min(max_length + 2, 50) @ line 29097",
-    "max_length = 0 @ line 30082",
-    "max_length = cell_length @ line 30089",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 30092"
+    "max_length = 0 @ line 28256",
+    "max_length = len(str(cell.value)) @ line 28261",
+    "adjusted_width = min(max_length + 2, 50) @ line 28264",
+    "max_length = 0 @ line 29088",
+    "max_length = cell_length @ line 29095",
+    "adjusted_width = min(max_length + 2, 50) @ line 29098",
+    "max_length = 0 @ line 30083",
+    "max_length = cell_length @ line 30090",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 30093"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -70,6 +70,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-09-29T11:33:34.591016Z",
+  "generated_at": "2026-09-29T11:34:23.039877Z",
   "stale": false
 }
