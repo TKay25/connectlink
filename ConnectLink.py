@@ -10960,6 +10960,15 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
+                                                                                <div class="section-header">TRANSPORT PROVISION</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
+                                                                                        <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
+                                                                                        <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                                                                                    </ol>
+                                                                                </div>
+                                                                                
                                                                                 <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -10972,7 +10981,7 @@ def webhook():
                                                                                             </ul>
                                                                                         </li>
                                                                                         <li>Approved variations shall:
-                                                                                            <ol>`
+                                                                                            <ol>
                                                                                                 <li>Be treated as Change Orders;</li>
                                                                                                 <li>Adjust the Contract Price accordingly; and</li>
                                                                                                 <li>Extend the completion period where necessary.</li>
@@ -10982,22 +10991,27 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
-                                                                                <div class="section-header">TRANSPORT PROVISION</div>
-                                                                                <div class="terms-box">
-                                                                                    <ol>
-                                                                                        <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
-                                                                                        <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
-                                                                                        <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
-                                                                                    </ol>
-                                                                                </div>
-
-
                                                                                 <!-- Page break -->
                                                                                 <div class="page-break"></div>
                                                                                 
                                                                                 <!-- Page 5 -->
 
                                                                                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                                                                                <div class="section-header">VARIATIONS AND ADJUSTMENT OF TIME/COST</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li><strong>Definition of Variation.</strong> A "Variation" means any change, modification, alteration, addition, or omission to the originally approved designs, drawings, and project specifications.</li>
+                                                                                        <li><strong>Impact Assessments.</strong> If the Client directs or requests a Variation, the Contractor shall, within five (5) business days, provide the Client with a written notice stating:
+                                                                                            <ul style="list-style-type: none; padding-left: 20px;">
+                                                                                                <li>(a) The estimated adjustment to the Contract Sum necessitated by the Variation; and</li>
+                                                                                                <li>(b) The estimated Extension of Time (EOT) required to complete the Works as a result of the change.</li>
+                                                                                            </ul>
+                                                                                        </li>
+                                                                                        <li><strong>Cost and Time Entitlement.</strong> The Client expressly acknowledges that changes made to originally submitted plans and designs may vary the final costs and attract an Extension of Time. The Contractor shall not proceed with the varied work, and the Client shall not be liable for any associated costs or timeline shifts, until the Client provides a formal written Variation Order or directive instructing the Contractor to proceed.</li>
+                                                                                        <li><strong>Valuation of Varied Work.</strong> The adjustment to the Contract Sum shall be valued using existing contract rates where applicable, or otherwise calculated on a reasonable net cost plus profit margin framework.</li>
+                                                                                    </ol>
+                                                                                </div>
 
                                                                                 <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
                                                                                 <div class="terms-box">
@@ -11032,6 +11046,13 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
+                                                                                <!-- Page break -->
+                                                                                <div class="page-break"></div>
+                                                                                
+                                                                                <!-- Page 6 -->
+
+                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                                                                                 <div class="section-header">POWER PROVISION</div>
                                                                                 <div class="terms-box">
                                                                                     <ol>
@@ -11044,13 +11065,6 @@ def webhook():
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">The Client shall provide water or a suitable water supply and water storage tank(s) of at least 5000 liters for construction activities at their own expense.</p>
                                                                                 </div>
-
-                                                                                <!-- Page break -->
-                                                                                <div class="page-break"></div>
-                                                                                
-                                                                                <!-- Page 6 -->
-
-                                                                                <h4 class="section-title">TERMS AND CONDITIONS</h4>
 
                                                                                 <div class="section-header">RISK AND INSURANCE</div>
                                                                                 <div class="terms-box">
@@ -25204,6 +25218,15 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
+                    <div class="section-header">TRANSPORT PROVISION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
+                            <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
+                            <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
+                        </ol>
+                    </div>
+
                     <div class="section-header">DESIGN CONFIRMATION AND VARIATIONS</div>
                     <div class="terms-box">
                         <ol>
@@ -25216,7 +25239,7 @@ def download_contract(project_id):
                                 </ul>
                             </li>
                             <li>Approved variations shall:
-                                <ol>`
+                                <ol>
                                     <li>Be treated as Change Orders;</li>
                                     <li>Adjust the Contract Price accordingly; and</li>
                                     <li>Extend the completion period where necessary.</li>
@@ -25226,22 +25249,27 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
-                    <div class="section-header">TRANSPORT PROVISION</div>
-                    <div class="terms-box">
-                        <ol>
-                            <li>Transport within a 20-kilometre radius of Harare Central Business District is included in the Contract Price.</li>
-                            <li>Thereafter, transport shall be charged at USD 0.50 per kilometre, calculated from Harare CBD to site and return.</li>
-                            <li>Transport charges shall be invoiced monthly and payable within seven (7) days.</li>
-                        </ol>
-                    </div>
-
-
                     <!-- Page break -->
                     <div class="page-break"></div>
                     
                     <!-- Page 5 -->
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                    <div class="section-header">VARIATIONS AND ADJUSTMENT OF TIME/COST</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li><strong>Definition of Variation.</strong> A "Variation" means any change, modification, alteration, addition, or omission to the originally approved designs, drawings, and project specifications.</li>
+                            <li><strong>Impact Assessments.</strong> If the Client directs or requests a Variation, the Contractor shall, within five (5) business days, provide the Client with a written notice stating:
+                                <ul style="list-style-type: none; padding-left: 20px;">
+                                    <li>(a) The estimated adjustment to the Contract Sum necessitated by the Variation; and</li>
+                                    <li>(b) The estimated Extension of Time (EOT) required to complete the Works as a result of the change.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Cost and Time Entitlement.</strong> The Client expressly acknowledges that changes made to originally submitted plans and designs may vary the final costs and attract an Extension of Time. The Contractor shall not proceed with the varied work, and the Client shall not be liable for any associated costs or timeline shifts, until the Client provides a formal written Variation Order or directive instructing the Contractor to proceed.</li>
+                            <li><strong>Valuation of Varied Work.</strong> The adjustment to the Contract Sum shall be valued using existing contract rates where applicable, or otherwise calculated on a reasonable net cost plus profit margin framework.</li>
+                        </ol>
+                    </div>
 
                     <div class="section-header">OWNERSHIP AND RETENTION OF TITLE</div>
                     <div class="terms-box">
@@ -25276,6 +25304,13 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 6 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
                     <div class="section-header">POWER PROVISION</div>
                     <div class="terms-box">
                         <ol>
@@ -25289,12 +25324,12 @@ def download_contract(project_id):
                         <p style="font-size:11px;">The Client shall provide water or a suitable water supply and water storage tank(s) of at least 5000 liters for construction activities at their own expense.</p>
                     </div>
 
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 6 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+                    <div class="section-header">ZESA and Water Connections</div>
+                    <div class="terms-box">
+                        <ul>
+                            <li>On Full House construction, all ZESA and water connection fees shall be borne or paid for by the Client.</li>
+                        </ul>
+                    </div>
 
                     <div class="section-header">RISK AND INSURANCE</div>
                     <div class="terms-box">
@@ -25324,6 +25359,16 @@ def download_contract(project_id):
                         <p style="font-size:11px;">ConnectLink Properties will not be liable against claims or damages arising from injuries to the Client's personnel on site.</p>
                     </div>
 
+
+
+                    <!-- Page break -->
+                    <div class="page-break"></div>
+                    
+                    <!-- Page 5 -->
+
+                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+
                     <div class="section-header">TERMINATION</div>
                     <div class="terms-box">
                         <ol>
@@ -25344,21 +25389,6 @@ def download_contract(project_id):
                             <li>Termination shall not prejudice accrued rights, including the right to claim damages.</li>
                         </ol>
                     </div>
-
-                    <!-- Page break -->
-                    <div class="page-break"></div>
-                    
-                    <!-- Page 5 -->
-
-                    <h4 class="section-title">TERMS AND CONDITIONS</h4>
-
-                    <div class="section-header">ZESA and Water Connections</div>
-                    <div class="terms-box">
-                        <ul>
-                            <li>On Full House construction, all ZESA and water connection fees shall be borne or paid for by the Client.</li>
-                        </ul>
-                    </div>
-
 
                     <div class="section-header">DISPUTE RESOLUTION</div>
                     <div class="terms-box">
