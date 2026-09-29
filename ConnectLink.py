@@ -25292,7 +25292,7 @@ def download_contract(project_id):
                         <ol>
                             <li>The Contractor warrants workmanship for a period of six (6) months from the date of practical completion. Practical Completion shall mean the stage at which the works are substantially complete and capable of beneficial occupation or use, save for minor defects not materially affecting functionality.</li>
                             <li>The warranty shall not apply to:
-                                <ol>
+                                <ol style="display: flex; gap: 1rem; list-style-position: inside;">
                                     <li>Normal wear and tear;</li>
                                     <li>Misuse or negligence by the Client;</li>
                                     <li>Structural defects not attributable to the Contractor;</li>
