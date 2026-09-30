@@ -7183,6 +7183,21 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // ---------------------------------------------------------------------
+    // COST for THIS branch. Cost layers (stock_lots) are per branch, so what
+    // the goods on this shop's shelf cost is the shop's OWN weighted average
+    // -- NOT products.buy_price, which blends every branch's purchases into
+    // one figure. `stock_value` and `stock` both arrive already branch-scoped
+    // from /api/products, so no extra request is needed.
+    // ---------------------------------------------------------------------
+    function branchBuyPriceOf(p) {
+        if (!p) return 0;
+        const stock = Number(p.stock || 0);
+        const value = Number(p.stock_value || 0);
+        if (stock > 0 && value > 0) return value / stock;
+        return Number(p.buy_price || 0);
+    }
+
     // API Base URL
     const API_BASE = window.location.origin;
 
@@ -7255,7 +7270,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                     let totalBuy = 0;
                     let totalSell = 0;
                     const exportData = filteredProducts.map(p => {
-                        const buyPrice = p.buy_price || 0;
+                        const buyPrice = branchBuyPriceOf(p);
                         // This branch's price -- these reports are branch-scoped, so the shared
         // price would disagree with what the screen shows.
         const sellPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
@@ -7367,7 +7382,7 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
             let totalStock = 0;
 
             const rowsHtml = filteredProducts.map(p => {
-                const buyPrice = p.buy_price || 0;
+                const buyPrice = branchBuyPriceOf(p);
                 // This branch's price -- these reports are branch-scoped, so the shared
         // price would disagree with what the screen shows.
         const sellPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
@@ -9142,7 +9157,7 @@ function renderAllProductsList(data) {
             </div>
             <div class="text-end">
                 <span class="fw-bold text-success">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}</span>
-                <div><small class="text-muted">Buy: $${(p.buy_price || 0).toFixed(2)}</small></div>
+                <div><small class="text-muted">Buy: $${branchBuyPriceOf(p).toFixed(2)}</small></div>
             </div>
         </div>
     `).join('');
@@ -9305,9 +9320,9 @@ async function exportModalData(type, format) {
         'Stock': p.stock,
         'Unit Type': p.unit_type,
         'Unit Detail': p.unit_details || 'N/A',
-        'Buy Price': p.buy_price || 0,
+        'Buy Price': branchBuyPriceOf(p),
         'Sell Price': (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)),
-        'Profit Margin': ((p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)) - (p.buy_price || 0)).toFixed(2)
+        'Profit Margin': ((p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)) - branchBuyPriceOf(p)).toFixed(2)
     }));
     
     if (format === 'excel') {
@@ -9921,7 +9936,7 @@ function renderAuditProductSummary(products) {
                 <td class="fw-bold text-danger">-${p.inventory_edit_reductions || 0}</td>
                 <td class="fw-bold text-danger">-${p.total_reductions}</td>
                 <td class="fw-bold">${p.final_stock} <i class="fas ${changeIcon} ms-1" style="font-size:0.6rem;"></i></td>
-                <td>$${(p.buy_price || 0).toFixed(2)}</td>
+                <td>$${branchBuyPriceOf(p).toFixed(2)}</td>
                 <td>$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}</td>
             </tr>
         `;
@@ -9973,7 +9988,7 @@ async function exportStockAuditExcel() {
         p.inventory_edit_reductions || 0,
         p.total_reductions,
         p.final_stock,
-        p.buy_price || 0,
+        branchBuyPriceOf(p),
         (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))
     ]);
     
@@ -10204,7 +10219,7 @@ async function exportStockAuditPDF() {
     const additionCost = (hasSummary && auditSummaryData.total_addition_cost != null)
         ? (Number(auditSummaryData.total_addition_cost) || 0)
         : (auditProductData || []).reduce(function(s, p) {
-            return s + ((Number(p.total_additions) || 0) * (Number(p.buy_price) || 0));
+            return s + ((Number(p.total_additions) || 0) * branchBuyPriceOf(p));
         }, 0);
     const productCount = (auditProductData || []).length;
     const removedCount = (auditRemovalData || []).length;
@@ -10317,7 +10332,7 @@ async function exportStockAuditPDF() {
                 { content: '-' + (p.inventory_edit_reductions || 0), styles: { textColor: RED } },
                 { content: '-' + (p.total_reductions || 0), styles: { textColor: RED } },
                 { content: String(p.final_stock == null ? 0 : p.final_stock), styles: { fontStyle: 'bold' } },
-                '$' + (Number(p.buy_price) || 0).toFixed(2),
+                '$' + branchBuyPriceOf(p).toFixed(2),
                 '$' + (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)
             ];
         });
@@ -13339,7 +13354,8 @@ function selectCategory(category) {
         document.getElementById('currentStockValue').innerText = product.stock;
         document.getElementById('currentAvailableProfit').innerText = `$${currentTotalProfit.toFixed(2)}`;
         document.getElementById('newStockQuantity').value = 1;
-        document.getElementById('stockBuyPrice').value = product.buy_price || 0;
+        // Prefill with what THIS branch's stock cost, not the blended figure.
+        document.getElementById('stockBuyPrice').value = branchBuyPriceOf(product).toFixed(2);
         const addBarcodeField = document.getElementById('editStockBarcodeScan');
         if (addBarcodeField) addBarcodeField.value = product.barcode || '';
 
@@ -16560,7 +16576,7 @@ function renderInventory() {
             </td>
             <td class="text-muted">${p.unit_type || 'N/A'}</td>
             <td class="text-muted">${p.unit_details || 'N/A'}</td>
-            <td class="text-danger">$${(p.buy_price || 0).toFixed(2)}</td>
+            <td class="text-danger">$${branchBuyPriceOf(p).toFixed(2)}</td>
             <td class="fw-bold text-success">
                 <div class="d-flex align-items-center gap-1">
                     <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
@@ -16593,7 +16609,7 @@ function renderInventory() {
 function editSellingPrice(productId, productName, currentPrice) {
     // Find the product to get buy price
     const product = products.find(p => p.id === productId);
-    const currentBuyPrice = product ? (product.buy_price || 0) : 0;
+    const currentBuyPrice = branchBuyPriceOf(product);
     // The SHARED catalogue price. currentPrice is what THIS branch charges, so the
     // two differ whenever the shop has its own price.
     const sharedPrice = product ? Number(product.sell_price || product.price || 0) : 0;
@@ -16702,7 +16718,7 @@ async function confirmPriceUpdate(productId) {
     // the toast claims a change that did not happen (or hides one that did).
     const oldPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
     const productName = product.name;
-    const buyPrice = product.buy_price || 0;
+    const buyPrice = branchBuyPriceOf(product);
     
     // Show warning if price is too low
     if (newPrice < buyPrice) {
@@ -16793,7 +16809,7 @@ function renderInventory() {
             </td>
             <td class="text-muted">${p.unit_type || 'N/A'}</td>
             <td class="text-muted">${p.unit_details || 'N/A'}</td>
-            <td class="text-danger">$${(p.buy_price || 0).toFixed(2)}</td>
+            <td class="text-danger">$${branchBuyPriceOf(p).toFixed(2)}</td>
             <td class="fw-bold text-success">
                 <div class="d-flex align-items-center gap-1">
                     <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
