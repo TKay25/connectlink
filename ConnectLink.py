@@ -2347,6 +2347,7 @@ def initialize_database_tables():
                     bank_branch_code VARCHAR(20),
                     basic_salary DECIMAL(12,2) DEFAULT 0,
                     medical_aid_package VARCHAR(50) DEFAULT '',
+                    exempt_nssa_nec BOOLEAN DEFAULT FALSE,
                     usd_percent DECIMAL(5,2) DEFAULT 100,
                     zwg_percent DECIMAL(5,2) DEFAULT 0,
                     exchange_rate DECIMAL(12,4) DEFAULT 1,
@@ -2433,6 +2434,18 @@ def initialize_database_tables():
                 connection.commit()
             except Exception as e:
                 print(f"Note: Could not add omit_from_payroll column to hr_employees: {e}")
+
+            # Add exempt_nssa_nec column to hr_employees if not exists.
+            # When TRUE the employee is skipped for NSSA AND NEC entirely: no employee
+            # deduction is taken and no employer contribution is computed for them.
+            try:
+                cursor.execute("""
+                    ALTER TABLE hr_employees
+                    ADD COLUMN IF NOT EXISTS exempt_nssa_nec BOOLEAN DEFAULT FALSE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add exempt_nssa_nec column to hr_employees: {e}")
 
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_leave_applications (
@@ -17369,7 +17382,8 @@ def hr_employees_api():
                            omit_from_payroll, allowances,
                            bank_holder_name, bank_holder_surname, bank_name,
                            bank_account_number, bank_branch, bank_branch_code,
-                           leave_approver_whatsapp, leave_approver_email, created_at
+                           leave_approver_whatsapp, leave_approver_email, created_at,
+                           exempt_nssa_nec
                     FROM hr_employees ORDER BY last_name, first_name
                 """)
                 rows = cursor.fetchall()
@@ -17432,6 +17446,7 @@ def hr_employees_api():
                         'leave_approver_whatsapp': r[38] or '',
                         'leave_approver_email': r[39] or '',
                         'created_at': str(r[40])[:10] if r[40] else None,
+                        'exempt_nssa_nec': bool(r[41]),
                         'leave_balances': balances_by_emp.get(r[0], []),
                         'source': 'hr_employees'
                     })
@@ -17462,6 +17477,7 @@ def hr_employees_api():
                         'medical_aid_package': '', 'currency': 'USD',
                         'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
                         'omit_from_payroll': False, 'allowances': 0,
+                        'exempt_nssa_nec': False,
                         'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
                         'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
                         'leave_approver_whatsapp': '', 'leave_approver_email': '',
@@ -17499,6 +17515,7 @@ def hr_employees_api():
                         'medical_aid_package': '', 'currency': 'USD',
                         'usd_percent': 100, 'zwg_percent': 0, 'exchange_rate': 1,
                         'omit_from_payroll': False, 'allowances': 0,
+                        'exempt_nssa_nec': False,
                         'bank_holder_name': '', 'bank_holder_surname': '', 'bank_name': '',
                         'bank_account_number': '', 'bank_branch': '', 'bank_branch_code': '',
                         'leave_approver_whatsapp': '', 'leave_approver_email': '',
@@ -17527,11 +17544,12 @@ def hr_employees_api():
                          employment_type, status,
                          bank_holder_name, bank_holder_surname, bank_name, bank_account_number, bank_branch, bank_branch_code,
                          currency, usd_percent, zwg_percent, exchange_rate, omit_from_payroll,
-                         leave_approver_name, leave_approver_id, leave_approver_whatsapp, leave_approver_email)
+                         leave_approver_name, leave_approver_id, leave_approver_whatsapp, leave_approver_email,
+                         exempt_nssa_nec)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                             %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
                             %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                            %s,%s,%s,%s,%s,%s,%s,%s)
+                            %s,%s,%s,%s,%s,%s,%s,%s,%s)
                     RETURNING id
                 """, (
                     data.get('first_name'), data.get('last_name'), data.get('whatsapp'),
@@ -17552,7 +17570,8 @@ def hr_employees_api():
                     data.get('zwg_percent', 0), data.get('exchange_rate', 1),
                     data.get('omit_from_payroll', False),
                     data.get('leave_approver_name'), data.get('leave_approver_id'),
-                    data.get('leave_approver_whatsapp'), data.get('leave_approver_email')
+                    data.get('leave_approver_whatsapp'), data.get('leave_approver_email'),
+                    data.get('exempt_nssa_nec', False)
                 ))
                 emp_id = cursor.fetchone()[0]
 
@@ -17740,6 +17759,7 @@ def hr_employee_detail(emp_id):
                         marital_status=%s, nationality=%s, national_id=%s, date_joined=%s,
                         current_leave_balance=%s, monthly_accumulation=%s,
                         basic_salary=%s, allowances=%s, medical_aid_package=%s, omit_from_payroll=%s,
+                        exempt_nssa_nec=%s,
                         employment_type=%s, status=%s,
                         bank_holder_name=%s, bank_holder_surname=%s, bank_name=%s,
                         bank_account_number=%s, bank_branch=%s, bank_branch_code=%s,
@@ -17761,6 +17781,7 @@ def hr_employee_detail(emp_id):
                     data.get('allowances', 0),
                     data.get('medical_aid_package', ''),
                     data.get('omit_from_payroll', False),
+                    data.get('exempt_nssa_nec', False),
                     data.get('employment_type', 'Permanent'), data.get('status', 'Active'),
                     data.get('bank_holder_name'), data.get('bank_holder_surname'),
                     data.get('bank_name'), data.get('bank_account_number'),
@@ -17910,6 +17931,7 @@ def hr_employees_template():
             ('bank_branch', 'Branch'),
             ('bank_branch_code', 'Branch Code'),
             ('status', 'Status (Active/Inactive/Terminated)'),
+            ('exempt_nssa_nec', 'Exempt from NSSA and NEC'),
         ]
 
         for col_idx, (field, label) in enumerate(columns, 1):
@@ -17920,7 +17942,7 @@ def hr_employees_template():
             cell.border = thin_border
 
         # Set column widths
-        widths = [16, 16, 30, 18, 12, 16, 14, 16, 16, 30, 16, 18, 16, 16, 16, 14, 14, 14, 14, 14, 18, 18, 16, 18, 16, 14, 14]
+        widths = [16, 16, 30, 18, 12, 16, 14, 16, 16, 30, 16, 18, 16, 16, 16, 14, 14, 14, 14, 14, 18, 18, 16, 18, 16, 14, 14, 24]
         col_letters = []
         for i in range(1, len(columns) + 1):
             if i <= 26:
@@ -17940,6 +17962,7 @@ def hr_employees_template():
             16: ['Construction', 'Hardware', 'Group', 'Kitchen & Cabinets'],       # Subsidiary
             23: ['CABS', 'CBZ', 'Ecobank', 'FBC', 'First Capital', 'NBS', 'Nedbank', 'POSB', 'EcoCash', 'Standard Chartered', 'Stanbic', 'ZABG', 'ZB'],  # Bank Name
             27: ['Active', 'Inactive', 'Terminated'],        # Status
+            28: ['Yes', 'No'],                              # Exempt from NSSA and NEC
         }
         for col_idx, options in dv_config.items():
             col_letter = col_letters[col_idx - 1]
@@ -17955,13 +17978,15 @@ def hr_employees_template():
             ws.add_data_validation(dv)
             dv.add(f'{col_letter}2:{col_letter}1048576')
 
-        # Add a sample row
+        # Add a sample row (one value per column in the `columns` list above)
         sample = [
             'John', 'Doe', 'john.doe@email.com', '263771234567',
             'Male', '1990-01-15', 'Married', 'Zimbabwean',
-            '123 Main St', 'Systems & IT', 'Developer', 'Permanent',
-            '2024-01-01', 'Group', 500, 0, 21, 1.75,
-            'John', 'Doe', 'CBZ', '123456789', 'Harare', '1234', 'Active'
+            '63-1234567A00', '123 Main St', 'Systems & IT', 'Ordinary',
+            'Developer', 'Permanent', '2024-01-01', 'Group',
+            500, 0, 21, 1.75,
+            'John', 'Doe', 'CBZ', '123456789', 'Harare', '1234', 'Active',
+            'No'
         ]
         for col_idx, val in enumerate(sample, 1):
             cell = ws.cell(row=2, column=col_idx, value=val)
@@ -18037,7 +18062,13 @@ def hr_employees_import():
             'bank_branch': 'bank_branch', 'branch_code': 'bank_branch_code',
             'bank_branch_code': 'bank_branch_code',
             'status': 'status', 'bank_status': 'status',
-            'role': 'role'
+            'role': 'role',
+            # NSSA/NEC exemption — accepts the import template's header as well as the
+            # "Exempt from NSSA & NEC" header used by the employee Excel export.
+            'exempt_nssa_nec': 'exempt_nssa_nec',
+            'exempt_from_nssa_and_nec': 'exempt_nssa_nec',
+            'exempt_from_nssa_&_nec': 'exempt_nssa_nec',
+            'exempt_from_nssa_&_nec_(yes/no)': 'exempt_nssa_nec'
         }
 
         # Map headers to DB columns
@@ -18138,6 +18169,10 @@ def hr_employees_import():
 
                     national_id = gv('national_id') or ''
 
+                    # NSSA/NEC exemption — accepts Yes/Y/True/1/X (blank or anything else = No)
+                    exempt_raw = (gv('exempt_nssa_nec') or '').strip().lower()
+                    exempt_nssa_nec = exempt_raw in ('yes', 'y', 'true', '1', 'x')
+
                     cursor.execute("""
                         INSERT INTO hr_employees
                             (first_name, last_name, email, whatsapp, gender, dob, marital_status,
@@ -18146,8 +18181,8 @@ def hr_employees_import():
                              current_leave_balance, monthly_accumulation,
                              bank_holder_name, bank_holder_surname, bank_name,
                              bank_account_number, bank_branch, bank_branch_code, status,
-                             role)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Ordinary User')
+                             exempt_nssa_nec, role)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Ordinary User')
                     """, (
                         first, last, email, whatsapp, gender, dob,
                         gv('marital_status'), gv('nationality'), national_id, gv('address'),
@@ -18158,7 +18193,7 @@ def hr_employees_import():
                         gv('bank_holder_name'), gv('bank_holder_surname'),
                         gv('bank_name'), gv('bank_account_number'),
                         gv('bank_branch'), gv('bank_branch_code'),
-                        status
+                        status, exempt_nssa_nec
                     ))
                     connection.commit()
                     results['imported'] += 1
@@ -18837,6 +18872,7 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
                 'pay_status': row[37] or '',
                 'processed_at': row[38],
                 'national_id': row[39] or '',
+                'exempt_nssa_nec': bool(row[40]),
                 'period': period
             }
 
@@ -18913,13 +18949,19 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
 
         # Compute taxable income and employer contributions
         taxable_income = emp['gross_pay'] - emp['nssa']
-        employer_medical_aid = emp['medical_aid']  # employer pays the other half of the package
         # If the employee pays no NEC, the employer pays the full combined rate (4%)
         nec_employee_rate = float(employer_cfg.get('NEC_EMPLOYEE', 2.0))
         nec_employer_rate = float(employer_cfg.get('NEC_EMPLOYER', 2.0))
         employer_nec = emp['gross_pay'] * ((nec_employee_rate + nec_employer_rate) / 100) - emp['nec']
         employer_wcif = taxable_income * (employer_cfg.get('WCIF', 2.16) / 100)
         employer_sdf = taxable_income * (employer_cfg.get('SDF', 0.5) / 100)
+
+        # NSSA/NEC-exempt employees carry no employer NSSA or NEC contribution either.
+        if emp['exempt_nssa_nec']:
+            employer_nssa = 0.0
+            employer_nec = 0.0
+            ytd_employer_nssa = 0.0
+            ytd_employer_nec = 0.0
 
         # Build logo
         logo_b64 = ''
@@ -19186,7 +19228,7 @@ def hr_payroll_api():
                     print(f"Note: could not load commissions for {period}: {ce}")
 
                 cursor.execute("""
-                    SELECT id, first_name, last_name, department, classification, basic_salary, allowances, medical_aid_package, usd_percent, zwg_percent, exchange_rate
+                    SELECT id, first_name, last_name, department, classification, basic_salary, allowances, medical_aid_package, usd_percent, zwg_percent, exchange_rate, exempt_nssa_nec
                     FROM hr_employees WHERE status = 'Active' AND (omit_from_payroll IS NULL OR omit_from_payroll = FALSE)
                 """)
                 employees = cursor.fetchall()
@@ -19208,12 +19250,16 @@ def hr_payroll_api():
                     else:
                         commission = float(emp[6] or 0)
                     medical_aid_package = (emp[7] or '').strip()
+                    # HR exemption flag: no NSSA and no NEC for this employee — neither the
+                    # employee deduction nor the employer contribution is computed.
+                    exempt_nssa_nec = bool(emp[11])
                     # Designer's cut (10%) only applies to Sales and Marketing department
                     designers_cut = round(commission * 0.10, 2) if (commission > 0 and department == 'sales and marketing') else 0
                     gross = basic + commission - designers_cut
 
-                    # NEC deduction only applies to Top Management classified employees
-                    apply_nec = (classification == 'top management')
+                    # NEC deduction only applies to Top Management classified employees,
+                    # and never for an employee HR has flagged as NSSA/NEC exempt.
+                    apply_nec = (classification == 'top management') and not exempt_nssa_nec
 
                     # Medical Aid package - employee pays half, employer remits the other half
                     medical_aid_employee = 0
@@ -19222,8 +19268,8 @@ def hr_payroll_api():
                         if pkg_cfg.get('rate_type') == 'fixed_amount':
                             medical_aid_employee = round(float(pkg_cfg.get('rate', 0) or 0) / 2, 2)
 
-                    # Step 1: Calculate NSSA on gross (deducted first)
-                    nssa_amount = calc_nssa(gross)
+                    # Step 1: Calculate NSSA on gross (deducted first) — skipped entirely when exempt
+                    nssa_amount = 0 if exempt_nssa_nec else calc_nssa(gross)
 
                     # Step 2: Taxable income = Gross - NSSA
                     taxable_income = gross - nssa_amount
@@ -19257,7 +19303,7 @@ def hr_payroll_api():
                                e.c8_number, e.c8_type, e.nationality,
                                p.basic_pay, p.allowances, p.designers_cut, p.gross_pay,
                                p.paye_tax, p.aids_levy, p.nssa, p.nec, p.medical_aid, p.zimdef, p.wcif, p.sdf,
-                               p.deductions, p.net_pay, p.status
+                               p.deductions, p.net_pay, p.status, e.exempt_nssa_nec
                         FROM hr_payroll p
                         JOIN hr_employees e ON p.employee_id = e.id
                         WHERE p.period = %s
@@ -19400,14 +19446,17 @@ def hr_payroll_api():
                         paye = float(r[23] or 0)         # p.paye_tax
                         aids = float(r[24] or 0)         # p.aids_levy
                         nec_e = float(r[26] or 0)        # p.nec
+                        # Exempt employees: no NSSA/NEC for either side, so the employer's
+                        # "top-up to the full 4%" rule must not apply to them at all.
+                        exempt_emp = bool(r[34])
                         # If the employee pays no NEC, the employer pays the full 4%
-                        nec_er = max(0.0, grs * 0.04 - nec_e)
+                        nec_er = 0.0 if exempt_emp else max(0.0, grs * 0.04 - nec_e)
                         medical_aid_e = float(r[27] or 0) # p.medical_aid
                         medical_aid_er = medical_aid_e    # employer matches employee ($6)
                         zimdef = float(r[28] or 0)       # p.zimdef
                         wcif = float(r[29] or 0)         # p.wcif
                         sdf = float(r[30] or 0)          # p.sdf
-                        er_nssa = calc_emp_nssa(grs)
+                        er_nssa = 0.0 if exempt_emp else calc_emp_nssa(grs)
 
                         t_paye += paye
                         t_aids += aids
@@ -20277,7 +20326,7 @@ def render_payroll_breakdown_html(employee_id, period):
                        e.bank_holder_name, e.bank_holder_surname, e.bank_name, e.bank_account_number, e.bank_branch,
                        p.basic_pay, p.allowances as pay_allowances, p.designers_cut, p.gross_pay,
                        p.paye_tax, p.aids_levy, p.nssa, p.nec, p.medical_aid, p.zimdef, p.deductions, p.net_pay,
-                       p.period, p.status, p.processed_at
+                       p.period, p.status, p.processed_at, e.exempt_nssa_nec
                 FROM hr_employees e
                 LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
                 WHERE e.id = %s
@@ -20303,7 +20352,8 @@ def render_payroll_breakdown_html(employee_id, period):
                 'zimdef': float(row[24] or 0),
                 'total_deductions': float(row[25] or 0), 'net_pay': float(row[26] or 0),
                 'period': row[27] or period, 'status': row[28] or 'Not Processed',
-                'processed_at': row[29]
+                'processed_at': row[29],
+                'exempt_nssa_nec': bool(row[30])
             }
 
             # 2. Load active PAYE brackets for display
@@ -20440,11 +20490,13 @@ def render_payroll_breakdown_html(employee_id, period):
             })
 
         # Employer-only contributions for remittances summary
-        employer_nssa = nssa_basis * (nssa_rate / 100)
+        # NSSA/NEC-exempt employees carry no employer NSSA or NEC contribution either.
+        exempt_nssa_nec = emp['exempt_nssa_nec']
+        employer_nssa = 0.0 if exempt_nssa_nec else nssa_basis * (nssa_rate / 100)
         nec_employee_rate = deduction_configs.get('NEC_EMPLOYEE', {}).get('rate', 2.0)
         nec_employer_rate = deduction_configs.get('NEC_EMPLOYER', {}).get('rate', 2.0)
         # If the employee pays no NEC, the employer pays the full combined rate (4%)
-        employer_nec = gross * ((nec_employee_rate + nec_employer_rate) / 100) - nec
+        employer_nec = 0.0 if exempt_nssa_nec else gross * ((nec_employee_rate + nec_employer_rate) / 100) - nec
         wcif_rate = deduction_configs.get('WCIF', {}).get('rate', 2.16)
         employer_wcif = taxable_income * (wcif_rate / 100)
         sdf_rate = deduction_configs.get('SDF', {}).get('rate', 0.5)
@@ -20464,6 +20516,7 @@ def render_payroll_breakdown_html(employee_id, period):
             employer_nec=employer_nec, employer_wcif=employer_wcif, employer_sdf=employer_sdf,
             employer_medical_aid=employer_medical_aid,
             total_employer=total_employer, total_remittance=total_remittance,
+            exempt_nssa_nec=exempt_nssa_nec,
             now=datetime.now()
         )
 
@@ -20526,7 +20579,7 @@ def generate_payslip_pdf(employee_id):
                        COALESCE(p.deductions, 0) as deductions,
                        COALESCE(p.net_pay, 0) as net_pay,
                        p.period, p.status, p.processed_at,
-                       e.national_id
+                       e.national_id, e.exempt_nssa_nec
                 FROM hr_employees e
                 LEFT JOIN hr_payroll p ON p.employee_id = e.id AND p.period = %s
                 WHERE e.id = %s
@@ -20566,7 +20619,8 @@ def generate_payslip_pdf(employee_id):
                 'total_deductions': float(row[33] or 0), 'net_pay': float(row[34] or 0),
                 'period': row[35] or period, 'status': row[36] or 'Not Processed',
                 'processed_at': row[37],
-                'national_id': row[38] or ''
+                'national_id': row[38] or '',
+                'exempt_nssa_nec': bool(row[39])
             }
 
             # Fetch employer NSSA config
@@ -20657,6 +20711,13 @@ def generate_payslip_pdf(employee_id):
         employer_wcif = taxable_income * (employer_cfg.get('WCIF', 2.16) / 100)
         employer_sdf = taxable_income * (employer_cfg.get('SDF', 0.5) / 100)
 
+        # NSSA/NEC-exempt employees carry no employer NSSA or NEC contribution either.
+        if emp['exempt_nssa_nec']:
+            employer_nssa = 0.0
+            employer_nec = 0.0
+            ytd_employer_nssa = 0.0
+            ytd_employer_nec = 0.0
+
         # Render payslip HTML
         html = render_template('payslip.html',
             emp=emp, logo_b64=logo_b64,
@@ -20745,10 +20806,16 @@ def payroll_remittances(period):
             m_net = float(mr[9] or 0)
 
             # Employer NEC: full 4% minus whatever the employee paid (0% or 2%)
-            m_nec_er = max(0.0, m_gross * 0.04 - m_nec_emp)
-
-            cursor.execute("SELECT gross_pay FROM hr_payroll WHERE period = %s", (period,))
-            m_er_nssa = sum(calc_employer_nssa(float(r[0] or 0)) for r in cursor.fetchall())
+            # NSSA/NEC-exempt employees are left out of both employer figures entirely,
+            # so their gross must not feed the employer NSSA or NEC calculation.
+            cursor.execute("""
+                SELECT p.gross_pay FROM hr_payroll p
+                JOIN hr_employees e ON p.employee_id = e.id
+                WHERE p.period = %s AND (e.exempt_nssa_nec IS NULL OR e.exempt_nssa_nec = FALSE)
+            """, (period,))
+            m_contrib_rows = [float(r[0] or 0) for r in cursor.fetchall()]
+            m_er_nssa = sum(calc_employer_nssa(g) for g in m_contrib_rows)
+            m_nec_er = max(0.0, sum(m_contrib_rows) * 0.04 - m_nec_emp)
 
             # ---- YTD DATA (Jan to selected period) ----
             cursor.execute("""
@@ -20778,10 +20845,16 @@ def payroll_remittances(period):
             y_net = float(yr[9] or 0) if yr else 0
 
             # Employer NEC: full 4% minus whatever the employee paid (0% or 2%)
-            y_nec_er = max(0.0, y_gross * 0.04 - y_nec_emp)
-
-            cursor.execute("SELECT gross_pay FROM hr_payroll WHERE period LIKE %s AND period <= %s", (f"{year}%", period))
-            y_er_nssa = sum(calc_employer_nssa(float(r[0] or 0)) for r in cursor.fetchall())
+            # Same exemption rule as the month figures above.
+            cursor.execute("""
+                SELECT p.gross_pay FROM hr_payroll p
+                JOIN hr_employees e ON p.employee_id = e.id
+                WHERE p.period LIKE %s AND p.period <= %s
+                  AND (e.exempt_nssa_nec IS NULL OR e.exempt_nssa_nec = FALSE)
+            """, (f"{year}%", period))
+            y_contrib_rows = [float(r[0] or 0) for r in cursor.fetchall()]
+            y_er_nssa = sum(calc_employer_nssa(g) for g in y_contrib_rows)
+            y_nec_er = max(0.0, sum(y_contrib_rows) * 0.04 - y_nec_emp)
 
             # Remittance line items (code, desc, month_emp, month_er, ytd_emp, ytd_er)
             remittances = [
@@ -21536,6 +21609,7 @@ def hr_export_employees():
             ('Exchange Rate', lambda e: _num(e, 'exchange_rate', 1)),
             ('Medical Aid Package', lambda e: _txt(e, 'medical_aid_package')),
             ('Omit from Payroll', lambda e: 'Yes' if e.get('omit_from_payroll') else 'No'),
+            ('Exempt from NSSA & NEC', lambda e: 'Yes' if e.get('exempt_nssa_nec') else 'No'),
             ('Bank Account Holder Name', lambda e: _txt(e, 'bank_holder_name')),
             ('Bank Account Holder Surname', lambda e: _txt(e, 'bank_holder_surname')),
             ('Bank Name', lambda e: _txt(e, 'bank_name')),
@@ -21757,6 +21831,7 @@ table.kv-lb th {{ background: #1E2A56; color: #fff; font-size: 8px; padding: 3px
                 'Status': ['Active', 'Inactive', 'Terminated'],
                 'Medical Aid Package': ['Lite', 'Platinum'],
                 'Currency': ['USD', 'ZWG', 'Mixed'],
+                'Exempt from NSSA & NEC': ['Yes', 'No'],
                 'Bank Name': ['CABS', 'CBZ', 'Ecobank', 'FBC', 'First Capital', 'NBS', 'Nedbank', 'POSB',
                               'EcoCash', 'Standard Chartered', 'Stanbic', 'ZABG', 'ZB'],
             }

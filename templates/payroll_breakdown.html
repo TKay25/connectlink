@@ -378,6 +378,9 @@
                     <div class="step-num" style="background:#16a34a;">2</div>
                     <div class="step-body">
                         <div class="step-title" style="color:#16a34a;">NSSA (Employee Pension) — deducted first</div>
+                        {% if exempt_nssa_nec %}
+                        <div class="step-desc" style="color:#94a3b8;">Not applicable — HR has marked this employee as <strong>Exempt from NSSA &amp; NEC</strong>. No NSSA is deducted from pay and the company makes no NSSA contribution for them.</div>
+                        {% else %}
                         <div class="step-desc">National Social Security Authority — employee portion. Calculated on gross, deducted before PAYE{{ nssa_cap_note }}</div>
                         <div class="step-formula">${{ nssa_basis|round(2)|numberfmt }}{{ nssa_cap_note }} × 4.5% = <strong style="color:#16a34a;">${{ nssa|round(2)|numberfmt }}</strong></div>
                         <div style="margin-top:6px;padding:6px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;font-size:11px;color:#15803d;">
@@ -386,6 +389,7 @@
                             = <strong>${{ employer_nssa|round(2)|numberfmt }}</strong>
                             — this is paid by the employer and does <em>not</em> reduce your net pay.
                         </div>
+                        {% endif %}
                     </div>
                     <div class="step-amount" style="color:#16a34a;">− ${{ nssa|round(2)|numberfmt }}</div>
                 </div>
