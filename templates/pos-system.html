@@ -7256,7 +7256,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                     let totalSell = 0;
                     const exportData = filteredProducts.map(p => {
                         const buyPrice = p.buy_price || 0;
-                        const sellPrice = p.sell_price || p.price || 0;
+                        // This branch's price -- these reports are branch-scoped, so the shared
+        // price would disagree with what the screen shows.
+        const sellPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
                         const stock = p.stock || 0;
                         const totalBuyPrice = buyPrice * stock;
                         const totalSellPrice = sellPrice * stock;
@@ -7366,7 +7368,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 
             const rowsHtml = filteredProducts.map(p => {
                 const buyPrice = p.buy_price || 0;
-                const sellPrice = p.sell_price || p.price || 0;
+                // This branch's price -- these reports are branch-scoped, so the shared
+        // price would disagree with what the screen shows.
+        const sellPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
                 const stock = p.stock || 0;
                 totalBuy += buyPrice * stock;
                 totalSell += sellPrice * stock;
@@ -9302,8 +9306,8 @@ async function exportModalData(type, format) {
         'Unit Type': p.unit_type,
         'Unit Detail': p.unit_details || 'N/A',
         'Buy Price': p.buy_price || 0,
-        'Sell Price': p.sell_price || p.price || 0,
-        'Profit Margin': ((p.sell_price || p.price || 0) - (p.buy_price || 0)).toFixed(2)
+        'Sell Price': (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)),
+        'Profit Margin': ((p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)) - (p.buy_price || 0)).toFixed(2)
     }));
     
     if (format === 'excel') {
@@ -9918,7 +9922,7 @@ function renderAuditProductSummary(products) {
                 <td class="fw-bold text-danger">-${p.total_reductions}</td>
                 <td class="fw-bold">${p.final_stock} <i class="fas ${changeIcon} ms-1" style="font-size:0.6rem;"></i></td>
                 <td>$${(p.buy_price || 0).toFixed(2)}</td>
-                <td>$${(p.sell_price || 0).toFixed(2)}</td>
+                <td>$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))}.toFixed(2)}</td>
             </tr>
         `;
     }).join('');
@@ -9970,7 +9974,7 @@ async function exportStockAuditExcel() {
         p.total_reductions,
         p.final_stock,
         p.buy_price || 0,
-        p.sell_price || 0
+        (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))
     ]);
     
     const wsSummary_data = [
@@ -10314,7 +10318,7 @@ async function exportStockAuditPDF() {
                 { content: '-' + (p.total_reductions || 0), styles: { textColor: RED } },
                 { content: String(p.final_stock == null ? 0 : p.final_stock), styles: { fontStyle: 'bold' } },
                 '$' + (Number(p.buy_price) || 0).toFixed(2),
-                '$' + (Number(p.sell_price) || 0).toFixed(2)
+                '$' + (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)
             ];
         });
         addTable(
@@ -14006,7 +14010,7 @@ function setupAddProductFundingSelection() {
                         
                         document.getElementById('unitType').value = existingProduct.unit_type;
                         document.getElementById('unitDetails').value = existingProduct.unit_details || '';
-                        document.getElementById('productPrice').value = existingProduct.sell_price;
+                        document.getElementById('productPrice').value = (existingProduct.branch_sell_price != null ? existingProduct.branch_sell_price : existingProduct.sell_price);
                     }
                 });
                 suggestionsDiv.appendChild(div);
@@ -16216,7 +16220,7 @@ function renderAnalytics() {
             const inventoryValue = {};
             products.forEach(p => {
                 if (!inventoryValue[p.category]) inventoryValue[p.category] = 0;
-                inventoryValue[p.category] += p.stock * p.sell_price;
+                inventoryValue[p.category] += p.stock * (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
             });
             
             const invLabels = Object.keys(inventoryValue);
@@ -16559,8 +16563,8 @@ function renderInventory() {
             <td class="text-danger">$${(p.buy_price || 0).toFixed(2)}</td>
             <td class="fw-bold text-success">
                 <div class="d-flex align-items-center gap-1">
-                    <span id="price-display-${p.id}">$${(p.sell_price || p.price || 0).toFixed(2)}</span>
-                    <button class="btn btn-sm btn-link p-0" onclick="editSellingPrice(${p.id}, '${escapeHtml(p.name)}', ${p.sell_price || p.price || 0})" title="Edit Selling Price">
+                    <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))}.toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
+                    <button class="btn btn-sm btn-link p-0" onclick="editSellingPrice(${p.id}, '${escapeHtml(p.name)}', ${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))})" title="Edit Selling Price">
                         <i class="fas fa-pen" style="color: var(--crimson-bright);"></i>
                     </button>
                 </div>
@@ -16590,6 +16594,9 @@ function editSellingPrice(productId, productName, currentPrice) {
     // Find the product to get buy price
     const product = products.find(p => p.id === productId);
     const currentBuyPrice = product ? (product.buy_price || 0) : 0;
+    // The SHARED catalogue price. currentPrice is what THIS branch charges, so the
+    // two differ whenever the shop has its own price.
+    const sharedPrice = product ? Number(product.sell_price || product.price || 0) : 0;
     
     // Create modal dynamically
     const modalHtml = `
@@ -16605,11 +16612,18 @@ function editSellingPrice(productId, productName, currentPrice) {
                             <i class="fas fa-info-circle me-1"></i> 
                             <strong>Product:</strong> ${escapeHtml(productName)}<br>
                             <strong>Buying Price:</strong> $${currentBuyPrice.toFixed(2)}<br>
-                            <strong>Current Selling Price:</strong> <span id="currentPriceDisplay">$${currentPrice.toFixed(2)}</span>
+                            <strong>Current Selling Price:</strong> <span id="currentPriceDisplay">$${currentPrice.toFixed(2)}</span><br>
+                            <strong>Shared catalogue price:</strong> $${sharedPrice.toFixed(2)}
                         </div>
                         
                         <label class="form-label" for="newSellingPrice">New Selling Price ($) *</label>
                         <input type="number" step="0.01" class="form-control mb-2" id="newSellingPrice" placeholder="Enter new price" value="${currentPrice.toFixed(2)}">
+
+                        <label class="form-label" for="newPriceScope">Apply this price to</label>
+                        <select class="form-select mb-2" id="newPriceScope">
+                            <option value="branch">This branch only</option>
+                            <option value="all">All branches (the shared price)</option>
+                        </select>
                         
                         <label class="form-label" for="priceReason">Reason for Change (Optional)</label>
                         <select class="form-select mb-2" id="priceReason">
@@ -16684,7 +16698,9 @@ async function confirmPriceUpdate(productId) {
         return;
     }
     
-    const oldPrice = product.sell_price || product.price || 0;
+    // Compare against what THIS branch charges, not the shared price -- otherwise
+    // the toast claims a change that did not happen (or hides one that did).
+    const oldPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
     const productName = product.name;
     const buyPrice = product.buy_price || 0;
     
@@ -16704,7 +16720,8 @@ async function confirmPriceUpdate(productId) {
             body: JSON.stringify({
                 sell_price: newPrice,
                 reason: reason,
-                old_price: oldPrice
+                old_price: oldPrice,
+                price_scope: (document.getElementById('newPriceScope') || {}).value || 'branch'
             })
         });
         
@@ -16716,8 +16733,9 @@ async function confirmPriceUpdate(productId) {
             // Update local products array
             const productIndex = products.findIndex(p => p.id === productId);
             if (productIndex !== -1) {
-                products[productIndex].sell_price = newPrice;
-                products[productIndex].price = newPrice;
+                // The override lives on the BRANCH price. Overwriting sell_price here
+                // (as this used to) made the row show the shared price again on reload.
+                products[productIndex].branch_sell_price = newPrice;
             }
             
             // Refresh displays
@@ -16778,8 +16796,8 @@ function renderInventory() {
             <td class="text-danger">$${(p.buy_price || 0).toFixed(2)}</td>
             <td class="fw-bold text-success">
                 <div class="d-flex align-items-center gap-1">
-                    <span id="price-display-${p.id}">$${(p.sell_price || p.price || 0).toFixed(2)}</span>
-                    <button class="btn btn-sm btn-link p-0" onclick="editSellingPrice(${p.id}, '${escapeHtml(p.name)}', ${p.sell_price || p.price || 0})" title="Edit Selling Price">
+                    <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))}.toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
+                    <button class="btn btn-sm btn-link p-0" onclick="editSellingPrice(${p.id}, '${escapeHtml(p.name)}', ${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))})" title="Edit Selling Price">
                         <i class="fas fa-pen" style="color: var(--crimson-bright);"></i>
                     </button>
                 </div>
