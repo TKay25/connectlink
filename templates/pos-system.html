@@ -9922,7 +9922,7 @@ function renderAuditProductSummary(products) {
                 <td class="fw-bold text-danger">-${p.total_reductions}</td>
                 <td class="fw-bold">${p.final_stock} <i class="fas ${changeIcon} ms-1" style="font-size:0.6rem;"></i></td>
                 <td>$${(p.buy_price || 0).toFixed(2)}</td>
-                <td>$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))}.toFixed(2)}</td>
+                <td>$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}</td>
             </tr>
         `;
     }).join('');
@@ -16563,7 +16563,7 @@ function renderInventory() {
             <td class="text-danger">$${(p.buy_price || 0).toFixed(2)}</td>
             <td class="fw-bold text-success">
                 <div class="d-flex align-items-center gap-1">
-                    <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))}.toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
+                    <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
                     <button class="btn btn-sm btn-link p-0" onclick="editSellingPrice(${p.id}, '${escapeHtml(p.name)}', ${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))})" title="Edit Selling Price">
                         <i class="fas fa-pen" style="color: var(--crimson-bright);"></i>
                     </button>
@@ -16796,7 +16796,7 @@ function renderInventory() {
             <td class="text-danger">$${(p.buy_price || 0).toFixed(2)}</td>
             <td class="fw-bold text-success">
                 <div class="d-flex align-items-center gap-1">
-                    <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))}.toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
+                    <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
                     <button class="btn btn-sm btn-link p-0" onclick="editSellingPrice(${p.id}, '${escapeHtml(p.name)}', ${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))})" title="Edit Selling Price">
                         <i class="fas fa-pen" style="color: var(--crimson-bright);"></i>
                     </button>
