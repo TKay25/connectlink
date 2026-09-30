@@ -2960,6 +2960,55 @@ def ensure_branches_schema(cursor, connection):
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_stock_transfers_created ON stock_transfers (created_at)")
         connection.commit()
 
+        # ---- FIFO cost layers -------------------------------------------------
+        # One row per RECEIPT of goods, not per product. A product bought 2 @ $3
+        # then 4 @ $5 has TWO layers, and a sale consumes the oldest first, so
+        # the cost booked against a sale is the real cost of the units that
+        # left the shelf -- not the latest purchase price. quantity_remaining is
+        # what makes FIFO work without rewriting history.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS stock_lots (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER NOT NULL,
+                branch_id INTEGER NOT NULL,
+                quantity_received INTEGER NOT NULL,
+                quantity_remaining INTEGER NOT NULL,
+                unit_cost DECIMAL(10,2) NOT NULL DEFAULT 0,
+                source VARCHAR(20) DEFAULT 'addition',
+                reference VARCHAR(60) DEFAULT '',
+                received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_stock_lots_fifo ON stock_lots (product_id, branch_id, received_at, id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_stock_lots_branch ON stock_lots (branch_id)")
+        connection.commit()
+
+        # ---- Per-branch selling price ---------------------------------------
+        # The catalogue in `products` holds the SHARED price. A row here is an
+        # OVERRIDE for one branch only. No row = the branch follows the shared
+        # price, so nothing changes until a price is deliberately pinned, and
+        # deleting the row reverts that branch to the shared price.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS product_prices (
+                product_id INTEGER NOT NULL,
+                branch_id INTEGER NOT NULL,
+                sell_price DECIMAL(10,2) NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (product_id, branch_id)
+            )
+        """)
+        connection.commit()
+
+        # The cost a sale carried, frozen at the moment it was rung. Profit is
+        # (sold price - this), so re-costing stock can never rewrite the past.
+        try:
+            cursor.execute("ALTER TABLE transaction_items ADD COLUMN IF NOT EXISTS cost_at_time DECIMAL(10,2)")
+            connection.commit()
+        except Exception as e:
+            connection.rollback()
+            print(f"Note: transaction_items.cost_at_time not added: {e}")
+
         if first_branch_id:
             # Everything that existed before this change was this shop's stock.
             cursor.execute("""
@@ -2982,6 +3031,30 @@ def ensure_branches_schema(cursor, connection):
             """)
             connection.commit()
             print(f"[ok] product_stock ready ({seeded} product row(s) seeded to {BRANCH_FIRST_CODE})")
+
+            # Opening FIFO layer for stock that was already on hand when costing
+            # became FIFO: one lot per (product, branch) at the product's current
+            # cost. Guarded on "has NO lots at all" so it can never duplicate on
+            # a later boot, and so a hand-added layer is never overwritten.
+            try:
+                cursor.execute("""
+                    INSERT INTO stock_lots (product_id, branch_id, quantity_received, quantity_remaining,
+                                            unit_cost, source, reference, received_at)
+                    SELECT ps.product_id, ps.branch_id, ps.stock, ps.stock,
+                           COALESCE(p.buy_price, 0), 'opening', 'backfill', CURRENT_TIMESTAMP
+                    FROM product_stock ps
+                    JOIN products p ON p.id = ps.product_id
+                    WHERE ps.stock > 0
+                      AND NOT EXISTS (SELECT 1 FROM stock_lots sl
+                                      WHERE sl.product_id = ps.product_id
+                                        AND sl.branch_id = ps.branch_id)
+                """)
+                opened = cursor.rowcount
+                connection.commit()
+                print(f"[ok] FIFO opening layers created for {opened} (product, branch) pair(s)")
+            except Exception as e:
+                connection.rollback()
+                print(f"Note: FIFO opening layers skipped: {e}")
 
         scoped = []
         for table in BRANCH_SCOPED_TABLES:
@@ -3108,8 +3181,13 @@ def recalc_product_total_stock(cursor, product_id):
     """, (product_id, product_id))
 
 
-def set_branch_stock(cursor, product_id, branch_id, new_stock, min_stock_level=None):
-    """Set one branch's stock for a product and refresh the catalogue total."""
+def set_branch_stock(cursor, product_id, branch_id, new_stock, min_stock_level=None, lot_cost=None):
+    """Set one branch's stock for a product and refresh the catalogue total.
+
+    The FIFO ledger is reconciled afterwards, so the cost layers always tie out
+    to product_stock however the quantity was set. `lot_cost` prices the newly
+    received units when they are not already costed by the caller.
+    """
     cursor.execute("""
         INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
         VALUES (%s, %s, %s, COALESCE(%s, 10), CURRENT_TIMESTAMP)
@@ -3119,10 +3197,17 @@ def set_branch_stock(cursor, product_id, branch_id, new_stock, min_stock_level=N
                 updated_at = CURRENT_TIMESTAMP
     """, (product_id, branch_id, int(new_stock or 0), min_stock_level))
     recalc_product_total_stock(cursor, product_id)
+    sync_lots_to_stock(cursor, product_id, branch_id, unit_cost=lot_cost)
+    sync_product_avg_cost(cursor, product_id)
 
 
-def add_branch_stock(cursor, product_id, branch_id, delta):
-    """Add (or subtract, with a negative delta) stock for ONE branch, then refresh the total."""
+def add_branch_stock(cursor, product_id, branch_id, delta, lot_cost=None):
+    """Add (or subtract, with a negative delta) stock for ONE branch, then refresh the total.
+
+    A subtraction consumes the FIFO layers oldest-first; an addition is costed
+    at `lot_cost` when the caller knows it (a transfer, a void) and otherwise at
+    the product's current cost.
+    """
     if not delta:
         return
     cursor.execute("""
@@ -3133,6 +3218,173 @@ def add_branch_stock(cursor, product_id, branch_id, delta):
                 updated_at = CURRENT_TIMESTAMP
     """, (product_id, branch_id, int(delta)))
     recalc_product_total_stock(cursor, product_id)
+    sync_lots_to_stock(cursor, product_id, branch_id,
+                      unit_cost=lot_cost if delta > 0 else None)
+    sync_product_avg_cost(cursor, product_id)
+
+
+# ===================== FIFO COSTING + PER-BRANCH PRICING =====================
+# The quantity truth is product_stock (per branch). The COST truth is stock_lots
+# (per branch, per receipt). Nothing here trusts "the latest buy price": a sale
+# takes its cost from the layers it actually consumed, and stores that on the
+# sale line so the figure can never move afterwards.
+
+def receive_stock_lot(cursor, product_id, branch_id, quantity, unit_cost, source='addition', reference=''):
+    """Add one FIFO cost layer for goods arriving in a branch. Returns the lot id."""
+    quantity = int(quantity or 0)
+    if not product_id or not branch_id or quantity <= 0:
+        return None
+    cursor.execute("""
+        INSERT INTO stock_lots (product_id, branch_id, quantity_received, quantity_remaining,
+                                unit_cost, source, reference, received_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        RETURNING id
+    """, (product_id, branch_id, quantity, quantity, float(unit_cost or 0), source, reference or ''))
+    return cursor.fetchone()[0]
+
+
+def consume_stock_lots_fifo(cursor, product_id, branch_id, quantity):
+    """Take `quantity` units out of a branch, oldest layer first.
+
+    Returns (total_cost, [(lot_id, qty, unit_cost), ...]). If the layers hold
+    less than `quantity` the shortfall is priced at the product's current cost
+    so the caller still gets a number instead of an exception -- the drift is
+    then visible in the reconciliation rather than hidden.
+    """
+    quantity = int(quantity or 0)
+    if quantity <= 0 or not product_id or not branch_id:
+        return 0.0, []
+    cursor.execute("""
+        SELECT id, quantity_remaining, unit_cost
+        FROM stock_lots
+        WHERE product_id = %s AND branch_id = %s AND quantity_remaining > 0
+        ORDER BY received_at, id
+    """, (product_id, branch_id))
+    need = quantity
+    total = 0.0
+    layers = []
+    for lot_id, remaining, unit_cost in cursor.fetchall():
+        if need <= 0:
+            break
+        take = min(int(remaining or 0), need)
+        if take <= 0:
+            continue
+        cursor.execute("UPDATE stock_lots SET quantity_remaining = quantity_remaining - %s WHERE id = %s",
+                       (take, lot_id))
+        total += take * float(unit_cost or 0)
+        layers.append((lot_id, take, float(unit_cost or 0)))
+        need -= take
+    if need > 0:
+        cursor.execute("SELECT COALESCE(buy_price, 0) FROM products WHERE id = %s", (product_id,))
+        row = cursor.fetchone()
+        fallback = float(row[0] or 0) if row else 0.0
+        total += need * fallback
+        layers.append((None, need, fallback))
+    return total, layers
+
+
+def fifo_stock_value(cursor, product_id=None, branch_id=None):
+    """Cost of stock on hand = SUM(open layer qty x that layer's own unit cost)."""
+    where, params = [], []
+    if product_id:
+        where.append('product_id = %s')
+        params.append(product_id)
+    if branch_id:
+        where.append('branch_id = %s')
+        params.append(branch_id)
+    sql = "SELECT COALESCE(SUM(quantity_remaining * unit_cost), 0) FROM stock_lots"
+    if where:
+        sql += ' WHERE ' + ' AND '.join(where)
+    cursor.execute(sql, tuple(params))
+    row = cursor.fetchone()
+    return float(row[0] or 0) if row else 0.0
+
+
+def sync_lots_to_stock(cursor, product_id, branch_id, unit_cost=None):
+    """Force the FIFO ledger to tie out to product_stock for one branch.
+
+    Lots are the costing layer, product_stock is the quantity truth. Any gap is
+    closed here: short by N adds a layer (at `unit_cost` when given), over by N
+    consumes FIFO. This runs after every movement, so the valuation can never
+    silently disagree with the stock report.
+    """
+    if not product_id or not branch_id:
+        return
+    cursor.execute("SELECT COALESCE(stock, 0) FROM product_stock WHERE product_id = %s AND branch_id = %s",
+                   (product_id, branch_id))
+    row = cursor.fetchone()
+    on_hand = int(row[0] or 0) if row else 0
+    cursor.execute("SELECT COALESCE(SUM(quantity_remaining), 0) FROM stock_lots WHERE product_id = %s AND branch_id = %s",
+                   (product_id, branch_id))
+    in_lots = int(cursor.fetchone()[0] or 0)
+    if in_lots == on_hand:
+        return
+    if in_lots < on_hand:
+        cost = unit_cost
+        if cost is None:
+            cursor.execute("SELECT COALESCE(buy_price, 0) FROM products WHERE id = %s", (product_id,))
+            r = cursor.fetchone()
+            cost = float(r[0] or 0) if r else 0.0
+        receive_stock_lot(cursor, product_id, branch_id, on_hand - in_lots, cost, 'adjustment', 'reconcile')
+    else:
+        consume_stock_lots_fifo(cursor, product_id, branch_id, in_lots - on_hand)
+
+
+def sync_product_avg_cost(cursor, product_id):
+    """products.buy_price becomes the FIFO weighted-average of the OPEN layers.
+
+    Legacy readers still show products.buy_price (catalogue views, procurement
+    picker, the till's cost hint), so it has to stay a sensible number. It is
+    now a DERIVED figure -- the real cost of a sale comes from the layers that
+    sale consumed, never from here.
+    """
+    if not product_id:
+        return
+    cursor.execute("""
+        UPDATE products
+        SET buy_price = COALESCE((
+                SELECT ROUND(SUM(quantity_remaining * unit_cost)
+                             / NULLIF(SUM(quantity_remaining), 0), 4)
+                FROM stock_lots
+                WHERE product_id = %s AND quantity_remaining > 0
+            ), buy_price),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (product_id, product_id))
+
+
+def get_branch_sell_price(cursor, product_id, branch_id, fallback=0.0):
+    """Selling price of a product IN A BRANCH.
+
+    A row in product_prices wins; otherwise the branch follows the shared
+    catalogue price. This is the only place the override rule is expressed.
+    """
+    if branch_id:
+        cursor.execute("SELECT sell_price FROM product_prices WHERE product_id = %s AND branch_id = %s",
+                       (product_id, branch_id))
+        row = cursor.fetchone()
+        if row and row[0] is not None:
+            return float(row[0])
+    return float(fallback or 0)
+
+
+def set_branch_sell_price(cursor, product_id, branch_id, sell_price):
+    """Pin a selling price for ONE branch (upsert of the override)."""
+    cursor.execute("""
+        INSERT INTO product_prices (product_id, branch_id, sell_price, updated_at)
+        VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+        ON CONFLICT (product_id, branch_id) DO UPDATE
+            SET sell_price = EXCLUDED.sell_price, updated_at = CURRENT_TIMESTAMP
+    """, (product_id, branch_id, float(sell_price or 0)))
+
+
+def clear_branch_sell_price(cursor, product_id, branch_id=None):
+    """Drop the override (one branch, or all of them) so the shared price applies again."""
+    if branch_id:
+        cursor.execute("DELETE FROM product_prices WHERE product_id = %s AND branch_id = %s",
+                       (product_id, branch_id))
+    else:
+        cursor.execute("DELETE FROM product_prices WHERE product_id = %s", (product_id,))
 
 
 BRANCH_WRITE_BLOCKED_MESSAGE = (
@@ -13725,20 +13977,29 @@ def run1hardware():
                    COALESCE(ps.min_stock_level, p.min_stock_level, 10) AS min_stock_level,
                    p.description, p.barcode, p.created_at, p.updated_at,
                    COALESCE((SELECT SUM(a.stock) FROM product_stock a
-                             WHERE a.product_id = p.id), 0) AS total_stock
+                             WHERE a.product_id = p.id), 0) AS total_stock,
+                   COALESCE(pp.sell_price, p.sell_price) AS branch_sell_price,
+                   COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
+                             FROM stock_lots sl
+                             WHERE sl.product_id = p.id AND sl.branch_id = %s), 0) AS stock_value
             FROM products p
             LEFT JOIN product_stock ps ON ps.product_id = p.id AND ps.branch_id = %s
+            LEFT JOIN product_prices pp ON pp.product_id = p.id AND pp.branch_id = %s
             WHERE p.is_active = TRUE
             ORDER BY p.name
         """
-        result = execute_query(query, (branch_id,), fetch_all=True)
+        result = execute_query(query, (branch_id, branch_id, branch_id), fetch_all=True)
     else:
         query = """
             SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, p.buy_price, p.sell_price,
                    COALESCE(allb.total, 0) AS stock,
                    COALESCE(p.min_stock_level, 10) AS min_stock_level,
                    p.description, p.barcode, p.created_at, p.updated_at,
-                   COALESCE(allb.total, 0) AS total_stock
+                   COALESCE(allb.total, 0) AS total_stock,
+                   p.sell_price AS branch_sell_price,
+                   COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
+                             FROM stock_lots sl
+                             WHERE sl.product_id = p.id), 0) AS stock_value
             FROM products p
             LEFT JOIN (SELECT product_id, SUM(stock) AS total
                        FROM product_stock GROUP BY product_id) allb ON allb.product_id = p.id
@@ -13759,6 +14020,8 @@ def run1hardware():
                 'unit_type': row[3],
                 'unit_details': row[4],
                 'buy_price': float(row[5]) if row[5] else 0.00,
+                # The shared catalogue price. `branch_sell_price` below is what
+                # the till in THIS branch must charge.
                 'sell_price': float(row[6]) if row[6] else 0.00,  # Make sure this exists
                 'stock': stock,
                 'min_stock_level': min_stock,
@@ -13767,6 +14030,8 @@ def run1hardware():
                 'created_at': row[11].isoformat() if row[11] else None,
                 'updated_at': row[12].isoformat() if row[12] else None,
                 'total_stock': row[13] if row[13] is not None else 0,
+                'branch_sell_price': float(row[14]) if row[14] is not None else (float(row[6]) if row[6] else 0.0),
+                'stock_value': float(row[15]) if row[15] is not None else 0.0,
                 'low_stock': stock < min_stock
             })
     
@@ -14572,7 +14837,15 @@ def pos_transfer_stock():
                   data.get('notes', ''), user_id, user_name))
             transfer_id = cursor.fetchone()[0]
 
-            # Out of the source...
+            # Out of the source. The FIFO layers are consumed BEFORE the stock
+            # moves, and the destination is re-layered at those SAME costs -- a
+            # transfer must not change what the goods are worth, only where
+            # they are. (Layers are written first so the reconciliation inside
+            # add_branch_stock finds the ledger already balanced.)
+            moved_cost, moved_layers = consume_stock_lots_fifo(cursor, product_id, from_branch, quantity)
+            for _lot_id, layer_qty, layer_cost in moved_layers:
+                receive_stock_lot(cursor, product_id, to_branch, layer_qty, layer_cost,
+                                  'transfer_in', f'T{transfer_id}')
             add_branch_stock(cursor, product_id, from_branch, -quantity)
             cursor.execute("""
                 INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
@@ -14585,7 +14858,9 @@ def pos_transfer_stock():
             cursor.execute("""
                 INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
                 VALUES (%s, %s, %s, %s, 'TRANSFER', %s, CURRENT_TIMESTAMP, %s)
-            """, (product_id, quantity, 0, 0, user_id, to_branch))
+            """, (product_id, quantity,
+                  round(moved_cost / max(1, quantity), 2), round(moved_cost, 2),
+                  user_id, to_branch))
 
             connection.commit()
 
@@ -14809,11 +15084,16 @@ def get_product_by_barcode(barcode):
     """Look up an active product by its barcode (used by POS barcode scanning)."""
     try:
         code = (barcode or '').strip()
+        # A blank code must never match a blank barcode column -- plenty of
+        # products have no barcode, and matching one of them would hand the
+        # scanner an arbitrary product.
+        if not code:
+            return jsonify({'success': False, 'error': 'No barcode supplied'}), 400
         query = """
             SELECT id, name, category, unit_type, unit_details, buy_price, sell_price,
                    stock, min_stock_level, description, barcode
             FROM products
-            WHERE barcode = %s AND is_active = TRUE
+            WHERE barcode = %s AND COALESCE(barcode, '') <> '' AND is_active = TRUE
         """
         result = execute_query(query, (code,), fetch_one=True)
         if not result:
@@ -14861,9 +15141,13 @@ def create_product():
 
     barcode = (data.get('barcode') or '').strip()
 
-    # Refuse to assign a barcode that already belongs to another product
+    # Refuse to assign a barcode that already belongs to another product.
+    # Only a real (non-blank) barcode can collide -- products with no barcode all
+    # share '' and must not be treated as duplicates of each other.
     if barcode:
-        dup = execute_query("SELECT id, name FROM products WHERE barcode = %s", (barcode,), fetch_one=True)
+        dup = execute_query(
+            "SELECT id, name FROM products WHERE barcode = %s AND COALESCE(barcode, '') <> ''",
+            (barcode,), fetch_one=True)
         if dup:
             return jsonify({'error': f'Barcode {barcode} is already assigned to "{dup[1]}"'}), 400
 
@@ -14929,10 +15213,18 @@ def create_product():
 @login_required
 @block_writes_in_consolidated_view
 def update_product_price(product_id):
-    """Update product selling price - using ONLY sell_price"""
+    """Update a selling price - for ONE branch, or for the whole catalogue.
+
+    The catalogue is shared, so a branch price is an OVERRIDE: it is stored in
+    product_prices and only that branch's till sees it. "All branches" writes the
+    shared price AND clears every override, so it really does apply everywhere.
+    Setting a branch price equal to the shared price simply removes the override,
+    which keeps the table holding only genuine differences.
+    """
     try:
         data = request.json
         new_price = data.get('sell_price')
+        price_scope = (data.get('price_scope') or 'branch').strip().lower()
         
         if new_price is None:
             return jsonify({'error': 'New price is required'}), 400
@@ -14945,33 +15237,56 @@ def update_product_price(product_id):
             return jsonify({'error': 'Product not found'}), 404
         
         product_name = product[1]
-        current_sell_price = float(product[3]) if product[3] else 0
+        master_price = float(product[3]) if product[3] else 0
         buy_price = float(product[2]) if product[2] else 0
-        
-        # Update ONLY sell_price - NO 'price' column reference
-        update_query = """
-            UPDATE products 
-            SET sell_price = %s, updated_at = CURRENT_TIMESTAMP 
-            WHERE id = %s
-        """
-        execute_query(update_query, (new_price, product_id), commit=True)
+        branch_id = current_branch_id()
+
+        if price_scope == 'all':
+            execute_query("""
+                UPDATE products 
+                SET sell_price = %s, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = %s
+            """, (new_price, product_id), commit=True)
+            with get_db() as (cursor, connection):
+                clear_branch_sell_price(cursor, product_id)
+                connection.commit()
+            current_sell_price = master_price
+            scope_label = 'all branches'
+        else:
+            if not branch_id:
+                return jsonify({'error': 'Pick a branch first - the All Branches view is read-only.'}), 400
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT name FROM branches WHERE id = %s", (branch_id,))
+                brow = cursor.fetchone()
+                scope_label = brow[0] if brow else f'branch {branch_id}'
+                current_sell_price = get_branch_sell_price(cursor, product_id, branch_id, master_price)
+                if abs(float(new_price) - master_price) < 0.005:
+                    # Same as the shared price: no override is needed.
+                    clear_branch_sell_price(cursor, product_id, branch_id)
+                else:
+                    set_branch_sell_price(cursor, product_id, branch_id, new_price)
+                connection.commit()
 
         # Log the price change to the activity log (best-effort)
         try:
             log_activity(
                 'price_change',
-                f'Changed price of "{product_name}" from ${current_sell_price:.2f} to ${float(new_price):.2f}',
+                f'Changed price of "{product_name}" ({scope_label}) from '
+                f'${current_sell_price:.2f} to ${float(new_price):.2f}',
                 'product', product_id,
-                {'old_price': current_sell_price, 'new_price': float(new_price)}
+                {'old_price': current_sell_price, 'new_price': float(new_price),
+                 'scope': price_scope, 'branch': scope_label}
             )
         except Exception as log_err:
             print(f"Warning: Could not log price change: {log_err}")
         
         return jsonify({
             'success': True,
-            'message': f'Price updated from ${current_sell_price:.2f} to ${new_price:.2f}',
+            'message': f'Price for {scope_label} updated from ${current_sell_price:.2f} to ${new_price:.2f}',
             'old_price': current_sell_price,
-            'new_price': new_price
+            'new_price': new_price,
+            'scope': price_scope,
+            'scope_label': scope_label
         })
         
     except Exception as e:
@@ -14999,13 +15314,15 @@ def update_product(product_id):
     except Exception as stock_err:
         print(f"Warning: could not read branch stock: {stock_err}")
 
-    # Refuse to assign a barcode that belongs to another product
-    if 'barcode' in data and data.get('barcode'):
+    # Refuse to assign a barcode that belongs to another product. Compared on the
+    # STRIPPED value, and only for a real (non-blank) barcode -- see the note in
+    # the subtract-stock path: a blank barcode is "none", not a shared value.
+    if 'barcode' in data and str(data.get('barcode') or '').strip():
         dup = execute_query(
-            "SELECT id FROM products WHERE barcode = %s AND id != %s",
+            "SELECT id FROM products WHERE barcode = %s AND COALESCE(barcode, '') <> '' AND id != %s",
             (str(data['barcode']).strip(), product_id), fetch_one=True)
         if dup:
-            return jsonify({'error': f'Barcode {data["barcode"]} is already assigned to another product'}), 400
+            return jsonify({'error': f'Barcode {str(data["barcode"]).strip()} is already assigned to another product'}), 400
 
     update_fields = []
     params = []
@@ -15016,9 +15333,19 @@ def update_product(product_id):
     # 'stock'/'min_stock_level' are NOT here either: they live in product_stock
     # per branch and are handled below.
     updatable_fields = ['name', 'category', 'unit_type', 'unit_details', 'buy_price', 'sell_price', 'description', 'barcode']
-    
+
+    # A price can be SCOPED, because the catalogue is shared but the price need
+    # not be. 'branch' pins this shop's price in product_prices and leaves every
+    # other branch alone; 'all' writes the shared price and clears the overrides
+    # so it really does apply everywhere. A caller that sends no scope keeps the
+    # old behaviour (write the shared catalogue price), so nothing else changes.
+    price_scope = (data.get('price_scope') or '').strip().lower()
+    scoped_sell_price = data.get('sell_price') if (price_scope == 'branch' and 'sell_price' in data) else None
+    if scoped_sell_price is not None and not branch_id:
+        return jsonify({'error': 'Pick a branch first - the All Branches view is read-only.'}), 400
+
     for field in updatable_fields:
-        if field in data:
+        if field in data and not (field == 'sell_price' and scoped_sell_price is not None):
             update_fields.append(f"{field} = %s")
             params.append(data[field])
 
@@ -15031,6 +15358,26 @@ def update_product(product_id):
         params.append(product_id)
         query = f"UPDATE products SET {', '.join(update_fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = %s"
         execute_query(query, tuple(params), commit=True)
+
+    # Branch price override / clear-everywhere, applied after the catalogue update
+    # so the shared price the caller sees is already the new one.
+    if scoped_sell_price is not None or price_scope == 'all':
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT COALESCE(sell_price, 0) FROM products WHERE id = %s", (product_id,))
+                mrow = cursor.fetchone()
+                master_price = float(mrow[0] or 0) if mrow else 0.0
+                if price_scope == 'all':
+                    clear_branch_sell_price(cursor, product_id)
+                elif abs(float(scoped_sell_price) - master_price) < 0.005:
+                    # Equal to the shared price -> no override is needed.
+                    clear_branch_sell_price(cursor, product_id, branch_id)
+                else:
+                    set_branch_sell_price(cursor, product_id, branch_id, scoped_sell_price)
+                connection.commit()
+        except Exception as price_err:
+            print(f"Warning: could not apply product price scope: {price_err}")
+            return jsonify({'error': f'Could not set the price: {price_err}'}), 500
 
     # If this is a stock addition, track funding source in a separate table
     if 'funding_source' in data and 'total_cost' in data:
@@ -15186,12 +15533,19 @@ def subtract_stock(product_id):
         # Subtract stock
         new_stock = current_stock - quantity
 
-        # Optional: update the product's barcode if a new one was provided
-        barcode = data.get('barcode')
-        if barcode is not None:
-            barcode = str(barcode).strip()
+        # Optional: update the product's barcode if a new one was provided.
+        # A BLANK barcode means "this product has none", NOT a value to compare
+        # against other products. Most products legitimately have no barcode, so
+        # treating '' as one made every such product collide and blamed an
+        # unrelated product for it. Blank = clear it; only a real value is
+        # checked for duplicates.
+        raw_barcode = data.get('barcode')
+        barcode = str(raw_barcode).strip() if raw_barcode is not None else None
+        if barcode:
             # Refuse to assign a barcode that belongs to another product
-            dup = execute_query("SELECT id FROM products WHERE barcode = %s AND id != %s", (barcode, product_id), fetch_one=True)
+            dup = execute_query(
+                "SELECT id FROM products WHERE barcode = %s AND COALESCE(barcode, '') <> '' AND id != %s",
+                (barcode, product_id), fetch_one=True)
             if dup:
                 return jsonify({'error': f'Barcode {barcode} is already assigned to another product'}), 400
 
@@ -15604,16 +15958,31 @@ def create_transaction():
             )
             execute_query(item_query, item_params, commit=True)
             
-            # Stock moves in THIS branch only; the catalogue total is refreshed
-            # by add_branch_stock.
+            # Cost + stock for this line. The FIFO layers are consumed FIRST so
+            # the cost stamped on the line is the real cost of the units that
+            # left the shelf, and it is then frozen forever. Stock moves in THIS
+            # branch only; the catalogue total is refreshed by add_branch_stock.
+            # The line itself is already committed above, so nothing here can
+            # lose a sale if the costing tables are ever unavailable.
             try:
                 with get_db() as (cursor, connection):
-                    add_branch_stock(cursor, item['id'], current_branch_id(), -int(item['quantity']))
+                    sale_branch = current_branch_id()
+                    fifo_cost, _fifo_layers = consume_stock_lots_fifo(
+                        cursor, item['id'], sale_branch, int(item['quantity']))
+                    add_branch_stock(cursor, item['id'], sale_branch, -int(item['quantity']))
+                    cursor.execute("""
+                        UPDATE transaction_items SET cost_at_time = %s
+                        WHERE id = (SELECT id FROM transaction_items
+                                    WHERE transaction_id = %s AND product_id = %s
+                                      AND cost_at_time IS NULL
+                                    ORDER BY id LIMIT 1)
+                    """, (round(fifo_cost / max(1, int(item['quantity'])), 4),
+                          transaction_id, item['id']))
                     cursor.execute("""
                         INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
                         VALUES (%s, %s, 'item_sale', %s, %s, CURRENT_TIMESTAMP, %s)
                     """, (item['id'], item['quantity'], f"Sale #{transaction_number}",
-                          session.get('user_id', 0), current_branch_id()))
+                          session.get('user_id', 0), sale_branch))
                     connection.commit()
             except Exception as log_err:
                 print(f"Warning: Could not apply sale stock movement: {str(log_err)}")
@@ -15645,7 +16014,14 @@ def create_transaction():
 @app.route('/api/transactions', methods=['GET'])
 @login_required
 def get_transactions():
-    """Get all transactions"""
+    """Get all transactions
+
+    Each line carries `buy_price` = the cost THAT SALE carried (the FIFO cost
+    frozen on the line when it was rung), falling back to the product's cost only
+    for sales rung before FIFO costing existed. Every profit / COGS calculation
+    in the POS reads this field, so re-costing stock can never restate history.
+    `cost_at_time` is also returned so the UI can show the difference.
+    """
     limit = request.args.get('limit', 50, type=int)
     
     query = """
@@ -15661,7 +16037,8 @@ def get_transactions():
                        'subtotal', ti.subtotal,
                        'unit_type', ti.unit_type,
                        'unit_details', ti.unit_details,
-                       'buy_price', p.buy_price,
+                       'buy_price', COALESCE(ti.cost_at_time, p.buy_price),
+                       'cost_at_time', ti.cost_at_time,
                        'category', p.category
                    ))
                    FROM transaction_items ti
@@ -15724,7 +16101,8 @@ def day_end_report():
                        SELECT json_agg(json_build_object(
                            'product_name', p.name,
                            'quantity', ti.quantity,
-                           'price', ti.price_at_time
+                           'price', ti.price_at_time,
+                           'cost_at_time', ti.cost_at_time
                        ))
                        FROM transaction_items ti
                        LEFT JOIN products p ON ti.product_id = p.id
@@ -15927,7 +16305,7 @@ def revert_transaction(transaction_id):
                 return jsonify({'success': False, 'error': f'Transaction {t[1]} has already been reverted'}), 400
 
             cursor.execute("""
-                SELECT ti.product_id, ti.quantity, p.buy_price
+                SELECT ti.product_id, ti.quantity, COALESCE(ti.cost_at_time, p.buy_price)
                 FROM transaction_items ti
                 LEFT JOIN products p ON ti.product_id = p.id
                 WHERE ti.transaction_id = %s
@@ -15943,8 +16321,9 @@ def revert_transaction(transaction_id):
                 buy = float(it[2] or 0)
                 if not pid or qty <= 0:
                     continue
-                # Restore stock to THIS branch's inventory
-                add_branch_stock(cursor, pid, branch_id, qty)
+                # Restore stock to THIS branch's inventory, priced at the cost the
+                # sale actually carried so a void cannot restate the margin.
+                add_branch_stock(cursor, pid, branch_id, qty, lot_cost=buy)
                 # Log the restoration for the audit trail (best-effort)
                 try:
                     cursor.execute("""
@@ -16099,10 +16478,14 @@ def get_dashboard_stats():
     total_products_query = "SELECT COUNT(*) FROM products"
     total_products_result = execute_query(total_products_query, fetch_one=True)
     
-    # Calculate total profit from all transactions
+    # Calculate total profit from all transactions. Profit is booked against the
+    # cost FROZEN on the sale line when it was rung (cost_at_time), so buying the
+    # same product in at a new price can never rewrite an already-taken margin.
+    # COALESCE keeps sales rung before FIFO costing landed working exactly as
+    # they did before.
     profit_query = """
         SELECT COALESCE(SUM(
-            ti.quantity * (ti.price_at_time - p.buy_price)
+            ti.quantity * (ti.price_at_time - COALESCE(ti.cost_at_time, p.buy_price))
         ), 0) as total_profit
         FROM transaction_items ti
         JOIN products p ON ti.product_id = p.id
@@ -50062,23 +50445,45 @@ def api_finance_statements():
 
         # ---- Balance sheet (Statement of Financial Position, management estimate) ----
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT COALESCE(SUM(p.stock * COALESCE(p.buy_price, 0)), 0) FROM products p")
+            # Inventory is valued FIFO: every open cost layer at its OWN cost, so
+            # 2 units bought at $3 plus 4 at $5 are worth $26, not 6 x $5.
+            cursor.execute("SELECT COALESCE(SUM(quantity_remaining * unit_cost), 0) FROM stock_lots")
             inventory_value = float(cursor.fetchone()[0] or 0)
+            lots_are_valued = inventory_value > 0
+            if not lots_are_valued:
+                # Only when no cost layers exist at all (a database that has not
+                # been migrated yet): fall back to the old estimate rather than
+                # reporting an empty balance sheet.
+                cursor.execute("SELECT COALESCE(SUM(p.stock * COALESCE(p.buy_price, 0)), 0) FROM products p")
+                inventory_value = float(cursor.fetchone()[0] or 0)
 
             # Per-branch split of the same figures. products.stock is maintained as
             # the cross-branch total, so the company inventory_value above is the
             # SUM of these rows -- this only explains the number, it never replaces it.
-            cursor.execute("""
-                SELECT b.id, b.name,
-                       COALESCE((SELECT SUM(ps.stock * COALESCE(p.buy_price, 0))
-                                 FROM product_stock ps JOIN products p ON p.id = ps.product_id
-                                 WHERE ps.branch_id = b.id), 0) AS inventory_value,
-                       COALESCE((SELECT COUNT(*) FROM product_stock ps
-                                 WHERE ps.branch_id = b.id AND ps.stock > 0), 0) AS stocked_items
-                FROM branches b
-                WHERE b.is_active = TRUE
-                ORDER BY b.id
-            """)
+            if lots_are_valued:
+                cursor.execute("""
+                    SELECT b.id, b.name,
+                           COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
+                                     FROM stock_lots sl
+                                     WHERE sl.branch_id = b.id), 0) AS inventory_value,
+                           COALESCE((SELECT COUNT(*) FROM product_stock ps
+                                     WHERE ps.branch_id = b.id AND ps.stock > 0), 0) AS stocked_items
+                    FROM branches b
+                    WHERE b.is_active = TRUE
+                    ORDER BY b.id
+                """)
+            else:
+                cursor.execute("""
+                    SELECT b.id, b.name,
+                           COALESCE((SELECT SUM(ps.stock * COALESCE(p.buy_price, 0))
+                                     FROM product_stock ps JOIN products p ON p.id = ps.product_id
+                                     WHERE ps.branch_id = b.id), 0) AS inventory_value,
+                           COALESCE((SELECT COUNT(*) FROM product_stock ps
+                                     WHERE ps.branch_id = b.id AND ps.stock > 0), 0) AS stocked_items
+                    FROM branches b
+                    WHERE b.is_active = TRUE
+                    ORDER BY b.id
+                """)
             branch_value_rows = cursor.fetchall()
 
             # POS takings per branch for the same period, so the branch split of

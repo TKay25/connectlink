@@ -3246,6 +3246,49 @@ body {
 .modal-body { padding: 20px; }
 .modal-footer { background: #F8FAFC; border-top: 1px solid #EEF1F6; padding: 14px 20px; }
 
+/* ---------- Modal consistency ----------
+   Every dialog is centred, wide enough for its own form, and keeps its buttons
+   reachable: the BODY is the only part that grows, and past its max height it
+   scrolls instead of pushing the footer off the screen. Applies to all modals,
+   whatever classes the markup happens to carry. */
+.modal .modal-dialog {
+    display: flex;
+    align-items: center;
+    min-height: calc(100% - 2rem);
+    margin: 1rem auto;
+    max-width: min(94vw, 560px);
+    width: auto;
+}
+.modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 2rem);
+    overflow: hidden;
+    width: 100%;
+}
+.modal .modal-header,
+.modal .modal-footer {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+}
+.modal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100vh - 11rem);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+@supports (height: 100dvh) {
+    .modal .modal-content { max-height: calc(100dvh - 2rem); }
+    .modal .modal-body { max-height: calc(100dvh - 11rem); }
+}
+/* Sizing. Bootstrap's own modal-sm is 300px, which squashes these forms. */
+.modal .modal-dialog.modal-sm { max-width: min(94vw, 520px); }
+.modal .modal-dialog.modal-md { max-width: min(94vw, 640px); }
+.modal .modal-dialog.modal-lg { max-width: min(94vw, 800px); }
+.modal .modal-dialog.modal-xl { max-width: min(95vw, 1140px); }
+
 /* ---- Subtract Stock: keep footer always visible, body scrollable ---- */
 #subtractStockModal .modal-dialog {
     height: auto;
@@ -5640,8 +5683,11 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                             <label class="form-label" for="newStockQuantity">Quantity to ADD *</label>
                             <input type="number" class="form-control mb-2" id="newStockQuantity" placeholder="Enter quantity to add" min="1" value="">
                             
-                            <label class="form-label" for="stockBuyPrice">Buying Price per Unit ($) *</label>
-                            <input type="number" step="0.01" class="form-control mb-2" id="stockBuyPrice" placeholder="Cost per unit" required>
+                            <label class="form-label" for="stockBuyPrice">Cost per Unit for THIS Batch ($) *</label>
+                            <input type="number" step="0.01" class="form-control mb-1" id="stockBuyPrice" placeholder="Cost per unit" required>
+                            <div class="form-text mb-2" style="font-size:0.68rem;">
+                                Each addition is its own cost layer. Stock is issued oldest-first (FIFO), so this price applies to the units you are adding now — it does not re-cost the stock already on the shelf.
+                            </div>
                             
                             <div class="mb-2">
                                 <div class="form-label">Funding Source *</div>
@@ -6762,6 +6808,21 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                             <option value="">-- Select Sub-Category --</option>
                         </select>
                     </div>
+                </div>
+
+                <!-- Selling price. The catalogue is shared between the shops but the
+                     PRICE need not be, so this can be pinned to one branch only. -->
+                <div class="mb-3">
+                    <label class="form-label">Selling Price ($) *</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="editProductSellPrice" placeholder="Retail price">
+                    <div id="editProductPriceHint" class="form-text" style="font-size:0.7rem;"></div>
+                </div>
+                <div class="mb-1">
+                    <label class="form-label">Apply this price to</label>
+                    <select class="form-select" id="editProductPriceScope">
+                        <option value="branch">This branch only</option>
+                        <option value="all">All branches (the shared price)</option>
+                    </select>
                 </div>
             </div>
             <div class="modal-footer">
@@ -9076,7 +9137,7 @@ function renderAllProductsList(data) {
                 <small class="text-muted d-block">${p.category} | Stock: ${p.stock} | ${p.unit_type}: ${p.unit_details || 'N/A'}</small>
             </div>
             <div class="text-end">
-                <span class="fw-bold text-success">$${(p.sell_price || p.price || 0).toFixed(2)}</span>
+                <span class="fw-bold text-success">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}</span>
                 <div><small class="text-muted">Buy: $${(p.buy_price || 0).toFixed(2)}</small></div>
             </div>
         </div>
@@ -9331,11 +9392,16 @@ function updateInventoryMetrics() {
     let totalStockItems = 0;
     
     products.forEach(p => {
-        const buyPrice = p.buy_price || 0;
-        const sellPrice = p.sell_price || p.price || 0;
+        // Cost side is the FIFO value of the layers actually on the shelf, NOT
+        // buy_price x stock -- those differ as soon as a product has been bought
+        // in at two different prices. Falls back only if no layers exist yet.
+        const stockValue = (p.stock_value != null && p.stock_value > 0)
+            ? p.stock_value
+            : (p.buy_price || 0) * (p.stock || 0);
+        const sellPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
         const stock = p.stock || 0;
         
-        totalPurchaseValue += buyPrice * stock;
+        totalPurchaseValue += stockValue;
         totalSalesValue += sellPrice * stock;
         totalStockItems += stock;
     });
@@ -10476,7 +10542,22 @@ function openEditProductModal(productId) {
             editSubCat.value = (categoryMapping[mainCategory] && categoryMapping[mainCategory].includes(product.category)) ? product.category : '';
         }
     }, 0);
-    
+
+    // Price: show what THIS branch charges, and say so when it differs from the
+    // shared catalogue price (i.e. this branch has its own price pinned).
+    const branchPrice = (product.branch_sell_price != null ? product.branch_sell_price : (product.sell_price || 0));
+    const sharedPrice = Number(product.sell_price || 0);
+    const sellPriceInput = document.getElementById('editProductSellPrice');
+    if (sellPriceInput) sellPriceInput.value = Number(branchPrice).toFixed(2);
+    const scopeSelect = document.getElementById('editProductPriceScope');
+    if (scopeSelect) scopeSelect.value = 'branch';
+    const priceHint = document.getElementById('editProductPriceHint');
+    if (priceHint) {
+        priceHint.innerHTML = (Math.abs(Number(branchPrice) - sharedPrice) > 0.004)
+            ? `This branch has its own price. The shared catalogue price is $${sharedPrice.toFixed(2)}.`
+            : `Shared catalogue price: $${sharedPrice.toFixed(2)} — the same in every branch unless you set one here.`;
+    }
+
     new bootstrap.Modal(document.getElementById('editProductModal')).show();
 }
 
@@ -10492,6 +10573,13 @@ async function updateProduct() {
         showToast('Please fill in the product name', 'error');
         return;
     }
+
+    const newSellPrice = parseFloat(document.getElementById('editProductSellPrice').value);
+    if (isNaN(newSellPrice) || newSellPrice < 0) {
+        showToast('Please enter a valid selling price', 'error');
+        return;
+    }
+    const priceScope = document.getElementById('editProductPriceScope').value || 'branch';
     
     // Client-side duplicate barcode check before saving
     if (barcode) {
@@ -10515,7 +10603,9 @@ async function updateProduct() {
             body: JSON.stringify({
                 name: name,
                 category: category,
-                barcode: barcode
+                barcode: barcode,
+                sell_price: newSellPrice,
+                price_scope: priceScope
             })
         });
         
@@ -13202,7 +13292,7 @@ function renderProductsWithFilter(filteredProducts = null) {
                     </div>
                 </div>
                 <div class="price-add-wrapper">
-                    <div class="price-above">$${(product.sell_price || product.price || 0).toFixed(2)}</div>
+                    <div class="price-above">$${(product.branch_sell_price != null ? product.branch_sell_price : (product.sell_price || product.price || 0)).toFixed(2)}${(product.branch_sell_price != null && Math.abs(Number(product.branch_sell_price) - Number(product.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</div>
                     <button class="add-btn-compact" onclick="event.stopPropagation(); addToCart(${product.id})">
                         <i class="fas fa-plus"></i> Add
                     </button>
@@ -13932,7 +14022,11 @@ function setupAddProductFundingSelection() {
         const product = products.find(p => p.id === productId);
         if (!product) return;
         
-        const priceToUse = product.sell_price || product.price || 0;
+        // The catalogue is shared between branches but the PRICE is not: this
+        // till charges the branch's own price whenever one has been pinned.
+        const priceToUse = (product.branch_sell_price != null
+            ? product.branch_sell_price
+            : (product.sell_price || product.price || 0));
         
         const existing = cart.find(i => i.id === productId);
         if (existing) {
@@ -16718,11 +16812,14 @@ function calculateInventoryMetrics() {
     let totalStockItems = 0;
     
     products.forEach(p => {
-        const buyPrice = p.buy_price || 0;
-        const sellPrice = p.sell_price || p.price || 0;
+        // FIFO value of what is actually on the shelf (see the summary-card copy).
+        const stockValue = (p.stock_value != null && p.stock_value > 0)
+            ? p.stock_value
+            : (p.buy_price || 0) * (p.stock || 0);
+        const sellPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
         const stock = p.stock || 0;
         
-        totalPurchaseValue += buyPrice * stock;
+        totalPurchaseValue += stockValue;
         totalSalesValue += sellPrice * stock;
         totalStockItems += stock;
     });
