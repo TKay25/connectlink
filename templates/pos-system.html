@@ -16716,7 +16716,8 @@ async function confirmPriceUpdate(productId) {
     
     // Compare against what THIS branch charges, not the shared price -- otherwise
     // the toast claims a change that did not happen (or hides one that did).
-    const oldPrice = (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0));
+    // NOTE: the variable here is `product`; `p` only exists inside the .find() above.
+    const oldPrice = (product.branch_sell_price != null ? product.branch_sell_price : (product.sell_price || product.price || 0));
     const productName = product.name;
     const buyPrice = branchBuyPriceOf(product);
     
