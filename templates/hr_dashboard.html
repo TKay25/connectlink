@@ -2627,9 +2627,9 @@
                         </label>
                     </div>
                     <div class="col-md-3 d-flex align-items-end" style="padding-bottom:2px;">
-                        <label class="d-flex align-items-center gap-2" style="cursor:pointer;font-size:0.7rem;font-weight:500;color:var(--text-primary);" title="Excludes this employee from NSSA and NEC: no employee deduction and no employer contribution.">
-                            <input type="checkbox" id="empExemptNssaNec" style="width:14px;height:14px;cursor:pointer;">
-                            Exempt from NSSA &amp; NEC
+                        <label class="d-flex align-items-center gap-2" style="cursor:pointer;font-size:0.7rem;font-weight:500;color:var(--text-primary);" title="Exempts this employee from NSSA only: no employee NSSA deduction and no employer NSSA contribution. NEC is not affected.">
+                            <input type="checkbox" id="empExemptNssa" style="width:14px;height:14px;cursor:pointer;">
+                            Exempt from NSSA
                         </label>
                     </div>
                 </div>
@@ -3778,7 +3778,7 @@ async function saveEmployee() {
         salary: parseFloat(document.getElementById('empSalary').value) || 0,
         medical_aid_package: document.getElementById('empMedAidPackage').value || '',
         omit_from_payroll: document.getElementById('empOmitPayroll').checked,
-        exempt_nssa_nec: document.getElementById('empExemptNssaNec').checked,
+        exempt_nssa: document.getElementById('empExemptNssa').checked,
         currency: document.getElementById('empCurrency').value,
         usd_percent: parseFloat(document.getElementById('empUsdPercent').value) || 100,
         zwg_percent: parseFloat(document.getElementById('empZwgPercent').value) || 0,
@@ -3907,7 +3907,7 @@ async function viewEmployee(empId) {
         document.getElementById('empSalary').value = emp.basic_salary || 0;
         document.getElementById('empMedAidPackage').value = emp.medical_aid_package || '';
         document.getElementById('empOmitPayroll').checked = emp.omit_from_payroll ? true : false;
-        document.getElementById('empExemptNssaNec').checked = emp.exempt_nssa_nec ? true : false;
+        document.getElementById('empExemptNssa').checked = emp.exempt_nssa ? true : false;
         document.getElementById('empCurrency').value = emp.currency || 'USD';
         document.getElementById('empUsdPercent').value = emp.usd_percent || 100;
         document.getElementById('empZwgPercent').value = emp.zwg_percent || 0;
