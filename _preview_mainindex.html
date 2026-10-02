@@ -3128,18 +3128,38 @@
             // Get username from the email field
             const username = document.getElementById(system + 'Email').value.trim();
 
+            // .error-message is display:none by CSS, so we must reveal it explicitly.
+            const showErr = (msg) => {
+                if (!errEl) return;
+                errEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + msg;
+                errEl.style.display = 'flex';
+            };
+            const clearErr = () => {
+                if (!errEl) return;
+                errEl.textContent = '';
+                errEl.style.display = 'none';
+            };
+
+            clearErr();
+
             if (!currentPw || !newPw || !confirmPw) {
-                errEl.textContent = 'All fields are required.';
+                showErr('All fields are required.');
                 return;
             }
             if (newPw.length < 4) {
-                errEl.textContent = 'New password must be at least 4 characters.';
+                showErr('New password must be at least 4 characters.');
                 return;
             }
             if (newPw !== confirmPw) {
-                errEl.textContent = 'New passwords do not match.';
+                showErr('New passwords do not match.');
                 return;
             }
+
+            // Give the user immediate feedback while the request is in flight.
+            const btn = document.querySelector('#' + system + 'SetPasswordForm .modal-login-btn');
+            const originalBtnHtml = btn ? btn.innerHTML : null;
+            if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving...'; }
+            const restoreBtn = () => { if (btn) { btn.disabled = false; btn.innerHTML = originalBtnHtml; } };
 
             try {
                 const res = await fetch('/api/first-login-reset', {
@@ -3149,6 +3169,7 @@
                 });
                 const data = await res.json();
                 if (data.success) {
+                    clearErr();
                     // Show toast notification
                     showToast('✅ Password set! Please log in with your new password.', 'success');
                     // Close the modal
@@ -3156,11 +3177,14 @@
                     else if (system === 'users') closeUsersModal();
                     else if (system === 'projects') closeProjectsModal();
                     else if (system === 'hardware') closeHardwareModal();
+                    else if (system === 'procurement') closeProcurementModal();
                 } else {
-                    errEl.textContent = data.message || 'Failed to reset password.';
+                    showErr(data.message || 'Failed to reset password.');
+                    restoreBtn();
                 }
             } catch(e) {
-                errEl.textContent = 'Connection error. Please try again.';
+                showErr('Connection error. Please try again.');
+                restoreBtn();
             }
         };
 
@@ -3369,7 +3393,9 @@
                     document.getElementById('projectsLoginWrap').style.display = 'none';
                     document.getElementById('projectsSetPasswordForm').style.display = 'block';
                     document.getElementById('projectsCurrentPw').value = dom.projectsPassword.value;
-                    document.getElementById('projectsSetPwError').textContent = data.message || 'First-time login — set a new password.';
+                    const projectsSpErr = document.getElementById('projectsSetPwError');
+                    projectsSpErr.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (data.message || 'First-time login — set a new password.');
+                    projectsSpErr.style.display = 'flex';
                 } else {
                     setLoading(false);
                     setError('projects', data.message || 'Invalid credentials');
@@ -3512,7 +3538,9 @@
                     document.getElementById('hrEmail').value = data.username;
                     // Pre-fill current password from what they typed
                     document.getElementById('hrCurrentPw').value = dom.hrPassword.value;
-                    setError('hr', data.message || 'First-time login — please set a new password.');
+                    const hrSpErr = document.getElementById('hrSetPwError');
+                    hrSpErr.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (data.message || 'First-time login — please set a new password.');
+                    hrSpErr.style.display = 'flex';
                 } else {
                     setLoading(false);
                     setError('hr', data.message || 'Invalid credentials');
@@ -3563,7 +3591,9 @@
                     document.getElementById('usersEmail').value = data.username;
                     // Pre-fill current password from what they typed
                     document.getElementById('usersCurrentPw').value = dom.usersPassword.value;
-                    setError('users', data.message || 'First-time login — please set a new password.');
+                    const usersSpErr = document.getElementById('usersSetPwError');
+                    usersSpErr.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (data.message || 'First-time login — please set a new password.');
+                    usersSpErr.style.display = 'flex';
                 } else {
                     setLoading(false);
                     setError('users', data.message || 'Invalid credentials');
@@ -3614,7 +3644,9 @@
                     document.getElementById('procurementEmail').value = data.username;
                     // Pre-fill current password from what they typed
                     document.getElementById('procurementCurrentPw').value = dom.procurementPassword.value;
-                    setError('procurement', data.message || 'First-time login — please set a new password.');
+                    const procSpErr = document.getElementById('procurementSetPwError');
+                    procSpErr.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + (data.message || 'First-time login — please set a new password.');
+                    procSpErr.style.display = 'flex';
                 } else {
                     setLoading(false);
                     setError('procurement', data.message || 'Invalid credentials');
