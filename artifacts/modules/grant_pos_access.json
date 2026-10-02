@@ -1,0 +1,40 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "GrantPosAccess",
+  "file": "grant_pos_access.py",
+  "purpose": "Give one POS (Hardware) user the same portal rights as another POS user.",
+  "entry_function": "find_admin_users(cursor, hint)",
+  "entry_flows": [
+    "grant_pos_access → cursor.fetchall, hint.lower, cursor.execute"
+  ],
+  "public_api": [
+    "find_admin_users(cursor, hint)",
+    "find_hardware_users(cursor, hint)",
+    "find_permissions(cursor, user_type, user_id)",
+    "show(label, rows, cols)",
+    "main()"
+  ],
+  "dependencies": [
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: DEFAULT_TARGET = 'leonyaruwanga', DEFAULT_REFERENCE = 'gadmin', ADMIN_COLS = 'id, username, full_name, email, source_system, source_id, role, is_active'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "77d9060e9497d51d",
+  "file_mtime": 1790947216305.4321,
+  "file_size": 8686,
+  "file_birthtime": 1790947216103.1003,
+  "generated_at": "2026-10-02T13:22:49.905078Z",
+  "stale": false
+}

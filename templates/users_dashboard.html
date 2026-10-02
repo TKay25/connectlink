@@ -1305,6 +1305,10 @@
                 <span class="perm-label"><i class="bi bi-pencil-square"></i> Edit Projects</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_edit_projects"><span class="toggle-slider"></span></label>
             </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-cash-stack"></i> Edit Project Money Fields <span style="font-size:0.5rem;color:var(--text-muted);">(amounts, instalment &amp; deposit dates)</span></span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-can_edit_project_money"><span class="toggle-slider"></span></label>
+            </div>
             <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
                 <i class="bi bi-download"></i> Master File & AI
             </div>
@@ -2026,7 +2030,7 @@ const PERM_TOGGLE_IDS = [
     'hr_access',
     'can_add_users', 'can_edit_users', 'can_delete_users',
     'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments',
-    'can_edit_projects', 'can_download_master_file',
+    'can_edit_projects', 'can_download_master_file', 'can_edit_project_money',
     'can_create_requisitions', 'can_authorise_requisitions', 'can_approve_requisitions',
     'can_manage_purchase_orders', 'can_manage_suppliers'
 ];
@@ -2109,7 +2113,7 @@ async function loadPermModalData(userType, userId) {
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file',
                      'can_create_requisitions','can_authorise_requisitions','can_approve_requisitions',
-                     'can_manage_purchase_orders','can_manage_suppliers'];
+                     'can_manage_purchase_orders','can_manage_suppliers','can_edit_project_money'];
     // Reset all toggles to off
     toggles.forEach(t => {
         const el = document.getElementById('toggle-' + t);
@@ -2144,7 +2148,7 @@ async function savePermModal() {
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file',
                      'can_create_requisitions','can_authorise_requisitions','can_approve_requisitions',
-                     'can_manage_purchase_orders','can_manage_suppliers'];  
+                     'can_manage_purchase_orders','can_manage_suppliers','can_edit_project_money'];  
     const payload = {
         user_type: permModalUserType,
         user_id: permModalUserId

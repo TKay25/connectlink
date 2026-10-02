@@ -1814,6 +1814,19 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"Note: Could not add can_download_master_file column: {e}")
 
+            # Add can_edit_project_money column if it doesn't exist.
+            # DEFAULT FALSE on purpose: the money fields in the PROJECT PROGRESS
+            # UPDATE modal are LOCKED for everyone until an administrator grants
+            # this per user (User Management > "Edit Project Money Fields").
+            try:
+                cursor.execute("""
+                    ALTER TABLE user_permissions
+                    ADD COLUMN IF NOT EXISTS can_edit_project_money BOOLEAN DEFAULT FALSE
+                """)
+                connection.commit()
+            except Exception as e:
+                print(f"Note: Could not add can_edit_project_money column: {e}")
+
             print("✅ User permissions table initialized!")
 
             # ========== PROCUREMENT & REQUISITIONS MODULE ==========
@@ -17149,6 +17162,16 @@ def Dashboard():
                     if p2.get('can_edit_projects', False) or p2.get('is_super_admin', False):
                         can_edit_projects = True
 
+                # Money fields in the PROJECT PROGRESS UPDATE modal are LOCKED by default
+                # and only unlocked per user (User Management > "Edit Project Money Fields").
+                can_edit_project_money = perms.get('can_edit_project_money', False)
+                if perms.get('is_super_admin', False):
+                    can_edit_project_money = True
+                if not can_edit_project_money and source_sys != 'projects':
+                    p3 = get_user_permissions('projects', source_id)
+                    if p3.get('can_edit_project_money', False) or p3.get('is_super_admin', False):
+                        can_edit_project_money = True
+
                 # Check other portal permissions for navbar switching
                 can_manage_hr = perms.get('can_manage_hr', False) or perms.get('is_super_admin', False)
                 hr_access = perms.get('hr_access', False) or perms.get('is_super_admin', False)
@@ -17169,6 +17192,7 @@ def Dashboard():
 
                 return render_template('adminpage.html', **results, userid=userid, user_name=user_name,
                                        can_view_payments=can_view_payments, can_edit_projects=can_edit_projects,
+                                       can_edit_project_money=can_edit_project_money,
                                        can_manage_hr=can_manage_hr, hr_access=hr_access,
                                        can_manage_hardware=can_manage_hardware,
                                        can_manage_roles=can_manage_roles,
@@ -32062,6 +32086,98 @@ def _clean_project_scope(html):
         return re.sub(r'<[^>]+>', '', raw)
 
 
+# ============ PROJECT MONEY-FIELD PERMISSION (can_edit_project_money) ============
+# Every money field in the PROJECT PROGRESS UPDATE modal, as
+# (form field name, connectlinkdatabase column, human label).
+# `MonthsToPay` is included on purpose: it is not an amount, but update_project()
+# re-derives every instalment amount from it, so leaving it editable would let a
+# restricted user change instalments indirectly.
+PROJECT_MONEY_FIELDS = [
+    ('TotalContractAmount', 'totalcontractamount', 'Total Bill'),
+    ('MonthsToPay', 'monthstopay', 'Months To Pay'),
+    ('depositpaid', 'depositorbullet', 'Deposit Paid'),
+    ('deposit_date_paid', 'datedepositorbullet', 'Deposit Date Paid'),
+] + [
+    entry
+    for _inst in range(1, 11)
+    for entry in (
+        (f'Installment{_inst}Amount', f'installment{_inst}amount', f'Installment {_inst} Amount'),
+        (f'Installment{_inst}DueDate', f'installment{_inst}duedate', f'Installment {_inst} Due Date'),
+        (f'installment{_inst}_paid_date', f'installment{_inst}date', f'Installment {_inst} Date Paid'),
+    )
+]
+
+
+def _norm_money_value(value):
+    """Normalise a form / DB value so equivalents compare equal.
+
+    Numbers collapse to '1234.00' (a form posting '1234' matches NUMERIC 1234.00);
+    dates and anything non-numeric fall through as trimmed text.
+    """
+    if value is None:
+        return ''
+    text = str(value).strip()
+    if text == '':
+        return ''
+    try:
+        return f'{float(text):.2f}'
+    except (TypeError, ValueError):
+        return text
+
+
+def _project_money_changes(cursor, project_id, form):
+    """Labels of the money fields whose SUBMITTED value differs from the stored one."""
+    if not project_id:
+        return []
+    columns = [column for _field, column, _label in PROJECT_MONEY_FIELDS]
+    try:
+        cursor.execute(
+            f"SELECT {', '.join(columns)} FROM connectlinkdatabase WHERE id = %s",
+            (project_id,)
+        )
+        row = cursor.fetchone()
+    except Exception as e:
+        print(f"Note: project money-field check could not read the project: {e}")
+        return ['(money fields could not be verified)']
+    if not row:
+        return []
+    changed = []
+    for (field, _column, label), stored in zip(PROJECT_MONEY_FIELDS, row):
+        if _norm_money_value(form.get(field)) != _norm_money_value(stored):
+            changed.append(label)
+    return changed
+
+
+def _can_edit_project_money():
+    """True when the signed-in user may change money fields on a project.
+
+    Mirrors how the dashboard resolves `can_edit_projects`: super admin always
+    passes, and a user whose account lives in another system is also checked
+    against their 'projects' permission row. The column defaults to FALSE, so an
+    unknown user is refused.
+    """
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return False
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT source_system, source_id FROM admin_users WHERE id = %s", (userid,))
+            au = cursor.fetchone()
+        source_sys = au[0] if au else 'projects'
+        source_id = au[1] if au and au[1] is not None else userid
+        perms = get_user_permissions(source_sys, source_id)
+        if perms.get('is_super_admin', False) or perms.get('can_edit_project_money', False):
+            return True
+        if source_sys != 'projects':
+            fallback = get_user_permissions('projects', source_id)
+            if fallback.get('is_super_admin', False) or fallback.get('can_edit_project_money', False):
+                return True
+        return False
+    except Exception as e:
+        print(f"Note: could not resolve the project money permission: {e}")
+        return False
+
+
 @app.route('/update_project', methods=['POST'])
 def update_project():
 
@@ -32091,6 +32207,23 @@ def update_project():
                 return None
 
         quotation_id = safe_int(quotation_id_str) if quotation_id_str else None
+
+        # ===== MONEY-FIELD PERMISSION GUARD =====
+        # `can_edit_project_money` (User Management > "Edit Project Money Fields")
+        # starts OFF for everyone; an administrator grants it per user. Without it a
+        # user may still update the rest of the project, but must not change a money
+        # field. The submitted values are compared with what is stored, so a crafted
+        # POST cannot slip past the read-only inputs in the browser.
+        if not _can_edit_project_money():
+            _blocked_money = _project_money_changes(cursor, project_id, request.form)
+            if _blocked_money:
+                return jsonify({
+                    'success': False,
+                    'money_permission_denied': True,
+                    'error_message': ('You do not have permission to change project money fields ('
+                                      + ', '.join(_blocked_money)
+                                      + '). Ask an administrator to switch on "Edit Project Money Fields".')
+                }), 403
     
         if int(monthstopay) == 0:
             paymentmethod = "Once Off Payment"
@@ -35721,7 +35854,8 @@ def get_user_permissions(user_type, user_id):
                        can_download_master_file, hr_access,
                        can_create_requisitions, can_approve_requisitions,
                        can_manage_purchase_orders, can_manage_suppliers,
-                       can_authorise_purchase_orders, can_authorise_requisitions
+                       can_authorise_purchase_orders, can_authorise_requisitions,
+                       can_edit_project_money
                 FROM user_permissions WHERE user_type=%s AND user_id=%s
             """, (user_type, user_id))
             row = cursor.fetchone()
@@ -35740,7 +35874,8 @@ def get_user_permissions(user_type, user_id):
                     'can_manage_purchase_orders': row[16] if len(row) > 16 else False,
                     'can_manage_suppliers': row[17] if len(row) > 17 else False,
                     'can_authorise_purchase_orders': row[18] if len(row) > 18 else False,
-                    'can_authorise_requisitions': row[19] if len(row) > 19 else False
+                    'can_authorise_requisitions': row[19] if len(row) > 19 else False,
+                    'can_edit_project_money': row[20] if len(row) > 20 else False
                 }
                 print(f"📊 get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}, hr_access={result['hr_access']}")
                 return result
@@ -35756,21 +35891,22 @@ def get_user_permissions(user_type, user_id):
                         can_edit_projects, can_download_master_file, hr_access,
                         can_create_requisitions, can_approve_requisitions,
                         can_manage_purchase_orders, can_manage_suppliers,
-                        can_authorise_purchase_orders, can_authorise_requisitions)
-                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
+                        can_authorise_purchase_orders, can_authorise_requisitions,
+                        can_edit_project_money)
+                    VALUES (%s,%s, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE)
                 """, (user_type, user_id))
                 connection.commit()
                 return {k: True for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                     'can_add_users','can_edit_users','can_delete_users','can_export_data',
                     'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access',
                     'can_create_requisitions','can_approve_requisitions','can_manage_purchase_orders','can_manage_suppliers',
-                    'can_authorise_purchase_orders','can_authorise_requisitions']}
+                    'can_authorise_purchase_orders','can_authorise_requisitions','can_edit_project_money']}
             # Default: no permissions
             return {k: False for k in ['can_manage_projects','can_manage_hardware','can_manage_hr',
                 'can_add_users','can_edit_users','can_delete_users','can_export_data',
                 'can_view_audit','can_manage_roles','is_super_admin','can_view_payments','can_edit_projects','can_download_master_file','hr_access',
                 'can_create_requisitions','can_approve_requisitions','can_manage_purchase_orders','can_manage_suppliers',
-                'can_authorise_purchase_orders','can_authorise_requisitions']}
+                'can_authorise_purchase_orders','can_authorise_requisitions','can_edit_project_money']}
     except Exception as e:
         print(f"Permissions error: {e}")
         return {}
@@ -35794,7 +35930,8 @@ def um_permissions_api():
                            up.can_download_master_file, up.hr_access,
                            up.can_create_requisitions, up.can_approve_requisitions,
                            up.can_manage_purchase_orders, up.can_manage_suppliers,
-                           up.can_authorise_purchase_orders, up.can_authorise_requisitions
+                           up.can_authorise_purchase_orders, up.can_authorise_requisitions,
+                           up.can_edit_project_money
                     FROM user_permissions up
                     LEFT JOIN connectlinkusers cl ON up.user_type='projects' AND up.user_id=cl.id
                     LEFT JOIN hardware_users hw ON up.user_type='hardware' AND up.user_id=hw.id
@@ -35818,7 +35955,8 @@ def um_permissions_api():
                         'can_manage_purchase_orders': r[20] if len(r) > 20 else False,
                         'can_manage_suppliers': r[21] if len(r) > 21 else False,
                         'can_authorise_purchase_orders': r[22] if len(r) > 22 else False,
-                        'can_authorise_requisitions': r[23] if len(r) > 23 else False
+                        'can_authorise_requisitions': r[23] if len(r) > 23 else False,
+                        'can_edit_project_money': r[24] if len(r) > 24 else False
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
@@ -35840,7 +35978,7 @@ def um_permissions_api():
                       'hr_access',
                       'can_create_requisitions', 'can_approve_requisitions',
                       'can_manage_purchase_orders', 'can_manage_suppliers',
-                      'can_authorise_requisitions']
+                      'can_authorise_requisitions', 'can_edit_project_money']
             # NOTE `can_authorise_purchase_orders` is deliberately ABSENT: a purchase order
             # no longer has an authorisation layer (it goes straight to the approver), so
             # the toggle is gone from User Management. Leaving the column out of this list

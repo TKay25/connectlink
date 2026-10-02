@@ -51,6 +51,76 @@
     new MutationObserver(disableUpdateBtns).observe(document.body, { childList: true, subtree: true });
     </script>
     {% endif %}
+    {% if can_edit_project_money %}
+    <script>window.CAN_EDIT_PROJECT_MONEY = true;</script>
+    {% else %}
+    <script>window.CAN_EDIT_PROJECT_MONEY = false;</script>
+    {% endif %}
+    <style>
+    /* Money fields locked for users without "Edit Project Money Fields" */
+    input.project-money-locked, input.project-money-locked:focus {
+        background: #F1F5F9 !important;
+        color: #64748B !important;
+        cursor: not-allowed;
+        border-color: #CBD5E1 !important;
+    }
+    body.dark-theme input.project-money-locked, body.dark-theme input.project-money-locked:focus {
+        background: #1E293B !important;
+        color: #94A3B8 !important;
+        border-color: #334155 !important;
+    }
+    </style>
+    <script>
+    // ===== PROJECT MONEY LOCK =====
+    // Users without `can_edit_project_money` (User Management -> "Edit Project Money
+    // Fields") may still update a project, but must not change any money field.
+    // The inputs are made READONLY (not disabled) so they still submit their values and
+    // the server-side comparison sees "no change". The server is the real gate -- this
+    // only makes the restriction visible, and stops accidental edits.
+    window.PROJECT_MONEY_FIELD_NAMES = (function () {
+        var names = ['TotalContractAmount', 'MonthsToPay', 'depositpaid', 'deposit_date_paid'];
+        for (var i = 1; i <= 10; i++) {
+            names.push('Installment' + i + 'Amount', 'Installment' + i + 'DueDate', 'installment' + i + '_paid_date');
+        }
+        return names;
+    })();
+
+    window.applyProjectMoneyLock = function () {
+        if (window.CAN_EDIT_PROJECT_MONEY !== false) return;   // true / undefined -> allowed
+
+        var form = document.getElementById('updateProjectForm');
+        if (form) {
+            window.PROJECT_MONEY_FIELD_NAMES.forEach(function (name) {
+                form.querySelectorAll('[name="' + name + '"]').forEach(function (el) {
+                    el.readOnly = true;
+                    el.classList.add('project-money-locked');
+                    el.title = 'Locked - your account cannot edit project money fields.';
+                    el.setAttribute('aria-readonly', 'true');
+                });
+            });
+        }
+
+        // The "first installment due date" changer rewrites every installment date.
+        ['modalNewDueDate', 'saveNewInstallmentDateBtn'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+                el.disabled = true;
+                el.classList.add('project-money-locked');
+                el.title = 'Locked - no permission to change payment dates.';
+            }
+        });
+
+        var notice = document.getElementById('projectMoneyLockNotice');
+        if (notice) notice.style.display = 'flex';
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        applyProjectMoneyLock();
+        // The update modal is re-populated every time it opens, so re-apply on a timer
+        // (same belt-and-braces pattern the "Edit Projects" restriction already uses).
+        setInterval(applyProjectMoneyLock, 1500);
+    });
+    </script>
     <style>
 :root {
             --primary: #C12B3E;
@@ -14234,6 +14304,10 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
                 <input type="hidden" id="updateProjectId" name="project_id">
                 <input type="hidden" id="updateProjectQuotationId" name="project_quotation_id">
                 <input type="hidden" id="updateProjectAdjustedSchedules" name="adjusted_schedules_json" value="">
+                <div id="projectMoneyLockNotice" style="display:none;align-items:center;gap:8px;background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;border-radius:6px;padding:6px 10px;font-size:0.7rem;margin-bottom:8px;">
+                    <i class="bi bi-lock-fill"></i>
+                    <span>Money fields below are <strong>locked</strong> for your account. Ask an administrator for the <strong>Edit Project Money Fields</strong> permission.</span>
+                </div>
                 
                 <div class="row mb-3 g-3">
                     <div class="col-lg-2 col-md-3 col-sm-6">
