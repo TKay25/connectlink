@@ -9510,7 +9510,7 @@ async function loadPosActivityUsers() {
     const userSel = document.getElementById('activityLogUser');
     if (!userSel) return;
     try {
-        const url = '/api/activity-log?limit=500&date_range=all_time&action_types=' + encodeURIComponent(POS_ACTIVITY_TYPES.join(','));
+        const url = '/api/activity-log?limit=500&date_range=all_time&branch_scope=current&action_types=' + encodeURIComponent(POS_ACTIVITY_TYPES.join(','));
         const res = await fetch(url);
         const data = await res.json();
         const users = [];
@@ -9536,7 +9536,7 @@ async function loadPosActivityLog() {
 
     body.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-1"></i>Loading activity...</td></tr>';
     try {
-        const params = new URLSearchParams({ limit: '300', action_types: POS_ACTIVITY_TYPES.join(',') });
+        const params = new URLSearchParams({ limit: '300', branch_scope: 'current', action_types: POS_ACTIVITY_TYPES.join(',') });
         if (from) params.set('start_date', from);
         if (to) params.set('end_date', to);
         if (user) params.set('user_name', user);

@@ -13913,16 +13913,34 @@ def handle_activity_log():
                 conditions.append("user_name = %s")
                 params.append(user_filter)
             if search_term:
-                conditions.append("(description ILIKE %s OR user_name ILIKE %s OR action_type ILIKE %s)")
+                # Keyword search across everything an admin would recognise an
+                # entry by: the description, who did it, the action type, the
+                # linked record and the free-text details. `details` is JSONB
+                # and reference_id is INT, hence the ::text casts.
                 like_term = f'%{search_term}%'
-                params.extend([like_term, like_term, like_term])
+                conditions.append(
+                    "(description ILIKE %s"
+                    " OR user_name ILIKE %s"
+                    " OR action_type ILIKE %s"
+                    " OR COALESCE(reference_type, '') ILIKE %s"
+                    " OR COALESCE(reference_id::text, '') ILIKE %s"
+                    " OR COALESCE(details::text, '') ILIKE %s)"
+                )
+                params.extend([like_term] * 6)
 
-            # The activity log follows the branch too (rows written by other
-            # portals carry no branch and stay visible to nobody but All Branches).
-            log_branch_where, log_branch_params = branch_read_clause('branch_id')
-            if log_branch_where:
-                conditions.append("branch_id = %s")
-                params.extend(log_branch_params)
+            # Branch scope is OPT-IN via branch_scope=current. The POS audit modal
+            # asks for it so a cashier only sees their own shop's activity. The
+            # projects Activity Log is a company-wide audit trail, so it must NOT
+            # be narrowed to one branch -- and it must never auto-adopt a branch
+            # via current_branch_id(), because log_activity() deliberately does not
+            # stamp non-POS activity with a branch (those rows are NULL), so
+            # auto-adopting would hide every row written by the HR / procurement /
+            # user-management / projects portals.
+            if request.args.get('branch_scope', '').strip().lower() == 'current':
+                log_branch_id = session.get('branch_id')
+                if log_branch_id:
+                    conditions.append("branch_id = %s")
+                    params.append(log_branch_id)
             
             where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
             

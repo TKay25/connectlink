@@ -5625,7 +5625,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                     <option value="last_year">Last Year</option>
                                     <option value="">All Time</option>
                                 </select>
-                                <input type="text" id="activityLogSearch" placeholder="🔍 Search..." style="font-size:0.75rem;padding:4px 6px;border:1px solid #ddd;border-radius:4px;flex-shrink:0;width:130px;" oninput="filterActivityLog()">
+                                <input type="search" id="activityLogSearch" placeholder="🔍 Search activity..." title="Search activity by keyword (description, user, action, reference, details)" style="font-size:0.75rem;padding:4px 6px;border:1px solid #ddd;border-radius:4px;flex-shrink:0;width:180px;" oninput="onActivitySearchInput()">
                                 <select id="activityLogUserFilter" style="font-size:0.75rem;padding:4px 6px;border:1px solid #ddd;border-radius:4px;flex-shrink:0;" onchange="filterActivityLog()">
                                     <option value="">All users</option>
                                 </select>
@@ -5678,6 +5678,8 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                     <option value="human_mode_toggled">Human Mode</option>
                                     <option value="note_added">Notes Added</option>
                                 </select>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadActivityLog()" title="Refresh activity log" style="font-size:0.75rem;padding:3px 8px;flex-shrink:0;white-space:nowrap;"><i class="bi bi-arrow-clockwise"></i></button>
+                                <span id="activityLogCount" style="font-size:0.7rem;color:#64748b;white-space:nowrap;flex-shrink:0;margin-left:auto;"></span>
                             </div>
                             <div id="activityLogSummary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:4px;margin-bottom:6px;"></div>
                             <div class="container2" style="overflow-y:auto; background:#fafafa; border-radius:4px; padding:4px; max-height:55vh;">
@@ -37958,10 +37960,23 @@ function logActivity(action_type, description, reference_type, reference_id, det
 
 // --- Activity Log ---
 let _activityLogData = [];
+let _activityLogReqSeq = 0;
+let _activityLogSearchTimer = null;
+
+// Typing in the search box searches the WHOLE log on the server (debounced),
+// not just the rows already on screen.
+function onActivitySearchInput() {
+    if (_activityLogSearchTimer) clearTimeout(_activityLogSearchTimer);
+    _activityLogSearchTimer = setTimeout(loadActivityLog, 350);
+}
 
 function loadActivityLog() {
     const container = document.getElementById('activityLogContainer');
     if (!container) return;
+
+    // Guard against an older, slower request overwriting a newer one.
+    const reqSeq = ++_activityLogReqSeq;
+
     container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>';
     
     // Populate user filter dropdown on first load
@@ -37985,20 +38000,28 @@ function loadActivityLog() {
     const filterVal = document.getElementById('activityLogFilter')?.value || '';
     const userVal = document.getElementById('activityLogUserFilter')?.value || '';
     const dateVal = document.getElementById('activityLogDateFilter')?.value || '';
-    let url = '/api/activity-log?limit=500';
-    if (filterVal) url += '&action_type=' + encodeURIComponent(filterVal);
-    if (userVal) url += (filterVal ? '&' : '') + '&user_name=' + encodeURIComponent(userVal);
-    if (dateVal) url += (filterVal || userVal ? '&' : '') + '&date_range=' + encodeURIComponent(dateVal);
-    
-    fetch(url)
+    const searchVal = (document.getElementById('activityLogSearch')?.value || '').trim();
+
+    const params = new URLSearchParams();
+    params.set('limit', '500');
+    if (filterVal) params.set('action_type', filterVal);
+    if (userVal) params.set('user_name', userVal);
+    if (dateVal) params.set('date_range', dateVal);
+    // Keyword search runs on the server so it spans the whole selected period,
+    // not just the rows already loaded into the page.
+    if (searchVal) params.set('search', searchVal);
+
+    fetch('/api/activity-log?' + params.toString())
         .then(r => r.json())
         .then(res => {
+            if (reqSeq !== _activityLogReqSeq) return;
             if (!res.success) { container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-exclamation-triangle"></i></div><div class="empty-title">Failed to load</div><div class="empty-desc">' + (res.error || 'Unknown error') + '</div></div>'; return; }
             _activityLogData = res.data || [];
             renderActivityLogSummary(_activityLogData);
             renderActivityLog(_activityLogData);
         })
         .catch(err => {
+            if (reqSeq !== _activityLogReqSeq) return;
             console.error('loadActivityLog fetch error:', err);
             container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-wifi-off"></i></div><div class="empty-title">Connection Error</div><div class="empty-desc">Could not reach server. Check your connection.</div></div>';
         });
@@ -38058,50 +38081,32 @@ function renderActivityLogSummary(data) {
     summaryEl.innerHTML = html;
 }
 
+// Action / user / date pickers are server-side filters, so re-query.
+// (The old version dropped the search term whenever one of these was set.)
 function filterActivityLog() {
-    if (!_activityLogData.length) {
-        loadActivityLog();
-        return;
-    }
-    const searchVal = (document.getElementById('activityLogSearch')?.value || '').toLowerCase().trim();
-    const filterVal = document.getElementById('activityLogFilter')?.value || '';
-    const userVal = document.getElementById('activityLogUserFilter')?.value || '';
-    
-    // If filter or user changed, re-fetch from server
-    if (filterVal || userVal) {
-        loadActivityLog();
-        return;
-    }
-    
-    let filtered = _activityLogData;
-    if (searchVal) {
-        filtered = filtered.filter(item =>
-            (item.description || '').toLowerCase().includes(searchVal) ||
-            (item.user_name || '').toLowerCase().includes(searchVal) ||
-            (item.action_type || '').replace(/_/g, ' ').toLowerCase().includes(searchVal) ||
-            (item.reference_type || '').toLowerCase().includes(searchVal) ||
-            String(item.reference_id || '').includes(searchVal)
-        );
-    }
-    renderActivityLog(filtered);
+    loadActivityLog();
 }
 
 function renderActivityLog(data) {
     const container = document.getElementById('activityLogContainer');
     if (!container) return;
     
+    const searchVal = (document.getElementById('activityLogSearch')?.value || '').trim();
+
     // Update count
     const countEl = document.getElementById('activityLogCount');
     if (countEl) {
-        if (data.length < _activityLogData.length) {
-            countEl.textContent = `Showing ${data.length} of ${_activityLogData.length} entries`;
-        } else {
-            countEl.textContent = `${data.length} entries`;
-        }
+        countEl.textContent = searchVal
+            ? (data.length + (data.length === 1 ? ' match' : ' matches'))
+            : (data.length + (data.length === 1 ? ' entry' : ' entries') + (data.length >= 500 ? ' (newest 500)' : ''));
     }
-    
+
     if (!data.length) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-clock-history"></i></div><div class="empty-title">No Activity Yet</div><div class="empty-desc">Activity log entries will appear here as actions are performed.<br><small style="color:#999;">If you\'ve created records, try creating a new one to trigger activity logging.</small></div></div>';
+        if (searchVal) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-search"></i></div><div class="empty-title">No matches</div><div class="empty-desc">Nothing in this period matches &ldquo;' + escapeHtml(searchVal) + '&rdquo;.<br><small style="color:#999;">Try another keyword, or set the date filter to All Time to search older activity.</small></div></div>';
+        } else {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon"><i class="bi bi-clock-history"></i></div><div class="empty-title">No Activity Yet</div><div class="empty-desc">Activity log entries will appear here as actions are performed.<br><small style="color:#999;">If you\'ve created records, try creating a new one to trigger activity logging.</small></div></div>';
+        }
         return;
     }
     
