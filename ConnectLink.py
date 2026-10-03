@@ -1555,6 +1555,18 @@ def initialize_database_tables():
                 ALTER TABLE transactions 
                 ADD COLUMN IF NOT EXISTS total DECIMAL(10,2) DEFAULT 0.00
             """, commit=True)
+
+            # POS OFFLINE SYNC: a sale rung up while the shop had no internet is
+            # replayed later carrying the till's own reference, so the SAME sale
+            # can never be inserted twice however often the till retries.
+            execute_query("""
+                ALTER TABLE transactions 
+                ADD COLUMN IF NOT EXISTS client_ref VARCHAR(64)
+            """, commit=True)
+            execute_query("""
+                CREATE UNIQUE INDEX IF NOT EXISTS transactions_client_ref_unique
+                ON transactions (client_ref) WHERE client_ref IS NOT NULL
+            """, commit=True)
             
             execute_query("""
                 ALTER TABLE transactions 
@@ -16734,6 +16746,152 @@ def create_new_category():
         }), 500
 
 # ==================== TRANSACTION MANAGEMENT ====================
+
+# ==================== POS OFFLINE SYNC ====================
+@app.route('/api/transactions/sync', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def sync_offline_transactions():
+    """Replay sales that were rung up while the till had no internet.
+
+    IDEMPOTENT: every sale carries the till's own `client_ref`. A sale whose
+    client_ref is already stored is reported back as `duplicate` instead of
+    being inserted again, so a flaky connection may retry the same batch as
+    many times as it likes and the shop is still charged once.
+
+    Stock follows the same path as a live sale (FIFO layers, per-branch stock,
+    stock_reductions), and the sale keeps the time it was actually rung up at
+    (never a future time) so day-end reports stay truthful.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        sales = data.get('sales') or []
+        if not isinstance(sales, list) or not sales:
+            return jsonify({'success': True, 'results': [], 'synced': 0,
+                            'duplicate': 0, 'failed': 0})
+
+        branch_id = current_branch_id()
+        user_id = session.get('user_id')
+        server_now = get_zimbabwe_time()
+
+        results = []
+        synced = duplicates = failed = 0
+
+        for sale in sales:
+            client_ref = str(sale.get('client_ref') or '').strip()[:64]
+            try:
+                items = sale.get('items') or []
+                if not client_ref:
+                    raise ValueError('Missing client_ref')
+                if not items:
+                    raise ValueError('No items in transaction')
+
+                with get_db() as (cursor, connection):
+                    cursor.execute(
+                        'SELECT id, transaction_number FROM transactions WHERE client_ref = %s',
+                        (client_ref,))
+                    existing = cursor.fetchone()
+                    if existing:
+                        duplicates += 1
+                        results.append({'client_ref': client_ref, 'status': 'duplicate',
+                                        'transaction_id': existing[0],
+                                        'transaction_number': existing[1]})
+                        continue
+
+                    subtotal = 0.0
+                    for item in items:
+                        subtotal += float(item.get('price') or 0) * int(item.get('quantity') or 0)
+                    total = subtotal
+                    payment_method = (sale.get('payment_method') or 'cash')[:20]
+
+                    # Keep the till's real timestamp, but never accept a future one:
+                    # a wrong device clock must not invent tomorrow's sales.
+                    created_at = server_now
+                    raw_ts = str(sale.get('created_at') or '').strip()
+                    if raw_ts:
+                        try:
+                            parsed = datetime.fromisoformat(raw_ts.replace('Z', '+00:00'))
+                            if parsed.tzinfo is not None:
+                                parsed = parsed.astimezone(
+                                    pytz.timezone('Africa/Harare')).replace(tzinfo=None)
+                            if parsed <= server_now:
+                                created_at = parsed
+                        except Exception:
+                            created_at = server_now
+
+                    transaction_number = generate_transaction_number()
+                    cursor.execute("""
+                        INSERT INTO transactions (transaction_number, user_id, subtotal, tax, total,
+                                                  payment_method, amount_paid, change_amount, notes,
+                                                  created_at, branch_id, client_ref)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """, (transaction_number, user_id, subtotal, 0, total,
+                          payment_method,
+                          sale.get('amount_paid', total), sale.get('change_amount', 0),
+                          str(sale.get('notes') or '')[:500],
+                          created_at, branch_id, client_ref))
+                    transaction_id = cursor.fetchone()[0]
+
+                    for item in items:
+                        pid = int(item.get('id'))
+                        qty = int(item.get('quantity') or 0)
+                        if qty <= 0:
+                            continue
+                        price = float(item.get('price') or 0)
+                        cursor.execute(
+                            'SELECT unit_type, unit_details FROM products WHERE id = %s', (pid,))
+                        product_info = cursor.fetchone() or ('', '')
+                        cursor.execute("""
+                            INSERT INTO transaction_items (transaction_id, product_id, quantity,
+                                                           price_at_time, subtotal, unit_type, unit_details)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            RETURNING id
+                        """, (transaction_id, pid, qty, price, price * qty,
+                              product_info[0], product_info[1]))
+                        line_id = cursor.fetchone()[0]
+
+                        fifo_cost, _fifo_layers = consume_stock_lots_fifo(
+                            cursor, pid, branch_id, qty)
+                        add_branch_stock(cursor, pid, branch_id, -qty)
+                        cursor.execute(
+                            'UPDATE transaction_items SET cost_at_time = %s WHERE id = %s',
+                            (round(fifo_cost / max(1, qty), 4), line_id))
+                        cursor.execute("""
+                            INSERT INTO stock_reductions (product_id, quantity, reason, notes,
+                                                          user_id, reduced_at, branch_id)
+                            VALUES (%s, %s, 'item_sale', %s, %s, %s, %s)
+                        """, (pid, qty, 'Sale #%s (offline sync)' % transaction_number,
+                              user_id, created_at, branch_id))
+
+                    connection.commit()
+
+                synced += 1
+                results.append({'client_ref': client_ref, 'status': 'synced',
+                                'transaction_id': transaction_id,
+                                'transaction_number': transaction_number})
+            except Exception as sale_err:
+                failed += 1
+                results.append({'client_ref': client_ref, 'status': 'failed',
+                                'error': str(sale_err)})
+                print(f"Offline sale {client_ref} failed: {sale_err}")
+
+        try:
+            log_activity(
+                'sale',
+                f'Offline sync: {synced} sale(s) synced, {duplicates} already stored, {failed} failed',
+                'transaction', None,
+                {'synced': synced, 'duplicate': duplicates, 'failed': failed}
+            )
+        except Exception:
+            pass
+
+        return jsonify({'success': True, 'results': results, 'synced': synced,
+                        'duplicate': duplicates, 'failed': failed})
+    except Exception as e:
+        print(f"Offline sync error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/transactions', methods=['POST'])
 @login_required
@@ -32593,6 +32751,35 @@ def whatsapp_pwa_manifest():
         ]
     })
 
+# PWA: Manifest for the POS System — its own installable app, sized for a phone
+@app.route('/pos-manifest.json')
+def pos_pwa_manifest():
+    return jsonify({
+        "name": "ConnectLink POS",
+        "short_name": "CL POS",
+        "description": "ConnectLink Hardware point of sale \u2014 reports, stock and offline sales",
+        "start_url": "/pos-system.html",
+        "display": "standalone",
+        "background_color": "#0F1729",
+        "theme_color": "#0F1729",
+        "orientation": "any",
+        "categories": ["business", "productivity"],
+        "icons": [
+            {
+                "src": "/static/images/pwa-icon-192.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "/static/images/pwa-icon-512.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ]
+    })
+
 # PWA: Service Worker
 @app.route('/sw.js')
 def pwa_service_worker():
@@ -32916,21 +33103,48 @@ PROJECT_MONEY_FIELDS = [
 ]
 
 
-def _norm_money_value(value):
-    """Normalise a form / DB value so equivalents compare equal.
+def _norm_amount(value):
+    """Normalise a money value so pure FORMATTING is never mistaken for an edit.
 
-    Numbers collapse to '1234.00' (a form posting '1234' matches NUMERIC 1234.00);
-    dates and anything non-numeric fall through as trimmed text.
+    Blank and zero are treated as EQUAL: a project with no deposit stores 0.00
+    while its untouched input posts ''. Comparing them literally is what made the
+    guard report "changed" for fields nobody had touched (and every project with
+    fewer than 10 instalments always 'changed' the unused ones).
+    Also tolerates the shapes a browser or a formatter can produce:
+    '1,234.50', '$1,234.50', 'USD 1 234.50', ' 1234 '.
     """
+    if value is None:
+        return '0.00'
+    text = str(value).strip()
+    if text == '':
+        return '0.00'
+    cleaned = text.replace(',', '').replace(' ', '').replace('$', '')
+    cleaned = cleaned.replace('USD', '').replace('usd', '')
+    try:
+        return f'{float(cleaned):.2f}'
+    except (TypeError, ValueError):
+        return text
+
+
+def _norm_date(value):
+    """Normalise a date so '2026-10-03' == '2026-10-03 00:00:00' == '03/10/2026'."""
     if value is None:
         return ''
     text = str(value).strip()
     if text == '':
         return ''
-    try:
-        return f'{float(text):.2f}'
-    except (TypeError, ValueError):
-        return text
+    head = text.split('T')[0].split(' ')[0]
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%Y/%m/%d'):
+        try:
+            return datetime.strptime(head, fmt).strftime('%Y-%m-%d')
+        except ValueError:
+            continue
+    return text
+
+
+def _norm_money_value(value):
+    """Amount-only helper, kept for backwards compatibility."""
+    return _norm_amount(value)
 
 
 def _project_money_changes(cursor, project_id, form):
@@ -32950,8 +33164,11 @@ def _project_money_changes(cursor, project_id, form):
     if not row:
         return []
     changed = []
-    for (field, _column, label), stored in zip(PROJECT_MONEY_FIELDS, row):
-        if _norm_money_value(form.get(field)) != _norm_money_value(stored):
+    for (field, column, label), stored in zip(PROJECT_MONEY_FIELDS, row):
+        # Date columns are the ones that carry 'date' in their name
+        # (datedepositorbullet, installmentNduedate, installmentNdate).
+        norm = _norm_date if 'date' in column else _norm_amount
+        if norm(form.get(field)) != norm(stored):
             changed.append(label)
     return changed
 

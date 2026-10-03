@@ -7,8 +7,7 @@
   "entry_function": "if",
   "entry_flows": [],
   "public_api": [
-    "if",
-    "fetch"
+    "if"
   ],
   "dependencies": [
     "<!-- list module dependencies here -->"
@@ -20,7 +19,7 @@
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "notes": "Patterns: async/await",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -30,6 +29,6 @@
   "file_mtime": 1781716751804.963,
   "file_size": 1968,
   "file_birthtime": 1781716751480.9402,
-  "generated_at": "2026-07-08T05:01:12.776030Z",
+  "generated_at": "2026-10-03T09:20:14.391255Z",
   "stale": false
 }

@@ -3,6 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <!-- PWA: lets the POS be installed on a phone/tablet and opened like an app -->
+    <meta name="theme-color" content="#0F1729">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CL POS">
+    <link rel="manifest" href="/pos-manifest.json">
+    <link rel="apple-touch-icon" href="/static/images/pwa-icon-192.png">
     <title>Connect Link Hardware | POS System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -3289,6 +3297,14 @@ body {
 .modal .modal-dialog.modal-lg { max-width: min(94vw, 800px); }
 .modal .modal-dialog.modal-xl { max-width: min(95vw, 1140px); }
 
+/* Upload New Stock: design-system.css caps .modal-content at 520px, which
+   shrank this modal AND left it stuck to the left inside its wide modal-xl
+   dialog. Let the content fill the dialog so it is truly centred. */
+#uploadStockModal .modal-content {
+    max-width: none !important;
+    width: 100% !important;
+}
+
 /* ---- Subtract Stock: keep footer always visible, body scrollable ---- */
 #subtractStockModal .modal-dialog {
     height: auto;
@@ -5372,6 +5388,368 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     -webkit-overflow-scrolling: touch;
 }
 </style>
+
+<!-- ===== POS MOBILE VIEW (phones only) =====
+     On phones:
+       1. the layout finally spans the FULL screen width (it used to be
+          squeezed to ~220px because .main-content.expanded's 70px left
+          margin beat the old mobile margin-left:0 rule);
+       2. the top bar keeps ONLY a menu button + the brand;
+       3. everything that was pushed off the right edge of the top bar
+          (date/time, branch, user, theme, log out, today's totals) now lives
+          in the drawer opened by the 3-line menu button;
+       4. the POS Terminal page itself is just the 4 report shortcuts.
+     Every rule below sits inside a phone-only media query, so the desktop
+     and tablet layouts are completely untouched. ===== -->
+<style>
+/* Desktop/tablet: the mobile-only pieces never render */
+#posMobileQuickbar,
+.pos-mobile-menu-btn,
+.pos-mobile-back-btn,
+.sidebar-mobile-session,
+.sidebar-mobile-close,
+#posConnChip,
+#posDrawerOverlay { display: none; }
+
+@media (max-width: 767.98px) {
+    /* ---------- 1. Full-width layout ---------- */
+    body { padding: 8px !important; }
+    body.pos-drawer-open { overflow: hidden; }
+    .main-content,
+    .main-content.expanded { margin-left: 0 !important; padding: 10px !important; }
+    .toggle-sidebar { display: none !important; }
+    .top-bar { width: 100% !important; padding: 8px 10px !important; margin-bottom: 12px !important; }
+
+    /* ---------- 2. Top bar: menu button + brand only ---------- */
+    #posTopbarSession { display: none !important; }
+    .top-bar .pos-topbar-brand { margin: 0 auto !important; gap: 8px !important; }
+    .top-bar .pos-topbar-brand .fw-bold { font-size: 0.8rem !important; }
+    .top-bar .pos-mode-badge { display: none !important; }
+    #posMobileMenuBtn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        background: #FFFFFF;
+        color: #0F1B2D !important;
+        font-size: 1rem !important;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(15,27,45,0.08);
+        -webkit-tap-highlight-color: transparent;
+    }
+    #posMobileMenuBtn:active { transform: scale(0.95); }
+    body.dark-theme #posMobileMenuBtn { background: #16233A; border-color: #26344D; color: #E2E8F0 !important; }
+
+    /* ---------- 3. Drawer (the 3 horizontal lines) ---------- */
+    #posDrawerOverlay {
+        display: block !important;
+        position: fixed;
+        inset: 0;
+        background: rgba(9,16,28,0.55);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .25s ease;
+        z-index: 999;
+    }
+    #posDrawerOverlay.show { opacity: 1; pointer-events: auto; }
+
+    /* JS adds .collapsed on load (a desktop behaviour); on phones the drawer is
+       always full width and must show its labels. */
+    .sidebar,
+    .sidebar.collapsed { width: min(86vw, 320px) !important; }
+    .sidebar.collapsed .menu-text,
+    .sidebar.collapsed .sidebar-text { display: inline !important; }
+    .sidebar.collapsed .logo-text { display: block !important; }
+    .sidebar.collapsed .logo-icon { display: none !important; }
+    .sidebar.collapsed .sidebar-footer { display: block !important; }
+    .sidebar .sidebar-header { padding: 14px 16px !important; }
+    .sidebar .sidebar-header .logo-text img { width: 132px !important; }
+    .sidebar .sidebar-section-label { font-size: 0.6rem !important; }
+    .sidebar .menu-item { font-size: 0.86rem !important; padding: 11px 12px !important; }
+    .sidebar .menu-item i { font-size: 0.95rem !important; }
+    .sidebar .sidebar-footer { padding: 12px 16px !important; }
+
+    .sidebar-mobile-close {
+        display: inline-flex !important;
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 32px;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 10px;
+        background: rgba(255,255,255,0.08);
+        color: #fff;
+        font-size: 0.9rem !important;
+        cursor: pointer;
+    }
+
+    .sidebar-mobile-session {
+        display: block !important;
+        padding: 12px 14px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-mobile-session .sms-user {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px; border-radius: 14px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-mobile-session .sms-avatar {
+        width: 38px; height: 38px; flex: 0 0 38px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #C12B3E, #9E1F2E);
+        color: #fff;
+        font-size: 0.85rem !important;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }
+    .sidebar-mobile-session .sms-user-info { min-width: 0; }
+    .sidebar-mobile-session .sms-user-info strong {
+        display: block; color: #fff;
+        font-size: 0.82rem !important; font-weight: 700;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebar-mobile-session .sms-user-info small {
+        display: block; color: rgba(255,255,255,0.6); font-size: 0.66rem !important;
+    }
+    .sidebar-mobile-session .sms-stats { display: flex; gap: 8px; margin-top: 8px; }
+    .sidebar-mobile-session .sms-stat {
+        flex: 1 1 0; min-width: 0;
+        padding: 8px 10px; border-radius: 12px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.07);
+    }
+    .sidebar-mobile-session .sms-stat small {
+        display: block; color: rgba(255,255,255,0.55);
+        font-size: 0.58rem !important;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .sidebar-mobile-session .sms-stat strong {
+        display: block; color: #FFD2DA;
+        font-size: 0.86rem !important; font-weight: 800;
+    }
+    .sidebar-mobile-session .sms-row {
+        width: 100%;
+        display: flex; align-items: center; gap: 11px;
+        margin-top: 8px; padding: 11px 12px;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        background: rgba(255,255,255,0.05);
+        color: #fff;
+        font-size: 0.8rem !important; font-weight: 600;
+        text-align: left; cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .sidebar-mobile-session .sms-row i { width: 18px; text-align: center; color: #FF8FA3; }
+    .sidebar-mobile-session .sms-row span { flex: 1 1 auto; }
+    .sidebar-mobile-session .sms-row strong { font-size: 0.74rem !important; font-weight: 600; color: rgba(255,255,255,0.72); }
+    .sidebar-mobile-session .sms-row:active { transform: scale(0.98); }
+    .sidebar-mobile-session .sms-row-danger { background: rgba(193,43,62,0.2); border-color: rgba(193,43,62,0.45); }
+    .sidebar-mobile-session .sms-row-danger i { color: #FFB3C0; }
+
+    /* ---------- 4. POS page = the 4 report shortcuts ---------- */
+    #posPage > *:not(#posMobileQuickbar) { display: none !important; }
+    #posMobileQuickbar { display: block !important; }
+
+    #posPage .pmq-head { text-align: center; padding: 6px 8px 18px; }
+    #posPage .pmq-head .pmq-kicker {
+        display: inline-block;
+        font-size: 0.62rem !important; font-weight: 700;
+        letter-spacing: 1.4px; text-transform: uppercase;
+        color: #C12B3E;
+    }
+    #posPage .pmq-head .pmq-title {
+        margin: 5px 0 3px;
+        font-size: 1.35rem !important; font-weight: 800;
+        color: #0F1B2D; letter-spacing: -0.5px;
+    }
+    #posPage .pmq-head .pmq-sub { margin: 0; font-size: 0.73rem !important; color: #64748B; }
+    body.dark-theme #posPage .pmq-head .pmq-title { color: #E2E8F0; }
+    body.dark-theme #posPage .pmq-head .pmq-sub { color: #94A3B8; }
+
+    #posPage .pmq-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+    #posPage .pmq-grid .pmq-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        gap: 12px;
+        min-height: 140px;
+        padding: 22px 12px 18px;
+        border: 1px solid #E5EAF1;
+        border-radius: 20px;
+        overflow: hidden;
+        background: linear-gradient(180deg, #FFFFFF 0%, #F7F9FC 100%);
+        color: #0F1B2D !important;
+        font-weight: 700 !important;
+        line-height: 1.2;
+        text-align: center;
+        cursor: pointer;
+        box-shadow: 0 12px 26px -18px rgba(15,27,45,0.55), 0 1px 2px rgba(15,27,45,0.04);
+        transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    #posPage .pmq-grid .pmq-btn::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #C12B3E, #FF8FA3);
+    }
+    #posPage .pmq-grid .pmq-btn span {
+        font-size: 0.82rem !important;
+        letter-spacing: 0.1px;
+    }
+    #posPage .pmq-grid .pmq-btn i {
+        width: 50px;
+        height: 50px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+        font-size: 1.25rem !important;
+        color: #C12B3E;
+        background: linear-gradient(135deg, rgba(193,43,62,0.16), rgba(193,43,62,0.05));
+        box-shadow: inset 0 0 0 1px rgba(193,43,62,0.12);
+    }
+    #posPage .pmq-grid .pmq-btn:active {
+        transform: scale(0.97);
+        border-color: #C12B3E;
+        box-shadow: 0 4px 12px -8px rgba(193,43,62,0.6);
+    }
+
+    /* Dark theme */
+    body.dark-theme #posPage .pmq-grid .pmq-btn {
+        background: linear-gradient(180deg, #16233A 0%, #121D30 100%);
+        border-color: #26344D;
+        color: #E2E8F0 !important;
+        box-shadow: 0 12px 26px -18px rgba(0,0,0,0.85);
+    }
+    body.dark-theme #posPage .pmq-grid .pmq-btn i {
+        color: #FF8FA3;
+        background: linear-gradient(135deg, rgba(255,143,163,0.18), rgba(255,143,163,0.05));
+        box-shadow: inset 0 0 0 1px rgba(255,143,163,0.16);
+    }
+
+    /* Drawer holds only the session/account controls on phones: the page list
+       is deliberately removed (the 4 report tiles replace it). */
+    .sidebar .sidebar-menu { display: none !important; }
+
+    /* Connection / pending-sync chip in the top bar */
+    #posConnChip {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 6px;
+        flex: 0 0 auto;
+        margin-left: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid #D1FAE5;
+        background: #ECFDF5;
+        color: #047857 !important;
+        font-size: 0.6rem !important;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    #posConnChip .pos-conn-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #10B981;
+        box-shadow: 0 0 0 3px rgba(16,185,129,0.18);
+    }
+    #posConnChip.is-offline {
+        border-color: #FDE68A;
+        background: #FFFBEB;
+        color: #B45309 !important;
+    }
+    #posConnChip.is-offline .pos-conn-dot {
+        background: #F59E0B;
+        box-shadow: 0 0 0 3px rgba(245,158,11,0.2);
+    }
+    body.dark-theme #posConnChip { background: #16233A; border-color: #26344D; color: #A7F3D0 !important; }
+    body.dark-theme #posConnChip.is-offline { background: #2A2311; border-color: #57451A; color: #FDE68A !important; }
+
+    /* Cloud-sync row inside the drawer */
+    .sidebar-mobile-session .sms-row.is-pending {
+        background: rgba(245,158,11,0.16);
+        border-color: rgba(245,158,11,0.45);
+    }
+    .sidebar-mobile-session .sms-row.is-pending strong { color: #FCD34D; }
+
+    /* Way back to the launcher from Analytics (or any other page) */
+    #posMobileBackBtn.is-shown {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 auto;
+        margin-right: 6px;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        background: #FFFFFF;
+        color: #C12B3E !important;
+        font-size: 1rem !important;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    body.dark-theme #posMobileBackBtn.is-shown { background: #16233A; border-color: #26344D; color: #FF8FA3 !important; }
+}
+</style>
+
+<!-- ===== Upload New Stock: stacked step cards (every viewport) ===== -->
+<style>
+#uploadStockModal .upload-steps { display: flex; flex-direction: column; gap: 10px; }
+#uploadStockModal .upload-step {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border: 1px solid #E5EAF1;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+}
+#uploadStockModal .upload-step-info { display: flex; align-items: center; gap: 12px; flex: 1 1 320px; min-width: 0; }
+#uploadStockModal .upload-step-num {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(193,43,62,0.12);
+    color: #C12B3E;
+    font-weight: 800;
+    font-size: 0.8rem !important;
+}
+#uploadStockModal .upload-step-info strong { display: block; font-size: 0.82rem !important; }
+#uploadStockModal .upload-step-hint { font-size: 0.72rem !important; color: #64748B; }
+#uploadStockModal .upload-step-action { flex: 0 0 auto; min-width: 210px; }
+body.dark-theme #uploadStockModal .upload-step {
+    background: linear-gradient(180deg, #16233A 0%, #121D30 100%);
+    border-color: #26344D;
+}
+body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
+@media (max-width: 575px) {
+    #uploadStockModal .upload-step-action { min-width: 100%; }
+}
+</style>
 </head>
 
 </body>
@@ -5496,6 +5874,34 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                         </div>
                     </div>
                 </div>
+                <button type="button" class="sidebar-mobile-close" onclick="togglePOSDrawer(false)" aria-label="Close menu"><i class="fas fa-xmark"></i></button>
+            </div>
+
+            <!-- Mobile only: the session controls that used to overflow the top bar -->
+            <div class="sidebar-mobile-session">
+                <div class="sms-user">
+                    <span class="sms-avatar" id="posDrawerAvatar">A</span>
+                    <div class="sms-user-info">
+                        <strong id="posDrawerUserName">Administrator</strong>
+                        <small id="posDrawerBranch">No branch</small>
+                    </div>
+                </div>
+                <div class="sms-stats">
+                    <div class="sms-stat"><small>Today's Sales</small><strong id="posDrawerSales">$0.00</strong></div>
+                    <div class="sms-stat"><small>Items Sold</small><strong id="posDrawerItems">0</strong></div>
+                </div>
+                <button type="button" class="sms-row" id="posDrawerSyncRow" onclick="posSyncNow()">
+                    <i class="fas fa-cloud-arrow-up"></i><span>Cloud sync</span><strong id="posDrawerSyncCount">All sales synced</strong>
+                </button>
+                <button type="button" class="sms-row" onclick="togglePOSDrawer(false); openBranchSwitchModal();">
+                    <i class="fas fa-store"></i><span>Switch branch</span><strong id="posDrawerBranchChip">&mdash;</strong>
+                </button>
+                <button type="button" class="sms-row" onclick="togglePOSDrawer(false); togglePOSTheme();">
+                    <i class="fas fa-moon" id="posDrawerThemeIcon"></i><span>Appearance</span><strong id="posDrawerThemeLabel">Light</strong>
+                </button>
+                <button type="button" class="sms-row sms-row-danger" id="posDrawerLogout">
+                    <i class="fas fa-right-from-bracket"></i><span>Log out</span>
+                </button>
             </div>
             <div class="sidebar-menu">
                 <div class="sidebar-section-label menu-text">Main Menu</div>
@@ -5527,6 +5933,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
             </div>
         </div>
 
+        <!-- Mobile only: tap outside the drawer to close it -->
+        <div id="posDrawerOverlay" onclick="togglePOSDrawer(false)"></div>
+
         <!-- Toggle Button -->
         <button class="toggle-sidebar" id="toggleSidebar">
             <i class="fas fa-bars"></i>
@@ -5537,15 +5946,25 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
             <!-- Top Bar with Logout Button -->
             <div class="top-bar">
                 <div class="d-flex justify-content-between align-items-center w-100">
+                    <!-- Mobile only: opens the drawer holding the session controls -->
+                    <button type="button" class="pos-mobile-menu-btn" id="posMobileMenuBtn" aria-label="Open menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <button type="button" class="pos-mobile-back-btn" id="posMobileBackBtn" onclick="navigateTo('pos')" aria-label="Back to reports">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
                     <!-- Center - Logo and Company Name (using auto margins) -->
-                    <div class="d-flex align-items-center gap-2" style="margin: 0 auto;">
+                    <div class="d-flex align-items-center gap-2 pos-topbar-brand" style="margin: 0 auto;">
                         <div class="topbar-logo-chip"><img src="/static/images/reqlogo.jpg" style="height: 24px; width: auto;" alt="ConnectLink Properties Logo"></div>
                         <span class="fw-bold" style="color: var(--dark-blue-deep); font-size: 0.9rem;">ConnectLink Hardware</span>
                         <span class="pos-mode-badge"><span class="badge-dot"></span>POS Live</span>
                     </div>
+                    <span class="pos-conn-chip" id="posConnChip" title="Connection &amp; sync">
+                        <span class="pos-conn-dot"></span><span id="posConnLabel">Online</span>
+                    </span>
                     
-                    <!-- Right side - Date/Time and User Info -->
-                    <div class="d-flex align-items-center gap-3">
+                    <!-- Right side - Date/Time and User Info (on phones this moves into the drawer) -->
+                    <div class="d-flex align-items-center gap-3" id="posTopbarSession">
                         <div class="text-end">
                             <div class="small text-muted" id="currentDate">Loading...</div>
                             <div class="small fw-bold" id="currentTime" style="color: var(--crimson-bright);">--:--:--</div>
@@ -5669,25 +6088,44 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
-                            <div class="row g-2 align-items-end mb-3">
-                                <div class="col-md-3">
-                                    <button class="btn btn-sm btn-success w-100" onclick="downloadStockTemplate()">
+                            <!-- Steps run top-to-bottom: one card per row -->
+                            <div class="upload-steps mb-3">
+                                <div class="upload-step">
+                                    <div class="upload-step-info">
+                                        <span class="upload-step-num">1</span>
+                                        <div>
+                                            <strong>Download the template</strong>
+                                            <div class="upload-step-hint">Excel file with the four columns you need to fill in.</div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-success upload-step-action" onclick="downloadStockTemplate()">
                                         <i class="fas fa-file-excel me-1"></i>Download Template
                                     </button>
                                 </div>
-                                <div class="col-md-5">
-                                    <label class="form-label fw-bold mb-1">Filled template (.xlsx)</label>
-                                    <input type="file" class="form-control form-control-sm" id="uploadStockFile" accept=".xlsx,.xlsm">
+                                <div class="upload-step">
+                                    <div class="upload-step-info">
+                                        <span class="upload-step-num">2</span>
+                                        <div>
+                                            <strong>Fill it in, then choose the file</strong>
+                                            <div class="upload-step-hint">Product Name, Quantity, Unit Buying Price, Unit Selling Price.</div>
+                                        </div>
+                                    </div>
+                                    <input type="file" class="form-control form-control-sm upload-step-action" id="uploadStockFile" accept=".xlsx,.xlsm">
                                 </div>
-                                <div class="col-md-4">
-                                    <button class="btn btn-sm btn-primary-dark w-100" id="uploadCheckBtn" onclick="analyzeStockUpload()">
+                                <div class="upload-step">
+                                    <div class="upload-step-info">
+                                        <span class="upload-step-num">3</span>
+                                        <div>
+                                            <strong>Check the file</strong>
+                                            <div class="upload-step-hint">Nothing is saved yet &mdash; you confirm before it applies.</div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-primary-dark upload-step-action" id="uploadCheckBtn" onclick="analyzeStockUpload()">
                                         <i class="fas fa-search me-1"></i>Check File
                                     </button>
                                 </div>
                             </div>
                             <div class="small text-muted mb-2">
-                                Columns: <strong>Product Name</strong>, <strong>Quantity</strong>,
-                                <strong>Unit Buying Price</strong>, <strong>Unit Selling Price</strong>.
                                 Stock is added to <strong id="uploadStockBranch">this branch</strong>.
                                 Products already in the system are matched; anything similar is shown below for you to decide.
                             </div>
@@ -5980,6 +6418,30 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
             <i class="fas fa-rotate"></i>
         </button>
     </div>
+
+    <!-- Mobile-only: the whole POS page becomes this launcher (hidden on desktop) -->
+    <div id="posMobileQuickbar">
+        <div class="pmq-head">
+            <span class="pmq-kicker">ConnectLink POS</span>
+            <h2 class="pmq-title">Reports &amp; Insights</h2>
+            <p class="pmq-sub">Everything you need, one tap away</p>
+        </div>
+        <div class="pmq-grid">
+            <button type="button" class="pmq-btn" onclick="openDayEndReport()" title="End of Day report">
+                <i class="fas fa-calendar-check"></i><span>End of Day</span>
+            </button>
+            <button type="button" class="pmq-btn" data-admin-only onclick="toggleAuditReport()" title="Stock audit report">
+                <i class="fas fa-clipboard-list"></i><span>Audit Report</span>
+            </button>
+            <button type="button" class="pmq-btn" onclick="showOutOfStockModal()" title="Out of stock items">
+                <i class="fas fa-circle-xmark"></i><span>Out of Stock</span>
+            </button>
+            <button type="button" class="pmq-btn" data-admin-only onclick="navigateTo('analytics')" title="Data analytics">
+                <i class="fas fa-chart-pie"></i><span>Analytics</span>
+            </button>
+        </div>
+    </div>
+
     <!-- Metrics Cards Row - Modern KPI layout -->
     <div class="row g-2 mb-2">
         <div class="col-md-4 col-sm-4">
@@ -12637,6 +13099,12 @@ async function fetchTransactionsData() {
         // so is what made the chip invisible on the white navbar.
         const chip = document.getElementById('posBranchChip');
         if (chip) chip.classList.toggle('is-readonly', branchIsReadOnly());
+
+        // Mobile drawer mirrors the branch (the top-bar chip is hidden on phones)
+        const drawerBranch = document.getElementById('posDrawerBranch');
+        if (drawerBranch) drawerBranch.innerText = (posBranch && posBranch.name) ? posBranch.name : 'No branch';
+        const drawerBranchChip = document.getElementById('posDrawerBranchChip');
+        if (drawerBranchChip) drawerBranchChip.innerText = (posBranch && posBranch.name) ? posBranch.name : '\u2014';
     }
 
     function branchWriteBlockedToast() {
@@ -13308,6 +13776,15 @@ async function fetchTransactionsData() {
         }
         const userNameSpan = document.getElementById('userName');
         if (userNameSpan) userNameSpan.innerText = userName;
+
+        // Mirror into the mobile drawer (that block is hidden on desktop)
+        const drawerName = document.getElementById('posDrawerUserName');
+        if (drawerName) drawerName.innerText = userName;
+        const drawerAvatar = document.getElementById('posDrawerAvatar');
+        if (drawerAvatar) {
+            const parts = String(userName).trim().split(/\s+/).filter(Boolean);
+            drawerAvatar.innerText = ((parts[0] ? parts[0][0] : 'A') + (parts[1] ? parts[1][0] : '')).toUpperCase();
+        }
     }
     
     // ==================== LOADER FUNCTIONS ====================
@@ -13446,6 +13923,12 @@ async function fetchTransactionsData() {
         if (it) {
             it.textContent = Number(transactionsData.itemsSold || 0).toLocaleString();
         }
+
+        // Mobile drawer mirrors of the same two figures
+        const drawerSales = document.getElementById('posDrawerSales');
+        if (drawerSales && s) drawerSales.textContent = s.textContent;
+        const drawerItems = document.getElementById('posDrawerItems');
+        if (drawerItems && it) drawerItems.textContent = it.textContent;
     }
 
     // Today's sales grouped by cashier (lightweight aggregate for the POS header)
@@ -13491,10 +13974,32 @@ async function fetchTransactionsData() {
     
     
     async function createTransactionAPI(items, paymentMethod, amountPaid, change) {
+        const subtotal = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
+        const total = subtotal;
+
+        // When the till cannot reach the server the sale is kept on the device
+        // (see the offline queue at the bottom of this page) and pushed up to
+        // /api/transactions/sync automatically once the connection is back.
+        const queueIfPossible = () => {
+            if (!window.POSOffline) return false;
+            // Never queue an empty order - the server would reject it forever
+            if (!items || !items.length) return false;
+            return !!window.POSOffline.queueSale({
+                items: items.map(item => ({
+                    id: item.id,
+                    name: item.name,
+                    price: item.sell_price || item.price || 0,
+                    quantity: item.quantity
+                })),
+                payment_method: paymentMethod,
+                amount_paid: amountPaid,
+                change_amount: change,
+                subtotal: subtotal,
+                total: total
+            });
+        };
+
         try {
-            const subtotal = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
-            const total = subtotal;
-            
             const transactionResponse = await fetch(`${API_BASE}/api/transactions`, {
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json' }, 
@@ -13541,6 +14046,11 @@ async function fetchTransactionsData() {
             if (ok) {
                 return true;
             } else {
+                // A 5xx means the server is down, not that the sale is invalid:
+                // keep it on the till rather than lose the money.
+                if (transactionResponse.status >= 500 && queueIfPossible()) {
+                    return 'queued';
+                }
                 const msg = transactionData && transactionData.error
                     ? transactionData.error
                     : ('Payment failed (HTTP ' + transactionResponse.status + '): ' + JSON.stringify(transactionData));
@@ -13550,6 +14060,7 @@ async function fetchTransactionsData() {
             }
         } catch (error) { 
             console.error('Transaction error:', error);
+            if (queueIfPossible()) return 'queued';
             showToast('Connection error - ' + (error && error.message ? error.message : error), 'error'); 
             return false; 
         }
@@ -15029,6 +15540,7 @@ function setupAddProductFundingSelection() {
         console.log('createTransactionAPI returned:', success);
         
         if (success) {
+            const queuedOffline = (success === 'queued');
             updatePaymentLoaderMessage('Updating inventory...');
             await new Promise(resolve => setTimeout(resolve, 500));
             
@@ -15052,15 +15564,20 @@ function setupAddProductFundingSelection() {
             cart = [];
             updateCartDisplay();
             resetPaymentUI();
-            fetchProductsFromAPI();
-            fetchTransactions();
-            fetchDashboardStats();
+            // Nothing to re-fetch while offline - the sale is queued locally
+            if (!queuedOffline) {
+                fetchProductsFromAPI();
+                fetchTransactions();
+                fetchDashboardStats();
+            }
             
             if (currentPage === 'inventory') renderInventory();
             if (currentPage === 'analytics') renderAnalytics();
             
-            showToast('Payment successful!', 'success');
-            console.log('Payment completed successfully');
+            showToast(queuedOffline
+                ? 'Sale saved on this device - it will sync when the connection returns.'
+                : 'Payment successful!', queuedOffline ? 'warning' : 'success');
+            console.log('Payment completed' + (queuedOffline ? ' (queued offline)' : ' successfully'));
         } else {
             hidePaymentLoader();
             console.log('Payment failed - createTransactionAPI returned false');
@@ -17495,6 +18012,14 @@ function navigateTo(page) {
             loadSalesReport('Loading analytics...');
         }
     }
+
+    // Tapping a page in the mobile drawer navigates AND closes the drawer
+    if (window.togglePOSDrawer) window.togglePOSDrawer(false);
+
+    // On phones the drawer no longer lists the pages, so show a back button
+    // in the top bar whenever we are not on the reports launcher.
+    const backBtn = document.getElementById('posMobileBackBtn');
+    if (backBtn) backBtn.classList.toggle('is-shown', page !== 'pos');
 }
     
     // ==================== EVENT LISTENERS ====================
@@ -17616,6 +18141,16 @@ function setupEventListeners() {
             sidebar.classList.add('collapsed'); mainContent.classList.add('expanded'); toggleBtn.classList.add('shifted');
             toggleBtn.addEventListener('click', () => { sidebar.classList.toggle('collapsed'); mainContent.classList.toggle('expanded'); toggleBtn.classList.toggle('shifted'); });
         }
+
+        // Mobile drawer: the 3-line button in the top bar opens it.
+        const mobileMenuBtn = document.getElementById('posMobileMenuBtn');
+        if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', () => window.togglePOSDrawer());
+
+        // Drawer "Log out" reuses the existing top-bar logout button so the
+        // logout logic stays in exactly one place.
+        const drawerLogout = document.getElementById('posDrawerLogout');
+        const realLogout = document.getElementById('logoutBtn');
+        if (drawerLogout && realLogout) drawerLogout.addEventListener('click', () => realLogout.click());
     }
     
     // ==================== LOGOUT ====================
@@ -17632,12 +18167,33 @@ function setupEventListeners() {
     
     // ==================== THEME TOGGLE ====================
     
+    // Keeps the top-bar theme button and the mobile drawer row in sync
+    function syncPOSThemeUI(isDark) {
+        const icon = document.getElementById('posThemeIcon');
+        if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        const drawerIcon = document.getElementById('posDrawerThemeIcon');
+        if (drawerIcon) drawerIcon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        const drawerLabel = document.getElementById('posDrawerThemeLabel');
+        if (drawerLabel) drawerLabel.innerText = isDark ? 'Dark' : 'Light';
+    }
+
     window.togglePOSTheme = function() {
         const body = document.body;
         const isDark = body.classList.toggle('dark-theme');
         localStorage.setItem('connectlink_theme', isDark ? 'dark' : 'light');
-        const icon = document.getElementById('posThemeIcon');
-        if (icon) icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        syncPOSThemeUI(isDark);
+    };
+
+    // Opens/closes the mobile navigation drawer. Inert on desktop, where both
+    // the menu button and the overlay are display:none.
+    window.togglePOSDrawer = function (force) {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+        const open = (typeof force === 'boolean') ? force : !sidebar.classList.contains('show');
+        sidebar.classList.toggle('show', open);
+        const overlay = document.getElementById('posDrawerOverlay');
+        if (overlay) overlay.classList.toggle('show', open);
+        document.body.classList.toggle('pos-drawer-open', open);
     };
 
     // Apply saved theme on load
@@ -17645,8 +18201,7 @@ function setupEventListeners() {
         const savedTheme = localStorage.getItem('connectlink_theme');
         if (savedTheme === 'dark') {
             document.body.classList.add('dark-theme');
-            const icon = document.getElementById('posThemeIcon');
-            if (icon) icon.className = 'fas fa-sun';
+            syncPOSThemeUI(true);
         }
     })();
 
@@ -17655,7 +18210,9 @@ function setupEventListeners() {
     function applyRoleBasedAccess(userRole) {
         // Get all menu items
         const menuItems = document.querySelectorAll('.menu-item');
-        
+        // Mobile quick-access shortcuts that mirror admin-only pages
+        const quickbarAdminBtns = document.querySelectorAll('#posMobileQuickbar .pmq-btn[data-admin-only]');
+
         if (userRole === 'operator') {
             menuItems.forEach(item => {
                 const page = item.getAttribute('data-page');
@@ -17665,6 +18222,8 @@ function setupEventListeners() {
                     item.style.display = 'none';
                 }
             });
+            // Keep mobile shortcuts consistent with allowed pages
+            quickbarAdminBtns.forEach(btn => { btn.style.display = 'none'; });
             // Navigate to POS terminal for operator
             navigateTo('pos');
         } else {
@@ -17672,6 +18231,7 @@ function setupEventListeners() {
             menuItems.forEach(item => {
                 item.style.display = 'flex';
             });
+            quickbarAdminBtns.forEach(btn => { btn.style.display = ''; });
         }
     }
 
@@ -17835,6 +18395,206 @@ function setupEventListeners() {
     setInterval(function () {
         if (typeof renderPOSHeaderStats === 'function') renderPOSHeaderStats();
     }, 1000);
+})();
+</script>
+
+<!-- ==================== POS PWA + OFFLINE ====================
+     Registers the service worker (so the till opens with no connection) and
+     keeps a local queue of sales rung up while offline, pushing them to
+     /api/transactions/sync the moment the connection returns. The server is
+     idempotent on client_ref, so retrying can never double-charge a sale. -->
+<script>
+(function () {
+    'use strict';
+
+    var QUEUE_KEY = 'pos_offline_sales_v1';
+    var CACHE_KEY = 'pos_api_cache_v1';
+    // /api/check-auth is included on purpose: it lets a till that has signed in
+    // at least once OPEN while offline (a brand-new device still needs internet).
+    var CACHEABLE_GETS = ['/api/products', '/api/categories', '/api/branches', '/api/check-auth'];
+    var MAX_ATTEMPTS = 25;
+    var nativeFetch = window.fetch.bind(window);
+
+    // ---------- PWA: installable on a phone ----------
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js').catch(function (e) {
+                console.warn('POS service worker not registered:', e);
+            });
+        });
+    }
+
+    // ---------- Offline catalogue ----------
+    // Wrap fetch so the last good catalogue is served when there is no network.
+    // Prices/stock are corrected by the next successful sync.
+    window.fetch = function (input, init) {
+        var url = (typeof input === 'string') ? input : ((input && input.url) || '');
+        var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+        var cacheable = method === 'GET' && CACHEABLE_GETS.some(function (p) {
+            return url.indexOf(p) !== -1;
+        });
+
+        var pending = nativeFetch(input, init);
+        if (!cacheable) return pending;
+
+        return pending.then(function (res) {
+            if (res && res.ok) {
+                res.clone().json().then(function (data) {
+                    try {
+                        var store = {};
+                        try { store = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch (e) { store = {}; }
+                        store[url] = { at: Date.now(), data: data };
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(store));
+                    } catch (e) { /* quota - ignore */ }
+                }).catch(function () {});
+            }
+            return res;
+        }).catch(function (err) {
+            try {
+                var store = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+                if (store[url]) {
+                    return new Response(JSON.stringify(store[url].data), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+            } catch (e) { /* fall through */ }
+            throw err;
+        });
+    };
+
+    // ---------- Connection state ----------
+    function isOffline() { return navigator.onLine === false; }
+
+    function readQueue() {
+        try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (e) { return []; }
+    }
+    function writeQueue(q) {
+        try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) { /* quota */ }
+        updateSyncUI();
+    }
+    function newRef() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        return 'pos-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+
+    function queueSale(sale) {
+        var ref = newRef();
+        var q = readQueue();
+        q.push({
+            client_ref: ref,
+            created_at: new Date().toISOString(),
+            attempts: 0,
+            payload: sale
+        });
+        writeQueue(q);
+        if (typeof showToast === 'function') {
+            showToast('No connection - sale saved on this device and will sync automatically.', 'warning');
+        }
+        return ref;
+    }
+
+    // ---------- Cloud sync ----------
+    var syncing = false;
+    function syncOfflineSales(manual) {
+        var q = readQueue();
+        if (!q.length) {
+            if (manual && typeof showToast === 'function') showToast('Everything is already synced.', 'success');
+            return Promise.resolve();
+        }
+        if (syncing || isOffline()) {
+            if (manual && isOffline() && typeof showToast === 'function') {
+                showToast('Still offline - queued sales will upload automatically.', 'warning');
+            }
+            return Promise.resolve();
+        }
+        syncing = true;
+        updateSyncUI();
+
+        var batch = q.slice(0, 25);
+        return nativeFetch('/api/transactions/sync', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sales: batch.map(function (entry) {
+                    var payload = {};
+                    for (var k in entry.payload) { if (Object.prototype.hasOwnProperty.call(entry.payload, k)) payload[k] = entry.payload[k]; }
+                    payload.client_ref = entry.client_ref;
+                    payload.created_at = entry.created_at;
+                    return payload;
+                })
+            })
+        }).then(function (res) {
+            return res.json();
+        }).then(function (data) {
+            var done = {};
+            (data.results || []).forEach(function (r) {
+                if (r.status === 'synced' || r.status === 'duplicate') done[r.client_ref] = true;
+            });
+            var remaining = readQueue().filter(function (entry) {
+                if (done[entry.client_ref]) return false;
+                entry.attempts = (entry.attempts || 0) + 1;
+                return entry.attempts < MAX_ATTEMPTS;
+            });
+            writeQueue(remaining);
+
+            if (typeof showToast === 'function') {
+                if (data.synced) showToast('Synced ' + data.synced + ' offline sale(s) to the cloud.', 'success');
+                if (data.failed) showToast(data.failed + ' sale(s) could not sync and stay queued.', 'error');
+            }
+            // Anything left (server was busy / partial failure) is retried shortly
+            if (remaining.length) setTimeout(function () { syncOfflineSales(false); }, 4000);
+        }).catch(function () {
+            // Still offline or server unreachable - the queue is untouched
+        }).then(function () {
+            syncing = false;
+            updateSyncUI();
+        });
+    }
+
+    // ---------- UI ----------
+    function pendingLabel(n) {
+        return n === 1 ? '1 sale waiting to sync' : n + ' sales waiting to sync';
+    }
+    function updateSyncUI() {
+        var n = readQueue().length;
+
+        var count = document.getElementById('posDrawerSyncCount');
+        if (count) {
+            count.innerText = n ? pendingLabel(n) : (isOffline() ? 'Offline - saved here' : 'All sales synced');
+        }
+        var row = document.getElementById('posDrawerSyncRow');
+        if (row) row.classList.toggle('is-pending', n > 0);
+
+        var chip = document.getElementById('posConnChip');
+        if (chip) {
+            chip.classList.toggle('is-offline', isOffline());
+            var label = document.getElementById('posConnLabel');
+            if (label) label.innerText = isOffline() ? (n ? 'Offline \u2022 ' + n : 'Offline') : (n ? 'Sync ' + n : 'Online');
+        }
+    }
+
+    window.addEventListener('online', function () { updateSyncUI(); syncOfflineSales(false); });
+    window.addEventListener('offline', function () { updateSyncUI(); });
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) { updateSyncUI(); syncOfflineSales(false); }
+    });
+    setInterval(function () { if (!isOffline()) syncOfflineSales(false); }, 30000);
+    setTimeout(function () { updateSyncUI(); syncOfflineSales(false); }, 3000);
+
+    window.POSOffline = {
+        isOffline: isOffline,
+        queueSale: queueSale,
+        syncNow: function () { return syncOfflineSales(true); },
+        pendingCount: function () { return readQueue().length; },
+        updateUI: updateSyncUI
+    };
+
+    // Used by the drawer's "Cloud sync" row
+    window.posSyncNow = function () {
+        if (window.POSOffline) window.POSOffline.syncNow();
+    };
 })();
 </script>
 

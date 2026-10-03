@@ -1,18 +1,16 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "TestServer",
-  "file": "_test_server.py",
-  "purpose": "Index",
-  "entry_function": "index()",
-  "entry_flows": [
-    "_test_server → app.route, app.run"
-  ],
+  "module": "PreviewSyncCalls",
+  "file": "_preview_sync_calls.json",
+  "purpose": "JSON array — 1 items",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
   "public_api": [
-    "index()"
+    "<!-- list public functions/methods here -->"
   ],
   "dependencies": [
-    "flask"
+    "<!-- list module dependencies here -->"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -27,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "7954b921466a103f",
-  "file_mtime": 1783366678982.6572,
-  "file_size": 377,
-  "file_birthtime": 1783366678756.6213,
-  "generated_at": "2026-10-03T09:20:14.388858Z",
-  "stale": false,
+  "file_hash": "ccbb19b4ea0fa6b6",
+  "file_mtime": 1791018562588.7336,
+  "file_size": 284,
+  "file_birthtime": 1791018562586.7131,
+  "generated_at": "2026-10-03T09:11:51.549528Z",
+  "stale": true,
   "stale_reason": "source file deleted"
 }

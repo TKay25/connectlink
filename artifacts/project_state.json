@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-10-02T06:20:06.980Z",
-  "module_count": 75,
+  "last_sync": "2026-10-03T09:20:11.552Z",
+  "module_count": 76,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 96,
+  "orphaned_count": 98,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -76,6 +76,10 @@
     {
       "artifact": "artifacts/modules/zero_out.json",
       "source": "zero_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_check_activity_branch.json",
+      "source": "_check_activity_branch.py"
     },
     {
       "artifact": "artifacts/modules/_check_enquiry.json",
@@ -262,6 +266,10 @@
       "source": "_preview_statsfix.py"
     },
     {
+      "artifact": "artifacts/modules/_preview_sync_calls.json",
+      "source": "_preview_sync_calls.json"
+    },
+    {
       "artifact": "artifacts/modules/_preview_verify.json",
       "source": "_preview_verify.py"
     },
@@ -390,5 +398,30 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "_preview_sync_calls.json",
+      "ts": "2026-10-03T09:12:35.042Z"
+    },
+    {
+      "rel": "_preview_mobile_pos.py",
+      "ts": "2026-10-03T09:12:35.038Z"
+    },
+    {
+      "rel": "_preview_mobile_pos.py",
+      "ts": "2026-10-03T08:56:19.852Z"
+    },
+    {
+      "rel": "_preview_mobile_pos.py",
+      "ts": "2026-10-03T08:56:19.732Z"
+    },
+    {
+      "rel": "_preview_mobile_pos.py",
+      "ts": "2026-10-03T08:26:06.302Z"
+    },
+    {
+      "rel": "_preview_mobile_pos.py",
+      "ts": "2026-10-03T08:26:06.152Z"
+    }
+  ]
 }
