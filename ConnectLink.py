@@ -18185,6 +18185,37 @@ def whatsapp_app():
     return render_template('mainindex.html')
 
 
+def _describe_meta_error(payload):
+    """Turn a Meta/WhatsApp error body into one short, actionable sentence.
+
+    Meta returns HTTP 200 for some rejections and 4xx for others, so the BODY is
+    the only reliable source of truth.
+    """
+    try:
+        err = (payload or {}).get('error') or {}
+        code = err.get('code')
+        msg = err.get('message') or ''
+        details = (err.get('error_data') or {}).get('details') or ''
+        if code == 131042:
+            return ('the WhatsApp Business account has an unpaid balance (Meta error 131042) - '
+                    'settle it at business.facebook.com/billing_hub')
+        if code in (132001, 132005):
+            return (f"the template is missing or not approved under this language (Meta error {code}) - "
+                    "check that 'passwordreset2' exists, is APPROVED, and is registered as language 'en' "
+                    "(Meta often creates it as 'en_US', which must then be sent as 'en_US')")
+        if code == 132000:
+            return ("the number of template variables does not match what the system sends "
+                    "(Meta error 132000) - the template must take ONE body variable and ONE "
+                    "URL-button variable")
+        if code == 131026:
+            return 'this number cannot receive WhatsApp messages (Meta error 131026)'
+        if code == 190:
+            return 'the WhatsApp access token is invalid or expired (Meta error 190)'
+        return (details or msg or f'Meta error {code}')[:300]
+    except Exception:
+        return 'unknown WhatsApp error'
+
+
 @app.route('/api/request-reset-code', methods=['POST'])
 def request_reset_code():
     """Send a 6-digit verification code to the user's WhatsApp for password reset"""
@@ -18295,10 +18326,28 @@ def request_reset_code():
                     }
                 }
                 resp = requests.post(WHATSAPP_API_URL, json=template_payload, headers=wa_headers, timeout=15)
-                wa_status = 'sent' if resp.status_code == 200 else f'failed_{resp.status_code}'
-                print(f"📤 Password reset template sent: {resp.status_code}")
-                if resp.status_code != 200:
-                    print(f"❌ Response: {resp.text}")
+                wa_sent = False
+                wa_error = None
+                if resp.status_code == 200:
+                    # Meta also returns 200 with an error object inside the body
+                    try:
+                        body_json = resp.json()
+                    except Exception:
+                        body_json = {}
+                    if isinstance(body_json, dict) and body_json.get('error'):
+                        wa_error = _describe_meta_error(body_json)
+                    else:
+                        wa_sent = True
+                else:
+                    try:
+                        wa_error = _describe_meta_error(resp.json())
+                    except Exception:
+                        wa_error = f'HTTP {resp.status_code}: {resp.text[:200]}'
+
+                wa_status = 'sent' if wa_sent else 'failed'
+                print(f"Password reset template -> HTTP {resp.status_code} sent={wa_sent} error={wa_error}")
+                if not wa_sent:
+                    print(f"Password reset FAILED for {username_or_email}: {wa_error}")
 
                 # Log to whatsapp_messages
                 try:
@@ -18311,7 +18360,16 @@ def request_reset_code():
                     pass
             except Exception as wa_err:
                 print(f"WhatsApp template send error: {wa_err}")
-                pass
+                wa_sent = False
+                wa_error = str(wa_err)
+
+            if not wa_sent:
+                # Never claim a code was sent when it was not - the person on the
+                # other end is stuck waiting and nobody knows why.
+                return jsonify({
+                    'success': False,
+                    'message': f'Could not send the WhatsApp code: {wa_error}'
+                }), 502
 
             return jsonify({
                 'success': True,
