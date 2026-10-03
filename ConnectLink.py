@@ -37350,6 +37350,108 @@ def um_admin_users():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/user-management/export-credentials', methods=['POST'])
+def um_export_credentials():
+    """Download every system login (username + password) as a PDF.
+
+    SECURITY: this is the most sensitive data in the whole system, so it is
+    limited to super admins / role managers, the PDF itself carries a
+    confidential warning, and every export is written to the activity log with
+    the requester's name so there is a record of who took a copy.
+    """
+    perms = session.get('um_permissions', {})
+    if not perms.get('is_super_admin', False) and not perms.get('can_manage_roles', False):
+        return jsonify({'success': False, 'error': 'Access denied: you cannot export credentials.'}), 403
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT username, password, full_name, email, whatsapp, role, is_active, subsidiary
+                FROM admin_users
+                ORDER BY full_name NULLS LAST, username
+            """)
+            rows = cursor.fetchall()
+
+        if not rows:
+            return jsonify({'success': False, 'error': 'There are no users to export.'}), 400
+
+        def esc(value):
+            return bleach.clean('' if value is None else str(value), tags=[], strip=True)
+
+        body = []
+        for r in rows:
+            active = 'Active' if (r[6] is None or r[6]) else 'Disabled'
+            css = 'ok' if active == 'Active' else 'off'
+            body.append(
+                '<tr>'
+                f'<td>{esc(r[2])}</td>'
+                f'<td class="mono">{esc(r[0])}</td>'
+                f'<td class="mono pw">{esc(r[1])}</td>'
+                f'<td>{esc(r[3])}</td>'
+                f'<td>{esc(r[4])}</td>'
+                f'<td>{esc(r[5])}</td>'
+                f'<td>{esc(r[7])}</td>'
+                f'<td class="{css}">{active}</td>'
+                '</tr>'
+            )
+
+        generated = datetime.now().strftime('%d %B %Y %H:%M')
+        who = session.get('user_name') or session.get('username') or 'Unknown'
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>ConnectLink User Credentials</title>
+<style>
+  @page {{ size: A4 landscape; margin: 12mm; }}
+  body {{ font-family: Arial, Helvetica, sans-serif; color: #0F1729; font-size: 10px; }}
+  .hdr {{ border-bottom: 3px solid #C12B3E; padding-bottom: 8px; margin-bottom: 12px; }}
+  .hdr h1 {{ margin: 0; font-size: 18px; }}
+  .sub {{ color: #64748B; font-size: 10px; margin-top: 3px; }}
+  .warn {{ background: #FEF2F2; border: 1px solid #FCA5A5; color: #991B1B;
+           padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; font-weight: bold; }}
+  table {{ width: 100%; border-collapse: collapse; }}
+  th {{ background: #0F1B2D; color: #fff; text-align: left; padding: 6px 7px; font-size: 9px; }}
+  td {{ padding: 5px 7px; border-bottom: 1px solid #E5EAF1; vertical-align: top; }}
+  tr:nth-child(even) td {{ background: #F8FAFC; }}
+  .mono {{ font-family: 'Courier New', monospace; }}
+  .pw {{ font-weight: bold; color: #B91C1C; }}
+  .ok {{ color: #047857; font-weight: bold; }}
+  .off {{ color: #B45309; font-weight: bold; }}
+  .foot {{ margin-top: 12px; color: #64748B; font-size: 9px; }}
+</style></head>
+<body>
+  <div class="hdr">
+    <h1>ConnectLink &mdash; System User Credentials</h1>
+    <div class="sub">{len(rows)} account(s) &middot; generated {generated} by {esc(who)}</div>
+  </div>
+  <div class="warn">
+    CONFIDENTIAL &mdash; contains plain-text passwords for every account.
+    Store securely, do not forward, and destroy when no longer needed.
+  </div>
+  <table>
+    <thead><tr>
+      <th>Full Name</th><th>Username</th><th>Password</th><th>Email</th>
+      <th>WhatsApp</th><th>Role</th><th>Subsidiary</th><th>Status</th>
+    </tr></thead>
+    <tbody>{''.join(body)}</tbody>
+  </table>
+  <div class="foot">Source: admin_users. This export is recorded in the activity log.</div>
+</body></html>"""
+
+        pdf_bytes = render_html_to_pdf_bytes(html)
+        try:
+            log_activity('export_credentials',
+                         f'Exported {len(rows)} user credential(s) as a PDF',
+                         'admin_users', None, {'count': len(rows)})
+        except Exception as log_err:
+            print(f"Note: could not log the credential export: {log_err}")
+
+        return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf',
+                         as_attachment=True,
+                         download_name=f'user_credentials_{datetime.now().strftime("%Y-%m-%d")}.pdf')
+    except Exception as e:
+        print(f"Credential export error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/user-management/save-admin-user', methods=['POST'])
 def um_save_admin_user():
     """Create or update a unified admin user"""

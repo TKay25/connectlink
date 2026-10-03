@@ -1041,6 +1041,11 @@
                 <div class="card-header">
                     <h6><i class="bi bi-table"></i> Unified User Registry</h6>
                     <input type="text" class="form-control" style="width:180px;font-size:0.6rem;padding:2px 8px;" id="allUsersSearch" placeholder="Search users..." oninput="filterAllUsers()">
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="exportCredentialsBtn"
+                            data-perm-action="can_manage_roles" onclick="exportAllCredentials()"
+                            title="Download every username and password as a PDF">
+                        <i class="bi bi-file-earmark-pdf"></i> Credentials PDF
+                    </button>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-scroll">
@@ -1651,6 +1656,47 @@ function getPortalAccessBadges(p) {
     if (p.can_view_payments) badges.push('<span class="badge-um amber" style="font-size:0.5rem;background:#fff3e0;color:#ef6c00;">Payments</span>');
     if (p.can_download_master_file) badges.push('<span class="badge-um" style="font-size:0.5rem;background:#e3f2fd;color:#1565c0;">Master File</span>');
     return badges.length ? badges.join(' ') : '<span class="badge-um inactive" style="font-size:0.5rem;">None</span>';
+}
+
+function exportAllCredentials() {
+    if (!confirm('This PDF contains EVERY user\u2019s username and PASSWORD in plain text.\n\n'
+        + 'Anyone holding it can sign in as anyone. Only download it if you really need it, '
+        + 'keep it safe, and delete it afterwards.\n\nContinue?')) return;
+
+    const btn = document.getElementById('exportCredentialsBtn');
+    const orig = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Building...'; }
+
+    fetch('/api/user-management/export-credentials', { method: 'POST', credentials: 'include' })
+        .then(async (res) => {
+            if (!res.ok) {
+                let msg = 'Export failed (HTTP ' + res.status + ')';
+                try { const d = await res.json(); if (d && d.error) msg = d.error; } catch (e) {}
+                throw new Error(msg);
+            }
+            return res.blob();
+        })
+        .then((blob) => {
+            const d = new Date();
+            const stamp = d.getFullYear() + '-'
+                + String(d.getMonth() + 1).padStart(2, '0') + '-'
+                + String(d.getDate()).padStart(2, '0');
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'user_credentials_' + stamp + '.pdf';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            if (window.showToast) showToast('Credentials PDF downloaded - store it securely.', 'success');
+        })
+        .catch((e) => {
+            if (window.showToast) showToast(e.message, 'error'); else alert(e.message);
+        })
+        .finally(() => {
+            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+        });
 }
 
 function renderAllUsers() {
