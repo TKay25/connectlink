@@ -1245,6 +1245,10 @@
                 <span class="perm-label"><i class="bi bi-cart"></i> Manage Hardware POS</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggle-can_manage_hardware"><span class="toggle-slider"></span></label>
             </div>
+            <div class="perm-row">
+                <span class="perm-label"><i class="bi bi-shop"></i> Full POS Access <span style="font-size:0.5rem;color:var(--text-muted);">(Inventory, Sales Report &amp; Analytics tabs + all POS actions. Off = POS Terminal and Transactions only)</span></span>
+                <label class="toggle-switch"><input type="checkbox" id="toggle-pos_full_access"><span class="toggle-slider"></span></label>
+            </div>
             <div style="margin-bottom:8px;font-size:0.65rem;font-weight:700;color:var(--text-primary);border-bottom:1px solid var(--gray-200);padding-bottom:4px;margin-top:8px;">
                 <i class="bi bi-people"></i> HR Admin Access
             </div>
@@ -2029,7 +2033,7 @@ const PERM_TOGGLE_IDS = [
     'hr_access',
     'can_add_users', 'can_edit_users', 'can_delete_users',
     'can_export_data', 'can_view_audit', 'can_manage_roles', 'can_view_payments',
-    'can_edit_projects', 'can_download_master_file', 'can_edit_project_money',
+    'can_edit_projects', 'can_download_master_file', 'can_edit_project_money', 'pos_full_access',
     'can_create_requisitions', 'can_authorise_requisitions', 'can_approve_requisitions',
     'can_manage_purchase_orders', 'can_manage_suppliers'
 ];
@@ -2095,6 +2099,10 @@ function setBtnLoading(btn, on, busyText) {
 // ===== PERMISSIONS MANAGER - MODAL WITH TOGGLE SWITCHES =====
 let permModalUserType = '';
 let permModalUserId = null;
+// True only when the server gave us the CURRENT POS value for this user. If it
+// did not (no permissions row yet, or an older backend), the POS toggle must NOT
+// be sent back - sending a default `false` would silently demote a POS admin.
+let permModalHasPosAccess = false;
 
 function openPermModal(userType, userId, userName) {
     permModalUserType = userType;
@@ -2112,8 +2120,9 @@ async function loadPermModalData(userType, userId) {
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file',
                      'can_create_requisitions','can_authorise_requisitions','can_approve_requisitions',
-                     'can_manage_purchase_orders','can_manage_suppliers','can_edit_project_money'];
+                     'can_manage_purchase_orders','can_manage_suppliers','can_edit_project_money','pos_full_access'];
     // Reset all toggles to off
+    permModalHasPosAccess = false;
     toggles.forEach(t => {
         const el = document.getElementById('toggle-' + t);
         if (el) el.checked = false;
@@ -2130,6 +2139,7 @@ async function loadPermModalData(userType, userId) {
                     const el = document.getElementById('toggle-' + t);
                     if (el) el.checked = !!perm[t];
                 });
+                permModalHasPosAccess = (typeof perm.pos_full_access === 'boolean');
                 document.getElementById('permModalMsg').textContent = '';
             } else {
                 document.getElementById('permModalMsg').textContent = 'No permissions set yet. Toggle and save to assign.';
@@ -2147,7 +2157,7 @@ async function savePermModal() {
                      'can_view_audit','can_manage_roles','can_view_payments','can_edit_projects',
                      'can_download_master_file',
                      'can_create_requisitions','can_authorise_requisitions','can_approve_requisitions',
-                     'can_manage_purchase_orders','can_manage_suppliers','can_edit_project_money'];  
+                     'can_manage_purchase_orders','can_manage_suppliers','can_edit_project_money','pos_full_access'];  
     const payload = {
         user_type: permModalUserType,
         user_id: permModalUserId
@@ -2156,6 +2166,9 @@ async function savePermModal() {
         const el = document.getElementById('toggle-' + t);
         if (el) payload[t] = el.checked;
     });
+    // Only send the POS flag when we actually know its current value (see the
+    // permModalHasPosAccess note above).
+    if (!permModalHasPosAccess) delete payload.pos_full_access;
 
     const saveBtn = document.getElementById('permSaveBtn');
     setBtnLoading(saveBtn, true, 'Saving permissions');
@@ -2168,6 +2181,9 @@ async function savePermModal() {
         const data = await res.json();
         if (data.success) {
             showToast('Permissions saved for ' + permModalUserName() + '.', 'success');
+            // The server reports here when POS access could not be applied
+            // (no POS login record linked to this user) instead of failing silently.
+            if (data.warning) showToast(data.warning, 'warning');
             // Reload all data so permission-filtered tables update immediately
             // (skipLoader: the full-screen overlay would cover the whole page while the
             // modal is still open, and the button spinner already shows the work).

@@ -35912,6 +35912,92 @@ def get_user_permissions(user_type, user_id):
         return {}
 
 
+# ==================== POS (HARDWARE) FULL-ACCESS PERMISSION ====================
+# The POS sidebar is gated by `applyRoleBasedAccess()` in templates/pos-system.html,
+# which reads `admin_users.role` (captured at POS login into `session['role']`):
+#     role == 'operator' -> only "POS Terminal" + "Transactions"
+#     any other role     -> all five tabs (incl. Inventory, Sales, Analytics)
+# `admin_users.role` is read by NOTHING outside the POS portal (verified: the only
+# readers are /api/branch-health, /api/transactions/clear-all and the unused
+# admin_required decorator), so it is the natural home for a POS-ONLY permission.
+# User Management therefore exposes it as a single toggle, "POS System - Full
+# Access", instead of making admins edit a raw role field on the right record.
+POS_FULL_ROLE = 'admin'
+POS_OPERATOR_ROLE = 'operator'
+
+
+def resolve_admin_user_for_permission(user_type, user_id):
+    """Return (admin_users.id, role) for a user_permissions (user_type, user_id) key.
+
+    Returns (None, None) when there is no POS login record behind the user.
+    """
+    try:
+        with get_db() as (cursor, connection):
+            if user_type == 'hardware':
+                cursor.execute("""
+                    SELECT au.id, au.role FROM admin_users au
+                    JOIN hardware_users hw ON lower(hw.username) = lower(au.username)
+                    WHERE hw.id = %s AND au.is_active = TRUE
+                """, (user_id,))
+            elif user_type == 'hr':
+                cursor.execute("""
+                    SELECT au.id, au.role FROM admin_users au
+                    JOIN hr_employees he ON lower(he.email) = lower(au.username)
+                    WHERE he.id = %s AND au.is_active = TRUE
+                """, (user_id,))
+            else:
+                cursor.execute("""
+                    SELECT id, role FROM admin_users
+                    WHERE source_system = 'projects' AND source_id = %s AND is_active = TRUE
+                """, (user_id,))
+            row = cursor.fetchone()
+            if row:
+                return row[0], row[1]
+            # Fallback: match the POS login record by the user's email.
+            if user_type == 'projects':
+                cursor.execute("""
+                    SELECT au.id, au.role FROM admin_users au
+                    JOIN connectlinkusers cl ON lower(cl.email) = lower(au.username)
+                    WHERE cl.id = %s AND au.is_active = TRUE
+                """, (user_id,))
+                row = cursor.fetchone()
+                if row:
+                    return row[0], row[1]
+        return None, None
+    except Exception as e:
+        print(f"Note: could not resolve the POS login record for ({user_type}, {user_id}): {e}")
+        return None, None
+
+
+def pos_full_access_map():
+    """{(user_type, user_id): bool} - True when the linked POS role is 'admin'.
+
+    One query for the whole table so the permissions list does not fan out into
+    a lookup per row.
+    """
+    result = {}
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT 'projects', au.source_id, au.role FROM admin_users au
+                    WHERE au.source_system = 'projects' AND au.source_id IS NOT NULL
+                UNION
+                SELECT 'projects', cl.id, au.role FROM admin_users au
+                    JOIN connectlinkusers cl ON lower(cl.email) = lower(au.username)
+                UNION
+                SELECT 'hardware', hw.id, au.role FROM admin_users au
+                    JOIN hardware_users hw ON lower(hw.username) = lower(au.username)
+                UNION
+                SELECT 'hr', he.id, au.role FROM admin_users au
+                    JOIN hr_employees he ON lower(he.email) = lower(au.username)
+            """)
+            for utype, uid, role in cursor.fetchall():
+                result[(utype, uid)] = str(role or '').strip().lower() == POS_FULL_ROLE
+    except Exception as e:
+        print(f"Note: could not build the POS full-access map: {e}")
+    return result
+
+
 @app.route('/api/user-management/permissions', methods=['GET', 'POST'])
 def um_permissions_api():
     """Get or update user permissions"""
@@ -35938,6 +36024,7 @@ def um_permissions_api():
                     ORDER BY up.id
                 """)
                 rows = cursor.fetchall()
+                pos_map = pos_full_access_map()
                 perms = []
                 for r in rows:
                     perms.append({
@@ -35956,7 +36043,9 @@ def um_permissions_api():
                         'can_manage_suppliers': r[21] if len(r) > 21 else False,
                         'can_authorise_purchase_orders': r[22] if len(r) > 22 else False,
                         'can_authorise_requisitions': r[23] if len(r) > 23 else False,
-                        'can_edit_project_money': r[24] if len(r) > 24 else False
+                        'can_edit_project_money': r[24] if len(r) > 24 else False,
+                        # POS-only: backed by admin_users.role, not by a column here.
+                        'pos_full_access': pos_map.get((r[1], r[2]), False)
                     })
                 return jsonify({'success': True, 'data': perms})
         except Exception as e:
@@ -36025,7 +36114,33 @@ def um_permissions_api():
                     """, [hr_admin_val, hr_access_val] + all_ids)
 
                 connection.commit()
-                return jsonify({'success': True, 'message': 'Permissions updated'})
+
+                # ---- POS full access (POS-only; lives on admin_users.role) ----
+                # Only touched when the client actually sent the key, and it tells
+                # the caller when there is no POS login record to write to rather
+                # than silently pretending to have saved.
+                pos_warning = None
+                if 'pos_full_access' in data:
+                    want_full = bool(data.get('pos_full_access'))
+                    au_id, au_role = resolve_admin_user_for_permission(user_type, user_id)
+                    if au_id is None:
+                        pos_warning = ('POS access was NOT changed: no POS login record '
+                                       'is linked to this user.')
+                        print(f"Note: {pos_warning} (user_type={user_type}, user_id={user_id})")
+                    else:
+                        new_pos_role = POS_FULL_ROLE if want_full else POS_OPERATOR_ROLE
+                        if str(au_role or '').strip().lower() != new_pos_role:
+                            cursor.execute(
+                                "UPDATE admin_users SET role = %s, updated_at = NOW() WHERE id = %s",
+                                (new_pos_role, au_id)
+                            )
+                            connection.commit()
+                            print(f"POS role for admin_users.id={au_id}: {au_role!r} -> {new_pos_role!r}")
+
+                payload = {'success': True, 'message': 'Permissions updated'}
+                if pos_warning:
+                    payload['warning'] = pos_warning
+                return jsonify(payload)
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
 
