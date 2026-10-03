@@ -5660,6 +5660,139 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                 </div>
             </div>
 
+            <!-- Bulk Stock Upload Modal -->
+            <div class="modal fade" id="uploadStockModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
+                            <h5 class="modal-title"><i class="fas fa-file-upload me-1"></i>Upload New Stock</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-2 align-items-end mb-3">
+                                <div class="col-md-3">
+                                    <button class="btn btn-sm btn-success w-100" onclick="downloadStockTemplate()">
+                                        <i class="fas fa-file-excel me-1"></i>Download Template
+                                    </button>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label fw-bold mb-1">Filled template (.xlsx)</label>
+                                    <input type="file" class="form-control form-control-sm" id="uploadStockFile" accept=".xlsx,.xlsm">
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-sm btn-primary-dark w-100" id="uploadCheckBtn" onclick="analyzeStockUpload()">
+                                        <i class="fas fa-search me-1"></i>Check File
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="small text-muted mb-2">
+                                Columns: <strong>Product Name</strong>, <strong>Quantity</strong>,
+                                <strong>Unit Buying Price</strong>, <strong>Unit Selling Price</strong>.
+                                Stock is added to <strong id="uploadStockBranch">this branch</strong>.
+                                Products already in the system are matched; anything similar is shown below for you to decide.
+                            </div>
+                            <div id="uploadStockError" class="alert alert-danger py-2 small" style="display:none;"></div>
+
+                            <div id="uploadStockPlan" style="display:none;">
+                                <div id="uploadStockSummary" class="mb-2"></div>
+
+                                <div id="uploadStockNewWrap" style="display:none;" class="mb-3">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <strong>New products</strong>
+                                        <span class="text-muted small">— not in the system yet; choose the category to create them under</span>
+                                        <select class="form-select form-select-sm ms-auto" id="uploadStockCategory" style="width:220px;"></select>
+                                    </div>
+                                    <ul id="uploadStockNewList" class="small mb-0"></ul>
+                                </div>
+
+                                <div id="uploadStockConflictWrap" style="display:none;" class="mb-3">
+                                    <div class="mb-1">
+                                        <strong>Needs your decision</strong>
+                                        <span class="text-muted small">— these names look like products you already have</span>
+                                    </div>
+                                    <div class="table-responsive" style="max-height:320px;overflow:auto;">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead><tr><th style="width:32%;">In the Excel file</th><th>What should happen?</th></tr></thead>
+                                            <tbody id="uploadStockConflictBody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div id="uploadStockFailedWrap" style="display:none;" class="mb-2">
+                                    <div class="alert alert-warning py-2 small mb-0">
+                                        <strong>Skipped rows</strong>
+                                        <ul id="uploadStockFailedList" class="mb-0"></ul>
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-primary-dark w-100" id="uploadApplyBtn" onclick="applyStockUpload()">
+                                    <i class="fas fa-upload me-1"></i>Apply Upload
+                                </button>
+
+                                <!-- Nothing is written until the branch is named and its
+                                     code entered, so stock cannot land in the wrong shop. -->
+                                <div id="uploadStockConfirm" style="display:none;" class="mt-2">
+                                    <div class="alert alert-warning py-2 mb-2">
+                                        <i class="fas fa-triangle-exclamation me-1"></i>
+                                        Stock will be added to <strong id="uploadStockConfirmBranch">this branch</strong> only.
+                                        Other shops are not affected.
+                                    </div>
+                                    <label class="form-label fw-bold mb-1">Branch code for this shop</label>
+                                    <input type="password" class="form-control form-control-sm" id="uploadStockBranchCode"
+                                           autocomplete="off" placeholder="Enter the branch access code">
+                                    <div id="uploadStockConfirmError" class="small text-danger mt-1" style="display:none;"></div>
+                                    <div class="d-flex gap-2 mt-2">
+                                        <button class="btn btn-primary-dark flex-fill" id="uploadStockConfirmBtn"
+                                                onclick="confirmApplyStockUpload()">Confirm upload</button>
+                                        <button class="btn btn-secondary" onclick="cancelApplyStockUpload()">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Previous uploads: each one is a job that can be reverted -->
+                            <div id="uploadStockJobsWrap" class="mt-4" style="display:none;">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong>Previous uploads</strong>
+                                    <span class="text-muted small ms-2">— revert one to take its stock back off the shelf</span>
+                                    <button type="button" class="btn btn-sm btn-link ms-auto" onclick="loadStockUploadJobs()">Refresh</button>
+                                </div>
+                                <div class="table-responsive" style="max-height:220px;overflow:auto;">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead><tr>
+                                            <th>When</th><th>Reference</th><th>Added</th><th>Status</th><th></th>
+                                        </tr></thead>
+                                        <tbody id="uploadStockJobsBody"></tbody>
+                                    </table>
+                                </div>
+
+                                <div id="uploadStockRevertBox" style="display:none;" class="mt-2 border rounded p-2">
+                                    <div class="small mb-2">
+                                        Reverting <strong id="uploadStockRevertRef">…</strong> will take
+                                        <strong id="uploadStockRevertUnits">…</strong> back off
+                                        <strong id="uploadStockRevertBranch">this branch</strong> and deactivate any
+                                        products that upload created.
+                                    </div>
+                                    <label class="form-label fw-bold mb-1">Branch code for this shop</label>
+                                    <input type="password" class="form-control form-control-sm" id="uploadStockRevertCode"
+                                           autocomplete="off" placeholder="Enter the branch access code">
+                                    <div id="uploadStockRevertError" class="small text-danger mt-1" style="display:none;"></div>
+                                    <div class="d-flex gap-2 mt-2">
+                                        <button class="btn btn-sm btn-danger flex-fill" id="uploadStockRevertBtn"
+                                                onclick="confirmRevertJob()">Revert this upload</button>
+                                        <button class="btn btn-sm btn-secondary" onclick="cancelRevertJob()">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="uploadStockResult" style="display:none;" class="mt-3"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Edit Stock Modal -->
             <div class="modal fade" id="editStockModal" tabindex="-1">
                 <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -5984,6 +6117,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                                 <button class="btn btn-primary-dark" onclick="showAddInventoryModal()">
                                     <i class="fas fa-plus me-1"></i>Add Product
                                 </button>
+                                <button class="btn btn-warning" onclick="openUploadStockModal()">
+                                    <i class="fas fa-file-upload me-1"></i>Upload New Stock
+                                </button>
                                 <button class="btn btn-success" id="downloadInventoryExcelBtn">
                                     <i class="fas fa-file-excel me-1"></i>Download Excel
                                 </button>
@@ -6087,9 +6223,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                     <h5 class="fw-bold mb-0"><i class="fas fa-clipboard-list me-1"></i>Inventory Audit Report</h5>
                     <div class="d-flex gap-2 align-items-center flex-wrap">
                         <label class="small fw-bold mb-0">From:</label>
-                        <input type="date" class="form-control form-control-sm" id="auditStartDate" style="width:150px;font-size:0.7rem;">
+                        <input type="date" class="form-control form-control-sm" id="auditStartDate" data-cl-apply="loadStockAuditReport" data-cl-scope="stockaudit" style="width:150px;font-size:0.7rem;">
                         <label class="small fw-bold mb-0">To:</label>
-                        <input type="date" class="form-control form-control-sm" id="auditEndDate" style="width:150px;font-size:0.7rem;">
+                        <input type="date" class="form-control form-control-sm" id="auditEndDate" data-cl-apply="loadStockAuditReport" data-cl-scope="stockaudit" style="width:150px;font-size:0.7rem;">
                         <button class="btn btn-sm btn-primary-dark" onclick="loadStockAuditReport()">
                             <i class="fas fa-search me-1"></i>Generate Report
                         </button>
@@ -7052,9 +7188,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
                                 <option value="">All Cashiers</option>
                             </select>
                             <label class="small fw-bold mb-0 ms-2">From:</label>
-                            <input type="date" class="form-control form-control-sm" id="activityLogFrom" style="width:145px;font-size:0.7rem;">
+                            <input type="date" class="form-control form-control-sm" id="activityLogFrom" data-cl-apply="loadPosActivityLog" data-cl-scope="poslog" style="width:145px;font-size:0.7rem;">
                             <label class="small fw-bold mb-0 ms-2">To:</label>
-                            <input type="date" class="form-control form-control-sm" id="activityLogTo" style="width:145px;font-size:0.7rem;">
+                            <input type="date" class="form-control form-control-sm" id="activityLogTo" data-cl-apply="loadPosActivityLog" data-cl-scope="poslog" style="width:145px;font-size:0.7rem;">
                             <label class="small fw-bold mb-0 ms-2">Order:</label>
                             <select id="activityLogOrder" class="form-select form-select-sm" style="width:120px;font-size:0.7rem;" onchange="applyPosActivityOrder()">
                                 <option value="desc" selected>Newest first</option>
@@ -12592,6 +12728,455 @@ async function fetchTransactionsData() {
                escapeHtml(String(posBranch.name)) + ' Branch</h5>';
     }
 
+    // ==================== BULK STOCK UPLOAD ====================
+    // Two steps: "Check File" classifies the rows (nothing is written), the
+    // uploader resolves any similar-name conflicts, then "Apply Upload" writes.
+    let _bulkStockPlan = null;
+    let _bulkStockDecisions = [];
+
+    function openUploadStockModal() {
+        if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
+        const modalEl = document.getElementById('uploadStockModal');
+        const branchEl = document.getElementById('uploadStockBranch');
+        if (branchEl) branchEl.innerText = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
+        const fileEl = document.getElementById('uploadStockFile');
+        if (fileEl) fileEl.value = '';
+        resetStockUploadView();
+        loadUploadStockCategories();
+        loadStockUploadJobs();
+        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+    window.openUploadStockModal = openUploadStockModal;
+
+    function resetStockUploadView() {
+        _bulkStockPlan = null;
+        _bulkStockDecisions = [];
+        ['uploadStockError', 'uploadStockPlan', 'uploadStockResult', 'uploadStockNewWrap',
+         'uploadStockConflictWrap', 'uploadStockFailedWrap', 'uploadStockConfirm',
+         'uploadStockConfirmError', 'uploadStockRevertBox', 'uploadStockRevertError'
+        ].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        const err = document.getElementById('uploadStockError');
+        if (err) err.innerText = '';
+        const res = document.getElementById('uploadStockResult');
+        if (res) res.innerHTML = '';
+    }
+
+    function stockUploadError(msg) {
+        const el = document.getElementById('uploadStockError');
+        if (el) { el.innerText = msg; el.style.display = 'block'; }
+    }
+
+    function downloadStockTemplate() {
+        window.location.href = `${API_BASE}/api/pos/stock-upload-template`;
+    }
+    window.downloadStockTemplate = downloadStockTemplate;
+
+    async function loadUploadStockCategories() {
+        const sel = document.getElementById('uploadStockCategory');
+        if (!sel || sel.options.length) return;
+        let cats = [];
+        try {
+            const res = await fetch(`${API_BASE}/api/categories`, { credentials: 'include' });
+            const data = await res.json();
+            const rows = (data && (data.categories || data.data)) || [];
+            cats = rows.map(c => (typeof c === 'string' ? c : (c.name || c.category)))
+                       .filter(n => n && n.toLowerCase() !== 'all');
+        } catch (e) { /* fall back below */ }
+        if (!cats.length) cats = ['DIY', 'Electricals', 'Plumbing', 'Machinery'];
+        sel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    }
+
+    async function analyzeStockUpload() {
+        if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
+        const fileEl = document.getElementById('uploadStockFile');
+        resetStockUploadView();
+        if (!fileEl || !fileEl.files || !fileEl.files.length) {
+            stockUploadError('Choose the filled template first.');
+            return;
+        }
+        const btn = document.getElementById('uploadCheckBtn');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Checking...';
+        try {
+            const fd = new FormData();
+            fd.append('file', fileEl.files[0]);
+            const res = await fetch(`${API_BASE}/api/pos/upload-stock-analyze`, {
+                method: 'POST', body: fd, credentials: 'include'
+            });
+            const data = await res.json();
+            if (!data.success) { stockUploadError(data.error || 'Could not read that file.'); return; }
+            _bulkStockPlan = data;
+            renderStockUploadPlan(data);
+        } catch (e) {
+            stockUploadError('Could not read that file: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    }
+    window.analyzeStockUpload = analyzeStockUpload;
+
+    function money(v) { return '$' + Number(v || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+    function renderStockUploadPlan(plan) {
+        const exact = plan.exact || [], brandNew = plan.new || [],
+              conflicts = plan.conflicts || [], failed = plan.failed || [];
+
+        const sum = document.getElementById('uploadStockSummary');
+        if (sum) {
+            const bits = [];
+            if (exact.length) bits.push(`<span class="badge bg-success me-1">${exact.length} will be added to existing products</span>`);
+            if (brandNew.length) bits.push(`<span class="badge bg-primary me-1">${brandNew.length} new product(s)</span>`);
+            if (conflicts.length) bits.push(`<span class="badge bg-warning text-dark me-1">${conflicts.length} need a decision</span>`);
+            if (failed.length) bits.push(`<span class="badge bg-danger me-1">${failed.length} row(s) skipped</span>`);
+            sum.innerHTML = bits.join('') || '<span class="text-muted small">Nothing to upload.</span>';
+        }
+
+        const newWrap = document.getElementById('uploadStockNewWrap');
+        if (newWrap) {
+            newWrap.style.display = brandNew.length ? 'block' : 'none';
+            const ul = document.getElementById('uploadStockNewList');
+            if (ul) ul.innerHTML = brandNew.map(r =>
+                `<li>${escapeHtml(r.name)} — ${r.quantity} × buy ${money(r.buy_price)}, sell ${money(r.sell_price)}</li>`).join('');
+        }
+
+        const confWrap = document.getElementById('uploadStockConflictWrap');
+        const confBody = document.getElementById('uploadStockConflictBody');
+        if (confWrap && confBody) {
+            confWrap.style.display = conflicts.length ? 'block' : 'none';
+            confBody.innerHTML = conflicts.map((c, i) => {
+                const opts = (c.candidates || []).map(cand =>
+                    `<option value="${cand.id}">${escapeHtml(cand.name)} — ${escapeHtml(cand.category || 'no category')}, stock ${cand.stock}, sell ${money(cand.sell_price)}${cand.score < 1 ? ` (${Math.round(cand.score * 100)}% similar)` : ''}</option>`).join('');
+                return `<tr>
+                    <td><strong>${escapeHtml(c.name)}</strong>
+                        <div class="text-muted small">${c.quantity} × buy ${money(c.buy_price)}, sell ${money(c.sell_price)}</div></td>
+                    <td>
+                        <select class="form-select form-select-sm" data-conflict="${i}" onchange="onConflictChoice(${i}, this.value)">
+                            <option value="">- choose -</option>
+                            <option value="merge">Add to an existing product</option>
+                            <option value="create">Create a new product</option>
+                        </select>
+                        <select class="form-select form-select-sm mt-1" id="uploadCandidate${i}" style="display:none;">${opts}</select>
+                    </td></tr>`;
+            }).join('');
+        }
+
+        const failWrap = document.getElementById('uploadStockFailedWrap');
+        if (failWrap) {
+            failWrap.style.display = failed.length ? 'block' : 'none';
+            const ul = document.getElementById('uploadStockFailedList');
+            if (ul) ul.innerHTML = failed.map(f => `<li>${escapeHtml(f)}</li>`).join('');
+        }
+
+        const btn = document.getElementById('uploadApplyBtn');
+        if (btn) btn.style.display = (exact.length + brandNew.length + conflicts.length) ? '' : 'none';
+        const planEl = document.getElementById('uploadStockPlan');
+        if (planEl) planEl.style.display = 'block';
+    }
+
+    function onConflictChoice(index, value) {
+        const cand = document.getElementById('uploadCandidate' + index);
+        if (cand) cand.style.display = (value === 'merge') ? '' : 'none';
+    }
+    window.onConflictChoice = onConflictChoice;
+
+    function collectStockUploadDecisions() {
+        const plan = _bulkStockPlan || {};
+        const rows = [];
+        (plan.exact || []).forEach(r => rows.push({
+            name: r.name, quantity: r.quantity, buy_price: r.buy_price,
+            sell_price: r.sell_price, action: 'merge', product_id: r.product_id
+        }));
+        (plan.new || []).forEach(r => rows.push({
+            name: r.name, quantity: r.quantity, buy_price: r.buy_price,
+            sell_price: r.sell_price, action: 'create'
+        }));
+        const conflicts = plan.conflicts || [];
+        for (let i = 0; i < conflicts.length; i++) {
+            const c = conflicts[i];
+            const sel = document.querySelector(`[data-conflict="${i}"]`);
+            const action = sel ? sel.value : '';
+            if (!action) {
+                return { error: `Choose what to do with "${c.name}".` };
+            }
+            const row = { name: c.name, quantity: c.quantity, buy_price: c.buy_price,
+                          sell_price: c.sell_price, action: action };
+            if (action === 'merge') {
+                const cand = document.getElementById('uploadCandidate' + i);
+                if (!cand || !cand.value) return { error: `Pick a product to merge "${c.name}" into.` };
+                row.product_id = parseInt(cand.value, 10);
+            }
+            rows.push(row);
+        }
+        return { rows: rows };
+    }
+
+    // Step 3a: the uploader has finished deciding. Before anything is written we
+    // name the branch and ask for its code - the single most important check,
+    // because stock sent to the wrong shop is silent once it happens.
+    function applyStockUpload() {
+        if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
+        const errEl = document.getElementById('uploadStockError');
+        if (errEl) errEl.style.display = 'none';
+        const collected = collectStockUploadDecisions();
+        if (collected.error) { stockUploadError(collected.error); return; }
+        if (!collected.rows.length) { stockUploadError('Nothing to apply.'); return; }
+
+        const catEl = document.getElementById('uploadStockCategory');
+        if (collected.rows.some(r => r.action === 'create') && (!catEl || !catEl.value)) {
+            stockUploadError('Pick a category for the new products first.');
+            return;
+        }
+
+        // If the shop changed since the file was checked, the plan is stale.
+        const planBranch = _bulkStockPlan ? _bulkStockPlan.branch_id : null;
+        const here = posBranch ? posBranch.id : null;
+        if (planBranch && here && planBranch !== here) {
+            stockUploadError('This file was checked for ' +
+                (_bulkStockPlan.branch_name || ('branch ' + planBranch)) +
+                ', but you are now in ' + posBranch.name + '. Run Check File again.');
+            return;
+        }
+
+        const name = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
+        const nameEl = document.getElementById('uploadStockConfirmBranch');
+        if (nameEl) nameEl.innerText = name;
+        const btnEl = document.getElementById('uploadStockConfirmBtn');
+        if (btnEl) btnEl.innerText = 'Yes, upload to ' + name;
+        const codeEl = document.getElementById('uploadStockBranchCode');
+        if (codeEl) { codeEl.value = ''; codeEl.placeholder = 'Branch code for ' + name; }
+        const cErr = document.getElementById('uploadStockConfirmError');
+        if (cErr) { cErr.style.display = 'none'; cErr.innerText = ''; }
+        const box = document.getElementById('uploadStockConfirm');
+        if (box) box.style.display = 'block';
+        const applyBtn = document.getElementById('uploadApplyBtn');
+        if (applyBtn) applyBtn.style.display = 'none';
+        if (codeEl) codeEl.focus();
+    }
+    window.applyStockUpload = applyStockUpload;
+
+    function cancelApplyStockUpload() {
+        const box = document.getElementById('uploadStockConfirm');
+        if (box) box.style.display = 'none';
+        const applyBtn = document.getElementById('uploadApplyBtn');
+        if (applyBtn) applyBtn.style.display = '';
+    }
+    window.cancelApplyStockUpload = cancelApplyStockUpload;
+
+    // Step 3b: the branch is confirmed and coded. This is the only place the
+    // upload is actually written.
+    async function confirmApplyStockUpload() {
+        if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
+        const codeEl = document.getElementById('uploadStockBranchCode');
+        const code = codeEl ? codeEl.value.trim() : '';
+        const cErr = document.getElementById('uploadStockConfirmError');
+        const fail = (m) => { if (cErr) { cErr.innerText = m; cErr.style.display = 'block'; } };
+        if (!code) return fail('Enter the branch code to confirm.');
+        if (cErr) cErr.style.display = 'none';
+
+        const collected = collectStockUploadDecisions();
+        if (collected.error) { cancelApplyStockUpload(); stockUploadError(collected.error); return; }
+        const catEl = document.getElementById('uploadStockCategory');
+
+        const btn = document.getElementById('uploadStockConfirmBtn');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Uploading...';
+        try {
+            const res = await fetch(`${API_BASE}/api/pos/upload-stock-apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    default_category: catEl ? catEl.value : '',
+                    branch_id: (_bulkStockPlan && _bulkStockPlan.branch_id) || (posBranch ? posBranch.id : null),
+                    branch_code: code,
+                    file_name: (document.getElementById('uploadStockFile') && document.getElementById('uploadStockFile').files[0]
+                                ? document.getElementById('uploadStockFile').files[0].name : ''),
+                    rows: collected.rows
+                })
+            });
+            const data = await res.json();
+            if (!data.success) { fail(data.error || 'Upload failed.'); return; }
+
+            let html = `<div class="alert alert-success py-2 mb-2"><strong>${escapeHtml(data.message)}</strong></div>`;
+            html += `<div class="small text-muted mb-2">Upload reference <strong>${escapeHtml(data.reference || '')}</strong> — quote this to revert the upload.</div>`;
+            if (data.total_cost) html += `<div class="small text-muted mb-2">Stock value added: ${money(data.total_cost)}</div>`;
+            if (data.failed && data.failed.length) {
+                html += `<div class="alert alert-danger py-2 small mb-0"><strong>Skipped:</strong><ul class="mb-0">${data.failed.map(f => '<li>' + escapeHtml(f) + '</li>').join('')}</ul></div>`;
+            }
+            const resEl = document.getElementById('uploadStockResult');
+            if (resEl) { resEl.innerHTML = html; resEl.style.display = 'block'; }
+            const planEl = document.getElementById('uploadStockPlan');
+            if (planEl) planEl.style.display = 'none';
+            cancelApplyStockUpload();
+            if (codeEl) codeEl.value = '';
+            const fileEl = document.getElementById('uploadStockFile');
+            if (fileEl) fileEl.value = '';
+            if (typeof showToast === 'function') showToast(data.message, 'success');
+            loadStockUploadJobs();
+
+            // Refresh everything that shows stock or prices.
+            await fetchProductsFromAPI();
+            await fetchDashboardStats();
+            await fetchTransactions();
+            if (typeof renderInventory === 'function') renderInventory();
+        } catch (e) {
+            fail('Upload failed: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    }
+    window.confirmApplyStockUpload = confirmApplyStockUpload;
+
+    // ==================== BULK UPLOAD JOBS (revert) ====================
+    let _bulkStockJobs = [];
+
+    async function loadStockUploadJobs() {
+        const wrap = document.getElementById('uploadStockJobsWrap');
+        const body = document.getElementById('uploadStockJobsBody');
+        if (!body) return;
+        if (wrap) wrap.style.display = 'block';
+        body.innerHTML = '<tr><td colspan="5" class="text-muted small">Loading…</td></tr>';
+        try {
+            const res = await fetch(`${API_BASE}/api/pos/stock-upload-jobs`, { credentials: 'include' });
+            const data = await res.json();
+            if (!data.success) { body.innerHTML = '<tr><td colspan="5" class="text-danger small">Could not load previous uploads.</td></tr>'; return; }
+            _bulkStockJobs = data.jobs || [];
+            renderStockUploadJobs();
+        } catch (e) {
+            body.innerHTML = '<tr><td colspan="5" class="text-danger small">Could not load previous uploads.</td></tr>';
+        }
+    }
+    window.loadStockUploadJobs = loadStockUploadJobs;
+
+    function renderStockUploadJobs() {
+        const body = document.getElementById('uploadStockJobsBody');
+        if (!body) return;
+        if (!_bulkStockJobs.length) {
+            body.innerHTML = '<tr><td colspan="5" class="text-muted small">No uploads recorded for this branch yet.</td></tr>';
+            return;
+        }
+        body.innerHTML = _bulkStockJobs.map((j, i) => {
+            const done = j.status !== 'applied';
+            const status = done
+                ? `<span class="badge bg-secondary">reverted${j.reverted_at ? ' ' + escapeHtml(j.reverted_at) : ''}</span>`
+                : '<span class="badge bg-success">applied</span>';
+            let action;
+            if (done) {
+                action = '<span class="text-muted small">—</span>';
+            } else if (j.can_revert) {
+                action = `<button type="button" class="btn btn-sm btn-outline-danger" onclick="requestRevertJob(${i})">Revert</button>`;
+            } else {
+                const why = (j.blockers || []).join(' ');
+                action = `<button type="button" class="btn btn-sm btn-outline-secondary" onclick="showRevertBlockers(${i})"
+                                   title="${escapeHtml(why)}">Revert</button>`;
+            }
+            return `<tr>
+                <td class="small">${escapeHtml(j.created_at)}</td>
+                <td class="small">${escapeHtml(j.reference)}</td>
+                <td class="small">${j.total_quantity} unit(s)<div class="text-muted">${j.updated_count} updated, ${j.created_count} new</div></td>
+                <td>${status}</td>
+                <td class="text-end">${action}</td></tr>`;
+        }).join('');
+    }
+
+    function showRevertBlockers(index) {
+        const j = _bulkStockJobs[index] || {};
+        const why = (j.blockers || []).join('\n');
+        showToast(why || 'This upload cannot be reverted.', 'warning');
+    }
+    window.showRevertBlockers = showRevertBlockers;
+
+    function requestRevertJob(index) {
+        if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
+        const j = _bulkStockJobs[index];
+        if (!j) return;
+        if (!j.can_revert) { showRevertBlockers(index); return; }
+        window._revertJobId = j.id;
+        const name = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+        set('uploadStockRevertRef', j.reference);
+        set('uploadStockRevertUnits', j.total_quantity + ' unit(s)');
+        set('uploadStockRevertBranch', name);
+        const codeEl = document.getElementById('uploadStockRevertCode');
+        if (codeEl) { codeEl.value = ''; codeEl.placeholder = 'Branch code for ' + name; }
+        const errEl = document.getElementById('uploadStockRevertError');
+        if (errEl) { errEl.style.display = 'none'; errEl.innerText = ''; }
+        const box = document.getElementById('uploadStockRevertBox');
+        if (box) box.style.display = 'block';
+        if (codeEl) codeEl.focus();
+    }
+    window.requestRevertJob = requestRevertJob;
+
+    function cancelRevertJob() {
+        const box = document.getElementById('uploadStockRevertBox');
+        if (box) box.style.display = 'none';
+        window._revertJobId = null;
+    }
+    window.cancelRevertJob = cancelRevertJob;
+
+    async function confirmRevertJob() {
+        if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
+        const jobId = window._revertJobId;
+        const codeEl = document.getElementById('uploadStockRevertCode');
+        const code = codeEl ? codeEl.value.trim() : '';
+        const errEl = document.getElementById('uploadStockRevertError');
+        const fail = (m) => { if (errEl) { errEl.innerText = m; errEl.style.display = 'block'; } };
+        if (!jobId) return fail('Choose an upload to revert.');
+        if (!code) return fail('Enter the branch code to confirm.');
+        if (errEl) errEl.style.display = 'none';
+
+        const btn = document.getElementById('uploadStockRevertBtn');
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Reverting...';
+        try {
+            const res = await fetch(`${API_BASE}/api/pos/stock-upload-jobs/${jobId}/revert`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ branch_code: code })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                // A refusal lists exactly which products were sold, so show it.
+                fail(data.error || 'Revert failed.');
+                if (data.details && data.details.length) {
+                    const ul = document.createElement('ul');
+                    ul.className = 'mb-0 ps-3';
+                    data.details.forEach(d => { const li = document.createElement('li'); li.innerText = d; ul.appendChild(li); });
+                    if (errEl) errEl.appendChild(ul);
+                }
+                loadStockUploadJobs();
+                return;
+            }
+            showToast(data.message, 'success');
+            cancelRevertJob();
+            const resEl = document.getElementById('uploadStockResult');
+            if (resEl) {
+                resEl.innerHTML = `<div class="alert alert-success py-2 mb-0"><strong>${escapeHtml(data.message)}</strong></div>`;
+                resEl.style.display = 'block';
+            }
+            loadStockUploadJobs();
+            await fetchProductsFromAPI();
+            await fetchDashboardStats();
+            await fetchTransactions();
+            if (typeof renderInventory === 'function') renderInventory();
+        } catch (e) {
+            fail('Revert failed: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    }
+    window.confirmRevertJob = confirmRevertJob;
+
     // ==================== STOCK TRANSFERS ====================
     // productId is optional: the inventory table's Transfer button passes it so
     // the modal opens on that product, ready for a quantity.
@@ -17157,7 +17742,7 @@ function setupEventListeners() {
                 <div class="d-flex gap-2 align-items-end mb-3 flex-wrap">
                     <div>
                         <label class="small fw-bold" for="dayEndDate">Select Day</label>
-                        <input type="date" class="form-control form-control-sm" id="dayEndDate">
+                        <input type="date" class="form-control form-control-sm" id="dayEndDate" data-cl-apply="loadDayEndReport" data-cl-scope="dayend">
                     </div>
                     <button class="btn btn-primary btn-sm" onclick="loadDayEndReport()"><i class="fas fa-sync me-1"></i>Generate Report</button>
                     <button class="btn btn-success btn-sm" onclick="exportDayEndExcel()"><i class="fas fa-file-excel me-1"></i>Export Excel</button>

@@ -164,9 +164,9 @@
             <button class="pc-preset" data-preset="quarter" onclick="setPreset('quarter')">This Quarter</button>
             <button class="pc-preset" data-preset="year" onclick="setPreset('year')">This Year</button>
             <button class="pc-preset" data-preset="all" onclick="setPreset('all')">All Time</button>
-            <input type="date" class="pc-date" id="finStart">
+            <input type="date" class="pc-date" id="finStart" data-cl-apply="applyRange" data-cl-scope="fin">
             <span style="font-size:0.7rem;color:#94A3B8;">to</span>
-            <input type="date" class="pc-date" id="finEnd">
+            <input type="date" class="pc-date" id="finEnd" data-cl-apply="applyRange" data-cl-scope="fin">
             <button class="pc-btn pc-btn-primary" onclick="applyRange()"><i class="bi bi-search"></i> Apply</button>
             <button class="pc-btn pc-btn-outline" onclick="exportStatements()"><i class="bi bi-file-earmark-excel"></i> Export</button>
         </div>
@@ -332,7 +332,11 @@ function setPreset(name) {
     document.getElementById('finEnd').value = e;
     loadStatements();
 }
-function applyRange() { loadStatements(); }
+function applyRange() {
+    // A hand-picked range is none of the presets, so stop claiming it is one.
+    document.querySelectorAll('.pc-preset').forEach(b => b.classList.remove('active'));
+    loadStatements();
+}
 
 function setText(id, v, color) {
     const el = document.getElementById(id);

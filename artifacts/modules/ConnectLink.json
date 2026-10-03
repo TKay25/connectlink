@@ -25,6 +25,7 @@
     "bleach",
     "calendar",
     "db_helper",
+    "difflib",
     "email",
     "flask",
     "flask_cors",
@@ -37,23 +38,22 @@
     "pandas",
     "playwright",
     "psycopg2",
-    "pytz",
-    "reportlab"
+    "pytz"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 17009",
-    "# The register starts EMPTY (the user's  @ line 46924"
+    "INSTRUCTIONS @ line 17566",
+    "# The register starts EMPTY (the user's  @ line 47481"
   ],
   "token_controls": [
-    "max_length = 0 @ line 29020",
-    "max_length = len(str(cell.value)) @ line 29025",
-    "adjusted_width = min(max_length + 2, 50) @ line 29028",
-    "max_length = 0 @ line 29852",
-    "max_length = cell_length @ line 29859",
-    "adjusted_width = min(max_length + 2, 50) @ line 29862",
-    "max_length = 0 @ line 30847",
-    "max_length = cell_length @ line 30854",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 30857"
+    "max_length = 0 @ line 29577",
+    "max_length = len(str(cell.value)) @ line 29582",
+    "adjusted_width = min(max_length + 2, 50) @ line 29585",
+    "max_length = 0 @ line 30409",
+    "max_length = cell_length @ line 30416",
+    "adjusted_width = min(max_length + 2, 50) @ line 30419",
+    "max_length = 0 @ line 31404",
+    "max_length = cell_length @ line 31411",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 31414"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -70,6 +70,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-10-03T07:19:25.355568Z",
+  "generated_at": "2026-10-03T07:59:58.933492Z",
   "stale": false
 }

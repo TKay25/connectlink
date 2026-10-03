@@ -3006,6 +3006,54 @@ def ensure_branches_schema(cursor, connection):
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_stock_lots_branch ON stock_lots (branch_id)")
         connection.commit()
 
+        # ---- Bulk stock upload jobs -----------------------------------------
+        # Every Excel upload is recorded as a JOB so it can be audited and, while
+        # its stock is still untouched, REVERTED as a unit. The per-item rows
+        # snapshot what is needed to put the catalogue back exactly as it was
+        # (branch stock, price, whether the job created the product). The job's
+        # own stock_lots / stock_additions rows are located later by `reference`,
+        # so nothing here has to store or trust raw row ids.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bulk_upload_jobs (
+                id SERIAL PRIMARY KEY,
+                reference VARCHAR(60) NOT NULL,
+                branch_id INTEGER NOT NULL,
+                user_id INTEGER,
+                username VARCHAR(150),
+                file_name VARCHAR(255),
+                updated_count INTEGER NOT NULL DEFAULT 0,
+                created_count INTEGER NOT NULL DEFAULT 0,
+                total_quantity INTEGER NOT NULL DEFAULT 0,
+                total_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
+                status VARCHAR(20) NOT NULL DEFAULT 'applied',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reverted_at TIMESTAMP,
+                reverted_by VARCHAR(150),
+                revert_note TEXT
+            )
+        """)
+        cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_bulk_upload_jobs_ref ON bulk_upload_jobs (reference)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_bulk_upload_jobs_branch ON bulk_upload_jobs (branch_id, created_at DESC)")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS bulk_upload_items (
+                id SERIAL PRIMARY KEY,
+                job_id INTEGER NOT NULL REFERENCES bulk_upload_jobs(id) ON DELETE CASCADE,
+                product_id INTEGER NOT NULL,
+                product_name VARCHAR(255),
+                action VARCHAR(10) NOT NULL DEFAULT 'merge',
+                quantity INTEGER NOT NULL,
+                buy_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+                sell_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+                created_product BOOLEAN NOT NULL DEFAULT FALSE,
+                prev_branch_stock INTEGER,
+                prev_sell_price DECIMAL(12,2),
+                prev_buy_price DECIMAL(12,2),
+                prev_is_active BOOLEAN
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_bulk_upload_items_job ON bulk_upload_items (job_id)")
+        connection.commit()
+
         # ---- Per-branch selling price ---------------------------------------
         # The catalogue in `products` holds the SHARED price. A row here is an
         # OVERRIDE for one branch only. No row = the branch follows the shared
@@ -14924,6 +14972,9 @@ def pos_transfer_stock():
 # normal stock addition. The selling price goes to the shared catalogue price.
 BULK_STOCK_COLUMNS = ['Product Name', 'Quantity', 'Unit Buying Price', 'Unit Selling Price']
 BULK_STOCK_MAX_ROWS = 5000
+# Names scoring at least this are offered to the uploader as a possible match
+# instead of being created silently.
+BULK_STOCK_SIMILARITY = 0.72
 
 
 def _bulk_stock_header(value):
@@ -14938,6 +14989,48 @@ def _bulk_stock_number(value):
     if text == '':
         return None
     return float(text)
+
+
+def _norm_product_name(name):
+    """Normalise a product name for comparison.
+
+    Lowercases, drops a trailing price blob ('mug @$1' -> 'mug'), turns
+    punctuation into spaces and strips a trailing plural 's' from longer words so
+    'Mugs' matches 'Mug'. ('glass' is left alone - it ends in 'ss'.)
+    """
+    text = str(name or '').lower()
+    text = re.sub(r'@.*$', ' ', text)
+    text = re.sub(r'[^a-z0-9]+', ' ', text)
+    words = []
+    for word in text.split():
+        if len(word) > 3 and word.endswith('s') and not word.endswith('ss'):
+            word = word[:-1]
+        words.append(word)
+    return ' '.join(words)
+
+
+def _product_similarity(a, b):
+    """0..1 similarity between two product names (1.0 = same once normalised)."""
+    na, nb = _norm_product_name(a), _norm_product_name(b)
+    if not na or not nb:
+        return 0.0
+    if na == nb:
+        return 1.0
+    import difflib
+    score = difflib.SequenceMatcher(None, na, nb).ratio()
+    # One name containing the other ('mug' in 'mug red') is a strong signal.
+    if na in nb or nb in na:
+        score = max(score, 0.85)
+    return score
+
+
+def make_bulk_upload_reference():
+    """Short, unique, quotable id for one upload job (e.g. UPL-20261003-A1B2C3).
+
+    Stamped onto the job's stock_lots and stock_additions rows so a revert can
+    find exactly the rows the job created, without storing raw row ids.
+    """
+    return 'UPL-' + datetime.now().strftime('%Y%m%d') + '-' + secrets.token_hex(3).upper()
 
 
 @app.route('/api/pos/stock-upload-template', methods=['GET'])
@@ -15000,11 +15093,16 @@ def pos_stock_upload_template():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/api/pos/upload-stock', methods=['POST'])
+@app.route('/api/pos/upload-stock-analyze', methods=['POST'])
 @login_required
-@block_writes_in_consolidated_view
-def pos_upload_stock():
-    """Bulk-add stock for this branch from the filled Excel template."""
+def pos_upload_stock_analyze():
+    """Step 1 of the bulk upload: read the filled template and CLASSIFY every row.
+
+    Writes NOTHING. Reports which rows match an existing product exactly (safe to
+    merge: just add the quantity and adjust the prices), which are brand new, and
+    which have SIMILAR names in the catalogue and therefore need a human decision
+    (adopt an existing product, or create a new one).
+    """
     file = request.files.get('file')
     if file is None or not (file.filename or '').strip():
         return jsonify({'success': False, 'error': 'Choose the filled template first.'}), 400
@@ -15017,7 +15115,6 @@ def pos_upload_stock():
 
     try:
         from openpyxl import load_workbook
-        from psycopg2.extras import execute_values
         wb = load_workbook(file, data_only=True)
         ws = wb.active
     except Exception as e:
@@ -15047,56 +15144,252 @@ def pos_upload_stock():
                         'error': 'This file is missing: ' + ', '.join(missing) +
                                  '. Please fill in the downloaded template.'}), 400
 
-    user_id = session.get('user_id') or session.get('userid') or 0
-    not_found, failed = [], []
-    qty_by_product, lot_rows, addition_rows, price_rows = {}, [], [], []
-    total_qty, total_cost = 0, 0.0
+    # ---- read + validate every data row (NOTHING is written in this step) ----
+    rows, failed = [], []
+    last_row = min(int(ws.max_row or 1), BULK_STOCK_MAX_ROWS + 1)
+    for row in range(2, last_row + 1):
+        raw_name = ws.cell(row=row, column=col_name).value
+        if raw_name is None or str(raw_name).strip() == '':
+            continue                              # blank line - ignore
+        name = str(raw_name).strip()
+        if name.upper().startswith('EXAMPLE'):
+            continue                              # the template's example row
+        try:
+            qty = _bulk_stock_number(ws.cell(row=row, column=col_qty).value)
+            buy = _bulk_stock_number(ws.cell(row=row, column=col_buy).value)
+            sell = _bulk_stock_number(ws.cell(row=row, column=col_sell).value)
+        except (TypeError, ValueError):
+            failed.append(f'Row {row} ({name}): quantity and prices must be numbers.')
+            continue
+        if qty is None or qty <= 0:
+            failed.append(f'Row {row} ({name}): quantity must be greater than zero.')
+            continue
+        if buy is None or sell is None or buy < 0 or sell < 0:
+            failed.append(f'Row {row} ({name}): buying and selling prices cannot be blank or negative.')
+            continue
+        rows.append({'row': row, 'name': name, 'quantity': int(qty),
+                     'buy_price': round(float(buy), 2), 'sell_price': round(float(sell), 2)})
 
     try:
         with get_db() as (cursor, connection):
-            # ONE lookup for the whole catalogue instead of a query per row.
-            cursor.execute("SELECT id, name FROM products WHERE is_active = TRUE")
-            name_to_id = {}
-            for pid, pname in cursor.fetchall():
-                name_to_id.setdefault(str(pname or '').strip().lower(), pid)
+            cursor.execute("""
+                SELECT p.id, p.name, COALESCE(p.category, ''), COALESCE(p.stock, 0),
+                       COALESCE(p.sell_price, 0), COALESCE(p.buy_price, 0)
+                FROM products p WHERE p.is_active = TRUE
+            """)
+            catalogue = [{'id': r[0], 'name': r[1], 'category': r[2], 'stock': int(r[3] or 0),
+                          'sell_price': float(r[4] or 0), 'buy_price': float(r[5] or 0)}
+                         for r in cursor.fetchall()]
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Could not read the catalogue: {e}'}), 500
 
-            last_row = min(int(ws.max_row or 1), BULK_STOCK_MAX_ROWS + 1)
-            for row in range(2, last_row + 1):
-                raw_name = ws.cell(row=row, column=col_name).value
-                if raw_name is None or str(raw_name).strip() == '':
-                    continue                      # blank line - ignore
-                name = str(raw_name).strip()
-                if name.upper().startswith('EXAMPLE'):
-                    continue                      # the template's example row
+    exact_by_name = {}
+    for item in catalogue:
+        exact_by_name.setdefault(item['name'].strip().lower(), item)
 
-                try:
-                    qty = _bulk_stock_number(ws.cell(row=row, column=col_qty).value)
-                    buy = _bulk_stock_number(ws.cell(row=row, column=col_buy).value)
-                    sell = _bulk_stock_number(ws.cell(row=row, column=col_sell).value)
-                except (TypeError, ValueError):
-                    failed.append(f'Row {row} ({name}): quantity and prices must be numbers.')
-                    continue
-                if qty is None or qty <= 0:
-                    failed.append(f'Row {row} ({name}): quantity must be greater than zero.')
-                    continue
-                if buy is None or sell is None or buy < 0 or sell < 0:
-                    failed.append(f'Row {row} ({name}): buying and selling prices cannot be blank or negative.')
-                    continue
-                qty = int(qty)
+    exact, brand_new, conflicts = [], [], []
+    for item in rows:
+        hit = exact_by_name.get(item['name'].strip().lower())
+        if hit:
+            exact.append(dict(item, product_id=hit['id'], product_name=hit['name'],
+                              current_stock=hit['stock']))
+            continue
+        scored = []
+        for cand in catalogue:
+            score = _product_similarity(item['name'], cand['name'])
+            if score >= BULK_STOCK_SIMILARITY:
+                scored.append(dict(cand, score=round(score, 2)))
+        if scored:
+            scored.sort(key=lambda c: -c['score'])
+            conflicts.append(dict(item, candidates=scored[:5]))
+        else:
+            brand_new.append(dict(item))
 
-                product_id = name_to_id.get(name.lower())
-                if not product_id:
-                    not_found.append(name)
-                    continue
+    return jsonify({
+        'success': True,
+        'branch_id': branch_id,
+        'branch_name': session.get('branch_name') or '',
+        'total_rows': len(rows),
+        'exact': exact,
+        'new': brand_new,
+        'conflicts': conflicts,
+        'failed': failed,
+    })
 
-                qty_by_product[product_id] = qty_by_product.get(product_id, 0) + qty
-                lot_rows.append((product_id, qty, float(buy)))
-                addition_rows.append((product_id, qty, round(float(buy), 2), round(float(buy) * qty, 2), user_id, branch_id))
-                price_rows.append((float(sell), product_id))
+
+@app.route('/api/pos/upload-stock-apply', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_upload_stock_apply():
+    """Step 2 of the bulk upload: apply the uploader's decisions.
+
+    body = {
+        'default_category': 'DIY',          # used for rows decided as 'create'
+        'branch_id': 1,                     # the branch the file was checked for
+        'branch_code': 'XXXX',              # that branch's access code
+        'file_name': 'stock.xlsx',          # optional, kept for the job record
+        'rows': [ {name, quantity, buy_price, sell_price,
+                   action: 'merge' | 'create', product_id} ]
+    }
+
+    Everything happens in ONE transaction: the job header, its per-product
+    snapshots, the stock movements and the catalogue totals. The job's
+    stock_lots / stock_additions rows carry the job `reference`, which is what
+    lets /api/pos/stock-upload-jobs/<id>/revert undo exactly this upload.
+    """
+    data = request.get_json() or {}
+    decisions = data.get('rows') or []
+    default_category = (data.get('default_category') or '').strip()
+    if not decisions:
+        return jsonify({'success': False, 'error': 'Nothing to apply.'}), 400
+
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': 'Select a branch before uploading stock.'}), 400
+
+    # The uploader must name the branch they are stocking AND prove it with that
+    # shop's code. Stock landing in the wrong shop is the costliest mistake this
+    # feature can make, and it is silent once it happens. Same code, same
+    # lockout as switching branch.
+    username = session.get('username') or session.get('user_name') or 'unknown'
+    locked_for = branch_code_lockout_remaining(username)
+    if locked_for:
+        return jsonify({'success': False,
+                        'error': (f'Too many incorrect branch codes. Try again in '
+                                  f'{max(1, locked_for // 60)} minute(s).')}), 429
+    try:
+        confirmed_branch = int(data.get('branch_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False,
+                        'error': 'Confirm which branch is receiving the stock.'}), 400
+    if confirmed_branch != branch_id:
+        return jsonify({'success': False,
+                        'error': ('You are no longer working in the branch this file was '
+                                  'checked for. Run Check File again.')}), 409
+    code_ok, code_branch_name = verify_branch_code(branch_id, data.get('branch_code'))
+    record_branch_code_attempt(username, code_ok)
+    if not code_ok:
+        return jsonify({'success': False,
+                        'error': (f'That branch code is not valid for '
+                                  f'{code_branch_name or "the selected branch"}.')}), 403
+
+    user_id = session.get('user_id') or session.get('userid') or 0
+    to_merge, to_create, failed = [], [], []
+    for d in decisions:
+        name = str(d.get('name') or '').strip()
+        try:
+            qty = int(float(d.get('quantity') or 0))
+            buy = round(float(d.get('buy_price') or 0), 2)
+            sell = round(float(d.get('sell_price') or 0), 2)
+        except (TypeError, ValueError):
+            failed.append(f'{name or "A row"}: quantity and prices must be numbers.')
+            continue
+        if qty <= 0:
+            failed.append(f'{name or "A row"}: quantity must be greater than zero.')
+            continue
+        if buy < 0 or sell < 0:
+            failed.append(f'{name or "A row"}: prices cannot be negative.')
+            continue
+        if str(d.get('action') or 'merge').strip().lower() == 'create':
+            if not name:
+                failed.append('A row with no product name was skipped.')
+                continue
+            to_create.append((name, qty, buy, sell))
+        else:
+            if not d.get('product_id'):
+                failed.append(f'{name or "A row"}: no product was chosen for it.')
+                continue
+            to_merge.append((int(d['product_id']), qty, buy, sell, name))
+
+    if not to_merge and not to_create:
+        return jsonify({'success': False, 'error': 'Nothing valid to apply.',
+                        'failed': failed}), 400
+    if to_create and not default_category:
+        return jsonify({'success': False,
+                        'error': 'Choose a category for the new product(s).'}), 400
+
+    created = 0
+    reference = make_bulk_upload_reference()
+    try:
+        from psycopg2.extras import execute_values
+        with get_db() as (cursor, connection):
+            # -- new products first, so they can be stocked like any other merge --
+            created_ids = set()
+            if to_create:
+                inserted = execute_values(cursor, """
+                    INSERT INTO products (name, category, unit_type, buy_price, sell_price,
+                                          stock, min_stock_level, description, barcode)
+                    VALUES %s
+                    RETURNING id
+                """, [(n, default_category, 'piece', b, s) for n, q, b, s in to_create],
+                    template="(%s, %s, %s, %s, %s, 0, 10, '', '')", fetch=True)
+                for (n, q, b, s), new_id in zip(to_create, inserted):
+                    to_merge.append((new_id[0], q, b, s, n))
+                    created_ids.add(new_id[0])
+                created = len(to_create)
+
+            qty_by_product, cost_by_product, price_by_product = {}, {}, {}
+            lot_rows, addition_rows = [], []
+            total_qty, total_cost = 0, 0.0
+            for pid, qty, buy, sell, _name in to_merge:
+                qty_by_product[pid] = qty_by_product.get(pid, 0) + qty
+                cost_by_product[pid] = cost_by_product.get(pid, 0.0) + (buy * qty)
+                # (product_id, branch_id, quantity_received, quantity_remaining, unit_cost, reference)
+                lot_rows.append((pid, branch_id, qty, qty, buy, reference))
+                addition_rows.append((pid, qty, buy, round(buy * qty, 2), reference, user_id, branch_id))
+                price_by_product[pid] = sell     # one price per product (last wins)
                 total_qty += qty
-                total_cost += float(buy) * qty
+                total_cost += buy * qty
 
             product_ids = list(qty_by_product.keys())
+
+            # -- Snapshot the pre-upload state, so this job can be undone exactly --
+            snapshots = {}
+            cursor.execute("""
+                SELECT p.id, COALESCE(ps.stock, 0), p.sell_price, p.buy_price, p.is_active, p.name
+                FROM products p
+                LEFT JOIN product_stock ps
+                       ON ps.product_id = p.id AND ps.branch_id = %s
+                WHERE p.id = ANY(%s)
+            """, (branch_id, product_ids))
+            for r in cursor.fetchall():
+                snapshots[r[0]] = {'stock': int(r[1] or 0), 'sell': r[2],
+                                   'buy': r[3], 'active': r[4], 'name': r[5]}
+
+            # -- The job header (same transaction as the movements it describes) --
+            cursor.execute("""
+                INSERT INTO bulk_upload_jobs (reference, branch_id, user_id, username, file_name,
+                                              updated_count, created_count, total_quantity, total_cost)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (reference, branch_id, user_id or None, username,
+                  str(data.get('file_name') or '')[:255],
+                  len(product_ids), created, total_qty, round(total_cost, 2)))
+            job_id = cursor.fetchone()[0]
+
+            # -- One row per product: what the job did, and how to put it back --
+            item_rows = []
+            for pid in product_ids:
+                snap = snapshots.get(pid, {})
+                qty = qty_by_product[pid]
+                unit_buy = round(cost_by_product[pid] / qty, 2) if qty else 0
+                is_new = pid in created_ids
+                item_rows.append((
+                    job_id, pid, str(snap.get('name') or '')[:255],
+                    'create' if is_new else 'merge',
+                    qty, unit_buy, price_by_product.get(pid, 0), is_new,
+                    snap.get('stock'), snap.get('sell'), snap.get('buy'),
+                    None if is_new else snap.get('active'),
+                ))
+            execute_values(cursor, """
+                INSERT INTO bulk_upload_items (job_id, product_id, product_name, action, quantity,
+                                               buy_price, sell_price, created_product,
+                                               prev_branch_stock, prev_sell_price, prev_buy_price,
+                                               prev_is_active)
+                VALUES %s
+            """, item_rows,
+                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
+
             if product_ids:
                 # 1) Per-branch quantity (aggregated so the upsert touches each
                 #    product only once - Postgres refuses a double-affected row).
@@ -15109,24 +15402,26 @@ def pos_upload_stock():
                 """, [(pid, branch_id, qty_by_product[pid], 10) for pid in product_ids],
                     template="(%s, %s, %s, %s, CURRENT_TIMESTAMP)")
 
-                # 2) FIFO cost layers at the uploaded buying price.
+                # 2) FIFO cost layers at the uploaded buying price, tagged with
+                #    the job reference so a revert removes exactly these layers.
                 execute_values(cursor, """
                     INSERT INTO stock_lots (product_id, branch_id, quantity_received, quantity_remaining,
                                             unit_cost, source, reference, received_at)
                     VALUES %s
-                """, lot_rows, template="(%s, %s, %s, %s, %s, 'upload', 'bulk stock upload', CURRENT_TIMESTAMP)")
+                """, lot_rows, template="(%s, %s, %s, %s, %s, 'upload', %s, CURRENT_TIMESTAMP)")
 
                 # 3) Audit trail (shows in the stock-movements / audit report).
                 execute_values(cursor, """
-                    INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
+                    INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
+                                                 funding_source, reference, user_id, added_at, branch_id)
                     VALUES %s
-                """, addition_rows, template="(%s, %s, %s, %s, 'UPLOAD', %s, CURRENT_TIMESTAMP, %s)")
+                """, addition_rows, template="(%s, %s, %s, %s, 'UPLOAD', %s, %s, CURRENT_TIMESTAMP, %s)")
 
                 # 4) Selling prices (the shared catalogue price).
                 execute_values(cursor, """
                     UPDATE products SET sell_price = v.sell, updated_at = CURRENT_TIMESTAMP
-                    FROM (VALUES %s) AS v(sell, pid) WHERE products.id = v.pid
-                """, price_rows, template="(%s, %s)")
+                    FROM (VALUES %s) AS v(pid, sell) WHERE products.id = v.pid
+                """, [(pid, price_by_product[pid]) for pid in product_ids], template="(%s, %s)")
 
                 # 5) Catalogue total (denormalised) and the FIFO weighted-average
                 #    buy price - one statement each for the whole upload.
@@ -15152,19 +15447,281 @@ def pos_upload_stock():
         print(f"Stock upload error: {e}")
         return jsonify({'success': False, 'error': f'Upload failed: {e}'}), 500
 
-    updated = len(qty_by_product)
+    updated = len(product_ids) - created
+    branch_label = code_branch_name or f'branch #{branch_id}'
     log_activity('stock_upload',
-                 f'Bulk stock upload: {updated} product(s), {total_qty} unit(s) into branch #{branch_id}',
-                 'product', None,
-                 {'products': updated, 'units': total_qty, 'cost': round(total_cost, 2),
-                  'not_found': not_found, 'failed': failed, 'branch_id': branch_id})
+                 f'Bulk stock upload {reference}: {updated} existing product(s) updated, '
+                 f'{created} created, {total_qty} unit(s) into {branch_label}',
+                 'product', job_id,
+                 {'reference': reference, 'job_id': job_id, 'products': len(product_ids),
+                  'updated': updated, 'created': created, 'units': total_qty,
+                  'cost': round(total_cost, 2), 'failed': failed, 'branch_id': branch_id})
 
-    message = f'{updated} product(s) updated with {total_qty} unit(s) of stock.'
-    if not_found or failed:
-        message += f' {len(not_found) + len(failed)} row(s) were skipped.'
-    return jsonify({'success': True, 'updated': updated, 'total_quantity': total_qty,
-                    'total_cost': round(total_cost, 2), 'not_found': not_found,
+    message = (f'{updated} existing product(s) updated, {created} created - '
+               f'{total_qty} unit(s) into {branch_label}.')
+    if failed:
+        message += f' {len(failed)} row(s) skipped.'
+    return jsonify({'success': True, 'job_id': job_id, 'reference': reference,
+                    'updated': updated, 'created': created,
+                    'total_quantity': total_qty, 'total_cost': round(total_cost, 2),
+                    'branch_id': branch_id, 'branch_name': code_branch_name,
                     'failed': failed, 'message': message})
+
+
+def bulk_upload_blockers(cursor, job_id, reference, branch_id):
+    """Why this job cannot be reverted, as readable reasons (empty list = it can).
+
+    An upload is only revertible while the stock it added is STILL THERE. Two checks:
+
+      * the job's OWN FIFO layers must be untouched. If part of a layer has been
+        consumed, those units were sold or used and cannot be un-added. Because
+        every movement reconciles the layers to the shelf, this also catches
+        consumption that went through a non-FIFO path such as a stock count.
+      * the branch must still hold at least the quantity the job added, so
+        removing it cannot drive the shelf negative.
+
+    Note what is deliberately NOT checked: whether OTHER stock has moved since.
+    Stock added later (by another upload or a purchase) is left alone by the
+    revert, and stock sold from other layers is none of this job's business, so
+    neither should block it.
+    """
+    cursor.execute("""
+        SELECT i.product_id, i.product_name, i.quantity,
+               COALESCE(ps.stock, 0), p.name
+        FROM bulk_upload_items i
+        LEFT JOIN product_stock ps
+               ON ps.product_id = i.product_id AND ps.branch_id = %s
+        LEFT JOIN products p ON p.id = i.product_id
+        WHERE i.job_id = %s
+        ORDER BY i.id
+    """, (branch_id, job_id))
+
+    blockers = []
+    for pid, stored_name, qty, current, live_name in cursor.fetchall():
+        label = live_name or stored_name or f'product #{pid}'
+        cursor.execute("""
+            SELECT COALESCE(SUM(quantity_received - quantity_remaining), 0)
+            FROM stock_lots
+            WHERE product_id = %s AND branch_id = %s AND reference = %s
+        """, (pid, branch_id, reference))
+        consumed = int(cursor.fetchone()[0] or 0)
+        if consumed > 0:
+            blockers.append(f'{label}: {consumed} of the {int(qty or 0)} uploaded unit(s) '
+                            f'have already been sold or used.')
+            continue
+        if int(current or 0) < int(qty or 0):
+            blockers.append(f'{label}: only {int(current or 0)} unit(s) are left in stock, which is '
+                            f'fewer than the {int(qty or 0)} this upload added.')
+    return blockers
+
+
+@app.route('/api/pos/stock-upload-jobs', methods=['GET'])
+@login_required
+def pos_stock_upload_jobs():
+    """Recent bulk uploads for the session branch, newest first.
+
+    Each entry carries `blockers`, so the UI can say WHY an upload can no longer
+    be reverted instead of just greying the button out.
+    """
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': True, 'jobs': []})
+    try:
+        limit = max(1, min(int(request.args.get('limit') or 20), 100))
+    except (TypeError, ValueError):
+        limit = 20
+
+    jobs = []
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT j.id, j.reference, j.branch_id, b.name, j.username, j.file_name,
+                       j.updated_count, j.created_count, j.total_quantity, j.total_cost,
+                       j.status, j.created_at, j.reverted_at, j.reverted_by
+                FROM bulk_upload_jobs j
+                LEFT JOIN branches b ON b.id = j.branch_id
+                WHERE j.branch_id = %s
+                ORDER BY j.created_at DESC, j.id DESC
+                LIMIT %s
+            """, (branch_id, limit))
+            for r in cursor.fetchall():
+                blockers = []
+                if r[10] == 'applied':
+                    blockers = bulk_upload_blockers(cursor, r[0], r[1], branch_id)
+                jobs.append({
+                    'id': r[0], 'reference': r[1], 'branch_id': r[2],
+                    'branch_name': r[3] or f'branch #{r[2]}',
+                    'username': r[4] or '', 'file_name': r[5] or '',
+                    'updated_count': r[6] or 0, 'created_count': r[7] or 0,
+                    'total_quantity': r[8] or 0,
+                    'total_cost': float(r[9] or 0),
+                    'status': r[10],
+                    'created_at': r[11].strftime('%Y-%m-%d %H:%M') if r[11] else '',
+                    'reverted_at': r[12].strftime('%Y-%m-%d %H:%M') if r[12] else '',
+                    'reverted_by': r[13] or '',
+                    'can_revert': (r[10] == 'applied' and not blockers),
+                    'blockers': blockers,
+                })
+    except Exception as e:
+        print(f"Bulk upload jobs list error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    return jsonify({'success': True, 'branch_id': branch_id, 'jobs': jobs})
+
+
+@app.route('/api/pos/stock-upload-jobs/<int:job_id>/revert', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_stock_upload_revert(job_id):
+    """Undo one bulk upload as a unit.
+
+    Refused outright when any of the uploaded stock has been sold or used - see
+    bulk_upload_blockers(). Nothing is changed in that case; the response names
+    the products so the stock can be corrected deliberately instead.
+
+    Created products are deactivated rather than deleted: the catalogue forgets
+    them, but any record that ever referenced them stays intact and the decision
+    is reversible.
+    """
+    data = request.get_json() or {}
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
+
+    username = session.get('username') or session.get('user_name') or 'unknown'
+    locked_for = branch_code_lockout_remaining(username)
+    if locked_for:
+        return jsonify({'success': False,
+                        'error': (f'Too many incorrect branch codes. Try again in '
+                                  f'{max(1, locked_for // 60)} minute(s).')}), 429
+    code_ok, code_branch_name = verify_branch_code(branch_id, data.get('branch_code'))
+    record_branch_code_attempt(username, code_ok)
+    if not code_ok:
+        return jsonify({'success': False,
+                        'error': (f'That branch code is not valid for '
+                                  f'{code_branch_name or "the selected branch"}.')}), 403
+
+    reverted = 0
+    reference = None
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, reference, branch_id, status
+                FROM bulk_upload_jobs WHERE id = %s FOR UPDATE
+            """, (job_id,))
+            job = cursor.fetchone()
+            if not job:
+                return jsonify({'success': False, 'error': 'That upload was not found.'}), 404
+            if job[2] != branch_id:
+                return jsonify({'success': False,
+                                'error': 'That upload belongs to another branch.'}), 403
+            if job[3] != 'applied':
+                return jsonify({'success': False,
+                                'error': 'That upload has already been reverted.'}), 409
+            reference = job[1]
+
+            blockers = bulk_upload_blockers(cursor, job_id, reference, branch_id)
+            if blockers:
+                connection.rollback()
+                return jsonify({
+                    'success': False,
+                    'blocked': True,
+                    'error': ('Some of this stock is no longer in stock, so the upload cannot be '
+                              'undone as a whole. Correct the affected products individually.'),
+                    'details': blockers,
+                }), 409
+
+            cursor.execute("""
+                SELECT i.product_id, i.product_name, i.quantity, i.created_product,
+                       i.prev_branch_stock, i.prev_sell_price, i.prev_buy_price, i.sell_price,
+                       COALESCE(ps.stock, 0)
+                FROM bulk_upload_items i
+                LEFT JOIN product_stock ps
+                       ON ps.product_id = i.product_id AND ps.branch_id = %s
+                WHERE i.job_id = %s ORDER BY i.id
+            """, (branch_id, job_id))
+            items = cursor.fetchall()
+
+            for (pid, name, qty, was_created, prev_stock, prev_sell,
+                 prev_buy, job_sell, current) in items:
+                cursor.execute("SELECT 1 FROM products WHERE id = %s", (pid,))
+                if not cursor.fetchone():
+                    # The product is gone entirely; its layers are orphaned, so
+                    # drop them and move on.
+                    cursor.execute("""DELETE FROM stock_lots
+                                      WHERE product_id = %s AND branch_id = %s AND reference = %s""",
+                                   (pid, branch_id, reference))
+                    continue
+
+                # 1) Remove exactly this job's cost layers.
+                cursor.execute("""DELETE FROM stock_lots
+                                  WHERE product_id = %s AND branch_id = %s AND reference = %s""",
+                               (pid, branch_id, reference))
+
+                # 2) Take this job's quantity back OFF the shelf - do NOT reset to
+                #    the pre-upload figure. Subtracting leaves a LATER upload of
+                #    the same product intact; resetting to an absolute number
+                #    recorded before that later upload would silently erase it.
+                #    set_branch_stock also refreshes the catalogue total and
+                #    reconciles the remaining layers for us.
+                new_level = max(0, int(current or 0) - int(qty or 0))
+                set_branch_stock(cursor, pid, branch_id, new_level)
+
+                # 3) Selling price: only undo what the job itself set. A later
+                #    deliberate re-price is left alone.
+                if prev_sell is not None and job_sell is not None:
+                    cursor.execute("""
+                        UPDATE products SET sell_price = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = %s AND ABS(COALESCE(sell_price, 0) - %s) < 0.005
+                    """, (prev_sell, pid, job_sell))
+
+                # 4) Cost: with the job's layers gone the weighted average is
+                #    recomputed from the older layers. If none are left the
+                #    average is undefined, so fall back to the pre-upload cost.
+                if prev_buy is not None:
+                    cursor.execute("""
+                        UPDATE products p
+                        SET buy_price = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE p.id = %s AND NOT EXISTS (
+                            SELECT 1 FROM stock_lots sl
+                            WHERE sl.product_id = p.id AND sl.quantity_remaining > 0)
+                    """, (prev_buy, pid))
+
+                # 5) A product the job created leaves the catalogue, but the row
+                #    stays so nothing that referenced it breaks.
+                if was_created:
+                    cursor.execute("""UPDATE products SET is_active = FALSE,
+                                                             updated_at = CURRENT_TIMESTAMP
+                                      WHERE id = %s""", (pid,))
+                reverted += 1
+
+            # 6) The stock-addition records go with the stock they described
+            #    (the same thing the single-addition delete does); the history of
+            #    the revert itself lives in activity_log and on the job row.
+            cursor.execute("DELETE FROM stock_additions WHERE reference = %s AND branch_id = %s",
+                           (reference, branch_id))
+
+            cursor.execute("""
+                UPDATE bulk_upload_jobs
+                SET status = 'reverted', reverted_at = CURRENT_TIMESTAMP, reverted_by = %s
+                WHERE id = %s
+            """, (username, job_id))
+            connection.commit()
+    except Exception as e:
+        print(f"Bulk upload revert error: {e}")
+        return jsonify({'success': False, 'error': f'Revert failed: {e}'}), 500
+
+    log_activity('stock_upload_revert',
+                 f'Bulk stock upload {reference} reverted: {reverted} product(s) restored '
+                 f'in {(code_branch_name or ("branch #%s" % branch_id))}',
+                 'product', job_id,
+                 {'reference': reference, 'job_id': job_id, 'products': reverted,
+                  'branch_id': branch_id})
+
+    message = (f'Upload {reference} reverted - {reverted} product(s) put back to their '
+               f'previous stock levels in {code_branch_name or "this branch"}.')
+    return jsonify({'success': True, 'job_id': job_id, 'reference': reference,
+                    'reverted': reverted, 'message': message})
 
 
 @app.route('/api/pos/transfers', methods=['GET'])

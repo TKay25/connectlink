@@ -550,6 +550,95 @@
         };
     }
 
+    /* --------------------------------------------------------- period scopes */
+    /* Reports that scope by a date range used to need a "Refresh" / "Generate"
+       click, while other sections already refreshed themselves on change. Opt
+       an input in with:
+
+           data-cl-apply="applyRange"   the loader to run
+           data-cl-scope="finance"      groups the inputs of ONE period scope
+
+       Every input in a scope shares a single debounced timer, because a range
+       is two fields and changing both would otherwise fire two full report
+       fetches. If the range is left backwards, the field the user did NOT just
+       touch is pulled into line - a coherent period beats one that silently
+       does nothing.                                                  */
+    var periodTimers = {};
+
+    function periodTypeOk(node) {
+        var t = (node.type || '').toLowerCase();
+        return t === 'date' || t === 'month' || t === 'week';
+    }
+
+    function scopeNodes(node) {
+        var action = node.getAttribute('data-cl-apply');
+        var scope = node.getAttribute('data-cl-scope') || '';
+        var all = document.querySelectorAll('[data-cl-apply]');
+        var out = [];
+        for (var i = 0; i < all.length; i++) {
+            if (all[i].getAttribute('data-cl-apply') !== action) { continue; }
+            if ((all[i].getAttribute('data-cl-scope') || '') !== scope) { continue; }
+            out.push(all[i]);
+        }
+        return out;
+    }
+
+    function reconcileRange(node) {
+        var nodes = scopeNodes(node);
+        var dates = [];
+        for (var i = 0; i < nodes.length; i++) {
+            if (periodTypeOk(nodes[i])) { dates.push(nodes[i]); }
+        }
+        if (dates.length !== 2) { return; }          // not a from/to pair
+        var startEl = dates[0], endEl = dates[1];    // document order = from, to
+        if (!startEl.value || !endEl.value) { return; }
+        if (startEl.value > endEl.value) {           // ISO strings sort as dates
+            if (node === startEl) { endEl.value = startEl.value; }
+            else { startEl.value = endEl.value; }
+        }
+    }
+
+    function fireScope(node) {
+        var fn = window[node.getAttribute('data-cl-apply')];
+        if (typeof fn !== 'function') { return; }
+        try {
+            reconcileRange(node);
+            fn();
+        } catch (e) { /* a cosmetic layer must never break the page */ }
+    }
+
+    function scheduleScope(node) {
+        var key = (node.getAttribute('data-cl-apply') || '') + '|' +
+                  (node.getAttribute('data-cl-scope') || '');
+        if (periodTimers[key]) { clearTimeout(periodTimers[key]); }
+        periodTimers[key] = setTimeout(function () {
+            periodTimers[key] = null;
+            fireScope(node);
+        }, 350);
+    }
+
+    function bindPeriodScopes() {
+        var all = document.querySelectorAll('[data-cl-apply]');
+        for (var i = 0; i < all.length; i++) {
+            var node = all[i];
+            if (node.__clPeriodBound) { continue; }
+            node.__clPeriodBound = true;
+            node.addEventListener('change', function () { scheduleScope(this); });
+            node.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); scheduleScope(this); }
+            });
+        }
+    }
+
+    window.clBindPeriodScopes = bindPeriodScopes;
+    window.clApplyPeriodNow = function (node) { fireScope(node); };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindPeriodScopes);
+    } else {
+        bindPeriodScopes();
+    }
+
     /* --------------------------------------------------------------- public API */
 
     window.clBusy = function (node) { return busy(control(node) || node); };
