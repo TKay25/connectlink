@@ -37350,18 +37350,38 @@ def um_admin_users():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# Passcode required to download the User Management "Credentials PDF".
+# Env-overridable so the value shipped in the repo never has to be the one used
+# in production. Mirrors how the other sensitive actions are gated
+# (TRANSACTION_REVERT_PIN / REMOVE_ALL_STOCK_PASSWORD).
+CREDENTIALS_EXPORT_PASSCODE = os.getenv('CREDENTIALS_EXPORT_PASSCODE', 'Fibonacci0112358')
+
+
 @app.route('/api/user-management/export-credentials', methods=['POST'])
 def um_export_credentials():
     """Download every system login (username + password) as a PDF.
 
-    SECURITY: this is the most sensitive data in the whole system, so it is
-    limited to super admins / role managers, the PDF itself carries a
-    confidential warning, and every export is written to the activity log with
-    the requester's name so there is a record of who took a copy.
+    SECURITY: this is the most sensitive data in the whole system. It needs BOTH
+    a privileged account (super admin / role manager) AND a passcode, the PDF
+    carries a confidential warning, and every attempt - allowed or refused - is
+    written to the activity log with the requester's name.
     """
     perms = session.get('um_permissions', {})
     if not perms.get('is_super_admin', False) and not perms.get('can_manage_roles', False):
         return jsonify({'success': False, 'error': 'Access denied: you cannot export credentials.'}), 403
+
+    # Passcode gate. Compared in constant time; encoded manually so a non-ASCII
+    # character in the input cannot raise a TypeError out of compare_digest.
+    supplied = str((request.get_json(silent=True) or {}).get('passcode') or '')
+    if not secrets.compare_digest(supplied.encode('utf-8', 'ignore'),
+                                  CREDENTIALS_EXPORT_PASSCODE.encode('utf-8')):
+        try:
+            log_activity('export_credentials_denied',
+                         'Credentials PDF requested with an incorrect passcode',
+                         'admin_users', None, {})
+        except Exception:
+            pass
+        return jsonify({'success': False, 'error': 'Incorrect passcode.'}), 403
 
     try:
         with get_db() as (cursor, connection):
