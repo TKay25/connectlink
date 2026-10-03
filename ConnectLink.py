@@ -14916,6 +14916,257 @@ def pos_transfer_stock():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==================== BULK STOCK UPLOAD (Excel) ====================
+# The Inventory page's "Upload New Stock" button. One row per product:
+#   Product Name | Quantity | Unit Buying Price | Unit Selling Price
+# Quantities are added to the SESSION BRANCH (product_stock is the per-branch
+# truth) and costed as a FIFO layer at the uploaded buying price, exactly like a
+# normal stock addition. The selling price goes to the shared catalogue price.
+BULK_STOCK_COLUMNS = ['Product Name', 'Quantity', 'Unit Buying Price', 'Unit Selling Price']
+BULK_STOCK_MAX_ROWS = 5000
+
+
+def _bulk_stock_header(value):
+    return str(value or '').strip().lower().replace('*', '').replace('_', ' ').strip()
+
+
+def _bulk_stock_number(value):
+    """Excel cell -> float, or None when blank. Tolerates '1,200' and '$5.50'."""
+    if value is None:
+        return None
+    text = str(value).replace(',', '').replace('$', '').strip()
+    if text == '':
+        return None
+    return float(text)
+
+
+@app.route('/api/pos/stock-upload-template', methods=['GET'])
+@login_required
+def pos_stock_upload_template():
+    """Download the Excel template for "Upload New Stock"."""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.worksheet.datavalidation import DataValidation
+        from openpyxl.utils import get_column_letter
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Stock Upload'
+        ws.append(BULK_STOCK_COLUMNS)
+
+        head_font = Font(bold=True, color='FFFFFF', size=11)
+        head_fill = PatternFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
+        edge = Side(style='thin', color='D9D9D9')
+        border = Border(left=edge, right=edge, top=edge, bottom=edge)
+        for col in range(1, len(BULK_STOCK_COLUMNS) + 1):
+            cell = ws.cell(row=1, column=col)
+            cell.font = head_font
+            cell.fill = head_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = border
+        # A clearly-marked example row; the uploader ignores/removes it.
+        ws.append(['EXAMPLE - delete this row', 10, 5.5, 9.99])
+        for i, width in enumerate([48, 12, 20, 20], start=1):
+            ws.column_dimensions[get_column_letter(i)].width = width
+        ws.freeze_panes = 'A2'
+
+        # Sheet 2 doubles as the pick-list for the Product Name column, so the file
+        # is filled with names the catalogue actually knows.
+        ws2 = wb.create_sheet('Product Names')
+        ws2.append(['Existing product name', 'Category'])
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT name, COALESCE(category, '') FROM products WHERE is_active = TRUE ORDER BY name")
+            names = cursor.fetchall()
+        for pname, pcat in names:
+            ws2.append([pname, pcat])
+        ws2.column_dimensions['A'].width = 48
+        ws2.column_dimensions['B'].width = 24
+        if names:
+            dv = DataValidation(type='list',
+                                formula1=f"'Product Names'!$A$2:$A${len(names) + 1}",
+                                allow_blank=True, showErrorMessage=False)
+            ws.add_data_validation(dv)
+            dv.add('A2:A%d' % BULK_STOCK_MAX_ROWS)
+
+        out = io.BytesIO()
+        wb.save(out)
+        out.seek(0)
+        return send_file(out, as_attachment=True,
+                         download_name='stock_upload_template.xlsx',
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        print(f"Stock template error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pos/upload-stock', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_upload_stock():
+    """Bulk-add stock for this branch from the filled Excel template."""
+    file = request.files.get('file')
+    if file is None or not (file.filename or '').strip():
+        return jsonify({'success': False, 'error': 'Choose the filled template first.'}), 400
+    if not file.filename.lower().endswith(('.xlsx', '.xlsm')):
+        return jsonify({'success': False, 'error': 'Please upload the .xlsx template (Excel).'}), 400
+
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': 'Select a branch before uploading stock.'}), 400
+
+    try:
+        from openpyxl import load_workbook
+        from psycopg2.extras import execute_values
+        wb = load_workbook(file, data_only=True)
+        ws = wb.active
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Could not read that Excel file: {e}'}), 400
+
+    header_map = {}
+    for col in range(1, (ws.max_column or 0) + 1):
+        key = _bulk_stock_header(ws.cell(row=1, column=col).value)
+        if key:
+            header_map.setdefault(key, col)
+
+    def find_col(*aliases):
+        for alias in aliases:
+            if alias in header_map:
+                return header_map[alias]
+        return None
+
+    col_name = find_col('product name', 'product', 'name', 'item')
+    col_qty = find_col('quantity', 'qty', 'stock')
+    col_buy = find_col('unit buying price', 'buying price', 'buy price', 'unit cost', 'cost')
+    col_sell = find_col('unit selling price', 'selling price', 'sell price', 'price')
+    missing = [label for label, col in [('Product Name', col_name), ('Quantity', col_qty),
+                                        ('Unit Buying Price', col_buy), ('Unit Selling Price', col_sell)]
+               if not col]
+    if missing:
+        return jsonify({'success': False,
+                        'error': 'This file is missing: ' + ', '.join(missing) +
+                                 '. Please fill in the downloaded template.'}), 400
+
+    user_id = session.get('user_id') or session.get('userid') or 0
+    not_found, failed = [], []
+    qty_by_product, lot_rows, addition_rows, price_rows = {}, [], [], []
+    total_qty, total_cost = 0, 0.0
+
+    try:
+        with get_db() as (cursor, connection):
+            # ONE lookup for the whole catalogue instead of a query per row.
+            cursor.execute("SELECT id, name FROM products WHERE is_active = TRUE")
+            name_to_id = {}
+            for pid, pname in cursor.fetchall():
+                name_to_id.setdefault(str(pname or '').strip().lower(), pid)
+
+            last_row = min(int(ws.max_row or 1), BULK_STOCK_MAX_ROWS + 1)
+            for row in range(2, last_row + 1):
+                raw_name = ws.cell(row=row, column=col_name).value
+                if raw_name is None or str(raw_name).strip() == '':
+                    continue                      # blank line - ignore
+                name = str(raw_name).strip()
+                if name.upper().startswith('EXAMPLE'):
+                    continue                      # the template's example row
+
+                try:
+                    qty = _bulk_stock_number(ws.cell(row=row, column=col_qty).value)
+                    buy = _bulk_stock_number(ws.cell(row=row, column=col_buy).value)
+                    sell = _bulk_stock_number(ws.cell(row=row, column=col_sell).value)
+                except (TypeError, ValueError):
+                    failed.append(f'Row {row} ({name}): quantity and prices must be numbers.')
+                    continue
+                if qty is None or qty <= 0:
+                    failed.append(f'Row {row} ({name}): quantity must be greater than zero.')
+                    continue
+                if buy is None or sell is None or buy < 0 or sell < 0:
+                    failed.append(f'Row {row} ({name}): buying and selling prices cannot be blank or negative.')
+                    continue
+                qty = int(qty)
+
+                product_id = name_to_id.get(name.lower())
+                if not product_id:
+                    not_found.append(name)
+                    continue
+
+                qty_by_product[product_id] = qty_by_product.get(product_id, 0) + qty
+                lot_rows.append((product_id, qty, float(buy)))
+                addition_rows.append((product_id, qty, round(float(buy), 2), round(float(buy) * qty, 2), user_id, branch_id))
+                price_rows.append((float(sell), product_id))
+                total_qty += qty
+                total_cost += float(buy) * qty
+
+            product_ids = list(qty_by_product.keys())
+            if product_ids:
+                # 1) Per-branch quantity (aggregated so the upsert touches each
+                #    product only once - Postgres refuses a double-affected row).
+                execute_values(cursor, """
+                    INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
+                    VALUES %s
+                    ON CONFLICT (product_id, branch_id) DO UPDATE
+                        SET stock = product_stock.stock + EXCLUDED.stock,
+                            updated_at = CURRENT_TIMESTAMP
+                """, [(pid, branch_id, qty_by_product[pid], 10) for pid in product_ids],
+                    template="(%s, %s, %s, %s, CURRENT_TIMESTAMP)")
+
+                # 2) FIFO cost layers at the uploaded buying price.
+                execute_values(cursor, """
+                    INSERT INTO stock_lots (product_id, branch_id, quantity_received, quantity_remaining,
+                                            unit_cost, source, reference, received_at)
+                    VALUES %s
+                """, lot_rows, template="(%s, %s, %s, %s, %s, 'upload', 'bulk stock upload', CURRENT_TIMESTAMP)")
+
+                # 3) Audit trail (shows in the stock-movements / audit report).
+                execute_values(cursor, """
+                    INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
+                    VALUES %s
+                """, addition_rows, template="(%s, %s, %s, %s, 'UPLOAD', %s, CURRENT_TIMESTAMP, %s)")
+
+                # 4) Selling prices (the shared catalogue price).
+                execute_values(cursor, """
+                    UPDATE products SET sell_price = v.sell, updated_at = CURRENT_TIMESTAMP
+                    FROM (VALUES %s) AS v(sell, pid) WHERE products.id = v.pid
+                """, price_rows, template="(%s, %s)")
+
+                # 5) Catalogue total (denormalised) and the FIFO weighted-average
+                #    buy price - one statement each for the whole upload.
+                cursor.execute("""
+                    UPDATE products p
+                    SET stock = COALESCE((SELECT SUM(ps.stock) FROM product_stock ps WHERE ps.product_id = p.id), 0),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE p.id = ANY(%s)
+                """, (product_ids,))
+                cursor.execute("""
+                    UPDATE products p
+                    SET buy_price = COALESCE((
+                            SELECT ROUND(SUM(sl.quantity_remaining * sl.unit_cost)
+                                         / NULLIF(SUM(sl.quantity_remaining), 0), 4)
+                            FROM stock_lots sl
+                            WHERE sl.product_id = p.id AND sl.quantity_remaining > 0), p.buy_price),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE p.id = ANY(%s)
+                """, (product_ids,))
+
+            connection.commit()
+    except Exception as e:
+        print(f"Stock upload error: {e}")
+        return jsonify({'success': False, 'error': f'Upload failed: {e}'}), 500
+
+    updated = len(qty_by_product)
+    log_activity('stock_upload',
+                 f'Bulk stock upload: {updated} product(s), {total_qty} unit(s) into branch #{branch_id}',
+                 'product', None,
+                 {'products': updated, 'units': total_qty, 'cost': round(total_cost, 2),
+                  'not_found': not_found, 'failed': failed, 'branch_id': branch_id})
+
+    message = f'{updated} product(s) updated with {total_qty} unit(s) of stock.'
+    if not_found or failed:
+        message += f' {len(not_found) + len(failed)} row(s) were skipped.'
+    return jsonify({'success': True, 'updated': updated, 'total_quantity': total_qty,
+                    'total_cost': round(total_cost, 2), 'not_found': not_found,
+                    'failed': failed, 'message': message})
+
+
 @app.route('/api/pos/transfers', methods=['GET'])
 @login_required
 def pos_list_transfers():
