@@ -1658,11 +1658,16 @@ def initialize_database_tables():
             
             
             # Create default categories
+            # NOTE: the block just below DELETEs every category row that is not in
+            # this list, so a category missing here is removed on the next boot.
             default_categories = [
                 ('DIY', 1),
                 ('Electricals', 2),
                 ('Plumbing', 3),
-                ('Machinery', 4)
+                ('Machinery', 4),
+                ('Kitchen', 5),
+                ('Furniture', 6),
+                ('Solar', 7)
             ]
             
             for cat_name, order in default_categories:
@@ -14982,15 +14987,63 @@ def pos_transfer_stock():
 # Quantities are added to the SESSION BRANCH (product_stock is the per-branch
 # truth) and costed as a FIFO layer at the uploaded buying price, exactly like a
 # normal stock addition. The selling price goes to the shared catalogue price.
-BULK_STOCK_COLUMNS = ['Product Name', 'Quantity', 'Unit Buying Price', 'Unit Selling Price']
+BULK_STOCK_COLUMNS = ['Product Name', 'Quantity', 'Unit Buying Price', 'Unit Selling Price',
+                      'Unit Type', 'Unit Detail', 'Category']
 BULK_STOCK_MAX_ROWS = 5000
 # Names scoring at least this are offered to the uploader as a possible match
 # instead of being created silently.
 BULK_STOCK_SIMILARITY = 0.72
+# Product categories put in the template's Category dropdown, and accepted when a
+# row creates a NEW product. Kept in step with the seed in
+# initialize_database_tables() and the POS Add/Edit Product dropdowns.
+BULK_STOCK_CATEGORIES = ['DIY', 'Electricals', 'Plumbing', 'Machinery',
+                         'Kitchen', 'Furniture', 'Solar']
+# Unit types put in the template's Unit Type dropdown (stored lower-case).
+BULK_STOCK_UNIT_TYPES = ['piece', 'length', 'roll', 'weight', 'volume', 'pack']
 
 
 def _bulk_stock_header(value):
     return str(value or '').strip().lower().replace('*', '').replace('_', ' ').strip()
+
+
+def _bulk_stock_unit(value):
+    """Excel cell -> a stored unit_type ('piece', 'length', ...). Unknown -> ''.
+
+    Accepts the dropdown's Title Case labels plus the words the shops actually
+    type ('pcs', 'm', 'kg', 'sheets'...).
+    """
+    text = str(value or '').strip().lower()
+    if not text:
+        return ''
+    for allowed in BULK_STOCK_UNIT_TYPES:
+        if text == allowed or text.startswith(allowed):
+            return allowed
+    return {
+        'pcs': 'piece', 'pc': 'piece', 'piece(s)': 'piece', 'sheet': 'piece',
+        'sheets': 'piece', 'item': 'piece', 'items': 'piece', 'each': 'piece',
+        'ea': 'piece', 'unit': 'piece', 'units': 'piece',
+        'm': 'length', 'metre': 'length', 'meter': 'length', 'metres': 'length',
+        'meters': 'length', 'lm': 'length',
+        'rolls': 'roll', 'pack': 'pack', 'packs': 'pack', 'packet': 'pack',
+        'packets': 'pack',
+        'kg': 'weight', 'kgs': 'weight', 'kilogram': 'weight', 'kilograms': 'weight',
+        'tonne': 'weight', 'tonnes': 'weight',
+        'l': 'volume', 'litre': 'volume', 'liter': 'volume', 'litres': 'volume',
+        'liters': 'volume', 'ml': 'volume',
+    }.get(text, '')
+
+
+def _bulk_stock_categories_live():
+    """The Category list to offer: the live categories table, else the constant."""
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT name FROM categories ORDER BY display_order, name")
+            live = [str(r[0]).strip() for r in cursor.fetchall() if str(r[0]).strip()]
+        if live:
+            return live
+    except Exception as e:
+        print(f"Note: could not read categories for the upload template: {e}")
+    return list(BULK_STOCK_CATEGORIES)
 
 
 def _bulk_stock_number(value):
@@ -15071,22 +15124,67 @@ def pos_stock_upload_template():
             cell.alignment = Alignment(horizontal='center', vertical='center')
             cell.border = border
         # A clearly-marked example row; the uploader ignores/removes it.
-        ws.append(['EXAMPLE - delete this row', 10, 5.5, 9.99])
-        for i, width in enumerate([48, 12, 20, 20], start=1):
+        ws.append(['EXAMPLE - delete this row', 10, 5.5, 9.99, 'Piece', '2x4x8ft', 'DIY'])
+        for i, width in enumerate([48, 12, 20, 20, 14, 22, 18], start=1):
             ws.column_dimensions[get_column_letter(i)].width = width
         ws.freeze_panes = 'A2'
 
+        # Dropdowns for the two columns that must be spelled a known way:
+        #  - Unit Type decides how the item is counted (Length, Volume, Pack...)
+        #  - Category decides where a NEW product lands in the catalogue.
+        # Both sit on the new columns at the right-hand end of the sheet.
+        last_row = BULK_STOCK_MAX_ROWS
+        unit_col = get_column_letter(BULK_STOCK_COLUMNS.index('Unit Type') + 1)
+        cat_col = get_column_letter(BULK_STOCK_COLUMNS.index('Category') + 1)
+
+        unit_dv = DataValidation(
+            type='list',
+            formula1='"' + ','.join(u.title() for u in BULK_STOCK_UNIT_TYPES) + '"',
+            allow_blank=True, showErrorMessage=False)
+        unit_dv.prompt = 'How is this item counted? (Piece, Length, Volume, Pack...)'
+        unit_dv.promptTitle = 'Unit Type'
+        ws.add_data_validation(unit_dv)
+        unit_dv.add(f'{unit_col}2:{unit_col}{last_row}')
+
+        cat_dv = DataValidation(
+            type='list',
+            formula1='"' + ','.join(_bulk_stock_categories_live()) + '"',
+            allow_blank=True, showErrorMessage=False)
+        cat_dv.prompt = 'Category for a NEW product (ignored when adding to an existing one)'
+        cat_dv.promptTitle = 'Category'
+        ws.add_data_validation(cat_dv)
+        cat_dv.add(f'{cat_col}2:{cat_col}{last_row}')
+
         # Sheet 2 doubles as the pick-list for the Product Name column, so the file
         # is filled with names the catalogue actually knows.
+        # It also carries each product's current BUYING and SELLING price, so the
+        # costs are visible while filling the sheet. A product that is NEW has no
+        # row here at all, which is exactly when the user must type both prices.
         ws2 = wb.create_sheet('Product Names')
-        ws2.append(['Existing product name', 'Category'])
+        ws2.append(['Existing product name', 'Category', 'Buying Price', 'Selling Price'])
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT name, COALESCE(category, '') FROM products WHERE is_active = TRUE ORDER BY name")
+            cursor.execute("""
+                SELECT name, COALESCE(category, ''),
+                       COALESCE(buy_price, 0), COALESCE(sell_price, 0)
+                FROM products WHERE is_active = TRUE ORDER BY name
+            """)
             names = cursor.fetchall()
-        for pname, pcat in names:
-            ws2.append([pname, pcat])
+        for pname, pcat, pbuy, psell in names:
+            ws2.append([pname, pcat, float(pbuy or 0), float(psell or 0)])
+        for col in range(1, 5):
+            cell = ws2.cell(row=1, column=col)
+            cell.font = head_font
+            cell.fill = head_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = border
         ws2.column_dimensions['A'].width = 48
         ws2.column_dimensions['B'].width = 24
+        ws2.column_dimensions['C'].width = 16
+        ws2.column_dimensions['D'].width = 16
+        for row in range(2, len(names) + 2):
+            ws2.cell(row=row, column=3).number_format = '0.00'
+            ws2.cell(row=row, column=4).number_format = '0.00'
+        ws2.freeze_panes = 'A2'
         if names:
             dv = DataValidation(type='list',
                                 formula1=f"'Product Names'!$A$2:$A${len(names) + 1}",
@@ -15148,6 +15246,10 @@ def pos_upload_stock_analyze():
     col_qty = find_col('quantity', 'qty', 'stock')
     col_buy = find_col('unit buying price', 'buying price', 'buy price', 'unit cost', 'cost')
     col_sell = find_col('unit selling price', 'selling price', 'sell price', 'price')
+    # Optional columns (absent from files made before they existed).
+    col_unit = find_col('unit type', 'unit', 'uom', 'unit of measure')
+    col_detail = find_col('unit detail', 'unit details', 'size', 'specification', 'spec')
+    col_cat = find_col('category', 'main category', 'product category')
     missing = [label for label, col in [('Product Name', col_name), ('Quantity', col_qty),
                                         ('Unit Buying Price', col_buy), ('Unit Selling Price', col_sell)]
                if not col]
@@ -15155,6 +15257,11 @@ def pos_upload_stock_analyze():
         return jsonify({'success': False,
                         'error': 'This file is missing: ' + ', '.join(missing) +
                                  '. Please fill in the downloaded template.'}), 400
+
+    # The file's Category is matched against the live list, case-insensitively;
+    # anything unrecognised is left blank so the uploader's chosen default wins.
+    allowed_cats = _bulk_stock_categories_live()
+    cat_lookup = {str(c).strip().lower(): str(c).strip() for c in allowed_cats}
 
     # ---- read + validate every data row (NOTHING is written in this step) ----
     rows, failed = [], []
@@ -15180,7 +15287,13 @@ def pos_upload_stock_analyze():
             failed.append(f'Row {row} ({name}): buying and selling prices cannot be blank or negative.')
             continue
         rows.append({'row': row, 'name': name, 'quantity': int(qty),
-                     'buy_price': round(float(buy), 2), 'sell_price': round(float(sell), 2)})
+                     'buy_price': round(float(buy), 2), 'sell_price': round(float(sell), 2),
+                     'category': (cat_lookup.get(str(ws.cell(row=row, column=col_cat).value or '').strip().lower(), '')
+                                  if col_cat else ''),
+                     'unit_type': (_bulk_stock_unit(ws.cell(row=row, column=col_unit).value)
+                                   if col_unit else ''),
+                     'unit_details': (str(ws.cell(row=row, column=col_detail).value or '').strip()[:100]
+                                      if col_detail else '')})
 
     try:
         with get_db() as (cursor, connection):
@@ -15306,7 +15419,14 @@ def pos_upload_stock_apply():
             if not name:
                 failed.append('A row with no product name was skipped.')
                 continue
-            to_create.append((name, qty, buy, sell))
+            # The row's own Category / Unit columns win; the dropdown on the page
+            # is the fallback for files that leave them blank.
+            row_cat = str(d.get('category') or '').strip() or default_category
+            row_unit = str(d.get('unit_type') or '').strip().lower()
+            if row_unit not in BULK_STOCK_UNIT_TYPES:
+                row_unit = 'piece'
+            to_create.append((name, qty, buy, sell, row_cat,
+                              row_unit, str(d.get('unit_details') or '').strip()[:100]))
         else:
             if not d.get('product_id'):
                 failed.append(f'{name or "A row"}: no product was chosen for it.')
@@ -15316,7 +15436,9 @@ def pos_upload_stock_apply():
     if not to_merge and not to_create:
         return jsonify({'success': False, 'error': 'Nothing valid to apply.',
                         'failed': failed}), 400
-    if to_create and not default_category:
+    # Only complain about a missing category when some NEW row genuinely has none
+    # (a row that names its own category does not need the picker).
+    if to_create and not any(row[4] for row in to_create):
         return jsonify({'success': False,
                         'error': 'Choose a category for the new product(s).'}), 400
 
@@ -15329,13 +15451,13 @@ def pos_upload_stock_apply():
             created_ids = set()
             if to_create:
                 inserted = execute_values(cursor, """
-                    INSERT INTO products (name, category, unit_type, buy_price, sell_price,
-                                          stock, min_stock_level, description, barcode)
+                    INSERT INTO products (name, category, unit_type, unit_details, buy_price,
+                                          sell_price, stock, min_stock_level, description, barcode)
                     VALUES %s
                     RETURNING id
-                """, [(n, default_category, 'piece', b, s) for n, q, b, s in to_create],
-                    template="(%s, %s, %s, %s, %s, 0, 10, '', '')", fetch=True)
-                for (n, q, b, s), new_id in zip(to_create, inserted):
+                """, [(n, c, u, dt, b, s) for n, q, b, s, c, u, dt in to_create],
+                    template="(%s, %s, %s, %s, %s, %s, 0, 10, '', '')", fetch=True)
+                for (n, q, b, s, c, u, dt), new_id in zip(to_create, inserted):
                     to_merge.append((new_id[0], q, b, s, n))
                     created_ids.add(new_id[0])
                 created = len(to_create)

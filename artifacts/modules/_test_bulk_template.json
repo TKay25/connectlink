@@ -1,0 +1,49 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestBulkTemplate",
+  "file": "_test_bulk_template.py",
+  "purpose": "Throwaway harness: run the REAL /api/pos/stock-upload-template body and the",
+  "entry_function": "class FakeCursor  # line 34",
+  "entry_flows": [
+    "FakeCursor.__init__(rows) → ast.parse, source.splitlines, pieces.append, ws.cell",
+    "FakeDB.__init__(rows) → ast.parse, source.splitlines, pieces.append, ws.cell",
+    "FakeApp.route() → ast.parse, source.splitlines, pieces.append, ws.cell"
+  ],
+  "public_api": [
+    "class FakeCursor  # line 34",
+    "  FakeCursor.__init__(rows)",
+    "  FakeCursor.execute(sql)",
+    "  FakeCursor.fetchall()",
+    "class FakeDB  # line 49 — Context manager standing in for get_db().",
+    "  FakeDB.__init__(rows)",
+    "class FakeApp  # line 65",
+    "  FakeApp.route()",
+    "segment(node)",
+    "jsonify(payload)",
+    "send_file(buf)"
+  ],
+  "dependencies": [
+    "openpyxl"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: SRC = 'ConnectLink.py', CAPTURED = {}, LIVE = [('DIY',), ('Electricals',), ('Plumbing',), ('Machinery',), ('Kitchen',), ('Furniture',), ('Solar',)]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7e8078c1c40a9718",
+  "file_mtime": 1791132230291.4673,
+  "file_size": 4272,
+  "file_birthtime": 1791132230063.274,
+  "generated_at": "2026-10-04T16:45:22.705938Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

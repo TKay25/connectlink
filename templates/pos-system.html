@@ -5750,6 +5750,251 @@ body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
     #uploadStockModal .upload-step-action { min-width: 100%; }
 }
 </style>
+
+<!-- ===== Analytics: headline KPI strip ===== -->
+<style>
+#analyticsPage .an-kpis {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+}
+#analyticsPage .an-kpi {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+    border: 1px solid #E5EAF1;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+    box-shadow: 0 8px 20px -16px rgba(15,27,45,0.45);
+}
+#analyticsPage .an-kpi-icon {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    font-size: 0.95rem !important;
+    color: #C12B3E;
+    background: rgba(193,43,62,0.10);
+}
+#analyticsPage .an-kpi.blue   .an-kpi-icon { color: #2563EB; background: rgba(37,99,235,0.12); }
+#analyticsPage .an-kpi.green  .an-kpi-icon { color: #047857; background: rgba(16,185,129,0.14); }
+#analyticsPage .an-kpi.purple .an-kpi-icon { color: #7C3AED; background: rgba(124,58,237,0.12); }
+#analyticsPage .an-kpi.amber  .an-kpi-icon { color: #B45309; background: rgba(245,158,11,0.16); }
+#analyticsPage .an-kpi-body { min-width: 0; }
+#analyticsPage .an-kpi-label {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-size: 0.56rem !important;
+    font-weight: 700;
+    color: #64748B;
+}
+#analyticsPage .an-kpi-value {
+    display: block;
+    font-weight: 800;
+    color: #0F1B2D;
+    font-size: 0.95rem !important;
+    white-space: nowrap;
+}
+body.dark-theme #analyticsPage .an-kpi {
+    background: linear-gradient(180deg, #16233A 0%, #121D30 100%);
+    border-color: #26344D;
+}
+body.dark-theme #analyticsPage .an-kpi-value { color: #E2E8F0; }
+@media (max-width: 1200px) { #analyticsPage .an-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px)  { #analyticsPage .an-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Period scope bar */
+#analyticsPage .an-scope {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    border: 1px solid #E5EAF1;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+}
+#analyticsPage .an-scope-label {
+    font-size: 0.62rem !important;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #64748B;
+}
+#analyticsPage .an-scope select,
+#analyticsPage .an-scope input { max-width: 170px; font-size: 0.68rem !important; }
+
+/* Automated management brief */
+#analyticsPage .an-brief {
+    padding: 13px 15px;
+    border-radius: 14px;
+    border: 1px solid #DDE6F3;
+    border-left: 4px solid #C12B3E;
+    background: linear-gradient(90deg, rgba(193,43,62,0.06), rgba(255,255,255,0));
+}
+#analyticsPage .an-brief-title {
+    font-weight: 800;
+    color: #0F1B2D;
+    font-size: 0.72rem !important;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+#analyticsPage .an-brief-text {
+    margin: 0;
+    color: #334155;
+    font-size: 0.72rem !important;
+    line-height: 1.65;
+}
+
+/* Fast / slow / no-movement breakdown */
+#analyticsPage .an-mover-cols {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+#analyticsPage .an-mover-head {
+    font-size: 0.62rem !important;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+#analyticsPage .an-mover-head.fast { color: #047857; }
+#analyticsPage .an-mover-head.slow { color: #B45309; }
+#analyticsPage .an-mover-head.dead { color: #B91C1C; }
+#analyticsPage .an-mover {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    margin-bottom: 3px;
+    background: #F8FAFC;
+}
+#analyticsPage .an-mover-name {
+    font-size: 0.66rem !important;
+    color: #0F1B2D;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#analyticsPage .an-mover-qty {
+    font-size: 0.62rem !important;
+    font-weight: 700;
+    color: #64748B;
+    white-space: nowrap;
+}
+#analyticsPage .an-mover.fast .an-mover-qty { color: #047857; }
+#analyticsPage .an-mover.slow .an-mover-qty { color: #B45309; }
+#analyticsPage .an-mover.dead .an-mover-qty { color: #B91C1C; }
+#analyticsPage .an-mover-empty { font-size: 0.64rem !important; color: #94A3B8; font-style: italic; }
+body.dark-theme #analyticsPage .an-scope {
+    background: linear-gradient(180deg, #16233A 0%, #121D30 100%);
+    border-color: #26344D;
+}
+body.dark-theme #analyticsPage .an-brief {
+    background: linear-gradient(90deg, rgba(193,43,62,0.16), rgba(255,255,255,0));
+    border-color: #26344D;
+}
+body.dark-theme #analyticsPage .an-brief-title { color: #E2E8F0; }
+body.dark-theme #analyticsPage .an-brief-text { color: #CBD5E1; }
+body.dark-theme #analyticsPage .an-mover { background: #16233A; }
+body.dark-theme #analyticsPage .an-mover-name { color: #E2E8F0; }
+@media (max-width: 900px) { #analyticsPage .an-mover-cols { grid-template-columns: 1fr; } }
+
+/* Advanced retail intelligence */
+#analyticsPage .an-intel {
+    padding: 13px 15px;
+    border: 1px solid #E5EAF1;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+}
+#analyticsPage .an-intel-title {
+    font-weight: 800;
+    color: #0F1B2D;
+    font-size: 0.72rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 9px;
+}
+#analyticsPage .an-intel-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+}
+#analyticsPage .an-intel-card {
+    padding: 9px 10px;
+    border-radius: 11px;
+    background: #FFFFFF;
+    border: 1px solid #E9EEF5;
+}
+#analyticsPage .an-intel-label {
+    display: block;
+    font-size: 0.55rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748B;
+}
+#analyticsPage .an-intel-value {
+    display: block;
+    font-size: 0.88rem !important;
+    font-weight: 800;
+    color: #0F1B2D;
+    margin-top: 2px;
+}
+#analyticsPage .an-intel-sub { display: block; font-size: 0.58rem !important; color: #94A3B8; }
+#analyticsPage .an-intel-card.green  .an-intel-value { color: #047857; }
+#analyticsPage .an-intel-card.amber  .an-intel-value { color: #B45309; }
+#analyticsPage .an-intel-card.red    .an-intel-value { color: #B91C1C; }
+#analyticsPage .an-intel-card.purple .an-intel-value { color: #7C3AED; }
+#analyticsPage .an-intel-card.blue   .an-intel-value { color: #2563EB; }
+#analyticsPage .an-intel-note { margin-top: 10px; font-size: 0.64rem !important; color: #334155; }
+body.dark-theme #analyticsPage .an-intel {
+    background: linear-gradient(180deg, #16233A 0%, #121D30 100%);
+    border-color: #26344D;
+}
+body.dark-theme #analyticsPage .an-intel-title { color: #E2E8F0; }
+body.dark-theme #analyticsPage .an-intel-card { background: #0F1B2D; border-color: #26344D; }
+body.dark-theme #analyticsPage .an-intel-value { color: #E2E8F0; }
+body.dark-theme #analyticsPage .an-intel-note { color: #CBD5E1; }
+@media (max-width: 1200px) { #analyticsPage .an-intel-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px)  { #analyticsPage .an-intel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Period-over-period movement badges on the KPI strip */
+#analyticsPage .an-kpi-value {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+#analyticsPage .an-kpi-delta {
+    font-size: 0.56rem !important;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+#analyticsPage .an-kpi-delta.up { color: #047857; background: rgba(16,185,129,0.15); }
+#analyticsPage .an-kpi-delta.down { color: #B91C1C; background: rgba(239,68,68,0.15); }
+#analyticsPage .an-kpi-delta.flat { color: #64748B; background: rgba(100,116,139,0.12); }
+body.dark-theme #analyticsPage .an-kpi-delta.up { color: #6EE7B7; background: rgba(16,185,129,0.24); }
+body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: rgba(239,68,68,0.24); }
+
+/* Action centre columns */
+#analyticsPage .an-act-cols {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+@media (max-width: 1000px) { #analyticsPage .an-act-cols { grid-template-columns: 1fr; } }
+</style>
 </head>
 
 </body>
@@ -6137,7 +6382,7 @@ body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
                                 <div id="uploadStockNewWrap" style="display:none;" class="mb-3">
                                     <div class="d-flex align-items-center gap-2 mb-1">
                                         <strong>New products</strong>
-                                        <span class="text-muted small">— not in the system yet; choose the category to create them under</span>
+                                        <span class="text-muted small">— not in the system yet. Category / Unit come from the file's own columns when filled in; the picker below is the fallback.</span>
                                         <select class="form-select form-select-sm ms-auto" id="uploadStockCategory" style="width:220px;"></select>
                                     </div>
                                     <ul id="uploadStockNewList" class="small mb-0"></ul>
@@ -7086,37 +7331,7 @@ body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
                     </div>
                 </div>
                 
-                <!-- Charts Row 1 - Trends & Category -->
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <div class="section-card">
-                            <h6 class="fw-bold mb-2"><i class="fas fa-chart-pie me-1"></i>Revenue by Category</h6>
-                            <canvas id="categorySalesChart" style="max-height: 280px;"></canvas>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="section-card">
-                            <h6 class="fw-bold mb-2"><i class="fas fa-chart-bar me-1"></i>Top 10 Products by Revenue</h6>
-                            <canvas id="topProductsChart" style="max-height: 280px;"></canvas>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Charts Row 2 - Top Products & Margin -->
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <div class="section-card">
-                            <h6 class="fw-bold mb-2"><i class="fas fa-chart-line me-1"></i>Profit Margin by Category</h6>
-                            <canvas id="categoryMarginChart" style="max-height: 280px;"></canvas>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="section-card">
-                            <h6 class="fw-bold mb-2"><i class="fas fa-chart-pie me-1"></i>Profit Utilization</h6>
-                            <canvas id="profitUtilizationChart" style="max-height: 280px;"></canvas>
-                        </div>
-                    </div>
-                </div>
+                <!-- Charts moved to the Analytics tab so all visuals live in one place -->
                 
                 <!-- Category Performance Table -->
                 <div class="section-card mb-3">
@@ -7254,6 +7469,31 @@ body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
 
             <!-- Analytics Page -->
             <div id="analyticsPage" style="display: none;">
+                <!-- Analytics-only period scope (does not require visiting the Sales Report) -->
+                <div class="an-scope">
+                    <span class="an-scope-label"><i class="fas fa-calendar-days"></i> Period</span>
+                    <select id="anPeriod" class="form-select form-select-sm">
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="week">This week</option>
+                        <option value="month" selected>This month</option>
+                        <option value="quarter">This quarter</option>
+                        <option value="year">This year</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <input type="date" id="anStartDate" class="form-control form-control-sm" title="Start date (custom period)">
+                    <input type="date" id="anEndDate" class="form-control form-control-sm" title="End date (custom period)">
+                    <button type="button" class="btn btn-sm btn-primary-dark" onclick="applyAnalyticsPeriod()">Apply</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportAnalyticsBrief()" title="Print the brief"><i class="fas fa-print"></i></button>
+                </div>
+                <!-- Automated strategic brief, written from the analytics below -->
+                <div id="analyticsBrief" class="an-brief mb-3"></div>
+                <!-- Headline numbers for the selected period -->
+                <div id="analyticsKpis" class="an-kpis mb-3"></div>
+                <!-- Advanced retail intelligence -->
+                <div id="analyticsIntel" class="an-intel mb-3"></div>
+                <!-- Action centre: what to reorder, what leaks margin, what sells together -->
+                <div id="analyticsActions" class="an-intel mb-3"></div>
                 <!-- Top Products Lists - MOVED HERE -->
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
@@ -7295,8 +7535,42 @@ body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
                 
                     <div class="col-md-6">
                         <div class="section-card">
-                            <h6 class="fw-bold mb-2"><i class="fas fa-boxes me-1"></i>Inventory Turnover Analysis</h6>
-                            <canvas id="inventoryTurnoverChart" style="max-height: 280px;"></canvas>
+                            <h6 class="fw-bold mb-2"><i class="fas fa-arrow-right-arrow-left me-1"></i>Product Movement - Fast &amp; Slow Lines</h6>
+                            <div class="small text-muted mb-2">Based on <strong>this period's</strong> sales versus the stock you still hold. This is the reliable view.</div>
+                            <div id="moversList" class="an-movers mb-3"></div>
+                            <div class="small text-muted mb-1">All-time units sold (top 10) - historical context only</div>
+                            <canvas id="inventoryTurnoverChart" style="max-height: 200px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Moved here from the Sales Report tab -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="section-card">
+                            <h6 class="fw-bold mb-2"><i class="fas fa-chart-pie me-1"></i>Revenue by Category</h6>
+                            <canvas id="categorySalesChart" style="max-height: 280px;"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="section-card">
+                            <h6 class="fw-bold mb-2"><i class="fas fa-chart-bar me-1"></i>Top 10 Products by Revenue</h6>
+                            <canvas id="topProductsChart" style="max-height: 280px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="section-card">
+                            <h6 class="fw-bold mb-2"><i class="fas fa-chart-line me-1"></i>Profit Margin by Category</h6>
+                            <canvas id="categoryMarginChart" style="max-height: 280px;"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="section-card">
+                            <h6 class="fw-bold mb-2"><i class="fas fa-chart-pie me-1"></i>Profit Utilization</h6>
+                            <canvas id="profitUtilizationChart" style="max-height: 280px;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -7398,6 +7672,9 @@ body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
                             <option value="Electricals">Electricals</option>
                             <option value="Plumbing">Plumbing</option>
                             <option value="Machinery">Machinery</option>
+                            <option value="Kitchen">Kitchen</option>
+                            <option value="Furniture">Furniture</option>
+                            <option value="Solar">Solar</option>
                         </select>
                     </div>
                     <div class="col-md-6 mb-3">
@@ -7497,6 +7774,9 @@ body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
                                 <option value="Electricals">Electricals</option>
                                 <option value="Plumbing">Plumbing</option>
                                 <option value="Machinery">Machinery</option>
+                                <option value="Kitchen">Kitchen</option>
+                                <option value="Furniture">Furniture</option>
+                                <option value="Solar">Solar</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -7801,10 +8081,13 @@ body.dark-theme #uploadStockModal .upload-step-hint { color: #94A3B8; }
 
     // Category & Sub-Category Mapping
     const categoryMapping = {
-        "DIY": ["General Tools", "Hand Tools", "Hammers", "Screwdrivers", "Pliers", "Saws", "Fasteners", "Screws", "Nails", "Bolts", "Paint & Coatings", "Safety", "Cleaning", "Cookware", "Furniture", "Hardware", "Door Locks", "Hinges", "Other"],
+        "DIY": ["General Tools", "Hand Tools", "Hammers", "Screwdrivers", "Pliers", "Saws", "Fasteners", "Screws", "Nails", "Bolts", "Paint & Coatings", "Safety", "Cleaning", "Hardware", "Door Locks", "Hinges", "Other"],
         "Electricals": ["Cables", "Conduit", "Switches", "Sockets", "Breakers", "Lights", "LED Lights", "Couplings", "Appliances", "Stoves", "Other"],
         "Plumbing": ["Pipes", "Pipe Fittings", "Bends", "Tees", "Traps", "Valves", "Taps", "Hose", "Silicone", "Sanitary", "Bathroom", "Shower Mixers", "Other"],
-        "Machinery": ["Power Tools", "Drills", "Grinders", "Saws", "Generators", "Pumps", "Welding", "Compressors", "Other"]
+        "Machinery": ["Power Tools", "Drills", "Grinders", "Saws", "Generators", "Pumps", "Welding", "Compressors", "Other"],
+        "Kitchen": ["Cookware", "Pots & Pans", "Kettles", "Utensils", "Cutlery", "Plates & Bowls", "Cups & Mugs", "Stoves", "Ovens", "Microwaves", "Refrigerators", "Kitchen Cabinets", "Sinks", "Other"],
+        "Furniture": ["Sofas", "Chairs", "Tables", "Desks", "Beds", "Mattresses", "Wardrobes", "Cabinets", "Shelving", "TV Stands", "Other"],
+        "Solar": ["Solar Panels", "Inverters", "Batteries", "Charge Controllers", "Solar Lights", "Solar Water Heaters", "Mounting Rails", "Cables & Connectors", "Other"]
     };
 
     // Initialize category dropdowns
@@ -11049,16 +11332,23 @@ function populateCategoryDropdown() {
         '�️ DIY': ['DIY', 'Tools', 'Hand Tools', 'Hammers', 'Claw Hammer', 'Screwdrivers', 'Pliers', 'Saws', 'Hack Saws', 'Fasteners', 'Screws', 'Nails', 'Wire Nails', 'Bolts', 'Washers', 'Paint', 'Spray Paint', 'Safety', 'Gloves', 'Goggles', 'Hard Hats', 'Cleaning', 'Brooms', 'Mops', 'Cookware', 'Furniture', 'Hardware', 'Door Locks', 'Lock Sets', 'Hinges', 'Handles', 'Measuring Tools', 'Tape Measures', 'Spirit Level'],
         '⚡ Electricals': ['Electricals', 'Electrical', 'Cables', 'Switches', 'Sockets', 'Breakers', 'Insulation Tape', 'LED Lights', 'Lights', 'Conduit', 'Couplings', 'Appliances', 'Stove', 'Oven'],
         '💧 Plumbing': ['Plumbing', 'Pipes', 'Pipe Fittings', 'Bends', 'Tees', 'Traps', 'Flexi Pipes', 'Valves', 'Taps', 'Hose', 'Hose Pipe', 'Silicone', 'Bathroom', 'Shower Mixers', 'Basin', 'S-Trap', 'P-Trap', 'Pan Connectors'],
-        '🏭 Machinery': ['Machinery', 'Equipment & Machinery', 'Power Tools', 'Drills', 'Grinders', 'Saws (Power)', 'Generators', 'Pumps', 'Water Pumps', 'Welding', 'Welding Machine', 'Compressors', 'Chainsaw']
+        '🏭 Machinery': ['Machinery', 'Equipment & Machinery', 'Power Tools', 'Drills', 'Grinders', 'Saws (Power)', 'Generators', 'Pumps', 'Water Pumps', 'Welding', 'Welding Machine', 'Compressors', 'Chainsaw'],
+        '🍳 Kitchen': ['Kitchen', 'Cookware', 'Cookware & Pots', 'Pots', 'Pans', 'Kettles', 'Utensils', 'Cutlery', 'Plates', 'Bowls', 'Cups', 'Mugs', 'Stove', 'Stoves', 'Oven', 'Ovens', 'Appliances', 'Microwaves', 'Refrigerators', 'Fridges', 'Kitchen Cabinets', 'Sinks', 'Kitchen & Bathroom'],
+        '🛋️ Furniture': ['Furniture', 'Sofas', 'Chairs', 'Tables', 'Desks', 'Beds', 'Mattresses', 'Wardrobes', 'Cabinets', 'Shelving', 'TV Stands'],
+        '☀️ Solar': ['Solar', 'Solar Panels', 'Inverters', 'Batteries', 'Solar Batteries', 'Charge Controllers', 'Solar Lights', 'Solar Water Heaters', 'Mounting Rails', 'Solar Cables']
     };
     
-    // Show ONLY the four required categories (DIY, Electricals, Plumbing, Machinery)
-    // plus "All". Selecting one filters to products whose category belongs to that group.
+    // Show ONLY the required categories (DIY, Electricals, Plumbing, Machinery,
+    // Kitchen, Furniture, Solar) plus "All". Selecting one filters to products
+    // whose category belongs to that group.
     const categoryGroupMembers = {
-        'DIY': ['DIY', 'Tools', 'Hand Tools', 'Hammers', 'Claw Hammer', 'Screwdrivers', 'Pliers', 'Saws', 'Hack Saws', 'Fasteners', 'Screws', 'Nails', 'Wire Nails', 'Bolts', 'Washers', 'Paint', 'Spray Paint', 'Safety', 'Gloves', 'Goggles', 'Hard Hats', 'Cleaning', 'Brooms', 'Mops', 'Cookware', 'Furniture', 'Hardware', 'Door Locks', 'Lock Sets', 'Hinges', 'Handles', 'Measuring Tools', 'Tape Measures', 'Spirit Level'],
+        'DIY': ['DIY', 'Tools', 'Hand Tools', 'Hammers', 'Claw Hammer', 'Screwdrivers', 'Pliers', 'Saws', 'Hack Saws', 'Fasteners', 'Screws', 'Nails', 'Wire Nails', 'Bolts', 'Washers', 'Paint', 'Spray Paint', 'Safety', 'Gloves', 'Goggles', 'Hard Hats', 'Cleaning', 'Brooms', 'Mops', 'Hardware', 'Door Locks', 'Lock Sets', 'Hinges', 'Handles', 'Measuring Tools', 'Tape Measures', 'Spirit Level'],
         'Electricals': ['Electricals', 'Electrical', 'Cables', 'Switches', 'Sockets', 'Breakers', 'Insulation Tape', 'LED Lights', 'Lights', 'Conduit', 'Couplings', 'Appliances', 'Stove', 'Oven'],
         'Plumbing': ['Plumbing', 'Pipes', 'Pipe Fittings', 'Bends', 'Tees', 'Traps', 'Flexi Pipes', 'Valves', 'Taps', 'Hose', 'Hose Pipe', 'Silicone', 'Bathroom', 'Shower Mixers', 'Basin', 'S-Trap', 'P-Trap', 'Pan Connectors'],
-        'Machinery': ['Machinery', 'Equipment & Machinery', 'Power Tools', 'Drills', 'Grinders', 'Saws (Power)', 'Generators', 'Pumps', 'Water Pumps', 'Welding', 'Welding Machine', 'Compressors', 'Chainsaw']
+        'Machinery': ['Machinery', 'Equipment & Machinery', 'Power Tools', 'Drills', 'Grinders', 'Saws (Power)', 'Generators', 'Pumps', 'Water Pumps', 'Welding', 'Welding Machine', 'Compressors', 'Chainsaw'],
+        'Kitchen': ['Kitchen', 'Cookware', 'Cookware & Pots', 'Pots', 'Pans', 'Kettles', 'Utensils', 'Cutlery', 'Plates', 'Bowls', 'Cups', 'Mugs', 'Stove', 'Stoves', 'Oven', 'Ovens', 'Microwaves', 'Refrigerators', 'Fridges', 'Kitchen Cabinets', 'Sinks', 'Kitchen & Bathroom'],
+        'Furniture': ['Furniture', 'Sofas', 'Chairs', 'Tables', 'Desks', 'Beds', 'Mattresses', 'Wardrobes', 'Cabinets', 'Shelving', 'TV Stands'],
+        'Solar': ['Solar', 'Solar Panels', 'Inverters', 'Batteries', 'Solar Batteries', 'Charge Controllers', 'Solar Lights', 'Solar Water Heaters', 'Mounting Rails', 'Solar Cables']
     };
     window.__categoryGroupMembers = categoryGroupMembers;
 
@@ -11742,6 +12032,8 @@ async function loadSalesReport(message = 'Loading sales report...') {
         }
         
         console.log('Date range:', startDate, 'to', endDate); // Debug
+        // Remember the range so Analytics can compare against the PREVIOUS period
+        window.__reportRange = { start: startDate, end: endDate };
         
         const [transactionsRes, reinvestmentRes] = await Promise.all([
             fetch(`${API_BASE}/api/transactions?limit=2000`, { credentials: 'include' }),
@@ -13253,7 +13545,7 @@ async function fetchTransactionsData() {
             cats = rows.map(c => (typeof c === 'string' ? c : (c.name || c.category)))
                        .filter(n => n && n.toLowerCase() !== 'all');
         } catch (e) { /* fall back below */ }
-        if (!cats.length) cats = ['DIY', 'Electricals', 'Plumbing', 'Machinery'];
+        if (!cats.length) cats = ['DIY', 'Electricals', 'Plumbing', 'Machinery', 'Kitchen', 'Furniture', 'Solar'];
         sel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
     }
 
@@ -13308,8 +13600,15 @@ async function fetchTransactionsData() {
         if (newWrap) {
             newWrap.style.display = brandNew.length ? 'block' : 'none';
             const ul = document.getElementById('uploadStockNewList');
-            if (ul) ul.innerHTML = brandNew.map(r =>
-                `<li>${escapeHtml(r.name)} — ${r.quantity} × buy ${money(r.buy_price)}, sell ${money(r.sell_price)}</li>`).join('');
+            if (ul) ul.innerHTML = brandNew.map(r => {
+                const bits = [`${r.quantity} × buy ${money(r.buy_price)}, sell ${money(r.sell_price)}`];
+                if (r.unit_type || r.unit_details) {
+                    bits.push(escapeHtml([r.unit_type, r.unit_details].filter(Boolean).join(': ')));
+                }
+                bits.push(r.category ? escapeHtml(r.category)
+                                     : '<em>uses the category picked below</em>');
+                return `<li>${escapeHtml(r.name)} — ${bits.join(' · ')}</li>`;
+            }).join('');
         }
 
         const confWrap = document.getElementById('uploadStockConflictWrap');
@@ -13361,7 +13660,9 @@ async function fetchTransactionsData() {
         }));
         (plan.new || []).forEach(r => rows.push({
             name: r.name, quantity: r.quantity, buy_price: r.buy_price,
-            sell_price: r.sell_price, action: 'create'
+            sell_price: r.sell_price, action: 'create',
+            category: r.category || '', unit_type: r.unit_type || '',
+            unit_details: r.unit_details || ''
         }));
         const conflicts = plan.conflicts || [];
         for (let i = 0; i < conflicts.length; i++) {
@@ -13372,7 +13673,9 @@ async function fetchTransactionsData() {
                 return { error: `Choose what to do with "${c.name}".` };
             }
             const row = { name: c.name, quantity: c.quantity, buy_price: c.buy_price,
-                          sell_price: c.sell_price, action: action };
+                          sell_price: c.sell_price, action: action,
+                          category: c.category || '', unit_type: c.unit_type || '',
+                          unit_details: c.unit_details || '' };
             if (action === 'merge') {
                 const cand = document.getElementById('uploadCandidate' + i);
                 if (!cand || !cand.value) return { error: `Pick a product to merge "${c.name}" into.` };
@@ -13395,7 +13698,8 @@ async function fetchTransactionsData() {
         if (!collected.rows.length) { stockUploadError('Nothing to apply.'); return; }
 
         const catEl = document.getElementById('uploadStockCategory');
-        if (collected.rows.some(r => r.action === 'create') && (!catEl || !catEl.value)) {
+        const creates = collected.rows.filter(r => r.action === 'create');
+        if (creates.length && creates.some(r => !r.category) && (!catEl || !catEl.value)) {
             stockUploadError('Pick a category for the new products first.');
             return;
         }
@@ -14095,6 +14399,19 @@ function getCategoryIcon(category) {
         'Electricals': 'fa-bolt',
         'Plumbing': 'fa-faucet',
         'Machinery': 'fa-gears',
+        'Kitchen': 'fa-utensils',
+        'Furniture': 'fa-couch',
+        'Solar': 'fa-solar-panel',
+
+        // Kitchen / Furniture / Solar sub-items
+        'Cookware': 'fa-utensils',
+        'Pots': 'fa-utensils',
+        'Kettles': 'fa-mug-hot',
+        'Sofas': 'fa-couch',
+        'Chairs': 'fa-chair',
+        'Mattresses': 'fa-bed',
+        'Solar Panels': 'fa-solar-panel',
+        'Inverters': 'fa-plug-circle-bolt',
 
         // Gas Products
         'Gas Tanks': 'fa-gas-pump',
@@ -14344,7 +14661,10 @@ function renderCategoryChips() {
         { cat: 'DIY',         label: 'DIY',         icon: 'fa-toolbox' },
         { cat: 'Electricals', label: 'Electricals', icon: 'fa-bolt' },
         { cat: 'Plumbing',    label: 'Plumbing',    icon: 'fa-faucet' },
-        { cat: 'Machinery',   label: 'Machinery',   icon: 'fa-gears' }
+        { cat: 'Machinery',   label: 'Machinery',   icon: 'fa-gears' },
+        { cat: 'Kitchen',     label: 'Kitchen',     icon: 'fa-utensils' },
+        { cat: 'Furniture',   label: 'Furniture',   icon: 'fa-couch' },
+        { cat: 'Solar',       label: 'Solar',       icon: 'fa-solar-panel' }
     ];
     container.innerHTML = chipDefs.map(c => `
         <button type="button" class="cat-chip${selectedCategory === c.cat ? ' active' : ''}" data-cat="${c.cat}" onclick="selectCategoryChip('${c.cat}')">
@@ -17248,6 +17568,52 @@ function generateReceiptHTML(items, method, paid, change) {
     }
     
 
+// Re-scope the analytics from the Analytics tab itself. The report data is
+// shared with the Sales Report, so this sets the same period selector rather
+// than keeping two different ranges that would disagree with each other.
+async function applyAnalyticsPeriod() {
+    const p = document.getElementById('anPeriod');
+    const s = document.getElementById('anStartDate');
+    const e = document.getElementById('anEndDate');
+    const rp = document.getElementById('reportPeriod');
+    const rs = document.getElementById('reportStartDate');
+    const re = document.getElementById('reportEndDate');
+    if (!p || !rp) return;
+
+    if (p.value === 'custom') {
+        if (!s.value || !e.value) { showToast('Pick both a start and an end date.', 'error'); return; }
+        if (s.value > e.value) { showToast('The start date must be before the end date.', 'error'); return; }
+        if (rs) rs.value = s.value;
+        if (re) re.value = e.value;
+    }
+    rp.value = p.value;
+    await loadSalesReport('Applying period...');
+    renderAnalytics();
+    showToast('Analytics period updated.', 'success');
+}
+
+function exportAnalyticsBrief() {
+    const brief = document.getElementById('analyticsBrief');
+    const kpis = document.getElementById('analyticsKpis');
+    if (!brief) return;
+    const w = window.open('', '_blank');
+    if (!w) { showToast('Allow pop-ups to print the brief.', 'error'); return; }
+    w.document.write('<!DOCTYPE html><html><head><title>ConnectLink POS - Management Brief</title>' +
+        '<style>body{font-family:Arial,Helvetica,sans-serif;padding:28px;color:#0F1729}' +
+        'h1{font-size:18px;border-bottom:3px solid #C12B3E;padding-bottom:8px}' +
+        '.k{display:inline-block;border:1px solid #E5EAF1;border-radius:10px;padding:8px 12px;margin:0 8px 8px 0}' +
+        '.k b{display:block;font-size:16px}.k span{font-size:10px;color:#64748B;text-transform:uppercase}' +
+        'p{font-size:12px;line-height:1.7}</style></head><body>' +
+        '<h1>ConnectLink POS - Management Brief</h1>' +
+        '<p><em>' + new Date().toLocaleString() + '</em></p>' +
+        (kpis ? kpis.innerHTML.replace(/<i class="fas[^"]*"><\/i>/g, '') : '') +
+        '<div>' + brief.innerHTML + '</div>' +
+        '</body></html>');
+    w.document.close();
+    w.focus();
+    w.print();
+}
+
 function renderAnalytics() {
     // If we don't have data, load it first
     if (!currentReportData || currentReportData.length === 0) {
@@ -17294,6 +17660,318 @@ function renderAnalytics() {
         }
     });
     
+    // ---- Headline KPIs for the period ----
+    let totalProfit = 0;
+    let itemsSold = 0;
+    currentReportData.forEach(t => {
+        totalProfit += t.profit || 0;
+        (t.items || []).forEach(i => { itemsSold += i.quantity || 0; });
+    });
+    const txCount = currentReportData.length;
+    const marginPct = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+    const avgSale = txCount > 0 ? totalRevenue / txCount : 0;
+    const kpiEl = document.getElementById('analyticsKpis');
+    if (kpiEl) {
+        // Previous period of the SAME length, read from the same report data, so
+        // every KPI carries a like-for-like comparison.
+        const range = window.__reportRange;
+        let prevRev = 0, prevProfit = 0, prevTx = 0, prevItems = 0;
+        if (range && range.start && range.end) {
+            const span = range.end.getTime() - range.start.getTime();
+            const pStart = new Date(range.start.getTime() - span - 1);
+            const pEnd = new Date(range.start.getTime() - 1);
+            currentReportData.forEach(t => {
+                if (!t.created_at) return;
+                const d = new Date(t.created_at);
+                if (d >= pStart && d <= pEnd) {
+                    prevRev += t.total || 0;
+                    prevProfit += t.profit || 0;
+                    prevTx++;
+                    (t.items || []).forEach(i => { prevItems += i.quantity || 0; });
+                }
+            });
+        }
+        const mkDelta = (now, prev) => {
+            if (!prev) return now > 0 ? { text: 'new', tone: 'up' } : null;
+            const pct = (now - prev) / prev * 100;
+            if (Math.abs(pct) < 0.5) return { text: 'flat', tone: 'flat' };
+            return { text: (pct > 0 ? '\u25B2 ' : '\u25BC ') + Math.abs(pct).toFixed(0) + '%', tone: pct > 0 ? 'up' : 'down' };
+        };
+        const prevMargin = prevRev > 0 ? prevProfit / prevRev * 100 : 0;
+        const prevAvg = prevTx > 0 ? prevRev / prevTx : 0;
+        const kpis = [
+            { label: 'Revenue',      value: '$' + totalRevenue.toFixed(2), icon: 'fa-dollar-sign',    cls: 'green',  d: mkDelta(totalRevenue, prevRev) },
+            { label: 'Gross Profit', value: '$' + totalProfit.toFixed(2),  icon: 'fa-arrow-trend-up', cls: 'green',  d: mkDelta(totalProfit, prevProfit) },
+            { label: 'Margin',       value: marginPct.toFixed(1) + '%',    icon: 'fa-percent',        cls: 'purple', d: mkDelta(marginPct, prevMargin) },
+            { label: 'Transactions', value: txCount.toLocaleString(),      icon: 'fa-receipt',        cls: 'blue',   d: mkDelta(txCount, prevTx) },
+            { label: 'Items Sold',   value: itemsSold.toLocaleString(),    icon: 'fa-box-open',       cls: 'blue',   d: mkDelta(itemsSold, prevItems) },
+            { label: 'Average Sale', value: '$' + avgSale.toFixed(2),      icon: 'fa-scale-balanced', cls: 'amber',  d: mkDelta(avgSale, prevAvg) }
+        ];
+        kpiEl.innerHTML = kpis.map(k =>
+            '<div class="an-kpi ' + k.cls + '">' +
+                '<span class="an-kpi-icon"><i class="fas ' + k.icon + '"></i></span>' +
+                '<div class="an-kpi-body">' +
+                    '<span class="an-kpi-label">' + k.label + '</span>' +
+                    '<span class="an-kpi-value">' + k.value +
+                        (k.d ? '<span class="an-kpi-delta ' + k.d.tone + '">' + k.d.text + '</span>' : '') +
+                    '</span>' +
+                '</div>' +
+            '</div>'
+        ).join('');
+    }
+
+    // ---- Fast / slow / no-movement products for THIS period ----
+    // (The old turnover chart divided units sold by CURRENT stock and called the
+    // result a 30-day turnover, which is why the figures looked wrong.)
+    const escName = (typeof escapeHtml === 'function')
+        ? escapeHtml
+        : function (v) { return String(v == null ? '' : v).replace(/[<>&"]/g, function (c) {
+              return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); };
+    const unitsSold = {};
+    currentReportData.forEach(t => {
+        (t.items || []).forEach(i => {
+            const nm = i.product_name || i.name || 'Unknown';
+            unitsSold[nm] = (unitsSold[nm] || 0) + (i.quantity || 0);
+        });
+    });
+    const stockByName = {};
+    (products || []).forEach(p => { stockByName[p.name] = p.stock || 0; });
+    const ranked = Object.keys(unitsSold)
+        .map(n => ({ name: n, qty: unitsSold[n], stock: stockByName[n] || 0 }))
+        .sort((a, b) => b.qty - a.qty);
+    const fastMovers = ranked.slice(0, 8);
+    const slowMovers = ranked.slice(-8).filter(r => !fastMovers.includes(r)).reverse();
+    const deadStock = (products || [])
+        .filter(p => (p.stock || 0) > 0 && !unitsSold[p.name])
+        .sort((a, b) => (b.stock || 0) - (a.stock || 0));
+
+    const moversEl = document.getElementById('moversList');
+    if (moversEl) {
+        const line = (name, qty, tone) =>
+            '<div class="an-mover ' + tone + '"><span class="an-mover-name" title="' + escName(name) + '">' +
+            escName(name) + '</span><span class="an-mover-qty">' + qty + '</span></div>';
+        moversEl.innerHTML =
+            '<div class="an-mover-cols">' +
+                '<div><div class="an-mover-head fast"><i class="fas fa-bolt"></i> Fast moving</div>' +
+                    (fastMovers.length
+                        ? fastMovers.map(r => line(r.name, r.qty + ' sold', 'fast')).join('')
+                        : '<div class="an-mover-empty">No sales in this period.</div>') +
+                '</div>' +
+                '<div><div class="an-mover-head slow"><i class="fas fa-hourglass-half"></i> Slow moving</div>' +
+                    (slowMovers.length
+                        ? slowMovers.map(r => line(r.name, r.qty + ' sold', 'slow')).join('')
+                        : '<div class="an-mover-empty">Nothing sold just once.</div>') +
+                '</div>' +
+                '<div><div class="an-mover-head dead"><i class="fas fa-triangle-exclamation"></i> No movement (stock held)</div>' +
+                    (deadStock.length
+                        ? deadStock.slice(0, 8).map(p => line(p.name, (p.stock || 0) + ' in stock', 'dead')).join('')
+                        : '<div class="an-mover-empty">Everything moved. Well done.</div>') +
+                '</div>' +
+            '</div>';
+    }
+
+    // ---- Automated management brief ----
+    const briefEl = document.getElementById('analyticsBrief');
+    if (briefEl) {
+        const anP = document.getElementById('anPeriod');
+        const periodLabel = (anP && anP.value === 'custom')
+            ? (document.getElementById('anStartDate').value + ' to ' + document.getElementById('anEndDate').value)
+            : (anP ? anP.options[anP.selectedIndex].text : 'the selected period');
+        const catRanked = Object.keys(categorySales).sort((a, b) => categorySales[b] - categorySales[a]);
+        const topCat = catRanked[0];
+        const topCatShare = (topCat && totalRevenue > 0) ? (categorySales[topCat] / totalRevenue * 100) : 0;
+        const dayRanked = Object.keys(dailySales).sort((a, b) => dailySales[b].sales - dailySales[a].sales);
+        const bestDay = dayRanked[0];
+        const slowCount = ranked.filter(r => r.qty < 5).length;
+
+        const s = [];
+        s.push('Across ' + periodLabel + ' the shop rang up ' + txCount.toLocaleString() + ' sale(s) for $' + totalRevenue.toFixed(2) +
+               ' in revenue and $' + totalProfit.toFixed(2) + ' gross profit, a ' + marginPct.toFixed(1) + '% margin, with an average sale of $' + avgSale.toFixed(2) + '.');
+        if (topCat) {
+            s.push(topCat + ' leads the categories at ' + topCatShare.toFixed(0) + '% of revenue' +
+                   (fastMovers[0] ? ', driven by ' + fastMovers[0].name + ' (' + fastMovers[0].qty + ' sold)' : '') + '.');
+        }
+        if (bestDay) s.push('The strongest trading day was ' + bestDay + ' ($' + dailySales[bestDay].sales.toFixed(2) + ').');
+        if (deadStock.length) {
+            s.push(deadStock.length + ' product(s) are holding stock but sold nothing this period - review their pricing, shelf position or run a promotion before reordering.');
+        }
+        if (slowCount) s.push(slowCount + ' line(s) moved fewer than 5 units, so keep their reorders tight.');
+        if (marginPct < 15) {
+            s.push('Margin is thin: check buying prices and avoid blanket discounting.');
+        } else {
+            s.push('Margin is healthy - protect it by keeping the fast movers in stock so you do not lose sales.');
+        }
+        if (fastMovers.length) {
+            s.push('Priority action: keep ' + fastMovers.slice(0, 3).map(r => r.name).join(', ') + ' from running out.');
+        }
+        briefEl.innerHTML = '<div class="an-brief-title"><i class="fas fa-lightbulb"></i> Management brief</div>' +
+                            '<p class="an-brief-text">' + s.join(' ') + '</p>';
+    }
+
+    // ---- Advanced retail intelligence ----
+    const intelEl = document.getElementById('analyticsIntel');
+    if (intelEl) {
+        // Revenue per line + basket size
+        const revByProduct = {};
+        let basketUnits = 0, basketCount = 0;
+        currentReportData.forEach(t => {
+            const items = t.items || [];
+            if (items.length) {
+                basketUnits += items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+                basketCount++;
+            }
+            items.forEach(i => {
+                const nm = i.product_name || i.name || 'Unknown';
+                revByProduct[nm] = (revByProduct[nm] || 0) + (i.subtotal || (i.price || 0) * (i.quantity || 0));
+            });
+        });
+
+        // Pareto / ABC: how few lines carry 80% of the revenue
+        const revRanked = Object.keys(revByProduct).sort((a, b) => revByProduct[b] - revByProduct[a]);
+        const revTotal = revRanked.reduce((sum, n) => sum + revByProduct[n], 0);
+        let cum = 0, aCount = 0;
+        const aNames = [];
+        revRanked.forEach(n => {
+            const shareBefore = revTotal > 0 ? cum / revTotal : 0;
+            cum += revByProduct[n];
+            if (shareBefore < 0.8) { aCount++; aNames.push(n); }
+        });
+        const top3Share = revTotal > 0
+            ? revRanked.slice(0, 3).reduce((sum, n) => sum + revByProduct[n], 0) / revTotal * 100
+            : 0;
+
+        // Cash sitting on the shelf in lines that did not move
+        let deadCapital = 0;
+        deadStock.forEach(p => { deadCapital += (p.stock || 0) * (p.buy_price || 0); });
+
+        // Peak trading hour
+        let peakHour = null, peakVal = -1;
+        hourlyData.forEach((v, h) => { if (v > peakVal) { peakVal = v; peakHour = h; } });
+
+        // Best day of the week
+        const dowNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dow = Array(7).fill(0);
+        currentReportData.forEach(t => {
+            if (!t.created_at) return;
+            dow[new Date(t.created_at).getDay()] += t.total || 0;
+        });
+        let bestDow = 0;
+        dow.forEach((v, i) => { if (v > dow[bestDow]) bestDow = i; });
+
+        const fmtHour = h => h === null ? 'n/a'
+            : (((h % 12) === 0 ? 12 : (h % 12)) + (h < 12 ? 'am' : 'pm'));
+        const avgBasket = basketCount > 0 ? basketUnits / basketCount : 0;
+
+        const card = (label, value, sub, tone) =>
+            '<div class="an-intel-card ' + tone + '">' +
+                '<span class="an-intel-label">' + label + '</span>' +
+                '<span class="an-intel-value">' + value + '</span>' +
+                '<span class="an-intel-sub">' + sub + '</span>' +
+            '</div>';
+
+        intelEl.innerHTML =
+            '<div class="an-intel-title"><i class="fas fa-brain"></i> Retail intelligence</div>' +
+            '<div class="an-intel-grid">' +
+                card('Pareto (ABC)', aCount + ' of ' + revRanked.length, 'lines make 80% of revenue', 'green') +
+                card('Concentration risk', top3Share.toFixed(0) + '%', 'of revenue from the top 3', top3Share > 60 ? 'red' : 'blue') +
+                card('Cash in dead stock', '$' + deadCapital.toFixed(2), deadStock.length + ' line(s) not moving', deadCapital > 0 ? 'amber' : 'green') +
+                card('Peak trading hour', fmtHour(peakHour), peakVal > 0 ? '$' + peakVal.toFixed(2) + ' that hour' : 'no sales', 'purple') +
+                card('Best day of week', dow[bestDow] > 0 ? dowNames[bestDow] : 'n/a', dow[bestDow] > 0 ? '$' + dow[bestDow].toFixed(2) : 'no sales', 'blue') +
+                card('Items per basket', avgBasket.toFixed(1), basketCount + ' basket(s)', 'green') +
+            '</div>' +
+            (aNames.length
+                ? '<div class="an-intel-note"><strong>Pareto rule:</strong> ' +
+                  aNames.slice(0, 5).map(escName).join(', ') +
+                  ' carry the bulk of your revenue - protect their shelf position and never let them run out.</div>'
+                : '');
+    }
+
+    // ---- Action centre: reorder, margin leakage, basket patterns ----
+    const actionsEl = document.getElementById('analyticsActions');
+    if (actionsEl) {
+        const actRange = window.__reportRange;
+        const days = (actRange && actRange.start && actRange.end)
+            ? Math.max(1, Math.round((actRange.end.getTime() - actRange.start.getTime()) / 86400000))
+            : 30;
+
+        // Burn rate per day versus the stock on hand -> days of cover
+        const atRisk = Object.keys(unitsSold).map(n => {
+            const stock = stockByName[n];
+            if (stock === undefined || stock === null) return null;
+            const perDay = unitsSold[n] / days;
+            return { name: n, sold: unitsSold[n], stock: stock, perDay: perDay,
+                     cover: perDay > 0 ? stock / perDay : Infinity };
+        }).filter(Boolean)
+          .filter(r => r.cover <= 14)
+          .sort((a, b) => a.cover - b.cover)
+          .slice(0, 8);
+        const reorderQty = r => Math.max(1, Math.ceil(r.perDay * 21 - r.stock));
+        const coverTxt = c => c === Infinity ? 'n/a' : (c < 1 ? 'today' : c.toFixed(1) + 'd');
+        const coverTone = c => c <= 3 ? 'dead' : (c <= 7 ? 'slow' : 'fast');
+
+        // Realised profit per line: anything at or below zero is margin leakage
+        const leaks = {};
+        currentReportData.forEach(t => {
+            (t.items || []).forEach(i => {
+                const nm = i.product_name || i.name || 'Unknown';
+                const q = i.quantity || 0;
+                const rev = i.subtotal || (i.price || 0) * q;
+                const cost = (i.buy_price || 0) * q;
+                if (q > 0 && (rev - cost) <= 0) leaks[nm] = (leaks[nm] || 0) + (rev - cost);
+            });
+        });
+        const leakNames = Object.keys(leaks).sort((a, b) => leaks[a] - leaks[b]);
+        const leakTotal = leakNames.reduce((sum, n) => sum + leaks[n], 0);
+
+        // Basket affinity: which two lines are most often sold together
+        const pairCount = {};
+        currentReportData.forEach(t => {
+            const names = Array.from(new Set((t.items || [])
+                .map(i => i.product_name || i.name).filter(Boolean))).sort();
+            for (let a = 0; a < names.length; a++) {
+                for (let b = a + 1; b < names.length; b++) {
+                    const key = names[a] + ' + ' + names[b];
+                    pairCount[key] = (pairCount[key] || 0) + 1;
+                }
+            }
+        });
+        const topPairs = Object.keys(pairCount)
+            .filter(k => pairCount[k] > 1)
+            .sort((a, b) => pairCount[b] - pairCount[a])
+            .slice(0, 6);
+
+        actionsEl.innerHTML =
+            '<div class="an-intel-title"><i class="fas fa-clipboard-list"></i> Action centre &middot; ' + days + '-day window</div>' +
+            '<div class="an-act-cols">' +
+                '<div>' +
+                    '<div class="an-mover-head fast"><i class="fas fa-triangle-exclamation"></i> Stock-out risk (next 2 weeks)</div>' +
+                    (atRisk.length
+                        ? atRisk.map(r => '<div class="an-mover ' + coverTone(r.cover) + '">' +
+                            '<span class="an-mover-name" title="' + escName(r.name) + '">' + escName(r.name) + '</span>' +
+                            '<span class="an-mover-qty">' + coverTxt(r.cover) + ' left &middot; buy ' + reorderQty(r) + '</span></div>').join('')
+                        : '<div class="an-mover-empty">Nothing is close to running out. Good.</div>') +
+                '</div>' +
+                '<div>' +
+                    '<div class="an-mover-head dead"><i class="fas fa-arrow-trend-down"></i> Margin leakage (sold at/below cost)</div>' +
+                    (leakNames.length
+                        ? leakNames.slice(0, 8).map(n => '<div class="an-mover dead">' +
+                            '<span class="an-mover-name" title="' + escName(n) + '">' + escName(n) + '</span>' +
+                            '<span class="an-mover-qty">$' + leaks[n].toFixed(2) + '</span></div>').join('') +
+                          '<div class="an-intel-note">Total leaked: <strong>$' + leakTotal.toFixed(2) + '</strong>. Check the buying price, or stop discounting these lines.</div>'
+                        : '<div class="an-mover-empty">No line sold at or below cost. Excellent.</div>') +
+                '</div>' +
+                '<div>' +
+                    '<div class="an-mover-head fast"><i class="fas fa-people-arrows"></i> Bought together</div>' +
+                    (topPairs.length
+                        ? topPairs.map(k => '<div class="an-mover fast">' +
+                            '<span class="an-mover-name" title="' + escName(k) + '">' + escName(k) + '</span>' +
+                            '<span class="an-mover-qty">' + pairCount[k] + 'x</span></div>').join('')
+                        : '<div class="an-mover-empty">Not enough multi-line baskets yet.</div>') +
+                    '<div class="an-intel-note">Shelf these pairs side by side, or bundle them.</div>' +
+                '</div>' +
+            '</div>';
+    }
+
     // Category Distribution Chart (Pie)
     const categoryChartCanvas = document.getElementById('categoryChart');
     if (categoryChartCanvas) {

@@ -1,15 +1,15 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "TestServer",
-  "file": "_test_server.py",
-  "purpose": "Index",
-  "entry_function": "index()",
+  "module": "PreviewPosServer",
+  "file": "_preview_pos_server.py",
+  "purpose": "Tiny preview server: renders templates/pos-system.html with no database, so the",
+  "entry_function": "pos_system()",
   "entry_flows": [
-    "_test_server → app.route, app.run"
+    "_preview_pos_server → app.route, app.run"
   ],
   "public_api": [
-    "index()"
+    "pos_system()"
   ],
   "dependencies": [
     "flask"
@@ -27,11 +27,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "7954b921466a103f",
-  "file_mtime": 1783366678982.6572,
-  "file_size": 377,
-  "file_birthtime": 1783366678756.6213,
-  "generated_at": "2026-10-04T16:18:12.080352Z",
-  "stale": false,
+  "file_hash": "be7b28a0f4977346",
+  "file_mtime": 1791132604488.9375,
+  "file_size": 534,
+  "file_birthtime": 1791132604237.7322,
+  "generated_at": "2026-10-04T16:50:07.484579Z",
+  "stale": true,
   "stale_reason": "source file deleted"
 }

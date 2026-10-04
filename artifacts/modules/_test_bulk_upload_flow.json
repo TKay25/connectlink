@@ -1,0 +1,62 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TestBulkUploadFlow",
+  "file": "_test_bulk_upload_flow.py",
+  "purpose": "Throwaway harness: drive the REAL upload-stock-analyze and upload-stock-apply",
+  "entry_function": "class FakeCursor  # line 50",
+  "entry_flows": [
+    "FakeCursor.__init__() → ast.parse, source.splitlines, pieces.append, template.count",
+    "FakeConn.commit() → ast.parse, source.splitlines, pieces.append, template.count",
+    "FakeApp.route() → ast.parse, source.splitlines, pieces.append, template.count",
+    "FakeRequest.get_json() → ast.parse, source.splitlines, pieces.append, template.count",
+    "files.get(name) → ast.parse, source.splitlines, pieces.append, template.count"
+  ],
+  "public_api": [
+    "class FakeCursor  # line 50",
+    "  FakeCursor.__init__()",
+    "  FakeCursor.execute(sql, params = None)",
+    "  FakeCursor.fetchone()",
+    "  FakeCursor.fetchall()",
+    "class FakeConn  # line 74",
+    "  FakeConn.commit()",
+    "  FakeConn.rollback()",
+    "class FakeDB  # line 82",
+    "class FakeApp  # line 112",
+    "  FakeApp.route()",
+    "class Cur(object)  # line 117",
+    "class FakeRequest  # line 124",
+    "  FakeRequest.get_json()",
+    "  FakeRequest.get(name)",
+    "class files  # line 125",
+    "  files.get(name)",
+    "class FakeUpload(io.BytesIO)  # line 177",
+    "segment(node)",
+    "fake_execute_values(cursor, sql, rows, template = None, fetch = False)"
+  ],
+  "dependencies": [
+    "openpyxl",
+    "psycopg2",
+    "secrets"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: SRC = 'ConnectLink.py', WANT_FUNCS = {'_bulk_stock_header', '_bulk_stock_number', '_bulk_stock_unit', '_bulk_stock_categories_live', '_norm_product_name', '_product_similarity', 'make_bulk_upload_reference', 'pos_upload_stock_analyze', 'pos_upload_stock_apply'}, WANT_VARS = {'BULK_STOCK_MAX_ROWS', 'BULK_STOCK_SIMILARITY', 'BULK_STOCK_UNIT_TYPES', 'BULK_STOCK_CATEGORIES'}, LIVE = [('DIY',), ('Electricals',), ('Plumbing',), ('Machinery',), ('Kitchen',), ('Furniture',), ('Solar',)], CATALOGUE = [(7, 'PVC Pipe', 'Plumbing', 40, 5.0, 3.5), (8, 'LED Bulb', 'Electricals', 100, 2.5, 1.2)], CAPTURED = {'insert_products': None, 'sql': []}",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "86159337e2f8d6ec",
+  "file_mtime": 1791132364227.8977,
+  "file_size": 7793,
+  "file_birthtime": 1791132364001.2554,
+  "generated_at": "2026-10-04T16:49:06.958014Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
