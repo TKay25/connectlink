@@ -18837,8 +18837,20 @@ function setupEventListeners() {
         const logoutBtn = document.getElementById('logoutBtn');
         if (logoutBtn) logoutBtn.addEventListener('click', async () => { 
             showLoader('Logging out...');
+            // Sign out ONLY the identity. Do NOT localStorage.clear() here: the
+            // till shares its storage with three things that are not ours to throw
+            // away, and every one of them was being destroyed on logout:
+            //   connectlink_theme     - the Light/Dark choice. Wiping it made the
+            //                           landing page fall back to the operating
+            //                           system's colour scheme, so a shop that had
+            //                           been working in Light landed on a Dark page.
+            //   pos_offline_sales_v1  - sales rung up with no connection that have
+            //                           NOT reached the server yet. Clearing these
+            //                           loses money, silently.
+            //   pos_api_cache_v1      - the cached catalogue/auth that lets this
+            //                           till open and sell while offline.
+            ['isLoggedIn', 'user', 'posBranch'].forEach(k => localStorage.removeItem(k));
             try { await fetch('/api/logoutpos', { method: 'POST', credentials: 'include' }); } catch (e) {} 
-            localStorage.clear(); 
             setTimeout(() => { window.location.href = '/api/logoutpos'; }, 200);
         });
     }
@@ -18874,13 +18886,17 @@ function setupEventListeners() {
         document.body.classList.toggle('pos-drawer-open', open);
     };
 
-    // Apply saved theme on load
+    // Apply the theme on load, using the SAME rule as every other portal
+    // (mainindex / users / HR / procurement): an explicit saved choice wins,
+    // otherwise follow the operating system. The POS used to honour only a saved
+    // 'dark', so on a machine set to a dark OS it opened Light while the page you
+    // land on after logging out opened Dark - the two looked out of step.
     (function() {
-        const savedTheme = localStorage.getItem('connectlink_theme');
-        if (savedTheme === 'dark') {
-            document.body.classList.add('dark-theme');
-            syncPOSThemeUI(true);
-        }
+        const saved = localStorage.getItem('connectlink_theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = saved ? saved === 'dark' : prefersDark;
+        document.body.classList.toggle('dark-theme', isDark);
+        syncPOSThemeUI(isDark);
     })();
 
     // ==================== INITIALIZATION ====================

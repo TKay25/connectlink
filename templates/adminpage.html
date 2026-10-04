@@ -21326,7 +21326,12 @@ function setTheme(mode) {
     } else {
         document.body.classList.remove('dark-theme');
     }
+    // Write BOTH keys. `connectlink_theme` is the shared one every portal reads;
+    // `adminTheme` is this portal's older key, kept only so nothing else that
+    // still looks for it breaks. Writing just one of them is what let the admin
+    // portal and the POS/landing pages disagree about the theme.
     localStorage.setItem('adminTheme', mode);
+    localStorage.setItem('connectlink_theme', mode);
     highlightThemeCard(mode);
     document.getElementById('themeMsg').innerHTML = '<span style="color:#2e7d32;"><i class="bi bi-check-circle"></i> Theme changed to ' + mode + ' mode.</span>';
 }
@@ -21359,11 +21364,24 @@ function highlightThemeCard(mode) {
     }
 }
 
-// Apply saved theme on page load
+// Apply saved theme on page load, using the SAME rule as every other portal:
+// explicit saved choice wins (shared key first, then this page's legacy key),
+// otherwise follow the operating system. Reading only `adminTheme` here is what
+// made a theme chosen on another page appear to be ignored on this one.
 (function() {
-    const savedTheme = localStorage.getItem('adminTheme');
-    if (savedTheme === 'dark') {
-        document.body.classList.add('dark-theme');
+    const saved = localStorage.getItem('connectlink_theme') || localStorage.getItem('adminTheme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = saved ? saved === 'dark' : prefersDark;
+    document.body.classList.toggle('dark-theme', isDark);
+    const mode = isDark ? 'dark' : 'light';
+    localStorage.setItem('connectlink_theme', mode);
+    localStorage.setItem('adminTheme', mode);
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = isDark ? 'bi bi-sun' : 'bi bi-moon';
+    // Reflect the choice on the settings cards when this page has them.
+    if (document.getElementById('themeLightCard') && document.getElementById('themeDarkCard')
+        && typeof highlightThemeCard === 'function') {
+        highlightThemeCard(mode);
     }
 })();
 
