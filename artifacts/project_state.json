@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-10-04T16:17:42.178Z",
+  "last_sync": "2026-10-05T11:12:45.128Z",
   "module_count": 76,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 98,
+  "orphaned_count": 101,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -222,6 +222,10 @@
       "source": "_preview_multibranch.py"
     },
     {
+      "artifact": "artifacts/modules/_preview_pos_server.json",
+      "source": "_preview_pos_server.py"
+    },
+    {
       "artifact": "artifacts/modules/_preview_server.json",
       "source": "_preview_server.py"
     },
@@ -296,6 +300,14 @@
     {
       "artifact": "artifacts/modules/_test_branch_health2.json",
       "source": "_test_branch_health2.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_bulk_template.json",
+      "source": "_test_bulk_template.py"
+    },
+    {
+      "artifact": "artifacts/modules/_test_bulk_upload_flow.json",
+      "source": "_test_bulk_upload_flow.py"
     },
     {
       "artifact": "artifacts/modules/_test_dayend.json",
@@ -400,28 +412,24 @@
   ],
   "recent_deletions": [
     {
-      "rel": "_preview_mobile_pos.py",
-      "ts": "2026-10-03T09:28:29.963Z"
+      "rel": "_preview_pos_server.py",
+      "ts": "2026-10-04T16:51:11.352Z"
     },
     {
-      "rel": "_preview_mobile_pos.py",
-      "ts": "2026-10-03T09:28:29.708Z"
+      "rel": "_test_bulk_template.py",
+      "ts": "2026-10-04T16:49:57.994Z"
     },
     {
-      "rel": "_preview_sync_calls.json",
-      "ts": "2026-10-03T09:12:35.042Z"
+      "rel": "_test_bulk_upload_flow.py",
+      "ts": "2026-10-04T16:49:49.081Z"
     },
     {
-      "rel": "_preview_mobile_pos.py",
-      "ts": "2026-10-03T09:12:35.038Z"
+      "rel": "_preview_analytics.py",
+      "ts": "2026-10-04T16:24:34.899Z"
     },
     {
-      "rel": "_preview_mobile_pos.py",
-      "ts": "2026-10-03T08:56:19.852Z"
-    },
-    {
-      "rel": "_preview_mobile_pos.py",
-      "ts": "2026-10-03T08:56:19.732Z"
+      "rel": "_preview_analytics.py",
+      "ts": "2026-10-04T16:24:34.738Z"
     }
   ]
 }
