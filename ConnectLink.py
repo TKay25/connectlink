@@ -16289,8 +16289,23 @@ def pos_upload_stock_analyze():
     for item in rows:
         hit = exact_by_name.get(item['name'].strip().lower())
         if hit:
-            exact.append(dict(item, product_id=hit['id'], product_name=hit['name'],
-                              current_stock=hit['stock']))
+            # The name matches, but the file may be putting the item in a
+            # different category. That disagreement is silent once the upload is
+            # applied, so it becomes a decision like any other conflict rather
+            # than being dropped on the floor.
+            file_cat = (item.get('category') or '').strip()
+            existing_cat = (hit.get('category') or '').strip()
+            if file_cat and file_cat.lower() != existing_cat.lower():
+                conflicts.append(dict(
+                    item,
+                    reason='category',
+                    mismatch={'file_category': file_cat,
+                              'product_category': existing_cat},
+                    candidates=[dict(hit, score=1.0)]
+                ))
+            else:
+                exact.append(dict(item, product_id=hit['id'], product_name=hit['name'],
+                                  current_stock=hit['stock']))
             continue
         scored = []
         for cand in catalogue:
@@ -16388,7 +16403,8 @@ def pos_upload_stock_apply():
         if buy < 0 or sell < 0:
             failed.append(f'{name or "A row"}: prices cannot be negative.')
             continue
-        if str(d.get('action') or 'merge').strip().lower() == 'create':
+        action = str(d.get('action') or 'merge').strip().lower()
+        if action == 'create':
             if not name:
                 failed.append('A row with no product name was skipped.')
                 continue
@@ -16404,7 +16420,11 @@ def pos_upload_stock_apply():
             if not d.get('product_id'):
                 failed.append(f'{name or "A row"}: no product was chosen for it.')
                 continue
-            to_merge.append((int(d['product_id']), qty, buy, sell, name))
+            # 'merge_category' means the uploader decided the PRODUCT's category
+            # is the one that is wrong, so the merge corrects it as well.
+            merge_cat = (str(d.get('category') or '').strip()
+                         if action == 'merge_category' else '')
+            to_merge.append((int(d['product_id']), qty, buy, sell, name, merge_cat))
 
     # Two rows for the same NEW product in one file must not create it twice.
     # Nothing is written yet, so they are collapsed into one product here: the
@@ -16451,14 +16471,17 @@ def pos_upload_stock_apply():
                 """, [(n, c, u, dt, b, s) for n, q, b, s, c, u, dt in to_create],
                     template="(%s, %s, %s, %s, %s, %s, 0, 10, '', '')", fetch=True)
                 for (n, q, b, s, c, u, dt), new_id in zip(to_create, inserted):
-                    to_merge.append((new_id[0], q, b, s, n))
+                    to_merge.append((new_id[0], q, b, s, n, ''))
                     created_ids.add(new_id[0])
                 created = len(to_create)
 
             qty_by_product, cost_by_product, price_by_product = {}, {}, {}
+            category_overrides = {}
             lot_rows, addition_rows = [], []
             total_qty, total_cost = 0, 0.0
-            for pid, qty, buy, sell, _name in to_merge:
+            for pid, qty, buy, sell, _name, merge_cat in to_merge:
+                if merge_cat:
+                    category_overrides[pid] = merge_cat
                 qty_by_product[pid] = qty_by_product.get(pid, 0) + qty
                 cost_by_product[pid] = cost_by_product.get(pid, 0.0) + (buy * qty)
                 # (product_id, branch_id, quantity_received, quantity_remaining, unit_cost, reference)

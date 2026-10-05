@@ -13878,15 +13878,23 @@ async function fetchTransactionsData() {
         if (confWrap && confBody) {
             confWrap.style.display = conflicts.length ? 'block' : 'none';
             confBody.innerHTML = conflicts.map((c, i) => {
+                const isCat = c.reason === 'category';
                 const opts = (c.candidates || []).map(cand =>
                     `<option value="${cand.id}">${escapeHtml(cand.name)} — ${escapeHtml(cand.category || 'no category')}, stock ${cand.stock}, sell ${money(cand.sell_price)}${cand.score < 1 ? ` (${Math.round(cand.score * 100)}% similar)` : ''}</option>`).join('');
+                const note = isCat
+                    ? `<div class="text-danger small mt-1"><i class="fas fa-triangle-exclamation me-1"></i>Already in the catalogue as <strong>${escapeHtml((c.mismatch && c.mismatch.product_category) || 'no category')}</strong>; this file says <strong>${escapeHtml((c.mismatch && c.mismatch.file_category) || '')}</strong>.</div>`
+                    : '';
+                const catOption = isCat
+                    ? `<option value="merge_category">Add to it AND set its category to "${escapeHtml((c.mismatch && c.mismatch.file_category) || '')}"</option>`
+                    : '';
                 return `<tr>
                     <td><strong>${escapeHtml(c.name)}</strong>
-                        <div class="text-muted small">${c.quantity} × buy ${money(c.buy_price)}, sell ${money(c.sell_price)}</div></td>
+                        <div class="text-muted small">${c.quantity} × buy ${money(c.buy_price)}, sell ${money(c.sell_price)}</div>${note}</td>
                     <td>
                         <select class="form-select form-select-sm" data-conflict="${i}" onchange="onConflictChoice(${i}, this.value)">
                             <option value="">- choose -</option>
                             <option value="merge">Add to an existing product</option>
+                            ${catOption}
                             <option value="create">Create a new product</option>
                         </select>
                         <select class="form-select form-select-sm mt-1" id="uploadCandidate${i}" style="display:none;">${opts}</select>
@@ -13909,7 +13917,7 @@ async function fetchTransactionsData() {
 
     function onConflictChoice(index, value) {
         const cand = document.getElementById('uploadCandidate' + index);
-        if (cand) cand.style.display = (value === 'merge') ? '' : 'none';
+        if (cand) cand.style.display = (value === 'merge' || value === 'merge_category') ? '' : 'none';
     }
     window.onConflictChoice = onConflictChoice;
 
@@ -13938,7 +13946,7 @@ async function fetchTransactionsData() {
                           sell_price: c.sell_price, action: action,
                           category: c.category || '', unit_type: c.unit_type || '',
                           unit_details: c.unit_details || '' };
-            if (action === 'merge') {
+            if (action === 'merge' || action === 'merge_category') {
                 const cand = document.getElementById('uploadCandidate' + i);
                 if (!cand || !cand.value) return { error: `Pick a product to merge "${c.name}" into.` };
                 row.product_id = parseInt(cand.value, 10);
