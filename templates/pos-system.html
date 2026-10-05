@@ -6889,7 +6889,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <div class="stat-card-body">
                     <div class="stat-card-label">Low Stock</div>
                     <div class="stat-card-value value-amber" id="lowStockCountMetric">0</div>
-                    <div class="stat-card-sub"><i class="fas fa-triangle-exclamation me-1"></i>Below 10 units</div>
+                    <div class="stat-card-sub"><i class="fas fa-triangle-exclamation me-1"></i>Below the item's minimum</div>
                 </div>
                 <div class="stat-card-arrow"><i class="fas fa-chevron-right"></i></div>
             </div>
@@ -8434,7 +8434,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             'Stock': stock,
                             'Total Buy Price': totalBuyPrice,
                             'Total Sell Price': totalSellPrice,
-                            'Stock-Status': stock < 5 ? 'Low' : 'OK',
+                            'Stock-Status': stockStatusOf(p).label,
                         };
                     });
                     // Add totals row
@@ -8534,8 +8534,8 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 totalBuy += buyPrice * stock;
                 totalSell += sellPrice * stock;
                 totalStock += stock;
-                const status = stock < 5 ? 'Low' : 'OK';
-                const statusColor = stock < 5 ? '#dc2626' : '#15803d';
+                const status = stockStatusOf(p).label;
+                const statusColor = status === 'In stock' ? '#15803d' : '#dc2626';
                 return `
                     <tr>
                         <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">${p.id}</td>
@@ -10314,7 +10314,7 @@ function showLowStockModal() {
     
     // Low stock is about what THIS shop sells: an item it has never stocked is not
     // "low", it is simply not on this till.
-    const lowStockProducts = products.filter(p => stockedInThisBranch(p) && p.stock < 10 && p.stock > 0);
+    const lowStockProducts = products.filter(p => stockStatusOf(p).label === 'Low');
     
     // Sort by stock level (critical first - lowest stock first)
     lowStockProducts.sort((a, b) => a.stock - b.stock);
@@ -10386,7 +10386,7 @@ function showOutOfStockModal() {
     const container = document.getElementById('outOfStockProductsList');
     if (!container) return;
     
-    const outOfStockProducts = products.filter(p => stockedInThisBranch(p) && p.stock === 0);
+    const outOfStockProducts = products.filter(p => stockStatusOf(p).label === 'Out of stock');
     currentOutOfStockData = [...outOfStockProducts];
     
     if (!outOfStockProducts.length) {
@@ -10544,8 +10544,8 @@ function updateInventoryMetrics() {
     // stock (an item that was never stocked here contributes nothing to them anyway).
     const tillProducts = products.filter(stockedInThisBranch);
     const totalProducts = tillProducts.length;
-    const lowStockCount = tillProducts.filter(p => p.stock < 10 && p.stock > 0).length;
-    const outOfStockCount = tillProducts.filter(p => p.stock === 0).length;
+    const lowStockCount = tillProducts.filter(p => stockStatusOf(p).label === 'Low').length;
+    const outOfStockCount = tillProducts.filter(p => stockStatusOf(p).label === 'Out of stock').length;
     
     const totalProductsEl = document.getElementById('totalProductsCount');
     const lowStockMetricEl = document.getElementById('lowStockCountMetric');
@@ -14763,6 +14763,20 @@ async function fetchTransactionsData() {
         return !p || p.stocked_here !== false;
     }
 
+    // The ONE place a product's stock status is decided, so "In stock", "Low",
+    // "Out of stock" and "Not stocked here" can never disagree between the till, the
+    // inventory table and the exports. "Low" is below the item's OWN minimum -- the
+    // same rule the dashboard's low-stock figure uses -- and an item this branch has
+    // never stocked is never dressed up as being in stock here.
+    function stockStatusOf(p) {
+        if (!stockedInThisBranch(p)) return { label: 'Not stocked here', cls: 'bg-secondary' };
+        const stock = Number(p.stock || 0);
+        const min = Number(p.min_stock_level || 10);
+        if (stock <= 0) return { label: 'Out of stock', cls: 'bg-danger' };
+        if (stock < min) return { label: 'Low', cls: 'bg-warning text-dark' };
+        return { label: 'In stock', cls: 'bg-success' };
+    }
+
     function filterProducts() {
         let filtered = products.filter(stockedInThisBranch);
         if (selectedCategory !== 'all') {
@@ -15115,9 +15129,13 @@ function renderProductsWithFilter(filteredProducts = null) {
         return;
     }
     
-    container.innerHTML = productsToShow.map(product => `
+    container.innerHTML = productsToShow.map(product => {
+        const status = stockStatusOf(product).label;
+        const isOut = status === 'Out of stock';
+        const isLow = status === 'Low';
+        return `
         <div class="col-6 col-md-4 col-lg-3">
-            <div class="product-card-compact ${product.stock === 0 ? 'is-out' : (product.stock < 10 ? 'is-low' : '')}" data-category="${escapeHtml(product.category)}" onclick="addToCart(${product.id})">
+            <div class="product-card-compact ${isOut ? 'is-out' : (isLow ? 'is-low' : '')}" data-category="${escapeHtml(product.category)}" onclick="addToCart(${product.id})">
                 <div class="product-icon-compact">
                     <i class="fas ${getCategoryIcon(product.category)}"></i>
                 </div>
@@ -15125,8 +15143,8 @@ function renderProductsWithFilter(filteredProducts = null) {
                     <div class="product-name-compact" title="${escapeHtml(product.name)}">${escapeHtml(product.name)}</div>
                     <div class="product-meta-row">
                         <span class="product-unit-compact">${product.unit_type}: ${product.unit_details || 'N/A'}</span>
-                        <span class="product-stock-compact ${product.stock < 10 ? 'low-stock' : ''}">${product.stock === 0 ? 'Out of stock' : 'Stock: ' + product.stock}</span>
-                        ${product.stock === 0 ? '<span class="product-stock-pill pill-out"><i class="fas fa-times-circle"></i> Out</span>' : (product.stock < 10 ? '<span class="product-stock-pill pill-low"><i class="fas fa-exclamation"></i> Low</span>' : '')}
+                        <span class="product-stock-compact ${isLow ? 'low-stock' : ''}">${isOut ? 'Out of stock' : 'Stock: ' + product.stock}</span>
+                        ${isOut ? '<span class="product-stock-pill pill-out"><i class="fas fa-times-circle"></i> Out</span>' : (isLow ? '<span class="product-stock-pill pill-low"><i class="fas fa-exclamation"></i> Low</span>' : '')}
                     </div>
                 </div>
                 <div class="price-add-wrapper">
@@ -15137,7 +15155,8 @@ function renderProductsWithFilter(filteredProducts = null) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // Update the original renderProducts function
@@ -18835,7 +18854,7 @@ function renderInventory() {
                 </div>
             </td>
             <td class="${p.stock < 5 ? 'text-danger fw-bold' : ''}">${p.stock}</td>
-            <td>${p.stock < 5 ? '<span class="badge bg-danger">Low</span>' : '<span class="badge bg-success">OK</span>'}</td>
+            <td><span class="badge ${stockStatusOf(p).cls}">${stockStatusOf(p).label}</span></td>
             <td>
                 <button class="btn btn-sm btn-outline-success me-1" onclick="showEditStockModal(${p.id})" title="Add Stock">
                     <i class="fas fa-plus-circle"></i> Add Stock
@@ -19069,7 +19088,7 @@ function renderInventory() {
                 </div>
             </td>
             <td class="${p.stock < 5 ? 'text-danger fw-bold' : ''}">${p.stock}</td>
-            <td>${p.stock < 5 ? '<span class="badge bg-danger">Low</span>' : '<span class="badge bg-success">OK</span>'}</td>
+            <td><span class="badge ${stockStatusOf(p).cls}">${stockStatusOf(p).label}</span></td>
             <td>
                 <button class="btn btn-sm btn-outline-success me-1" onclick="showEditStockModal(${p.id})" title="Add Stock">
                     <i class="fas fa-plus-circle"></i> Add Stock

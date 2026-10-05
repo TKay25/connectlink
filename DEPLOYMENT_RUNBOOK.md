@@ -1320,6 +1320,14 @@ sudo systemctl start connectlink
   Stock (and the lists behind them) now count what this till offers; the value and margin
   cards still total the branch's real stock. The card's sub-label reads "Stocked in this
   branch" rather than "Catalogue items".
+- ✅ **One stock status decides every label.** A product now reads exactly one of **In
+  stock / Low / Out of stock / Not stocked here**, from a single rule used by the till's
+  product cards, the inventory table and the Inventory Excel and PDF exports — so the
+  same item can never be "Low" in one place and "OK" in another. "Low" is below the
+  item's **own** minimum stock level (the rule the dashboard already used) instead of a
+  fixed 5 or 10, and an item this branch has never stocked reads "Not stocked here"
+  rather than being dressed up as low or in stock. The Low Stock card's sub-label reads
+  "Below the item's minimum".
 - ✅ **Nothing becomes unreachable.** The Inventory tab, the audit report and the Excel/PDF
   exports still list every product, **Add Stock** on any of them gives the item a branch row
   and it returns to the till, and the transfer list still offers the exact item a row asked
