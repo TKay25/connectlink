@@ -491,6 +491,90 @@ Also worth setting (pre-existing behaviour, unchanged):
 * **Stock shown** — on a real branch every figure is that branch's. On the read-only
   All Branches view, stock figures are the company total.
 
+### Stock reconciliation — repairing stock that was mixed up
+
+Before the offline till stamped the branch a sale was rung in, a sale rung in one shop
+could be replayed while the till was sitting on the other, so the quantity came off the
+wrong shelf. Two things fix that, and they are separate:
+
+1. **Prevention (automatic, nothing to do).** The cached catalogue is tagged with the
+   branch that fetched it and is only ever replayed to that shop; queued offline sales
+   record the branch they were rung in; and `/api/transactions/sync` **refuses** a sale
+   whose recorded branch disagrees with the session, leaving it on the till and saying
+   so. A mis-filed deduction can no longer happen silently.
+2. **Repair (manual, only if you need it).** **POS drawer → Stock reconciliation**
+   (admin only), or Inventory → *Stock Reconciliation*. The page lists every
+   offline-synced sale in the branch — the only sales that can ever have been mis-filed —
+   and highlights **negative branch stock**, which is the hard evidence that some sale
+   deducted goods the shop never held. Moving a sale returns the quantity to the shop
+   that wrongly received it and takes it off the shop that sold it, in one transaction,
+   and writes a row to `stock_reconciliation_log`.
+
+Safeguards: you can only move a sale *out of* the branch you are standing in, you must
+enter the **destination branch's access code**, the move is refused when the destination
+cannot cover the quantity, and offline-synced sales held for another branch are never
+aged out of the till's queue (dropping them would lose the money). A move changes the
+branch, not the history — the receipt keeps its number and time.
+
+> The tool cannot know which shop a sale was *meant* for: the old queue did not record
+> it. It surfaces the candidates and a human confirms the destination.
+
+### Layby (reserve now, pay in instalments)
+
+**Layby** is a fourth payment method in the till, beside Cash / Card / Transfer. Choosing
+it opens a form for the **customer name, ID number**, optional phone, a **deposit paid
+now**, and a **payment plan** — pick the number of instalments and the amount still due
+is spread across them (the last one absorbs the rounding), each with an optional
+expected date. The instalments **must add up to the amount still due**; the server
+refuses the layby otherwise. Goods leave the branch's shelf at the layby, costed from the
+FIFO layers they consumed.
+
+How it hits the books:
+
+* The sale is written with the transaction status **`layby`**, which every existing
+  "sales today" figure ignores — the money has not been received.
+* **Only instalments actually received are counted, on the day they are received.**
+  They are recorded on the **Layby** tab in the sidebar (active/paid-off/cancelled
+  filter, balance, plan state and payment history per layby).
+* When the balance reaches zero the layby *and* its transaction are released to
+  `completed`, so the full sale value lands in the sales reports then.
+* **Day-end** excludes layby sales from takings and reports what was collected instead —
+  a *Layby collected* tile, a per-cashier line, and a `Layby collected` column in the
+  Excel export.
+* **Audit report** lists layby items like any other sale, badged **Layby**, with the
+  receipt number in the details column.
+* **Cancelling** returns the reserved stock to the shelf and voids the sale. Money already
+  collected stays on the record on purpose — refunding it is a counter decision.
+
+Tables `laybys`, `layby_items`, `layby_plan` and `layby_payments` are created
+automatically on boot, like the branch schema, so there is no manual migration step.
+
+> **Limitation:** a layby cannot be created or paid while the till is offline. The cash
+> sale queue is built around money already taken; a layby needs the server to reserve the
+> goods and set the plan, so the till reports "could not reach the server" instead of
+> pretending.
+
+### Bulk stock upload (Excel) — what it will and will not duplicate
+
+Inventory → *Upload New Stock* is two steps and **writes nothing** until you press
+Apply.
+
+* **Exact name match** (trimmed, case-insensitive) against the catalogue → **merged**:
+  the quantity is added to that product and its prices updated. No duplicate is created.
+* **No exact match but a name at least 72% similar** → raised as a **conflict** with up
+  to five candidates and their similarity percentages, and you choose *Add to an existing
+  product* or *Create a new product*.
+* **Nothing similar** → treated as a new product. Rows for the same new product are
+  collapsed into one product before anything is written (quantities summed,
+  weighted-average cost, last price wins), so one file cannot create the same product
+  twice.
+* **Category is not a conflict.** The file's Category is matched case-insensitively
+  against the live category list; anything unrecognised is blanked and the page's default
+  category is used. When a row merges into an existing product the file's Category is
+  ignored — check those rows yourself if the categories matter.
+* There is no re-check between *Check File* and *Apply*, so do not leave a checked file
+  sitting while someone else adds the same product.
+
 ---
 
 ## CONFIGURATION
@@ -1071,6 +1155,23 @@ sudo systemctl start connectlink
 ---
 
 ## Changelog
+
+**October 2026 — POS stock isolation, layby, reconciliation**
+- ✅ Cross-branch stock leaks closed: the offline catalogue cache is tagged with the branch
+  that fetched it, queued offline sales record the branch they were rung in, and
+  `/api/transactions/sync` refuses a sale filed against a branch other than the session.
+  The bulk-upload check and the barcode lookup no longer fall back to the catalogue-wide
+  total, and offline sales held for another branch are never aged out of the till's queue.
+- ✅ Stock reconciliation tool at `/pos/reconciliation` (POS drawer → Stock reconciliation,
+  or Inventory → Stock Reconciliation) to find and move mis-filed offline sales, with
+  negative branch stock as the evidence. Audited in `stock_reconciliation_log`.
+- ✅ Layby: a new payment method capturing customer name, ID number, deposit and a
+  validated instalment plan, with a **Layby** sidebar tab for recording payments and
+  cancelling. Takings follow the money (instalments on the day received, the sale released
+  to completed on the final payment); day-end and the audit report both show layby
+  separately.
+- ✅ Bulk stock upload: a file that lists the same new product twice no longer creates two
+  products; the rows are collapsed by name before anything is written.
 
 **v2.0.0 - April 2026**
 - ✅ Full system release
