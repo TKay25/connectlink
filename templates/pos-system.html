@@ -10932,10 +10932,11 @@ function renderAuditMovements(movements) {
     
     tbody.innerHTML = movements.map(m => {
         const isAddition = m.type === 'addition';
-        const badgeClass = isAddition ? 'bg-success' : m.reduction_type === 'item_sale' ? 'bg-info' : 'bg-danger';
+        const isLayby = m.reduction_type === 'item_sale' && m.payment_method === 'layby';
+        const badgeClass = isAddition ? 'bg-success' : m.reduction_type === 'item_sale' ? (isLayby ? 'bg-warning text-dark' : 'bg-info') : 'bg-danger';
         const icon = isAddition ? 'fa-plus-circle' : m.reduction_type === 'item_sale' ? 'fa-shopping-cart' : 'fa-minus-circle';
         const qtyColor = isAddition ? 'text-success' : 'text-danger';
-        let typeLabel = isAddition ? 'Addition' : m.reduction_type === 'item_sale' ? 'Sale' : 'Inv. Edit';
+        let typeLabel = isAddition ? 'Addition' : m.reduction_type === 'item_sale' ? (isLayby ? 'Layby' : 'Sale') : 'Inv. Edit';
         
         return `
             <tr>
@@ -11461,7 +11462,8 @@ async function exportStockAuditPDF() {
         sectionTitle('2. Itemised Stock Movements');
         const body = auditMovementData.map(function(m) {
             const isAddition = m.type === 'addition';
-            const typeLabel = isAddition ? 'Addition' : (m.reduction_type === 'item_sale' ? 'Sale' : 'Inv. Edit');
+            const isLayby = m.reduction_type === 'item_sale' && m.payment_method === 'layby';
+            const typeLabel = isAddition ? 'Addition' : (m.reduction_type === 'item_sale' ? (isLayby ? 'Layby sale' : 'Sale') : 'Inv. Edit');
             const typeColor = isAddition ? GREEN : (m.reduction_type === 'item_sale' ? BLUE : RED);
             return [
                 formatDateShort(m.date),

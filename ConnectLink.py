@@ -14538,7 +14538,12 @@ def get_stock_movements():
         SELECT ti.id, ti.product_id, p.name as product_name, p.category,
                'reduction' as movement_type, ti.quantity, 0 as buy_price, 0 as total_cost,
                'item_sale' as funding_source, u.full_name as user_name, t.created_at as movement_date,
-               b.name as branch_name
+               b.name as branch_name,
+               -- Layby sales belong in the audit report like any other sale; the
+               -- method lets the report label them as a layby rather than hiding
+               -- them inside the generic "Sale" bucket.
+               t.payment_method as payment_method,
+               t.transaction_number as transaction_number
         FROM transaction_items ti
         JOIN transactions t ON ti.transaction_id = t.id
         LEFT JOIN products p ON ti.product_id = p.id
@@ -14725,10 +14730,13 @@ def get_stock_movements():
                 'quantity': row[5],
                 'buy_price': 0,
                 'total_cost': 0,
-                'details': f"Sale: {row[8]}" if row[8] else '',
+                'details': (f"Layby sale: {row[13]}" if (len(row) > 12 and row[12] == 'layby')
+                            else (f"Sale: {row[8]}" if row[8] else '')),
                 'user': row[9] or 'System',
                 'date': row[10].isoformat() if row[10] else '',
                 'reduction_type': 'item_sale',
+                'payment_method': row[12] if len(row) > 12 else None,
+                'transaction_number': row[13] if len(row) > 13 else None,
                 'branch_name': row[11] if len(row) > 11 else None
             })
     
@@ -16397,6 +16405,26 @@ def pos_upload_stock_apply():
                 failed.append(f'{name or "A row"}: no product was chosen for it.')
                 continue
             to_merge.append((int(d['product_id']), qty, buy, sell, name))
+
+    # Two rows for the same NEW product in one file must not create it twice.
+    # Nothing is written yet, so they are collapsed into one product here: the
+    # quantities add up, the cost becomes the weighted average, and the last
+    # selling price wins - exactly the rule the merge path already uses when a
+    # product is stocked twice in one upload.
+    if to_create:
+        collapsed, order = {}, []
+        for name, qty, buy, sell, cat, unit, details in to_create:
+            key = name.strip().lower()
+            if key in collapsed:
+                prev = collapsed[key]
+                new_qty = prev[1] + qty
+                weighted = ((prev[2] * prev[1]) + (buy * qty)) / new_qty if new_qty else buy
+                collapsed[key] = (prev[0], new_qty, round(weighted, 2), sell,
+                                  prev[4] or cat, prev[5] or unit, prev[6] or details)
+            else:
+                collapsed[key] = (name, qty, buy, sell, cat, unit, details)
+                order.append(key)
+        to_create = [collapsed[k] for k in order]
 
     if not to_merge and not to_create:
         return jsonify({'success': False, 'error': 'Nothing valid to apply.',
