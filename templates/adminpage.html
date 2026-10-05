@@ -38214,7 +38214,11 @@ function renderActivityLog(data) {
         'project_updated': 'bi-arrow-repeat', 'enquiry_status_changed': 'bi-arrow-left-right',
         'enquiry_plan_downloaded': 'bi-file-earmark-pdf', 'whatsapp_message_sent': 'bi-chat-left-text',
         'template_sent': 'bi-megaphone', 'human_mode_toggled': 'bi-person-check',
-        'quotation_rates_updated': 'bi-calculator', 'installment_dates_updated': 'bi-calendar-check'
+        'quotation_rates_updated': 'bi-calculator', 'installment_dates_updated': 'bi-calendar-check',
+        'project_field_changed': 'bi-pencil-square', 'installment_paid': 'bi-cash-coin',
+        'installment_date_changed': 'bi-calendar-event', 'deposit_paid': 'bi-cash-stack',
+        'note_added': 'bi-journal-plus', 'quotation_linked': 'bi-link-45deg',
+        'quotation_unlinked': 'bi-link'
     };
     const actionColors = {
         'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
@@ -38229,7 +38233,9 @@ function renderActivityLog(data) {
         'enquiry_plan_downloaded': '#d63384', 'whatsapp_message_sent': '#25D366',
         'template_sent': '#ffc107', 'human_mode_toggled': '#20c997',
         'quotation_rates_updated': '#7952b3', 'installment_dates_updated': '#157347',
-        'note_added': '#0d6efd'
+        'note_added': '#0d6efd', 'project_field_changed': '#7c3aed', 'installment_paid': '#15803d',
+        'installment_date_changed': '#0f766e', 'deposit_paid': '#0f766e',
+        'quotation_linked': '#2563eb', 'quotation_unlinked': '#b45309'
     };
     
     let html = '<div style="display:flex;flex-direction:column;gap:3px;">';
@@ -38245,6 +38251,7 @@ function renderActivityLog(data) {
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.description)}</div>
+                    ${activityChangeLine(item)}
                     <div style="display:flex;gap:8px;font-size:0.7rem;color:var(--text-muted);">
                         <span><i class="bi bi-person"></i> ${escapeHtml(item.user_name)}</span>
                         <span><i class="bi bi-clock"></i> ${time}</span>
@@ -38259,6 +38266,29 @@ function renderActivityLog(data) {
     });
     html += '</div>';
     container.innerHTML = html;
+}
+
+// What a change entry replaced, shown as its own line: "Total Bill (USD) 5,000 -> 6,000".
+// The description above this is a single truncated line, so the values a person is
+// looking for cannot be left sitting at the end of a sentence.
+function activityChangeLine(item) {
+    let det = item && item.details;
+    if (!det || det === 'null') return '';
+    try { if (typeof det === 'string') det = JSON.parse(det); } catch (e) { return ''; }
+    if (!det || typeof det !== 'object') return '';
+    if (det.field === undefined) return '';
+    if (det.old_value === undefined && det.new_value === undefined) return '';
+    const side = (v) => {
+        const s = (v === null || v === undefined) ? '' : String(v);
+        return s.trim() === '' ? '(empty)' : escapeHtml(s);
+    };
+    const label = escapeHtml(det.label || String(det.field).replace(/_/g, ' '));
+    return `<div style="display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap;">
+        <span style="font-size:0.68rem;font-weight:700;color:var(--text-primary);white-space:nowrap;">${label}</span>
+        <span style="font-size:0.68rem;padding:1px 6px;border-radius:5px;background:#fde2e2;color:#b91c1c;border:1px solid #f5c6c6;">${side(det.old_value)}</span>
+        <i class="bi bi-arrow-right" style="font-size:0.65rem;color:#94a3b8;"></i>
+        <span style="font-size:0.68rem;padding:1px 6px;border-radius:5px;background:#dcf7e3;color:#15803d;border:1px solid #c6f5c6;">${side(det.new_value)}</span>
+    </div>`;
 }
 
 function exportActivityExcel() {
@@ -38349,7 +38379,9 @@ function viewActivityDetails(element) {
             'enquiry_plan_downloaded': '#d63384', 'whatsapp_message_sent': '#25D366',
             'template_sent': '#ffc107', 'human_mode_toggled': '#20c997',
             'quotation_rates_updated': '#7952b3', 'installment_dates_updated': '#157347',
-            'note_added': '#0d6efd'
+            'note_added': '#0d6efd', 'project_field_changed': '#7c3aed', 'installment_paid': '#15803d',
+            'installment_date_changed': '#0f766e', 'deposit_paid': '#0f766e',
+            'quotation_linked': '#2563eb', 'quotation_unlinked': '#b45309'
         };
         const color = actionColors[item.action_type] || '#666';
         
@@ -38392,7 +38424,7 @@ function viewActivityDetails(element) {
                 const details = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
                 let changeHtml = '';
                 let otherHtml = '';
-                const skipKeys = ['old_value','new_value','old_note_preview','new_note_preview','note_preview','removed_note_preview'];
+                const skipKeys = ['old_value','new_value','field','label','old_note_preview','new_note_preview','note_preview','removed_note_preview'];
                 
                 // Detect change pairs and render them as diff
                 const hasChange = details.old_value !== undefined && details.old_value !== null &&
@@ -38404,7 +38436,10 @@ function viewActivityDetails(element) {
                 if (hasChange) {
                     const oldVal = details.old_value !== null && details.old_value !== undefined ? String(details.old_value) : '';
                     const newVal = details.new_value !== null && details.new_value !== undefined ? String(details.new_value) : '';
-                    const fieldLabel = details.field ? details.field.replace(/_/g,' ') : 'Field';
+                    // The stored label is the name a person knows the field by
+                    // ("Total Bill (USD)"); the old rows only carry the column.
+                    const fieldLabel = details.label ? String(details.label)
+                                     : (details.field ? String(details.field).replace(/_/g,' ') : 'Field');
                     changeHtml += `
                         <div style="margin-bottom:8px;">
                             <div style="font-size:0.65rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">${escapeHtml(fieldLabel)}</div>

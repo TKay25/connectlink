@@ -31055,7 +31055,19 @@ def auto_correct_project(project_id):
         """
         cursor.execute(update_query, (new_amount, project_id))
         connection.commit()
-        
+
+        # The correction rewrites an instalment amount, so it is a money change on
+        # the project and belongs in the audit log like any other.
+        log_project_field_changes(
+            project_id,
+            [(f'installment{first_unpaid_index}amount',
+              f'Installment {first_unpaid_index} Amount (USD)',
+              first_unpaid_amount, new_amount)],
+            'Instalment variance auto-correct',
+            project_dict.get('projectname'),
+            project_dict.get('clientname')
+        )
+
         return {
             'success': True,
             'message': f'Project {project_id} corrected. Added/Subtracted {variance:.2f} to installment {first_unpaid_index}',
@@ -31744,8 +31756,10 @@ def update_project_completion_status():
                 AND projectduration > 0
                 AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus != 'Completed')
                 AND (projectstartdate + INTERVAL '1 day' * projectduration) <= %s
+                RETURNING id
             """, (today,))
-            completed_count = cursor.rowcount
+            completed_ids = [r[0] for r in cursor.fetchall()]
+            completed_count = len(completed_ids)
             
             # 2. Mark ongoing projects
             cursor.execute("""
@@ -31756,8 +31770,10 @@ def update_project_completion_status():
                 AND projectduration > 0
                 AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus NOT IN ('Completed', 'Cancelled'))
                 AND (projectstartdate + INTERVAL '1 day' * projectduration) > %s
+                RETURNING id
             """, (today,))
-            ongoing_count = cursor.rowcount
+            ongoing_ids = [r[0] for r in cursor.fetchall()]
+            ongoing_count = len(ongoing_ids)
             
             # 3. Mark projects with missing duration as Pending
             cursor.execute("""
@@ -31765,13 +31781,38 @@ def update_project_completion_status():
                 SET projectcompletionstatus = 'Pending'
                 WHERE (projectduration IS NULL OR projectduration <= 0)
                 AND (projectcompletionstatus IS NULL OR projectcompletionstatus = '' OR projectcompletionstatus = 'Pending')
+                RETURNING id
             """)
-            pending_count = cursor.rowcount
+            pending_ids = [r[0] for r in cursor.fetchall()]
+            pending_count = len(pending_ids)
             
             connection.commit()
             
             if completed_count or ongoing_count or pending_count:
                 logging.info(f"Project Status Update: {completed_count} completed, {ongoing_count} ongoing, {pending_count} pending")
+                # The status is derived from the dates, so nobody "edited" it - but it
+                # still changed a field on these projects. One row records that it was
+                # the system that did it, and which projects it touched.
+                try:
+                    log_activity(
+                        'project_status_auto_updated',
+                        f'Completion status recalculated from start date and duration: '
+                        f"{completed_count} completed, {ongoing_count} ongoing, {pending_count} pending",
+                        None,
+                        None,
+                        {
+                            'completed': completed_count,
+                            'ongoing': ongoing_count,
+                            'pending': pending_count,
+                            'completed_project_ids': completed_ids,
+                            'ongoing_project_ids': ongoing_ids,
+                            'pending_project_ids': pending_ids,
+                            'source': 'Automatic (start date + duration)'
+                        },
+                        username='System'
+                    )
+                except Exception as log_err:
+                    print(f"⚠️ Failed to log the automatic status update: {log_err}")
             
             return {
                 'success': True,
@@ -34351,103 +34392,115 @@ def update_other_details():
             # Build update list with proper type casting
             updates = []
             values = []
-            
+            # Every field written here is remembered as (column, label, value), so
+            # the audit log can say exactly what changed. This screen used to make
+            # changes with no record of them at all.
+            field_writes = []
+
+            def set_field(column, value, label=None):
+                updates.append(f"{column} = %s")
+                values.append(value)
+                field_writes.append((column, label or project_field_label(column), value))
+
             # String fields
             if clientnationalid:
-                updates.append("clientidnumber = %s")
-                values.append(clientnationalid)
+                set_field("clientidnumber", clientnationalid)
             if clientemail:
-                updates.append("clientemail = %s")
-                values.append(clientemail)
+                set_field("clientemail", clientemail)
             if clientaddress:
-                updates.append("clientaddress = %s")
-                values.append(clientaddress)
+                set_field("clientaddress", clientaddress)
             if agreement_date:
-                updates.append("contractagreementdate = %s")
-                values.append(agreement_date)
+                set_field("contractagreementdate", agreement_date)
             if clientnextofkin:
-                updates.append("clientnextofkinname = %s")
-                values.append(clientnextofkin)
+                set_field("clientnextofkinname", clientnextofkin)
             if clientnextofkinrelationship:
-                updates.append("nextofkinrelationship = %s")
-                values.append(clientnextofkinrelationship)
+                set_field("nextofkinrelationship", clientnextofkinrelationship)
             if clientnextofkinaddress:
-                updates.append("clientnextofkinaddress = %s")
-                values.append(clientnextofkinaddress)
+                set_field("clientnextofkinaddress", clientnextofkinaddress)
             if projectcompletionstatus:
-                updates.append("projectcompletionstatus = %s")
-                values.append(projectcompletionstatus)
+                set_field("projectcompletionstatus", projectcompletionstatus)
 
             # Contract information (Project Location, Duration, Late Payment Interest)
             # These feed the generated contract document, so they must be editable
             # from the same "Other Details" screen.
             if project_location and project_location.strip():
-                updates.append("projectlocation = %s")
-                values.append(project_location.strip())
+                set_field("projectlocation", project_location.strip())
 
             if project_duration not in (None, ''):
                 try:
                     duration_int = int(round(float(project_duration)))
-                    updates.append("projectduration = %s")
-                    values.append(duration_int)
+                    set_field("projectduration", duration_int)
                 except (ValueError, TypeError):
                     print(f"Warning: Invalid project duration: {project_duration}")
 
             if late_payment_interest not in (None, ''):
                 try:
                     interest_int = int(round(float(late_payment_interest)))
-                    updates.append("latepaymentinterest = %s")
-                    values.append(interest_int)
+                    set_field("latepaymentinterest", interest_int)
                 except (ValueError, TypeError):
                     print(f"Warning: Invalid late payment interest: {late_payment_interest}")
-            
+
             # Numeric fields (INT) - convert to int or ignore if empty
             if clientwhatsapp:
                 try:
                     # Remove any decimals and convert to int
                     whatsapp_int = int(float(clientwhatsapp))
-                    updates.append("clientwanumber = %s")
-                    values.append(whatsapp_int)
+                    set_field("clientwanumber", whatsapp_int)
                 except (ValueError, TypeError):
                     print(f"Warning: Invalid phone number format: {clientwhatsapp}")
-            
+
             if clientnextofkinphone:
                 try:
                     phone_int = int(float(clientnextofkinphone))
-                    updates.append("clientnextofkinphone = %s")
-                    values.append(phone_int)
+                    set_field("clientnextofkinphone", phone_int)
                 except (ValueError, TypeError):
                     print(f"Warning: Invalid phone number format: {clientnextofkinphone}")
-            
+
             # Quotation ID
             if quotation_id and quotation_id != '':
                 try:
                     quot_id = int(quotation_id)
-                    updates.append("quotation_id = %s")
-                    values.append(quot_id)
+                    set_field("quotation_id", quot_id, 'Linked Quotation')
                 except (ValueError, TypeError):
                     print(f"Warning: Invalid quotation ID: {quotation_id}")
-            
+
             # Add project_id to values for WHERE clause
             values.append(int(project_id))
-            
+
             if not updates:
                 return jsonify({
                     'success': False,
                     'message': 'No data to update'
                 }), 400
-            
+
             query = f"""
                 UPDATE connectlinkdatabase
                 SET {', '.join(updates)}
                 WHERE id = %s
             """
-            
+
+            # What the project holds now, so each change can be logged old -> new.
+            # The names travel with it so every entry names the project and client.
+            before = read_project_fields(cursor, project_id,
+                                         ['projectname', 'clientname']
+                                         + [column for column, _label, _value in field_writes])
+
             print(f"Executing query: {query}")
             print(f"With values: {values}")
-            
+
             cursor.execute(query, values)
             connection.commit()
+
+            if before is not None:
+                changed = [
+                    (column, label, before.get(column), value)
+                    for column, label, value in field_writes
+                    if project_field_differs(before.get(column), value, column)
+                ]
+                if changed:
+                    log_project_field_changes(project_id, changed, 'Other Details',
+                                              before.get('projectname'),
+                                              before.get('clientname'))
 
             return jsonify({
                 'success': True,
@@ -34638,6 +34691,141 @@ def _can_edit_project_money():
     except Exception as e:
         print(f"Note: could not resolve the project money permission: {e}")
         return False
+
+
+# ============ PROJECT FIELD CHANGES IN THE AUDIT LOG ============
+# A project can be edited from several screens (Progress Update, Other Details,
+# the work schedule, the receipt buttons), so the field NAMES live in one place -
+# the same field must read the same in every entry - and one helper writes the
+# audit rows. Each change is recorded as its own row carrying field, label,
+# old_value and new_value, which is what the Activity Log and the Audit Log
+# render as a "from -> to" pair.
+PROJECT_FIELD_LABELS = {
+    'clientname': 'Client Name',
+    'projectname': 'Project Name',
+    'projectdescription': 'Project Scope',
+    'projectcompletionstatus': 'Completion Status',
+    'projectstartdate': 'Project Start Date',
+    'projectadministratorname': 'Admin Name',
+    'totalcontractamount': 'Total Bill (USD)',
+    'monthstopay': 'Months To Pay',
+    'monthlyinstallment': 'Monthly Instalment',
+    'paymentmethod': 'Payment Method',
+    'depositorbullet': 'Deposit Paid',
+    'datedepositorbullet': 'Deposit Date Paid',
+    'clientidnumber': 'Client National ID',
+    'clientemail': 'Client Email',
+    'clientwanumber': 'Client WhatsApp',
+    'clientaddress': 'Client Address',
+    'clientnextofkinname': 'Next of Kin Name',
+    'nextofkinrelationship': 'Next of Kin Relationship',
+    'clientnextofkinphone': 'Next of Kin Phone',
+    'clientnextofkinaddress': 'Next of Kin Address',
+    'contractagreementdate': 'Agreement Date',
+    'projectlocation': 'Project Location',
+    'projectduration': 'Project Duration (months)',
+    'latepaymentinterest': 'Late Payment Interest (%)',
+    'adjusted_schedules_json': 'Work Schedule',
+    'quotation_id': 'Linked Quotation',
+}
+for _inst in range(1, 11):
+    PROJECT_FIELD_LABELS[f'installment{_inst}amount'] = f'Installment {_inst} Amount'
+    PROJECT_FIELD_LABELS[f'installment{_inst}duedate'] = f'Installment {_inst} Due Date'
+    PROJECT_FIELD_LABELS[f'installment{_inst}date'] = f'Installment {_inst} Date Paid'
+
+
+def project_field_label(column):
+    """The name a person would use for a project column."""
+    return PROJECT_FIELD_LABELS.get(column, str(column).replace('_', ' ').title())
+
+
+def project_field_differs(old_value, new_value, column):
+    """True when a write really changes the stored value.
+
+    Formatting is never an edit: '5000', '5,000.00' and Decimal('5000.00') are the
+    same money, and a date posted as '2026-10-03' equals the stored timestamp.
+    """
+    if 'date' in str(column):
+        return _norm_date(old_value) != _norm_date(new_value)
+    return _norm_amount(old_value) != _norm_amount(new_value)
+
+
+def project_change_side(value, column):
+    """One side of a change, as it should read in the log."""
+    if value is None or str(value).strip() == '':
+        return '(empty)'
+    if 'date' in str(column):
+        return _norm_date(value) or '(empty)'
+    if str(column) == 'adjusted_schedules_json':
+        try:
+            return f'{len(json.loads(value))} task(s)'
+        except Exception:
+            return '(schedule changed)'
+    return str(value).strip()
+
+
+def log_project_field_changes(project_id, changes, source=None,
+                              project_name=None, client_name=None,
+                              action_type='project_field_changed'):
+    """Write one audit row per changed project field: what changed, old -> new, who.
+
+    `changes` is [(column, old_value, new_value[, label]), ...] captured BEFORE the
+    write. The values come FIRST in the description on purpose: the Activity Log
+    shows one truncated line, so a sentence that puts the old/new values at the end
+    loses exactly the part a person is looking for. Pass `action_type` when the same
+    change is better named by what it means (a date filled in is a payment).
+    """
+    for change in changes:
+        column, old_value, new_value = change[0], change[1], change[2]
+        label = change[3] if len(change) > 3 else project_field_label(column)
+        where = ''
+        if project_name or client_name:
+            where = (' \u2014 "' + str(project_name or 'project') + '"'
+                     + (f' ({client_name})' if client_name else ''))
+        description = (f'{label}: {project_change_side(old_value, column)}'
+                       f' \u2192 {project_change_side(new_value, column)}{where}')
+        try:
+            log_activity(
+                action_type,
+                description,
+                'project',
+                project_id,
+                {
+                    'project_id': project_id,
+                    'project_name': project_name or '',
+                    'client_name': client_name or '',
+                    'field': column,
+                    'label': label,
+                    'old_value': '' if old_value is None else str(old_value),
+                    'new_value': '' if new_value is None else str(new_value),
+                    'source': source or '',
+                    'updated_by': session.get('user_name') or session.get('username') or 'Unknown'
+                }
+            )
+        except Exception as e:
+            print(f'Note: could not log the change to {column}: {e}')
+
+
+def read_project_fields(cursor, project_id, columns):
+    """Stored values of the named columns, so a change can be described old -> new.
+
+    Returns None (never raises) when the project cannot be read, so change
+    detection can never be the reason an edit fails.
+    """
+    if not project_id or not columns:
+        return None
+    try:
+        cursor.execute(
+            f"SELECT {', '.join(columns)} FROM connectlinkdatabase WHERE id = %s",
+            (project_id,)
+        )
+        row = cursor.fetchone()
+    except Exception as e:
+        print(f'Note: could not read project #{project_id} for change detection: {e}')
+        return None
+    if not row:
+        return None
+    return dict(zip(columns, row))
 
 
 @app.route('/update_project', methods=['POST'])
@@ -35248,6 +35436,14 @@ def update_project():
         old_inst_duedates = [ov(18+i) for i in range(10)]
         old_inst_dates = [ov(28+i) for i in range(10)]
 
+        # Fields this form can also change, read separately so the index maths
+        # above stays as it was. Without them a change to the start date, the
+        # number of months or the admin would be saved without a word in the log.
+        extra_old = read_project_fields(cursor, project_id, [
+            'projectstartdate', 'monthstopay', 'projectadministratorname',
+            'adjusted_schedules_json',
+        ]) or {}
+
         # If the form didn't supply a completion status, preserve the current DB
         # value instead of clearing it. Partial edits (and other screens that post
         # here) must never wipe the status or log a phantom
@@ -35275,24 +35471,51 @@ def update_project():
 
         changes = []
 
-        # Check each field for changes
+        # Check each field for changes. Keys are the real connectlinkdatabase
+        # columns so every entry can be labelled and normalised by the shared
+        # helpers. `paymentmethod` and `monthlyinstallment` are deliberately NOT
+        # listed: both are derived from the fields below, so logging them would
+        # add rows that say nothing a person did.
         field_checks = [
-            ('client_name', 'Client Name', old_clientname, fmt(clientname)),
-            ('project_name', 'Project Name', old_projectname, fmt(project_name)),
-            ('project_scope', 'Project Scope', old_projscope, fmt(projscope)),
-            ('completion_status', 'Completion Status', old_status, fmt(completion_status)),
-            ('contract_amount', 'Total Contract Amount', old_contract, fmt(contractamount)),
-            ('deposit_amount', 'Deposit Amount', old_deposit, fmt(depositpaid)),
-            ('deposit_date', 'Deposit Date', old_deposit_date, fmt(depositdatepaid)),
+            ('clientname', 'Client Name', old_clientname, fmt(clientname)),
+            ('projectname', 'Project Name', old_projectname, fmt(project_name)),
+            ('projectdescription', 'Project Scope', old_projscope, fmt(projscope)),
+            ('projectcompletionstatus', 'Completion Status', old_status, fmt(completion_status)),
+            ('totalcontractamount', 'Total Bill (USD)', old_contract, fmt(contractamount)),
+            ('depositorbullet', 'Deposit Paid (USD)', old_deposit, fmt(depositpaid)),
+            ('datedepositorbullet', 'Deposit Date Paid', old_deposit_date, fmt(depositdatepaid)),
         ]
         for key, label, old_val, new_val in field_checks:
             if old_val != new_val:
                 changes.append((key, label, old_val, new_val))
 
+        # The rest of the editable project fields: leaving any of these out is how
+        # a real edit used to reach the database with nothing in the audit log.
+        # Compared as written, so a field that is actually cleared (posted empty)
+        # is reported too - but only a real difference is ever logged. Skipped
+        # entirely when the old values could not be read, so a failed read cannot
+        # invent a change from "(empty)".
+        if extra_old:
+            for column, new_value in (
+                ('projectstartdate', project_start_date),
+                ('monthstopay', monthstopay),
+                ('projectadministratorname', admin_name),
+            ):
+                old_value = extra_old.get(column)
+                if project_field_differs(old_value, new_value, column):
+                    changes.append((column, project_field_label(column), old_value, new_value))
+
+            # The Gantt is only written when the form actually carries one.
+            if adjusted_schedules_json_str:
+                old_schedule = extra_old.get('adjusted_schedules_json')
+                if project_field_differs(old_schedule, adjusted_schedules_json_str, 'adjusted_schedules_json'):
+                    changes.append(('adjusted_schedules_json', 'Work Schedule',
+                                    old_schedule, adjusted_schedules_json_str))
+
         # Quotation link change
         new_qid = str(quotation_id) if quotation_id else ''
         if old_quotation_id != new_qid:
-            changes.append(('quotation_link', 'Quotation', old_quotation_id, new_qid))
+            changes.append(('quotation_id', 'Linked Quotation', old_quotation_id, new_qid))
 
         # Installment amount changes
         new_inst_amounts = [
@@ -35302,7 +35525,8 @@ def update_project():
         ]
         for i in range(10):
             if old_inst_amounts[i] != new_inst_amounts[i]:
-                changes.append((f'installment{i+1}_amount', f'Installment #{i+1} Amount', old_inst_amounts[i], new_inst_amounts[i]))
+                changes.append((f'installment{i+1}amount', f'Installment {i+1} Amount (USD)',
+                                old_inst_amounts[i], new_inst_amounts[i]))
 
         # Installment due date changes
         new_inst_duedates = [
@@ -35312,7 +35536,8 @@ def update_project():
         ]
         for i in range(10):
             if old_inst_duedates[i] != new_inst_duedates[i]:
-                changes.append((f'installment{i+1}_duedate', f'Installment #{i+1} Due Date', old_inst_duedates[i], new_inst_duedates[i]))
+                changes.append((f'installment{i+1}duedate', f'Installment {i+1} Due Date',
+                                old_inst_duedates[i], new_inst_duedates[i]))
 
         # Installment paid date changes
         new_inst_dates = [
@@ -35324,42 +35549,66 @@ def update_project():
             old_d = old_inst_dates[i]
             new_d = new_inst_dates[i]
             if old_d != new_d:
-                if not old_d and new_d:
-                    changes.append((f'installment{i+1}_paid', f'Installment #{i+1} Paid', '', new_d))
-                else:
-                    changes.append((f'installment{i+1}_date', f'Installment #{i+1} Paid Date', old_d, new_d))
+                changes.append((f'installment{i+1}date', f'Installment {i+1} Date Paid',
+                                old_d, new_d))
 
-        # Log each individual change
-        for key, label, old_val, new_val in changes:
-            if key.endswith('_paid') and not old_val and new_val:
-                action_type = 'installment_paid'
-                desc = f'{label} for "{project_name}" ({clientname}) - payment recorded on {new_val}'
-            elif key == 'quotation_link':
-                action_type = 'quotation_linked' if new_val else 'quotation_unlinked'
-                desc = f'Quotation {"#"+new_val if new_val else "unlinked"} for project "{project_name}" ({clientname})'
+        # Log each individual change. A date being filled in for the first time is a
+        # payment, not an edit, so it keeps its own action type - but every one of
+        # them carries field / old_value / new_value, which is what the log screens
+        # render as a from -> to pair.
+        for column, label, old_val, new_val in changes:
+            if column.endswith('date') and not old_val and new_val:
+                log_activity(
+                    'installment_paid',
+                    f'{label} recorded: {project_change_side(new_val, column)}'
+                    f' \u2014 "{project_name}" ({clientname})',
+                    'project',
+                    project_id,
+                    {
+                        'project_id': project_id,
+                        'project_name': project_name,
+                        'client_name': clientname,
+                        'field': column,
+                        'label': label,
+                        'old_value': '',
+                        'new_value': str(new_val),
+                        'source': 'Progress Update',
+                        'updated_by': session.get('user_name', 'Unknown')
+                    }
+                )
+            elif column == 'quotation_id':
+                log_activity(
+                    'quotation_linked' if new_val else 'quotation_unlinked',
+                    f'Quotation {"#" + str(new_val) if new_val else "unlinked"} for project '
+                    f'"{project_name}" ({clientname})',
+                    'project',
+                    project_id,
+                    {
+                        'project_id': project_id,
+                        'project_name': project_name,
+                        'client_name': clientname,
+                        'field': column,
+                        'label': label,
+                        'old_value': old_val,
+                        'new_value': new_val,
+                        'source': 'Progress Update',
+                        'updated_by': session.get('user_name', 'Unknown')
+                    }
+                )
             else:
-                action_type = 'project_field_changed'
-                desc = f'{label} changed for "{project_name}" ({clientname}): {old_val or "(empty)"} → {new_val or "(empty)"}'
-            
-            log_activity(
-                action_type,
-                desc,
-                'project',
-                project_id,
-                {
-                    'project_id': project_id,
-                    'client_name': clientname,
-                    'field': key,
-                    'old_value': old_val,
-                    'new_value': new_val,
-                    'updated_by': session.get('user_name', 'Unknown')
-                }
-            )
+                log_project_field_changes(
+                    project_id,
+                    [(column, old_val, new_val, label)],
+                    'Progress Update',
+                    project_name,
+                    clientname
+                )
 
         # Also log a summary update
         log_activity(
             'project_updated',
-            f'Project "{project_name}" for {clientname} updated ({len(changes)} field(s) changed, completion: {completion_status})',
+            f'{len(changes)} field(s) changed on project "{project_name}" ({clientname})'
+            + (f' - completion: {completion_status}' if completion_status else ''),
             'project',
             project_id,
             {
@@ -35888,13 +36137,18 @@ def update_first_installment_date():
         print(new_date_str)
 
         cursor.execute("""
-            SELECT monthstopay
+            SELECT monthstopay, COALESCE(projectname, ''), COALESCE(clientname, ''),
+                   installment1duedate, installment2duedate, installment3duedate,
+                   installment4duedate, installment5duedate, installment6duedate
             FROM connectlinkdatabase
             WHERE id = %s
         """, (project_id,))
         result = cursor.fetchone()
 
         months_to_pay = int(result[0])
+        project_name, client_name = result[1], result[2]
+        # What each due date was, so the log can say which dates actually moved.
+        old_due_dates = list(result[3:9])
 
         if not project_id or not new_date_str:
             return jsonify({"success": False, "message": "Project ID and new date are required"}), 400
@@ -35944,7 +36198,8 @@ def update_first_installment_date():
             ))
             connection.commit()
 
-        # Log installment date change
+        # Log the reschedule: a summary line, plus one clear row per due date that
+        # actually moved, so "which instalment changed and to what" is readable.
         try:
             log_activity(
                 'installment_dates_updated',
@@ -35958,6 +36213,16 @@ def update_first_installment_date():
                     'due_dates': [str(d) if d else '' for d in installment_due_dates]
                 }
             )
+            moved = []
+            for index in range(6):
+                column = f'installment{index + 1}duedate'
+                new_due = installment_due_dates[index] if index < len(installment_due_dates) else None
+                old_due = old_due_dates[index]
+                if project_field_differs(old_due, new_due, column):
+                    moved.append((column, project_field_label(column), old_due, new_due))
+            if moved:
+                log_project_field_changes(project_id, moved, 'Installment reschedule',
+                                          project_name, client_name)
         except Exception as log_err:
             print(f"⚠️ Failed to log installment date update: {log_err}")
 
@@ -36311,6 +36576,17 @@ def send_receipt_to_client():
                                  (paid_date, project_id))
                     connection.commit()
                     date_was_updated = True
+                    # Sending the receipt also records the paid date on the project.
+                    log_project_field_changes(
+                        project_id,
+                        [(config['date_field'],
+                          f"{config['title']} Date Paid",
+                          db_paid_date, paid_date)],
+                        f"{config['title']} receipt (WhatsApp)",
+                        project_name,
+                        client_name,
+                        action_type='installment_paid' if receipt_type != 'deposit' else 'payment_updated'
+                    )
                 effective_date = paid_date
             else:
                 if not db_paid_date:
@@ -36520,6 +36796,17 @@ def download_installment_receipt(project_id, installment_num):
                              (installment_paid_date, project_id))
                 connection.commit()
                 print(f"Updated date to: {installment_paid_date}")
+                # Generating the receipt also RECORDS the paid date. That is a money
+                # event on the project, so it is audited like any other change.
+                log_project_field_changes(
+                    project_id,
+                    [(fields['paid_date'], f'Installment {installment_num} Date Paid',
+                      db_installment_date, installment_paid_date)],
+                    'Installment Receipt',
+                    row[5],
+                    row[1],
+                    action_type='installment_paid'
+                )
             
             try:
                 effective_date = datetime.strptime(installment_paid_date, '%Y-%m-%d').date()
@@ -36908,6 +37195,17 @@ def download_deposit_receipt(project_id):
                              (deposit_paid_date, project_id))
                 connection.commit()
                 print(f"Updated deposit date to: {deposit_paid_date}")
+                # Generating the receipt also RECORDS the deposit date: audited like
+                # any other change to the project.
+                log_project_field_changes(
+                    project_id,
+                    [('datedepositorbullet', 'Deposit Date Paid',
+                      db_deposit_date, deposit_paid_date)],
+                    'Deposit Receipt',
+                    row[5],
+                    row[1],
+                    action_type='payment_updated'
+                )
             
             try:
                 effective_date = datetime.strptime(deposit_paid_date, '%Y-%m-%d').date()
@@ -43233,9 +43531,12 @@ def update_project_schedule(project_id):
         schedules = data.get('schedules', [])
         
         with get_db() as (cursor, connection):
-            # Get the quotation_id from the project
+            # Get the quotation_id from the project, and what the project holds
+            # now, so the audit log can say what the schedule change replaced.
             cursor.execute("""
-                SELECT quotation_id FROM connectlinkdatabase WHERE id = %s
+                SELECT quotation_id, projectname, clientname, projectstartdate,
+                       adjusted_schedules_json
+                FROM connectlinkdatabase WHERE id = %s
             """, (project_id,))
             result = cursor.fetchone()
             
@@ -43246,6 +43547,8 @@ def update_project_schedule(project_id):
                 }), 400
             
             quotation_id = result[0]
+            project_name, client_name = result[1], result[2]
+            old_start_date, old_schedules_json = result[3], result[4]
             
             # 1️⃣ Update quotation_schedules (affects all projects using this quotation)
             for idx, schedule in enumerate(schedules):
@@ -43283,7 +43586,22 @@ def update_project_schedule(project_id):
                 """, (adjusted_schedules_json, project_id))
             
             connection.commit()
-            
+
+            # The Gantt is a project field like any other: saving a new schedule
+            # (and the start date that follows from it) belongs in the audit log.
+            schedule_changes = []
+            if project_field_differs(old_schedules_json, adjusted_schedules_json,
+                                     'adjusted_schedules_json'):
+                schedule_changes.append(('adjusted_schedules_json', 'Work Schedule',
+                                         old_schedules_json, adjusted_schedules_json))
+            if first_start_date and project_field_differs(old_start_date, first_start_date,
+                                                          'projectstartdate'):
+                schedule_changes.append(('projectstartdate', 'Project Start Date',
+                                         old_start_date, first_start_date))
+            if schedule_changes:
+                log_project_field_changes(project_id, schedule_changes, 'Work Schedule',
+                                          project_name, client_name)
+
             return jsonify({
                 'success': True,
                 'message': f'Work schedule updated for project and quotation #{quotation_id} ({len(schedules)} items)'

@@ -491,6 +491,45 @@ Also worth setting (pre-existing behaviour, unchanged):
 * **Stock shown** — on a real branch every figure is that branch's. On the read-only
   All Branches view, stock figures are the company total.
 
+### Project changes in the audit log
+
+**Every change to a field on a project is now audited, one row per field**, carrying the
+name people know the field by, **what it was and what it became**, who did it and when.
+Nothing on a project can be changed and leave no trace.
+
+Where it applies (all of these write to the shared `activity_log`):
+
+| Screen / action | What is recorded |
+| --- | --- |
+| Progress Update (`/update_project`) | Client name, project name, scope, completion status, **Total Bill (USD)**, deposit, deposit date, project start date, months to pay, admin name, work schedule, linked quotation, and every instalment amount, due date and paid date |
+| Other Details (`/update_other_details`) | National ID, email, WhatsApp, address, all four next-of-kin fields, completion status, agreement date, project location, duration, late-payment interest, linked quotation |
+| Work schedule / Gantt save | The schedule itself ("5 task(s)") and the project start date that follows from it |
+| Installment reschedule | One row per due date that actually moved (plus the summary line) |
+| Installment / deposit receipt, and the same receipt sent by WhatsApp | The **paid date** being recorded — a money event, so it is audited wherever it happens |
+| Instalment variance auto-correct | The instalment amount it rewrote, old → new |
+| Automatic completion status | One row per recalculation naming the projects it touched, attributed to **System** — the status is derived from the start date and duration, so nobody "edited" it, but it did change |
+
+How it reads on screen:
+
+* **Activity Log** — each change gets its own line under the description showing the
+  field name with the old value in red and the new value in green, so the values are
+  visible even though the description above it is truncated to one line. The detail
+  modal repeats it as a **From → To** block. Field changes have their own icon and
+  colour, and are filterable as *Project Field Changed*.
+* **Audit Log** (User Management → Audit Log) — the details column reads
+  `Total Bill (USD): 5000 → 6000` instead of a truncated JSON blob.
+* **Excel export** of the activity log carries the same description and details.
+
+Two deliberate rules: **formatting is never an edit** (`5000`, `5,000.00` and a stored
+`Decimal` are the same money, and a date posted as `2026-10-03` equals the stored
+timestamp), and when the previous values cannot be read the change is **not** logged —
+a failed read must never invent a change from "(empty)".
+
+> **Still silent (by design, for now):** the boot-time schema repair in
+> `initialize_database_tables`, and the `72026` → `2026` date-repair that runs when the
+> projects list is opened. Both fix corrupted data rather than record an edit; say the
+> word and they can be audited too.
+
 ### Stock reconciliation — repairing stock that was mixed up
 
 Before the offline till stamped the branch a sale was rung in, a sale rung in one shop
@@ -1225,6 +1264,23 @@ sudo systemctl start connectlink
 ---
 
 ## Changelog
+
+**October 2026 — every project field change is audited, in plain words**
+- ✅ **One audit row per changed project field**, naming the field as people know it
+  ("Total Bill (USD)") and showing **what it was → what it became**, who and when. This
+  covers the Progress Update form, the Other Details screen (which recorded *nothing*
+  before), the work-schedule save, the instalment reschedule, the instalment and deposit
+  receipts, the WhatsApp receipt send, the instalment variance auto-correct, and the
+  automatic completion-status recalculation.
+- ✅ **Fields that were never audited** on the Progress Update form now are: project start
+  date, months to pay, admin name and the work schedule.
+- ✅ **The Activity Log shows the change, not the tail of a sentence** — the old value in
+  red and the new value in green sit on their own line under each entry (the description
+  is truncated to one line, so the values used to be invisible), with a From → To block in
+  the detail modal. The User Management Audit Log reads `Total Bill (USD): 5000 → 6000`
+  instead of a truncated JSON blob.
+- ✅ Formatting is never treated as an edit (5,000 vs 5000, date vs timestamp), and a
+  failed read of the previous values logs nothing rather than inventing a change.
 
 **October 2026 — stock a till has promised, and layby paperwork**
 - ✅ **A till no longer offers stock it has already promised.** Sales and laybys queued on

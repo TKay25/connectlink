@@ -2126,11 +2126,26 @@ async function loadAuditLog() {
             tbody.innerHTML = data.data.map(a => {
                 const ts = a.created_at || a.timestamp || '';
                 const det = a.details;
-                const detStr = typeof det === 'string' ? det : (det ? JSON.stringify(det).substring(0, 80) : '');
+                // A field change is worth more than a truncated JSON blob: show what
+                // the field was called and what it became.
+                let change = '';
+                try {
+                    const d = (typeof det === 'string') ? JSON.parse(det) : det;
+                    if (d && typeof d === 'object' && d.field !== undefined &&
+                        (d.old_value !== undefined || d.new_value !== undefined)) {
+                        const side = (v) => {
+                            const s = (v === null || v === undefined) ? '' : String(v);
+                            return s.trim() === '' ? '(empty)' : s;
+                        };
+                        change = (d.label || String(d.field).replace(/_/g, ' ')) + ': ' +
+                                 side(d.old_value) + ' \u2192 ' + side(d.new_value);
+                    }
+                } catch (e) { change = ''; }
+                const detStr = change || (typeof det === 'string' ? det : (det ? JSON.stringify(det).substring(0, 80) : ''));
                 return `<tr><td style="font-size:0.55rem;">${ts}</td>
                 <td>${a.action_type || 'N/A'}</td>
                 <td>${a.user_name || 'System'}</td>
-                <td style="font-size:0.55rem;color:var(--text-muted);">${detStr}</td></tr>`;
+                <td style="font-size:0.55rem;color:var(--text-muted);word-break:break-word;">${detStr}</td></tr>`;
             }).join('') || '<tr><td colspan="4" class="text-center text-muted py-3">No activity</td></tr>';
         } else {
             const err = data.error ? (': ' + data.error) : '';
