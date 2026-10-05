@@ -1,18 +1,16 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "TestColumns",
-  "file": "test_columns.py",
-  "purpose": "Debug script to check table structure and column ordering",
+  "module": "PosReconciliation",
+  "file": "templates/pos_reconciliation.html",
+  "purpose": "<!-- Describe what PosReconciliation does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [
-    "test_columns → cursor.execute, cursor.fetchall, cursor.fetchone"
-  ],
+  "entry_flows": [],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
   "dependencies": [
-    "db_helper"
+    "<!-- list module dependencies here -->"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -27,10 +25,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "f370f54b9760cdaa",
-  "file_mtime": 1776794366000,
-  "file_size": 1973,
-  "file_birthtime": 1776794366327.778,
-  "generated_at": "2026-10-05T20:06:32.979268Z",
+  "file_hash": "8428068d6df3b3e2",
+  "file_mtime": 1791201898868.9429,
+  "file_size": 10068,
+  "file_birthtime": 1791199742983.6152,
+  "generated_at": "2026-10-05T20:03:49.351Z",
   "stale": false
 }
