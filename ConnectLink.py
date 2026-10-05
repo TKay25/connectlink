@@ -3291,6 +3291,28 @@ def ensure_layby_schema(cursor, connection):
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_layby_payments_layby ON layby_payments (layby_id, paid_at)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_layby_payments_paid_at ON layby_payments (paid_at)")
+
+        # An offline till mints these itself (see the POS offline queue), so they
+        # double as the idempotency key: replaying a layby or a payment after the
+        # connection returns must find the stored row instead of writing a second.
+        cursor.execute("ALTER TABLE laybys ADD COLUMN IF NOT EXISTS client_ref VARCHAR(64)")
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS laybys_client_ref_unique
+            ON laybys (client_ref) WHERE client_ref IS NOT NULL
+        """)
+        cursor.execute("ALTER TABLE layby_payments ADD COLUMN IF NOT EXISTS client_ref VARCHAR(64)")
+        cursor.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS layby_payments_client_ref_unique
+            ON layby_payments (client_ref) WHERE client_ref IS NOT NULL
+        """)
+
+        # 'payment' is money the customer hands over; 'refund' is money handed
+        # back when a layby is cancelled. Keeping them apart lets every figure say
+        # which one it is instead of inferring it from a sign.
+        cursor.execute("""
+            ALTER TABLE layby_payments
+                ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'payment'
+        """)
         connection.commit()
         print("[ok] Layby schema ready")
     except Exception as e:
@@ -15399,8 +15421,20 @@ def generate_layby_reference():
 
 
 def _layby_paid(cursor, layby_id):
-    cursor.execute("SELECT COALESCE(SUM(amount), 0) FROM layby_payments WHERE layby_id = %s",
-                   (layby_id,))
+    """Money the customer has handed over, before anything refunded."""
+    cursor.execute("""
+        SELECT COALESCE(SUM(amount), 0) FROM layby_payments
+        WHERE layby_id = %s AND COALESCE(kind, 'payment') <> 'refund'
+    """, (layby_id,))
+    return round(float(cursor.fetchone()[0] or 0), 2)
+
+
+def _layby_refunded(cursor, layby_id):
+    """Money handed back to the customer."""
+    cursor.execute("""
+        SELECT COALESCE(SUM(amount), 0) FROM layby_payments
+        WHERE layby_id = %s AND COALESCE(kind, 'payment') = 'refund'
+    """, (layby_id,))
     return round(float(cursor.fetchone()[0] or 0), 2)
 
 
@@ -15427,16 +15461,20 @@ def _serialize_layby(cursor, row):
              'amount': float(r[2] or 0)} for r in cursor.fetchall()]
 
     cursor.execute("""
-        SELECT id, seq, amount, method, notes, user_name, paid_at
+        SELECT id, seq, amount, method, notes, user_name, paid_at,
+               COALESCE(kind, 'payment')
         FROM layby_payments WHERE layby_id = %s ORDER BY paid_at, id
     """, (lid,))
-    payments = [{'id': r[0], 'seq': r[1], 'amount': float(r[2] or 0),
-                 'method': r[3] or 'cash', 'notes': r[4] or '',
-                 'user': r[5] or 'System',
-                 'paid_at': r[6].isoformat() if r[6] else None}
-                for r in cursor.fetchall()]
+    money_rows = [{'id': r[0], 'seq': r[1], 'amount': float(r[2] or 0),
+                   'method': r[3] or 'cash', 'notes': r[4] or '',
+                   'user': r[5] or 'System',
+                   'paid_at': r[6].isoformat() if r[6] else None,
+                   'kind': r[7]} for r in cursor.fetchall()]
+    payments = [p for p in money_rows if p['kind'] != 'refund']
+    refunds = [p for p in money_rows if p['kind'] == 'refund']
 
     paid = round(sum(p['amount'] for p in payments), 2)
+    refunded = round(sum(p['amount'] for p in refunds), 2)
     total = float(total_amount or 0)
     balance = round(total - paid, 2)
 
@@ -15466,6 +15504,8 @@ def _serialize_layby(cursor, row):
         'total_amount': total,
         'deposit_amount': float(deposit_amount or 0),
         'paid_amount': paid,
+        'refunded_amount': refunded,
+        'net_collected': round(paid - refunded, 2),
         'balance': balance,
         'status': status,
         'notes': notes or '',
@@ -15476,7 +15516,8 @@ def _serialize_layby(cursor, row):
         'cancel_reason': cancel_reason or '',
         'items': items,
         'plan': plan,
-        'payments': payments
+        'payments': payments,
+        'refunds': refunds
     }
 
 
@@ -15498,6 +15539,39 @@ def pos_create_layby():
     branch_id = current_branch_id()
     if not branch_id:
         return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
+
+    # ---- Offline replay plumbing -----------------------------------------
+    # A till with no connection mints its own client_ref and layby number and
+    # replays them here later. The client_ref makes the replay idempotent (a
+    # retry after a dropped reply must not open a second layby), and a declared
+    # branch that is not the session's is refused rather than reserved against
+    # the wrong shop's shelf.
+    client_ref = str(data.get('client_ref') or '').strip()[:64] or None
+    declared_branch = data.get('branch_id')
+    if declared_branch is not None and declared_branch != '':
+        try:
+            declared_branch = int(declared_branch)
+        except (TypeError, ValueError):
+            declared_branch = None
+        if declared_branch is not None and declared_branch != branch_id:
+            return jsonify({'success': False, 'branch_mismatch': True,
+                            'error': ('This layby was opened in another branch. '
+                                      'Select that branch to sync it.')}), 409
+    if client_ref:
+        try:
+            with get_db() as (cursor, connection):
+                cursor.execute("SELECT id FROM laybys WHERE client_ref = %s", (client_ref,))
+                dup = cursor.fetchone()
+                if dup:
+                    cursor.execute(f"""
+                        SELECT {LAYBY_COLUMNS} FROM laybys l
+                        LEFT JOIN branches b ON b.id = l.branch_id
+                        WHERE l.id = %s
+                    """, (dup[0],))
+                    return jsonify({'success': True, 'duplicate': True,
+                                    'layby': _serialize_layby(cursor, cursor.fetchone())})
+        except Exception as dup_err:
+            print(f"Note: layby duplicate check failed: {dup_err}")
 
     customer_name = (data.get('customer_name') or '').strip()[:150]
     customer_id_number = (data.get('customer_id_number') or '').strip()[:60]
@@ -15572,7 +15646,10 @@ def pos_create_layby():
     user_id = session.get('user_id') or session.get('userid') or 0
     user_name = session.get('user_name') or session.get('username') or 'System'
     zimbabwe_now = get_zimbabwe_time()
-    reference = generate_layby_reference()
+    # The till may already have given the customer a number while it was offline;
+    # honour it, but never let it collide with one that is already in use.
+    reference = (str(data.get('reference') or '').strip().upper()[:40]
+                 or generate_layby_reference())
     transaction_number = generate_transaction_number()
     # Paid off on the spot? Then it is an ordinary completed sale from the start.
     layby_status = 'active' if due > 0 else 'completed'
@@ -15583,6 +15660,15 @@ def pos_create_layby():
 
     try:
         with get_db() as (cursor, connection):
+            # A customer-quotable number has to be unique, and an offline till
+            # minted this one, so a clash is possible and is reported rather
+            # than silently renumbered behind the customer's back.
+            cursor.execute("SELECT 1 FROM laybys WHERE reference = %s", (reference,))
+            if cursor.fetchone():
+                return jsonify({'success': False,
+                                'error': (f'Layby number {reference} is already in use. '
+                                          f'Open the layby again to get a new number.')}), 409
+
             cursor.execute("""
                 INSERT INTO transactions (transaction_number, user_id, subtotal, tax, total,
                                           payment_method, amount_paid, change_amount, notes,
@@ -15598,13 +15684,14 @@ def pos_create_layby():
                 INSERT INTO laybys (reference, branch_id, transaction_id, transaction_number,
                                     customer_name, customer_id_number, customer_phone,
                                     total_amount, deposit_amount, status, notes,
-                                    created_by, created_by_name, created_at, completed_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    created_by, created_by_name, created_at, completed_at,
+                                    client_ref)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (reference, branch_id, transaction_id, transaction_number,
                   customer_name, customer_id_number, customer_phone, total, deposit,
                   layby_status, str(data.get('notes') or '')[:500], user_id, user_name,
-                  zimbabwe_now, zimbabwe_now if due <= 0 else None))
+                  zimbabwe_now, zimbabwe_now if due <= 0 else None, client_ref))
             layby_id = cursor.fetchone()[0]
 
             for line in lines:
@@ -15730,7 +15817,9 @@ def pos_list_laybys():
                 'completed': sum(1 for x in laybys if x['status'] == 'completed'),
                 'cancelled': sum(1 for x in laybys if x['status'] == 'cancelled'),
                 'outstanding': round(sum(x['balance'] for x in active), 2),
-                'collected': round(sum(x['paid_amount'] for x in laybys), 2)
+                # Net of refunds: what the shop is actually holding.
+                'collected': round(sum(x['net_collected'] for x in laybys), 2),
+                'refunded': round(sum(x['refunded_amount'] for x in laybys), 2)
             }
         })
     except Exception as e:
@@ -15752,6 +15841,28 @@ def pos_layby_payment(layby_id):
     branch_id = current_branch_id()
     if not branch_id:
         return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
+
+    # Same offline replay rules as opening a layby: client_ref makes a replayed
+    # instalment idempotent, and a declared branch other than the session's is
+    # refused instead of being taken off the wrong shop's books.
+    client_ref = str(data.get('client_ref') or '').strip()[:64] or None
+    declared_branch = data.get('branch_id')
+    if declared_branch is not None and declared_branch != '':
+        try:
+            declared_branch = int(declared_branch)
+        except (TypeError, ValueError):
+            declared_branch = None
+        if declared_branch is not None and declared_branch != branch_id:
+            return jsonify({'success': False, 'branch_mismatch': True,
+                            'error': ('This instalment was taken in another branch. '
+                                      'Select that branch to sync it.')}), 409
+    if client_ref:
+        existing = execute_query(
+            "SELECT id FROM layby_payments WHERE client_ref = %s", (client_ref,),
+            fetch_one=True)
+        if existing:
+            return jsonify({'success': True, 'duplicate': True,
+                            'payment_id': existing[0], 'settled': False})
 
     try:
         amount = round(float(data.get('amount') or 0), 2)
@@ -15803,11 +15914,12 @@ def pos_layby_payment(layby_id):
 
             cursor.execute("""
                 INSERT INTO layby_payments (layby_id, seq, amount, method, notes,
-                                            user_id, user_name, paid_at, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                            user_id, user_name, paid_at, created_at,
+                                            client_ref, kind)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'payment')
                 RETURNING id
             """, (layby_id, data.get('seq'), amount, method, notes, user_id, user_name,
-                  paid_at, now))
+                  paid_at, now, client_ref))
             payment_id = cursor.fetchone()[0]
 
             settled = round(paid + amount, 2) >= float(l[3] or 0) - 0.005
@@ -15859,10 +15971,14 @@ def pos_layby_payment(layby_id):
 @login_required
 @block_writes_in_consolidated_view
 def pos_cancel_layby(layby_id):
-    """Cancel a layby: the reserved goods go back on the shelf and the sale is voided.
+    """Cancel a layby: goods back on the shelf, the sale voided, the money refunded.
 
-    Money already collected stays on the record on purpose: refunding it is a
-    counter decision and wiping it here would hide money that was received.
+    body = {reason, refund_amount (optional - defaults to everything collected),
+            refund_method, refund_notes}
+
+    The refund is written as its own row, so the layby shows what went back to
+    the customer and what (if anything) the shop kept, instead of the money
+    simply disappearing from the record.
     """
     data = request.get_json() or {}
     branch_id = current_branch_id()
@@ -15870,6 +15986,18 @@ def pos_cancel_layby(layby_id):
         return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
 
     reason = str(data.get('reason') or '').strip()[:500]
+    # What is handed back to the customer. The default is everything they paid;
+    # a shop that keeps a fee or a restocking charge says so, and the retained
+    # part stays visible on the layby instead of vanishing.
+    try:
+        refund_requested = (None if data.get('refund_amount') in (None, '')
+                            else round(float(data.get('refund_amount')), 2))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'The refund is not a number.'}), 400
+    if refund_requested is not None and refund_requested < 0:
+        return jsonify({'success': False, 'error': 'The refund cannot be negative.'}), 400
+    refund_method = (data.get('refund_method') or 'cash').strip().lower()[:20]
+    refund_notes = str(data.get('refund_notes') or '').strip()[:500]
     user_id = session.get('user_id') or session.get('userid') or 0
     user_name = session.get('user_name') or session.get('username') or 'System'
     now = get_zimbabwe_time()
@@ -15909,6 +16037,22 @@ def pos_cancel_layby(layby_id):
                 UPDATE laybys SET status = 'cancelled', cancelled_at = %s, cancel_reason = %s
                 WHERE id = %s
             """, (now, reason, layby_id))
+
+            # Money goes back to the customer, unless the shop kept a fee -- in
+            # which case only the difference is refunded and the part retained
+            # stays on this layby's record instead of disappearing.
+            collected = _layby_paid(cursor, layby_id)
+            refund_amount = (collected if refund_requested is None
+                             else min(refund_requested, collected))
+            if refund_amount > 0:
+                cursor.execute("""
+                    INSERT INTO layby_payments (layby_id, seq, amount, method, notes,
+                                                user_id, user_name, paid_at, created_at, kind)
+                    VALUES (%s, NULL, %s, %s, %s, %s, %s, %s, %s, 'refund')
+                """, (layby_id, refund_amount, refund_method,
+                      refund_notes or f'Refund on cancellation of {l[1]}',
+                      user_id, user_name, now, now))
+
             if l[4]:
                 cursor.execute("""
                     UPDATE transactions
@@ -15928,11 +16072,13 @@ def pos_cancel_layby(layby_id):
             log_activity(
                 'layby_cancel',
                 (f'Cancelled layby {updated["reference"]} '
-                 f'(${updated["paid_amount"]:,.2f} had been paid)'
+                 f'(${updated["refunded_amount"]:,.2f} refunded of '
+                 f'${updated["paid_amount"]:,.2f} collected)'
                  + (f' - {reason}' if reason else '')),
                 'layby', layby_id,
                 {'reference': updated['reference'], 'paid': updated['paid_amount'],
-                 'reason': reason}
+                 'refunded': updated['refunded_amount'],
+                 'retained': updated['net_collected'], 'reason': reason}
             )
         except Exception as log_err:
             print(f"Warning: could not log the layby cancellation: {log_err}")
@@ -15940,8 +16086,12 @@ def pos_cancel_layby(layby_id):
         return jsonify({
             'success': True,
             'layby': updated,
+            'refunded': updated['refunded_amount'],
+            'retained': updated['net_collected'],
             'message': (f'Layby {updated["reference"]} cancelled and the stock returned. '
-                        f'${updated["paid_amount"]:,.2f} was collected and stays on record.')
+                        f'${updated["refunded_amount"]:,.2f} refunded to the customer'
+                        + (f', ${updated["net_collected"]:,.2f} kept.'
+                           if updated['net_collected'] > 0.005 else '.'))
         })
     except Exception as e:
         print(f"Layby cancel error: {e}")
@@ -18368,7 +18518,10 @@ def day_end_report():
             SELECT COALESCE(lp.user_name, 'Unknown') AS cashier,
                    COALESCE(b.name, 'Unassigned') AS branch_name,
                    l.branch_id,
-                   COALESCE(SUM(lp.amount), 0) AS collected,
+                   COALESCE(SUM(CASE WHEN COALESCE(lp.kind, 'payment') = 'refund'
+                                     THEN 0 ELSE lp.amount END), 0) AS collected,
+                   COALESCE(SUM(CASE WHEN COALESCE(lp.kind, 'payment') = 'refund'
+                                     THEN lp.amount ELSE 0 END), 0) AS refunded,
                    COUNT(*) AS payment_count
             FROM layby_payments lp
             JOIN laybys l ON l.id = lp.layby_id
@@ -18381,22 +18534,34 @@ def day_end_report():
             ORDER BY 1
         """
         lp_rows = execute_query(lp_sql, (day,) + tuple(lp_params), fetch_all=True) or []
-        layby_collections = [{'cashier': r[0], 'branch_name': r[1], 'branch_id': r[2],
-                              'collected': round(float(r[3] or 0), 2),
-                              'payment_count': int(r[4] or 0)} for r in lp_rows]
+        layby_collections = []
+        for r in lp_rows:
+            collected = round(float(r[3] or 0), 2)
+            refunded = round(float(r[4] or 0), 2)
+            layby_collections.append({
+                'cashier': r[0],
+                'branch_name': r[1],
+                'branch_id': r[2],
+                'collected': collected,
+                'refunded': refunded,
+                # Money the shop is actually up on: what came in, less refunds.
+                'net': round(collected - refunded, 2),
+                'payment_count': int(r[5] or 0)
+            })
 
-        # Attach the instalments to the person and shop that took them, so the
-        # reader can see takings = completed sales + layby money received.
+        # Attach the net instalment money to the person and shop that took it, so
+        # the reader can see takings = completed sales + layby money kept.
         for coll in layby_collections:
             for c in cashiers:
                 if c['cashier'] == coll['cashier'] and c['branch_id'] == coll['branch_id']:
                     c['layby_collected'] = round(
-                        c.get('layby_collected', 0.0) + coll['collected'], 2)
+                        c.get('layby_collected', 0.0) + coll['net'], 2)
             for b in branches:
                 if b['branch_id'] == coll['branch_id']:
                     b['layby_collected'] = round(
-                        b.get('layby_collected', 0.0) + coll['collected'], 2)
-        layby_total = round(sum(c['collected'] for c in layby_collections), 2)
+                        b.get('layby_collected', 0.0) + coll['net'], 2)
+        layby_total = round(sum(c['net'] for c in layby_collections), 2)
+        layby_refunded = round(sum(c['refunded'] for c in layby_collections), 2)
 
         return jsonify({
             'success': True,
@@ -18410,7 +18575,8 @@ def day_end_report():
             'transaction_count': sum(c['transaction_count'] for c in cashiers),
             'payment_methods': overall_pm,
             'layby_collections': layby_collections,
-            'layby_total': layby_total
+            'layby_total': layby_total,
+            'layby_refunded': layby_refunded
         })
     except Exception as e:
         print(f"Day-end report error: {e}")

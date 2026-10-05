@@ -538,21 +538,38 @@ How it hits the books:
   filter, balance, plan state and payment history per layby).
 * When the balance reaches zero the layby *and* its transaction are released to
   `completed`, so the full sale value lands in the sales reports then.
-* **Day-end** excludes layby sales from takings and reports what was collected instead —
-  a *Layby collected* tile, a per-cashier line, and a `Layby collected` column in the
+* **Day-end** excludes layby sales from takings and reports what was kept instead — a
+  *Layby kept* tile (net of refunds), a per-cashier line, and a `Layby kept` column in the
   Excel export.
 * **Audit report** lists layby items like any other sale, badged **Layby**, with the
   receipt number in the details column.
-* **Cancelling** returns the reserved stock to the shelf and voids the sale. Money already
-  collected stays on the record on purpose — refunding it is a counter decision.
+* **Cancelling** returns the reserved stock to the shelf, voids the sale, and **refunds the
+  customer**: the amount defaults to everything collected (lower it to keep a fee) and is
+  written as its own refund row, so the layby shows what went back and what was retained.
+  Refunds are money paid out at the counter and are reported as such.
 
 Tables `laybys`, `layby_items`, `layby_plan` and `layby_payments` are created
 automatically on boot, like the branch schema, so there is no manual migration step.
 
-> **Limitation:** a layby cannot be created or paid while the till is offline. The cash
-> sale queue is built around money already taken; a layby needs the server to reserve the
-> goods and set the plan, so the till reports "could not reach the server" instead of
-> pretending.
+### Laybys on a till with no connection
+
+A layby **and** its instalments can now be taken with no connection at all, alongside cash
+sales:
+
+* The till **mints the layby number itself** (`LAY-YYYYMMDD-XXXXXX`), so the paper the
+  customer walks away with is the number the books end up with, and keeps the layby (or
+  the instalment) on that device.
+* The **Layby tab lists what is waiting** at the top, marked *not yet synced*. An
+  instalment can be recorded against a layby that has not reached the server yet — it is
+  queued behind it and tied to it by that same number.
+* The queue replays automatically when the connection returns, and the drawer's
+  *Cloud sync* row counts these alongside queued sales.
+* **Nothing is ever thrown away.** An instalment for a layby rung in *another branch* is
+  held until that branch is selected again, and anything the server refuses is **parked
+  with its reason** on the Layby tab, with *Try again* and *Discard* — a person decides,
+  not a retry counter.
+* Idempotency comes from the till's own reference on every item, so a retry after a
+  dropped reply cannot reserve the goods or take the money twice.
 
 ### Bulk stock upload (Excel) — what it will and will not duplicate
 
@@ -1157,6 +1174,12 @@ sudo systemctl start connectlink
 ## Changelog
 
 **October 2026 — POS stock isolation, layby, reconciliation**
+- ✅ **Laybys work with no connection.** The till mints its own layby number, queues the
+  layby and any instalments on the device, replays them when the connection returns, and
+  parks anything the server refuses on the Layby tab with its reason (never discarding it).
+- ✅ **Cancelling a layby refunds the customer.** The refund defaults to everything
+  collected, can be lowered to keep a fee, is recorded as its own row, and is reported as
+  money paid out in day-end.
 - ✅ Cross-branch stock leaks closed: the offline catalogue cache is tagged with the branch
   that fetched it, queued offline sales record the branch they were rung in, and
   `/api/transactions/sync` refuses a sale filed against a branch other than the session.

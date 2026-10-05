@@ -6724,9 +6724,22 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
             </div>
             <div class="modal-body">
                 <div class="alert alert-warning py-2 small" id="laybyCancelSummary"></div>
-                <p class="small mb-2">The reserved goods go back on the shelf and the sale is voided.
-                    Money already paid stays on the record - refunding it is a counter decision.</p>
-                <label class="small fw-bold" for="laybyCancelReason">Reason</label>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyRefundAmount">Refund to customer</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="laybyRefundAmount">
+                        <div class="form-text">Defaults to everything collected. Lower it to keep a fee.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyRefundMethod">Refunded by</label>
+                        <select class="form-select form-select-sm" id="laybyRefundMethod">
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="transfer">Transfer</option>
+                        </select>
+                    </div>
+                </div>
+                <label class="small fw-bold mt-2" for="laybyCancelReason">Reason</label>
                 <input type="text" class="form-control form-control-sm" id="laybyCancelReason" placeholder="e.g. customer defaulted">
                 <div id="laybyCancelError" class="alert alert-danger py-2 small mt-3" style="display: none;"></div>
             </div>
@@ -13278,7 +13291,7 @@ function renderFilteredTransactions() {
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cash</div><div class="fw-bold">$${(pm.cash || 0).toFixed(2)}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Card</div><div class="fw-bold">$${(pm.card || 0).toFixed(2)}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transfer</div><div class="fw-bold">$${(pm.transfer || 0).toFixed(2)}</div></div></div>
-            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Layby collected</div><div class="fw-bold text-success">$${(data.layby_total || 0).toFixed(2)}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Layby kept</div><div class="fw-bold text-success">$${(data.layby_total || 0).toFixed(2)}</div></div></div>
         `;
 
         // When the day spans more than one shop, show each shop's own total so the
@@ -13296,15 +13309,21 @@ function renderFilteredTransactions() {
         // deliberately held out of the totals above until it is paid off, so it
         // is called out here instead of being silently missing.
         if ((data.layby_collections || []).length) {
+            const laybyRefunded = data.layby_refunded || 0;
             document.getElementById('dayEndSummary').innerHTML += `
                 <div class="col-12">
                     <div class="alert alert-success py-2 small mb-1">
                         <i class="fas fa-hand-holding-dollar me-1"></i>
-                        <strong>Layby instalments received: $${(data.layby_total || 0).toFixed(2)}</strong>
+                        <strong>Layby money kept: $${(data.layby_total || 0).toFixed(2)}</strong>
+                        ${laybyRefunded > 0
+                            ? `<span class="text-danger ms-2">refunds paid out today: $${laybyRefunded.toFixed(2)}</span>`
+                            : ''}
                         ${(data.layby_collections || []).map(c =>
-                            `<span class="ms-2">${escapeHtml(c.cashier)}: $${(c.collected || 0).toFixed(2)}</span>`
+                            `<span class="ms-2">${escapeHtml(c.cashier)}: $${(c.net || 0).toFixed(2)}` +
+                            (c.refunded ? ` <span class="text-danger">(-$${c.refunded.toFixed(2)} refunded)</span>` : '') +
+                            `</span>`
                         ).join('')}
-                        <div class="text-muted">This is money taken today. It is not in Total Sales above until the layby is paid off.</div>
+                        <div class="text-muted">Money taken or paid out at the counter today, net of refunds. The layby sale itself is not in Total Sales above until it is paid off.</div>
                     </div>
                 </div>`;
         }
@@ -13356,16 +13375,16 @@ function renderFilteredTransactions() {
         const data = dayEndReportData;
         const rows = [];
         (data.cashiers || []).forEach(c => {
-            rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2), 'Layby collected': (c.layby_collected || 0).toFixed(2) });
+            rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2), 'Layby kept': (c.layby_collected || 0).toFixed(2) });
         });
         if ((data.branches || []).length > 1) {
             rows.push({});
             rows.push({ 'Branch': 'BRANCH TOTALS' });
             (data.branches || []).forEach(b => {
-                rows.push({ 'Branch': b.branch_name || '', 'Total Sales': (b.total || 0).toFixed(2), 'Cash': ((b.payment_methods || {}).cash || 0).toFixed(2), 'Card': ((b.payment_methods || {}).card || 0).toFixed(2), 'Transfer': ((b.payment_methods || {}).transfer || 0).toFixed(2), 'Layby collected': (b.layby_collected || 0).toFixed(2) });
+                rows.push({ 'Branch': b.branch_name || '', 'Total Sales': (b.total || 0).toFixed(2), 'Cash': ((b.payment_methods || {}).cash || 0).toFixed(2), 'Card': ((b.payment_methods || {}).card || 0).toFixed(2), 'Transfer': ((b.payment_methods || {}).transfer || 0).toFixed(2), 'Layby kept': (b.layby_collected || 0).toFixed(2) });
             });
         }
-        rows.push({ 'Branch': '', 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2), 'Layby collected': (data.layby_total || 0).toFixed(2) });
+        rows.push({ 'Branch': '', 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2), 'Layby kept': (data.layby_total || 0).toFixed(2) });
         rows.push({});
         rows.push({ 'Branch': 'Branch', 'Cashier': 'Cashier', 'Total Sales': 'Receipt #', 'Cash': 'Items', 'Card': 'Total', 'Transfer': 'Payment' });
         (data.cashiers || []).forEach(c => {
@@ -19435,6 +19454,63 @@ function setupEventListeners() {
         return (typeof branchIsReadOnly === 'function') && branchIsReadOnly();
     }
 
+    function randomToken(n) {
+        var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', s = '';
+        for (var i = 0; i < n; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+        return s;
+    }
+
+    // The idempotency key: invisible, unique per event, never shown to anybody.
+    function newLaybyRef() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        return 'lay-' + Date.now().toString(36) + '-' + randomToken(10).toLowerCase();
+    }
+
+    // The number the customer walks away with. It is minted HERE rather than on
+    // the server so a till with no connection can hand over a number that will
+    // still be the right one once it syncs.
+    function laybyReference() {
+        var d = new Date();
+        return 'LAY-' + d.getFullYear() +
+               String(d.getMonth() + 1).padStart(2, '0') +
+               String(d.getDate()).padStart(2, '0') + '-' + randomToken(6);
+    }
+
+    function offlineNow() {
+        return (typeof window.POSOffline !== 'undefined' && window.POSOffline.isOffline)
+            ? window.POSOffline.isOffline() : false;
+    }
+
+    function queueLaybyEvent(event) {
+        if (typeof window.POSOffline === 'undefined' || !window.POSOffline.queueLayby) return false;
+        window.POSOffline.queueLayby(event);
+        return true;
+    }
+
+    function branchIdNow() {
+        return (typeof posBranch !== 'undefined' && posBranch && posBranch.id != null)
+            ? posBranch.id : null;
+    }
+
+    // The goods are spoken for, so whatever happened to the paperwork the cart is
+    // finished with and the catalogue has to be re-read.
+    function afterLaybyAccepted() {
+        cart = [];
+        if (typeof updateCartDisplay === 'function') updateCartDisplay();
+        if (typeof resetPaymentUI === 'function') resetPaymentUI();
+        if (typeof fetchProductsFromAPI === 'function') fetchProductsFromAPI();
+        if (typeof fetchDashboardStats === 'function') fetchDashboardStats();
+        if (typeof fetchTransactions === 'function') fetchTransactions();
+        refreshLaybyTabIfVisible();
+    }
+
+    window.refreshLaybyTabIfVisible = function () {
+        var page = document.getElementById('laybyPage');
+        if (page && page.style.display !== 'none' && typeof window.fetchLaybys === 'function') {
+            window.fetchLaybys();
+        }
+    };
+
     // ---------- Opening a layby from the cart ----------
 
     window.openLaybyModal = function () {
@@ -19582,47 +19658,75 @@ function setupEventListeners() {
         var btn = document.querySelector('#laybyModal .btn-primary-dark');
         if (btn) btn.disabled = true;
 
+        var clientRef = newLaybyRef();
+        var reference = laybyReference();
+        var body = {
+            customer_name: name,
+            customer_id_number: idNumber,
+            customer_phone: phone,
+            deposit: deposit,
+            deposit_method: document.getElementById('laybyDepositMethod').value,
+            installments: installments,
+            notes: document.getElementById('laybyNotes').value.trim(),
+            // Both travel with the layby so the paperwork the customer was given
+            // is the paperwork the books end up with.
+            reference: reference,
+            client_ref: clientRef,
+            items: cart.map(function (item) {
+                return {
+                    id: item.id,
+                    name: item.name,
+                    price: item.sell_price || item.price || 0,
+                    quantity: item.quantity
+                };
+            })
+        };
+
+        // Keep it on the device. Used when the till has no connection, and when
+        // the request dies on the way (a timeout is not a refusal).
+        function parkIt(reason) {
+            if (btn) btn.disabled = false;
+            if (!queueLaybyEvent({
+                    kind: 'layby',
+                    client_ref: clientRef,
+                    created_at: new Date().toISOString(),
+                    branch_id: branchIdNow(),
+                    status: 'queued',
+                    attempts: 0,
+                    error: null,
+                    payload: body
+                })) {
+                showError('laybyError', reason || 'Could not reach the server. The layby was not opened.');
+                return;
+            }
+            hideModal('laybyModal');
+            afterLaybyAccepted();
+            showToast('No connection - layby ' + reference +
+                      ' is saved on this device and will sync automatically.', 'warning');
+        }
+
+        if (offlineNow()) { parkIt(); return; }
+
         fetch(API_BASE + '/api/pos/laybys', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                customer_name: name,
-                customer_id_number: idNumber,
-                customer_phone: phone,
-                deposit: deposit,
-                deposit_method: document.getElementById('laybyDepositMethod').value,
-                installments: installments,
-                notes: document.getElementById('laybyNotes').value.trim(),
-                items: cart.map(function (item) {
-                    return {
-                        id: item.id,
-                        name: item.name,
-                        price: item.sell_price || item.price || 0,
-                        quantity: item.quantity
-                    };
-                })
-            })
+            body: JSON.stringify(body)
         }).then(function (r) { return r.json(); }).then(function (data) {
             if (btn) btn.disabled = false;
-            if (!data.success) { showError('laybyError', data.error || 'Could not open the layby.'); return; }
+            if (!data.success) {
+                // A refusal from the books is a decision, not a connection
+                // problem - except a branch clash, which the queue can hold.
+                if (data.branch_mismatch) { parkIt(data.error); return; }
+                showError('laybyError', data.error || 'Could not open the layby.');
+                return;
+            }
 
             hideModal('laybyModal');
             showToast(data.message || 'Layby opened.', 'success');
-
-            // The goods are reserved, so the cart is done and the catalogue and
-            // the figures have to be refreshed from the server.
-            cart = [];
-            if (typeof updateCartDisplay === 'function') updateCartDisplay();
-            if (typeof resetPaymentUI === 'function') resetPaymentUI();
-            if (typeof fetchProductsFromAPI === 'function') fetchProductsFromAPI();
-            if (typeof fetchDashboardStats === 'function') fetchDashboardStats();
-            if (typeof fetchTransactions === 'function') fetchTransactions();
-            laybyById[data.layby.id] = data.layby;
-        }).catch(function () {
-            if (btn) btn.disabled = false;
-            showError('laybyError', 'Could not reach the server. The layby was not opened.');
-        });
+            afterLaybyAccepted();
+            if (data.layby) laybyById[data.layby.id] = data.layby;
+        }).catch(function () { parkIt(); });
     };
 
     // ---------- The Layby tab ----------
@@ -19663,6 +19767,12 @@ function setupEventListeners() {
                          '</div>';
               }).join('')
             : '<div class="small text-muted">No payments yet.</div>';
+        var refundLines = (l.refunds || []).map(function (p) {
+            return '<div class="small text-danger">' +
+                       '<i class="fas fa-rotate-left me-1"></i>' +
+                       money(p.amount) + ' refunded ' + text(p.method) +
+                       ' &middot; ' + text((p.paid_at || '').replace('T', ' ').slice(0, 16)) + '</div>';
+        }).join('');
 
         return '<div class="border rounded p-3 mb-2">' +
             '<div class="d-flex justify-content-between align-items-start flex-wrap gap-2">' +
@@ -19680,8 +19790,14 @@ function setupEventListeners() {
                 '<div class="text-end">' +
                     '<div class="small text-muted">Total ' + money(l.total_amount) + '</div>' +
                     '<div class="small">Paid <strong class="text-success">' + money(l.paid_amount) + '</strong></div>' +
-                    '<div class="fw-bold ' + (l.balance > 0 ? 'text-danger' : 'text-success') + '">' +
-                        (l.balance > 0 ? money(l.balance) + ' to pay' : 'Fully paid') + '</div>' +
+                    (l.refunded_amount > 0
+                        ? '<div class="small text-danger">Refunded ' + money(l.refunded_amount) + '</div>'
+                        : '') +
+                    '<div class="fw-bold ' +
+                        (l.status === 'active' && l.balance > 0 ? 'text-danger' : 'text-success') + '">' +
+                        (l.status === 'active'
+                            ? (l.balance > 0 ? money(l.balance) + ' to pay' : 'Fully paid')
+                            : (l.status === 'cancelled' ? 'Cancelled' : 'Paid off')) + '</div>' +
                 '</div>' +
             '</div>' +
             '<div class="small mt-2">' +
@@ -19691,7 +19807,7 @@ function setupEventListeners() {
             '</div>' +
             ((l.plan || []).length ? '<div class="mt-2">' +
                 l.plan.map(planChip).join('') + '</div>' : '') +
-            '<div class="mt-2">' + payments + '</div>' +
+            '<div class="mt-2">' + payments + refundLines + '</div>' +
             (actions ? '<div class="mt-2">' + actions + '</div>' : '') +
             (l.status === 'cancelled' && l.cancel_reason
                 ? '<div class="small text-danger mt-1">Cancelled: ' + text(l.cancel_reason) + '</div>' : '') +
@@ -19700,7 +19816,10 @@ function setupEventListeners() {
 
     function renderLaybyPage(data) {
         var s = data.summary || {};
-        document.getElementById('laybyStatActive').textContent = s.active || 0;
+        var pendingCount = (typeof window.POSOffline !== 'undefined' && window.POSOffline.pendingLaybyCount)
+            ? window.POSOffline.pendingLaybyCount() : 0;
+        document.getElementById('laybyStatActive').textContent =
+            (s.active || 0) + (pendingCount ? ' (+' + pendingCount + ')' : '');
         document.getElementById('laybyStatOutstanding').textContent = money(s.outstanding || 0);
         document.getElementById('laybyStatCollected').textContent = money(s.collected || 0);
         document.getElementById('laybyStatCompleted').textContent = s.completed || 0;
@@ -19709,12 +19828,124 @@ function setupEventListeners() {
         laybyById = {};
         list.forEach(function (l) { laybyById[l.id] = l; });
 
-        if (!list.length) {
-            renderLaybyMessage('No laybys to show here yet.');
-            return;
-        }
-        document.getElementById('laybyListContainer').innerHTML = list.map(laybyCard).join('');
+        var pendingHtml = pendingLaybyCards();
+        var listHtml = list.length
+            ? list.map(laybyCard).join('')
+            : (pendingHtml ? '' : '<p class="text-muted small mb-0">No laybys to show here yet.</p>');
+        document.getElementById('laybyListContainer').innerHTML = pendingHtml + listHtml;
     }
+
+    // Laybys (and their instalments) that were taken with no connection and are
+    // still on this device. A blocked one carries the server's reason and is
+    // never discarded automatically - that would throw away a customer's money.
+    function pendingLaybyCards() {
+        if (typeof window.POSOffline === 'undefined' || !window.POSOffline.pendingLaybys) return '';
+        var entries = window.POSOffline.pendingLaybys() || [];
+        if (!entries.length) return '';
+
+        var blocked = entries.filter(function (e) { return e.status === 'blocked'; }).length;
+        var waiting = entries.length - blocked;
+
+        var head = '<div class="alert alert-warning py-2 small mb-2">' +
+            '<i class="fas fa-cloud-arrow-up me-1"></i><strong>' + entries.length +
+            ' layby item(s) on this device</strong>' +
+            (waiting ? ' &middot; ' + waiting + ' waiting to sync' : '') +
+            (blocked ? ' &middot; <span class="text-danger">' + blocked + ' need attention</span>' : '') +
+            ' <button class="btn btn-sm btn-outline-dark ms-2" onclick="POSOffline.syncLaybysNow()">Sync now</button>' +
+            '<div class="text-muted">Taken with no connection. Nothing is lost - they go up as soon as the till is back online.</div>' +
+            '</div>';
+
+        return head + entries.map(function (e) {
+            var p = e.payload || {};
+            var isPay = e.kind === 'payment';
+            var title, body;
+            if (isPay) {
+                title = 'Instalment ' + money(p.amount) +
+                        (p.layby_reference ? ' for ' + text(p.layby_reference) : '');
+                body = '<div class="small text-muted">' + text(p.method || 'cash') +
+                       (p.paid_at ? ' &middot; ' + text(p.paid_at) : '') +
+                       (p.notes ? ' &middot; ' + text(p.notes) : '') + '</div>';
+            } else {
+                var total = (p.items || []).reduce(function (sum, i) {
+                    return sum + ((i.price || 0) * (i.quantity || 0));
+                }, 0);
+                title = text(p.reference || '') + ' &mdash; ' + text(p.customer_name || '');
+                body = '<div class="small text-muted">ID ' + text(p.customer_id_number || '') +
+                       ' &middot; total ' + money(total) +
+                       ' &middot; deposit ' + money(p.deposit || 0) +
+                       ' &middot; plan: ' + (p.installments || []).length + ' instalment(s)</div>' +
+                       '<div class="small mt-1">' + (p.items || []).map(function (i) {
+                            return text(i.name) + ' x' + i.quantity;
+                       }).join(', ') + '</div>';
+            }
+
+            var actions;
+            if (e.status === 'blocked') {
+                actions = '<div class="alert alert-danger py-1 small mt-2 mb-1">' +
+                          '<i class="fas fa-triangle-exclamation me-1"></i>' +
+                          text(e.error || 'The server refused it.') + '</div>' +
+                          '<button class="btn btn-sm btn-outline-danger me-1" onclick="POSOffline.removeLayby(\'' +
+                          e.client_ref + '\')">Discard</button>' +
+                          '<button class="btn btn-sm btn-primary-dark" onclick="POSOffline.retryLayby(\'' +
+                          e.client_ref + '\')">Try again</button>';
+            } else if (isPay) {
+                actions = '<div class="small text-muted"><i class="fas fa-clock me-1"></i>Waiting to sync</div>';
+            } else {
+                actions = '<button class="btn btn-sm btn-success" onclick="openPendingLaybyPayment(\'' +
+                          e.client_ref + '\')"><i class="fas fa-coins me-1"></i>Record instalment</button>';
+            }
+
+            return '<div class="border rounded p-3 mb-2" style="border-left:4px solid #D97706 !important;">' +
+                '<div class="fw-bold">' + title + ' <span class="badge bg-warning text-dark">' +
+                (e.status === 'blocked' ? 'needs attention' : 'not yet synced') + '</span></div>' +
+                body + '<div class="mt-2">' + actions + '</div></div>';
+        }).join('');
+    }
+
+    // An instalment against a layby that has not reached the server yet: it is
+    // queued behind the layby and tied to it by the reference the till minted.
+    window.openPendingLaybyPayment = function (clientRef) {
+        var entries = (typeof window.POSOffline !== 'undefined' && window.POSOffline.pendingLaybys)
+            ? window.POSOffline.pendingLaybys() : [];
+        var entry = entries.filter(function (e) { return e.client_ref === clientRef; })[0];
+        if (!entry) { showToast('That layby is no longer on this device.', 'error'); return; }
+
+        var p = entry.payload || {};
+        var total = (p.items || []).reduce(function (sum, i) {
+            return sum + ((i.price || 0) * (i.quantity || 0));
+        }, 0);
+        var paid = Number(p.deposit || 0);
+        entries.forEach(function (e) {
+            if (e.kind === 'payment' && e.payload &&
+                e.payload.layby_client_ref === clientRef) {
+                paid += Number(e.payload.amount || 0);
+            }
+        });
+
+        laybyOpen = {
+            id: null,
+            pending_client_ref: clientRef,
+            reference: p.reference || '',
+            customer_name: p.customer_name || '',
+            total_amount: total,
+            paid_amount: paid,
+            balance: Math.round((total - paid) * 100) / 100
+        };
+        document.getElementById('laybyPaymentSummary').innerHTML =
+            '<strong>' + text(laybyOpen.reference) + '</strong> &mdash; ' +
+            text(laybyOpen.customer_name) +
+            '<br>Balance: <strong class="text-danger">' + money(laybyOpen.balance) +
+            '</strong> of ' + money(total) +
+            '<br><span class="text-muted">This layby has not reached the server yet, ' +
+            'so the instalment is queued behind it.</span>';
+        document.getElementById('laybyPayAmount').value =
+            laybyOpen.balance > 0 ? laybyOpen.balance.toFixed(2) : '';
+        document.getElementById('laybyPayMethod').value = 'cash';
+        document.getElementById('laybyPayDate').value = todayISO();
+        document.getElementById('laybyPayNotes').value = '';
+        showError('laybyPayError', '');
+        modalOf('laybyPaymentModal').show();
+    };
 
     window.fetchLaybys = function () {
         var sel = document.getElementById('laybyStatusFilter');
@@ -19757,28 +19988,68 @@ function setupEventListeners() {
         var btn = document.querySelector('#laybyPaymentModal .btn-success');
         if (btn) btn.disabled = true;
 
-        fetch(API_BASE + '/api/pos/laybys/' + laybyOpen.id + '/pay', {
+        var clientRef = newLaybyRef();
+        var payload = {
+            amount: amount,
+            method: document.getElementById('laybyPayMethod').value,
+            paid_at: document.getElementById('laybyPayDate').value || null,
+            notes: document.getElementById('laybyPayNotes').value.trim(),
+            client_ref: clientRef,
+            branch_id: branchIdNow()
+        };
+        // A layby that is still waiting to sync has no server id yet, so the
+        // instalment is tied to it by the reference this till minted.
+        var payUrl;
+        if (laybyOpen.id) {
+            payload.layby_id = laybyOpen.id;
+            payUrl = API_BASE + '/api/pos/laybys/' + laybyOpen.id + '/pay';
+        } else {
+            payload.layby_client_ref = laybyOpen.pending_client_ref;
+            payUrl = null;
+        }
+
+        function parkIt(reason) {
+            if (btn) btn.disabled = false;
+            if (!queueLaybyEvent({
+                    kind: 'payment',
+                    client_ref: clientRef,
+                    created_at: new Date().toISOString(),
+                    branch_id: branchIdNow(),
+                    status: 'queued',
+                    attempts: 0,
+                    error: null,
+                    payload: payload
+                })) {
+                showError('laybyPayError', reason || 'Could not reach the server. The payment was not recorded.');
+                return;
+            }
+            hideModal('laybyPaymentModal');
+            showToast('No connection - ' + money(amount) + ' for ' +
+                      (laybyOpen.reference || 'the layby') +
+                      ' is saved on this device and will sync automatically.', 'warning');
+            refreshLaybyTabIfVisible();
+        }
+
+        if (!payUrl || offlineNow()) { parkIt(); return; }
+
+        fetch(payUrl, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                amount: amount,
-                method: document.getElementById('laybyPayMethod').value,
-                paid_at: document.getElementById('laybyPayDate').value || null,
-                notes: document.getElementById('laybyPayNotes').value.trim()
-            })
+            body: JSON.stringify(payload)
         }).then(function (r) { return r.json(); }).then(function (data) {
             if (btn) btn.disabled = false;
-            if (!data.success) { showError('laybyPayError', data.error || 'Could not save the payment.'); return; }
+            if (!data.success) {
+                if (data.branch_mismatch) { parkIt(data.error); return; }
+                showError('laybyPayError', data.error || 'Could not save the payment.');
+                return;
+            }
 
             hideModal('laybyPaymentModal');
             showToast(data.message || 'Payment recorded.', 'success');
             fetchLaybys();
             if (typeof fetchDashboardStats === 'function') fetchDashboardStats();
-        }).catch(function () {
-            if (btn) btn.disabled = false;
-            showError('laybyPayError', 'Could not reach the server. The payment was not recorded.');
-        });
+        }).catch(function () { parkIt(); });
     };
 
     // ---------- Cancelling ----------
@@ -19790,7 +20061,12 @@ function setupEventListeners() {
         document.getElementById('laybyCancelSummary').innerHTML =
             '<strong>' + text(l.reference) + '</strong> &mdash; ' + text(l.customer_name) +
             '<br>' + money(l.paid_amount) + ' has been collected, ' +
-            money(l.balance) + ' is still to pay.';
+            money(l.balance) + ' is still to pay.' +
+            '<br>The reserved goods go back on the shelf and the sale is voided.';
+        // Everything collected goes back unless the shop deliberately keeps a fee.
+        document.getElementById('laybyRefundAmount').value =
+            Number(l.paid_amount || 0).toFixed(2);
+        document.getElementById('laybyRefundMethod').value = 'cash';
         document.getElementById('laybyCancelReason').value = '';
         showError('laybyCancelError', '');
         modalOf('laybyCancelModal').show();
@@ -19798,6 +20074,18 @@ function setupEventListeners() {
 
     window.submitLaybyCancel = function () {
         if (!laybyOpen) return;
+
+        var collected = Number(laybyOpen.paid_amount || 0);
+        var refund = parseFloat(document.getElementById('laybyRefundAmount').value);
+        if (isNaN(refund) || refund < 0) {
+            showError('laybyCancelError', 'Enter the amount to refund (0 keeps everything).');
+            return;
+        }
+        if (refund > collected + 0.005) {
+            showError('laybyCancelError', 'The refund cannot be more than the ' +
+                money(collected) + ' collected.');
+            return;
+        }
         showError('laybyCancelError', '');
         var btn = document.querySelector('#laybyCancelModal .btn-danger');
         if (btn) btn.disabled = true;
@@ -19806,7 +20094,11 @@ function setupEventListeners() {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason: document.getElementById('laybyCancelReason').value.trim() })
+            body: JSON.stringify({
+                reason: document.getElementById('laybyCancelReason').value.trim(),
+                refund_amount: Math.round(refund * 100) / 100,
+                refund_method: document.getElementById('laybyRefundMethod').value
+            })
         }).then(function (r) { return r.json(); }).then(function (data) {
             if (btn) btn.disabled = false;
             if (!data.success) { showError('laybyCancelError', data.error || 'Could not cancel the layby.'); return; }
@@ -19936,6 +20228,170 @@ function setupEventListeners() {
         return ref;
     }
 
+    // ---------- Offline laybys (and instalments taken with no connection) ----------
+    // A layby is a customer's commitment and their money, so NOTHING in this
+    // queue is ever thrown away: an entry the server refuses is PARKED with its
+    // reason and stays on the Layby tab until a human deals with it.
+    var LAYBY_QUEUE_KEY = 'pos_offline_laybys_v1';
+    var LAYBY_MAP_KEY = 'pos_layby_ref_map';
+    var laybysSyncing = false;
+
+    function readLaybyQueue() {
+        try { return JSON.parse(localStorage.getItem(LAYBY_QUEUE_KEY) || '[]'); } catch (e) { return []; }
+    }
+    function writeLaybyQueue(q) {
+        try { localStorage.setItem(LAYBY_QUEUE_KEY, JSON.stringify(q)); } catch (e) { /* quota */ }
+        updateSyncUI();
+        if (typeof window.refreshLaybyTabIfVisible === 'function') window.refreshLaybyTabIfVisible();
+    }
+    function readLaybyMap() {
+        try { return JSON.parse(localStorage.getItem(LAYBY_MAP_KEY) || '{}'); } catch (e) { return {}; }
+    }
+    // A layby opened offline gets its real server id when it finally syncs; this
+    // is what lets an instalment queued behind it find its way home.
+    function rememberLaybyId(clientRef, id) {
+        if (!clientRef || !id) return;
+        var map = readLaybyMap();
+        map[clientRef] = id;
+        try { localStorage.setItem(LAYBY_MAP_KEY, JSON.stringify(map)); } catch (e) { /* quota */ }
+    }
+
+    function laybyQueueEvent(event) {
+        var q = readLaybyQueue();
+        if (event.client_ref && q.some(function (e) { return e.client_ref === event.client_ref; })) return;
+        q.push(event);
+        writeLaybyQueue(q);
+    }
+
+    function pendingLaybyCount() {
+        return readLaybyQueue().filter(function (e) { return e.status !== 'blocked'; }).length;
+    }
+
+    function blockedLaybyCount() {
+        return readLaybyQueue().filter(function (e) { return e.status === 'blocked'; }).length;
+    }
+
+    function removeLaybyEvent(clientRef) {
+        writeLaybyQueue(readLaybyQueue().filter(function (e) { return e.client_ref !== clientRef; }));
+    }
+
+    function retryLaybyEvent(clientRef) {
+        var q = readLaybyQueue();
+        q.forEach(function (e) {
+            if (e.client_ref === clientRef) {
+                e.status = 'queued';
+                e.attempts = 0;
+                e.error = null;
+            }
+        });
+        writeLaybyQueue(q);
+        return syncOfflineLaybys(true);
+    }
+
+    // One queued item at a time, in the order it was taken, so an instalment is
+    // always replayed after the layby it belongs to.
+    function replayLaybyEvent(entry) {
+        var body;
+        var url = '/api/pos/laybys';
+        if (entry.kind === 'payment') {
+            var payload = {};
+            for (var k in entry.payload) { if (Object.prototype.hasOwnProperty.call(entry.payload, k)) payload[k] = entry.payload[k]; }
+            var laybyId = payload.layby_id;
+            if (!laybyId && payload.layby_client_ref) {
+                laybyId = readLaybyMap()[payload.layby_client_ref] || null;
+            }
+            if (!laybyId) {
+                return Promise.resolve({
+                    outcome: 'blocked',
+                    message: 'Its layby has not reached the server yet.'
+                });
+            }
+            delete payload.layby_client_ref;
+            payload.layby_id = laybyId;
+            payload.branch_id = entry.branch_id;
+            payload.client_ref = entry.client_ref;
+            url = '/api/pos/laybys/' + laybyId + '/pay';
+            body = payload;
+        } else {
+            body = {};
+            for (var k2 in entry.payload) { if (Object.prototype.hasOwnProperty.call(entry.payload, k2)) body[k2] = entry.payload[k2]; }
+            body.branch_id = entry.branch_id;
+            body.client_ref = entry.client_ref;
+        }
+
+        return nativeFetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(function (res) {
+            return res.json().catch(function () { return null; }).then(function (data) {
+                if (!data) {
+                    // Not JSON: a proxy or an error page, not a decision. Hold it.
+                    return { outcome: 'hold', message: 'The server did not answer properly - it will be retried.' };
+                }
+                if (data.success) {
+                    if (entry.kind !== 'payment' && data.layby && data.layby.id) {
+                        rememberLaybyId(entry.client_ref, data.layby.id);
+                    }
+                    return { outcome: 'done', response: data };
+                }
+                if (data.branch_mismatch) {
+                    return { outcome: 'hold', message: data.error || 'Taken in another branch.' };
+                }
+                return { outcome: 'blocked', message: data.error || 'The server refused it.' };
+            });
+        });
+    }
+
+    function syncOfflineLaybys(manual) {
+        var q = readLaybyQueue();
+        var todo = q.filter(function (e) { return e.status !== 'blocked'; });
+        if (!todo.length) {
+            if (manual && typeof showToast === 'function') {
+                var blocked = q.length - todo.length;
+                showToast(blocked
+                    ? (blocked + ' layby item(s) need attention on the Layby tab.')
+                    : 'Everything is already synced.', blocked ? 'warning' : 'success');
+            }
+            return Promise.resolve();
+        }
+        if (laybysSyncing || isOffline()) return Promise.resolve();
+        laybysSyncing = true;
+
+        var entry = todo[0];
+        return replayLaybyEvent(entry).then(function (result) {
+            var list = readLaybyQueue();
+            var i = list.findIndex(function (e) { return e.client_ref === entry.client_ref; });
+            if (i !== -1) {
+                if (result.outcome === 'done') {
+                    list.splice(i, 1);
+                } else if (result.outcome === 'hold') {
+                    list[i].attempts = 0;                 // never ages out
+                } else {
+                    list[i].status = 'blocked';           // parked for a human
+                    list[i].error = result.message;
+                    list[i].attempts = (list[i].attempts || 0) + 1;
+                }
+                writeLaybyQueue(list);
+            }
+            if (typeof showToast === 'function') {
+                if (result.outcome === 'hold') showToast(result.message, 'warning');
+                if (result.outcome === 'blocked') {
+                    showToast('A layby item needs attention: ' + result.message, 'error');
+                }
+            }
+            if (typeof window.fetchLaybys === 'function' && result.outcome === 'done') {
+                window.fetchLaybys();
+            }
+            return syncOfflineLaybys(false);
+        }).catch(function () {
+            // Offline again - the queue is untouched and retried later.
+        }).then(function () {
+            laybysSyncing = false;
+        });
+    }
+
     // ---------- Cloud sync ----------
     var syncing = false;
     function syncOfflineSales(manual) {
@@ -20008,17 +20464,23 @@ function setupEventListeners() {
 
     // ---------- UI ----------
     function pendingLabel(n) {
-        return n === 1 ? '1 sale waiting to sync' : n + ' sales waiting to sync';
+        return n === 1 ? '1 item waiting to sync' : n + ' items waiting to sync';
     }
     function updateSyncUI() {
-        var n = readQueue().length;
+        var n = readQueue().length + pendingLaybyCount();
+        var blocked = blockedLaybyCount();
 
         var count = document.getElementById('posDrawerSyncCount');
         if (count) {
-            count.innerText = n ? pendingLabel(n) : (isOffline() ? 'Offline - saved here' : 'All sales synced');
+            // A parked layby item is money or a customer commitment that the
+            // server refused, so it is called out rather than blended into the
+            // ordinary pending count.
+            count.innerText = blocked
+                ? (blocked + ' layby item(s) need attention')
+                : (n ? pendingLabel(n) : (isOffline() ? 'Offline - saved here' : 'All sales synced'));
         }
         var row = document.getElementById('posDrawerSyncRow');
-        if (row) row.classList.toggle('is-pending', n > 0);
+        if (row) row.classList.toggle('is-pending', n > 0 || blocked > 0);
 
         var chip = document.getElementById('posConnChip');
         if (chip) {
@@ -20028,20 +20490,28 @@ function setupEventListeners() {
         }
     }
 
-    window.addEventListener('online', function () { updateSyncUI(); syncOfflineSales(false); });
+    window.addEventListener('online', function () { updateSyncUI(); syncOfflineSales(false); syncOfflineLaybys(false); });
     window.addEventListener('offline', function () { updateSyncUI(); });
     document.addEventListener('visibilitychange', function () {
-        if (!document.hidden) { updateSyncUI(); syncOfflineSales(false); }
+        if (!document.hidden) { updateSyncUI(); syncOfflineSales(false); syncOfflineLaybys(false); }
     });
-    setInterval(function () { if (!isOffline()) syncOfflineSales(false); }, 30000);
-    setTimeout(function () { updateSyncUI(); syncOfflineSales(false); }, 3000);
+    setInterval(function () { if (!isOffline()) { syncOfflineSales(false); syncOfflineLaybys(false); } }, 30000);
+    setTimeout(function () { updateSyncUI(); syncOfflineSales(false); syncOfflineLaybys(false); }, 3000);
 
     window.POSOffline = {
         isOffline: isOffline,
         queueSale: queueSale,
         syncNow: function () { return syncOfflineSales(true); },
         pendingCount: function () { return readQueue().length; },
-        updateUI: updateSyncUI
+        updateUI: updateSyncUI,
+        // Laybys and their instalments share this queue's guarantees.
+        queueLayby: laybyQueueEvent,
+        pendingLaybys: readLaybyQueue,
+        pendingLaybyCount: pendingLaybyCount,
+        blockedLaybyCount: blockedLaybyCount,
+        syncLaybysNow: function () { return syncOfflineLaybys(true); },
+        retryLayby: retryLaybyEvent,
+        removeLayby: removeLaybyEvent
     };
 
     // Used by the drawer's "Cloud sync" row
