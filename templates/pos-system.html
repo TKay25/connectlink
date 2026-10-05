@@ -3783,9 +3783,15 @@ canvas { border-radius: 12px; }
 .payment-method[data-method="cash"]     i { background: #E7F7EE; color: #16A34A; }
 .payment-method[data-method="card"]     i { background: #E8F0FE; color: #2563EB; }
 .payment-method[data-method="transfer"] i { background: #F1ECFE; color: #7C3AED; }
+.payment-method[data-method="layby"]    i { background: #FEF3C7; color: #B45309; }
 .payment-method.active[data-method="cash"]     { border-color: #16A34A; background: #F0FDF4; color: #15803D; box-shadow: 0 4px 12px rgba(22,163,74,0.18); }
 .payment-method.active[data-method="card"]     { border-color: #2563EB; background: #EFF6FF; color: #1D4ED8; box-shadow: 0 4px 12px rgba(37,99,235,0.18); }
 .payment-method.active[data-method="transfer"] { border-color: #7C3AED; background: #F5F3FF; color: #6D28D9; box-shadow: 0 4px 12px rgba(124,58,237,0.18); }
+.payment-method.active[data-method="layby"]    { border-color: #D97706; background: #FFFBEB; color: #B45309; box-shadow: 0 4px 12px rgba(217,119,6,0.18); }
+/* The layby tile is the only wide one: icon beside the label, not above it. */
+.payment-method-wide { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.payment-method-wide i { margin: 0; }
+.payment-method-wide .small { text-align: left; }
 
 /* ---------- Cart total row: premium summary panel ---------- */
 .cart-total-row {
@@ -3929,9 +3935,11 @@ body.dark-theme .payment-method i { background: rgba(255,255,255,0.08); color: #
 body.dark-theme .payment-method[data-method="cash"]     i { background: rgba(22,163,74,0.16); color: #4ADE80; }
 body.dark-theme .payment-method[data-method="card"]     i { background: rgba(37,99,235,0.18); color: #60A5FA; }
 body.dark-theme .payment-method[data-method="transfer"] i { background: rgba(124,58,237,0.18); color: #A78BFA; }
+body.dark-theme .payment-method[data-method="layby"]    i { background: rgba(217,119,6,0.18); color: #FBBF24; }
 body.dark-theme .payment-method.active[data-method="cash"]     { border-color: #16A34A; background: rgba(22,163,74,0.14); color: #4ADE80; }
 body.dark-theme .payment-method.active[data-method="card"]     { border-color: #2563EB; background: rgba(37,99,235,0.14); color: #60A5FA; }
 body.dark-theme .payment-method.active[data-method="transfer"] { border-color: #7C3AED; background: rgba(124,58,237,0.14); color: #A78BFA; }
+body.dark-theme .payment-method.active[data-method="layby"]    { border-color: #D97706; background: rgba(217,119,6,0.14); color: #FBBF24; }
 
 body.dark-theme .form-control, body.dark-theme .form-select {
     background: #0F1B2D;
@@ -6161,6 +6169,10 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                     <i class="fas fa-boxes"></i>
                     <span class="menu-text">Inventory</span>
                 </div>
+                <div class="menu-item" data-page="layby">
+                    <i class="fas fa-hand-holding-dollar"></i>
+                    <span class="menu-text">Layby</span>
+                </div>
                 <div class="sidebar-section-label menu-text">Reports &amp; Insights</div>
                 <div class="menu-item" data-page="sales">
                     <i class="fas fa-chart-line"></i>
@@ -6591,6 +6603,143 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 </div>
             </div>
 
+<!-- Layby: capture the customer, the deposit and the payment plan -->
+<div class="modal fade" id="laybyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-hand-holding-dollar me-1"></i>New Layby</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning py-2 small" id="laybyCartSummary"></div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyCustomerName">Customer name *</label>
+                        <input type="text" class="form-control form-control-sm" id="laybyCustomerName" placeholder="Full name">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyCustomerId">ID number *</label>
+                        <input type="text" class="form-control form-control-sm" id="laybyCustomerId" placeholder="National ID / passport">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyCustomerPhone">Phone (optional)</label>
+                        <input type="text" class="form-control form-control-sm" id="laybyCustomerPhone">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small fw-bold" for="laybyDeposit">Deposit paid now</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="laybyDeposit" value="0" oninput="laybyBuildPlan()">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="small fw-bold" for="laybyDepositMethod">Deposit paid by</label>
+                        <select class="form-select form-select-sm" id="laybyDepositMethod">
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="transfer">Transfer</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="my-3">
+                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                    <span class="small fw-bold">Payment plan</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="small text-muted">Number of instalments</span>
+                        <input type="number" min="1" max="60" class="form-control form-control-sm" id="laybyInstalmentCount" value="3" style="width: 80px;" oninput="laybyBuildPlan()">
+                    </div>
+                </div>
+                <div id="laybyPlanRows"></div>
+                <div class="d-flex justify-content-between mt-2 flex-wrap gap-2">
+                    <span class="small">Still to pay: <strong id="laybyDueAmount">$0.00</strong></span>
+                    <span class="small">Instalments add up to: <strong id="laybyPlanTotal">$0.00</strong>
+                        <span id="laybyPlanDiff" class="ms-1"></span></span>
+                </div>
+                <div class="mt-3">
+                    <label class="small fw-bold" for="laybyNotes">Notes</label>
+                    <input type="text" class="form-control form-control-sm" id="laybyNotes" placeholder="Optional">
+                </div>
+                <div id="laybyError" class="alert alert-danger py-2 small mt-3" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary-dark btn-sm" onclick="submitLayby()">
+                    <i class="fas fa-check-circle me-1"></i>Open Layby
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Layby: record one instalment -->
+<div class="modal fade" id="laybyPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-coins me-1"></i>Record Instalment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-light border py-2 small" id="laybyPaymentSummary"></div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyPayAmount">Amount received *</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="laybyPayAmount">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyPayMethod">Paid by</label>
+                        <select class="form-select form-select-sm" id="laybyPayMethod">
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="transfer">Transfer</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyPayDate">Date received</label>
+                        <input type="date" class="form-control form-control-sm" id="laybyPayDate">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="small fw-bold" for="laybyPayNotes">Notes</label>
+                        <input type="text" class="form-control form-control-sm" id="laybyPayNotes" placeholder="Optional">
+                    </div>
+                </div>
+                <div id="laybyPayError" class="alert alert-danger py-2 small mt-3" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success btn-sm" onclick="submitLaybyPayment()">
+                    <i class="fas fa-check-circle me-1"></i>Save Payment
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Layby: cancel -->
+<div class="modal fade" id="laybyCancelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-ban me-1"></i>Cancel Layby</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning py-2 small" id="laybyCancelSummary"></div>
+                <p class="small mb-2">The reserved goods go back on the shelf and the sale is voided.
+                    Money already paid stays on the record - refunding it is a counter decision.</p>
+                <label class="small fw-bold" for="laybyCancelReason">Reason</label>
+                <input type="text" class="form-control form-control-sm" id="laybyCancelReason" placeholder="e.g. customer defaulted">
+                <div id="laybyCancelError" class="alert alert-danger py-2 small mt-3" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Keep Layby</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="submitLaybyCancel()">
+                    <i class="fas fa-ban me-1"></i>Cancel Layby
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Remove All Items & History Modal -->
 <div class="modal fade" id="removeAllStockModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -6794,6 +6943,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             <div class="col-4"><div class="payment-method" data-method="cash"><i class="fas fa-money-bill-wave"></i><div class="small">Cash</div></div></div>
                             <div class="col-4"><div class="payment-method" data-method="card"><i class="fas fa-credit-card"></i><div class="small">Card</div></div></div>
                             <div class="col-4"><div class="payment-method" data-method="transfer"><i class="fas fa-university"></i><div class="small">Transfer</div></div></div>
+                            <div class="col-12 mt-1"><div class="payment-method payment-method-wide" data-method="layby"><i class="fas fa-hand-holding-dollar"></i><div class="small">Layby <span class="text-muted">- reserve now, pay in instalments</span></div></div></div>
                         </div>
                     </div>
 
@@ -7395,6 +7545,81 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 
         
 
+            <!-- Layby Page -->
+            <div id="laybyPage" style="display: none;">
+                <div class="section-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-hand-holding-dollar me-1"></i>Layby</h5>
+                        <div class="d-flex gap-2 align-items-center">
+                            <select class="form-select form-select-sm" id="laybyStatusFilter" style="width: 160px;" onchange="fetchLaybys()">
+                                <option value="active" selected>Active laybys</option>
+                                <option value="">All laybys</option>
+                                <option value="completed">Paid off</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                            <button class="btn btn-primary-dark btn-sm" onclick="fetchLaybys()">
+                                <i class="fas fa-rotate me-1"></i>Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Items on layby</small>
+                                        <h5 class="mb-1 fw-bold" id="laybyStatActive">0</h5>
+                                        <small class="text-muted">Waiting to be paid off</small>
+                                    </div>
+                                    <i class="fas fa-hourglass-half fa-2x text-muted opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Still to collect</small>
+                                        <h5 class="mb-1 fw-bold text-danger" id="laybyStatOutstanding">$0.00</h5>
+                                        <small class="text-muted">Outstanding balance</small>
+                                    </div>
+                                    <i class="fas fa-hand-holding-dollar fa-2x text-muted opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Collected to date</small>
+                                        <h5 class="mb-1 fw-bold text-success" id="laybyStatCollected">$0.00</h5>
+                                        <small class="text-muted">Deposits and instalments</small>
+                                    </div>
+                                    <i class="fas fa-coins fa-2x text-muted opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="text-muted">Paid off</small>
+                                        <h5 class="mb-1 fw-bold text-success" id="laybyStatCompleted">0</h5>
+                                        <small class="text-muted">Goods released</small>
+                                    </div>
+                                    <i class="fas fa-circle-check fa-2x text-muted opacity-50"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="laybyListContainer">
+                        <p class="text-muted small mb-0">Loading laybys...</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Transactions Page -->
             <div id="transactionsPage" style="display: none;">
                 <div class="section-card">
@@ -7430,6 +7655,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <option value="cash">Cash</option>
                                 <option value="card">Card</option>
                                 <option value="transfer">Bank/Mobile Money Transfer</option>
+                                <option value="layby">Layby</option>
                             </select>
                         </div>
                         <div class="col-auto" style="min-width: 160px;">
@@ -13026,7 +13252,8 @@ function renderFilteredTransactions() {
     }
 
     function pmLabel(m) {
-        return m === 'cash' ? 'Cash' : m === 'card' ? 'Card' : m === 'transfer' ? 'Bank/Mobile' : (m || '—');
+        return m === 'cash' ? 'Cash' : m === 'card' ? 'Card' : m === 'transfer' ? 'Bank/Mobile'
+             : m === 'layby' ? 'Layby' : (m || '—');
     }
 
     function renderDayEndReport(data) {
@@ -13049,6 +13276,7 @@ function renderFilteredTransactions() {
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cash</div><div class="fw-bold">$${(pm.cash || 0).toFixed(2)}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Card</div><div class="fw-bold">$${(pm.card || 0).toFixed(2)}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transfer</div><div class="fw-bold">$${(pm.transfer || 0).toFixed(2)}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Layby collected</div><div class="fw-bold text-success">$${(data.layby_total || 0).toFixed(2)}</div></div></div>
         `;
 
         // When the day spans more than one shop, show each shop's own total so the
@@ -13062,11 +13290,27 @@ function renderFilteredTransactions() {
                 </div></div>`).join('');
         }
 
+        // Layby money received today is real takings. The layby sale itself is
+        // deliberately held out of the totals above until it is paid off, so it
+        // is called out here instead of being silently missing.
+        if ((data.layby_collections || []).length) {
+            document.getElementById('dayEndSummary').innerHTML += `
+                <div class="col-12">
+                    <div class="alert alert-success py-2 small mb-1">
+                        <i class="fas fa-hand-holding-dollar me-1"></i>
+                        <strong>Layby instalments received: $${(data.layby_total || 0).toFixed(2)}</strong>
+                        ${(data.layby_collections || []).map(c =>
+                            `<span class="ms-2">${escapeHtml(c.cashier)}: $${(c.collected || 0).toFixed(2)}</span>`
+                        ).join('')}
+                        <div class="text-muted">This is money taken today. It is not in Total Sales above until the layby is paid off.</div>
+                    </div>
+                </div>`;
+        }
+
         const tabs = document.getElementById('dayEndTabs');
         const content = document.getElementById('dayEndTabContent');
         tabs.innerHTML = '';
         content.innerHTML = '';
-
         if (!cashiers.length) {
             content.innerHTML = '<div class="text-center text-muted py-4">No transactions on this day</div>';
             return;
@@ -13110,16 +13354,16 @@ function renderFilteredTransactions() {
         const data = dayEndReportData;
         const rows = [];
         (data.cashiers || []).forEach(c => {
-            rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2) });
+            rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2), 'Layby collected': (c.layby_collected || 0).toFixed(2) });
         });
         if ((data.branches || []).length > 1) {
             rows.push({});
             rows.push({ 'Branch': 'BRANCH TOTALS' });
             (data.branches || []).forEach(b => {
-                rows.push({ 'Branch': b.branch_name || '', 'Total Sales': (b.total || 0).toFixed(2), 'Cash': ((b.payment_methods || {}).cash || 0).toFixed(2), 'Card': ((b.payment_methods || {}).card || 0).toFixed(2), 'Transfer': ((b.payment_methods || {}).transfer || 0).toFixed(2) });
+                rows.push({ 'Branch': b.branch_name || '', 'Total Sales': (b.total || 0).toFixed(2), 'Cash': ((b.payment_methods || {}).cash || 0).toFixed(2), 'Card': ((b.payment_methods || {}).card || 0).toFixed(2), 'Transfer': ((b.payment_methods || {}).transfer || 0).toFixed(2), 'Layby collected': (b.layby_collected || 0).toFixed(2) });
             });
         }
-        rows.push({ 'Branch': '', 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2) });
+        rows.push({ 'Branch': '', 'Cashier': 'TOTAL', 'Total Sales': data.grand_total.toFixed(2), 'Cash': (data.payment_methods.cash || 0).toFixed(2), 'Card': (data.payment_methods.card || 0).toFixed(2), 'Transfer': (data.payment_methods.transfer || 0).toFixed(2), 'Layby collected': (data.layby_total || 0).toFixed(2) });
         rows.push({});
         rows.push({ 'Branch': 'Branch', 'Cashier': 'Cashier', 'Total Sales': 'Receipt #', 'Cash': 'Items', 'Card': 'Total', 'Transfer': 'Payment' });
         (data.cashiers || []).forEach(c => {
@@ -15755,6 +15999,13 @@ function setupAddProductFundingSelection() {
             showToast('Please select a payment method!', 'error');
             return;
         }
+
+        // A layby is not a payment: it is an agreement to pay later, so it
+        // collects the customer and the plan instead of confirming an amount.
+        if (selectedPaymentMethod === 'layby') {
+            openLaybyModal();
+            return;
+        }
         
         const total = parseFloat(document.getElementById('total').innerText.replace('$', ''));
         
@@ -15767,7 +16018,8 @@ function setupAddProductFundingSelection() {
         }
         
         const paymentMethodDisplay = selectedPaymentMethod === 'cash' ? 'Cash' : 
-                                    selectedPaymentMethod === 'card' ? 'Card' : 'Bank/Mobile Money Transfer';
+                                    selectedPaymentMethod === 'card' ? 'Card' : 
+                                    selectedPaymentMethod === 'transfer' ? 'Bank/Mobile Money Transfer' : 'Layby';
         
         // Body: scrollable order summary only
         let confirmationHTML = `
@@ -15867,6 +16119,9 @@ function setupAddProductFundingSelection() {
 
     async function processOrder(method, paid, change) {
         if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
+        // A layby must never be rung as an ordinary paid sale: it has its own
+        // path (customer, plan, instalments) and its own stock treatment.
+        if (method === 'layby') { openLaybyModal(); return; }
         console.log('processOrder started - method:', method, 'paid:', paid, 'change:', change);
         
         updatePaymentLoaderMessage('Verifying payment...');
@@ -18682,6 +18937,7 @@ function navigateTo(page) {
     document.getElementById('salesPage').style.display = 'none';
     document.getElementById('transactionsPage').style.display = 'none';
     document.getElementById('analyticsPage').style.display = 'none';
+    document.getElementById('laybyPage').style.display = 'none';
     
     // Show the selected page
     const targetPage = document.getElementById(page + 'Page');
@@ -18697,6 +18953,9 @@ function navigateTo(page) {
     }
     if (page === 'transactions') {
         fetchTransactionsData();
+    }
+    if (page === 'layby') {
+        fetchLaybys();
     }
     if (page === 'analytics') {
         // If we have sales data, use it; otherwise load it
@@ -18928,7 +19187,9 @@ function setupEventListeners() {
         if (userRole === 'operator') {
             menuItems.forEach(item => {
                 const page = item.getAttribute('data-page');
-                if (page === 'pos' || page === 'transactions') {
+                // Layby sits with the till: a cashier has to be able to take an
+                // instalment payment from a customer standing at the counter.
+                if (page === 'pos' || page === 'transactions' || page === 'layby') {
                     item.style.display = 'flex';
                 } else {
                     item.style.display = 'none';
@@ -19109,6 +19370,446 @@ function setupEventListeners() {
     setInterval(function () {
         if (typeof renderPOSHeaderStats === 'function') renderPOSHeaderStats();
     }, 1000);
+})();
+</script>
+
+<!-- ==================== LAYBY ====================
+     A layby reserves the goods now and takes the money over time. The plan is
+     built here, the customer and ID number captured, and the Layby tab records
+     each instalment as it is received. The server stays authoritative: the
+     branch, the stock movement and the paid-off decision are all made there. -->
+<script>
+(function () {
+    'use strict';
+
+    var laybyCartTotal = 0;
+    var laybyOpen = null;          // the layby being paid or cancelled
+    var laybyById = {};            // id -> layby, for the modals
+
+    function money(v) {
+        return '$' + Number(v || 0).toLocaleString('en-US', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2
+        });
+    }
+
+    function todayISO() {
+        var d = new Date();
+        return d.getFullYear() + '-' +
+               String(d.getMonth() + 1).padStart(2, '0') + '-' +
+               String(d.getDate()).padStart(2, '0');
+    }
+
+    function text(s) {
+        return escapeHtml(String(s == null ? '' : s));
+    }
+
+    function showError(id, msg) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+        el.style.display = 'block';
+        el.textContent = msg;
+    }
+
+    function modalOf(id) {
+        var el = document.getElementById(id);
+        return el ? bootstrap.Modal.getOrCreateInstance(el) : null;
+    }
+
+    function hideModal(id) {
+        var m = modalOf(id);
+        if (m) m.hide();
+    }
+
+    function readonlyView() {
+        return (typeof branchIsReadOnly === 'function') && branchIsReadOnly();
+    }
+
+    // ---------- Opening a layby from the cart ----------
+
+    window.openLaybyModal = function () {
+        if (readonlyView()) {
+            if (typeof branchWriteBlockedToast === 'function') branchWriteBlockedToast();
+            return;
+        }
+        if (!cart || !cart.length) { showToast('Cart is empty!', 'error'); return; }
+
+        laybyCartTotal = cart.reduce(function (sum, item) {
+            return sum + ((item.sell_price || item.price || 0) * item.quantity);
+        }, 0);
+
+        document.getElementById('laybyCartSummary').innerHTML =
+            '<i class="fas fa-basket-shopping me-1"></i>' +
+            cart.map(function (i) { return text(i.name) + ' x' + i.quantity; }).join(', ') +
+            ' &mdash; total <strong>' + money(laybyCartTotal) + '</strong>';
+        document.getElementById('laybyCustomerName').value = '';
+        document.getElementById('laybyCustomerId').value = '';
+        document.getElementById('laybyCustomerPhone').value = '';
+        document.getElementById('laybyNotes').value = '';
+        document.getElementById('laybyDeposit').value = '0';
+        document.getElementById('laybyDepositMethod').value = 'cash';
+        document.getElementById('laybyInstalmentCount').value = '3';
+        showError('laybyError', '');
+        laybyBuildPlan();
+        modalOf('laybyModal').show();
+    };
+
+    function laybyDeposit() {
+        var v = parseFloat(document.getElementById('laybyDeposit').value);
+        if (isNaN(v) || v < 0) v = 0;
+        if (v > laybyCartTotal) v = laybyCartTotal;
+        return Math.round(v * 100) / 100;
+    }
+
+    function laybyDue() {
+        return Math.round((laybyCartTotal - laybyDeposit()) * 100) / 100;
+    }
+
+    // Spread the amount still owed evenly over the plan, with the last
+    // instalment taking the rounding remainder so the plan always ties out.
+    function laybyDistribute(due, count) {
+        var each = Math.floor((due / count) * 100) / 100;
+        var running = 0;
+        for (var i = 1; i <= count; i++) {
+            var amount = (i === count) ? Math.round((due - running) * 100) / 100 : each;
+            running = Math.round((running + amount) * 100) / 100;
+            var el = document.getElementById('laybyPlanAmount' + i);
+            if (el) el.value = amount > 0 ? amount.toFixed(2) : '';
+        }
+    }
+
+    window.laybyBuildPlan = function () {
+        var count = parseInt(document.getElementById('laybyInstalmentCount').value, 10);
+        if (isNaN(count) || count < 1) count = 1;
+        if (count > 60) count = 60;
+        document.getElementById('laybyInstalmentCount').value = count;
+
+        var due = laybyDue();
+        var html = '';
+        for (var i = 1; i <= count; i++) {
+            html += '<div class="row g-2 align-items-end mb-1">' +
+                        '<div class="col-2 small text-muted pt-2">#' + i + '</div>' +
+                        '<div class="col-5">' +
+                            '<input type="number" step="0.01" min="0" class="form-control form-control-sm" ' +
+                                   'id="laybyPlanAmount' + i + '" placeholder="Amount" ' +
+                                   'oninput="laybyRecalcPlan()">' +
+                        '</div>' +
+                        '<div class="col-5">' +
+                            '<input type="date" class="form-control form-control-sm" ' +
+                                   'id="laybyPlanDate' + i + '" title="When this instalment is expected">' +
+                        '</div>' +
+                    '</div>';
+        }
+        document.getElementById('laybyPlanRows').innerHTML = html;
+        laybyDistribute(due, count);
+        laybyRecalcPlan();
+    };
+
+    window.laybyRecalcPlan = function () {
+        var due = laybyDue();
+        var count = parseInt(document.getElementById('laybyInstalmentCount').value, 10) || 0;
+        var sum = 0;
+        for (var i = 1; i <= count; i++) {
+            var el = document.getElementById('laybyPlanAmount' + i);
+            var v = el ? parseFloat(el.value) : NaN;
+            if (!isNaN(v) && v > 0) sum += v;
+        }
+        sum = Math.round(sum * 100) / 100;
+
+        document.getElementById('laybyDueAmount').textContent = money(due);
+        document.getElementById('laybyPlanTotal').textContent = money(sum);
+
+        var diffEl = document.getElementById('laybyPlanDiff');
+        var diff = Math.round((sum - due) * 100) / 100;
+        if (Math.abs(diff) < 0.005) {
+            diffEl.innerHTML = '<span class="badge bg-success">matches</span>';
+        } else if (diff < 0) {
+            diffEl.innerHTML = '<span class="badge bg-danger">' + money(-diff) + ' short</span>';
+        } else {
+            diffEl.innerHTML = '<span class="badge bg-danger">' + money(diff) + ' over</span>';
+        }
+        return { sum: sum, due: due };
+    };
+
+    window.submitLayby = function () {
+        var name = document.getElementById('laybyCustomerName').value.trim();
+        var idNumber = document.getElementById('laybyCustomerId').value.trim();
+        var phone = document.getElementById('laybyCustomerPhone').value.trim();
+        if (!name) { showError('laybyError', 'Enter the customer name.'); return; }
+        if (!idNumber) { showError('laybyError', 'Enter the customer ID number.'); return; }
+
+        var deposit = laybyDeposit();
+        var due = laybyDue();
+        var count = parseInt(document.getElementById('laybyInstalmentCount').value, 10) || 0;
+
+        var installments = [];
+        for (var i = 1; i <= count; i++) {
+            var amountEl = document.getElementById('laybyPlanAmount' + i);
+            var dateEl = document.getElementById('laybyPlanDate' + i);
+            var amount = amountEl ? parseFloat(amountEl.value) : NaN;
+            if (isNaN(amount) || amount <= 0) continue;      // unfilled rows are skipped
+            installments.push({
+                amount: Math.round(amount * 100) / 100,
+                due_date: (dateEl && dateEl.value) ? dateEl.value : null
+            });
+        }
+
+        if (due > 0) {
+            if (!installments.length) {
+                showError('laybyError', 'Add at least one instalment to the plan.');
+                return;
+            }
+            var checked = laybyRecalcPlan();
+            if (Math.abs(checked.sum - checked.due) >= 0.005) {
+                showError('laybyError',
+                    'The instalments add up to ' + money(checked.sum) + ' but ' +
+                    money(checked.due) + ' is still to pay. They must match.');
+                return;
+            }
+        }
+
+        showError('laybyError', '');
+        var btn = document.querySelector('#laybyModal .btn-primary-dark');
+        if (btn) btn.disabled = true;
+
+        fetch(API_BASE + '/api/pos/laybys', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                customer_name: name,
+                customer_id_number: idNumber,
+                customer_phone: phone,
+                deposit: deposit,
+                deposit_method: document.getElementById('laybyDepositMethod').value,
+                installments: installments,
+                notes: document.getElementById('laybyNotes').value.trim(),
+                items: cart.map(function (item) {
+                    return {
+                        id: item.id,
+                        name: item.name,
+                        price: item.sell_price || item.price || 0,
+                        quantity: item.quantity
+                    };
+                })
+            })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (btn) btn.disabled = false;
+            if (!data.success) { showError('laybyError', data.error || 'Could not open the layby.'); return; }
+
+            hideModal('laybyModal');
+            showToast(data.message || 'Layby opened.', 'success');
+
+            // The goods are reserved, so the cart is done and the catalogue and
+            // the figures have to be refreshed from the server.
+            cart = [];
+            if (typeof updateCartDisplay === 'function') updateCartDisplay();
+            if (typeof resetPaymentUI === 'function') resetPaymentUI();
+            if (typeof fetchProductsFromAPI === 'function') fetchProductsFromAPI();
+            if (typeof fetchDashboardStats === 'function') fetchDashboardStats();
+            if (typeof fetchTransactions === 'function') fetchTransactions();
+            laybyById[data.layby.id] = data.layby;
+        }).catch(function () {
+            if (btn) btn.disabled = false;
+            showError('laybyError', 'Could not reach the server. The layby was not opened.');
+        });
+    };
+
+    // ---------- The Layby tab ----------
+
+    function renderLaybyMessage(msg) {
+        document.getElementById('laybyListContainer').innerHTML =
+            '<p class="text-muted small mb-0">' + text(msg) + '</p>';
+    }
+
+    function planChip(p) {
+        var cls = p.state === 'paid' ? 'bg-success'
+                : p.state === 'part' ? 'bg-warning text-dark' : 'bg-secondary';
+        var when = p.due_date ? ' &middot; ' + text(p.due_date) : '';
+        return '<span class="badge ' + cls + ' me-1 mb-1">#' + p.seq + ' ' +
+               money(p.amount) + when + '</span>';
+    }
+
+    function laybyCard(l) {
+        var badge = l.status === 'active' ? 'bg-warning text-dark'
+                  : l.status === 'completed' ? 'bg-success' : 'bg-secondary';
+        var label = l.status === 'active' ? 'Active'
+                  : l.status === 'completed' ? 'Paid off' : 'Cancelled';
+        var actions = '';
+        if (!readonlyView() && l.status === 'active') {
+            actions = '<button class="btn btn-success btn-sm me-1" onclick="openLaybyPaymentModal(' + l.id + ')">' +
+                          '<i class="fas fa-coins me-1"></i>Record instalment</button>' +
+                      '<button class="btn btn-outline-danger btn-sm" onclick="openLaybyCancelModal(' + l.id + ')">' +
+                          '<i class="fas fa-ban me-1"></i>Cancel</button>';
+        }
+
+        var payments = l.payments && l.payments.length
+            ? l.payments.map(function (p) {
+                  return '<div class="small text-muted">' +
+                             '<i class="fas fa-check-circle text-success me-1"></i>' +
+                             money(p.amount) + ' ' + text(p.method) +
+                             ' &middot; ' + text((p.paid_at || '').replace('T', ' ').slice(0, 16)) +
+                             (p.notes ? ' &middot; ' + text(p.notes) : '') +
+                         '</div>';
+              }).join('')
+            : '<div class="small text-muted">No payments yet.</div>';
+
+        return '<div class="border rounded p-3 mb-2">' +
+            '<div class="d-flex justify-content-between align-items-start flex-wrap gap-2">' +
+                '<div>' +
+                    '<div class="fw-bold">' + text(l.customer_name) +
+                        ' <span class="badge ' + badge + '">' + label + '</span></div>' +
+                    '<div class="small text-muted">' +
+                        'ID ' + text(l.customer_id_number) +
+                        (l.customer_phone ? ' &middot; ' + text(l.customer_phone) : '') +
+                        ' &middot; ' + text(l.reference) +
+                        (l.branch_name ? ' &middot; ' + text(l.branch_name) : '') +
+                        ' &middot; ' + text((l.created_at || '').replace('T', ' ').slice(0, 16)) +
+                    '</div>' +
+                '</div>' +
+                '<div class="text-end">' +
+                    '<div class="small text-muted">Total ' + money(l.total_amount) + '</div>' +
+                    '<div class="small">Paid <strong class="text-success">' + money(l.paid_amount) + '</strong></div>' +
+                    '<div class="fw-bold ' + (l.balance > 0 ? 'text-danger' : 'text-success') + '">' +
+                        (l.balance > 0 ? money(l.balance) + ' to pay' : 'Fully paid') + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="small mt-2">' +
+                (l.items || []).map(function (i) {
+                    return '<span class="me-2">' + text(i.name) + ' x' + i.quantity + '</span>';
+                }).join('') +
+            '</div>' +
+            ((l.plan || []).length ? '<div class="mt-2">' +
+                l.plan.map(planChip).join('') + '</div>' : '') +
+            '<div class="mt-2">' + payments + '</div>' +
+            (actions ? '<div class="mt-2">' + actions + '</div>' : '') +
+            (l.status === 'cancelled' && l.cancel_reason
+                ? '<div class="small text-danger mt-1">Cancelled: ' + text(l.cancel_reason) + '</div>' : '') +
+        '</div>';
+    }
+
+    function renderLaybyPage(data) {
+        var s = data.summary || {};
+        document.getElementById('laybyStatActive').textContent = s.active || 0;
+        document.getElementById('laybyStatOutstanding').textContent = money(s.outstanding || 0);
+        document.getElementById('laybyStatCollected').textContent = money(s.collected || 0);
+        document.getElementById('laybyStatCompleted').textContent = s.completed || 0;
+
+        var list = data.laybys || [];
+        laybyById = {};
+        list.forEach(function (l) { laybyById[l.id] = l; });
+
+        if (!list.length) {
+            renderLaybyMessage('No laybys to show here yet.');
+            return;
+        }
+        document.getElementById('laybyListContainer').innerHTML = list.map(laybyCard).join('');
+    }
+
+    window.fetchLaybys = function () {
+        var sel = document.getElementById('laybyStatusFilter');
+        var q = (sel && sel.value) ? ('?status=' + encodeURIComponent(sel.value)) : '';
+        fetch(API_BASE + '/api/pos/laybys' + q, { credentials: 'include' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) { renderLaybyMessage(data.error || 'Could not load the laybys.'); return; }
+                renderLaybyPage(data);
+            })
+            .catch(function () { renderLaybyMessage('Could not reach the server.'); });
+    };
+
+    // ---------- Recording an instalment ----------
+
+    window.openLaybyPaymentModal = function (id) {
+        var l = laybyById[id];
+        if (!l) { showToast('That layby is no longer loaded.', 'error'); return; }
+        laybyOpen = l;
+        document.getElementById('laybyPaymentSummary').innerHTML =
+            '<strong>' + text(l.reference) + '</strong> &mdash; ' + text(l.customer_name) +
+            '<br>Balance: <strong class="text-danger">' + money(l.balance) + '</strong>' +
+            ' of ' + money(l.total_amount);
+        document.getElementById('laybyPayAmount').value = l.balance > 0 ? l.balance.toFixed(2) : '';
+        document.getElementById('laybyPayMethod').value = 'cash';
+        document.getElementById('laybyPayDate').value = todayISO();
+        document.getElementById('laybyPayNotes').value = '';
+        showError('laybyPayError', '');
+        modalOf('laybyPaymentModal').show();
+    };
+
+    window.submitLaybyPayment = function () {
+        if (!laybyOpen) return;
+        var amount = parseFloat(document.getElementById('laybyPayAmount').value);
+        if (isNaN(amount) || amount <= 0) {
+            showError('laybyPayError', 'Enter the amount received.');
+            return;
+        }
+        showError('laybyPayError', '');
+        var btn = document.querySelector('#laybyPaymentModal .btn-success');
+        if (btn) btn.disabled = true;
+
+        fetch(API_BASE + '/api/pos/laybys/' + laybyOpen.id + '/pay', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount: amount,
+                method: document.getElementById('laybyPayMethod').value,
+                paid_at: document.getElementById('laybyPayDate').value || null,
+                notes: document.getElementById('laybyPayNotes').value.trim()
+            })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (btn) btn.disabled = false;
+            if (!data.success) { showError('laybyPayError', data.error || 'Could not save the payment.'); return; }
+
+            hideModal('laybyPaymentModal');
+            showToast(data.message || 'Payment recorded.', 'success');
+            fetchLaybys();
+            if (typeof fetchDashboardStats === 'function') fetchDashboardStats();
+        }).catch(function () {
+            if (btn) btn.disabled = false;
+            showError('laybyPayError', 'Could not reach the server. The payment was not recorded.');
+        });
+    };
+
+    // ---------- Cancelling ----------
+
+    window.openLaybyCancelModal = function (id) {
+        var l = laybyById[id];
+        if (!l) { showToast('That layby is no longer loaded.', 'error'); return; }
+        laybyOpen = l;
+        document.getElementById('laybyCancelSummary').innerHTML =
+            '<strong>' + text(l.reference) + '</strong> &mdash; ' + text(l.customer_name) +
+            '<br>' + money(l.paid_amount) + ' has been collected, ' +
+            money(l.balance) + ' is still to pay.';
+        document.getElementById('laybyCancelReason').value = '';
+        showError('laybyCancelError', '');
+        modalOf('laybyCancelModal').show();
+    };
+
+    window.submitLaybyCancel = function () {
+        if (!laybyOpen) return;
+        showError('laybyCancelError', '');
+        var btn = document.querySelector('#laybyCancelModal .btn-danger');
+        if (btn) btn.disabled = true;
+
+        fetch(API_BASE + '/api/pos/laybys/' + laybyOpen.id + '/cancel', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: document.getElementById('laybyCancelReason').value.trim() })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (btn) btn.disabled = false;
+            if (!data.success) { showError('laybyCancelError', data.error || 'Could not cancel the layby.'); return; }
+
+            hideModal('laybyCancelModal');
+            showToast(data.message || 'Layby cancelled.', 'success');
+            fetchLaybys();
+            if (typeof fetchProductsFromAPI === 'function') fetchProductsFromAPI();
+        }).catch(function () {
+            if (btn) btn.disabled = false;
+            showError('laybyCancelError', 'Could not reach the server. The layby was not cancelled.');
+        });
+    };
 })();
 </script>
 

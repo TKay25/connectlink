@@ -2844,6 +2844,9 @@ def initialize_database_tables():
             # idempotent -- see ensure_branches_schema() below for the details.
             ensure_branches_schema(cursor, connection)
 
+            # Layby (goods reserved, paid off in instalments). Additive too.
+            ensure_layby_schema(cursor, connection)
+
         # Report success explicitly: _ensure_db_initialized must NOT treat a
         # swallowed failure as "initialized", or it would never retry and the
         # worker would run against a missing schema for its whole lifetime.
@@ -3209,6 +3212,90 @@ def ensure_branches_schema(cursor, connection):
     except Exception as e:
         connection.rollback()
         print(f"Note: Branch bootstrap skipped: {e}")
+
+
+def ensure_layby_schema(cursor, connection):
+    """Layby tables -- a sale whose goods are reserved now and paid off later.
+
+    `laybys`        the agreement: customer, ID number, total, deposit, status
+    `layby_items`   the goods that left the shelf (a snapshot, so a later price
+                    change cannot rewrite what the customer agreed to)
+    `layby_plan`    the agreed instalments (amount + optional due date)
+    `layby_payments`what was actually received, and when
+
+    Idempotent and additive, so it can run on every boot like the branch schema.
+    """
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS laybys (
+                id SERIAL PRIMARY KEY,
+                reference VARCHAR(40) UNIQUE NOT NULL,
+                branch_id INTEGER,
+                transaction_id INTEGER,
+                transaction_number VARCHAR(50),
+                customer_name VARCHAR(150) NOT NULL,
+                customer_id_number VARCHAR(60) NOT NULL,
+                customer_phone VARCHAR(40) DEFAULT '',
+                total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+                deposit_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+                status VARCHAR(20) NOT NULL DEFAULT 'active',
+                notes TEXT,
+                created_by INTEGER,
+                created_by_name VARCHAR(150),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                cancelled_at TIMESTAMP,
+                cancel_reason TEXT
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_laybys_branch ON laybys (branch_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_laybys_status ON laybys (status)")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS layby_items (
+                id SERIAL PRIMARY KEY,
+                layby_id INTEGER NOT NULL REFERENCES laybys(id) ON DELETE CASCADE,
+                product_id INTEGER,
+                product_name VARCHAR(150),
+                quantity INTEGER NOT NULL DEFAULT 0,
+                unit_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+                subtotal DECIMAL(12,2) NOT NULL DEFAULT 0
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_layby_items_layby ON layby_items (layby_id)")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS layby_plan (
+                id SERIAL PRIMARY KEY,
+                layby_id INTEGER NOT NULL REFERENCES laybys(id) ON DELETE CASCADE,
+                seq INTEGER NOT NULL,
+                due_date DATE,
+                amount DECIMAL(12,2) NOT NULL DEFAULT 0
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_layby_plan_layby ON layby_plan (layby_id, seq)")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS layby_payments (
+                id SERIAL PRIMARY KEY,
+                layby_id INTEGER NOT NULL REFERENCES laybys(id) ON DELETE CASCADE,
+                seq INTEGER,
+                amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+                method VARCHAR(20) DEFAULT 'cash',
+                notes TEXT,
+                user_id INTEGER,
+                user_name VARCHAR(150),
+                paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_layby_payments_layby ON layby_payments (layby_id, paid_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_layby_payments_paid_at ON layby_payments (paid_at)")
+        connection.commit()
+        print("[ok] Layby schema ready")
+    except Exception as e:
+        connection.rollback()
+        print(f"Note: Layby schema skipped: {e}")
 
 
 def current_branch_id():
@@ -14501,8 +14588,11 @@ def get_stock_movements():
     sales_reductions = []
     for row in reductions:
         reason = row[8] or ''
-        if reason == 'item_sale':
-            continue  # Skip - sales come from transaction_items instead
+        # Sales come from transaction_items instead, so a reduction row that only
+        # mirrors a sale must not be counted a second time. A layby reservation is
+        # mirrored exactly the same way: the layby has its own transaction_items.
+        if reason in ('item_sale', 'layby_reserve'):
+            continue
         else:
             inventory_edit_reductions.append(row)
     
@@ -15271,6 +15361,583 @@ def pos_reconciliation_reassign():
 def pos_reconciliation_page():
     """The reconciliation tool's screen."""
     return render_template('pos_reconciliation.html')
+
+
+# ==================== LAYBY ====================
+# A layby is a sale whose goods are RESERVED for the customer now but whose money
+# arrives in instalments. So:
+#   * the quantity leaves the branch's shelf at the layby (the goods are spoken
+#     for -- they cannot be sold twice),
+#   * the transaction is written with status 'layby', which every "sales today"
+#     figure already ignores, because the full amount has not been received,
+#   * only the money actually collected counts towards the day's takings, and it
+#     is counted on the day it is received,
+#   * when the balance reaches zero the sale is released to status 'completed',
+#     which is when the full value lands in the sales reports.
+LAYBY_PAYMENT_METHOD = 'layby'
+
+LAYBY_COLUMNS = """
+    l.id, l.reference, l.branch_id, l.transaction_id, l.transaction_number,
+    l.customer_name, l.customer_id_number, l.customer_phone,
+    l.total_amount, l.deposit_amount, l.status, l.notes,
+    l.created_by_name, l.created_at, l.completed_at, l.cancelled_at,
+    l.cancel_reason, b.name
+"""
+
+
+def generate_layby_reference():
+    """Unique, human-quotable layby reference (LAY-YYYYMMDD-XXXXXX)."""
+    return f"LAY-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(3).upper()}"
+
+
+def _layby_paid(cursor, layby_id):
+    cursor.execute("SELECT COALESCE(SUM(amount), 0) FROM layby_payments WHERE layby_id = %s",
+                   (layby_id,))
+    return round(float(cursor.fetchone()[0] or 0), 2)
+
+
+def _serialize_layby(cursor, row):
+    """One layby with its items, plan, payments and money position."""
+    (lid, reference, branch_id, transaction_id, transaction_number, customer_name,
+     customer_id_number, customer_phone, total_amount, deposit_amount, status,
+     notes, created_by_name, created_at, completed_at, cancelled_at,
+     cancel_reason, branch_name) = row
+
+    cursor.execute("""
+        SELECT product_id, product_name, quantity, unit_price, subtotal
+        FROM layby_items WHERE layby_id = %s ORDER BY id
+    """, (lid,))
+    items = [{'product_id': r[0], 'name': r[1] or 'Unknown',
+              'quantity': int(r[2] or 0), 'unit_price': float(r[3] or 0),
+              'subtotal': float(r[4] or 0)} for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT seq, due_date, amount FROM layby_plan
+        WHERE layby_id = %s ORDER BY seq
+    """, (lid,))
+    plan = [{'seq': r[0], 'due_date': r[1].isoformat() if r[1] else None,
+             'amount': float(r[2] or 0)} for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT id, seq, amount, method, notes, user_name, paid_at
+        FROM layby_payments WHERE layby_id = %s ORDER BY paid_at, id
+    """, (lid,))
+    payments = [{'id': r[0], 'seq': r[1], 'amount': float(r[2] or 0),
+                 'method': r[3] or 'cash', 'notes': r[4] or '',
+                 'user': r[5] or 'System',
+                 'paid_at': r[6].isoformat() if r[6] else None}
+                for r in cursor.fetchall()]
+
+    paid = round(sum(p['amount'] for p in payments), 2)
+    total = float(total_amount or 0)
+    balance = round(total - paid, 2)
+
+    # Walk the plan against what has been received, so the tab can show which
+    # instalment is settled, which is part paid, and which is still due.
+    left = paid
+    for p in plan:
+        if left >= p['amount'] - 0.005:
+            p['state'] = 'paid'
+            left = round(left - p['amount'], 2)
+        elif left > 0.005:
+            p['state'] = 'part'
+            left = 0.0
+        else:
+            p['state'] = 'due'
+
+    return {
+        'id': lid,
+        'reference': reference,
+        'branch_id': branch_id,
+        'branch_name': branch_name,
+        'transaction_id': transaction_id,
+        'transaction_number': transaction_number,
+        'customer_name': customer_name,
+        'customer_id_number': customer_id_number,
+        'customer_phone': customer_phone or '',
+        'total_amount': total,
+        'deposit_amount': float(deposit_amount or 0),
+        'paid_amount': paid,
+        'balance': balance,
+        'status': status,
+        'notes': notes or '',
+        'created_by': created_by_name or '',
+        'created_at': created_at.isoformat() if created_at else None,
+        'completed_at': completed_at.isoformat() if completed_at else None,
+        'cancelled_at': cancelled_at.isoformat() if cancelled_at else None,
+        'cancel_reason': cancel_reason or '',
+        'items': items,
+        'plan': plan,
+        'payments': payments
+    }
+
+
+@app.route('/api/pos/laybys', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_create_layby():
+    """Open a layby: capture the customer, the plan, and reserve the goods.
+
+    body = {
+      customer_name, customer_id_number, customer_phone,
+      deposit, deposit_method,
+      installments: [ {amount, due_date} ],   # must add up to total - deposit
+      items: [ {id, price, quantity} ],
+      notes
+    }
+    """
+    data = request.get_json() or {}
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
+
+    customer_name = (data.get('customer_name') or '').strip()[:150]
+    customer_id_number = (data.get('customer_id_number') or '').strip()[:60]
+    customer_phone = (data.get('customer_phone') or '').strip()[:40]
+    if not customer_name:
+        return jsonify({'success': False, 'error': 'The customer name is required.'}), 400
+    if not customer_id_number:
+        return jsonify({'success': False, 'error': 'The customer ID number is required.'}), 400
+
+    raw_items = data.get('items') or []
+    if not isinstance(raw_items, list) or not raw_items:
+        return jsonify({'success': False, 'error': 'The layby has no items.'}), 400
+
+    lines = []
+    for item in raw_items:
+        try:
+            pid = int(item.get('id'))
+            qty = int(item.get('quantity') or 0)
+            price = round(float(item.get('price') or 0), 2)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'One of the layby lines is invalid.'}), 400
+        if qty <= 0:
+            continue
+        lines.append({'product_id': pid, 'quantity': qty, 'price': price})
+    if not lines:
+        return jsonify({'success': False, 'error': 'The layby has no items.'}), 400
+
+    total = round(sum(l['price'] * l['quantity'] for l in lines), 2)
+    if total <= 0:
+        return jsonify({'success': False, 'error': 'The layby total must be more than zero.'}), 400
+
+    try:
+        deposit = round(float(data.get('deposit') or 0), 2)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'The deposit is not a number.'}), 400
+    if deposit < 0 or deposit > total + 0.005:
+        return jsonify({'success': False, 'error': 'The deposit cannot be more than the total.'}), 400
+    deposit = min(deposit, total)
+    due = round(total - deposit, 2)
+
+    plan = []
+    if due > 0:
+        raw_plan = data.get('installments') or []
+        if not isinstance(raw_plan, list) or not raw_plan:
+            return jsonify({'success': False,
+                            'error': 'Add at least one instalment to the payment plan.'}), 400
+        for i, row in enumerate(raw_plan, start=1):
+            try:
+                amount = round(float((row or {}).get('amount') or 0), 2)
+            except (TypeError, ValueError):
+                return jsonify({'success': False,
+                                'error': f'Instalment {i} is not a number.'}), 400
+            if amount <= 0:
+                return jsonify({'success': False,
+                                'error': f'Instalment {i} must be more than zero.'}), 400
+            due_date = (row or {}).get('due_date') or None
+            if due_date:
+                try:
+                    due_date = datetime.strptime(str(due_date)[:10], '%Y-%m-%d').date()
+                except ValueError:
+                    return jsonify({'success': False,
+                                    'error': f'Instalment {i} has an invalid date.'}), 400
+            plan.append({'seq': i, 'amount': amount, 'due_date': due_date})
+        plan_total = round(sum(p['amount'] for p in plan), 2)
+        if abs(plan_total - due) > 0.005:
+            return jsonify({
+                'success': False,
+                'error': (f'The instalments add up to ${plan_total:,.2f} but '
+                          f'${due:,.2f} is still to pay. They must match.')
+            }), 400
+
+    user_id = session.get('user_id') or session.get('userid') or 0
+    user_name = session.get('user_name') or session.get('username') or 'System'
+    zimbabwe_now = get_zimbabwe_time()
+    reference = generate_layby_reference()
+    transaction_number = generate_transaction_number()
+    # Paid off on the spot? Then it is an ordinary completed sale from the start.
+    layby_status = 'active' if due > 0 else 'completed'
+    # While money is outstanding the transaction is a 'layby', which every
+    # "sales today" figure ignores; it becomes 'completed' when it is paid off.
+    transaction_status = 'layby' if due > 0 else 'completed'
+    deposit_method = (data.get('deposit_method') or 'cash').strip().lower()[:20]
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO transactions (transaction_number, user_id, subtotal, tax, total,
+                                          payment_method, amount_paid, change_amount, notes,
+                                          created_at, branch_id, status)
+                VALUES (%s, %s, %s, 0, %s, %s, %s, 0, %s, %s, %s, %s)
+                RETURNING id
+            """, (transaction_number, user_id, total, total, LAYBY_PAYMENT_METHOD,
+                  deposit, f'Layby {reference}: {customer_name} ({customer_id_number})',
+                  zimbabwe_now, branch_id, transaction_status))
+            transaction_id = cursor.fetchone()[0]
+
+            cursor.execute("""
+                INSERT INTO laybys (reference, branch_id, transaction_id, transaction_number,
+                                    customer_name, customer_id_number, customer_phone,
+                                    total_amount, deposit_amount, status, notes,
+                                    created_by, created_by_name, created_at, completed_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (reference, branch_id, transaction_id, transaction_number,
+                  customer_name, customer_id_number, customer_phone, total, deposit,
+                  layby_status, str(data.get('notes') or '')[:500], user_id, user_name,
+                  zimbabwe_now, zimbabwe_now if due <= 0 else None))
+            layby_id = cursor.fetchone()[0]
+
+            for line in lines:
+                pid = line['product_id']
+                qty = line['quantity']
+                cursor.execute(
+                    'SELECT COALESCE(name, %s), unit_type, unit_details FROM products WHERE id = %s',
+                    (f'Product #{pid}', pid))
+                prow = cursor.fetchone() or (f'Product #{pid}', '', '')
+
+                cursor.execute("""
+                    INSERT INTO transaction_items (transaction_id, product_id, quantity,
+                                                   price_at_time, subtotal, unit_type, unit_details)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (transaction_id, pid, qty, line['price'],
+                      round(line['price'] * qty, 2), prow[1] or '', prow[2] or ''))
+                line_id = cursor.fetchone()[0]
+
+                # The goods are spoken for, so they leave THIS branch's shelf now
+                # and the cost is frozen from the layers that actually covered it.
+                fifo_cost, _layby_layers = consume_stock_lots_fifo(cursor, pid, branch_id, qty)
+                add_branch_stock(cursor, pid, branch_id, -qty)
+                cursor.execute('UPDATE transaction_items SET cost_at_time = %s WHERE id = %s',
+                               (round(fifo_cost / max(1, qty), 4), line_id))
+                cursor.execute("""
+                    INSERT INTO stock_reductions (product_id, quantity, reason, notes,
+                                                  user_id, reduced_at, branch_id)
+                    VALUES (%s, %s, 'layby_reserve', %s, %s, %s, %s)
+                """, (pid, qty, f'Layby {reference}', user_id, zimbabwe_now, branch_id))
+
+                cursor.execute("""
+                    INSERT INTO layby_items (layby_id, product_id, product_name, quantity,
+                                             unit_price, subtotal)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (layby_id, pid, prow[0], qty, line['price'],
+                      round(line['price'] * qty, 2)))
+
+            for p in plan:
+                cursor.execute("""
+                    INSERT INTO layby_plan (layby_id, seq, due_date, amount)
+                    VALUES (%s, %s, %s, %s)
+                """, (layby_id, p['seq'], p['due_date'], p['amount']))
+
+            if deposit > 0:
+                cursor.execute("""
+                    INSERT INTO layby_payments (layby_id, seq, amount, method, notes,
+                                                user_id, user_name, paid_at, created_at)
+                    VALUES (%s, NULL, %s, %s, 'Deposit', %s, %s, %s, %s)
+                """, (layby_id, deposit, deposit_method, user_id, user_name,
+                      zimbabwe_now, zimbabwe_now))
+
+            connection.commit()
+
+            cursor.execute(f"""
+                SELECT {LAYBY_COLUMNS} FROM laybys l
+                LEFT JOIN branches b ON b.id = l.branch_id
+                WHERE l.id = %s
+            """, (layby_id,))
+            created = _serialize_layby(cursor, cursor.fetchone())
+
+        try:
+            log_activity(
+                'layby_create',
+                (f'Opened layby {reference} for {customer_name} '
+                 f'(${total:,.2f}, ${deposit:,.2f} deposit, ${due:,.2f} to pay)'),
+                'layby', layby_id,
+                {'reference': reference, 'total': total, 'deposit': deposit,
+                 'balance': due, 'items': len(lines)}
+            )
+        except Exception as log_err:
+            print(f"Warning: could not log the layby: {log_err}")
+
+        return jsonify({
+            'success': True,
+            'layby': created,
+            'message': (f'Layby {reference} opened for {customer_name}. '
+                        f'${due:,.2f} still to pay.' if due > 0 else
+                        f'Layby {reference} paid in full.')
+        }), 201
+    except Exception as e:
+        print(f"Layby create error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pos/laybys', methods=['GET'])
+@login_required
+def pos_list_laybys():
+    """Every layby for the session branch (all branches on the read-only view)."""
+    status_filter = (request.args.get('status') or '').strip().lower()
+    sql = f"""
+        SELECT {LAYBY_COLUMNS}
+        FROM laybys l
+        LEFT JOIN branches b ON b.id = l.branch_id
+        WHERE 1 = 1
+    """
+    params = []
+    if status_filter in ('active', 'completed', 'cancelled'):
+        sql += " AND l.status = %s"
+        params.append(status_filter)
+    branch_where, branch_params = branch_read_clause('l.branch_id')
+    sql += branch_where
+    params.extend(branch_params)
+    sql += """
+        ORDER BY CASE l.status WHEN 'active' THEN 0 WHEN 'completed' THEN 1 ELSE 2 END,
+                 l.created_at DESC
+        LIMIT 300
+    """
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(sql, tuple(params) or None)
+            laybys = [_serialize_layby(cursor, r) for r in cursor.fetchall()]
+
+        active = [x for x in laybys if x['status'] == 'active']
+        return jsonify({
+            'success': True,
+            'read_only': branch_is_read_only(),
+            'branch': {'id': current_branch_id(), 'name': session.get('branch_name') or ''},
+            'laybys': laybys,
+            'summary': {
+                'total': len(laybys),
+                'active': len(active),
+                'completed': sum(1 for x in laybys if x['status'] == 'completed'),
+                'cancelled': sum(1 for x in laybys if x['status'] == 'cancelled'),
+                'outstanding': round(sum(x['balance'] for x in active), 2),
+                'collected': round(sum(x['paid_amount'] for x in laybys), 2)
+            }
+        })
+    except Exception as e:
+        print(f"Layby list error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pos/laybys/<int:layby_id>/pay', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_layby_payment(layby_id):
+    """Record one instalment received against an existing layby.
+
+    body = {amount, method, paid_at (YYYY-MM-DD, optional), seq, notes}
+    The money is taken NOW and dated when it was received, so the day's takings
+    follow the cash, not the sale.
+    """
+    data = request.get_json() or {}
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
+
+    try:
+        amount = round(float(data.get('amount') or 0), 2)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Enter the amount received.'}), 400
+    if amount <= 0:
+        return jsonify({'success': False, 'error': 'The amount must be more than zero.'}), 400
+
+    method = (data.get('method') or 'cash').strip().lower()[:20]
+    notes = str(data.get('notes') or '')[:500]
+    user_id = session.get('user_id') or session.get('userid') or 0
+    user_name = session.get('user_name') or session.get('username') or 'System'
+
+    raw_when = str(data.get('paid_at') or '').strip()
+    now = get_zimbabwe_time()
+    if raw_when:
+        try:
+            when_date = datetime.strptime(raw_when[:10], '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'success': False, 'error': 'That payment date is not valid.'}), 400
+        # Keep the time of day: only a date was offered, so use the current time.
+        paid_at = datetime.combine(when_date, now.time())
+    else:
+        paid_at = now
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, reference, branch_id, total_amount, status, transaction_id
+                FROM laybys WHERE id = %s
+            """, (layby_id,))
+            l = cursor.fetchone()
+            if not l:
+                return jsonify({'success': False, 'error': 'Layby not found.'}), 404
+            if l[2] != branch_id:
+                return jsonify({'success': False,
+                                'error': 'That layby belongs to another branch.'}), 403
+            if l[4] != 'active':
+                return jsonify({'success': False,
+                                'error': f'This layby is {l[4] or "closed"} and cannot take payments.'
+                                }), 400
+
+            paid = _layby_paid(cursor, layby_id)
+            balance = round(float(l[3] or 0) - paid, 2)
+            if amount > balance + 0.005:
+                return jsonify({'success': False,
+                                'error': (f'That is more than the balance. '
+                                          f'${balance:,.2f} is still outstanding.')}), 400
+
+            cursor.execute("""
+                INSERT INTO layby_payments (layby_id, seq, amount, method, notes,
+                                            user_id, user_name, paid_at, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (layby_id, data.get('seq'), amount, method, notes, user_id, user_name,
+                  paid_at, now))
+            payment_id = cursor.fetchone()[0]
+
+            settled = round(paid + amount, 2) >= float(l[3] or 0) - 0.005
+            if settled:
+                # Paid off: the goods are the customer's and the money is in, so
+                # the sale is released into the completed-sales figures.
+                cursor.execute("""
+                    UPDATE laybys SET status = 'completed', completed_at = %s WHERE id = %s
+                """, (now, layby_id))
+                if l[5]:
+                    cursor.execute("UPDATE transactions SET status = 'completed' WHERE id = %s",
+                                   (l[5],))
+
+            connection.commit()
+
+            cursor.execute(f"""
+                SELECT {LAYBY_COLUMNS} FROM laybys l
+                LEFT JOIN branches b ON b.id = l.branch_id
+                WHERE l.id = %s
+            """, (layby_id,))
+            updated = _serialize_layby(cursor, cursor.fetchone())
+
+        try:
+            log_activity(
+                'layby_payment',
+                (f'Layby {updated["reference"]}: ${amount:,.2f} received '
+                 f'({method}) - ${updated["balance"]:,.2f} still to pay'),
+                'layby', layby_id,
+                {'amount': amount, 'method': method, 'balance': updated['balance'],
+                 'settled': settled}
+            )
+        except Exception as log_err:
+            print(f"Warning: could not log the layby payment: {log_err}")
+
+        return jsonify({
+            'success': True,
+            'payment_id': payment_id,
+            'settled': settled,
+            'layby': updated,
+            'message': (f'Layby {updated["reference"]} is paid in full.' if settled else
+                        f'${amount:,.2f} received - ${updated["balance"]:,.2f} still to pay.')
+        })
+    except Exception as e:
+        print(f"Layby payment error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pos/laybys/<int:layby_id>/cancel', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_cancel_layby(layby_id):
+    """Cancel a layby: the reserved goods go back on the shelf and the sale is voided.
+
+    Money already collected stays on the record on purpose: refunding it is a
+    counter decision and wiping it here would hide money that was received.
+    """
+    data = request.get_json() or {}
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
+
+    reason = str(data.get('reason') or '').strip()[:500]
+    user_id = session.get('user_id') or session.get('userid') or 0
+    user_name = session.get('user_name') or session.get('username') or 'System'
+    now = get_zimbabwe_time()
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, reference, branch_id, status, transaction_id, total_amount
+                FROM laybys WHERE id = %s
+            """, (layby_id,))
+            l = cursor.fetchone()
+            if not l:
+                return jsonify({'success': False, 'error': 'Layby not found.'}), 404
+            if l[2] != branch_id:
+                return jsonify({'success': False,
+                                'error': 'That layby belongs to another branch.'}), 403
+            if l[3] != 'active':
+                return jsonify({'success': False,
+                                'error': f'This layby is already {l[3] or "closed"}.'}), 400
+
+            cursor.execute("""
+                SELECT product_id, quantity FROM layby_items
+                WHERE layby_id = %s AND product_id IS NOT NULL
+            """, (layby_id,))
+            for pid, qty in cursor.fetchall():
+                qty = int(qty or 0)
+                if qty <= 0:
+                    continue
+                add_branch_stock(cursor, pid, branch_id, qty)
+                cursor.execute("""
+                    INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
+                                                 funding_source, reference, user_id, added_at, branch_id)
+                    VALUES (%s, %s, 0, 0, 'LAYBY_CANCEL', %s, %s, %s, %s)
+                """, (pid, qty, f'CANCEL-{l[1]}', user_id, now, branch_id))
+
+            cursor.execute("""
+                UPDATE laybys SET status = 'cancelled', cancelled_at = %s, cancel_reason = %s
+                WHERE id = %s
+            """, (now, reason, layby_id))
+            if l[4]:
+                cursor.execute("""
+                    UPDATE transactions
+                    SET voided = TRUE, voided_at = %s, voided_by = %s, status = 'cancelled'
+                    WHERE id = %s
+                """, (now, user_name, l[4]))
+            connection.commit()
+
+            cursor.execute(f"""
+                SELECT {LAYBY_COLUMNS} FROM laybys l
+                LEFT JOIN branches b ON b.id = l.branch_id
+                WHERE l.id = %s
+            """, (layby_id,))
+            updated = _serialize_layby(cursor, cursor.fetchone())
+
+        try:
+            log_activity(
+                'layby_cancel',
+                (f'Cancelled layby {updated["reference"]} '
+                 f'(${updated["paid_amount"]:,.2f} had been paid)'
+                 + (f' - {reason}' if reason else '')),
+                'layby', layby_id,
+                {'reference': updated['reference'], 'paid': updated['paid_amount'],
+                 'reason': reason}
+            )
+        except Exception as log_err:
+            print(f"Warning: could not log the layby cancellation: {log_err}")
+
+        return jsonify({
+            'success': True,
+            'layby': updated,
+            'message': (f'Layby {updated["reference"]} cancelled and the stock returned. '
+                        f'${updated["paid_amount"]:,.2f} was collected and stays on record.')
+        })
+    except Exception as e:
+        print(f"Layby cancel error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ==================== BULK STOCK UPLOAD (Excel) ====================
@@ -17573,6 +18240,10 @@ def day_end_report():
             LEFT JOIN branches b ON b.id = t.branch_id
             WHERE t.created_at::date = %s::date
               AND t.voided = FALSE
+              -- A layby is NOT money taken today. Only its instalments are, and
+              -- those are collected separately below; counting the whole layby
+              -- here would claim takings the shop has not received yet.
+              AND COALESCE(t.status, 'completed') <> 'layby'
         """
         branch_where, branch_params = branch_read_clause('t.branch_id')
         query = query + branch_where + """
@@ -17639,6 +18310,43 @@ def day_end_report():
         cashiers = list(cashier_map.values())
         branches = list(branch_map.values())
 
+        # ---- Layby instalments received today --------------------------------
+        # This is money the till actually took, so it belongs in the day-end
+        # figures even though the layby itself is not a completed sale yet.
+        lp_sql = """
+            SELECT COALESCE(lp.user_name, 'Unknown') AS cashier,
+                   COALESCE(b.name, 'Unassigned') AS branch_name,
+                   l.branch_id,
+                   COALESCE(SUM(lp.amount), 0) AS collected,
+                   COUNT(*) AS payment_count
+            FROM layby_payments lp
+            JOIN laybys l ON l.id = lp.layby_id
+            LEFT JOIN branches b ON b.id = l.branch_id
+            WHERE lp.paid_at::date = %s::date
+        """
+        lp_where, lp_params = branch_read_clause('l.branch_id')
+        lp_sql = lp_sql + lp_where + """
+            GROUP BY 1, 2, 3
+            ORDER BY 1
+        """
+        lp_rows = execute_query(lp_sql, (day,) + tuple(lp_params), fetch_all=True) or []
+        layby_collections = [{'cashier': r[0], 'branch_name': r[1], 'branch_id': r[2],
+                              'collected': round(float(r[3] or 0), 2),
+                              'payment_count': int(r[4] or 0)} for r in lp_rows]
+
+        # Attach the instalments to the person and shop that took them, so the
+        # reader can see takings = completed sales + layby money received.
+        for coll in layby_collections:
+            for c in cashiers:
+                if c['cashier'] == coll['cashier'] and c['branch_id'] == coll['branch_id']:
+                    c['layby_collected'] = round(
+                        c.get('layby_collected', 0.0) + coll['collected'], 2)
+            for b in branches:
+                if b['branch_id'] == coll['branch_id']:
+                    b['layby_collected'] = round(
+                        b.get('layby_collected', 0.0) + coll['collected'], 2)
+        layby_total = round(sum(c['collected'] for c in layby_collections), 2)
+
         return jsonify({
             'success': True,
             'date': day,
@@ -17649,7 +18357,9 @@ def day_end_report():
             'branches': branches,
             'grand_total': sum(c['total'] for c in cashiers),
             'transaction_count': sum(c['transaction_count'] for c in cashiers),
-            'payment_methods': overall_pm
+            'payment_methods': overall_pm,
+            'layby_collections': layby_collections,
+            'layby_total': layby_total
         })
     except Exception as e:
         print(f"Day-end report error: {e}")
