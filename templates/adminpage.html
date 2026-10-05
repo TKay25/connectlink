@@ -5715,6 +5715,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
                                     <option value="project_created">Project Created</option>
                                     <option value="project_updated">Project Updated</option>
                                     <option value="project_field_changed">Project Field Changed</option>
+                                    <option value="project_data_repaired">Project Data Repaired</option>
                                     <option value="project_deleted">Project Deleted</option>
                                     <option value="contract_downloaded">Contract Downloaded</option>
                                     <option value="contract_sent_whatsapp">Contract Sent</option>
@@ -38218,7 +38219,7 @@ function renderActivityLog(data) {
         'project_field_changed': 'bi-pencil-square', 'installment_paid': 'bi-cash-coin',
         'installment_date_changed': 'bi-calendar-event', 'deposit_paid': 'bi-cash-stack',
         'note_added': 'bi-journal-plus', 'quotation_linked': 'bi-link-45deg',
-        'quotation_unlinked': 'bi-link'
+        'quotation_unlinked': 'bi-link', 'project_data_repaired': 'bi-tools'
     };
     const actionColors = {
         'project_created': '#1a73e8', 'payment_updated': '#2e7d32', 'quotation_created': '#ef6c00',
@@ -38235,7 +38236,8 @@ function renderActivityLog(data) {
         'quotation_rates_updated': '#7952b3', 'installment_dates_updated': '#157347',
         'note_added': '#0d6efd', 'project_field_changed': '#7c3aed', 'installment_paid': '#15803d',
         'installment_date_changed': '#0f766e', 'deposit_paid': '#0f766e',
-        'quotation_linked': '#2563eb', 'quotation_unlinked': '#b45309'
+        'quotation_linked': '#2563eb', 'quotation_unlinked': '#b45309',
+        'project_data_repaired': '#b45309'
     };
     
     let html = '<div style="display:flex;flex-direction:column;gap:3px;">';
@@ -38381,9 +38383,10 @@ function viewActivityDetails(element) {
             'quotation_rates_updated': '#7952b3', 'installment_dates_updated': '#157347',
             'note_added': '#0d6efd', 'project_field_changed': '#7c3aed', 'installment_paid': '#15803d',
             'installment_date_changed': '#0f766e', 'deposit_paid': '#0f766e',
-            'quotation_linked': '#2563eb', 'quotation_unlinked': '#b45309'
+            'quotation_linked': '#2563eb', 'quotation_unlinked': '#b45309',
+            'project_data_repaired': '#b45309'
         };
-        const color = actionColors[item.action_type] || '#666';
+            const color = actionColors[item.action_type] || '#666';
         
         let html = `
             <div style="display:flex;flex-direction:column;gap:10px;padding:2px;">

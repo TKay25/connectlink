@@ -525,10 +525,13 @@ Two deliberate rules: **formatting is never an edit** (`5000`, `5,000.00` and a 
 timestamp), and when the previous values cannot be read the change is **not** logged —
 a failed read must never invent a change from "(empty)".
 
-> **Still silent (by design, for now):** the boot-time schema repair in
-> `initialize_database_tables`, and the `72026` → `2026` date-repair that runs when the
-> projects list is opened. Both fix corrupted data rather than record an edit; say the
-> word and they can be audited too.
+**Automatic repairs are audited too.** Three places fix corrupted dates without anyone
+editing anything — the startup repair for project 125's instalment due dates, the startup
+`72026` → `2026` repair, and the same `72026` repair that runs when the projects list is
+opened. Each one now records a row per value changed (`project_data_repaired`, filterable
+as *Project Data Repaired*) naming the project, the field and the old → new date, and it is
+attributed to **System** because nobody chose it. They are silent only when they change
+nothing, which is the normal case.
 
 ### Stock reconciliation — repairing stock that was mixed up
 
@@ -586,6 +589,15 @@ How it hits the books:
   customer**: the amount defaults to everything collected (lower it to keep a fee) and is
   written as its own refund row, so the layby shows what went back and what was retained.
   Refunds are money paid out at the counter and are reported as such.
+* **Reverting the sale closes the layby.** A layby sale reverted from **Transaction
+  History** returns the reserved goods to the shelf, so the layby is closed with it: it
+  stops counting as active, leaves the default *Active laybys* view, and cannot take
+  another instalment or be cancelled again — cancelling it would put the same goods back a
+  **second** time. What the customer paid stays on the layby's record, with the reason
+  *"its sale was reverted from Transaction History"*, so the shop can refund against
+  something visible. A layby left active by a revert performed before this existed is
+  closed automatically the next time the Layby tab is opened (never from the read-only
+  All Branches view).
 
 Tables `laybys`, `layby_items`, `layby_plan` and `layby_payments` are created
 automatically on boot, like the branch schema, so there is no manual migration step.
@@ -1264,6 +1276,22 @@ sudo systemctl start connectlink
 ---
 
 ## Changelog
+
+**October 2026 — reverting a layby sale, and auditing automatic repairs**
+- ✅ **Reverting a layby sale now closes the layby.** It used to return the goods but leave
+  the layby sitting on the Layby tab as *active*, still offering instalments — and
+  cancelling it afterwards would have put the same goods back on the shelf a **second**
+  time. A reverted layby is closed with the reason recorded, its instalments stay on the
+  record for a manual refund, and it leaves the default *Active laybys* view. Laybys left
+  active by an earlier revert are closed the next time the tab is opened.
+- ✅ An instalment can no longer be recorded against a layby whose sale was reverted, and
+  such a layby can no longer be cancelled (the guard that would have double-restored its
+  stock).
+- ✅ **The automatic date repairs are audited.** The startup repair for project 125's
+  instalment due dates, the startup `72026` → `2026` date repair, and the same repair that
+  runs when the projects list is opened now record a `project_data_repaired` entry per
+  value changed — naming the project, the field and the old → new date, attributed to
+  **System** (nobody chose it) and filterable as *Project Data Repaired*.
 
 **October 2026 — every project field change is audited, in plain words**
 - ✅ **One audit row per changed project field**, naming the field as people know it

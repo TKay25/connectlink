@@ -1194,6 +1194,14 @@ def initialize_database_tables():
 
 
             try:
+                # What the row holds before the repair, so the audit log can say which
+                # due dates actually moved. This runs on every boot and is a no-op once
+                # the dates are out of 2025, but when it does move one it is a change
+                # to a project that nobody made by hand.
+                before_125 = read_project_fields(cursor, 125,
+                                                 ['projectname', 'clientname']
+                                                 + [f'installment{i}duedate' for i in range(1, 11)])
+
                 # Create the update query for PostgreSQL
                 update_query = """
                 UPDATE connectlinkdatabase 
@@ -1267,6 +1275,24 @@ def initialize_database_tables():
                 connection.commit()
                 
                 print(f"✓ Updated due dates for project ID 125")
+
+                if before_125:
+                    after_125 = read_project_fields(
+                        cursor, 125, [f'installment{i}duedate' for i in range(1, 11)]) or {}
+                    moved = [
+                        (column, project_field_label(column),
+                         before_125.get(column), after_125.get(column))
+                        for column in before_125
+                        if column.endswith('duedate')
+                        and project_field_differs(before_125.get(column),
+                                                  after_125.get(column), column)
+                    ]
+                    if moved:
+                        log_project_field_changes(
+                            125, moved, 'Startup repair (2025 → 2026)',
+                            before_125.get('projectname'), before_125.get('clientname'),
+                            action_type='project_data_repaired', actor='System'
+                        )
                 
             except Exception as e:
                 connection.rollback()
@@ -1752,16 +1778,39 @@ def initialize_database_tables():
                 ]
                 for col in date_cols:
                     # Use to_char to get YYYY-MM-DD string, replace bad year, cast back
+                    # Read what is wrong first: the repair changes project dates, so the
+                    # audit log names the project, the column and the old -> new date.
+                    cursor.execute(f"""
+                        SELECT id, {col} FROM connectlinkdatabase
+                        WHERE {col} IS NOT NULL
+                        AND TO_CHAR({col}, 'YYYY') = '72026'
+                    """)
+                    broken = cursor.fetchall()
+                    if not broken:
+                        continue
                     cursor.execute(f"""
                         UPDATE connectlinkdatabase
                         SET {col} = REPLACE(TO_CHAR({col}, 'YYYY-MM-DD'), '72026', '2026')::date
                         WHERE {col} IS NOT NULL
                         AND TO_CHAR({col}, 'YYYY') = '72026'
+                        RETURNING id, {col}
                     """)
-                    fixed_count = cursor.rowcount
+                    repaired = {row[0]: row[1] for row in cursor.fetchall()}
+                    fixed_count = len(repaired)
                     if fixed_count > 0:
                         print(f"✅ Fixed 72026->2026 in {col} for {fixed_count} record(s)")
                         connection.commit()
+                        label = project_field_label(col)
+                        for project_id, old_value in broken:
+                            new_value = repaired.get(project_id)
+                            if new_value is None:
+                                continue
+                            log_project_field_changes(
+                                project_id, [(col, label, old_value, new_value)],
+                                'Startup repair (72026 → 2026)',
+                                None, None,
+                                action_type='project_data_repaired', actor='System'
+                            )
                 connection.commit()
                 print("✅ Bad date cleanup complete!")
             except Exception as cleanup_err:
@@ -15420,6 +15469,40 @@ def generate_layby_reference():
     return f"LAY-{datetime.now().strftime('%Y%m%d')}-{secrets.token_hex(3).upper()}"
 
 
+def _layby_sale_reverted(cursor, transaction_id):
+    """True when the sale behind this layby was reverted/voided in Transaction History.
+
+    A revert puts the goods back on the shelf but knows nothing about the layby, so
+    the layby is left looking live: it stays on the Layby tab, still offers to take
+    instalments, and cancelling it would put the same goods back a SECOND time.
+    """
+    if not transaction_id:
+        return False
+    try:
+        cursor.execute("SELECT voided FROM transactions WHERE id = %s", (transaction_id,))
+        row = cursor.fetchone()
+        return bool(row and row[0])
+    except Exception as e:
+        print(f"Note: could not check whether the layby's sale was reverted: {e}")
+        return False
+
+
+def _close_layby_as_reverted(cursor, layby_id, reason):
+    """Mark a layby whose sale was reverted as cancelled, without touching its money.
+
+    No stock moves here: the revert already returned the goods. What the customer
+    paid stays on the layby's record, exactly as a cancellation does, so a manual
+    refund can be made against something visible instead of a vanished row.
+    """
+    cursor.execute("""
+        UPDATE laybys
+        SET status = 'cancelled',
+            cancelled_at = COALESCE(cancelled_at, CURRENT_TIMESTAMP),
+            cancel_reason = COALESCE(NULLIF(cancel_reason, ''), %s)
+        WHERE id = %s AND status <> 'cancelled'
+    """, (reason, layby_id))
+
+
 def _layby_paid(cursor, layby_id):
     """Money the customer has handed over, before anything refunded."""
     cursor.execute("""
@@ -15802,6 +15885,44 @@ def pos_list_laybys():
     """
     try:
         with get_db() as (cursor, connection):
+            # Self-heal: a layby whose sale was reverted in Transaction History (or
+            # reverted before this code existed) is not live. Close it here so it stops
+            # counting as active, stops offering instalments, and can never be cancelled
+            # a second time - which would put its goods back on the shelf twice.
+            # Never done from the read-only consolidated view.
+            if not branch_is_read_only():
+                try:
+                    cursor.execute("""
+                        UPDATE laybys
+                        SET status = 'cancelled',
+                            cancelled_at = COALESCE(cancelled_at, CURRENT_TIMESTAMP),
+                            cancel_reason = COALESCE(NULLIF(cancel_reason, ''),
+                                                     'Its sale was reverted from Transaction History')
+                        WHERE status <> 'cancelled'
+                          AND transaction_id IS NOT NULL
+                          AND EXISTS (SELECT 1 FROM transactions tr
+                                      WHERE tr.id = laybys.transaction_id AND tr.voided = TRUE)
+                        RETURNING id, reference
+                    """)
+                    healed = cursor.fetchall()
+                    if healed:
+                        connection.commit()
+                        print(f"🧾 Closed {len(healed)} layby(s) whose sale had been reverted")
+                        for layby_id, layby_ref in healed:
+                            try:
+                                log_activity(
+                                    'layby_cancelled',
+                                    (f'Layby {layby_ref} closed — its sale had been reverted, so '
+                                     f'the goods are already back in stock'),
+                                    'layby', layby_id,
+                                    {'reference': layby_ref,
+                                     'reason': 'Sale reverted from Transaction History'}
+                                )
+                            except Exception as log_err:
+                                print(f"Warning: could not log the closed layby: {log_err}")
+                except Exception as heal_err:
+                    print(f"Note: could not close reverted laybys: {heal_err}")
+
             cursor.execute(sql, tuple(params) or None)
             laybys = [_serialize_layby(cursor, r) for r in cursor.fetchall()]
 
@@ -15904,6 +16025,17 @@ def pos_layby_payment(layby_id):
                 return jsonify({'success': False,
                                 'error': f'This layby is {l[4] or "closed"} and cannot take payments.'
                                 }), 400
+
+            # The sale behind this layby was reverted: its goods are already back in
+            # stock and the layby is dead, even if nothing has closed it yet.
+            if _layby_sale_reverted(cursor, l[5]):
+                _close_layby_as_reverted(cursor, layby_id,
+                                         'Its sale was reverted from Transaction History')
+                connection.commit()
+                return jsonify({'success': False,
+                                'error': ('This layby was reverted from Transaction History. '
+                                          'Its goods are already back in stock, so it cannot '
+                                          'take payments.')}), 400
 
             paid = _layby_paid(cursor, layby_id)
             balance = round(float(l[3] or 0) - paid, 2)
@@ -16017,6 +16149,18 @@ def pos_cancel_layby(layby_id):
             if l[3] != 'active':
                 return jsonify({'success': False,
                                 'error': f'This layby is already {l[3] or "closed"}.'}), 400
+
+            # Its sale was reverted, which already put the goods back on the shelf.
+            # Returning them here as well would add the same quantity twice.
+            if _layby_sale_reverted(cursor, l[4]):
+                _close_layby_as_reverted(cursor, layby_id,
+                                         'Its sale was reverted from Transaction History')
+                connection.commit()
+                return jsonify({'success': False,
+                                'error': ('This layby\'s sale was already reverted, so its goods '
+                                          'are back in stock and nothing was returned twice. It is '
+                                          'closed - any instalments paid stay on its record for a '
+                                          'refund.')}), 400
 
             cursor.execute("""
                 SELECT product_id, quantity FROM layby_items
@@ -18733,19 +18877,59 @@ def revert_transaction(transaction_id):
                 UPDATE transactions SET voided = TRUE, voided_at = CURRENT_TIMESTAMP, voided_by = %s
                 WHERE id = %s
             """, (user_name, transaction_id))
+
+            # A LAYBY behind this sale is closed with it. The goods are already back
+            # on the shelf (the loop above restored them), so the layby must not stay
+            # on the Layby tab looking live - it would keep offering instalments, and
+            # cancelling it would return the same goods a second time. Its money stays
+            # on the record for a manual refund, just as a cancellation does.
+            cursor.execute("""
+                SELECT id, reference FROM laybys
+                WHERE transaction_id = %s AND status <> 'cancelled'
+            """, (transaction_id,))
+            reverted_laybys = cursor.fetchall()
+            for layby_id, _layby_ref in reverted_laybys:
+                _close_layby_as_reverted(
+                    cursor, layby_id,
+                    f'Sale {t[1]} was reverted from Transaction History')
             connection.commit()
 
         try:
             log_activity(
                 'transaction_revert',
-                f'Reverted sale {t[1]} (${float(t[4] or 0):,.2f}) — stock restored to inventory',
+                f'Reverted sale {t[1]} (${float(t[4] or 0):,.2f}) — stock restored to inventory'
+                + (f'; layby {reverted_laybys[0][1]} closed with it'
+                   if reverted_laybys else ''),
                 'transaction', transaction_id,
-                {'transaction_number': t[1], 'reverted_by': user_name, 'items_restored': restored}
+                {'transaction_number': t[1], 'reverted_by': user_name, 'items_restored': restored,
+                 'laybys_closed': [r[1] for r in reverted_laybys]}
             )
         except Exception as log_err:
             print(f"Warning: Could not log revert activity: {log_err}")
 
-        return jsonify({'success': True, 'message': f'Sale {t[1]} reverted. Stock restored to inventory.'})
+        # The layby's own history says why it stopped: nothing was refunded here, so
+        # the shop can see what the customer is owed instead of guessing.
+        for layby_id, layby_ref in reverted_laybys:
+            try:
+                log_activity(
+                    'layby_cancelled',
+                    (f'Layby {layby_ref} closed — its sale {t[1]} was reverted and the '
+                     f'goods are already back in stock; instalments already paid stay on '
+                     f'the record for a manual refund'),
+                    'layby', layby_id,
+                    {'reference': layby_ref, 'transaction_number': t[1],
+                     'reason': 'Sale reverted from Transaction History',
+                     'reverted_by': user_name}
+                )
+            except Exception as log_err:
+                print(f"Warning: Could not log the layby closure: {log_err}")
+
+        message = f'Sale {t[1]} reverted. Stock restored to inventory.'
+        if reverted_laybys:
+            message += (f' Layby {", ".join(r[1] for r in reverted_laybys)} was closed with it — '
+                        f'any instalments already paid stay on its record for a refund.')
+        return jsonify({'success': True, 'message': message,
+                        'laybys_closed': [r[1] for r in reverted_laybys]})
     except Exception as e:
         print(f"Revert transaction error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -30425,12 +30609,35 @@ def run1(userid):
                                    'installment9duedate','installment9date',
                                    'installment10duedate','installment10date']:
                     cursor.execute(f"""
+                        SELECT id, {repair_col} FROM connectlinkdatabase
+                        WHERE {repair_col}::text LIKE '72026%'
+                    """)
+                    broken = cursor.fetchall()
+                    if not broken:
+                        continue
+                    cursor.execute(f"""
                         UPDATE connectlinkdatabase 
                         SET {repair_col} = (regexp_replace({repair_col}::text, '^72026', '2026'))::date 
                         WHERE {repair_col}::text LIKE '72026%'
+                        RETURNING id, {repair_col}
                     """)
-                    if cursor.rowcount > 0:
+                    repaired = {row[0]: row[1] for row in cursor.fetchall()}
+                    if repaired:
                         print(f"🔧 Repaired 72026->2026 in {repair_col}")
+                        # Opening the projects list repairs mistyped years. Nobody chose
+                        # that, so it is recorded as the System's change - with the
+                        # project, the field and the old -> new date.
+                        label = project_field_label(repair_col)
+                        for project_id, old_value in broken:
+                            new_value = repaired.get(project_id)
+                            if new_value is None:
+                                continue
+                            log_project_field_changes(
+                                project_id, [(repair_col, label, old_value, new_value)],
+                                'Automatic repair when the projects list was opened',
+                                None, None,
+                                action_type='project_data_repaired', actor='System'
+                            )
                 connection.commit()
         except Exception as repair_err:
             print(f"Note: date repair skipped: {repair_err}")
@@ -34766,14 +34973,16 @@ def project_change_side(value, column):
 
 def log_project_field_changes(project_id, changes, source=None,
                               project_name=None, client_name=None,
-                              action_type='project_field_changed'):
+                              action_type='project_field_changed', actor=None):
     """Write one audit row per changed project field: what changed, old -> new, who.
 
     `changes` is [(column, old_value, new_value[, label]), ...] captured BEFORE the
     write. The values come FIRST in the description on purpose: the Activity Log
     shows one truncated line, so a sentence that puts the old/new values at the end
     loses exactly the part a person is looking for. Pass `action_type` when the same
-    change is better named by what it means (a date filled in is a payment).
+    change is better named by what it means (a date filled in is a payment), and
+    `actor` when nobody "did" it (an automatic repair is the System's, not the
+    logged-in person's).
     """
     for change in changes:
         column, old_value, new_value = change[0], change[1], change[2]
@@ -34799,8 +35008,9 @@ def log_project_field_changes(project_id, changes, source=None,
                     'old_value': '' if old_value is None else str(old_value),
                     'new_value': '' if new_value is None else str(new_value),
                     'source': source or '',
-                    'updated_by': session.get('user_name') or session.get('username') or 'Unknown'
-                }
+                    'updated_by': actor or session.get('user_name') or session.get('username') or 'Unknown'
+                },
+                username=actor
             )
         except Exception as e:
             print(f'Note: could not log the change to {column}: {e}')
