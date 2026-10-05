@@ -3375,18 +3375,31 @@ def current_branch_id():
     Returns a real branch id (1, 2, ...), or POS_ALL_BRANCHES_ID (0) for the
     read-only consolidated view.
 
-    A session that carries NO branch predates the branch step, so it inherits
-    the first branch (the shop that was live before) rather than suddenly losing
-    sight of its own stock and sales on deploy day. This is transitional and
-    stops mattering as those sessions expire.
+    A session that carries NO branch predates the branch step, so it reads the
+    first branch (the shop that was live before) rather than suddenly losing
+    sight of its own stock and sales on deploy day. That courtesy is READS ONLY:
+    the session is deliberately left unnamed and session_branch_chosen() stays
+    False, so every write is refused until the operator picks a branch with its
+    access code. Naming such a session -- which is what this used to do -- is how
+    a Chegutu operator ended up working quietly inside Shurugwi's books.
     """
     branch_id = session.get('branch_id')
     if branch_id is None:
         branch_id = resolve_first_branch_id()
         if branch_id:
             session['branch_id'] = branch_id
-            session.setdefault('branch_name', BRANCH_FIRST_CODE)
     return branch_id
+
+
+def session_branch_chosen():
+    """True once the operator picked a branch AND passed its access code.
+
+    Only /api/login and /api/pos/switch-branch set the marker, because those are
+    the two places a branch code is checked. Every other way in -- the portal
+    /login page also drops a hardware user on the POS -- leaves it unset, and
+    then no stock or money may be moved until a branch is chosen.
+    """
+    return bool(session.get('branch_chosen')) and session.get('branch_id') is not None
 
 
 _first_branch_id_cache = {}
@@ -3677,8 +3690,9 @@ def _codes_match(supplied, expected):
 def branch_is_read_only():
     """True while the session is on the consolidated "All Branches" view.
 
-    Only the EXPLICIT sentinel blocks writes. A session with no branch is given
-    the first branch by current_branch_id(), so it keeps working normally.
+    Only the EXPLICIT sentinel reads as read-only. A session that has not chosen
+    a branch is a different case: it is not read-only, but it may not write
+    either -- see session_branch_chosen() and the guard in the write decorator.
     """
     return session.get('branch_id') == POS_ALL_BRANCHES_ID
 
@@ -3741,16 +3755,26 @@ def verify_branch_code(branch_id, code):
 
 
 def block_writes_in_consolidated_view(f):
-    """Refuse stock/money changes while the session sits on All Branches.
+    """Refuse a stock/money change the session is not entitled to make.
 
-    Applied to every endpoint that moves stock or money, so the consolidated view
-    can be trusted even if the UI ever fails to hide a button.
+    Applied to every endpoint that moves stock or money, so the rules hold even
+    if the UI ever fails to hide a button. Two cases are refused:
+
+      * the consolidated "All Branches" view is read-only, and
+      * a session that never chose a branch may not write. Reads fall back to the
+        first branch, but a WRITE has to be attributed to a shop the operator
+        proved they can open -- otherwise one shop's stock is filed against the
+        other, which is exactly how Chegutu's counts ended up on Shurugwi.
     """
     @wraps(f)
     def wrapper(*args, **kwargs):
         if branch_is_read_only():
             return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE,
                             'read_only': True}), 403
+        if not session_branch_chosen():
+            return jsonify({'success': False, 'needs_branch': True,
+                            'error': 'Choose your branch and enter its access code '
+                                     'before changing stock or money.'}), 403
         return f(*args, **kwargs)
     return wrapper
 
@@ -14952,6 +14976,9 @@ def api_login():
             session['user_name'] = user[3]
             session['branch_id'] = branch_id
             session['branch_name'] = branch_name
+            # The code was checked here, so this branch is genuinely the shop this
+            # session may write to.
+            session['branch_chosen'] = True
             
             log_activity('pos_login',
                          f'POS login via admin_users: {username} -> {branch_name}',
@@ -14989,14 +15016,21 @@ def api_logout():
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
     """Check if user is authenticated via session"""
+    # A session that never chose a branch is reported as needing one and is NOT
+    # given a branch name: the portal /login page also lands a hardware user on
+    # the POS without the branch step, and naming that session after the first
+    # branch is exactly what let a Chegutu till read and write Shurugwi's books.
+    # The POS turns needs_branch into a mandatory branch prompt.
+    chosen = session_branch_chosen()
     branch = {
-        'id': session.get('branch_id'),
-        'name': session.get('branch_name'),
+        'id': session.get('branch_id') if chosen else None,
+        'name': session.get('branch_name') if chosen else None,
         'read_only': branch_is_read_only()
     }
     if 'user_id' in session:
         return jsonify({
             'authenticated': True,
+            'needs_branch': not chosen,
             'user': {
                 'id': session['user_id'],
                 'username': session.get('username'),
@@ -15009,6 +15043,7 @@ def check_auth():
         # For building project users without role
         return jsonify({
             'authenticated': True,
+            'needs_branch': not chosen,
             'user': {
                 'id': session['userid'],
                 'username': session.get('user_name', 'User'),
@@ -15058,6 +15093,8 @@ def pos_switch_branch():
     previous = session.get('branch_name') or 'no branch'
     session['branch_id'] = branch_id
     session['branch_name'] = branch_name
+    # Same code check as login, so the new branch becomes the chosen one.
+    session['branch_chosen'] = True
     log_activity('pos_branch_switch',
                  f'POS moved from {previous} to {branch_name}',
                  'user', session.get('user_id') or session.get('userid'))

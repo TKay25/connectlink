@@ -486,8 +486,15 @@ Also worth setting (pre-existing behaviour, unchanged):
   drain another shop. Both sides appear in each shop's audit report.
 * **Wipes** — *Remove All Items & History* and *Clear All Transactions* are
   **branch-scoped**. They clear the shop you are in, and *cannot* touch the other shop.
-* **Old sessions** — a session created before the branch step existed is given
-  Shurugwi automatically, so nobody loses sight of their data on deploy day.
+* **A session with no branch is not a branch.** Signing in on the **Hardware POS card**
+  (username, password, branch, branch code), or the chip's *Switch branch*, is what *chooses*
+  a shop. Any other way in — the portal `/login` page also drops a hardware user straight on
+  the POS — leaves the session with **no branch chosen**: the till opens with the branch
+  prompt (which cannot be dismissed) and loads no catalogue, and the server refuses every
+  stock or money change until a branch and its code are supplied. Reads still fall back to
+  Shurugwi so nothing becomes invisible, and queued offline sales/laybys are *parked*, never
+  counted as failed attempts. This replaced a fallback that *named* such a session Shurugwi,
+  which is how one shop's stock came to be read from, and filed against, the other shop.
 * **Stock shown** — on a real branch every figure is that branch's. On the read-only
   All Branches view, stock figures are the company total.
 
@@ -1292,6 +1299,25 @@ sudo systemctl start connectlink
   runs when the projects list is opened now record a `project_data_repaired` entry per
   value changed — naming the project, the field and the old → new date, attributed to
   **System** (nobody chose it) and filterable as *Project Data Repaired*.
+
+**October 2026 — a session must choose its shop before it can touch stock**
+- ✅ **The POS now demands the branch step.** Opening the POS on a session that has not
+  chosen a branch — which is what happens when a hardware user signs in on the portal
+  `/login` page instead of the Hardware POS card — shows the branch prompt (undismissable)
+  and a red banner, loads **no catalogue at all**, and refuses every stock or money write
+  with `needs_branch`. Choosing a branch with its access code reloads the till cleanly.
+  Only `/api/login` (branch + code) and `/api/pos/switch-branch` count as choosing.
+- ✅ **This closed the last cross-branch leak.** Such a session used to be *named* Shurugwi
+  by the old fallback: the branch chip read "Shurugwi", every figure on screen was Shurugwi's,
+  and every sale, upload, adjustment and transfer a Chegutu operator made was filed against
+  Shurugwi — which is exactly why Chegutu's stock counts kept appearing in Shurugwi. Reads
+  still fall back to the first branch (nothing goes invisible), but a **write** now requires
+  a branch the operator has proved they can open.
+- ✅ **A refused batch never costs a sale.** `/api/transactions/sync` parking the whole queue
+  (no branch chosen, or the read-only view) no longer counts as an attempt against each
+  queued sale, so the 25-attempt abandonment rule can no longer drop a paid sale; the batch
+  is retried on the next connection, reload, manual sync or 30-second sweep. A queued layby
+  refused for the same reason is held (retried), not parked as a human decision.
 
 **October 2026 — every project field change is audited, in plain words**
 - ✅ **One audit row per changed project field**, naming the field as people know it

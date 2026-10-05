@@ -6254,6 +6254,15 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <span><strong>All Branches &mdash; read-only.</strong> Sales and stock changes are disabled here. Use the branch menu to pick a shop.</span>
             </div>
 
+            <!-- Shown when this session has not chosen a branch yet. Until it does the
+                 till loads no catalogue at all and the server refuses every write, so a
+                 shop's stock can never be read from, or filed against, the other shop. -->
+            <div id="posBranchRequiredBanner"
+                 style="display:none;align-items:center;gap:8px;margin:8px 12px 0;padding:8px 12px;border-radius:8px;background:#FEE2E2;border:1px solid #EF4444;color:#991B1B;font-size:0.7rem;">
+                <i class="fas fa-circle-exclamation"></i>
+                <span><strong>No branch selected.</strong> Choose your shop and enter its access code &mdash; nothing is shown or changed until you do.</span>
+            </div>
+
             <!-- Branch Switch Modal -->
             <div class="modal fade" id="branchSwitchModal" tabindex="-1">
                 <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -6277,7 +6286,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button class="btn btn-sm btn-secondary" id="branchSwitchCancelBtn" data-bs-dismiss="modal">Cancel</button>
                             <button class="btn btn-sm btn-primary-dark" id="branchSwitchConfirm" onclick="confirmBranchSwitch()">Switch</button>
                         </div>
                     </div>
@@ -13611,6 +13620,11 @@ async function fetchTransactionsData() {
                 localStorage.setItem('isLoggedIn', 'true');
                 if (authData.user) localStorage.setItem('user', JSON.stringify(authData.user));
                 applyPOSBranch(authData.branch);
+                // Signed in with no shop: the general portal login also drops a
+                // hardware user here. The session is not this till's to use until a
+                // branch with its access code is chosen, because reads would fall
+                // back to the first branch and every write would be filed there.
+                if (authData.needs_branch) { requireBranchChoice(); return false; }
                 return true;
             } else {
                 localStorage.removeItem('isLoggedIn');
@@ -13654,6 +13668,7 @@ async function fetchTransactionsData() {
         try {
             const res = await fetch(`${API_BASE}/api/check-auth`, { credentials: 'include' });
             const data = await res.json();
+            if (data && data.needs_branch) { requireBranchChoice(); return; }
             if (data && data.branch) applyPOSBranch(data.branch);
         } catch (e) {
             // Keep the branch we already have rather than blanking the chip.
@@ -13661,11 +13676,15 @@ async function fetchTransactionsData() {
     }
 
     function renderPOSBranch() {
+        const unchosen = !posBranch || posBranch.id === null || posBranch.id === undefined;
+        const label = unchosen ? 'Choose branch' : (posBranch.name || 'No branch');
         const nameEl = document.getElementById('posBranchName');
-        if (nameEl) nameEl.innerText = (posBranch && posBranch.name) ? posBranch.name : 'No branch';
+        if (nameEl) nameEl.innerText = label;
 
         const banner = document.getElementById('posReadOnlyBanner');
         if (banner) banner.style.display = branchIsReadOnly() ? 'flex' : 'none';
+        const requiredBanner = document.getElementById('posBranchRequiredBanner');
+        if (requiredBanner) requiredBanner.style.display = unchosen ? 'flex' : 'none';
 
         // Colours are owned by the stylesheet (#posBranchChip / .is-readonly), which
         // knows about the light AND dark top bar. Never set raw colours here -- doing
@@ -13675,16 +13694,35 @@ async function fetchTransactionsData() {
 
         // Mobile drawer mirrors the branch (the top-bar chip is hidden on phones)
         const drawerBranch = document.getElementById('posDrawerBranch');
-        if (drawerBranch) drawerBranch.innerText = (posBranch && posBranch.name) ? posBranch.name : 'No branch';
+        if (drawerBranch) drawerBranch.innerText = label;
         const drawerBranchChip = document.getElementById('posDrawerBranchChip');
-        if (drawerBranchChip) drawerBranchChip.innerText = (posBranch && posBranch.name) ? posBranch.name : '\u2014';
+        if (drawerBranchChip) drawerBranchChip.innerText = unchosen ? '\u2014' : (posBranch.name || '\u2014');
     }
 
     function branchWriteBlockedToast() {
         showToast('All Branches is read-only. Pick a branch to sell or move stock.', 'error');
     }
 
-    function openBranchSwitchModal() {
+    // Set once a session has arrived with NO branch at all. The till then holds
+    // no catalogue and the server refuses every write, so the prompt that fixes
+    // it cannot be dismissed and a switch reloads instead of continuing here.
+    let branchChoiceRequired = false;
+
+    function requireBranchChoice() {
+        branchChoiceRequired = true;
+        const cancelBtn = document.getElementById('branchSwitchCancelBtn');
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        renderPOSBranch();
+        const modalEl = document.getElementById('branchSwitchModal');
+        if (modalEl && !modalEl.classList.contains('show')) {
+            openBranchSwitchModal({ required: true });
+        }
+        showToast('Choose the branch you are working in \u2014 nothing is shown or changed until you do.', 'warning');
+    }
+    window.onBranchChoiceRequired = requireBranchChoice;
+
+    function openBranchSwitchModal(opts) {
+        const required = !!(opts && opts.required) || branchChoiceRequired;
         const sel = document.getElementById('branchSwitchSelect');
         const errEl = document.getElementById('branchSwitchError');
         const codeEl = document.getElementById('branchSwitchCode');
@@ -13693,7 +13731,14 @@ async function fetchTransactionsData() {
         if (sel) sel.innerHTML = '<option value="">Loading...</option>';
 
         const modalEl = document.getElementById('branchSwitchModal');
-        if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        if (modalEl) {
+            // A required choice gets a static backdrop so it cannot be clicked or
+            // escaped away, leaving the till in an unnamed session.
+            bootstrap.Modal.getOrCreateInstance(
+                modalEl,
+                required ? { backdrop: 'static', keyboard: false } : {}
+            ).show();
+        }
 
         fetch(`${API_BASE}/api/branches`, { credentials: 'include' })
             .then(r => r.json())
@@ -13749,6 +13794,12 @@ async function fetchTransactionsData() {
             // The cached catalogue belongs to the shop we just left. Drop it so
             // no offline fallback can serve its stock while we are in this one.
             try { localStorage.removeItem('pos_api_cache_v1'); } catch (e) {}
+
+            // A session that arrived with no branch has loaded nothing yet, and
+            // every figure in memory is derived from a branch. Reload so the till
+            // comes up cleanly on the shop that was just chosen.
+            if (branchChoiceRequired) { window.location.reload(); return; }
+
             await refreshBranchFromServer();
 
             const modalEl = document.getElementById('branchSwitchModal');
@@ -19265,6 +19316,10 @@ function setupEventListeners() {
     }
 
     async function init() {
+        // Wired before the auth check on purpose: a session that has to be given
+        // a branch before the till will load must still be able to log out.
+        setupLogout();
+
         const isAuthenticated = await checkAuthentication();
         if (!isAuthenticated) return;
         
@@ -19289,7 +19344,6 @@ function setupEventListeners() {
         
         setupSidebar();
         setupEventListeners();
-        setupLogout();
         setupAutocomplete();
         setupBarcodeScanning();
         
@@ -20458,6 +20512,22 @@ function setupEventListeners() {
     // ---------- Offline catalogue ----------
     // Wrap fetch so the last good catalogue is served when there is no network.
     // Prices/stock are corrected by the next successful sync.
+    // A write the server refuses because this session never chose a branch comes
+    // back as 403 {needs_branch:true}; the branch prompt is raised from this ONE
+    // place rather than at every write call site.
+    function watchForBranchChoice(pending) {
+        return pending.then(function (res) {
+            if (res && res.status === 403) {
+                res.clone().json().then(function (body) {
+                    if (body && body.needs_branch && typeof window.onBranchChoiceRequired === 'function') {
+                        window.onBranchChoiceRequired();
+                    }
+                }).catch(function () {});
+            }
+            return res;
+        });
+    }
+
     window.fetch = function (input, init) {
         var url = (typeof input === 'string') ? input : ((input && input.url) || '');
         var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
@@ -20466,9 +20536,9 @@ function setupEventListeners() {
         });
 
         var pending = nativeFetch(input, init);
-        if (!cacheable) return pending;
+        if (!cacheable) return watchForBranchChoice(pending);
 
-        return pending.then(function (res) {
+        return watchForBranchChoice(pending).then(function (res) {
             if (res && res.ok) {
                 res.clone().json().then(function (data) {
                     try {
@@ -20739,6 +20809,15 @@ function setupEventListeners() {
                 if (data.branch_mismatch) {
                     return { outcome: 'hold', message: data.error || 'Taken in another branch.' };
                 }
+                if (data.needs_branch) {
+                    // Nothing is wrong with this item: this till has not chosen its
+                    // shop yet. Hold it and let the branch step resolve that first,
+                    // rather than parking it as a decision a human has to make.
+                    if (typeof window.onBranchChoiceRequired === 'function') {
+                        window.onBranchChoiceRequired();
+                    }
+                    return { outcome: 'hold', message: data.error || "Choose this till's branch." };
+                }
                 return { outcome: 'blocked', message: data.error || 'The server refused it.' };
             });
         });
@@ -20831,8 +20910,30 @@ function setupEventListeners() {
                 })
             })
         }).then(function (res) {
-            return res.json();
-        }).then(function (data) {
+            // Keep the status. A batch the server REFUSED outright -- no branch
+            // chosen yet, or the read-only All Branches view -- is not a per-sale
+            // failure, and it must not count against these entries.
+            var ok = !!(res && res.ok);
+            return res.json().then(function (body) {
+                return { ok: ok, data: body || {} };
+            }, function () {
+                return { ok: ok, data: {} };
+            });
+        }).then(function (reply) {
+            var data = reply.data;
+            if (!reply.ok) {
+                // Park the whole queue untouched. Counting these as attempts is
+                // what used to drop a paid sale once the counter ran out, and the
+                // queue is retried on the next connection or reload anyway.
+                if (data && data.needs_branch && typeof window.onBranchChoiceRequired === 'function') {
+                    window.onBranchChoiceRequired();
+                }
+                if (typeof showToast === 'function') {
+                    showToast(data.error || 'The queued sales could not be uploaded yet; they stay on this till.', 'warning');
+                }
+                updateSyncUI();
+                return;
+            }
             var done = {}, held = {};
             (data.results || []).forEach(function (r) {
                 if (r.status === 'synced' || r.status === 'duplicate') done[r.client_ref] = true;
