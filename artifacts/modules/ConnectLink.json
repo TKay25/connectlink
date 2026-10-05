@@ -15,8 +15,8 @@
     "initialize_database_tables()",
     "get_table_columns(table_name)",
     "ensure_branches_schema(cursor, connection)",
-    "current_branch_id()",
-    "resolve_first_branch_id()"
+    "ensure_layby_schema(cursor, connection)",
+    "current_branch_id()"
   ],
   "dependencies": [
     "ai_classifier",
@@ -41,19 +41,19 @@
     "pytz"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 18156",
-    "# The register starts EMPTY (the user's  @ line 48310"
+    "INSTRUCTIONS @ line 19103",
+    "# The register starts EMPTY (the user's  @ line 49257"
   ],
   "token_controls": [
-    "max_length = 0 @ line 30225",
-    "max_length = len(str(cell.value)) @ line 30230",
-    "adjusted_width = min(max_length + 2, 50) @ line 30233",
-    "max_length = 0 @ line 31057",
-    "max_length = cell_length @ line 31064",
-    "adjusted_width = min(max_length + 2, 50) @ line 31067",
-    "max_length = 0 @ line 32052",
-    "max_length = cell_length @ line 32059",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 32062"
+    "max_length = 0 @ line 31172",
+    "max_length = len(str(cell.value)) @ line 31177",
+    "adjusted_width = min(max_length + 2, 50) @ line 31180",
+    "max_length = 0 @ line 32004",
+    "max_length = cell_length @ line 32011",
+    "adjusted_width = min(max_length + 2, 50) @ line 32014",
+    "max_length = 0 @ line 32999",
+    "max_length = cell_length @ line 33006",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 33009"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -70,6 +70,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-10-05T12:04:29.065786Z",
+  "generated_at": "2026-10-05T12:19:39.217999Z",
   "stale": false
 }
