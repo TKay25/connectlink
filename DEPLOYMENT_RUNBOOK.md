@@ -495,6 +495,12 @@ Also worth setting (pre-existing behaviour, unchanged):
   Shurugwi so nothing becomes invisible, and queued offline sales/laybys are *parked*, never
   counted as failed attempts. This replaced a fallback that *named* such a session Shurugwi,
   which is how one shop's stock came to be read from, and filed against, the other shop.
+* **The till shows this branch's own items.** An item this branch has **never** stocked is
+  hidden from the sale screen (the catalogue is shared, so this is what keeps one shop's
+  list out of the other shop's till). An item this branch *does* stock but is out of today
+  keeps its card and reads "Out of stock", so a cashier can still say "we stock it, we're
+  out". The Inventory tab, the audit report and the Excel/PDF exports still list every
+  product, and **Add Stock** on any of them puts an item back on the till.
 * **Stock shown** — on a real branch every figure is that branch's. On the read-only
   All Branches view, stock figures are the company total. **Add Stock** and **Subtract**
   always re-read the figure from the server as they open (and correct the row, grid and
@@ -1302,6 +1308,25 @@ sudo systemctl start connectlink
   runs when the projects list is opened now record a `project_data_repaired` entry per
   value changed — naming the project, the field and the old → new date, attributed to
   **System** (nobody chose it) and filterable as *Project Data Repaired*.
+
+**October 2026 — the till only offers what this branch actually stocks**
+- ✅ **Products this branch has never stocked are hidden from the sale screen.** The
+  catalogue is shared, so every item created for one shop used to fill the other shop's
+  grid. The rule is taken from `product_stock`: a row for this branch means the branch
+  carries the item; **no row** means it has never been here, and it is not shown. An item
+  that IS carried but is out of stock today keeps its card and reads "Out of stock" — so a
+  cashier can still tell a customer "we stock it, we're out".
+- ✅ **The till's own counts agree with the grid.** Total Products, Low Stock and Out of
+  Stock (and the lists behind them) now count what this till offers; the value and margin
+  cards still total the branch's real stock. The card's sub-label reads "Stocked in this
+  branch" rather than "Catalogue items".
+- ✅ **Nothing becomes unreachable.** The Inventory tab, the audit report and the Excel/PDF
+  exports still list every product, **Add Stock** on any of them gives the item a branch row
+  and it returns to the till, and the transfer list still offers the exact item a row asked
+  for. A till search that finds nothing because the match belongs to the other branch says
+  so, instead of inviting a duplicate product to be created.
+- ✅ The consolidated **All Branches** view is unchanged: it is a company-wide read-only
+  view, so it still lists the whole catalogue with company totals.
 
 **October 2026 — a stock figure on screen is never trusted over the server**
 - ✅ **Add Stock and Subtract now fetch the product's live figure first.** A page (or an

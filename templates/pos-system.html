@@ -6878,7 +6878,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <div class="stat-card-body">
                     <div class="stat-card-label">Total Products</div>
                     <div class="stat-card-value" id="totalProductsCount">0</div>
-                    <div class="stat-card-sub"><i class="fas fa-layer-group me-1"></i>Catalogue items</div>
+                    <div class="stat-card-sub"><i class="fas fa-layer-group me-1"></i>Stocked in this branch</div>
                 </div>
                 <div class="stat-card-arrow"><i class="fas fa-chevron-right"></i></div>
             </div>
@@ -10312,7 +10312,9 @@ function showLowStockModal() {
     const container = document.getElementById('lowStockProductsList');
     if (!container) return;
     
-    const lowStockProducts = products.filter(p => p.stock < 10 && p.stock > 0);
+    // Low stock is about what THIS shop sells: an item it has never stocked is not
+    // "low", it is simply not on this till.
+    const lowStockProducts = products.filter(p => stockedInThisBranch(p) && p.stock < 10 && p.stock > 0);
     
     // Sort by stock level (critical first - lowest stock first)
     lowStockProducts.sort((a, b) => a.stock - b.stock);
@@ -10384,7 +10386,7 @@ function showOutOfStockModal() {
     const container = document.getElementById('outOfStockProductsList');
     if (!container) return;
     
-    const outOfStockProducts = products.filter(p => p.stock === 0);
+    const outOfStockProducts = products.filter(p => stockedInThisBranch(p) && p.stock === 0);
     currentOutOfStockData = [...outOfStockProducts];
     
     if (!outOfStockProducts.length) {
@@ -10537,9 +10539,13 @@ async function exportModalData(type, format) {
 function updateInventoryMetrics() {
     if (!products.length) return;
     
-    const totalProducts = products.length;
-    const lowStockCount = products.filter(p => p.stock < 10 && p.stock > 0).length;
-    const outOfStockCount = products.filter(p => p.stock === 0).length;
+    // The three till KPIs describe what this till can sell, so they follow the same
+    // rule as the grid. The value and margin cards below still total the branch's real
+    // stock (an item that was never stocked here contributes nothing to them anyway).
+    const tillProducts = products.filter(stockedInThisBranch);
+    const totalProducts = tillProducts.length;
+    const lowStockCount = tillProducts.filter(p => p.stock < 10 && p.stock > 0).length;
+    const outOfStockCount = tillProducts.filter(p => p.stock === 0).length;
     
     const totalProductsEl = document.getElementById('totalProductsCount');
     const lowStockMetricEl = document.getElementById('lowStockCountMetric');
@@ -14341,11 +14347,14 @@ async function fetchTransactionsData() {
         if (fromEl) fromEl.innerText = (posBranch && posBranch.name) ? posBranch.name : 'This branch';
 
         // Products come from the already-load branch-filtered list, so the stock
-        // shown is what THIS shop actually holds.
+        // shown is what THIS shop actually holds. Items this branch has never
+        // stocked are left out of a transfer FROM here (there is nothing to send),
+        // except the one the row asked for.
         const prodSel = document.getElementById('transferProduct');
         if (prodSel) {
             let html = '<option value="">Select a product...</option>';
             (products || []).forEach(p => {
+                if (!stockedInThisBranch(p) && String(p.id) !== String(productId)) return;
                 html += `<option value="${p.id}">${escapeHtml(p.name)} (${p.stock} in stock)</option>`;
             });
             prodSel.innerHTML = html;
@@ -14743,9 +14752,19 @@ async function fetchTransactionsData() {
     }
     
     // ==================== SEARCH & FILTER ====================
-    
+
+    // A product this branch has NEVER stocked is not offered on the till. The catalogue
+    // is shared, so without this the whole of the other shop's list fills the grid with
+    // items this shop cannot sell. `stocked_here` comes from product_stock: a row means
+    // the branch carries the item (even at 0, which shows as "Out of stock"); NO row
+    // means it has never been here. A missing field (an older cached payload) shows the
+    // item, so the rule can only ever hide what the server has actually declared.
+    function stockedInThisBranch(p) {
+        return !p || p.stocked_here !== false;
+    }
+
     function filterProducts() {
-        let filtered = products;
+        let filtered = products.filter(stockedInThisBranch);
         if (selectedCategory !== 'all') {
             const groupMembers = (window.__categoryGroupMembers || {})[selectedCategory];
             if (groupMembers) {
@@ -15080,7 +15099,19 @@ function renderProductsWithFilter(filteredProducts = null) {
     const productsToShow = filteredProducts || filterProducts();
     
     if (!productsToShow.length) {
-        container.innerHTML = '<div class="col-12 text-center py-5"><div class="empty-state-icon"><i class="fas fa-box-open"></i></div><p class="fw-semibold mb-1" style="font-size:0.85rem;">No products found</p><p class="text-muted" style="font-size:0.68rem;">Try a different search or category</p></div>';
+        // A search that finds nothing may be finding only items this branch does not
+        // stock. Say so: otherwise the cashier "creates" a product that already exists.
+        let note = 'Try a different search or category';
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const elsewhere = products.filter(p => !stockedInThisBranch(p) &&
+                (p.name.toLowerCase().includes(term) ||
+                 (p.unit_details && p.unit_details.toLowerCase().includes(term))));
+            if (elsewhere.length) {
+                note = elsewhere.length + ' matching item(s) belong to the other branch, not this one. See the Inventory tab.';
+            }
+        }
+        container.innerHTML = '<div class="col-12 text-center py-5"><div class="empty-state-icon"><i class="fas fa-box-open"></i></div><p class="fw-semibold mb-1" style="font-size:0.85rem;">No products found</p><p class="text-muted" style="font-size:0.68rem;">' + escapeHtml(note) + '</p></div>';
         return;
     }
     

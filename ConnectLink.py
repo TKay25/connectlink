@@ -14288,7 +14288,12 @@ def run1hardware():
                    COALESCE(pp.sell_price, p.sell_price) AS branch_sell_price,
                    COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
                              FROM stock_lots sl
-                             WHERE sl.product_id = p.id AND sl.branch_id = %s), 0) AS stock_value
+                             WHERE sl.product_id = p.id AND sl.branch_id = %s), 0) AS stock_value,
+                   -- Whether THIS branch has ever stocked the item. A branch row with
+                   -- 0 means "we carry it but it is out today"; NO row means the branch
+                   -- has never had it, and the till hides those (the catalogue is shared,
+                   -- so without this the whole of the other shop's list fills the grid).
+                   (ps.product_id IS NOT NULL) AS stocked_here
             FROM products p
             LEFT JOIN product_stock ps ON ps.product_id = p.id AND ps.branch_id = %s
             LEFT JOIN product_prices pp ON pp.product_id = p.id AND pp.branch_id = %s
@@ -14306,7 +14311,10 @@ def run1hardware():
                    p.sell_price AS branch_sell_price,
                    COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
                              FROM stock_lots sl
-                             WHERE sl.product_id = p.id), 0) AS stock_value
+                             WHERE sl.product_id = p.id), 0) AS stock_value,
+                   -- No single branch to be "stocked in" on the consolidated view, so
+                   -- the whole catalogue shows and the figures are the company total.
+                   TRUE AS stocked_here
             FROM products p
             LEFT JOIN (SELECT product_id, SUM(stock) AS total
                        FROM product_stock GROUP BY product_id) allb ON allb.product_id = p.id
@@ -14339,6 +14347,7 @@ def run1hardware():
                 'total_stock': row[13] if row[13] is not None else 0,
                 'branch_sell_price': float(row[14]) if row[14] is not None else (float(row[6]) if row[6] else 0.0),
                 'stock_value': float(row[15]) if row[15] is not None else 0.0,
+                'stocked_here': bool(row[16]),
                 'low_stock': stock < min_stock
             })
     
