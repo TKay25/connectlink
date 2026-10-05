@@ -8135,7 +8135,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-sm">
             <div class="modal-content">
                 <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
-                    <h6 class="modal-title"><i class="fas fa-receipt"></i> Receipt</h6>
+                    <h6 class="modal-title" id="receiptModalTitle"><i class="fas fa-receipt"></i> Receipt</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="receiptContent"></div>
@@ -11625,6 +11625,9 @@ async function fetchProductsFromAPI() {
         
         if (productsData.success) {
             products = productsData.products;
+            // Subtract anything this till has rung up but not yet synced, so a
+            // reload during an outage cannot show stock that is already promised.
+            if (typeof window.applyLocalStockHolds === 'function') window.applyLocalStockHolds(products);
             currentAllProductsData = [...products]; // <-- Ensure export uses latest products
             renderProducts();
             renderInventory();
@@ -15050,13 +15053,25 @@ function selectCategory(category) {
     
     // ==================== EDIT STOCK FUNCTIONS ====================
     
+    // The stock figure the SERVER last reported. A sale or layby still queued on
+    // this till holds stock back from the on-screen figures, and that held-down
+    // number must never be written back as the branch's absolute stock.
+    function serverStock(p) {
+        if (!p) return 0;
+        return (p.stock_server != null) ? Number(p.stock_server) : Number(p.stock || 0);
+    }
+
     // Populate the Add Stock modal for a product (does NOT open/re-show the modal)
     function populateEditStockModal(product) {
         if (!product) return;
         productToEdit = product;
 
         document.getElementById('editStockProductName').innerText = product.name;
-        document.getElementById('currentStockValue').innerText = product.stock;
+        document.getElementById('currentStockValue').innerText =
+            serverStock(product) +
+            (product.local_hold
+                ? ' (' + product.local_hold + ' reserved by sales not yet synced here)'
+                : '');
         document.getElementById('currentAvailableProfit').innerText = `$${currentTotalProfit.toFixed(2)}`;
         document.getElementById('newStockQuantity').value = 1;
         // Prefill with what THIS branch's stock cost, not the blended figure.
@@ -15190,7 +15205,7 @@ function setupFundingSelection() {
             return;
         }
         
-        const newStock = productToEdit.stock + quantityToAdd;
+        const newStock = serverStock(productToEdit) + quantityToAdd;
         const barcode = (document.getElementById('editStockBarcodeScan').value || '').trim();
 
         // Don't assign a barcode that already belongs to another product
@@ -16288,9 +16303,16 @@ function generateReceiptHTML(items, method, paid, change) {
 let lastReceiptHTML = '';
 
 // Show receipt modal with clean content
-function showReceiptWithPrint(receiptHTML) {
+function showReceiptWithPrint(receiptHTML, title) {
     // Store the clean receipt HTML for printing
     lastReceiptHTML = receiptHTML;
+
+    // The same modal serves receipts and other paperwork (e.g. a layby
+    // agreement), so the heading follows what is being shown.
+    const heading = document.getElementById('receiptModalTitle');
+    if (heading) {
+        heading.innerHTML = '<i class="fas fa-receipt"></i> ' + (title || 'Receipt');
+    }
     
     // Display in modal - wrap in a clean div
     document.getElementById('receiptContent').innerHTML = `<div class="receipt-print-content">${receiptHTML}</div>`;
@@ -19142,7 +19164,7 @@ function setupEventListeners() {
         if (logoutBtn) logoutBtn.addEventListener('click', async () => { 
             showLoader('Logging out...');
             // Sign out ONLY the identity. Do NOT localStorage.clear() here: the
-            // till shares its storage with three things that are not ours to throw
+            // till shares its storage with four things that are not ours to throw
             // away, and every one of them was being destroyed on logout:
             //   connectlink_theme     - the Light/Dark choice. Wiping it made the
             //                           landing page fall back to the operating
@@ -19153,6 +19175,9 @@ function setupEventListeners() {
             //                           loses money, silently.
             //   pos_api_cache_v1      - the cached catalogue/auth that lets this
             //                           till open and sell while offline.
+            //   pos_local_holds_v1    - what those unsynced sales and laybys have
+            //                           taken off the shelf, so the figures cannot
+            //                           promise stock that has already gone.
             ['isLoggedIn', 'user', 'posBranch'].forEach(k => localStorage.removeItem(k));
             try { await fetch('/api/logoutpos', { method: 'POST', credentials: 'include' }); } catch (e) {} 
             setTimeout(() => { window.location.href = '/api/logoutpos'; }, 200);
@@ -19751,11 +19776,15 @@ function setupEventListeners() {
                   : l.status === 'completed' ? 'Paid off' : 'Cancelled';
         var actions = '';
         if (!readonlyView() && l.status === 'active') {
-            actions = '<button class="btn btn-success btn-sm me-1" onclick="openLaybyPaymentModal(' + l.id + ')">' +
+            actions += '<button class="btn btn-success btn-sm me-1" onclick="openLaybyPaymentModal(' + l.id + ')">' +
                           '<i class="fas fa-coins me-1"></i>Record instalment</button>' +
-                      '<button class="btn btn-outline-danger btn-sm" onclick="openLaybyCancelModal(' + l.id + ')">' +
+                      '<button class="btn btn-outline-danger btn-sm me-1" onclick="openLaybyCancelModal(' + l.id + ')">' +
                           '<i class="fas fa-ban me-1"></i>Cancel</button>';
         }
+        // The agreement is the customer's copy of what was reserved and what is
+        // owed, so it can be printed at any point in the layby's life.
+        actions += '<button class="btn btn-outline-dark btn-sm" onclick="printLaybyAgreement(' + l.id + ')">' +
+                       '<i class="fas fa-print me-1"></i>Print agreement</button>';
 
         var payments = l.payments && l.payments.length
             ? l.payments.map(function (p) {
@@ -19891,8 +19920,14 @@ function setupEventListeners() {
             } else if (isPay) {
                 actions = '<div class="small text-muted"><i class="fas fa-clock me-1"></i>Waiting to sync</div>';
             } else {
-                actions = '<button class="btn btn-sm btn-success" onclick="openPendingLaybyPayment(\'' +
+                actions = '<button class="btn btn-sm btn-success me-1" onclick="openPendingLaybyPayment(\'' +
                           e.client_ref + '\')"><i class="fas fa-coins me-1"></i>Record instalment</button>';
+            }
+            if (!isPay) {
+                // Even un-synced, this till knows the customer, the goods and the
+                // plan, so the customer can still be given their agreement.
+                actions += '<button class="btn btn-sm btn-outline-dark" onclick="printPendingLaybyAgreement(\'' +
+                           e.client_ref + '\')"><i class="fas fa-print me-1"></i>Print agreement</button>';
             }
 
             return '<div class="border rounded p-3 mb-2" style="border-left:4px solid #D97706 !important;">' +
@@ -19901,6 +19936,277 @@ function setupEventListeners() {
                 body + '<div class="mt-2">' + actions + '</div></div>';
         }).join('');
     }
+
+    // ---------- Printable layby agreement ----------
+    // The customer's copy of the deal, built from whatever the Layby tab is
+    // showing - so it can be handed over even for a layby the server has not
+    // heard of yet. Goods are already off the shelf, so the paperwork matters
+    // from the moment the customer walks out.
+    var AG_T = 'border-collapse:collapse;width:100%;font-size:12px;margin-top:6px;';
+    var AG_B = 'border:1px solid #64748B;';
+    var AG_TH = AG_B + 'padding:4px 6px;background:#F1F5F9;text-align:left;';
+    var AG_TD = AG_B + 'padding:4px 6px;';
+    var AG_TDN = AG_B + 'padding:4px 6px;text-align:right;';
+    var AG_H = 'font-weight:bold;text-transform:uppercase;font-size:11px;letter-spacing:0.5px;' +
+               'color:#475569;margin-top:12px;';
+
+    function agWhen(v) {
+        return v ? text(String(v).replace('T', ' ').slice(0, 16)) : '';
+    }
+
+    function agPrice(i) {
+        return (i.unit_price != null) ? Number(i.unit_price) : Number(i.price || 0);
+    }
+
+    function laybyAgreementHTML(l) {
+        var total = Number(l.total_amount || 0);
+        var paid = Number(l.paid_amount || 0);
+        var refunded = Number(l.refunded_amount || 0);
+        var balance = (l.balance != null)
+            ? Number(l.balance) : Math.round((total - paid) * 100) / 100;
+        var statusLabel = l.status === 'completed' ? 'Paid off'
+                        : l.status === 'cancelled' ? 'Cancelled' : 'In progress';
+
+        var itemRows = (l.items || []).map(function (i, n) {
+            var price = agPrice(i);
+            var qty = Number(i.quantity || 0);
+            return '<tr><td style="' + AG_TD + '">' + (n + 1) + '</td>' +
+                   '<td style="' + AG_TD + '">' + text(i.name) + '</td>' +
+                   '<td style="' + AG_TDN + '">' + qty + '</td>' +
+                   '<td style="' + AG_TDN + '">' + money(price) + '</td>' +
+                   '<td style="' + AG_TDN + '">' + money(price * qty) + '</td></tr>';
+        }).join('');
+
+        var planRows = (l.plan || []).length
+            ? l.plan.map(function (p) {
+                  var state = p.state === 'paid' ? 'Paid'
+                            : p.state === 'part' ? 'Part paid' : 'Due';
+                  return '<tr><td style="' + AG_TD + '">Instalment ' + p.seq + '</td>' +
+                         '<td style="' + AG_TD + '">' +
+                             (p.due_date ? text(p.due_date) : 'as agreed') + '</td>' +
+                         '<td style="' + AG_TDN + '">' + money(p.amount) + '</td>' +
+                         '<td style="' + AG_TD + '">' + state + '</td></tr>';
+              }).join('')
+            : '<tr><td style="' + AG_TD + '" colspan="4">Nothing in instalments - ' +
+              'settled in full on this agreement.</td></tr>';
+
+        var payRows = (l.payments || []).map(function (p) {
+            return '<tr><td style="' + AG_TD + '">' + agWhen(p.paid_at) + '</td>' +
+                   '<td style="' + AG_TD + '">' + text(p.method) +
+                       (p.notes ? ' &middot; ' + text(p.notes) : '') + '</td>' +
+                   '<td style="' + AG_TDN + '">' + money(p.amount) + '</td></tr>';
+        }).join('');
+        if (!payRows) {
+            payRows = '<tr><td style="' + AG_TD + '" colspan="3">' +
+                      'Nothing received yet.</td></tr>';
+        }
+
+        var refundRows = (l.refunds || []).map(function (p) {
+            return '<tr><td style="' + AG_TD + '">' + agWhen(p.paid_at) + '</td>' +
+                   '<td style="' + AG_TD + '">Refund &middot; ' + text(p.method) +
+                       (p.notes ? ' &middot; ' + text(p.notes) : '') + '</td>' +
+                   '<td style="' + AG_TDN + '">' + money(p.amount) + '</td></tr>';
+        }).join('');
+        if (refundRows) {
+            refundRows = '<div style="' + AG_H + '">Refunded</div>' +
+                '<table style="' + AG_T + '"><tr>' +
+                '<th style="' + AG_TH + '">Date</th><th style="' + AG_TH + '">Reason</th>' +
+                '<th style="' + AG_TH + ';text-align:right;">Amount</th></tr>' +
+                refundRows + '</table>';
+        }
+
+        function block(label, value) {
+            return '<tr><td style="' + AG_TD + 'width:38%;background:#F8FAFC;">' +
+                   '<strong>' + label + '</strong></td>' +
+                   '<td style="' + AG_TD + '">' + value + '</td></tr>';
+        }
+
+        var pending = l.pending
+            ? '<div style="margin-top:10px;padding:6px 8px;border:1px solid #D97706;' +
+              'background:#FFFBEB;font-size:11px;">This agreement was written on the till ' +
+              'while it had no connection, so it has not yet reached the shop\'s books. ' +
+              'The numbers below are what the till holds.</div>'
+            : '';
+
+        return '<div style="font-family:Arial,Helvetica,sans-serif;color:#0F172A;font-size:12px;">' +
+            '<div style="text-align:center;border-bottom:2px solid #0F1F3D;padding-bottom:6px;">' +
+                '<div style="font-size:16px;font-weight:bold;letter-spacing:0.5px;">' +
+                    'CONNECTLINK HARDWARE</div>' +
+                '<div style="font-size:13px;font-weight:bold;margin-top:2px;">' +
+                    'LAYBY AGREEMENT</div>' +
+                (l.branch_name ? '<div style="font-size:11px;color:#475569;">' +
+                    text(l.branch_name) + '</div>' : '') +
+            '</div>' +
+
+            '<table style="' + AG_T + 'margin-top:0;">' +
+                block('Agreement no.', '<strong>' + text(l.reference || '') + '</strong>') +
+                block('Date opened', agWhen(l.created_at)) +
+                block('Customer name', text(l.customer_name)) +
+                block('National ID', text(l.customer_id_number)) +
+                block('Phone', text(l.customer_phone) || '&mdash;') +
+                block('Status', '<strong>' + statusLabel + '</strong>') +
+            '</table>' +
+
+            '<div style="' + AG_H + '">Goods reserved</div>' +
+            '<table style="' + AG_T + '"><tr>' +
+                '<th style="' + AG_TH + '">#</th>' +
+                '<th style="' + AG_TH + '">Item</th>' +
+                '<th style="' + AG_TH + ';text-align:right;">Qty</th>' +
+                '<th style="' + AG_TH + ';text-align:right;">Unit price</th>' +
+                '<th style="' + AG_TH + ';text-align:right;">Amount</th></tr>' +
+                itemRows +
+                '<tr><td style="' + AG_TDN + '" colspan="4">' +
+                    '<strong>Total</strong></td>' +
+                '<td style="' + AG_TDN + '"><strong>' + money(total) + '</strong></td></tr>' +
+            '</table>' +
+
+            '<div style="' + AG_H + '">Payment plan</div>' +
+            '<table style="' + AG_T + '"><tr>' +
+                '<th style="' + AG_TH + '">Instalment</th>' +
+                '<th style="' + AG_TH + '">Due</th>' +
+                '<th style="' + AG_TH + ';text-align:right;">Amount</th>' +
+                '<th style="' + AG_TH + '">State</th></tr>' +
+                planRows + '</table>' +
+
+            '<div style="' + AG_H + '">Money</div>' +
+            '<table style="' + AG_T + '">' +
+                block('Total price', money(total)) +
+                block('Paid to date', money(paid)) +
+                (refunded > 0 ? block('Refunded', money(refunded)) : '') +
+                block('Balance outstanding',
+                      '<strong>' + money(balance) + '</strong>') +
+            '</table>' +
+
+            '<div style="' + AG_H + '">Instalments received</div>' +
+            '<table style="' + AG_T + '"><tr>' +
+                '<th style="' + AG_TH + '">Date</th>' +
+                '<th style="' + AG_TH + '">Method</th>' +
+                '<th style="' + AG_TH + ';text-align:right;">Amount</th></tr>' +
+                payRows + '</table>' +
+            refundRows +
+
+            (l.notes ? '<div style="' + AG_H + '">Notes</div>' +
+                       '<div style="' + AG_B + 'padding:6px 8px;">' + text(l.notes) +
+                       '</div>' : '') +
+
+            (l.status === 'cancelled' && l.cancel_reason
+                ? '<div style="' + AG_H + '">Cancelled</div>' +
+                  '<div style="' + AG_B + 'padding:6px 8px;">' +
+                  agWhen(l.cancelled_at) + ' &middot; ' + text(l.cancel_reason) + '</div>'
+                : '') +
+
+            '<div style="' + AG_H + '">Terms</div>' +
+            '<ol style="margin:4px 0 0 16px;padding:0;font-size:11px;">' +
+                '<li>The goods stay the property of ConnectLink Hardware until the ' +
+                    'balance is paid in full.</li>' +
+                '<li>The goods are held for the customer from the date of this agreement.</li>' +
+                '<li>Instalments are payable on the dates shown above; each one received ' +
+                    'is written onto this agreement and onto the shop\'s records.</li>' +
+                '<li>Collection is against this agreement and the customer\'s national ID, ' +
+                    'once the balance is nil.</li>' +
+                '<li>If the layby is cancelled, the shop refunds what was paid, less any ' +
+                    'amount agreed at the time of cancellation.</li>' +
+            '</ol>' +
+
+            pending +
+
+            '<table style="' + AG_T + 'margin-top:14px;">' +
+                '<tr><td style="' + AG_TD + 'height:46px;vertical-align:bottom;">' +
+                    'Customer signature &amp; date</td>' +
+                '<td style="' + AG_TD + 'height:46px;vertical-align:bottom;">' +
+                    'For ConnectLink Hardware' +
+                    (l.created_by ? ' (' + text(l.created_by) + ')' : '') + '</td></tr>' +
+            '</table>' +
+            '<div style="font-size:10px;color:#64748B;margin-top:8px;text-align:center;">' +
+                'Printed ' + agWhen(new Date().toISOString()) +
+            '</div>' +
+        '</div>';
+    }
+
+    function showAgreement(l) {
+        if (typeof showReceiptWithPrint === 'function') {
+            showReceiptWithPrint(laybyAgreementHTML(l), 'Layby agreement');
+        } else {
+            window.print();
+        }
+    }
+
+    window.printLaybyAgreement = function (id) {
+        var l = laybyById[id];
+        if (!l) { showToast('Could not find that layby to print.', 'error'); return; }
+        showAgreement(l);
+    };
+
+    // A queued layby: the till holds the customer, the goods and every instalment
+    // taken against it, so the customer can still be given their agreement.
+    function pendingLaybyAsLayby(clientRef) {
+        var entries = (typeof window.POSOffline !== 'undefined' && window.POSOffline.pendingLaybys)
+            ? (window.POSOffline.pendingLaybys() || []) : [];
+        var entry = entries.filter(function (e) {
+            return e.client_ref === clientRef && e.kind !== 'payment';
+        })[0];
+        if (!entry) return null;
+
+        var p = entry.payload || {};
+        var items = (p.items || []).map(function (i) {
+            return { name: i.name, quantity: Number(i.quantity || 0),
+                     unit_price: agPrice(i) };
+        });
+        var total = items.reduce(function (s, i) {
+            return s + (i.unit_price * i.quantity);
+        }, 0);
+
+        var payments = [];
+        if (Number(p.deposit || 0) > 0) {
+            payments.push({ amount: Number(p.deposit || 0),
+                            method: p.deposit_method || 'cash',
+                            paid_at: p.created_at || entry.created_at,
+                            notes: 'Deposit' });
+        }
+        entries.forEach(function (e) {
+            if (e.kind !== 'payment' || !e.payload) return;
+            if (e.payload.layby_client_ref !== clientRef &&
+                e.payload.layby_reference !== p.reference) return;
+            payments.push({ amount: Number(e.payload.amount || 0),
+                            method: e.payload.method || 'cash',
+                            paid_at: e.payload.paid_at || e.created_at,
+                            notes: 'Held on this till' });
+        });
+        var paid = payments.reduce(function (s, x) { return s + x.amount; }, 0);
+
+        return {
+            reference: p.reference || '',
+            customer_name: p.customer_name || '',
+            customer_id_number: p.customer_id_number || '',
+            customer_phone: p.customer_phone || '',
+            branch_name: p.branch_name || (typeof posBranch !== 'undefined' && posBranch
+                ? (posBranch.name || '') : ''),
+            created_at: p.created_at || entry.created_at,
+            created_by: '',
+            total_amount: Math.round(total * 100) / 100,
+            paid_amount: Math.round(paid * 100) / 100,
+            refunded_amount: 0,
+            balance: Math.round((total - paid) * 100) / 100,
+            status: 'active',
+            notes: p.notes || '',
+            items: items,
+            // Until the server prices the plan, the expected dates are the ones
+            // written on the agreement the customer signed.
+            plan: (p.installments || []).map(function (x, n) {
+                return { seq: n + 1, due_date: x.due_date || null,
+                         amount: Number(x.amount || 0), state: 'due' };
+            }),
+            payments: payments,
+            refunds: [],
+            pending: true
+        };
+    }
+
+    window.printPendingLaybyAgreement = function (clientRef) {
+        var l = pendingLaybyAsLayby(clientRef);
+        if (!l) { showToast('That layby is no longer on this device.', 'error'); return; }
+        showAgreement(l);
+    };
 
     // An instalment against a layby that has not reached the server yet: it is
     // queued behind the layby and tied to it by the reference the till minted.
@@ -20210,7 +20516,7 @@ function setupEventListeners() {
         var ref = newRef();
         var q = readQueue();
         var scope = currentBranchScope();
-        q.push({
+        var entry = {
             client_ref: ref,
             created_at: new Date().toISOString(),
             // The shop this sale was RUNG in. The server keeps the session as the
@@ -20220,8 +20526,11 @@ function setupEventListeners() {
             branch_id: scope ? Number(scope) : null,
             attempts: 0,
             payload: sale
-        });
+        };
+        q.push(entry);
         writeQueue(q);
+        // Taken off that shop's shelf but not yet confirmed by the server.
+        holdEntry(entry);
         if (typeof showToast === 'function') {
             showToast('No connection - sale saved on this device and will sync automatically.', 'warning');
         }
@@ -20260,6 +20569,9 @@ function setupEventListeners() {
         var q = readLaybyQueue();
         if (event.client_ref && q.some(function (e) { return e.client_ref === event.client_ref; })) return;
         q.push(event);
+        // A layby reserves goods, so the till must hold that quantity back from
+        // its own view of stock until the server has actually taken it.
+        holdEntry(event);
         writeLaybyQueue(q);
     }
 
@@ -20272,7 +20584,13 @@ function setupEventListeners() {
     }
 
     function removeLaybyEvent(clientRef) {
-        writeLaybyQueue(readLaybyQueue().filter(function (e) { return e.client_ref !== clientRef; }));
+        var q = readLaybyQueue();
+        q.forEach(function (e) {
+            // Abandoned: the goods are no longer promised, so stop holding them.
+            if (e.client_ref === clientRef) releaseEntry(e);
+        });
+        writeLaybyQueue(q.filter(function (e) { return e.client_ref !== clientRef; }));
+        if (typeof window.fetchProductsFromAPI === 'function') window.fetchProductsFromAPI();
     }
 
     function retryLaybyEvent(clientRef) {
@@ -20290,6 +20608,88 @@ function setupEventListeners() {
 
     // One queued item at a time, in the order it was taken, so an instalment is
     // always replayed after the layby it belongs to.
+    // ---------- Local stock holds ----------
+    // The till's catalogue is only as fresh as the last successful fetch, so
+    // anything this device has taken but not yet synced must be subtracted from
+    // it. Without this a reload during an outage shows stock that has already
+    // been promised, and two tills can sell the same last unit.
+    //
+    // Holds are kept per BRANCH. A sale rung in Chegutu can sit in this till's
+    // queue while it is working in Shurugwi (the server parks it until the right
+    // shop is selected), and those goods are Chegutu's - subtracting them here
+    // would understate Shurugwi's shelf.
+    var HOLDS_KEY = 'pos_local_holds_v1';
+
+    function readHolds() {
+        try {
+            var raw = JSON.parse(localStorage.getItem(HOLDS_KEY) || '{}');
+            return (raw && typeof raw === 'object') ? raw : {};
+        } catch (e) { return {}; }
+    }
+    function writeHolds(h) {
+        try { localStorage.setItem(HOLDS_KEY, JSON.stringify(h)); } catch (e) { /* quota */ }
+    }
+    function scopeOf(entry) {
+        if (entry && entry.branch_id != null) return String(entry.branch_id);
+        var now = currentBranchScope();
+        return now ? String(now) : 'unknown';
+    }
+    function changeHold(branchKey, productId, delta) {
+        if (productId == null || !delta) return;
+        var h = readHolds();
+        var bucket = h[branchKey] || {};
+        var key = String(productId);
+        var next = Number(bucket[key] || 0) + delta;
+        if (next > 0.0001) bucket[key] = next; else delete bucket[key];
+        if (Object.keys(bucket).length) h[branchKey] = bucket; else delete h[branchKey];
+        writeHolds(h);
+    }
+    // What one queue entry has taken off its own shop's shelf.
+    function entryItems(entry) {
+        if (!entry || !entry.payload) return [];
+        if (entry.kind === 'payment') return [];
+        return entry.payload.items || [];
+    }
+    function holdEntry(entry) {
+        var scope = scopeOf(entry);
+        entryItems(entry).forEach(function (it) {
+            changeHold(scope, it.id != null ? it.id : it.product_id,
+                       Number(it.quantity || 0));
+        });
+    }
+    function releaseEntry(entry) {
+        var scope = scopeOf(entry);
+        entryItems(entry).forEach(function (it) {
+            changeHold(scope, it.id != null ? it.id : it.product_id,
+                       -Number(it.quantity || 0));
+        });
+    }
+
+    function holdsForCurrentBranch() {
+        var scope = currentBranchScope();
+        if (!scope) return {};
+        return readHolds()[String(scope)] || {};
+    }
+
+    // Called after /api/products loads, so the figures on screen are this till's
+    // honest position: the server's last word minus what is still queued here.
+    window.applyLocalStockHolds = function (list) {
+        var held = holdsForCurrentBranch();
+        var keys = Object.keys(held);
+        if (!keys.length) return 0;
+        (list || []).forEach(function (p) {
+            var n = Number(held[String(p.id)] || 0);
+            if (n > 0) {
+                p.stock_server = Number(p.stock || 0);
+                p.stock = Math.max(0, Number(p.stock || 0) - n);
+                p.local_hold = n;
+            }
+        });
+        return keys.length;
+    };
+
+    window.pendingLocalHolds = holdsForCurrentBranch;
+
     function replayLaybyEvent(entry) {
         var body;
         var url = '/api/pos/laybys';
@@ -20365,6 +20765,9 @@ function setupEventListeners() {
             var i = list.findIndex(function (e) { return e.client_ref === entry.client_ref; });
             if (i !== -1) {
                 if (result.outcome === 'done') {
+                    // The server has taken the goods now, so this till stops
+                    // holding them back and picks up the real figure.
+                    releaseEntry(entry);
                     list.splice(i, 1);
                 } else if (result.outcome === 'hold') {
                     list[i].attempts = 0;                 // never ages out
@@ -20383,6 +20786,9 @@ function setupEventListeners() {
             }
             if (typeof window.fetchLaybys === 'function' && result.outcome === 'done') {
                 window.fetchLaybys();
+            }
+            if (typeof window.fetchProductsFromAPI === 'function' && result.outcome === 'done') {
+                window.fetchProductsFromAPI();
             }
             return syncOfflineLaybys(false);
         }).catch(function () {
@@ -20435,13 +20841,28 @@ function setupEventListeners() {
                 // age out of the queue - dropping it would lose the money.
                 if (r.status === 'branch_mismatch') held[r.client_ref] = true;
             });
-            var remaining = readQueue().filter(function (entry) {
-                if (done[entry.client_ref]) return false;
-                if (held[entry.client_ref]) { entry.attempts = 0; return true; }
+            var remaining = [];
+            readQueue().forEach(function (entry) {
+                if (done[entry.client_ref]) {
+                    // Settled on the server: this till no longer holds the stock.
+                    releaseEntry(entry);
+                    return;
+                }
+                if (held[entry.client_ref]) { entry.attempts = 0; remaining.push(entry); return; }
                 entry.attempts = (entry.attempts || 0) + 1;
-                return entry.attempts < MAX_ATTEMPTS;
+                if (entry.attempts >= MAX_ATTEMPTS) {
+                    // Abandoned: release the hold too, otherwise this till would
+                    // understate that line for as long as the ledger lives.
+                    releaseEntry(entry);
+                    return;
+                }
+                remaining.push(entry);
             });
             writeQueue(remaining);
+            if (data.synced && typeof window.fetchProductsFromAPI === 'function') {
+                // Replace the locally adjusted figures with the server's truth.
+                window.fetchProductsFromAPI();
+            }
 
             if (typeof showToast === 'function') {
                 if (data.synced) showToast('Synced ' + data.synced + ' offline sale(s) to the cloud.', 'success');

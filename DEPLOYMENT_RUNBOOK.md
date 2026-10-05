@@ -570,6 +570,56 @@ sales:
   not a retry counter.
 * Idempotency comes from the till's own reference on every item, so a retry after a
   dropped reply cannot reserve the goods or take the money twice.
+* The till also **holds the reserved stock back from its own figures while a layby is
+  still queued** (see *Stock a till has promised but not yet uploaded* below), so two
+  tills cannot promise the same unit during an outage.
+
+> **Known limitation (queued *sales*, not laybys).** A layby item is never discarded
+> automatically, but the older offline **sales** queue still gives up on a sale the server
+> actively refuses after 25 attempts and drops it, which loses that paid sale. Network
+> outages do not count towards those attempts (the till does not try while it knows it is
+> offline). This is the queue's long-standing policy and is unchanged; say the word and it
+> can be parked on screen for a person to decide, exactly like a layby.
+
+### Stock a till has promised but not yet uploaded
+
+A till only knows the stock the *server* last told it. While sales or laybys are sitting
+in a queue on that device, the goods have physically gone but the catalogue still shows
+them, which is how a shop ends up promising the same last unit twice during an outage.
+
+Each till therefore keeps a small local ledger (`pos_local_holds_v1`, in the browser's own
+storage) of **what it has taken but not yet uploaded**:
+
+* A sale holds its basket as soon as it is queued; a layby holds its reserved goods, and a
+  queued instalment holds nothing (no goods move).
+* The held quantity is **subtracted from the figures on screen** — the product grid, the
+  inventory list, the low/out-of-stock figures and the *Out of stock!* / *Not enough
+  stock!* checks — so the till cannot sell what it has already promised.
+* The hold is released the moment the item reaches the server, the moment it is
+  discarded, and if a sale is ever abandoned by the retry counter. Removing a layby from
+  the queue releases its goods back into the figures.
+* Holds are kept **per branch**, so a sale waiting for Chegutu is never taken off
+  Shurugwi's shelves while the till is working in Shurugwi.
+* The figures refresh from the server as soon as a sync succeeds, so this is a temporary
+  correction, not a second ledger of record.
+* **Adding stock** and the *Current Stock* figure in the Add Stock box always use the
+  **server's** number, never the held-down one — a hold can never be written back as the
+  shop's real stock.
+
+### Printing the layby agreement
+
+Both the *Layby* tab and the *not yet synced* cards carry a **Print agreement** button.
+It produces the customer's copy: shop and branch, agreement number and date, the
+customer's name, national ID and phone, the reserved goods with quantities and prices
+footing to the total, the instalment plan with expected dates and what is paid/part
+paid/due, the money position (total, paid, refunded, balance), every instalment received,
+the notes, the terms, and signature lines for the customer and the shop.
+
+It prints through the normal receipt path, so the till prints it the same way it prints a
+receipt. A layby that has **not reached the server yet** can still be printed — the till
+holds the customer, the goods and the plan — and that copy is marked *"this agreement was
+written on the till while it had no connection"*. Printing is not restricted to active
+laybys: a cancelled one prints with the cancellation reason and any refunds on it.
 
 ### Bulk stock upload (Excel) — what it will and will not duplicate
 
@@ -585,10 +635,13 @@ Apply.
   collapsed into one product before anything is written (quantities summed,
   weighted-average cost, last price wins), so one file cannot create the same product
   twice.
-* **Category is not a conflict.** The file's Category is matched case-insensitively
-  against the live category list; anything unrecognised is blanked and the page's default
-  category is used. When a row merges into an existing product the file's Category is
-  ignored — check those rows yourself if the categories matter.
+* **Category.** The file's Category is matched case-insensitively against the live
+  category list, and anything unrecognised is blanked (the page's default category is
+  used instead). When a row matches an existing product **by name but carries a different
+  category**, that is raised as a **conflict row** — it shows both categories and you
+  choose *Add to the existing category*, *Use the category from my file*
+  (`merge_category`, which changes the product's category as well as its stock), or
+  *Create a separate product*. Nothing is applied until you decide.
 * There is no re-check between *Check File* and *Apply*, so do not leave a checked file
   sitting while someone else adds the same product.
 
@@ -1172,6 +1225,20 @@ sudo systemctl start connectlink
 ---
 
 ## Changelog
+
+**October 2026 — stock a till has promised, and layby paperwork**
+- ✅ **A till no longer offers stock it has already promised.** Sales and laybys queued on
+  a device hold their quantity back from that till's own figures (grid, inventory,
+  low/out-of-stock and the stock checks) until the server has them, released on sync,
+  discard or abandonment. Holds are kept per branch, so another shop's queued sale never
+  reduces this shop's shelves, and the Add Stock box always uses the server's number so a
+  hold can never be written back as real stock.
+- ✅ **The layby agreement prints** from the Layby tab and from un-synced cards: shop,
+  agreement number, customer name/ID/phone, the reserved goods footing to the total, the
+  instalment plan with dates and states, the money position, instalments received, notes,
+  terms and signature lines — including for a layby the server has not seen yet.
+- ✅ The runbook's bulk-upload section was corrected: a name match in a **different
+  category** is raised as a conflict row (it used to say category was never a conflict).
 
 **October 2026 — POS stock isolation, layby, reconciliation**
 - ✅ **Laybys work with no connection.** The till mints its own layby number, queues the
