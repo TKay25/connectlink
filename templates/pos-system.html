@@ -6138,6 +6138,9 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <button type="button" class="sms-row" id="posDrawerSyncRow" onclick="posSyncNow()">
                     <i class="fas fa-cloud-arrow-up"></i><span>Cloud sync</span><strong id="posDrawerSyncCount">All sales synced</strong>
                 </button>
+                <button type="button" class="sms-row" data-admin-only="1" onclick="togglePOSDrawer(false); window.location.href='/pos/reconciliation';">
+                    <i class="fas fa-scale-balanced"></i><span>Stock reconciliation</span><strong>&rsaquo;</strong>
+                </button>
                 <button type="button" class="sms-row" onclick="togglePOSDrawer(false); openBranchSwitchModal();">
                     <i class="fas fa-store"></i><span>Switch branch</span><strong id="posDrawerBranchChip">&mdash;</strong>
                 </button>
@@ -6841,6 +6844,9 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 </button>
                                 <button class="btn btn-primary-dark" onclick="openTransferStockModal()">
                                     <i class="fas fa-truck me-1"></i>Transfer Stock
+                                </button>
+                                <button class="btn btn-primary-dark" onclick="window.location.href='/pos/reconciliation'">
+                                    <i class="fas fa-scale-balanced me-1"></i>Stock Reconciliation
                                 </button>
                                 <button class="btn btn-outline-danger" onclick="openRemoveAllStockModal()">
                                     <i class="fas fa-eraser me-1"></i>Remove All Items &amp; History
@@ -13360,6 +13366,13 @@ async function fetchTransactionsData() {
     function applyPOSBranch(branch) {
         posBranch = branch || null;
         if (posBranch) localStorage.setItem('posBranch', JSON.stringify(posBranch));
+        // Remember WHICH shop this device is working in. The offline catalogue
+        // cache and the offline sales queue are both tagged with it, so a till
+        // can never be shown (or billed for) the other branch's stock.
+        try {
+            localStorage.setItem('pos_branch_scope',
+                (posBranch && posBranch.id != null) ? String(posBranch.id) : '');
+        } catch (e) { /* private mode - the server still isolates the branches */ }
         renderPOSBranch();
     }
 
@@ -13465,6 +13478,9 @@ async function fetchTransactionsData() {
             cart = [];
             updateCartDisplay();
             if (data.branch) applyPOSBranch(data.branch);
+            // The cached catalogue belongs to the shop we just left. Drop it so
+            // no offline fallback can serve its stock while we are in this one.
+            try { localStorage.removeItem('pos_api_cache_v1'); } catch (e) {}
             await refreshBranchFromServer();
 
             const modalEl = document.getElementById('branchSwitchModal');
@@ -18906,6 +18922,8 @@ function setupEventListeners() {
         const menuItems = document.querySelectorAll('.menu-item');
         // Mobile quick-access shortcuts that mirror admin-only pages
         const quickbarAdminBtns = document.querySelectorAll('#posMobileQuickbar .pmq-btn[data-admin-only]');
+        // Drawer rows for tools that only make sense with the Inventory page
+        const drawerAdminRows = document.querySelectorAll('.sms-row[data-admin-only]');
 
         if (userRole === 'operator') {
             menuItems.forEach(item => {
@@ -18918,6 +18936,7 @@ function setupEventListeners() {
             });
             // Keep mobile shortcuts consistent with allowed pages
             quickbarAdminBtns.forEach(btn => { btn.style.display = 'none'; });
+            drawerAdminRows.forEach(row => { row.style.display = 'none'; });
             // Navigate to POS terminal for operator
             navigateTo('pos');
         } else {
@@ -18926,6 +18945,7 @@ function setupEventListeners() {
                 item.style.display = 'flex';
             });
             quickbarAdminBtns.forEach(btn => { btn.style.display = ''; });
+            drawerAdminRows.forEach(row => { row.style.display = ''; });
         }
     }
 
@@ -19103,11 +19123,19 @@ function setupEventListeners() {
 
     var QUEUE_KEY = 'pos_offline_sales_v1';
     var CACHE_KEY = 'pos_api_cache_v1';
+    // Which shop this device was last working in. Every cached response is
+    // tagged with it and only ever replayed to THAT shop, so an offline till in
+    // Shurugwi can never be handed Chegutu's catalogue and stock levels.
+    var BRANCH_SCOPE_KEY = 'pos_branch_scope';
     // /api/check-auth is included on purpose: it lets a till that has signed in
     // at least once OPEN while offline (a brand-new device still needs internet).
     var CACHEABLE_GETS = ['/api/products', '/api/categories', '/api/branches', '/api/check-auth'];
     var MAX_ATTEMPTS = 25;
     var nativeFetch = window.fetch.bind(window);
+
+    function currentBranchScope() {
+        try { return localStorage.getItem(BRANCH_SCOPE_KEY) || ''; } catch (e) { return ''; }
+    }
 
     // ---------- PWA: installable on a phone ----------
     if ('serviceWorker' in navigator) {
@@ -19137,7 +19165,7 @@ function setupEventListeners() {
                     try {
                         var store = {};
                         try { store = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch (e) { store = {}; }
-                        store[url] = { at: Date.now(), data: data };
+                        store[url] = { at: Date.now(), branch: currentBranchScope(), data: data };
                         localStorage.setItem(CACHE_KEY, JSON.stringify(store));
                     } catch (e) { /* quota - ignore */ }
                 }).catch(function () {});
@@ -19146,8 +19174,11 @@ function setupEventListeners() {
         }).catch(function (err) {
             try {
                 var store = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-                if (store[url]) {
-                    return new Response(JSON.stringify(store[url].data), {
+                var entry = store[url];
+                // Only the CURRENT shop's copy may be served. Older entries belong
+                // to whichever branch this device last worked in.
+                if (entry && entry.branch === currentBranchScope()) {
+                    return new Response(JSON.stringify(entry.data), {
                         status: 200,
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -19175,9 +19206,15 @@ function setupEventListeners() {
     function queueSale(sale) {
         var ref = newRef();
         var q = readQueue();
+        var scope = currentBranchScope();
         q.push({
             client_ref: ref,
             created_at: new Date().toISOString(),
+            // The shop this sale was RUNG in. The server keeps the session as the
+            // single authority on which branch a sale is filed to, but it refuses
+            // a sale that declares a different branch - so a Chegutu sale queued
+            // before the till moved to Shurugwi can never take Shurugwi's stock.
+            branch_id: scope ? Number(scope) : null,
             attempts: 0,
             payload: sale
         });
@@ -19216,18 +19253,24 @@ function setupEventListeners() {
                     for (var k in entry.payload) { if (Object.prototype.hasOwnProperty.call(entry.payload, k)) payload[k] = entry.payload[k]; }
                     payload.client_ref = entry.client_ref;
                     payload.created_at = entry.created_at;
+                    if (entry.branch_id != null) payload.branch_id = entry.branch_id;
                     return payload;
                 })
             })
         }).then(function (res) {
             return res.json();
         }).then(function (data) {
-            var done = {};
+            var done = {}, held = {};
             (data.results || []).forEach(function (r) {
                 if (r.status === 'synced' || r.status === 'duplicate') done[r.client_ref] = true;
+                // A sale rung in another branch is NOT a failure: it is kept
+                // untouched until that shop is selected again, and it must never
+                // age out of the queue - dropping it would lose the money.
+                if (r.status === 'branch_mismatch') held[r.client_ref] = true;
             });
             var remaining = readQueue().filter(function (entry) {
                 if (done[entry.client_ref]) return false;
+                if (held[entry.client_ref]) { entry.attempts = 0; return true; }
                 entry.attempts = (entry.attempts || 0) + 1;
                 return entry.attempts < MAX_ATTEMPTS;
             });
@@ -19236,9 +19279,14 @@ function setupEventListeners() {
             if (typeof showToast === 'function') {
                 if (data.synced) showToast('Synced ' + data.synced + ' offline sale(s) to the cloud.', 'success');
                 if (data.failed) showToast(data.failed + ' sale(s) could not sync and stay queued.', 'error');
+                if (data.branch_mismatch) {
+                    showToast(data.branch_mismatch + ' sale(s) were rung in another branch and are waiting. Switch to that branch to sync them.', 'warning');
+                }
             }
-            // Anything left (server was busy / partial failure) is retried shortly
-            if (remaining.length) setTimeout(function () { syncOfflineSales(false); }, 4000);
+            // Anything genuinely unfinished is retried shortly. Sales held for
+            // another branch are left alone: retrying them here would just loop.
+            var retryable = remaining.some(function (entry) { return !held[entry.client_ref]; });
+            if (retryable) setTimeout(function () { syncOfflineSales(false); }, 4000);
         }).catch(function () {
             // Still offline or server unreachable - the queue is untouched
         }).then(function () {

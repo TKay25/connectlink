@@ -2999,6 +2999,26 @@ def ensure_branches_schema(cursor, connection):
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_stock_transfers_created ON stock_transfers (created_at)")
         connection.commit()
 
+        # Repairs made with the reconciliation tool. A mis-filed sale is moved by
+        # taking its quantity off the branch that wrongly received it and putting
+        # it on the branch that did the selling, so the correction has to be
+        # auditable on its own account -- the original sale rows are rewritten.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS stock_reconciliation_log (
+                id SERIAL PRIMARY KEY,
+                transaction_id INTEGER,
+                transaction_number VARCHAR(60),
+                from_branch_id INTEGER,
+                to_branch_id INTEGER,
+                items JSONB,
+                user_id INTEGER,
+                user_name VARCHAR(150),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_stock_recon_created ON stock_reconciliation_log (created_at)")
+        connection.commit()
+
         # ---- FIFO cost layers -------------------------------------------------
         # One row per RECEIPT of goods, not per product. A product bought 2 @ $3
         # then 4 @ $5 has TWO layers, and a sale consumes the oldest first, so
@@ -14981,6 +15001,278 @@ def pos_transfer_stock():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==================== STOCK RECONCILIATION ====================
+# Before the offline queue stamped the shop a sale was rung in, a sale could be
+# replayed while the till was sitting on the OTHER branch, so its quantity came
+# off the wrong shelf. An online sale can never be misfiled -- it is stamped from
+# the session as it is rung -- so the only sales that can be wrong are the ones
+# that arrived through /api/transactions/sync, and those are exactly the ones
+# carrying a client_ref. This tool finds them and puts the stock back.
+
+def _recon_offline_sales(cursor, branch_id):
+    """Offline-synced sales (the only ones that could ever have been mis-filed)."""
+    sql = """
+        SELECT t.id, t.transaction_number, t.client_ref, t.branch_id, b.name,
+               t.created_at, t.total, u.full_name
+        FROM transactions t
+        LEFT JOIN branches b ON b.id = t.branch_id
+        LEFT JOIN admin_users u ON u.id = t.user_id
+        WHERE t.client_ref IS NOT NULL
+          AND COALESCE(t.voided, FALSE) = FALSE
+    """
+    params = []
+    if branch_id:
+        sql += " AND t.branch_id = %s"
+        params.append(branch_id)
+    sql += " ORDER BY t.created_at DESC LIMIT 200"
+    cursor.execute(sql, tuple(params) or None)
+    return cursor.fetchall()
+
+
+@app.route('/api/pos/reconciliation', methods=['GET'])
+@login_required
+def pos_reconciliation_report():
+    """Offline-synced sales that may have landed in the wrong shop, with evidence.
+
+    Negative branch stock is the giveaway: the old sync path let a branch go
+    negative when it deducted goods the shop never held, and nothing floors it,
+    so a negative figure today means some sale took stock from the wrong shelf.
+    """
+    branch_id = current_branch_id()
+    try:
+        with get_db() as (cursor, connection):
+            sales = _recon_offline_sales(cursor, branch_id)
+
+            items_by_txn = {}
+            if sales:
+                txn_ids = [r[0] for r in sales]
+                cursor.execute("""
+                    SELECT ti.transaction_id, ti.product_id, p.name, ti.quantity
+                    FROM transaction_items ti
+                    LEFT JOIN products p ON p.id = ti.product_id
+                    WHERE ti.transaction_id = ANY(%s)
+                    ORDER BY ti.id
+                """, (txn_ids,))
+                for tid, pid, pname, qty in cursor.fetchall():
+                    items_by_txn.setdefault(tid, []).append(
+                        {'product_id': pid, 'name': pname or 'Unknown',
+                         'quantity': int(qty or 0)})
+
+            neg_sql = """
+                SELECT ps.product_id, p.name, ps.branch_id, b.name, ps.stock
+                FROM product_stock ps
+                JOIN products p ON p.id = ps.product_id
+                LEFT JOIN branches b ON b.id = ps.branch_id
+                WHERE ps.stock < 0
+            """
+            neg_params = []
+            if branch_id:
+                neg_sql += " AND ps.branch_id = %s"
+                neg_params.append(branch_id)
+            neg_sql += " ORDER BY ps.stock"
+            cursor.execute(neg_sql, tuple(neg_params) or None)
+            negative = [{'product_id': r[0], 'name': r[1], 'branch_id': r[2],
+                         'branch_name': r[3], 'stock': int(r[4] or 0)}
+                        for r in cursor.fetchall()]
+
+        negative_keys = {(n['product_id'], n['branch_id']) for n in negative}
+
+        out = []
+        for r in sales:
+            items = items_by_txn.get(r[0], [])
+            suspect = [i['name'] for i in items
+                       if (i['product_id'], r[3]) in negative_keys]
+            out.append({
+                'transaction_id': r[0],
+                'transaction_number': r[1],
+                'client_ref': r[2],
+                'branch_id': r[3],
+                'branch_name': r[4],
+                'created_at': r[5].isoformat() if r[5] else '',
+                'total': float(r[6] or 0),
+                'cashier': r[7] or 'Unknown',
+                'items': items,
+                'suspect': bool(suspect),
+                'suspect_items': suspect
+            })
+
+        return jsonify({
+            'success': True,
+            'branch': {'id': branch_id, 'name': session.get('branch_name') or ''},
+            'read_only': branch_is_read_only(),
+            'offline_sales': out,
+            'negative_stock': negative,
+            'summary': {
+                'offline_sales': len(out),
+                'suspect_sales': sum(1 for s in out if s['suspect']),
+                'negative_items': len(negative)
+            }
+        })
+    except Exception as e:
+        print(f"Reconciliation report error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pos/reconciliation/reassign', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_reconciliation_reassign():
+    """Move ONE mis-filed offline sale to the branch that actually sold it.
+
+    The quantity is given back to the branch that wrongly received it and taken
+    off the branch that did the selling, the sale's own stock-reduction rows
+    follow it, and the transaction is re-stamped. One transaction, audited, and
+    gated on the DESTINATION branch's access code -- the same proof the till asks
+    for -- so nobody can quietly shift stock between shops.
+    """
+    data = request.get_json() or {}
+    try:
+        transaction_id = int(data.get('transaction_id'))
+        to_branch = int(data.get('to_branch_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Select a sale and a destination branch.'}), 400
+
+    from_branch = current_branch_id()
+    if not from_branch:
+        return jsonify({'success': False, 'error': BRANCH_WRITE_BLOCKED_MESSAGE}), 403
+    if to_branch == from_branch:
+        return jsonify({'success': False, 'error': 'Choose a different branch.'}), 400
+
+    username = session.get('username') or session.get('user_name') or 'unknown'
+    locked_for = branch_code_lockout_remaining(username)
+    if locked_for:
+        return jsonify({'success': False,
+                        'error': (f'Too many incorrect branch codes. Try again in '
+                                  f'{max(1, locked_for // 60)} minute(s).')}), 429
+    code_ok, code_branch_name = verify_branch_code(to_branch, data.get('branch_code'))
+    record_branch_code_attempt(username, code_ok)
+    if not code_ok:
+        return jsonify({'success': False,
+                        'error': (f'That branch code is not valid for '
+                                  f'{code_branch_name or "the destination branch"}.')}), 403
+
+    user_id = session.get('user_id') or session.get('userid') or 0
+    user_name = session.get('user_name') or session.get('username') or 'System'
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT id, transaction_number, branch_id, client_ref, COALESCE(voided, FALSE)
+                FROM transactions WHERE id = %s
+            """, (transaction_id,))
+            t = cursor.fetchone()
+            if not t:
+                return jsonify({'success': False, 'error': 'Sale not found.'}), 404
+            if t[2] != from_branch:
+                return jsonify({'success': False,
+                                'error': ('That sale is filed in another branch. Open this tool '
+                                          'in the branch that holds it.')}), 403
+            if not t[3]:
+                return jsonify({'success': False,
+                                'error': ('Only an offline-synced sale can be moved. This one was '
+                                          'rung online, so the session stamped its branch correctly.')}), 400
+            if t[4]:
+                return jsonify({'success': False, 'error': 'That sale has been reverted.'}), 400
+
+            cursor.execute("SELECT name FROM branches WHERE id = %s AND is_active = TRUE",
+                           (to_branch,))
+            dest = cursor.fetchone()
+            if not dest:
+                return jsonify({'success': False, 'error': 'Destination branch not found.'}), 404
+
+            cursor.execute("""
+                SELECT product_id, SUM(quantity)
+                FROM transaction_items
+                WHERE transaction_id = %s AND product_id IS NOT NULL
+                GROUP BY product_id
+            """, (transaction_id,))
+            moves = [(int(pid), int(qty or 0)) for pid, qty in cursor.fetchall()
+                     if int(qty or 0) > 0]
+            if not moves:
+                return jsonify({'success': False,
+                                'error': 'That sale has no stock lines to move.'}), 400
+
+            # The destination must be able to give the goods back, or the move
+            # would simply create a second negative shelf.
+            short = []
+            for pid, qty in moves:
+                have = get_branch_stock(cursor, pid, to_branch)
+                if have < qty:
+                    cursor.execute("SELECT name FROM products WHERE id = %s", (pid,))
+                    prow = cursor.fetchone()
+                    short.append(f'{prow[0] if prow else ("product #" + str(pid))}: '
+                                 f'has {have}, needs {qty}')
+            if short:
+                return jsonify({'success': False,
+                                'error': ('The destination branch does not hold enough stock '
+                                          'to take this sale back.'),
+                                'details': short}), 409
+
+            for pid, qty in moves:
+                # Give the quantity back to the shop that wrongly received it...
+                add_branch_stock(cursor, pid, from_branch, qty)
+                cursor.execute("""
+                    INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
+                                                 funding_source, reference, user_id, added_at, branch_id)
+                    VALUES (%s, %s, 0, 0, 'CORRECTION', %s, %s, CURRENT_TIMESTAMP, %s)
+                """, (pid, qty, f'RECON-{t[1]}', user_id, from_branch))
+
+                # ...and take it off the branch that did the selling.
+                add_branch_stock(cursor, pid, to_branch, -qty)
+                cursor.execute("""
+                    INSERT INTO stock_reductions (product_id, quantity, reason, notes,
+                                                  user_id, reduced_at, branch_id)
+                    VALUES (%s, %s, 'correction_out', %s, %s, CURRENT_TIMESTAMP, %s)
+                """, (pid, qty, f'Reconciliation of sale {t[1]}', user_id, to_branch))
+
+            # The sale's own reductions travel with it, and the sale is re-stamped.
+            cursor.execute("""
+                UPDATE stock_reductions SET branch_id = %s
+                WHERE reason = 'item_sale' AND notes = %s AND branch_id = %s
+            """, (to_branch, f'Sale #{t[1]} (offline sync)', from_branch))
+            cursor.execute("UPDATE transactions SET branch_id = %s WHERE id = %s",
+                           (to_branch, transaction_id))
+
+            cursor.execute("""
+                INSERT INTO stock_reconciliation_log
+                    (transaction_id, transaction_number, from_branch_id, to_branch_id,
+                     items, user_id, user_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (transaction_id, t[1], from_branch, to_branch,
+                  psycopg2.extras.Json([{'product_id': pid, 'quantity': qty}
+                                        for pid, qty in moves]),
+                  user_id, user_name))
+
+            connection.commit()
+
+        try:
+            log_activity(
+                'stock_reconciliation',
+                (f'Moved sale {t[1]} from {session.get("branch_name") or from_branch} '
+                 f'to {dest[0]}'),
+                'transaction', transaction_id,
+                {'from_branch_id': from_branch, 'to_branch_id': to_branch,
+                 'items': [{'product_id': pid, 'quantity': qty} for pid, qty in moves]}
+            )
+        except Exception as log_err:
+            print(f"Warning: could not log the reconciliation: {log_err}")
+
+        return jsonify({'success': True, 'transaction_id': transaction_id,
+                        'transaction_number': t[1], 'to_branch_id': to_branch,
+                        'to_branch_name': dest[0],
+                        'message': f'Sale {t[1]} is now filed under {dest[0]}, '
+                                   f'and the stock followed it.'})
+    except Exception as e:
+        print(f"Reconciliation reassign error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/pos/reconciliation', methods=['GET'])
+def pos_reconciliation_page():
+    """The reconciliation tool's screen."""
+    return render_template('pos_reconciliation.html')
+
+
 # ==================== BULK STOCK UPLOAD (Excel) ====================
 # The Inventory page's "Upload New Stock" button. One row per product:
 #   Product Name | Quantity | Unit Buying Price | Unit Selling Price
@@ -15297,11 +15589,17 @@ def pos_upload_stock_analyze():
 
     try:
         with get_db() as (cursor, connection):
+            # The stock shown next to a candidate is THIS shop's figure. Using the
+            # catalogue total here made Chegutu's units look like they were on the
+            # Shurugwi shelf while the uploader was deciding what to do.
             cursor.execute("""
-                SELECT p.id, p.name, COALESCE(p.category, ''), COALESCE(p.stock, 0),
+                SELECT p.id, p.name, COALESCE(p.category, ''), COALESCE(ps.stock, 0),
                        COALESCE(p.sell_price, 0), COALESCE(p.buy_price, 0)
-                FROM products p WHERE p.is_active = TRUE
-            """)
+                FROM products p
+                LEFT JOIN product_stock ps
+                       ON ps.product_id = p.id AND ps.branch_id = %s
+                WHERE p.is_active = TRUE
+            """, (branch_id,))
             catalogue = [{'id': r[0], 'name': r[1], 'category': r[2], 'stock': int(r[3] or 0),
                           'sell_price': float(r[4] or 0), 'buy_price': float(r[5] or 0)}
                          for r in cursor.fetchall()]
@@ -16084,12 +16382,18 @@ def get_product_by_barcode(barcode):
         # Scanning respects the branch: the same barcode can be plentiful in one
         # shop and out of stock in the other.
         branch_id = current_branch_id()
-        branch_stock = result[7] or 0
-        try:
-            with get_db() as (cursor, connection):
-                branch_stock = get_branch_stock(cursor, result[0], branch_id) if branch_id else (result[7] or 0)
-        except Exception as stock_err:
-            print(f"Warning: could not read branch stock: {stock_err}")
+        if branch_id:
+            # The branch figure is authoritative. If it cannot be read, report 0
+            # rather than the catalogue total: the total blends in the OTHER
+            # shop's units and would let this till sell stock it does not hold.
+            branch_stock = 0
+            try:
+                with get_db() as (cursor, connection):
+                    branch_stock = get_branch_stock(cursor, result[0], branch_id)
+            except Exception as stock_err:
+                print(f"Warning: could not read branch stock: {stock_err}")
+        else:
+            branch_stock = result[7] or 0
 
         return jsonify({
             'success': True,
@@ -16890,14 +17194,14 @@ def sync_offline_transactions():
         sales = data.get('sales') or []
         if not isinstance(sales, list) or not sales:
             return jsonify({'success': True, 'results': [], 'synced': 0,
-                            'duplicate': 0, 'failed': 0})
+                            'duplicate': 0, 'failed': 0, 'branch_mismatch': 0})
 
         branch_id = current_branch_id()
         user_id = session.get('user_id')
         server_now = get_zimbabwe_time()
 
         results = []
-        synced = duplicates = failed = 0
+        synced = duplicates = failed = mismatched = 0
 
         for sale in sales:
             client_ref = str(sale.get('client_ref') or '').strip()[:64]
@@ -16919,6 +17223,30 @@ def sync_offline_transactions():
                                         'transaction_id': existing[0],
                                         'transaction_number': existing[1]})
                         continue
+
+                    # The sale carries the branch the till was actually
+                    # working in when it was rung. It is NOT used to pick
+                    # the branch -- the session decides that -- but a
+                    # disagreement means the device has since moved to
+                    # another shop, and filing this sale here would take
+                    # the stock off the WRONG shelf. Refuse it and leave it
+                    # on the device until that shop is selected again.
+                    declared_branch = sale.get('branch_id')
+                    if declared_branch is not None and declared_branch != '':
+                        try:
+                            declared_branch = int(declared_branch)
+                        except (TypeError, ValueError):
+                            declared_branch = None
+                        if declared_branch is not None and declared_branch != branch_id:
+                            mismatched += 1
+                            results.append({
+                                'client_ref': client_ref,
+                                'status': 'branch_mismatch',
+                                'branch_id': declared_branch,
+                                'message': ('This sale was rung in another branch. '
+                                            'Select that branch to sync it.')
+                            })
+                            continue
 
                     subtotal = 0.0
                     for item in items:
@@ -17003,13 +17331,15 @@ def sync_offline_transactions():
                 'sale',
                 f'Offline sync: {synced} sale(s) synced, {duplicates} already stored, {failed} failed',
                 'transaction', None,
-                {'synced': synced, 'duplicate': duplicates, 'failed': failed}
+                {'synced': synced, 'duplicate': duplicates, 'failed': failed,
+                 'branch_mismatch': mismatched}
             )
         except Exception:
             pass
 
         return jsonify({'success': True, 'results': results, 'synced': synced,
-                        'duplicate': duplicates, 'failed': failed})
+                        'duplicate': duplicates, 'failed': failed,
+                        'branch_mismatch': mismatched})
     except Exception as e:
         print(f"Offline sync error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
