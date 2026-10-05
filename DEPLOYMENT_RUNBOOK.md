@@ -496,7 +496,10 @@ Also worth setting (pre-existing behaviour, unchanged):
   counted as failed attempts. This replaced a fallback that *named* such a session Shurugwi,
   which is how one shop's stock came to be read from, and filed against, the other shop.
 * **Stock shown** — on a real branch every figure is that branch's. On the read-only
-  All Branches view, stock figures are the company total.
+  All Branches view, stock figures are the company total. **Add Stock** and **Subtract**
+  always re-read the figure from the server as they open (and correct the row, grid and
+  metrics to match), and if the till is showing the catalogue it saved on the device, a
+  banner says so and gives the time it was saved.
 
 ### Project changes in the audit log
 
@@ -1299,6 +1302,22 @@ sudo systemctl start connectlink
   runs when the projects list is opened now record a `project_data_repaired` entry per
   value changed — naming the project, the field and the old → new date, attributed to
   **System** (nobody chose it) and filterable as *Project Data Repaired*.
+
+**October 2026 — a stock figure on screen is never trusted over the server**
+- ✅ **Add Stock and Subtract now fetch the product's live figure first.** A page (or an
+  offline copy) that was hours old used to offer a quantity the server then refused —
+  "it says 26, but 22 cannot be removed". The box now opens on the figure the server has
+  this moment, and the row, the grid and the metrics are corrected at the same time.
+- ✅ **A refusal names the shop and the real number**, e.g. *"Shurugwi has 4 unit(s) of
+  "Cable 2.5mm" right now, so 22 cannot be removed. The figure on your screen was out of
+  date; it has been refreshed."* It also returns `available`, `total_stock` and
+  `branch_name`, and the till closes the box and reloads the figures, so the same stale
+  number cannot be tried twice.
+- ✅ **A catalogue served from the device now says so.** When the till cannot reach the
+  server it replays the catalogue it saved, and a banner states that these are the saved
+  figures and the time they were saved — instead of silently showing numbers that look
+  wrong against the server. Quoted sales already held for this branch are still deducted
+  from the live figure, so a hold can never be spent.
 
 **October 2026 — a session must choose its shop before it can touch stock**
 - ✅ **The POS now demands the branch step.** Opening the POS on a session that has not

@@ -17861,8 +17861,25 @@ def subtract_stock(product_id):
         
         # Check if there's enough stock
         if quantity > current_stock:
+            # Name the shop and the LIVE figure, and hand both back to the till: a
+            # screen loaded (or served from the offline cache) before the stock moved
+            # otherwise offers a quantity the server then refuses without saying why,
+            # which reads as "the display is wrong and nobody explains it".
+            branch_label = session.get('branch_name') or 'This branch'
+            try:
+                total_now = int(execute_query(
+                    "SELECT COALESCE(SUM(stock), 0) FROM product_stock WHERE product_id = %s",
+                    (product_id,), fetch_one=True)[0] or 0)
+            except Exception:
+                total_now = current_stock
             return jsonify({
-                'error': f'Insufficient stock. You have {current_stock} units but trying to remove {quantity}'
+                'error': (f'{branch_label} has {current_stock} unit(s) of "{product_name}" right now, '
+                          f'so {quantity} cannot be removed. The figure on your screen was out of '
+                          f'date; it has been refreshed.'),
+                'available': current_stock,
+                'total_stock': total_now,
+                'branch_name': branch_label,
+                'stale': True
             }), 400
         
         # Subtract stock

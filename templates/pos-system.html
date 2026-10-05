@@ -6263,6 +6263,15 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <span><strong>No branch selected.</strong> Choose your shop and enter its access code &mdash; nothing is shown or changed until you do.</span>
             </div>
 
+            <!-- Shown when the figures on screen came from the copy this device saved
+                 (the server was unreachable), so nobody has to guess why a number looks
+                 wrong: the age of the saved copy is stated. -->
+            <div id="posStaleDataBanner"
+                 style="display:none;align-items:center;gap:8px;margin:8px 12px 0;padding:8px 12px;border-radius:8px;background:#FFEDD5;border:1px solid #F97316;color:#9A3412;font-size:0.7rem;">
+                <i class="fas fa-clock-rotate-left"></i>
+                <span id="posStaleDataText"></span>
+            </div>
+
             <!-- Branch Switch Modal -->
             <div class="modal fade" id="branchSwitchModal" tabindex="-1">
                 <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -11634,6 +11643,7 @@ async function fetchProductsFromAPI() {
         
         if (productsData.success) {
             products = productsData.products;
+            noteCatalogueFreshness();
             // Subtract anything this till has rung up but not yet synced, so a
             // reload during an outage cannot show stock that is already promised.
             if (typeof window.applyLocalStockHolds === 'function') window.applyLocalStockHolds(products);
@@ -11647,6 +11657,25 @@ async function fetchProductsFromAPI() {
         console.error('Error fetching products:', error); 
         showToast('Connection error', 'error'); 
     }
+}
+
+// The offline wrapper replays the catalogue it saved on this device when the server
+// cannot be reached (see the PWA block at the bottom of this file). Say so, and say
+// how old the copy is -- otherwise a figure the server later contradicts (a stock
+// subtraction, say) looks like the app is simply wrong.
+function noteCatalogueFreshness() {
+    const el = document.getElementById('posStaleDataBanner');
+    if (!el) return;
+    const at = window.__posCatalogueStaleAt;
+    if (!at) { el.style.display = 'none'; return; }
+    const text = document.getElementById('posStaleDataText');
+    if (text) {
+        text.innerHTML = '<strong>Showing the figures saved on this device.</strong> ' +
+            'The server could not be reached, so the stock on screen is the copy saved at ' +
+            escapeHtml(new Date(at).toLocaleTimeString()) +
+            ' &mdash; refresh once the connection is back.';
+    }
+    el.style.display = 'flex';
 }
 
 // Refresh all POS data in place (products, categories, stats, cashier breakdown, transactions)
@@ -15168,9 +15197,12 @@ function selectCategory(category) {
     }
 
     // Open the Add Stock modal for a product and focus the barcode scan box
-    function showEditStockModal(productId) {
+    async function showEditStockModal(productId) {
         const product = products.find(p => p.id === productId);
         if (!product) return;
+
+        // Same reason as Subtract: show the live figure, not a stale one.
+        await refreshLiveStock(productId);
 
         populateEditStockModal(product);
         new bootstrap.Modal(document.getElementById('editStockModal')).show();
@@ -15311,6 +15343,30 @@ function setupFundingSelection() {
     
     // ==================== SUBTRACT STOCK FUNCTIONS ====================
     
+    // Ask the server for a product's live figure before a stock action is shown or
+    // checked. The page (or the offline copy) can be hours old, and a stale figure is
+    // what makes "subtract 22" fail against a screen that said 26. Sales queued on
+    // this device are still held back from it, so a hold can never be spent.
+    async function refreshLiveStock(productId) {
+        const product = products.find(p => p.id === productId);
+        if (!product) return null;
+        try {
+            const res = await fetch(`${API_BASE}/api/products/${productId}`, { credentials: 'include' });
+            const data = await res.json();
+            if (!data || !data.success || !data.product || data.product.stock == null) return null;
+            const serverFigure = Number(data.product.stock);
+            const hold = Number(product.local_hold || 0);
+            product.stock_server = serverFigure;
+            product.stock = Math.max(0, serverFigure - hold);
+        } catch (e) {
+            // Offline: keep the figure we already have rather than blanking it.
+            return null;
+        }
+        renderProducts();
+        renderInventory();
+        return product;
+    }
+
     function populateSubtractStockModal(product, currentStock) {
         if (!product) return;
         productToEdit = product;
@@ -15336,10 +15392,11 @@ function setupFundingSelection() {
         quantityInput.addEventListener('input', validateQuantity);
     }
 
-    function showSubtractStockModal(productId, currentStock) {
+    async function showSubtractStockModal(productId, currentStock) {
         const product = products.find(p => p.id === productId);
         if (!product) return;
-        populateSubtractStockModal(product, currentStock);
+        const fresh = await refreshLiveStock(productId);
+        populateSubtractStockModal(product, fresh ? fresh.stock : currentStock);
         new bootstrap.Modal(document.getElementById('subtractStockModal')).show();
         const subtractBarcodeField = document.getElementById('subtractStockBarcode');
         if (subtractBarcodeField) subtractBarcodeField.focus();
@@ -15398,6 +15455,14 @@ function setupFundingSelection() {
                 bootstrap.Modal.getInstance(document.getElementById('subtractStockModal')).hide();
             } else {
                 showToast(data.error || 'Failed to remove stock', 'error');
+                if (data.stale) {
+                    // The refusal carried the live figure. Close the box and pick up the
+                    // correct stock so the same stale row cannot be tried again.
+                    const staleModal = bootstrap.Modal.getInstance(document.getElementById('subtractStockModal'));
+                    if (staleModal) staleModal.hide();
+                    await fetchProductsFromAPI();
+                    await fetchDashboardStats();
+                }
             }
         } catch (error) {
             console.error('Subtract stock error:', error);
@@ -20500,6 +20565,12 @@ function setupEventListeners() {
         try { return localStorage.getItem(BRANCH_SCOPE_KEY) || ''; } catch (e) { return ''; }
     }
 
+    // The catalogue call itself -- not /api/products/<id>, which is a live probe
+    // for one product and must not clear the "these figures are saved" notice.
+    function isCatalogueUrl(url) {
+        return url.indexOf('/api/products') !== -1 && url.indexOf('/api/products/') === -1;
+    }
+
     // ---------- PWA: installable on a phone ----------
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
@@ -20539,6 +20610,7 @@ function setupEventListeners() {
         if (!cacheable) return watchForBranchChoice(pending);
 
         return watchForBranchChoice(pending).then(function (res) {
+            if (isCatalogueUrl(url)) window.__posCatalogueStaleAt = null;
             if (res && res.ok) {
                 res.clone().json().then(function (data) {
                     try {
@@ -20557,6 +20629,9 @@ function setupEventListeners() {
                 // Only the CURRENT shop's copy may be served. Older entries belong
                 // to whichever branch this device last worked in.
                 if (entry && entry.branch === currentBranchScope()) {
+                    // Remember that these figures are the saved copy, and when it was
+                    // taken, so the page can say so instead of looking plain wrong.
+                    if (isCatalogueUrl(url)) window.__posCatalogueStaleAt = entry.at || 0;
                     return new Response(JSON.stringify(entry.data), {
                         status: 200,
                         headers: { 'Content-Type': 'application/json' }
