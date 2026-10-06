@@ -18286,23 +18286,35 @@ def sync_offline_transactions():
     Stock follows the same path as a live sale (FIFO layers, per-branch stock,
     stock_reductions), and the sale keeps the time it was actually rung up at
     (never a future time) so day-end reports stay truthful.
+
+    A sale rung with no connection was rung against a figure the till could not
+    confirm, so it may take more than the shelf holds. The money is already
+    taken, so the sale is STILL filed -- but the reply carries a `warning` per
+    affected sale (and an `oversold` count for the batch) naming every line that
+    left a branch holding NEGATIVE, so the operator hears about it at once
+    instead of finding an unexplainable minus quantity later. The movement
+    note is deliberately left in exactly the form the reassign tool matches on,
+    so those sales can still be moved to the branch that really rang them.
     """
     try:
         data = request.get_json(silent=True) or {}
         sales = data.get('sales') or []
         if not isinstance(sales, list) or not sales:
             return jsonify({'success': True, 'results': [], 'synced': 0,
-                            'duplicate': 0, 'failed': 0, 'branch_mismatch': 0})
+                            'duplicate': 0, 'failed': 0, 'branch_mismatch': 0,
+                            'oversold': 0})
 
         branch_id = current_branch_id()
         user_id = session.get('user_id')
         server_now = get_zimbabwe_time()
 
         results = []
-        synced = duplicates = failed = mismatched = 0
+        synced = duplicates = failed = mismatched = oversold = 0
 
         for sale in sales:
             client_ref = str(sale.get('client_ref') or '').strip()[:64]
+            warning = None
+            short_lines = []
             try:
                 items = sale.get('items') or []
                 if not client_ref:
@@ -18412,12 +18424,33 @@ def sync_offline_transactions():
                         """, (pid, qty, 'Sale #%s (offline sync)' % transaction_number,
                               user_id, created_at, branch_id))
 
+                        # The till rung this sale on a figure it could not confirm
+                        # (no connection), so it may have taken more than the shelf
+                        # held. Nothing floors a branch's stock, so the evidence is
+                        # the minus sign: name the line rather than let the shop
+                        # discover a negative quantity it cannot explain.
+                        _held_now = get_branch_stock(cursor, pid, branch_id)
+                        if _held_now < 0:
+                            cursor.execute('SELECT name FROM products WHERE id = %s', (pid,))
+                            _prow = cursor.fetchone()
+                            short_lines.append('%s now %d' % (
+                                (_prow[0] if _prow else 'product %s' % pid), _held_now))
+
+                    if short_lines:
+                        # Counted per SALE, not per line: it is the number of
+                        # sale(s) the till needs to tell its operator about.
+                        oversold += 1
+                        warning = ('This branch was already short: ' + '; '.join(short_lines)
+                                   + '. The sale was rung on a figure the till could not '
+                                     'confirm - check the shelf.')
+
                     connection.commit()
 
                 synced += 1
                 results.append({'client_ref': client_ref, 'status': 'synced',
                                 'transaction_id': transaction_id,
-                                'transaction_number': transaction_number})
+                                'transaction_number': transaction_number,
+                                'warning': warning})
             except Exception as sale_err:
                 failed += 1
                 results.append({'client_ref': client_ref, 'status': 'failed',
@@ -18427,17 +18460,18 @@ def sync_offline_transactions():
         try:
             log_activity(
                 'sale',
-                f'Offline sync: {synced} sale(s) synced, {duplicates} already stored, {failed} failed',
+                f'Offline sync: {synced} sale(s) synced, {duplicates} already stored, '
+                f'{failed} failed, {oversold} took more than the shelf held',
                 'transaction', None,
                 {'synced': synced, 'duplicate': duplicates, 'failed': failed,
-                 'branch_mismatch': mismatched}
+                 'branch_mismatch': mismatched, 'oversold': oversold}
             )
         except Exception:
             pass
 
         return jsonify({'success': True, 'results': results, 'synced': synced,
                         'duplicate': duplicates, 'failed': failed,
-                        'branch_mismatch': mismatched})
+                        'branch_mismatch': mismatched, 'oversold': oversold})
     except Exception as e:
         print(f"Offline sync error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500

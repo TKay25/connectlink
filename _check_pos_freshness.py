@@ -21,7 +21,12 @@ No database and no browser are needed here. This checks, without one:
   5. a subtraction/addition is never refused locally on a figure known to be
      stale -- the server judges it, and it reports the real quantity,
   6. the catalogue is re-fetched when the connection returns, when the tab
-     comes back, on the slow timer, and whenever the Inventory page is opened.
+     comes back, on the slow timer, and whenever the Inventory page is opened,
+  7. a sale rung offline that turns out to have taken more than the shelf held is
+     DISCLOSED -- in the sync reply (a named warning and a count) and on the till
+     (the confirmation dialog before the money, and the queued-sale notice) --
+     without disturbing the movement note the reconciliation tool matches on
+     EXACTLY, which is what lets those sales still be reassigned.
 
 Run:  python _check_pos_freshness.py   (writes _check_pos_out.txt)
 """
@@ -337,6 +342,59 @@ check('opening the Inventory page forces server figures',
 check('the Inventory page states when the figures were confirmed',
       'id="inventoryAsAt"' in NEW and 'Figures confirmed by the server at ' in NEW
       and 'Figures NOT confirmed by the server' in NEW)
+
+# ------------- 7. a sale rung offline that took more than the shelf held
+# The till rung it on a figure it could NOT confirm, so the sale may take stock
+# the shelf does not hold. The money is already taken, so the sale is still
+# filed: what matters is that the shortage is NAMED by the server and DISCLOSED
+# on the till at once -- and that the movement note the reconciliation tool
+# matches on EXACTLY is left alone, or those sales could no longer be reassigned.
+try:
+    _cl = open('ConnectLink.py', encoding='utf-8').read()
+    _start = _cl.index('def sync_offline_transactions')
+    _stop = _cl.index("@app.route('/api/transactions', methods=['POST'])", _start)
+    sync = _cl[_start:_stop]
+    check('the sync route reports a sale that took more than the shelf held',
+          'oversold' in sync and 'warning' in sync)
+    check('the shelf is read where the stock is actually taken',
+          sync.index('add_branch_stock(cursor, pid, branch_id, -qty)')
+          < sync.index('if _held_now < 0:'))
+    check('the shortfall is named in the reply, not only counted',
+          'short_lines.append(' in sync and "'warning': warning" in sync)
+    check('the reply carries the count beside the per-sale statuses',
+          "'branch_mismatch': mismatched, 'oversold': oversold}" in sync)
+    check('the movement note the reassign tool matches on EXACTLY is unchanged',
+          "'Sale #%s (offline sync)'" in sync)
+    reassign = _cl[_cl.index('def pos_reconciliation_reassign'):][:9000]
+    check('and that tool still matches it exactly',
+          "f'Sale #{t[1]} (offline sync)'" in reassign)
+except Exception as exc:                                           # noqa: BLE001
+    check('read the offline sync route out of ConnectLink.py', False,
+          f'{type(exc).__name__}: {exc}')
+
+
+# ------------- 8. the till says so -- before the money, and after the sync
+check('the confirmation dialog has somewhere to say it',
+      'id="posCheckoutStaleNote"' in NEW and 'id="posCheckoutStaleText"' in NEW)
+note = NEW[NEW.index('function noteCheckoutFreshness'):]
+note = note[:note.index('// Refresh all POS data in place')]
+check('it goes quiet once the server has confirmed the figures',
+      'if (catalogueIsLive() && navigator.onLine !== false)' in note)
+check('it says the sale is still taken, so it is a warning and not a refusal',
+      'The sale is still taken' in note)
+conf = NEW[NEW.index('function showPaymentConfirmation'):]
+conf = conf[:conf.index('async function processPayment')]
+check('the note is refreshed as the confirmation opens',
+      'noteCheckoutFreshness();' in conf)
+queued = NEW[NEW.index('function queueSale(sale)'):]
+queued = queued[:queued.index('// ---------- Offline laybys')]
+check('a queued sale names the age of the copy it was rung on',
+      '__posCatalogueStaleAt' in queued)
+after = NEW[NEW.index('function syncOfflineSales'):]
+after = after[:after.index('// ---------- UI ----------')]
+check("the server's warning about a short shelf is shown to the operator",
+      'showToast(shortWarn[0].warning' in after and 'data.oversold' in after)
+
 
 out = '\n'.join(RESULTS)
 _flush()

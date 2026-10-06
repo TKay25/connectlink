@@ -6,7 +6,7 @@
   "purpose": "Offline check for the POS freshness fix in templates/pos-system.html.",
   "entry_function": "check(name, ok, detail = '')",
   "entry_flows": [
-    "_check_pos_freshness → _check_pos_freshness.py, fh.write, RESULTS.append, subprocess.run, stdout.decode"
+    "_check_pos_freshness → _check_pos_freshness.py, fh.write, RESULTS.append, subprocess.run"
   ],
   "public_api": [
     "check(name, ok, detail = '')",
@@ -34,6 +34,6 @@
   "file_mtime": 1791293396229.5667,
   "file_size": 4574,
   "file_birthtime": 1791293396224.3088,
-  "generated_at": "2026-10-06T13:56:44.104655Z",
+  "generated_at": "2026-10-06T14:16:48.792313Z",
   "stale": false
 }

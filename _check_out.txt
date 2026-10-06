@@ -1,0 +1,19 @@
+PASS  script started
+PASS  _branch_stock_phantom imports
+PASS  parses cleanly: _branch_stock_phantom.py
+PASS  find_phantoms flags only the unearned row  -> got [10]
+PASS  find_phantoms keeps the quantity for the report  -> [{'product_id': 10, 'name': 'Speaker A', 'branch_stock': 5, 'min_stock_level': 10, 'catalogue_total': 10, 'other_branches': 5, 'all_branches': 10}]
+PASS  find_phantoms uses the branch code from BRANCH_FIRST_CODE  -> SHU
+PASS  report() issues no writes  -> []
+PASS  report() prints the suspect table
+PASS  report() omits the rows it must keep
+PASS  apply() commits
+PASS  apply() backs up the rows before deleting
+PASS  apply() deletes the row and the untouched opening layers
+PASS  apply() re-derives products.stock
+PASS  apply() only touches the flagged product  -> [[10], [10]]
+PASS  apply() reports what it removed
+PASS  the boot seeder is guarded by NOT EXISTS
+PASS  the guard sits inside the seed, before its ON CONFLICT
+PASS  main() fails cleanly when the database is unreachable  -> rc=2
+PASS  main() promises nothing was changed

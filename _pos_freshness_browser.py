@@ -19,7 +19,12 @@ stand-ins for the POS API, then drives a real Chromium (Playwright) against it:
   6. opening Subtract on an unconfirmed figure says so, and does NOT block the
      removal locally: the request reaches the server, which answers with its own
      live figure,
-  7. opening the Inventory page asks the server again.
+  7. opening the Inventory page asks the server again,
+  8. a barcode lookup still resolves with no answer from the server, and the
+     server's answer wins whenever it can be reached,
+  9. the confirmation dialog -- the last screen before money is taken -- says the
+     stock behind the order is not the server's own, and goes quiet again once
+     the server has answered.
 
 Not part of the app: delete this file whenever.
 Run:  python _pos_freshness_browser.py   (writes _check_pos_browser_out.txt)
@@ -492,6 +497,38 @@ try:
         }""")
         check('with the server reachable it is the server\'s answer that counts',
               scan2['hit'] == 7 and scan2['miss'] is None, json.dumps(scan2))
+
+        # 9. the confirmation dialog -- the last screen before money is taken --
+        # discloses it too. A sale rung on an unconfirmed figure is exactly the
+        # sale that can oversell, so the warning cannot live only on the banner.
+        ctl['catalogue'] = 'abort'
+        page.evaluate("fetchProductsFromAPI()")
+        page.wait_for_timeout(500)
+        chk = page.evaluate("""() => {
+            cart = [{id: 7, name: 'Speaker X', quantity: 1, sell_price: 15, price: 15,
+                     category: 'Audio', unit_type: 'piece', unit_details: '10W'}];
+            selectedPaymentMethod = 'cash';
+            document.getElementById('cashAmount').value = '20';
+            updateCartDisplay();
+            showPaymentConfirmation();
+            const el = document.getElementById('posCheckoutStaleNote');
+            return {shown: el.style.display !== 'none',
+                    text: document.getElementById('posCheckoutStaleText').innerText};
+        }""")
+        check('the confirmation dialog warns that the stock behind it is unconfirmed',
+              chk['shown'] and 'not confirmed by the server' in chk['text'].lower(),
+              chk['text'][:160])
+        check('and says the sale is still taken, so it is a warning and not a refusal',
+              'still taken' in chk['text'], chk['text'][:160])
+
+        # ...and it goes quiet again the moment the server's own figures are back.
+        ctl['catalogue'] = 'live'
+        page.evaluate("fetchProductsFromAPI()")
+        page.wait_for_timeout(500)
+        page.evaluate("showPaymentConfirmation()")
+        check('a till showing the server\'s own figures shows no such warning',
+              page.evaluate(
+                  "document.getElementById('posCheckoutStaleNote').style.display") == 'none')
 
         browser.close()
 except Exception as exc:                                           # noqa: BLE001

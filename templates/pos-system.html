@@ -7995,6 +7995,15 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                     <h5 class="modal-title"><i class="fas fa-receipt me-1"></i>Order Confirmation</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
+                <!-- Shown when the quantities behind this order are NOT the server's own
+                     (a saved copy, a refused load, or no connection). This is the last
+                     screen before money is taken, so the warning belongs here and not
+                     only on the banner above the page. -->
+                <div id="posCheckoutStaleNote"
+                     style="display:none;align-items:flex-start;gap:8px;margin:12px 16px 0;padding:8px 12px;border-radius:8px;background:#FFEDD5;border:1px solid #F97316;color:#9A3412;font-size:0.7rem;">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <span id="posCheckoutStaleText"></span>
+                </div>
                 <div class="modal-body" id="confirmationContent"></div>
                 <div class="modal-footer confirmation-footer">
                     <div class="confirmation-payment-info">
@@ -11790,6 +11799,33 @@ function noteCatalogueFreshness(state) {
                 'They are the last thing this till loaded and may already be out of date ' +
                 '&mdash; refresh (or check the connection) before trusting a quantity.';
         }
+    }
+    el.style.display = 'flex';
+}
+
+// The same question at the till's sharpest moment. The confirmation dialog is the
+// last screen before money is taken, so when the quantities behind it are not the
+// server's own the operator is told THERE, not only on the banner above: a figure
+// this device saved, or a load the server refused, is exactly the state that gets
+// a sale rung on stock the shelf does not hold. The sale is NOT blocked -- refusing
+// would stop the shop taking money during an outage -- but the server reports any
+// shortage the moment it syncs (see /api/transactions/sync), so nobody can say the
+// screen gave no warning.
+function noteCheckoutFreshness() {
+    const el = document.getElementById('posCheckoutStaleNote');
+    if (!el) return;
+    // Live figures AND a connection: there is nothing to disclose.
+    if (catalogueIsLive() && navigator.onLine !== false) { el.style.display = 'none'; return; }
+    const at = Number(window.__posCatalogueStaleAt || 0);
+    const offline = (navigator.onLine === false);
+    const text = document.getElementById('posCheckoutStaleText');
+    if (text) {
+        text.innerHTML = '<strong>Stock on this screen is not confirmed by the server'
+            + (at ? ', which last answered at ' + escapeHtml(new Date(at).toLocaleTimeString()) : '')
+            + '.</strong> The sale is still taken'
+            + (offline ? ' and saved on this device' : '')
+            + ', but the shelf may hold less than it says &mdash; the server reports any '
+            + 'shortage as soon as this sale reaches it.';
     }
     el.style.display = 'flex';
 }
@@ -16459,6 +16495,9 @@ function setupAddProductFundingSelection() {
         document.getElementById('cfTendered').textContent = `$${cashAmount.toFixed(2)}`;
         document.getElementById('cfChange').textContent = `$${change.toFixed(2)}`;
         document.getElementById('cfPayMethod').innerHTML = `<i class="fas ${payIcon} me-1"></i>Payment via ${paymentMethodDisplay}`;
+        // Last screen before the money is taken: say whether the stock behind this
+        // order is the server's own figure or one this till cannot confirm.
+        noteCheckoutFreshness();
         
         const modalElement = document.getElementById('confirmationModal');
         let modal = bootstrap.Modal.getInstance(modalElement);
@@ -20970,7 +21009,13 @@ function setupEventListeners() {
         // Taken off that shop's shelf but not yet confirmed by the server.
         holdEntry(entry);
         if (typeof showToast === 'function') {
-            showToast('No connection - sale saved on this device and will sync automatically.', 'warning');
+            // Name the age of the copy the sale was rung on: a queued sale on a
+            // figure this device saved is the one case where the shelf may not
+            // hold what the receipt says, and the operator should hear it now.
+            var copyAt = Number(window.__posCatalogueStaleAt || 0);
+            showToast('No connection - sale saved on this device and will sync automatically.'
+                + (copyAt ? ' The stock shown was this device\'s copy from '
+                            + new Date(copyAt).toLocaleTimeString() + '.' : ''), 'warning');
         }
         return ref;
     }
@@ -21338,6 +21383,16 @@ function setupEventListeners() {
                 if (data.failed) showToast(data.failed + ' sale(s) could not sync and stay queued.', 'error');
                 if (data.branch_mismatch) {
                     showToast(data.branch_mismatch + ' sale(s) were rung in another branch and are waiting. Switch to that branch to sync them.', 'warning');
+                }
+                // A sale that took more than the shelf held. The money was already
+                // taken and the sale IS filed, so this is a disclosure, not a
+                // failure: the server names the product and the shortfall, which is
+                // the figure the shop has to go and check.
+                var shortWarn = (data.results || []).filter(function (r) { return r.warning; });
+                if (shortWarn.length) {
+                    showToast(shortWarn[0].warning, 'warning');
+                } else if (data.oversold) {
+                    showToast(data.oversold + ' synced sale(s) took more than the shelf held - they were rung on figures that had moved. See the stock reconciliation report.', 'warning');
                 }
             }
             // Anything genuinely unfinished is retried shortly. Sales held for

@@ -616,6 +616,46 @@ copy look like the truth:
 stub server with a saved copy of "26" while the server holds 8 — including the refusal and
 the refresh when the Inventory page is opened. Neither touches the live database.
 
+### A sale rung offline that took more than the shelf held
+
+**What happens.** A till with no connection sells from the catalogue it saved on the
+device, so it can ring a sale against a quantity the shop has since lost (the same
+8-vs-26 gap as above, but at the till instead of on the Inventory tab). By then the money
+is in the drawer, so the sale is **never refused**: it is queued on the device
+(`client_ref`) and replayed by `/api/transactions/sync`, which is idempotent, so the shop
+is charged once however often the till retries.
+
+**What the shop is told, and when.**
+
+| When | Where | What it says |
+|---|---|---|
+| Before the money is taken | The **Order Confirmation** dialog (and the page banner) | *Stock on this screen is not confirmed by the server…* — and that the sale is still taken |
+| As the sale is saved | The till's toast | *No connection – sale saved on this device…*, with the time the stock copy was saved |
+| The moment it syncs | The till's toast | *This branch was already short: &lt;item&gt; now -4…* — naming the product and the figure |
+
+The sync reply carries a `warning` for each affected sale plus an `oversold` count for the
+batch, so the till says it in the operator's own words instead of leaving a minus quantity
+to be discovered later. Every sync also records the count in the audit log (*Offline sync:
+N sale(s) synced, … , M took more than the shelf held*).
+
+**Why the till is allowed to do this at all.** Offline selling is deliberate and stays:
+the alternative turns every dropped link into "the till cannot take money". What is not
+allowed is doing it *silently* — the three notices above are the price of that choice.
+
+**Finding and fixing the stock.** The same sales are listed by `GET /api/pos/reconciliation`
+(an offline sale that left a branch negative is flagged `suspect`), and
+`POST /api/pos/reconciliation/reassign` moves a mis-filed sale to the branch that really
+rang it. The movement note is deliberately left as `Sale #<number> (offline sync)` — the
+exact string the reassign tool matches on — so **never reword it**, or such a sale can no
+longer be put right.
+
+**Verifying it.** `python _check_pos_freshness.py` also checks that the sync reply names
+the shortfall, that the note the reassign tool matches on is untouched, and that the till
+discloses it in the confirmation dialog and when queueing a sale;
+`python _pos_freshness_browser.py` opens a real confirmation dialog against the throw-away
+stub server and asserts the warning appears on an unconfirmed figure and disappears once
+the server has answered. Neither touches the live database.
+
 ### Project changes in the audit log
 
 **Every change to a field on a project is now audited, one row per field**, carrying the
