@@ -37819,7 +37819,7 @@ window.alert = function(msg) {
             if(resp.status === 401 || resp.status === 403){
                 resp.clone().json().then(function(d){
                     if(d && d.session_expired){
-                        showToast((d.error || 'Session expired.') + '\n\nPlease logout and login again. Sessions last 6 hours.', 'error', 'Session Expired');
+                        showToast((d.error || 'Session expired.') + '\n\nPlease log in again to continue.', 'error', 'Session Expired');
                     }
                 }).catch(function(){});
             }

@@ -656,6 +656,47 @@ discloses it in the confirmation dialog and when queueing a sale;
 stub server and asserts the warning appears on an unconfirmed figure and disappears once
 the server has answered. Neither touches the live database.
 
+### A till that has been logged out with sales still on it
+
+**What happens.** Selling and *filing* are separate: the sale is queued on the device with no
+login at all, and only the last step — `POST /api/transactions/sync`, the one login-protected
+POS route — needs the session. So if a till is logged out (someone pressed **Logout**, or the
+browser's storage was cleared) the counter keeps working and the sales keep queueing; they are
+simply not filed until somebody logs in once. Nothing is discarded: the batch is refused whole,
+with no retry counted against any sale, and it is retried on the next page load, the next
+`online` event, the tab coming back, the 30-second sweep, or **Sync now**.
+
+**What the till says.** Not the server's bare *Session not found* — which read, on a busy
+counter, as if the money had been lost. It says how much is waiting:
+
+> *3 sales saved on this till – log in once and they file themselves.*
+
+Sales and layby items are counted separately and named together when both are waiting. The
+notice is repeated only when the count changes (and at most once a minute), and it is cleared
+by the first sync that gets through, so a *second* logout is announced again.
+
+**A lie that is now gone.** The refusal used to add *"Sessions last 6 hours. Please logout and
+login again to start a new session."* — false: the session cookie is permanent, so a till that
+looked fine yesterday still has its session today. Shops acted on that sentence and went
+looking for a login fault that did not exist. The message now reads *"Session not found. Log in
+again to continue."*, and the same false claim was removed from the admin page's expiry toast.
+
+**Laybys are held, not parked.** A layby event that meets a dead session used to be marked
+`blocked` — i.e. taken out of the retry queue and shown under **needs attention** on the Layby
+tab, when all it needed was a login. It is now held like an offline item, and the rest of that
+queue is left alone rather than failed item by item.
+
+**What to do about it.** Log in once on that till (any valid user for the same shop) and press
+**Sync now** if the chip does not clear within a minute. The queue survives a reload, a
+browser restart and days of being offline; it does **not** survive someone clearing the site's
+data for that browser, which is also what a "reset" of the till means.
+
+**Verifying it.** `python _check_pos_freshness.py` checks the wording, the counting and that no
+retry is burned on a dead session; `python _pos_freshness_browser.py` rings a sale on a real
+page against a stub server that answers `401 session_expired`, then answers properly, and
+asserts the count is announced, the sale is kept, and it files itself after that one login.
+Neither touches the live database.
+
 ### Project changes in the audit log
 
 **Every change to a field on a project is now audited, one row per field**, carrying the

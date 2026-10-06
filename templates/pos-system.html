@@ -21219,6 +21219,13 @@ function setupEventListeners() {
                     }
                     return { outcome: 'done', response: data };
                 }
+                if (data.session_expired) {
+                    // No login on this till, so there is nobody this event could
+                    // be filed under. The event is not wrong, and it must NOT be
+                    // parked as a decision for a human: that took it out of the
+                    // retry queue for good, when one login would have fixed it.
+                    return { outcome: 'session', message: data.error || 'Log in again to file this.' };
+                }
                 if (data.branch_mismatch) {
                     return { outcome: 'hold', message: data.error || 'Taken in another branch.' };
                 }
@@ -21263,6 +21270,11 @@ function setupEventListeners() {
                     list.splice(i, 1);
                 } else if (result.outcome === 'hold') {
                     list[i].attempts = 0;                 // never ages out
+                } else if (result.outcome === 'session') {
+                    // Not a layby problem -- every other event would fail the same
+                    // way. Leave it untouched and unstamped, so it is replayed as
+                    // soon as there is a login, and never parked as blocked.
+                    list[i].attempts = 0;                 // never ages out
                 } else {
                     list[i].status = 'blocked';           // parked for a human
                     list[i].error = result.message;
@@ -21275,6 +21287,12 @@ function setupEventListeners() {
                 if (result.outcome === 'blocked') {
                     showToast('A layby item needs attention: ' + result.message, 'error');
                 }
+            }
+            if (result.outcome === 'session') {
+                // Nothing else on this till can be filed either, so say it once
+                // and stop, instead of failing the rest of the queue item by item.
+                notifySessionExpired();
+                return;
             }
             if (typeof window.fetchLaybys === 'function' && result.outcome === 'done') {
                 window.fetchLaybys();
@@ -21341,12 +21359,21 @@ function setupEventListeners() {
                 if (data && data.needs_branch && typeof window.onBranchChoiceRequired === 'function') {
                     window.onBranchChoiceRequired();
                 }
-                if (typeof showToast === 'function') {
+                if (data && data.session_expired) {
+                    // Nothing is wrong with these sales: this till simply has no
+                    // login to file them under. Say how many are waiting, rather
+                    // than passing a bare "session not found" through -- read on a
+                    // busy counter that sounds as if the money has been lost.
+                    notifySessionExpired();
+                } else if (typeof showToast === 'function') {
                     showToast(data.error || 'The queued sales could not be uploaded yet; they stay on this till.', 'warning');
                 }
                 updateSyncUI();
                 return;
             }
+            // The server dealt with this queue, so any "log in once" notice has
+            // been answered -- a later logout is announced again.
+            clearSessionNotice();
             var done = {}, held = {};
             (data.results || []).forEach(function (r) {
                 if (r.status === 'synced' || r.status === 'duplicate') done[r.client_ref] = true;
@@ -21434,6 +21461,41 @@ function setupEventListeners() {
             if (label) label.innerText = isOffline() ? (n ? 'Offline \u2022 ' + n : 'Offline') : (n ? 'Sync ' + n : 'Online');
         }
     }
+
+    // ---------- A till that has been logged out with work still on it ----------
+    // A session that has gone is NOT a business failure: the sales and the layby
+    // events are safe on this till and file themselves the moment somebody logs in
+    // once. So the till says the number out loud -- a bare "session not found"
+    // reads as if the money were lost, and sends the shop looking for a fault that
+    // does not exist. Sales and laybys sync together, so the same news is printed
+    // once per count (and at most once a minute); a sync that gets through clears
+    // it, so a SECOND logout is announced again.
+    var sessionNoticeKey = '';
+    var sessionNoticeAt = 0;
+
+    function notifySessionExpired() {
+        if (typeof showToast !== 'function') return;
+        var sales = readQueue().length;
+        var laybys = pendingLaybyCount();
+        if (!sales && !laybys) return;
+        var parts = [];
+        if (sales) parts.push(sales === 1 ? '1 sale' : sales + ' sales');
+        if (laybys) parts.push(laybys === 1 ? '1 layby item' : laybys + ' layby items');
+        var key = parts.join('|');
+        var now = Date.now();
+        if (key === sessionNoticeKey && (now - sessionNoticeAt) < 60000) return;
+        sessionNoticeKey = key;
+        sessionNoticeAt = now;
+        showToast(parts.join(' and ')
+            + ' saved on this till - log in once and they file themselves.', 'warning');
+    }
+
+    function clearSessionNotice() {
+        sessionNoticeKey = '';
+        sessionNoticeAt = 0;
+    }
+    window.notifySessionExpired = notifySessionExpired;
+    window.clearSessionNotice = clearSessionNotice;
 
     // ---------- Keep the figures live ----------
     // A till that opened (or fell back) on its own saved copy must not go on showing

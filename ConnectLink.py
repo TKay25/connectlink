@@ -14033,7 +14033,13 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            return jsonify({'error': 'Session not found. Sessions last 6 hours. Please logout and login again to start a new session.', 'session_expired': True}), 401
+            # A dead session does not stop the till selling, and it does not put
+            # its sales at risk: they stay on the device and are filed the moment
+            # somebody logs in once. So do not claim a lifetime this cookie does
+            # not have -- the session cookie is permanent (app.secret_key is
+            # fixed), so "sessions last 6 hours" sent shops hunting for a login
+            # fault that did not exist.
+            return jsonify({'error': 'Session not found. Log in again to continue.', 'session_expired': True}), 401
         return f(*args, **kwargs)
     return decorated_function
 
@@ -14042,9 +14048,9 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            return jsonify({'error': 'Session not found. Sessions last 6 hours. Please logout and login again to start a new session.', 'session_expired': True}), 401
+            return jsonify({'error': 'Session not found. Log in again to continue.', 'session_expired': True}), 401
         if session.get('role') != 'admin':
-            return jsonify({'error': 'Admin access required. Sessions last 6 hours. Please logout and login as admin to start a new session.', 'session_expired': True}), 403
+            return jsonify({'error': 'Admin access required. Log in with an admin account to continue.', 'session_expired': True}), 403
         return f(*args, **kwargs)
     return decorated_function
 

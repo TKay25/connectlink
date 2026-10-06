@@ -24,7 +24,11 @@ stand-ins for the POS API, then drives a real Chromium (Playwright) against it:
      server's answer wins whenever it can be reached,
   9. the confirmation dialog -- the last screen before money is taken -- says the
      stock behind the order is not the server's own, and goes quiet again once
-     the server has answered.
+     the server has answered,
+ 10. a till that has been LOGGED OUT with sales still on it says how many are
+     waiting and that one login files them -- instead of passing a bare session
+     error through, which reads as if the money were lost -- keeps the sale, burns
+     no retry on it, and hands it over for filing after a login that works.
 
 Not part of the app: delete this file whenever.
 Run:  python _pos_freshness_browser.py   (writes _check_pos_browser_out.txt)
@@ -73,6 +77,9 @@ SAVED_PRODUCT = dict(PRODUCT, stock=SAVED_STOCK, total_stock=SAVED_STOCK,
 
 BRANCH = {'id': 1, 'code': 'SHU', 'name': 'Shurugwi', 'read_only': False}
 LOG = []
+# What the till actually SENT to /api/transactions/sync: a session refusal must be
+# shown to have asked the server for the truth, rather than to have dropped the sale.
+SYNC_POSTS = []
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -166,9 +173,22 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         path = urllib.parse.urlsplit(self.path).path
         length = int(self.headers.get('Content-Length') or 0)
-        if length:
-            self.rfile.read(length)
+        body = json.loads(self.rfile.read(length) or b'{}') if length else {}
         LOG.append(('POST', path))
+        if path == '/api/transactions/sync':
+            SYNC_POSTS.append(body)
+            if ctl['sync'] == 'session':
+                # The real @login_required answer: the till has no session, so
+                # nothing can be filed -- and the sales stay the till's problem.
+                return self._json({'error': 'Session not found. Log in again to continue.',
+                                   'session_expired': True}, 401)
+            if ctl['sync'] == 'readonly':
+                return self._json({'error': 'The All Branches view is read-only.'}, 403)
+            sales = body.get('sales') or []
+            return self._json({'success': True, 'synced': len(sales), 'duplicate': 0,
+                               'failed': 0, 'branch_mismatch': 0, 'oversold': 0,
+                               'results': [{'client_ref': s.get('client_ref'),
+                                            'status': 'synced'} for s in sales]})
         return self._json({'success': True})
 
 
@@ -215,7 +235,7 @@ if (!window.bootstrap.Modal) {
 }
 """
 
-ctl = {'catalogue': 'abort', 'probe': 'abort', 'barcode': 'live'}
+ctl = {'catalogue': 'abort', 'probe': 'abort', 'barcode': 'live', 'sync': 'live'}
 
 # Put the till back in the complaint's exact position: the copy it holds says 26.
 SEED_STALE_COPY = """() => {
@@ -529,6 +549,84 @@ try:
         check('a till showing the server\'s own figures shows no such warning',
               page.evaluate(
                   "document.getElementById('posCheckoutStaleNote').style.display") == 'none')
+
+        # 10. a till that has been LOGGED OUT with sales still on it. The sales are
+        # safe on the device; what they need is one login, and the till has to say
+        # that in those words -- a bare "session not found" read on a busy counter
+        # sounds as if the money were gone, which is how a shop ends up hunting for
+        # a fault that does not exist.
+        ctl['sync'] = 'session'
+        clear_log()
+        page.evaluate("""() => {
+            window.POSOffline.queueSale({
+                items: [{id: 7, name: 'Speaker X', price: 15, quantity: 1}],
+                payment_method: 'cash', amount_paid: 15, change_amount: 0,
+                subtotal: 15, total: 15});
+            Array.from(document.querySelectorAll('.toast-notify')).forEach(t => t.remove());
+        }""")
+        page.wait_for_timeout(120)
+        page.evaluate("() => window.POSOffline.syncNow()")
+        page.wait_for_timeout(1500)
+        dead = page.evaluate("""() => {
+            const q = JSON.parse(localStorage.getItem('pos_offline_sales_v1') || '[]');
+            return {toasts: Array.from(document.querySelectorAll('.toast-notify'))
+                              .map(t => t.innerText).join(' | '),
+                    queued: q.length,
+                    attempts: q.length ? (q[0].attempts || 0) : -1};
+        }""")
+        check('a logged-out till says how many sales are waiting on it',
+              '1 sale' in dead['toasts'] and 'log in once' in dead['toasts'],
+              dead['toasts'][:180])
+        check('and does not pass the raw session error through as a failure',
+              'Session not found' not in dead['toasts']
+              and 'Log in again to continue' not in dead['toasts'],
+              dead['toasts'][:180])
+        check('the sale is kept on the till, and no retry is burned on a dead session',
+              dead['queued'] == 1 and dead['attempts'] == 0,
+              'queued=%d attempts=%s' % (dead['queued'], dead['attempts']))
+        check('the batch really was offered to the server before being refused',
+              len(SYNC_POSTS) == 1 and len(SYNC_POSTS[0].get('sales') or []) == 1,
+              json.dumps(SYNC_POSTS)[:180])
+
+        # ...and one login files it: the till has to prove that, not merely claim it.
+        ctl['sync'] = 'live'
+        page.evaluate("""() => {
+            Array.from(document.querySelectorAll('.toast-notify')).forEach(t => t.remove());
+            return window.POSOffline.syncNow();
+        }""")
+        page.wait_for_timeout(1800)
+        filed = page.evaluate("""() => ({
+            toasts: Array.from(document.querySelectorAll('.toast-notify'))
+                          .map(t => t.innerText).join(' | '),
+            queued: JSON.parse(localStorage.getItem('pos_offline_sales_v1') || '[]').length})""")
+        check('after ONE login the sale the till was holding files itself',
+              filed['queued'] == 0 and 'Synced 1 offline sale(s)' in filed['toasts'],
+              json.dumps(filed)[:180])
+
+        # A refusal that is NOT about the session must still reach the operator in
+        # the server's own words: the session wording is an addition, not a cover-up.
+        ctl['sync'] = 'readonly'
+        page.evaluate("""() => {
+            window.POSOffline.queueSale({
+                items: [{id: 7, name: 'Speaker X', price: 15, quantity: 1}],
+                payment_method: 'cash', amount_paid: 15, change_amount: 0,
+                subtotal: 15, total: 15});
+            Array.from(document.querySelectorAll('.toast-notify')).forEach(t => t.remove());
+        }""")
+        page.wait_for_timeout(120)
+        page.evaluate("() => window.POSOffline.syncNow()")
+        page.wait_for_timeout(1500)
+        check("any other refusal still shows the server's own words",
+              'read-only' in page.evaluate(
+                  "Array.from(document.querySelectorAll('.toast-notify'))"
+                  ".map(t => t.innerText).join(' | ')"),
+              page.evaluate(
+                  "Array.from(document.querySelectorAll('.toast-notify'))"
+                  ".map(t => t.innerText).join(' | ')")[:180])
+
+        # Leave nothing behind for the next run of this page.
+        page.evaluate("() => localStorage.removeItem('pos_offline_sales_v1')")
+        ctl['sync'] = 'live'
 
         browser.close()
 except Exception as exc:                                           # noqa: BLE001

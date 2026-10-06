@@ -26,7 +26,11 @@ No database and no browser are needed here. This checks, without one:
      DISCLOSED -- in the sync reply (a named warning and a count) and on the till
      (the confirmation dialog before the money, and the queued-sale notice) --
      without disturbing the movement note the reconciliation tool matches on
-     EXACTLY, which is what lets those sales still be reassigned.
+     EXACTLY, which is what lets those sales still be reassigned,
+  8. and a till that has been LOGGED OUT with sales still on it says how many are
+     waiting and that one login files them -- rather than passing a bare session
+     error through, which reads as if the money were lost (the server no longer
+     claims a session lifetime its cookie does not have).
 
 Run:  python _check_pos_freshness.py   (writes _check_pos_out.txt)
 """
@@ -204,6 +208,8 @@ EDITED = [
     'function isCatalogueUrl(',
     'function pruneSavedCopies(',
     'function refreshCatalogueIfStale(',
+    'function notifySessionExpired(',
+    'function clearSessionNotice(',
 ]
 bad = []
 for marker in EDITED:
@@ -217,7 +223,7 @@ for marker in EDITED:
 check('every declaration this change touched parses on its own',
       not bad, '; '.join(bad[:3]))
 check('all of the touched declarations were found',
-      len(EDITED) == 21, str(len(EDITED)))
+      len(EDITED) == 23, str(len(EDITED)))
 
 
 # ------------------------------------- 2. only the catalogue is replayable
@@ -394,6 +400,55 @@ after = NEW[NEW.index('function syncOfflineSales'):]
 after = after[:after.index('// ---------- UI ----------')]
 check("the server's warning about a short shelf is shown to the operator",
       'showToast(shortWarn[0].warning' in after and 'data.oversold' in after)
+
+
+# ---------- 9. a till that has been logged out with work still on it ----------
+# A dead session is NOT a business failure: the sales and the layby events are safe
+# on the till, and they file themselves after ONE login. A bare "session not found"
+# read on a busy counter sounds as if the money were gone, which is how a shop ends
+# up hunting a login fault that does not exist -- the same reason the server must
+# stop claiming a session lifetime its cookie does not have.
+notify = extract(NEW, 'function notifySessionExpired(')
+check('a logged-out till says how many sales are waiting on it',
+      'readQueue().length' in notify and "'1 sale' : sales + ' sales'" in notify)
+check('and says one login files them, so the money is not lost',
+      'log in once and they file themselves' in notify)
+check('it counts the layby events waiting too', 'pendingLaybyCount()' in notify)
+check('the same news is not repeated for an unchanged count',
+      'sessionNoticeKey' in notify and '< 60000' in notify)
+sales_sync = extract(NEW, 'function syncOfflineSales(')
+refuse = sales_sync[sales_sync.index('if (!reply.ok) {'):]
+refuse = refuse[:refuse.index('var done = {}, held = {};')]
+check('a refused batch that only needs a login is reported as sales waiting, not as an error',
+      'data.session_expired' in refuse and 'notifySessionExpired();' in refuse
+      and refuse.index('data.session_expired') < refuse.index('showToast(data.error'))
+check('no retry is ever burned on a dead session (the sales cannot age out)',
+      'entry.attempts = ' not in refuse and 'return;' in refuse)
+check('a sync that gets through clears the notice, so a second logout is announced',
+      'clearSessionNotice();' in sales_sync)
+laybys_sync = extract(NEW, 'function syncOfflineLaybys(')
+check('a layby event that only needs a login is not parked as a human decision',
+      "outcome === 'session'" in laybys_sync
+      and laybys_sync.index("outcome === 'session'") < laybys_sync.index("status = 'blocked'"))
+check('and the rest of the layby queue is not failed item by item',
+      "if (result.outcome === 'session') {" in laybys_sync
+      and 'notifySessionExpired();' in laybys_sync
+      and laybys_sync.index("if (result.outcome === 'session') {")
+          < laybys_sync.index('return syncOfflineLaybys(false);'))
+replay = extract(NEW, 'function replayLaybyEvent(')
+check('the layby replay tells a dead session apart from a refusal',
+      'data.session_expired' in replay and "outcome: 'session'" in replay
+      and replay.index('data.session_expired') < replay.index('data.branch_mismatch'))
+try:
+    _cl = open('ConnectLink.py', encoding='utf-8').read()
+    check('the server no longer claims a session lifetime its cookie does not have',
+          'Sessions last 6 hours' not in _cl)
+    _deco = _cl[_cl.index('def login_required(f):'):][:900]
+    check('but a dead session is still reported as one (the till keys on that flag)',
+          "'session_expired': True" in _deco)
+except Exception as exc:                                           # noqa: BLE001
+    check('read the session decorators out of ConnectLink.py', False,
+          f'{type(exc).__name__}: {exc}')
 
 
 out = '\n'.join(RESULTS)
