@@ -1,0 +1,44 @@
+PASS  script started
+PASS  read the POS page  -> 916456 chars
+PASS  read the committed POS page for comparison  -> 900113 chars
+PASS  the page still has its script blocks  -> new=4 old=4
+PASS  no script block gained a syntax error (vs the committed page)
+PASS  every declaration this change touched parses on its own
+PASS  all of the touched declarations were found  -> 21
+PASS  the saved-copy whitelist is a list of whole endpoints  -> /api/products, /api/categories, /api/branches, /api/check-auth
+PASS  no per-product probe or barcode lookup is replayable  -> /api/products, /api/categories, /api/branches, /api/check-auth
+PASS  the old substring matcher is gone
+PASS  cacheability is decided on the request PATH, not the raw url
+PASS  the catalogue endpoint itself is still replayable
+PASS  a saved probe already on the device is pruned away
+PASS  a barcode scan falls back to the list on screen when the server cannot answer
+PASS  but a live answer from the server still decides
+PASS  a replayed response is tagged as the device's own copy
+PASS  savedCopyAt() only believes the tag
+PASS  the probe refuses a saved copy as if it had not answered
+PASS  the probe refuses a non-OK answer
+PASS  the probe only writes the product once the server has answered
+PASS  a non-OK catalogue answer is handled, not ignored
+PASS  a non-OK answer reports the figures as not live
+PASS  a 200 that is not a product list is reported too
+PASS  a live payload is stamped live, a replayed one is not
+PASS  nothing carries a dead per-product freshness flag
+PASS  the connection-failure path also says the figures are not live
+PASS  the banner has a "nothing is confirmed" state and a "saved copy" state
+PASS  the banner is one function, so the two notices cannot contradict
+PASS  the Subtract box knows whether its figure is live
+PASS  its inline warning is skipped on a saved copy
+PASS  it says the figure is not live
+PASS  the Subtract modal has somewhere to say so
+PASS  the confirm step does not refuse a removal on a saved figure
+PASS  the server refusal still hands back the live figure and marks it stale
+PASS  the Add Stock box says when its base figure is not live
+PASS  the Add Stock modal has somewhere to say so
+PASS  an addition is refused on an unconfirmed base (it writes an absolute total)
+PASS  both boxes are given the probe result
+PASS  a refresh helper exists and never polls a till showing live figures
+PASS  a refused or unreachable load is retried too, not only a replayed copy
+PASS  the catalogue is re-fetched when the connection returns
+PASS  and when the tab comes back to the foreground
+PASS  opening the Inventory page forces server figures
+PASS  the Inventory page states when the figures were confirmed

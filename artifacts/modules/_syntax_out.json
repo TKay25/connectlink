@@ -26,9 +26,10 @@
   "changelog": [],
   "generated_from_commit": "",
   "file_hash": "b1711d4fd718bf31",
-  "file_mtime": 1791292278385.8098,
+  "file_mtime": 1791294977793.0142,
   "file_size": 23,
-  "file_birthtime": 1791292278383.7932,
-  "generated_at": "2026-10-06T13:11:20.124Z",
-  "stale": false
+  "file_birthtime": 1791294977792.0127,
+  "generated_at": "2026-10-06T13:56:19.594Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
 }

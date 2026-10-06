@@ -570,6 +570,52 @@ If an older database lacks `branch_id`/`voided` columns the checks degrade to fl
 `product_stock_repair_backup` (and FIFO layers into `stock_lots_repair_backup`), then
 re-derives `products.stock`. Before and after figures for both shops are printed.
 
+### A quantity on screen that is not the server's (the till's saved copy)
+
+**Symptom.** The Inventory tab showed **26** for a product whose branch really held **8**.
+Removing 23 was refused — *"Shurugwi has 8 unit(s) ... so 23 cannot be removed"* — which is
+the right answer to the wrong screen: the till should never have said 26 in the first place.
+
+**Cause.** The figure was the copy of the catalogue **this device saved** (the till could not
+reach the server when it loaded, so it replayed its own copy), and three things made that
+copy look like the truth:
+
+1. A catalogue load that failed **for any reason** left the previous figures on screen with
+   no notice at all — only a *rejected* request set the banner, and a `500`/`502`, or a
+   `200` that was not a product list, went entirely unmentioned.
+2. The "live" per-product probe that **Add Stock** and **Subtract** take before opening was
+   itself answered out of that saved copy: the wrapper matched request URLs by **substring**
+   (`/api/products` is *in* `/api/products/7`), so a probe was treated as cacheable and handed
+   back the old figure as if the server had just confirmed it.
+3. Nothing re-read the catalogue when the connection came back, so the saved figures stayed
+   on screen — and in the Inventory table — for the rest of the session.
+
+**Fix.** The till now knows, and says, exactly how fresh its figures are:
+
+* **Only the catalogue endpoints are ever saved or replayed** (`/api/products`,
+  `/api/categories`, `/api/branches`, `/api/check-auth`), matched on the **whole** path. A
+  per-product probe and a barcode lookup are never served from the saved copy, and any such
+  entry an older build already saved is **pruned** the next time the page loads.
+* A replayed answer is **tagged** (`X-ConnectLink-Saved-Copy`), and a probe refuses a tagged
+  answer exactly as if the request had failed — so a figure is only called live when the
+  server really answered.
+* A load that fails turns the warning banner on and the Inventory header reads **"Figures NOT
+  confirmed by the server"**, instead of silently keeping yesterday's numbers. A live load
+  hides the banner and the header reads **"Figures confirmed by the server at HH:MM:SS"**.
+* **Add Stock and Subtract say when the figure in front of them is not live**, and neither
+  refuses locally on it: the server decides and answers with the real quantity. An addition
+  is refused outright on an unconfirmed base, because an addition *writes* the branch's new
+  absolute total — adding 5 to a saved "26" while the branch holds 8 would book 31.
+* The catalogue is re-read **when the connection returns**, when the tab comes back to the
+  foreground, on the 30-second sweep (only while the screen is known to be stale), and
+  **every time the Inventory page is opened** — the page where quantities are read and
+  corrected.
+
+**Verifying it.** `python _check_pos_freshness.py` checks the rules statically, and
+`python _pos_freshness_browser.py` drives a real browser (Playwright) against a throw-away
+stub server with a saved copy of "26" while the server holds 8 — including the refusal and
+the refresh when the Inventory page is opened. Neither touches the live database.
+
 ### Project changes in the audit log
 
 **Every change to a field on a project is now audited, one row per field**, carrying the
@@ -1184,6 +1230,34 @@ lost. Confirm the boot log prints `pre-branch rows seeded to SHU: 0` on the seco
 later boots; anything else means `ensure_branches_schema`'s `INSERT ... SELECT` is running
 unguarded again.
 
+### Multi-Branch: a shop's stock figure is higher than the server's (the saved copy)
+
+**The Inventory tab shows 26; removing 23 is refused and the refusal says the branch has 8.
+Both are "correct" — the screen was showing the catalogue this device had saved.**
+
+The figure is not the server's, so nothing on screen may be acted on until the till has
+re-read it. Check, in this order:
+
+1. Is the orange banner up (*"Showing the figures saved on this device"*)? That says the
+   loaded figures are the saved copy, and gives the time it was taken. The Inventory header
+   adds *"Figures NOT confirmed by the server"*.
+2. Press **Refresh** (or pick the Inventory page, which re-reads the catalogue whenever it is
+   opened). The header should change to *"Figures confirmed by the server at HH:MM:SS"* and
+   the banner disappear. If a figure then changes, the old one was the saved copy.
+3. If it will not reach the server, the till is offline: it is working from the copy it
+   saved. Sales still go through and queue; the quantities will correct themselves as soon
+   as the connection returns (the till re-reads the catalogue the moment it does).
+4. If `/api/products` is answering with an error (a `500`/`502`, or an HTML error page), the
+   till now says so — *"Could not load the catalogue (HTTP 500) - the figures on screen are
+   not live."* — and keeps the figures **flagged as not confirmed**. Check the Render logs
+   and the database connection rather than trusting the numbers.
+
+Add Stock and Subtract never block a correction on a figure the till cannot confirm: they
+send the request, and the server answers with its own live quantity. What the till will
+**not** do is *add* stock on top of an unconfirmed figure, because an addition writes the
+branch's new absolute total. Full background: see *A quantity on screen that is not the
+server's* under **MULTI-BRANCH POS**.
+
 ### Database Issues
 
 **Error: "Database does not exist"**
@@ -1387,6 +1461,34 @@ sudo systemctl start connectlink
 ---
 
 ## Changelog
+
+**October 2026 — the till never trusts a stock figure it cannot confirm**
+- ✅ **A screen that is showing the copy this device saved now says so, and stops pretending.**
+  A catalogue load that failed for *any* reason used to leave the previous figures in place
+  with no notice (only a rejected request set the banner; a `500`/`502`, or a `200` that was
+  not a product list, went unmentioned). Any such load now turns the banner on, and the
+  Inventory header reads **"Figures NOT confirmed by the server"** instead of quietly showing
+  yesterday's numbers.
+- ✅ **The "live" probe behind Add Stock and Subtract is a real probe.** It was being answered
+  out of the same saved copy — request URLs were matched by substring, and `/api/products`
+  appears in `/api/products/7` — so a probe "confirmed" a figure the server had since moved.
+  Only the catalogue endpoints are saved or replayed now, matched on the whole path, any
+  saved probe entry is pruned on load, and a replayed answer is tagged
+  (`X-ConnectLink-Saved-Copy`) so a probe can refuse it exactly as if the request had failed.
+- ✅ **Both boxes say when their figure is not live, and neither refuses a correction on it.**
+  A removal on an unconfirmed figure went through the local "only N in stock" check, which is
+  what made *"it says 26, but 23 cannot be removed"* so confusing. The server now judges it
+  and answers with the real quantity. An **addition** is refused on an unconfirmed base,
+  because an addition writes the branch's new absolute total — adding 5 to a saved "26" while
+  the branch holds 8 would book 31.
+- ✅ **The figures are re-read when they can be.** When the connection returns, when the tab
+  comes back to the foreground, on the 30-second sweep (only while the screen is known to be
+  stale), and **every time the Inventory page is opened** — the page where quantities are read
+  and corrected. The Inventory header states the moment the server last confirmed them.
+- Verified without a database: `python _check_pos_freshness.py` (rules, and every touched
+  declaration still parses) and `python _pos_freshness_browser.py` (a real browser: a saved
+  copy reading 26 against a server holding 8, the refusal, and the refresh on opening the
+  Inventory page).
 
 **October 2026 — reverting a layby sale, and auditing automatic repairs**
 - ✅ **Reverting a layby sale now closes the layby.** It used to return the goods but leave

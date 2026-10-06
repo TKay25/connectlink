@@ -1,0 +1,50 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PosFreshnessBrowser",
+  "file": "_pos_freshness_browser.py",
+  "purpose": "Real-browser proof of the POS freshness fix (templates/pos-system.html).",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 73",
+  "entry_flows": [
+    "Handler.__init__() → _pos_freshness_browser.py, pathlib.Path, environ.get, RESULTS.append"
+  ],
+  "public_api": [
+    "class Handler(SimpleHTTPRequestHandler)  # line 73",
+    "  Handler.__init__()",
+    "  Handler.log_message()",
+    "  Handler.do_GET()",
+    "  Handler.do_PUT()",
+    "check(name, ok, detail = '')",
+    "serve()",
+    "route_catalogue(route)",
+    "route_probe(route)",
+    "route_barcode(route)",
+    "log_from_server()",
+    "clear_log()",
+    "reset_catalogue_hits()"
+  ],
+  "dependencies": [
+    "http",
+    "playwright",
+    "urllib"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = pathlib.Path(__file__).parent, PORT = int(os.environ.get('POS_TEST_PORT', '8792')), TEMPLATE = ROOT / 'templates' / 'pos-system.html', OUT = '_check_pos_browser_out.txt', RESULTS = [], SERVER_STOCK = 8",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "2288394e4140e816",
+  "file_mtime": 1791293741261.7644,
+  "file_size": 2907,
+  "file_birthtime": 1791293741253.635,
+  "generated_at": "2026-10-06T13:58:18.014977Z",
+  "stale": false
+}

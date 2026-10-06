@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CheckOut",
-  "file": "_check_out.txt",
-  "purpose": "<!-- Describe what CheckOut does -->",
+  "module": "CheckPosBrowserOut",
+  "file": "_check_pos_browser_out.txt",
+  "purpose": "<!-- Describe what CheckPosBrowserOut does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,10 +25,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "69b7e678a7d91276",
-  "file_mtime": 1791292136343.1826,
-  "file_size": 958,
-  "file_birthtime": 1791292136342.175,
-  "generated_at": "2026-10-06T13:08:58.081Z",
+  "file_hash": "3027c2dbc27f3d4c",
+  "file_mtime": 1791294833096.5295,
+  "file_size": 65,
+  "file_birthtime": 1791294833096.5295,
+  "generated_at": "2026-10-06T13:53:54.830Z",
   "stale": false
 }

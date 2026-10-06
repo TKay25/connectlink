@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckPosFreshness",
+  "file": "_check_pos_freshness.py",
+  "purpose": "Offline check for the POS freshness fix in templates/pos-system.html.",
+  "entry_function": "check(name, ok, detail = '')",
+  "entry_flows": [
+    "_check_pos_freshness → _check_pos_freshness.py, fh.write, RESULTS.append, subprocess.run, stdout.decode"
+  ],
+  "public_api": [
+    "check(name, ok, detail = '')",
+    "blocks(html)",
+    "first_error(body)",
+    "extract(src, start_marker)"
+  ],
+  "dependencies": [
+    "esprima"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: RESULTS = [], OUT = '_check_pos_out.txt', TEMPLATE = 'templates/pos-system.html', NEW = open(TEMPLATE, encoding='utf-8').read(), OLD = proc.stdout.decode('utf-8', 'replace'), OLD = None",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "98324529ca14ba4e",
+  "file_mtime": 1791293396229.5667,
+  "file_size": 4574,
+  "file_birthtime": 1791293396224.3088,
+  "generated_at": "2026-10-06T13:56:44.104655Z",
+  "stale": false
+}

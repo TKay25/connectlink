@@ -1,16 +1,18 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CompileResult",
-  "file": "_compile_result.txt",
-  "purpose": "<!-- Describe what CompileResult does -->",
+  "module": "PwProbe",
+  "file": "_pw_probe.py",
+  "purpose": "<!-- main function",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [],
+  "entry_flows": [
+    "_pw_probe → chromium.launch, b.new_page, pg.set_content, pg.inner_text, b.close"
+  ],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
   "dependencies": [
-    "<!-- list module dependencies here -->"
+    "playwright"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -25,10 +27,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "565339bc4d33d728",
-  "file_mtime": 1789410443220.3564,
-  "file_size": 2,
-  "file_birthtime": 1789410443218.0427,
-  "generated_at": "2026-09-14T18:27:26.090Z",
+  "file_hash": "c552de9ade16e4e4",
+  "file_mtime": 1791295285129.4075,
+  "file_size": 338,
+  "file_birthtime": 1791295285128.1685,
+  "generated_at": "2026-10-06T14:01:27.607354Z",
   "stale": false
 }

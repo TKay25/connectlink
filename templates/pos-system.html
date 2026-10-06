@@ -6527,6 +6527,12 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <strong>Product:</strong> <span id="editStockProductName">Loading...</span><br>
                                 <strong>Current Stock:</strong> <span id="currentStockValue">0</span><br>
                                 <strong>Current Profit Available:</strong> <span id="currentAvailableProfit" class="text-success">$0.00</span>
+                                <!-- Shown when that stock figure is a SAVED copy: adding on
+                                     top of a number the server has not confirmed would
+                                     write a wrong total into the branch's stock. -->
+                                <div id="addStockFreshness" style="display:none;margin-top:4px;color:#92400E;">
+                                    <i class="fas fa-clock-rotate-left me-1"></i><span id="addStockFreshnessText"></span>
+                                </div>
                             </div>
                             
                             <label class="form-label" for="newStockQuantity">Quantity to ADD *</label>
@@ -6591,6 +6597,12 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <i class="fas fa-info-circle me-1"></i> 
                                 <strong>Product:</strong> <span id="subtractStockProductName">Loading...</span><br>
                                 <strong>Current Stock:</strong> <span id="subtractCurrentStockValue">0</span>
+                                <!-- Shown when that figure is a SAVED copy rather than the
+                                     server's live quantity: the removal is then checked by
+                                     the server, which answers with the real number. -->
+                                <div id="subtractStockFreshness" style="display:none;margin-top:4px;color:#92400E;">
+                                    <i class="fas fa-clock-rotate-left me-1"></i><span id="subtractStockFreshnessText"></span>
+                                </div>
                             </div>
                             
                             <label class="form-label" for="subtractQuantity">Quantity to REMOVE *</label>
@@ -6999,6 +7011,9 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <div class="section-card">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <h5 class="fw-bold mb-0"><i class="fas fa-boxes me-1"></i>Inventory Management</h5>
+                        <!-- A quantity is only as good as the moment it was read, so say
+                             when these figures were last confirmed by the server. -->
+                        <div id="inventoryAsAt" class="text-muted" style="font-size:0.68rem;"></div>
                             <div class="d-flex gap-2">
                                 <div class="position-relative" style="width: 250px;">
                                     <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
@@ -10537,6 +10552,17 @@ async function exportModalData(type, format) {
 
 
 function updateInventoryMetrics() {
+    // Say plainly when these figures were last confirmed by the server. A quantity is
+    // only as good as the moment it was read: a saved copy can be hours old and the
+    // server will refuse (or allow) an action on the number it really holds.
+    const asAtEl = document.getElementById('inventoryAsAt');
+    if (asAtEl) {
+        asAtEl.innerText = catalogueIsLive()
+            ? ('Figures confirmed by the server at ' + new Date(catalogueLiveAt).toLocaleTimeString())
+            : 'Figures NOT confirmed by the server - press Refresh before acting on them';
+        asAtEl.className = catalogueIsLive() ? 'text-muted' : 'text-danger fw-bold';
+    }
+
     if (!products.length) return;
     
     // The three till KPIs describe what this till can sell, so they follow the same
@@ -11645,11 +11671,45 @@ async function fetchProductsFromAPI() {
         let url = `${API_BASE}/api/products`;
         const productsResponse = await fetch(url, { credentials: 'include' });
         if (productsResponse.status === 401) { window.location.href = '/login'; return; }
-        const productsData = await productsResponse.json();
+        // Was this answer the server's, or the copy this device saved? The offline
+        // wrapper marks a replayed response (see the PWA block at the bottom).
+        const savedAt = savedCopyAt(productsResponse);
+
+        if (!productsResponse.ok) {
+            // A 500/502, or a proxy's HTML error page where JSON was expected, is
+            // NOT permission to go on showing the old figures as if they were live:
+            // the number on screen may already have moved (a sale at the other till,
+            // a removal), and the server then refuses an action based on it. Keep
+            // what we have, but say it is not live.
+            catalogueLiveAt = 0;
+            noteCatalogueFreshness({ savedAt: savedAt, unreachable: !savedAt });
+            if (!savedAt) {
+                showToast('Could not load the catalogue (HTTP ' + productsResponse.status +
+                          ') - the figures on screen are not live.', 'error');
+            }
+            return;
+        }
+
+        let productsData = null;
+        try {
+            productsData = await productsResponse.json();
+        } catch (parseErr) {
+            console.error('Catalogue response was not JSON:', parseErr);
+        }
         
-        if (productsData.success) {
+        if (productsData && productsData.success) {
             products = productsData.products;
-            noteCatalogueFreshness();
+            // A live payload (as opposed to the till's own saved copy) is the only
+            // thing that may be called live: the Subtract/Add boxes then know the
+            // figure in front of them is the server's, and not a copy that may
+            // already have moved.
+            if (savedAt) {
+                catalogueLiveAt = 0;
+                noteCatalogueFreshness({ savedAt: savedAt });
+            } else {
+                catalogueLiveAt = Date.now();
+                noteCatalogueFreshness();
+            }
             // Subtract anything this till has rung up but not yet synced, so a
             // reload during an outage cannot show stock that is already promised.
             if (typeof window.applyLocalStockHolds === 'function') window.applyLocalStockHolds(products);
@@ -11658,10 +11718,44 @@ async function fetchProductsFromAPI() {
             renderInventory();
             updateInventoryMetrics(); // Add this line
             populateCategoryDropdown(); // Add this line
+            return;
         }
+
+        // HTTP 200 with a body that is not a product list (an error page dressed as
+        // JSON, a session that has not chosen its branch): the figures on screen are
+        // NOT confirmed, so keep them but stop calling them live.
+        catalogueLiveAt = 0;
+        noteCatalogueFreshness({ savedAt: savedAt, unreachable: !savedAt });
+        showToast('The catalogue could not be loaded - the figures on screen are not live.', 'error');
     } catch (error) { 
-        console.error('Error fetching products:', error); 
+        console.error('Error fetching products:', error);
+        // Offline or unreachable: whatever is on screen is the last thing this till
+        // loaded -- say so, rather than letting it pass for the server's answer.
+        catalogueLiveAt = 0;
+        noteCatalogueFreshness({ unreachable: true });
         showToast('Connection error', 'error'); 
+    }
+}
+
+// Whether the figures on screen are the server's or this device's saved copy.
+// `catalogueLiveAt` is the moment the last LIVE catalogue arrived; 0 means the
+// quantity on screen is a saved copy (or a figure this till has only known
+// locally) and may already have moved on the server.
+let catalogueLiveAt = 0;
+function catalogueIsLive() { return catalogueLiveAt > 0; }
+
+// The offline wrapper tags a response it replayed out of this device's own saved
+// copy. Anything that needs a LIVE answer -- a stock figure before a removal, a
+// barcode lookup -- must test this rather than the status code, because a replayed
+// copy is handed back as a perfectly ordinary 200 and is otherwise
+// indistinguishable from the server's reply.
+function savedCopyAt(res) {
+    try {
+        if (!res || !res.headers || typeof res.headers.get !== 'function') return 0;
+        if (res.headers.get('X-ConnectLink-Saved-Copy') !== '1') return 0;
+        return Number(res.headers.get('X-ConnectLink-Saved-At') || 0) || 1;
+    } catch (e) {
+        return 0;
     }
 }
 
@@ -11669,17 +11763,33 @@ async function fetchProductsFromAPI() {
 // cannot be reached (see the PWA block at the bottom of this file). Say so, and say
 // how old the copy is -- otherwise a figure the server later contradicts (a stock
 // subtraction, say) looks like the app is simply wrong.
-function noteCatalogueFreshness() {
+//
+// ONE function, three states, so the notice can never disagree with itself:
+//   noteCatalogueFreshness()                     live figures -> banner hidden
+//   noteCatalogueFreshness({savedAt: <ms>})      the till replayed its own copy
+//   noteCatalogueFreshness({unreachable: true})  the server answered nothing
+function noteCatalogueFreshness(state) {
     const el = document.getElementById('posStaleDataBanner');
     if (!el) return;
-    const at = window.__posCatalogueStaleAt;
-    if (!at) { el.style.display = 'none'; return; }
+    const opts = state || {};
+    const at = Number(opts.savedAt || window.__posCatalogueStaleAt || 0);
+    if (!at && !opts.unreachable) { el.style.display = 'none'; return; }
     const text = document.getElementById('posStaleDataText');
     if (text) {
-        text.innerHTML = '<strong>Showing the figures saved on this device.</strong> ' +
-            'The server could not be reached, so the stock on screen is the copy saved at ' +
-            escapeHtml(new Date(at).toLocaleTimeString()) +
-            ' &mdash; refresh once the connection is back.';
+        if (at) {
+            text.innerHTML = '<strong>Showing the figures saved on this device.</strong> ' +
+                'The server could not be reached, so the stock on screen is the copy saved at ' +
+                escapeHtml(new Date(at).toLocaleTimeString()) +
+                ' &mdash; refresh once the connection is back. A removal is still checked ' +
+                'against the server, which will report the real quantity.';
+        } else {
+            // Either the server was reached and refused (HTTP 500, or a body that is
+            // not a product list) or it could not be reached at all. Nothing here is
+            // confirmed in both cases, so say exactly that instead of guessing which.
+            text.innerHTML = '<strong>These figures are not confirmed by the server.</strong> ' +
+                'They are the last thing this till loaded and may already be out of date ' +
+                '&mdash; refresh (or check the connection) before trusting a quantity.';
+        }
     }
     el.style.display = 'flex';
 }
@@ -15191,10 +15301,15 @@ function selectCategory(category) {
         return (p.stock_server != null) ? Number(p.stock_server) : Number(p.stock || 0);
     }
 
-    // Populate the Add Stock modal for a product (does NOT open/re-show the modal)
-    function populateEditStockModal(product) {
+    // Populate the Add Stock modal for a product (does NOT open/re-show the modal).
+    // `isLive` says whether the figure below came from the server just now or from
+    // this device's saved copy.
+    let addStockFigureIsLive = false;
+
+    function populateEditStockModal(product, isLive) {
         if (!product) return;
         productToEdit = product;
+        addStockFigureIsLive = isLive === true;
 
         document.getElementById('editStockProductName').innerText = product.name;
         document.getElementById('currentStockValue').innerText =
@@ -15202,6 +15317,22 @@ function selectCategory(category) {
             (product.local_hold
                 ? ' (' + product.local_hold + ' reserved by sales not yet synced here)'
                 : '');
+
+        // An addition writes an ABSOLUTE branch stock, so say it now (and refuse it
+        // in confirmAddStock) when this number is not the server's: adding "5" on top
+        // of a saved copy that reads 26 while the branch holds 8 would book 31.
+        const freshEl = document.getElementById('addStockFreshness');
+        const freshText = document.getElementById('addStockFreshnessText');
+        if (freshEl && freshText) {
+            if (addStockFigureIsLive) {
+                freshEl.style.display = 'none';
+            } else {
+                freshText.innerText = 'This figure is not live - the server could not be ' +
+                    'reached just now. Adding stock needs the server\'s confirmed figure, ' +
+                    'so refresh first: an addition is recorded as the branch\'s new total.';
+                freshEl.style.display = 'block';
+            }
+        }
         document.getElementById('currentAvailableProfit').innerText = `$${currentTotalProfit.toFixed(2)}`;
         document.getElementById('newStockQuantity').value = 1;
         // Prefill with what THIS branch's stock cost, not the blended figure.
@@ -15251,10 +15382,11 @@ function selectCategory(category) {
         const product = products.find(p => p.id === productId);
         if (!product) return;
 
-        // Same reason as Subtract: show the live figure, not a stale one.
-        await refreshLiveStock(productId);
+        // Same reason as Subtract: show the live figure, not a stale one. A failed
+        // probe leaves the figure unconfirmed, and the modal then says so.
+        const fresh = await refreshLiveStock(productId);
 
-        populateEditStockModal(product);
+        populateEditStockModal(product, !!fresh);
         new bootstrap.Modal(document.getElementById('editStockModal')).show();
         const stockScanInput = document.getElementById('editStockBarcodeScan');
         if (stockScanInput) stockScanInput.focus();
@@ -15330,6 +15462,16 @@ function setupFundingSelection() {
         
         if (!productToEdit) return;
         
+        // An addition is written as the branch's new ABSOLUTE stock, so the base it
+        // is added to must be the server's own figure. On this till's saved copy
+        // ("26" while the branch really holds 8) adding 5 would book 31 -- which is
+        // how an overestimate gets INTO the books in the first place.
+        if (!addStockFigureIsLive) {
+            showToast('This till has not confirmed the current stock with the server, so an ' +
+                      'addition would record a wrong total. Press Refresh, then add the stock.', 'error');
+            return;
+        }
+
         const totalCost = quantityToAdd * buyPrice;
         
         // Check if using profit and have sufficient profit
@@ -15397,32 +15539,63 @@ function setupFundingSelection() {
     // checked. The page (or the offline copy) can be hours old, and a stale figure is
     // what makes "subtract 22" fail against a screen that said 26. Sales queued on
     // this device are still held back from it, so a hold can never be spent.
+    //
+    // Returns the product (with the server's figure in it) ONLY when the server
+    // really answered. A probe that came back out of this till's own saved copy is
+    // not an answer, and neither is a failed request: the caller then knows the
+    // figure it is showing is NOT live and must be checked by the server instead.
     async function refreshLiveStock(productId) {
         const product = products.find(p => p.id === productId);
         if (!product) return null;
+        let serverFigure = null;
         try {
             const res = await fetch(`${API_BASE}/api/products/${productId}`, { credentials: 'include' });
+            if (savedCopyAt(res)) return null;   // this device's copy, not the server
+            if (!res.ok) return null;
             const data = await res.json();
             if (!data || !data.success || !data.product || data.product.stock == null) return null;
-            const serverFigure = Number(data.product.stock);
-            const hold = Number(product.local_hold || 0);
-            product.stock_server = serverFigure;
-            product.stock = Math.max(0, serverFigure - hold);
+            serverFigure = Number(data.product.stock);
         } catch (e) {
             // Offline: keep the figure we already have rather than blanking it.
             return null;
         }
+        const hold = Number(product.local_hold || 0);
+        product.stock_server = serverFigure;
+        product.stock = Math.max(0, serverFigure - hold);
         renderProducts();
         renderInventory();
         return product;
     }
 
-    function populateSubtractStockModal(product, currentStock) {
+    // Whether the figure currently in the Subtract box came from the server (a live
+    // probe) or from this device's saved copy. A saved figure is NOT a reason to
+    // refuse a removal: the server holds the live number and answers with it.
+    let subtractFigureIsLive = false;
+
+    function populateSubtractStockModal(product, currentStock, isLive) {
         if (!product) return;
         productToEdit = product;
+        subtractFigureIsLive = isLive !== false;
 
         document.getElementById('subtractStockProductName').innerText = product.name;
         document.getElementById('subtractCurrentStockValue').innerText = currentStock;
+
+        // Say it plainly when that number is a saved copy: the operator can then
+        // expect the server to answer with the real quantity when they press Remove
+        // (and to allow a removal this figure would have blocked, or the reverse).
+        const freshEl = document.getElementById('subtractStockFreshness');
+        const freshText = document.getElementById('subtractStockFreshnessText');
+        if (freshEl && freshText) {
+            if (subtractFigureIsLive) {
+                freshEl.style.display = 'none';
+            } else {
+                freshText.innerText = 'This figure is not live - the server could not be ' +
+                    'reached just now. The amount you can remove is checked by the server, ' +
+                    'which will tell you the real quantity.';
+                freshEl.style.display = 'block';
+            }
+        }
+
         document.getElementById('subtractQuantity').value = 1;
         document.getElementById('subtractReason').value = 'damaged';
         document.getElementById('subtractNotes').value = '';
@@ -15433,7 +15606,10 @@ function setupFundingSelection() {
         const quantityInput = document.getElementById('subtractQuantity');
         const validateQuantity = () => {
             const quantity = parseInt(quantityInput.value) || 0;
-            if (quantity > currentStock) {
+            // Only warn on a figure we trust. On a saved copy this would refuse a
+            // removal the server would happily do -- which is exactly the complaint
+            // this notice exists for -- so the server gets to judge it instead.
+            if (subtractFigureIsLive && quantity > currentStock) {
                 showToast(`Cannot remove ${quantity} units. Only ${currentStock} in stock!`, 'error');
             }
         };
@@ -15445,8 +15621,11 @@ function setupFundingSelection() {
     async function showSubtractStockModal(productId, currentStock) {
         const product = products.find(p => p.id === productId);
         if (!product) return;
+        // Ask the server first: the row can be hours old, and it is that stale number
+        // which made "remove 23" fail (or succeed wrongly) against a screen that said
+        // 26 while the branch really held 8.
         const fresh = await refreshLiveStock(productId);
-        populateSubtractStockModal(product, fresh ? fresh.stock : currentStock);
+        populateSubtractStockModal(product, fresh ? fresh.stock : currentStock, !!fresh);
         new bootstrap.Modal(document.getElementById('subtractStockModal')).show();
         const subtractBarcodeField = document.getElementById('subtractStockBarcode');
         if (subtractBarcodeField) subtractBarcodeField.focus();
@@ -15464,8 +15643,12 @@ function setupFundingSelection() {
         
         if (!productToEdit) return;
         
-        // Check if quantity exceeds current stock
-        if (quantityToRemove > productToEdit.stock) {
+        // Check if quantity exceeds current stock -- but only on a figure that is
+        // live. On a saved copy this local check would refuse a removal the server
+        // would allow (and the server is the only one that knows the real number),
+        // so the server judges it instead: it answers with `available` and its own
+        // explanation, and the till refreshes.
+        if (subtractFigureIsLive && quantityToRemove > productToEdit.stock) {
             showToast(`Cannot remove ${quantityToRemove} units. Only ${productToEdit.stock} in stock!`, 'error');
             return;
         }
@@ -16012,13 +16195,28 @@ function setupAddProductFundingSelection() {
     async function lookupProductByBarcode(code) {
         code = (code || '').trim();
         if (!code) return null;
+        // The barcode on the shelf names a product, and this till already holds the
+        // catalogue it is showing -- so a scan can be answered with no connection at
+        // all. That fallback is deliberate: without it an offline scan of a product
+        // this shop stocks would come back "not found" and invite a DUPLICATE to be
+        // created. (It replaced a per-product copy the till used to save and replay,
+        // which is exactly the kind of saved answer that could be out of date.)
+        const localMatch = () => {
+            const c = code.toLowerCase();
+            return (products || []).find(p => (p.barcode || '').trim().toLowerCase() === c) || null;
+        };
         try {
             const res = await fetch(`${API_BASE}/api/products/by-barcode/${encodeURIComponent(code)}`, { credentials: 'include' });
+            // A replayed answer is not the server's word, and neither is an error:
+            // answer from the list already on screen instead.
+            if (savedCopyAt(res) || !res.ok) return localMatch();
             const data = await res.json();
+            // The server HAS answered, so it decides -- a barcode it no longer knows
+            // (a deleted product) must not be resurrected from this till's list.
             return (data.success && data.product) ? data.product : null;
         } catch (e) {
             console.error('Barcode lookup error:', e);
-            return null;
+            return localMatch();
         }
     }
 
@@ -19163,6 +19361,10 @@ function navigateTo(page) {
     }
     
     if (page === 'inventory') {
+        // This is where quantities are read and corrected, so open it on the
+        // server's figures: a saved copy would show -- and let someone act on -- a
+        // number that has already moved at the till or at the other shop.
+        if (typeof window.refreshCatalogueIfStale === 'function') window.refreshCatalogueIfStale(true);
         renderInventory();
     }
     if (page === 'sales') {
@@ -20605,9 +20807,19 @@ function setupEventListeners() {
     // tagged with it and only ever replayed to THAT shop, so an offline till in
     // Shurugwi can never be handed Chegutu's catalogue and stock levels.
     var BRANCH_SCOPE_KEY = 'pos_branch_scope';
-    // /api/check-auth is included on purpose: it lets a till that has signed in
+    // The endpoints this till may OPEN from its own saved copy, matched on the WHOLE
+    // path. /api/check-auth is included on purpose: it lets a till that has signed in
     // at least once OPEN while offline (a brand-new device still needs internet).
-    var CACHEABLE_GETS = ['/api/products', '/api/categories', '/api/branches', '/api/check-auth'];
+    //
+    // Nothing else is ever saved or replayed -- in particular NOT a per-product probe
+    // (/api/products/<id>) and NOT a barcode lookup (/api/products/by-barcode/<code>).
+    // Those exist to ASK the server for one LIVE figure before a stock action, and a
+    // probe answered out of this device's own copy would "confirm" a quantity the
+    // server has since moved -- which is how a stale number comes to look
+    // authoritative, and then gets refused (or, worse, gets added to). Matching the
+    // whole path is what keeps them out: a substring test ('/api/products' appears in
+    // '/api/products/7') is what used to let them in.
+    var CACHEABLE_PATHS = ['/api/products', '/api/categories', '/api/branches', '/api/check-auth'];
     var MAX_ATTEMPTS = 25;
     var nativeFetch = window.fetch.bind(window);
 
@@ -20615,11 +20827,37 @@ function setupEventListeners() {
         try { return localStorage.getItem(BRANCH_SCOPE_KEY) || ''; } catch (e) { return ''; }
     }
 
+    // The path of a request, without its query string.
+    function requestPath(url) {
+        try { return new URL(url, window.location.origin).pathname; } catch (e) { return ''; }
+    }
+
+    function isCacheableGet(url) {
+        var path = requestPath(url);
+        return path !== '' && CACHEABLE_PATHS.indexOf(path) !== -1;
+    }
+
     // The catalogue call itself -- not /api/products/<id>, which is a live probe
     // for one product and must not clear the "these figures are saved" notice.
     function isCatalogueUrl(url) {
-        return url.indexOf('/api/products') !== -1 && url.indexOf('/api/products/') === -1;
+        return requestPath(url) === '/api/products';
     }
+
+    // Anything an older build saved under a path that may no longer be replayed (the
+    // per-product probes) is dropped, so a stale single-product answer cannot come
+    // back out of the saved copy however long it has been sitting there.
+    function pruneSavedCopies() {
+        try {
+            var store = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+            var kept = {};
+            var dropped = 0;
+            Object.keys(store).forEach(function (u) {
+                if (isCacheableGet(u)) kept[u] = store[u]; else dropped++;
+            });
+            if (dropped) localStorage.setItem(CACHE_KEY, JSON.stringify(kept));
+        } catch (e) { /* quota, or unreadable - nothing to do */ }
+    }
+    pruneSavedCopies();
 
     // ---------- PWA: installable on a phone ----------
     if ('serviceWorker' in navigator) {
@@ -20652,9 +20890,7 @@ function setupEventListeners() {
     window.fetch = function (input, init) {
         var url = (typeof input === 'string') ? input : ((input && input.url) || '');
         var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-        var cacheable = method === 'GET' && CACHEABLE_GETS.some(function (p) {
-            return url.indexOf(p) !== -1;
-        });
+        var cacheable = method === 'GET' && isCacheableGet(url);
 
         var pending = nativeFetch(input, init);
         if (!cacheable) return watchForBranchChoice(pending);
@@ -20684,7 +20920,14 @@ function setupEventListeners() {
                     if (isCatalogueUrl(url)) window.__posCatalogueStaleAt = entry.at || 0;
                     return new Response(JSON.stringify(entry.data), {
                         status: 200,
-                        headers: { 'Content-Type': 'application/json' }
+                        headers: {
+                            'Content-Type': 'application/json',
+                            // These figures are THIS DEVICE'S saved copy, not the
+                            // server's: the page says so, and anything that needs a
+                            // live answer (a stock probe) must refuse them.
+                            'X-ConnectLink-Saved-Copy': '1',
+                            'X-ConnectLink-Saved-At': String(entry.at || 0)
+                        }
                     });
                 }
             } catch (e) { /* fall through */ }
@@ -21137,12 +21380,50 @@ function setupEventListeners() {
         }
     }
 
-    window.addEventListener('online', function () { updateSyncUI(); syncOfflineSales(false); syncOfflineLaybys(false); });
+    // ---------- Keep the figures live ----------
+    // A till that opened (or fell back) on its own saved copy must not go on showing
+    // those figures once the server can be reached again: the operator would keep
+    // reading -- and acting on -- a quantity that has moved, and the server would
+    // refuse the action without the screen ever having explained why. Re-fetch when
+    // the connection returns, when the tab comes back to the foreground, and on the
+    // slow timer; the timer only fires while the figures are known NOT to be the
+    // server's own, so a healthy till does not poll.
+    function refreshCatalogueIfStale(force) {
+        if (isOffline()) return;
+        // Decide on EVERY reason these figures may not be the server's, not just on
+        // the wrapper's marker: a load the server REFUSED (HTTP 500, or a body that is
+        // not a product list) leaves no marker, and neither does a first load that
+        // failed with no saved copy to fall back on. The page's own "not live" state
+        // is the other half of the test. A till showing the server's own figures is
+        // left alone, so a healthy shop never polls.
+        var unconfirmed = (typeof catalogueIsLive === 'function') ? !catalogueIsLive() : false;
+        if (!force && !window.__posCatalogueStaleAt && !unconfirmed) return;
+        if (typeof window.fetchProductsFromAPI === 'function') window.fetchProductsFromAPI();
+    }
+    window.refreshCatalogueIfStale = refreshCatalogueIfStale;
+
+    window.addEventListener('online', function () {
+        updateSyncUI();
+        syncOfflineSales(false);
+        syncOfflineLaybys(false);
+        refreshCatalogueIfStale(true);   // the figures it fell back on are now worth replacing
+    });
     window.addEventListener('offline', function () { updateSyncUI(); });
     document.addEventListener('visibilitychange', function () {
-        if (!document.hidden) { updateSyncUI(); syncOfflineSales(false); syncOfflineLaybys(false); }
+        if (!document.hidden) {
+            updateSyncUI();
+            syncOfflineSales(false);
+            syncOfflineLaybys(false);
+            refreshCatalogueIfStale(false);
+        }
     });
-    setInterval(function () { if (!isOffline()) { syncOfflineSales(false); syncOfflineLaybys(false); } }, 30000);
+    setInterval(function () {
+        if (!isOffline()) {
+            syncOfflineSales(false);
+            syncOfflineLaybys(false);
+            refreshCatalogueIfStale(false);
+        }
+    }, 30000);
     setTimeout(function () { updateSyncUI(); syncOfflineSales(false); syncOfflineLaybys(false); }, 3000);
 
     window.POSOffline = {

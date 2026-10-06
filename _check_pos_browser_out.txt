@@ -1,0 +1,27 @@
+PASS  the throw-away POS server is up  -> http://127.0.0.1:8792
+PASS  the page loads with the offline wrapper installed
+PASS  a saved per-product probe is pruned away on load  -> ['http://127.0.0.1:8792/api/products', 'http://127.0.0.1:8792/api/categories']
+PASS  the live probe is NOT answered from the saved copy  -> {"answered": false, "error": "TypeError: Failed to fetch"}
+PASS  a replayed catalogue is tagged as the device's own copy  -> {"saved": "1", "at": "1791291324172", "seen": 1791291324172, "stock": 26}
+PASS  the server's own answer is never tagged
+PASS  an unreachable catalogue turns the warning banner on  -> {"banner": "flex", "text": "Showing the figures saved on this device. The server could not be reached, so the stock on screen is the copy saved at 14:55:24 \u2014 refresh once the connection is back. A removal is still checked against the server, which will report the real quantity.", "asAt": "Figures NOT confirmed by the server - press Refresh before acting on them", "shown": 26}
+PASS  the banner names the saved copy and its age  -> Showing the figures saved on this device. The server could not be reached, so the stock on screen is the copy saved at 14:55:24 — 
+PASS  the Inventory header says the figures are NOT confirmed  -> Figures NOT confirmed by the server - press Refresh before acting on them
+PASS  the screen shows the saved figure (26), not the server's (8)  -> 26
+PASS  a non-OK catalogue answer also turns the banner on  -> {"banner": "flex", "text": "These figures are not confirmed by the server. They are the last thing this till loaded and may already be out of date \u2014 refresh (or check the connection) before trust
+PASS  and it says why (HTTP 500), instead of silently keeping old numbers  -> Could not load the catalogue (HTTP 500) - the figures on screen are not live.
+PASS  the banner says the figures are not confirmed, without blaming the link  -> These figures are not confirmed by the server. They are the last thing this till loaded and may already be out of date — refresh (or check t
+PASS  a refused load is retried (it would otherwise stay stale all session)  -> GET /api/products attempted 2 time(s)
+PASS  a healthy till is not polled (no pointless catalogue traffic)  -> attempts=1, server=[('GET', '/api/products')]
+PASS  a live load hides the banner and shows the server's 8  -> {"banner": "none", "asAt": "Figures confirmed by the server at 15:55:26", "shown": 8}
+PASS  the Inventory header says when the server confirmed them  -> Figures confirmed by the server at 15:55:26
+PASS  the inventory table shows that figure
+PASS  the Subtract box shows the saved figure it holds (26)  -> {"shown": "26", "tableShown": 26, "freshVisible": true, "freshText": "This figure is not live - the server could not be reached just now. The amount you can remove is checked by the server, which will tell you the real quantity."}
+PASS  and says plainly that the figure is not live  -> This figure is not live - the server could not be reached just now. The amount you can remove is checked by the server, which will
+PASS  the removal is still sent to the server (no local refusal on a stale figure)  -> [('GET', '/static/images/web-logo-white.png'), ('PUT', '/api/products/7/subtract-stock'), ('GET', '/api/dashboard/stats')]
+PASS  the server's own refusal (with its live figure) is shown  -> Shurugwi has 8 unit(s) of "Speaker X" right now, so 30 cannot be removed. The figure on your screen was out of date; it has been refreshed.
+PASS  and the box is closed so the stale number cannot be tried again
+PASS  opening the Inventory page re-reads the catalogue from the server  -> [('GET', '/api/products')]
+PASS  an offline scan resolves from the list already on the till  -> {"hit": 7, "miss": null}
+PASS  an unknown barcode is still unknown, so Quick-create is still offered  -> {"hit": 7, "miss": null}
+PASS  with the server reachable it is the server's answer that counts  -> {"hit": 7, "miss": null}

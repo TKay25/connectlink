@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "Syn",
-  "file": "_syn.txt",
-  "purpose": "<!-- Describe what Syn does -->",
+  "module": "CheckPosOut",
+  "file": "_check_pos_out.txt",
+  "purpose": "<!-- Describe what CheckPosOut does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,10 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "e3b0c44298fc1c14",
-  "file_mtime": 1791292485629.291,
-  "file_size": 0,
-  "file_birthtime": 1791292485629.291,
-  "generated_at": "2026-10-06T13:14:47.333Z",
-  "stale": false
+  "file_hash": "75afd82da60b50f7",
+  "file_mtime": 1791294834361.354,
+  "file_size": 2761,
+  "file_birthtime": 1791294832705.2175,
+  "generated_at": "2026-10-06T13:53:54.531Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
 }
