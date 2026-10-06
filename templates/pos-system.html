@@ -7014,7 +7014,15 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <!-- A quantity is only as good as the moment it was read, so say
                              when these figures were last confirmed by the server. -->
                         <div id="inventoryAsAt" class="text-muted" style="font-size:0.68rem;"></div>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 align-items-center">
+                                <!-- Opt-in branch view for the table below. OFF by default, so the
+                                     shared catalogue stays exactly as the runbook describes, and
+                                     hidden on the read-only All Branches view, where every line is
+                                     the company's and the switch would do nothing. -->
+                                <div class="form-check form-switch mb-0 d-none" id="inventoryStockedOnlyWrap">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="inventoryStockedOnly" style="cursor:pointer;">
+                                    <label class="form-check-label ms-1" for="inventoryStockedOnly" style="font-size:0.78rem;white-space:nowrap;cursor:pointer;" title="Show only the items this branch carries. Unticked shows the whole shared catalogue.">Stocked in this branch only</label>
+                                </div>
                                 <div class="position-relative" style="width: 250px;">
                                     <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
                                     <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
@@ -11856,6 +11864,13 @@ async function refreshPOS() {
 // Global variables - add this line with the others
 let inventorySearchTerm = "";
 let currentEditProduct = null;
+
+// Inventory tab: the "Stocked in this branch only" switch. OFF by default, so the
+// Inventory table keeps listing the whole shared catalogue. It changes only what
+// the TABLE shows (and its two exports, which follow the table): the Add-Product
+// name hints and the Upload-New-Stock template still offer every catalogue name,
+// including an item this branch has never stocked.
+let inventoryStockedOnly = false;
 
 function openEditProductModal(productId) {
     const product = products.find(p => p.id === productId);
@@ -19036,18 +19051,44 @@ function renderAnalytics() {
         setTimeout(() => toast.remove(), 2500);
     }
 
-// Filter inventory based on search term
+// Filter inventory: the search box, plus the opt-in "Stocked in this branch only"
+// switch. It only ever READS `products` and returns a new array -- it must never
+// reassign that catalogue, because the Add-Product name hints (setupAutocomplete)
+// and the upload template's pick-list must keep seeing EVERY name, including an
+// item this branch has never stocked (the whole point of the hints is to stop the
+// same product being typed in twice).
 function filterInventory() {
-    if (!inventorySearchTerm) return products;
+    let rows = inventoryStockedOnly ? products.filter(stockedInThisBranch) : products;
+    if (!inventorySearchTerm) return rows;
     
     const term = inventorySearchTerm.toLowerCase();
-    return products.filter(p => 
+    return rows.filter(p => 
         p.name.toLowerCase().includes(term) ||
         (p.category && p.category.toLowerCase().includes(term)) ||
         (p.unit_details && p.unit_details.toLowerCase().includes(term)) ||
         (p.description && p.description.toLowerCase().includes(term)) ||
         (p.id && p.id.toString().includes(term))
     );
+}
+
+// The switch is only meaningful on a real, writable branch: the read-only All
+// Branches view reports every item as the company's own, so there is no "this
+// branch" to filter on and the switch stays out of the way.
+function inventoryStockedOnlyUsable() {
+    if (branchIsReadOnly()) return false;
+    return !!(posBranch && posBranch.id !== null && posBranch.id !== undefined);
+}
+
+// Show/hide the switch to match the view, and never leave a hidden switch still
+// filtering the table.
+function syncInventoryStockedSwitch() {
+    const wrap = document.getElementById('inventoryStockedOnlyWrap');
+    const box = document.getElementById('inventoryStockedOnly');
+    if (!wrap) return;
+    const usable = inventoryStockedOnlyUsable();
+    wrap.classList.toggle('d-none', !usable);
+    if (box) box.checked = usable && inventoryStockedOnly;
+    if (!usable && inventoryStockedOnly) inventoryStockedOnly = false;
 }
 
 function renderInventory() {
@@ -19287,6 +19328,11 @@ async function confirmPriceUpdate(productId) {
 function renderInventory() {
     const tbody = document.getElementById('inventoryList');
     if (!tbody) return;
+
+    // The "Stocked in this branch only" switch is only offered where it can do
+    // something, and it is re-checked on every render so it can never be left on
+    // while hidden (e.g. after switching to the read-only All Branches view).
+    syncInventoryStockedSwitch();
     
     const filteredProducts = filterInventory();
     
@@ -19294,7 +19340,11 @@ function renderInventory() {
     updateInventoryMetrics();
     
     if (!filteredProducts.length) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center">No products found matching your search</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center">'
+            + ((inventoryStockedOnly && !inventorySearchTerm)
+                ? 'No items are stocked in this branch yet - untick "Stocked in this branch only" to see the whole catalogue.'
+                : 'No products found matching your search')
+            + '</td></tr>';
         return;
     }
     
@@ -19450,6 +19500,18 @@ function setupEventListeners() {
     if (inventorySearch) {
         inventorySearch.addEventListener('input', (e) => {
             inventorySearchTerm = e.target.value.toLowerCase();
+            renderInventory();
+        });
+    }
+    
+    // Inventory Page - "Stocked in this branch only" switch. This is a VIEW: it
+    // narrows the table (and its exports) to the items this branch carries, and
+    // touches nothing else -- the catalogue itself, the Add-Product name hints and
+    // the upload template are all unaffected.
+    const inventoryStockedOnlyBox = document.getElementById('inventoryStockedOnly');
+    if (inventoryStockedOnlyBox) {
+        inventoryStockedOnlyBox.addEventListener('change', (e) => {
+            inventoryStockedOnly = !!e.target.checked;
             renderInventory();
         });
     }

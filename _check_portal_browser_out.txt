@@ -1,0 +1,47 @@
+PASS  the code under test is the real page code, sliced verbatim
+PASS  the throw-away portal server is up  -> http://127.0.0.1:8793
+PASS  the real service worker takes charge of the page  -> activated
+PASS  the banner starts hidden
+PASS  with a connection a figure is the server own answer  -> {'ok': True, 'status': 200, 'headers': {'offline': None, 'savedAt': None, 'disposition': None, 'type': 'application/json'}, 'body': {'count'
+PASS  and no saved time is claimed for it  -> {'offline': None, 'savedAt': None, 'disposition': None, 'type': 'application/json'}
+PASS  the banner stays quiet while the server is answering
+PASS  the server really was asked  -> [('GET', '/get_project_count?month=2026-10')]
+PASS  a contract comes down from the server with its filename  -> {'offline': None, 'savedAt': None, 'disposition': 'attachment; filename="contract-7.pdf"', 'type': 'application/pdf'}
+PASS  the named figures are now kept on the device  -> 5
+PASS  a contract that has been through once is kept on the device  -> ['http://127.0.0.1:8793/download_contract/7']
+PASS  the buckets are the POS shell, the runtime one, the read one and the contract one  -> ['connectlink-v3', 'connectlink-read-v3', 'connectlink-docs-v1']
+PASS  a money endpoint and the portfolio export are kept NOWHERE  -> []
+PASS  and nothing beyond the named figures and contracts is saved  -> {'names': ['connectlink-v3', 'connectlink-read-v3', 'connectlink-docs-v1'], 'doc': 1, 'read': 5, 'money': [], 'contracts': ['http://127.0.0.1:8793/download_contract/7']}
+PASS  with no connection the figure that was kept is served  -> {'ok': True, 'status': 200, 'headers': {'offline': '1', 'savedAt': '1791299462951', 'disposition': None, 'type': 'application/json'}, 'body'
+PASS  and it says it is a copy rather than the server answer  -> {'offline': '1', 'savedAt': '1791299462951', 'disposition': None, 'type': 'application/json'}
+PASS  and it carries the time it was saved  -> {'offline': '1', 'savedAt': '1791299462951', 'disposition': None, 'type': 'application/json'}
+PASS  the server was never asked -- that answer came off the device  -> []
+PASS  the page says the figures are a copy, and when they were saved  -> No connection. The figures on this screen are a copy saved on this device at 17:11 on 6 Oct, and may be out of date. Nothing here can be sent or saved.
+PASS  and that nothing can be sent or saved
+PASS  and the notice is actually on screen
+PASS  a kept endpoint replays, marked as a copy: /api/projects-page  -> {'ok': True, 'status': 200, 'headers': {'offline': '1', 'savedAt': '1791299463032', 'disposition': None, 'type': 'application/json'}, 'body'
+PASS  a kept endpoint replays, marked as a copy: /get_project/7  -> {'ok': True, 'status': 200, 'headers': {'offline': '1', 'savedAt': '1791299463051', 'disposition': None, 'type': 'application/json'}, 'body'
+PASS  a kept endpoint replays, marked as a copy: /api/project/7/has-gantt  -> {'ok': True, 'status': 200, 'headers': {'offline': '1', 'savedAt': '1791299463068', 'disposition': None, 'type': 'application/json'}, 'body'
+PASS  an endpoint with no saved copy is refused, not guessed  -> {'ok': False, 'status': 503, 'headers': {'offline': None, 'savedAt': None, 'disposition': None, 'type': 'application/json'}, 'body': {'error': 'There is no connection, and no copy of this on this device.', 'offline': True, 'offline_no_copy': True}, 'error': None}
+PASS  a money figure is never replayed offline  -> {'ok': False, 'status': 0, 'headers': {}, 'body': None, 'error': 'Failed to fetch'}
+PASS  the portfolio export is never replayed offline  -> {'ok': False, 'status': 0, 'headers': {}, 'body': None, 'error': 'Failed to fetch'}
+PASS  a change with no connection fails  -> {'ok': False, 'status': 0, 'headers': {}, 'body': None, 'error': 'Failed to fetch'}
+PASS  and is never sent, even later  -> []
+PASS  the page says the change was NOT saved, and that nothing was queued  -> error | Not Saved | No connection. Nothing was saved and nothing was sent, and nothing has been queued on this device. Try again when you are back online.
+PASS  nothing is queued on the device either (no store of its own)
+PASS  a contract that has been through once still opens with no connection  -> {'ok': True, 'status': 200, 'headers': {'offline': '1', 'savedAt': '1791299463103', 'disposition': 'attachment; filename="contract-7.pdf"', 
+PASS  and it is marked as the device copy  -> {'offline': '1', 'savedAt': '1791299463103', 'disposition': 'attachment; filename="contract-7.pdf"', 'type': 'application/pdf'}
+PASS  and the download still has its filename
+PASS  a contract that was never fetched is refused with instructions  -> {'ok': False, 'status': 503, 'headers': {'offline': None, 'savedAt': None, 'disposition': None, 'type': 'text/plain; charset=utf-8'}, 'body': 'There is no conne
+PASS  Save for offline with no connection and no copy fails loudly  -> Could not save: the server answered 503.
+PASS  and no copy is pretended to exist
+PASS  the connection coming back puts the server own answer back  -> {'ok': True, 'status': 200, 'headers': {'offline': None, 'savedAt': None, 'disposition': None, 'type': 'application/json'}, 'body': {'count'
+PASS  and the notice goes
+PASS  Save for offline while online keeps a copy, and says so  -> Kept on this device (4 KB, saved 17:11 on 6 Oct). It can be opened with no connection.
+PASS  and the second contract really is on the device  -> ['http://127.0.0.1:8793/download_contract/7', 'http://127.0.0.1:8793/download_contract/8']
+PASS  Delete saved copies removes them, and says how many  -> Deleted 2 contract(s) saved on this device.
+PASS  and the device really is clear of them  -> {'names': ['connectlink-v3', 'connectlink-read-v3'], 'doc': 0, 'read': 6, 'money': [], 'contracts': []}
+PASS  so that contract is refused again with no connection  -> {'ok': False, 'status': 503, 'headers': {'offline': None, 'savedAt': None, 'disposition': None, 'type': 'text/plain; charset=utf-8'}, 'body': 'There is no conne
+PASS  a contract fetched again is kept again
+PASS  logging out takes the copies with it
+PASS  nothing in the page threw while all this happened

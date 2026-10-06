@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CheckOut",
-  "file": "_check_out.txt",
-  "purpose": "<!-- Describe what CheckOut does -->",
+  "module": "CheckAuditVoidOut",
+  "file": "_check_audit_void_out.txt",
+  "purpose": "<!-- Describe what CheckAuditVoidOut does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,11 +25,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "4cfd0d86fed2edf6",
-  "file_mtime": 1791296139650.6086,
-  "file_size": 1078,
-  "file_birthtime": 1791296139308.8347,
-  "generated_at": "2026-10-06T14:17:43.002Z",
-  "stale": true,
-  "stale_reason": "source file deleted"
+  "file_hash": "08e8b5f1883f3560",
+  "file_mtime": 1791300575416.8503,
+  "file_size": 67,
+  "file_birthtime": 1791300575373.7095,
+  "generated_at": "2026-10-06T15:29:37.159Z",
+  "stale": false
 }

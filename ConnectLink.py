@@ -14578,6 +14578,60 @@ def get_stock_additions():
         'additions': additions
     })
 
+def _cell(row, index):
+    """Positional read that tolerates a shorter row.
+
+    The audit report carries a couple of columns only so a reverted sale can be
+    matched to its restore (see _drop_finished_reversals). Those reads must never
+    be able to take the page down, so a short row simply reads as no value.
+    """
+    return row[index] if len(row) > index else None
+
+
+def _drop_finished_reversals(sale_keys, restore_keys):
+    """Point out the two halves of a reverted sale that both fall inside the report.
+
+    Reverting a sale (`/api/transactions/<id>/revert`) or cancelling a layby does
+    two things at once: it writes the goods back as a stock_additions row
+    (funding_source 'VOID' or 'LAYBY_CANCEL') and it SOFT-deletes the sale, so the
+    transaction_items row survives. This report reads its sales from
+    transaction_items on purpose -- it is the only source that covers every sale,
+    including older ones never mirrored into stock_reductions -- so both halves of
+    one reverted sale were counted: the returned quantity inflated Sale Reductions
+    and, because the revert had written it back, Additions.
+
+    The halves are matched on branch, product, quantity AND the exact moment the
+    reverting request stamped them with: a revert writes added_at and voided_at
+    inside one database transaction, so both carry the same CURRENT_TIMESTAMP (a
+    cancellation uses one `now` for both). That exactness is what keeps this safe
+    -- an unmatched pair is never guessed at, it is simply left alone.
+
+    Returns (sale_indices, restore_indices) to drop, matched one-for-one so that a
+    sale carrying two identical lines only pairs with two restores. Opening stock
+    is derived as closing - additions + reductions, so the caller MUST drop both
+    sides together; dropping one alone would shift that figure by the returned
+    quantity. A pair with only one half inside the window is therefore left in
+    place: a sale reverted in a LATER period really did take stock off the shelf
+    during this one.
+    """
+    waiting = {}
+    for restore_index, key in enumerate(restore_keys):
+        if key[3] is None:
+            continue
+        waiting.setdefault(key, []).append(restore_index)
+
+    sale_drop, restore_drop = set(), set()
+    for sale_index, key in enumerate(sale_keys):
+        if key[3] is None:              # a live sale is never half of a reversal
+            continue
+        restores = waiting.get(key)
+        if not restores:
+            continue                    # its restore is outside this window
+        restore_drop.add(restores.pop())
+        sale_drop.add(sale_index)
+    return sale_drop, restore_drop
+
+
 @app.route('/api/stock-movements', methods=['GET'])
 @login_required
 def get_stock_movements():
@@ -14634,7 +14688,11 @@ def get_stock_movements():
         SELECT sa.id, sa.product_id, p.name as product_name, p.category,
                'addition' as movement_type, sa.quantity, sa.buy_price, sa.total_cost,
                sa.funding_source, u.full_name as user_name, sa.added_at as movement_date,
-               b.name as branch_name
+               b.name as branch_name,
+               -- Carried only so the goods a revert wrote back can be recognised as
+               -- the second half of that reversal (see _drop_finished_reversals
+               -- below); never displayed.
+               sa.branch_id as branch_id
         FROM stock_additions sa
         LEFT JOIN products p ON sa.product_id = p.id
         LEFT JOIN admin_users u ON sa.user_id = u.id
@@ -14676,7 +14734,15 @@ def get_stock_movements():
                -- method lets the report label them as a layby rather than hiding
                -- them inside the generic "Sale" bucket.
                t.payment_method as payment_method,
-               t.transaction_number as transaction_number
+               t.transaction_number as transaction_number,
+               -- Carried only so a reverted sale can be recognised against the
+               -- stock_addition its revert wrote back (see _drop_finished_reversals
+               -- below); neither column is displayed. A voided sale is deliberately
+               -- NOT filtered out here: it is dropped only when its restore is
+               -- inside the same window, because the two halves must move together.
+               t.voided as is_voided,
+               t.voided_at as voided_at,
+               t.branch_id as branch_id
         FROM transaction_items ti
         JOIN transactions t ON ti.transaction_id = t.id
         LEFT JOIN products p ON ti.product_id = p.id
@@ -14689,6 +14755,25 @@ def get_stock_movements():
         ORDER BY t.created_at DESC
     """
     transaction_sales = execute_query(sales_query, (start_date, end_date) + tuple(sales_params), fetch_all=True) or []
+
+    # A reverted sale leaves TWO traces inside this window: its own line in
+    # transaction_items (reverting is a soft delete, so the row stays) and the
+    # goods written back to stock_additions by that revert. Counting both reported
+    # a reverted sale as a sale and inflated Additions by the same quantity. The
+    # halves are dropped TOGETHER, and only when both are inside the window --
+    # opening stock is derived from these very movements, so moving one half alone
+    # would shift it by the returned quantity. See _drop_finished_reversals.
+    sale_reversal_drop, restore_reversal_drop = _drop_finished_reversals(
+        [(_cell(row, 16), _cell(row, 1), _cell(row, 5),
+          _cell(row, 15) if _cell(row, 14) else None) for row in transaction_sales],
+        [(_cell(row, 12), _cell(row, 1), _cell(row, 5), _cell(row, 10)) for row in additions],
+    )
+    if sale_reversal_drop:
+        transaction_sales = [row for index, row in enumerate(transaction_sales)
+                             if index not in sale_reversal_drop]
+    if restore_reversal_drop:
+        additions = [row for index, row in enumerate(additions)
+                     if index not in restore_reversal_drop]
 
     # Get product removals / deletions in the period (audit trail)
     removals_branch_where, removals_params = branch_read_clause('r.branch_id')

@@ -1,0 +1,40 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckAuditVoidReversals",
+  "file": "_check_audit_void_reversals.py",
+  "purpose": "Offline check for the reverted-sale fix in the audit report (ConnectLink.py).",
+  "entry_function": "check(name, ok, detail = '')",
+  "entry_flows": [
+    "_check_audit_void_reversals → _check_audit_void_reversals.py, fh.write, RESULTS.append"
+  ],
+  "public_api": [
+    "check(name, ok, detail = '')",
+    "select_columns(block)",
+    "dropped(sales, restores)",
+    "rows(sale_branch, sale_qty, voided, stamp, restore_branch)",
+    "via_call_site(sales, restores)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: RESULTS = [], OUT = '_check_audit_void_out.txt', SOURCE = 'ConnectLink.py', CL = open(SOURCE, encoding='utf-8').read(), HELPERS = CL[CL.index('def _cell(row, index):'):CL.index(\"@app.route('/api/stock-movements'\")], CALL_START = 'sale_reversal_drop, restore_reversal_drop = _drop_finished_reversals('",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "54d598cb8577c34e",
+  "file_mtime": 1791300519163.3599,
+  "file_size": 3653,
+  "file_birthtime": 1791300519159.9128,
+  "generated_at": "2026-10-06T15:36:10.503074Z",
+  "stale": false
+}

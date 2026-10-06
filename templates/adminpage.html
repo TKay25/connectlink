@@ -3822,6 +3822,15 @@ body { font-family: Arial; margin: 20px; }
 </head>
 
 <body>
+<!-- ===== READ-ONLY OFFLINE NOTICE =====
+     Filled in and shown by the offline module near the bottom of this page
+     (search "READ-ONLY OFFLINE SUPPORT"). It says what the figures on screen
+     really are when there is no connection, and that nothing here is saved. -->
+<div id="clOfflineBanner" style="display:none; position:fixed; left:0; right:0; bottom:0; z-index:9995;
+     background:#1E2A56; color:#fff; font-size:0.72rem; line-height:1.35; padding:7px 14px;
+     text-align:center; box-shadow:0 -2px 10px rgba(0,0,0,0.28);">
+    <i class="bi bi-cloud-slash me-1"></i><span id="clOfflineBannerText"></span>
+</div>
 <script>
 // Global fallbacks for variables defined in later scripts
 var quillGeneratorNotes = null;
@@ -15810,6 +15819,19 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
                     <i class="bi bi-whatsapp me-2"></i> Send via WhatsApp
                 </button>
             </div>
+
+            <!-- Offline copy of this contract (see static/js/sw.js) -->
+            <div id="dcOfflineRow" style="margin-bottom:12px; border:1px solid var(--gray-200); border-radius:6px; padding:8px 10px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-outline-secondary" id="dcSaveOfflineBtn" style="font-size:0.68rem; padding:6px 10px;" onclick="saveContractForOffline(this)">
+                        <i class="bi bi-cloud-arrow-down me-1"></i> Save for offline
+                    </button>
+                    <span id="dcOfflineStatus" style="font-size:0.62rem; color:#5a678a;"></span>
+                </div>
+                <div style="font-size:0.6rem; color:#5a678a; margin-top:5px;">
+                    Keeps a copy on <strong>this device</strong> so the contract can still be opened with no connection. Contracts you download are kept automatically. Copies carry client details, so use <em>Delete saved copies</em> before handing this machine to someone else.
+                </div>
+            </div>
             
             <div id="dcWhatsAppSection" style="display:none; border-top:1px solid var(--gray-200); padding-top:12px;">
                 <label style="font-size:0.7rem; font-weight:700; display:block; margin-bottom:4px;">WhatsApp Number</label>
@@ -15833,6 +15855,7 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
             </div>
         </div>
         <div class="modal-footer-custom">
+            <button type="button" class="btn btn-outline-secondary" style="font-size:0.7rem;padding:4px 14px;margin-right:auto;" onclick="deleteSavedContracts()"><i class="bi bi-trash3 me-1"></i> Delete saved copies</button>
             <button type="button" class="btn btn-danger" style="font-size:0.7rem;padding:4px 14px;" onclick="closeModal('downloadContractModal')">Close</button>
         </div>
     </div>
@@ -21211,9 +21234,25 @@ function switchPortal(portal) {
 function handleLogout() {
     closeUserDropdown();
     showLoader('Logging Out', 'Please wait...');
-    setTimeout(() => {
+    // Contracts kept for offline use carry client details, so they must not
+    // outlive the login that fetched them. The logout is never held up by the
+    // clearing: the copies go, or 700ms passes, whichever comes first.
+    let gone = false;
+    const leave = function () {
+        if (gone) return;
+        gone = true;
         window.location.href = '/logout';
-    }, 300);
+    };
+    try {
+        if (typeof clDeleteSavedCopies === 'function') {
+            clDeleteSavedCopies().then(leave).catch(leave);
+            setTimeout(leave, 700);
+        } else {
+            setTimeout(leave, 300);
+        }
+    } catch (e) {
+        setTimeout(leave, 300);
+    }
 }
 
 // Close dropdown when clicking anywhere else
@@ -32433,6 +32472,10 @@ function handleDownloadClick(button) {
     document.getElementById('dcWhatsAppNumber').value = clientWa;
     document.getElementById('dcWhatsAppSection').style.display = 'none';
     document.getElementById('dcSendResult').innerHTML = '';
+
+    // Is a copy of this contract already kept on this device? (See
+    // refreshContractOfflineStatus, defined with the rest of the offline code.)
+    refreshContractOfflineStatus(projectId);
     
     // Quotation-linked projects must offer include/exclude Gantt + Send via WhatsApp.
     const dcGantt = document.getElementById('dcGanttOptions');
@@ -32520,6 +32563,15 @@ function performContractDownload(url, btn) {
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
             hideLoader();
+            // If this came out of the device's own copy, say so: the server was
+            // never asked for it, so this download is nowhere in its records.
+            if (res.headers.get(CL_OFFLINE_FLAG) === '1') {
+                const when = parseInt(res.headers.get(CL_SAVED_AT) || '', 10);
+                showToast('This contract was opened from the copy saved on this device'
+                          + (when ? ' at ' + clClock(when) : '')
+                          + '. The server was not contacted, so it has no record of this download.',
+                          'warning', 'Offline Copy');
+            }
             if (targetBtn) { targetBtn.innerHTML = originalHtml; targetBtn.disabled = false; }
             restoreTableButton();
         })
@@ -37812,18 +37864,216 @@ window.alert = function(msg) {
 };
 
 // Global 401 session error handler — catch expired sessions on any fetch
+// ===== READ-ONLY OFFLINE SUPPORT =====
+// The portal has no offline queue, and deliberately so: an edit here is a
+// whole-row update that the server judges (permissions, read-only branch), so
+// replaying one offline would overwrite whatever happened in the meantime. What
+// it does have (see static/js/sw.js) is a copy of a small set of read-only
+// project figures, and of contracts the operator has kept, each stamped with
+// when it was saved -- so the screen can say what it is really showing.
+//
+// Two rules are kept here: a figure that came from a saved copy is never
+// presented as the server's own answer, and a change that could not be sent says
+// so plainly instead of looking as if it had been saved.
+var CL_DOC_CACHE_PREFIX = 'connectlink-docs-';
+var CL_SAVED_AT = 'X-ConnectLink-Saved-At';
+var CL_OFFLINE_FLAG = 'X-ConnectLink-Offline';
+var CL_OLDEST_SAVED = 0;          // the oldest copy we have shown, in ms
+var CL_LAST_NOSAVE = 0;           // throttle: one "not saved" notice, not one per request
+
+function clClock(ms) {
+    var d = new Date(ms);
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' +
+           (d.getMinutes() < 10 ? '0' : '') + d.getMinutes() + ' on ' +
+           d.getDate() + ' ' + months[d.getMonth()];
+}
+
+function clBanner(text) {
+    var el = document.getElementById('clOfflineBanner');
+    var tx = document.getElementById('clOfflineBannerText');
+    if (!el || !tx) return;
+    if (text) { tx.innerHTML = text; el.style.display = 'block'; }
+    else { el.style.display = 'none'; }
+}
+
+// Called when something could not reach the server, or when the browser reports
+// it has no link. savedAt is the stamp of a saved copy that was served.
+function clOfflineMark(savedMs) {
+    if (savedMs && (!CL_OLDEST_SAVED || savedMs < CL_OLDEST_SAVED)) CL_OLDEST_SAVED = savedMs;
+    clBanner(CL_OLDEST_SAVED
+        ? 'No connection. The figures on this screen are a copy saved on this device at '
+          + clClock(CL_OLDEST_SAVED) + ', and may be out of date. Nothing here can be sent or saved.'
+        : 'No connection. There is no saved copy of these figures on this device. '
+          + 'Nothing here can be sent or saved.');
+}
+
+// Called the moment a live answer arrives: what is on screen is the server's
+// own again, so the notice goes.
+function clOfflineClear() {
+    CL_OLDEST_SAVED = 0;
+    clBanner('');
+}
+
+// A change that could not be sent must never look as if it had been saved.
+function clNothingSaved() {
+    if (!navigator.onLine) clOfflineMark(0);
+    var now = Date.now();
+    if (now - CL_LAST_NOSAVE < 20000) return;
+    CL_LAST_NOSAVE = now;
+    showToast('No connection. Nothing was saved and nothing was sent, and nothing has '
+              + 'been queued on this device. Try again when you are back online.',
+              'error', 'Not Saved');
+}
+
+window.addEventListener('offline', function () { clOfflineMark(0); });
+if (!navigator.onLine) clOfflineMark(0);
+
+// ---- the contracts kept on this device -------------------------------------
+// Cache Storage is read and written straight from the page, so nothing has to
+// be asked of the service worker to see what is kept or to throw it away.
+function clHasCaches() {
+    try { return (typeof caches !== 'undefined') && !!caches.keys; } catch (e) { return false; }
+}
+
+function clDocCacheNames(names) {
+    var out = [];
+    for (var i = 0; i < names.length; i++) {
+        if (names[i].indexOf(CL_DOC_CACHE_PREFIX) === 0) out.push(names[i]);
+    }
+    return out;
+}
+
+function clOpenDocCache() {
+    if (!clHasCaches()) return Promise.resolve(null);
+    return caches.keys().then(function (names) {
+        var mine = clDocCacheNames(names);
+        return mine.length ? caches.open(mine[0]) : null;
+    }).catch(function () { return null; });
+}
+
+function clSavedContractUrls() {
+    return clOpenDocCache().then(function (cache) {
+        if (!cache) return [];
+        return cache.keys();
+    }).then(function (reqs) {
+        return (reqs || []).map(function (r) { return r.url; });
+    }).catch(function () { return []; });
+}
+
+// Run when the contract modal opens: is a copy of THIS contract already here?
+function refreshContractOfflineStatus(projectId) {
+    var status = document.getElementById('dcOfflineStatus');
+    if (!status) return;
+    status.innerHTML = '';
+    if (!clHasCaches()) return;
+    clSavedContractUrls().then(function (urls) {
+        var mine = null;
+        for (var i = 0; i < urls.length; i++) {
+            if (projectId && urls[i].indexOf('/download_contract/' + projectId) !== -1) mine = urls[i];
+        }
+        status.innerHTML = (mine ? '<i class="bi bi-check2-circle me-1"></i>This one is kept for offline use. ' : '')
+            + urls.length + ' contract(s) kept on this device.';
+    }).catch(function () {});
+}
+
+// Fetching the PDF is what puts it among this device's copies: the service
+// worker sees exactly the request a plain download makes, so it is kept on the
+// way past. Nothing is downloaded here.
+function saveContractForOffline(btn) {
+    var url = document.getElementById('dcModalContractUrl').value;
+    var status = document.getElementById('dcOfflineStatus');
+    if (!url) return;
+    var orig = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
+    if (status) status.innerHTML = 'Saving a copy on this device...';
+    fetch(url, { credentials: 'include' })
+        .then(function (res) {
+            if (!res.ok) throw new Error('the server answered ' + res.status);
+            return res.blob();
+        })
+        .then(function (blob) {
+            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+            var kb = Math.max(1, Math.round(blob.size / 1024));
+            if (status) status.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Kept on this device ('
+                + kb + ' KB, saved ' + clClock(Date.now()) + '). It can be opened with no connection.';
+            showToast('Contract kept on this device for offline use.', 'success', 'Saved');
+        })
+        .catch(function (err) {
+            if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+            if (status) status.innerHTML = '<span style="color:#d32f2f;">Could not save: ' + err.message + '.</span>';
+            showToast('Could not keep the contract on this device: ' + err.message, 'error', 'Not Saved');
+        });
+}
+
+// Returns a promise, so the logout path can wait (briefly) for the copies to go.
+function clDeleteSavedCopies() {
+    if (!clHasCaches()) return Promise.resolve(0);
+    return caches.keys().then(function (names) {
+        return Promise.all(clDocCacheNames(names).map(function (name) {
+            return caches.open(name).then(function (cache) {
+                return cache.keys().then(function (reqs) {
+                    return Promise.all(reqs.map(function (r) { return cache.delete(r); }))
+                        .then(function () { return reqs.length; });
+                });
+            }).then(function (n) {
+                return caches.delete(name).then(function () { return n; });
+            });
+        }));
+    }).then(function (counts) {
+        return counts.reduce(function (a, b) { return a + b; }, 0);
+    }).catch(function () { return 0; });
+}
+
+function deleteSavedContracts() {
+    var status = document.getElementById('dcOfflineStatus');
+    clDeleteSavedCopies().then(function (n) {
+        if (status) status.innerHTML = n
+            ? '<i class="bi bi-trash3 me-1"></i>Deleted ' + n + ' contract(s) saved on this device.'
+            : 'There were no contracts saved on this device.';
+        showToast(n ? ('Deleted ' + n + ' contract(s) saved on this device.')
+                    : 'There were no contracts saved on this device.',
+                  n ? 'success' : 'info', 'Saved Copies');
+    });
+}
 (function(){
     var origFetch = window.fetch;
     window.fetch = function(){
-        return origFetch.apply(this, arguments).then(function(resp){
-            if(resp.status === 401 || resp.status === 403){
-                resp.clone().json().then(function(d){
-                    if(d && d.session_expired){
-                        showToast((d.error || 'Session expired.') + '\n\nPlease log in again to continue.', 'error', 'Session Expired');
-                    }
-                }).catch(function(){});
-            }
+        var args = arguments;
+        return origFetch.apply(this, args).then(function(resp){
+            try {
+                if(resp.status === 401 || resp.status === 403){
+                    resp.clone().json().then(function(d){
+                        if(d && d.session_expired){
+                            showToast((d.error || 'Session expired.') + '\n\nPlease log in again to continue.', 'error', 'Session Expired');
+                        }
+                    }).catch(function(){});
+                }
+                if(resp.headers && resp.headers.get(CL_OFFLINE_FLAG) === '1'){
+                    // The service worker answered out of a saved copy because the
+                    // server could not be reached: say when it was saved.
+                    clOfflineMark(parseInt(resp.headers.get(CL_SAVED_AT) || '', 10) || 0);
+                } else if(navigator.onLine){
+                    clOfflineClear();
+                }
+            } catch (e) { /* a notice must never break a request */ }
             return resp;
+        }, function(err){
+            // fetch() only rejects when the request never reached the server.
+            // The method has to be read from BOTH places it can be given: the
+            // page itself calls fetch(url, {method: 'POST'}) with a plain string,
+            // and a failed change must be reported as a change, never as a read.
+            var method = 'GET';
+            try {
+                var init = args[1] || {};
+                var target = args[0];
+                if(target && typeof target === 'object' && target.method){ method = target.method; }
+                else if(init.method){ method = init.method; }
+            } catch (e) {}
+            if(String(method).toUpperCase() === 'GET'){ clOfflineMark(0); }
+            else { clNothingSaved(); }
+            throw err;
         });
     };
 })();

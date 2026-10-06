@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CheckOut",
-  "file": "_check_out.txt",
-  "purpose": "<!-- Describe what CheckOut does -->",
+  "module": "Diff",
+  "file": "_diff.txt",
+  "purpose": "<!-- Describe what Diff does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "4cfd0d86fed2edf6",
-  "file_mtime": 1791296139650.6086,
-  "file_size": 1078,
-  "file_birthtime": 1791296139308.8347,
-  "generated_at": "2026-10-06T14:17:43.002Z",
+  "file_hash": "4f1ed19aaebd0514",
+  "file_mtime": 1791300877540.17,
+  "file_size": 15990,
+  "file_birthtime": 1791300876470.3616,
+  "generated_at": "2026-10-06T15:34:39.196Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }

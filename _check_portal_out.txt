@@ -1,0 +1,69 @@
+PASS  script started
+PASS  read the service worker  -> 13243 chars
+PASS  read the portal page  -> 1937216 chars
+PASS  the service worker is syntactically valid  -> None
+PASS  the page still has its script blocks  -> new=46 old=46
+PASS  no script block gained a syntax error (vs the committed page)
+PASS  the cache version was bumped, so a stale worker cannot survive the deploy  -> was: v2
+PASS  exactly the named project endpoints may be replayed offline  -> ['/get_project_count', '/get_project_months', '/get_project_start_months', '/api/projects-page']
+PASS  the named endpoints are matched exactly, never as a substring
+PASS  the id-carrying read endpoints are anchored on the whole path  -> ['^/get_project/\\d+$', '^/api/project/\\d+/has-gantt$', '^/download_contract/\\d+$']
+PASS  the contract pattern is anchored on the whole path
+PASS  a receipt route is not treated as a document (they are POSTs)
+PASS  no money endpoint is readable offline (nor anywhere in the worker)
+PASS  no route that changes something is in any bucket  -> ['/get_project_count', '/get_project_months', '/get_project_start_months', '/api/projects-page', '^/get_project/\\d+$', '^/api/project/\\d+/has-gantt$', '^/download_contract/\\d+$']
+PASS  the bucket is chosen from the path, never the whole href
+PASS  a saved copy is only ever handed back for this app's own origin
+PASS  anything but GET is dropped before the URL is even looked at
+PASS  ...and before any response is decided
+PASS  the two read-only buckets are settled before the static-file gate
+PASS  a contract link is settled before the page-shell branch
+PASS  the old rule still stands: /api/* is never cached in the runtime bucket
+PASS  /webhook is still refused outright
+PASS  the worker keeps no queue of changes of its own
+PASS  the POS shell is still installed and still answers a POS navigation
+PASS  a copy served instead of the server's answer is marked as a copy
+PASS  the saved copy carries the time it was saved
+PASS  a replay of saved figures says when it was saved
+PASS  a replay of a saved contract says when it was saved
+PASS  with no copy at all, a read is refused rather than answered empty
+PASS  with no copy at all, a contract is refused with instructions
+PASS  a contract is only kept when the server really answered with a PDF
+PASS  the read bucket is bounded  -> 200
+PASS  the contract bucket is bounded by count AND by bytes  -> 30 entries / max 40 * 1024 * 1024 bytes
+PASS  trimming drops the oldest first
+PASS  trimming never drops the copy just saved
+PASS  trimming is applied to both buckets
+PASS  the read and contract buckets are only written through storeWithStamp
+PASS  the runtime bucket still saves exactly what it did before
+PASS  the page has an offline banner, hidden until it is needed
+PASS  the banner quotes the time the copy on screen was saved
+PASS  and says plainly that nothing can be sent or saved
+PASS  and the copy quoted is the OLDEST one shown, never a fresher one
+PASS  a live answer takes the notice away
+PASS  a change that could not be sent says it was not saved
+PASS  and says nothing was queued on the device
+PASS  that notice is not repeated for every failed request in a burst
+PASS  the page notices a saved figure through the worker stamp
+PASS  and reads the time it was saved out of the stamp
+PASS  a live answer clears the notice only while the browser is online
+PASS  a failed READ says what is on screen; a failed CHANGE says nothing was saved
+PASS  the method is read from the call itself, not assumed (the page posts a plain url)
+PASS  the 401 session handling that was there before is untouched
+PASS  a notice can never break a request
+PASS  the offline module writes nothing to the browsers own storage
+PASS  the contract modal offers Save for offline
+PASS  and says a contract that is downloaded is kept automatically
+PASS  and warns that the copies carry client details
+PASS  the modal footer offers to delete the saved copies
+PASS  opening the modal reports what is kept, and whether it is this contract
+PASS  a copy that could not be saved says so rather than pretending
+PASS  a saved copy is reported with its size and the time it was saved
+PASS  a contract served from the device says the server has no record of it
+PASS  deleting empties the saved copies and then removes the bucket
+PASS  the page finds the contract bucket by its prefix, as the worker names it
+PASS  a deploy cannot throw away the contracts the operator asked us to keep
+PASS  though the previous read bucket is still swept away by the version in its name
+PASS  logging out clears the saved copies
+PASS  but a slow clear can never hold the logout up
+PASS  logging out still goes to /logout exactly once

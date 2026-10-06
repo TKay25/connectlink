@@ -504,6 +504,15 @@ Also worth setting (pre-existing behaviour, unchanged):
   keeps its card and reads "Out of stock", so a cashier can still say "we stock it, we're
   out". The Inventory tab, the audit report and the Excel/PDF exports still list every
   product, and **Add Stock** on any of them puts an item back on the till.
+* **The Inventory tab can be narrowed to this branch, if you want it.** It lists every
+  product by default — that is where an item is given a branch row again — and a
+  **"Stocked in this branch only"** switch (unticked by default) hides the items this
+  branch has never carried, in the table *and* in the Excel/PDF exports that follow it.
+  The switch is not offered on the read-only All Branches view, where every line is the
+  company's own. Nothing is lost by ticking it: the names of those products are still
+  offered wherever a product is chosen by name — the **Add Product** form's name hints
+  and the **Upload New Stock** template's *Product Names* sheet both list the whole
+  catalogue — so an item created at another branch can still be found and added to.
 * **Stock shown** — on a real branch every figure is that branch's. On the read-only
   All Branches view, stock figures are the company total. **Add Stock** and **Subtract**
   always re-read the figure from the server as they open (and correct the row, grid and
@@ -569,6 +578,44 @@ If an older database lacks `branch_id`/`voided` columns the checks degrade to fl
 *fewer* rows, never more. `--apply` copies what it is about to remove into
 `product_stock_repair_backup` (and FIFO layers into `stock_lots_repair_backup`), then
 re-derives `products.stock`. Before and after figures for both shops are printed.
+
+### A reverted sale still counted as a sale (the audit report)
+
+**Symptom.** The audit showed a sale going out on the 5th and the same goods coming back as an
+*addition* funded by **VOID** on the 6th — for a sale Transaction History already showed as
+**reverted**, one that sold nothing. *Sale Reductions* was therefore inflated by the returned
+quantity, on top of the phantom *Additions* line beside it.
+
+**Cause.** Two defects that only show together:
+
+1. Reverting a sale (`/api/transactions/<id>/revert`) and cancelling a layby do **two** things:
+   they write the goods back as a `stock_additions` row (`funding_source` *VOID* or
+   *LAYBY_CANCEL*), **and** they *soft*-delete the sale — so the `transaction_items` row stays
+   put. The report reads its sales from `transaction_items` on purpose (it is the only source
+   that covers every sale, including older ones never mirrored into `stock_reductions`), so the
+   reverted sale was still read as a sale.
+2. Nothing removed the goods the revert had put back, so one reversal was counted twice: once
+   as an outflow and once as an inflow.
+
+**Fix.** `_drop_finished_reversals()` in `ConnectLink.py` drops a reversal's **two** halves
+together, and only when **both** fall inside the reported window:
+
+* the voided sale line is matched to the restore its revert wrote back — same branch, same
+  product, same quantity, and the **same moment** (a revert stamps `added_at` and `voided_at`
+  with one `CURRENT_TIMESTAMP`; a cancellation uses one `now` for both), so the halves of one
+  reversal are recognised without guesswork;
+* both then leave the movements list, the per-product columns, the period totals and the
+  summary — one consistent story, instead of a reduction column that disagrees with the rows.
+
+The two must move together: opening stock is *derived* as `closing − additions + reductions`,
+so dropping either half alone would shift it by the returned quantity. A **lone** half is
+deliberately left in place — a sale reverted in a *later* period really did take stock off the
+shelf during this one, and a revert whose sale was *earlier* really did put goods back. A pair
+that cannot be matched (an older row with no moment to pair on) is left exactly as it was
+found, so a missed match degrades to the old behaviour and never to a drifting opening figure.
+
+Nothing is hidden by this: `/api/transactions/voided` still lists every reverted sale with who
+reverted it and when, so the voided-sales sheet remains where a reversal is read.
 
 ### A quantity on screen that is not the server's (the till's saved copy)
 
@@ -696,6 +743,56 @@ retry is burned on a dead session; `python _pos_freshness_browser.py` rings a sa
 page against a stub server that answers `401 session_expired`, then answers properly, and
 asserts the count is announced, the sale is kept, and it files itself after that one login.
 Neither touches the live database.
+
+### The project portal with no connection (read-only, plus contracts)
+
+The portal does **not** queue anything. An edit there is a whole-row update the server judges
+(permissions, and whether the branch is read-only), so an offline replay would quietly overwrite
+whatever happened in the meantime. With no connection a change is refused, and the page says so
+plainly: *"No connection. Nothing was saved and nothing was sent, and nothing has been queued on
+this device."*
+
+What the portal **can** do offline is read. The service worker keeps exactly two small buckets:
+
+| Kept | Why |
+| --- | --- |
+| `get_project_count`, `get_project_months`, `get_project_start_months`, `get_project/<id>`, `/api/projects-page`, `/api/project/<id>/has-gantt` | the project figures the lists are built from, so the projects pages still open with no connection |
+| `download_contract/<id>` — every contract that has been downloaded, or saved with **Save for offline** | a contract can still be opened and re-downloaded with no connection |
+
+Each endpoint is matched on the **whole path** (never as a substring), and every saved copy
+carries the time it was saved. When a figure comes from the device rather than the server, a bar
+at the bottom of the screen says so: *"No connection. The figures on this screen are a copy saved
+on this device at HH:MM on D Mon, and may be out of date. Nothing here can be sent or saved."*
+The bar goes the moment the server answers again. An endpoint with no saved copy is **refused**
+rather than answered with a stale figure, and a money figure — **project over-costs** — is
+deliberately *not* on the list at all: a saved copy of it is worse than no answer. The export and
+every other route are left exactly as they were.
+
+**Contract copies.** A contract is kept on the device the first time it is downloaded, and the
+contract dialog offers **Save for offline** for a copy kept on purpose. A contract opened from
+the device also says the server has **no record of that download**, so nobody later wonders why a
+client holds a contract the audit log never saw. These copies carry client details, so the same
+dialog offers **Delete saved copies**; they are also dropped automatically once 30 are held or
+40 MB is reached (oldest first), and **logging out clears them**. They live in that browser
+profile's own storage, exactly like the till's queued sales: another machine — or cleared site
+data — has none. The figures bucket carries the worker's version in its name, so a deploy simply
+replaces it; the **contract** bucket deliberately does not, so a copy somebody asked us to keep is
+not thrown away by a deploy — only *Delete saved copies*, the size limit and logging out remove
+those.
+
+**Deploying it.** The worker's cache version was bumped, so the first page load after the deploy
+replaces the old worker; until a given browser has loaded a page once, it simply has no offline
+buckets yet.
+
+**Verifying it.** `python _check_portal_offline.py` checks, with no browser and no database, that
+only the named endpoints are replayable (whole-path matches, no money route, no write route),
+that nothing is handled but GET, that every copy is stamped with when it was saved, that both
+buckets are bounded, and that the page says what it is showing. `python
+_portal_offline_browser.py` drives a real Chromium against a stub server: it goes offline,
+replays a saved figure (stamped, and announced with its saved time), refuses a figure that was
+never saved and the money endpoint, fails a change with "nothing was saved", opens a contract
+that has been through once while refusing one that never has, then deletes the copies and checks
+that logging out takes the rest.
 
 ### Project changes in the audit log
 

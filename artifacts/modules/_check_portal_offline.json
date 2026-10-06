@@ -1,0 +1,43 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckPortalOffline",
+  "file": "_check_portal_offline.py",
+  "purpose": "Offline check for the portal's read-only offline copy.",
+  "entry_function": "check(name, ok, detail = '')",
+  "entry_flows": [
+    "_check_portal_offline → _check_portal_offline.py, fh.write, RESULTS.append, fh.read, subprocess.run"
+  ],
+  "public_api": [
+    "check(name, ok, detail = '')",
+    "read(path)",
+    "committed(path)",
+    "script_blocks(src)",
+    "first_error(body)",
+    "extract(src, marker)",
+    "list_literal(src, name)",
+    "quoted(text)"
+  ],
+  "dependencies": [
+    "esprima"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: RESULTS = [], OUT = '_check_portal_out.txt', SW = 'static/js/sw.js', PAGE = 'templates/adminpage.html', SW_SRC = read(SW), PAGE_SRC = read(PAGE)",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "74ebb9a41c5f7754",
+  "file_mtime": 1791298622187.535,
+  "file_size": 3657,
+  "file_birthtime": 1791298622187.535,
+  "generated_at": "2026-10-06T15:14:54.726102Z",
+  "stale": false
+}

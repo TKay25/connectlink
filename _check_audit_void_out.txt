@@ -1,0 +1,26 @@
+PASS  script started
+PASS  read ConnectLink.py  -> 3095588 chars
+PASS  both new pieces are valid Python
+PASS  the sale row carries the voided flag at the position read (14)  -> t.voided as is_voided
+PASS  and the moment it was reverted, at 15  -> t.voided_at as voided_at
+PASS  and the sale branch at 16, to match the restore branch  -> t.branch_id as branch_id
+PASS  the restore row carries the branch at the position read (12)  -> sa.branch_id as branch_id
+PASS  a voided sale is not filtered out in SQL (its restore must be visible)
+PASS  the two halves are dropped together, not one at a time
+PASS  the sale half is dropped before the sales are counted
+PASS  the restore half is dropped before the additions are counted
+PASS  the reversal is still listed, so nothing is hidden by this
+PASS  the pairing runs on its own
+PASS  a revert wholly inside the window is dropped from both sides
+PASS  a sale reverted LATER keeps its reduction (stock really did leave)
+PASS  a revert whose sale was EARLIER keeps its restore
+PASS  a live sale is never half of a reversal
+PASS  two identical lines of one sale pair one-for-one
+PASS  another branch does not pair
+PASS  a different quantity does not pair
+PASS  a different moment does not pair (two separate reverts)
+PASS  a restore with no moment on it (an older row) is left alone
+PASS  nothing is paired by guessing
+PASS  and the quantity leaving each side is the same, so opening cannot drift
+PASS  the report pairs a reverted sale with the goods its revert wrote back
+PASS  and leaves a voided sale alone when its restore is outside the window

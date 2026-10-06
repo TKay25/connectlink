@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CheckOut",
-  "file": "_check_out.txt",
-  "purpose": "<!-- Describe what CheckOut does -->",
+  "module": "Crlf",
+  "file": "_crlf.txt",
+  "purpose": "<!-- Describe what Crlf does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "4cfd0d86fed2edf6",
-  "file_mtime": 1791296139650.6086,
-  "file_size": 1078,
-  "file_birthtime": 1791296139308.8347,
-  "generated_at": "2026-10-06T14:17:43.002Z",
+  "file_hash": "38983453b891759e",
+  "file_mtime": 1791300521659.8662,
+  "file_size": 44,
+  "file_birthtime": 1791300520809.61,
+  "generated_at": "2026-10-06T15:28:43.654Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }

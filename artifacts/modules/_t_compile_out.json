@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CheckOut",
-  "file": "_check_out.txt",
-  "purpose": "<!-- Describe what CheckOut does -->",
+  "module": "TCompileOut",
+  "file": "_t_compile_out.txt",
+  "purpose": "<!-- Describe what TCompileOut does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "4cfd0d86fed2edf6",
-  "file_mtime": 1791296139650.6086,
-  "file_size": 1078,
-  "file_birthtime": 1791296139308.8347,
-  "generated_at": "2026-10-06T14:17:43.002Z",
+  "file_hash": "d16a143cfed1b615",
+  "file_mtime": 1791300744940.4272,
+  "file_size": 7,
+  "file_birthtime": 1791300744936.2312,
+  "generated_at": "2026-10-06T15:32:27.266Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }

@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CheckOut",
-  "file": "_check_out.txt",
-  "purpose": "<!-- Describe what CheckOut does -->",
+  "module": "FxIndex",
+  "file": "_fx_index.txt",
+  "purpose": "<!-- Describe what FxIndex does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "4cfd0d86fed2edf6",
-  "file_mtime": 1791296139650.6086,
-  "file_size": 1078,
-  "file_birthtime": 1791296139308.8347,
-  "generated_at": "2026-10-06T14:17:43.002Z",
+  "file_hash": "aaa1833bef9b561a",
+  "file_mtime": 1791301505256.9233,
+  "file_size": 287,
+  "file_birthtime": 1791301505202.7498,
+  "generated_at": "2026-10-06T15:45:06.962Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }

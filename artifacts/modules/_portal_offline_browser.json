@@ -1,0 +1,45 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PortalOfflineBrowser",
+  "file": "_portal_offline_browser.py",
+  "purpose": "Real-browser proof of the portal's READ-ONLY offline copy.",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 143",
+  "entry_flows": [
+    "Handler.__init__() → _portal_offline_browser.py, pathlib.Path, environ.get, RESULTS.append"
+  ],
+  "public_api": [
+    "class Handler(SimpleHTTPRequestHandler)  # line 143",
+    "  Handler.__init__()",
+    "  Handler.log_message()",
+    "  Handler.do_GET()",
+    "  Handler.do_POST()",
+    "check(name, ok, detail = '')",
+    "extract(src, marker)",
+    "serve()"
+  ],
+  "dependencies": [
+    "http",
+    "playwright",
+    "urllib"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = pathlib.Path(__file__).parent, PORT = int(os.environ.get('PORTAL_TEST_PORT', '8793')), PAGE_FILE = ROOT / 'templates' / 'adminpage.html', SW_FILE = ROOT / 'static' / 'js' / 'sw.js', OUT = '_check_portal_browser_out.txt', BASE = 'http://127.0.0.1:%d' % PORT",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "6a0bbd6b1e43a740",
+  "file_mtime": 1791298853332.665,
+  "file_size": 3737,
+  "file_birthtime": 1791298853331.6653,
+  "generated_at": "2026-10-06T15:14:52.174126Z",
+  "stale": false
+}

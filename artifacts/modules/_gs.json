@@ -1,9 +1,9 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CheckOut",
-  "file": "_check_out.txt",
-  "purpose": "<!-- Describe what CheckOut does -->",
+  "module": "Gs",
+  "file": "_gs.txt",
+  "purpose": "<!-- Describe what Gs does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [],
   "public_api": [
@@ -25,11 +25,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "4cfd0d86fed2edf6",
-  "file_mtime": 1791296139650.6086,
-  "file_size": 1078,
-  "file_birthtime": 1791296139308.8347,
-  "generated_at": "2026-10-06T14:17:43.002Z",
+  "file_hash": "26d5538f64f8aa00",
+  "file_mtime": 1791301154057.695,
+  "file_size": 2360,
+  "file_birthtime": 1791301153794.615,
+  "generated_at": "2026-10-06T15:39:15.725Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }

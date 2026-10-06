@@ -1,16 +1,18 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "CheckOut",
-  "file": "_check_out.txt",
-  "purpose": "<!-- Describe what CheckOut does -->",
+  "module": "TCompile",
+  "file": "_t_compile.py",
+  "purpose": "Probe: does this machine manage to compile the whole ConnectLink.py?",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [],
+  "entry_flows": [
+    "_t_compile → out.write, out.flush, py_compile.compile"
+  ],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
   "dependencies": [
-    "<!-- list module dependencies here -->"
+    "py_compile"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -25,11 +27,11 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "4cfd0d86fed2edf6",
-  "file_mtime": 1791296139650.6086,
-  "file_size": 1078,
-  "file_birthtime": 1791296139308.8347,
-  "generated_at": "2026-10-06T14:17:43.002Z",
+  "file_hash": "d8bbced00af06627",
+  "file_mtime": 1791300727759.11,
+  "file_size": 552,
+  "file_birthtime": 1791300727757.0837,
+  "generated_at": "2026-10-06T15:32:11.683949Z",
   "stale": true,
   "stale_reason": "source file deleted"
 }

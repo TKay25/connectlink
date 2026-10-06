@@ -4,9 +4,10 @@
   "module": "Sw",
   "file": "static/js/sw.js",
   "purpose": "Sw",
-  "entry_function": "if",
+  "entry_function": "for",
   "entry_flows": [],
   "public_api": [
+    "for",
     "if"
   ],
   "dependencies": [
@@ -29,6 +30,6 @@
   "file_mtime": 1781716751804.963,
   "file_size": 1968,
   "file_birthtime": 1781716751480.9402,
-  "generated_at": "2026-10-03T09:20:14.391255Z",
+  "generated_at": "2026-10-06T15:14:54.679727Z",
   "stale": false
 }
