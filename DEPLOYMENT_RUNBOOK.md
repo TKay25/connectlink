@@ -448,10 +448,13 @@ Also worth setting (pre-existing behaviour, unchanged):
 2. Deploy and confirm BOTH of these lines in the boot log:
    ```
    [ok] Branch schema ready: SHU backfilled -> transactions(+N), ...
-   [ok] product_stock ready (N product row(s) seeded to SHU)
+   [ok] product_stock ready (pre-branch rows seeded to SHU: N; 0 on every later boot)
    ```
    The first run seeds Chegutu as branch 2 and moves all existing stock/history to
-   Shurugwi (the shop that was live first).
+   Shurugwi (the shop that was live first). **`0` on a later boot is correct, not a
+   failure** — only products that pre-date per-branch stock can be seeded, and only
+   once. A number other than 0 every deploy means the guard described under
+   *An item this shop never stocked* below has been lost.
 3. **Confirm the environment variables took effect.** Sign in as an admin and open
    ```
    /api/branch-health
@@ -506,6 +509,66 @@ Also worth setting (pre-existing behaviour, unchanged):
   always re-read the figure from the server as they open (and correct the row, grid and
   metrics to match), and if the till is showing the catalogue it saved on the device, a
   banner says so and gives the time it was saved.
+
+### An item this shop never stocked (phantom `product_stock` rows)
+
+**Symptom.** A product created at Chegutu — a speaker nobody had ever sent to Shurugwi —
+appeared in Shurugwi's till and inventory carrying Chegutu's quantity, and company-wide
+totals came out **doubled** (the same units counted in both shops).
+
+**Cause.** Two defects in the boot seeder in `ConnectLink.py` (`ensure_branches_schema`):
+
+1. The seeder hands every product with no Shurugwi `product_stock` row a row of its own,
+   and takes the quantity from `products.stock` — which is the **company** total — as if
+   Shurugwi had received it.
+2. It had **no per-database guard**. `_ensure_db_initialized()`'s "already ran" flag is
+   per *worker*, not per database, and every Render deploy recycles the worker, so the
+   `INSERT ... SELECT` re-ran on **every boot** and re-gifted a row to each product that
+   had none — including every item Chegutu added after the first deploy.
+
+The row then had two effects, because `stocked_here` (see `run1hardware`) is simply
+*"does this branch have a `product_stock` row at all"*: the item **showed stock** it had
+never been sent, and the row **stopped the till hiding it**, which is exactly the rule
+that is supposed to keep one shop's catalogue out of the other shop's sale screen.
+
+**Fix.** The seed now only assigns stock to a product that has **no branch row at all**
+(a product already carrying a row belongs to the shop that created it) and is guarded so
+it runs once ever, not once per boot:
+
+```sql
+INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level)
+SELECT p.id, %s, COALESCE(p.stock, 0), COALESCE(p.min_stock_level, 10)
+FROM products p
+WHERE NOT EXISTS (SELECT 1 FROM product_stock ps WHERE ps.product_id = p.id)
+ON CONFLICT (product_id, branch_id) DO NOTHING
+```
+
+`products.stock` is then re-derived as `SUM(product_stock.stock)`, so it keeps meaning
+"total across all branches". The guard is what makes the seed idempotent; without it the
+COUNT in the boot log climbs on every deploy.
+
+**Repairing a database that already has phantom rows.** The fix stops new ones but cannot
+know which existing rows were earned, so use the repair script. It is **read-only unless
+you pass `--apply`**:
+
+```bash
+python _branch_stock_phantom.py            # report only - lists candidates, writes nothing
+python _branch_stock_phantom.py --apply    # deletes them, backs up first
+```
+
+A row is only deleted when **all** of the following hold, so a genuinely earned row is
+never taken away:
+
+* the product is stocked by at least one **other** branch,
+* Shurugwi has **no** `stock_additions` for it (no delivery was ever recorded there),
+* it has **no** FIFO layer other than the boot-generated `opening`/`backfill` ones
+  (i.e. nobody has bought or costed it at Shurugwi),
+* Shurugwi has **no** sale of it.
+
+If an older database lacks `branch_id`/`voided` columns the checks degrade to flagging
+*fewer* rows, never more. `--apply` copies what it is about to remove into
+`product_stock_repair_backup` (and FIFO layers into `stock_lots_repair_backup`), then
+re-derives `products.stock`. Before and after figures for both shops are printed.
 
 ### Project changes in the audit log
 
@@ -1088,6 +1151,38 @@ sudo systemctl start postgresql
 # Format: postgresql://user:password@host:port/database
 psql -U connectlink_user -h localhost -d connectlinkdata
 ```
+
+### Multi-Branch: one shop's item shows up in the other shop's till
+
+**A product only Chegutu ever had appears in Shurugwi (often with Chegutu's quantity),
+and totals look doubled.**
+
+That is a phantom `product_stock` row: Shurugwi carries a row for an item it never
+received. Check with the read-only repair script first — no writes, safe to run against
+production:
+
+```bash
+python _branch_stock_phantom.py
+```
+
+It lists each candidate with the evidence for and against (other branches stocking it,
+Shurugwi deliveries, FIFO layers, sales). If the list is exactly the items you expect,
+clear it:
+
+```bash
+python _branch_stock_phantom.py --apply
+```
+
+Then reload the POS — the item disappears from Shurugwi's till (it is still on the
+Inventory tab, which lists the whole catalogue), and the company totals fall back to
+reality. Both tables it touches are backed up first (`product_stock_repair_backup`,
+`stock_lots_repair_backup`). Full background: see *An item this shop never stocked* under
+**MULTI-BRANCH POS**.
+
+**If the phantom rows keep coming back after a deploy**, the boot seeder's guard has been
+lost. Confirm the boot log prints `pre-branch rows seeded to SHU: 0` on the second and
+later boots; anything else means `ensure_branches_schema`'s `INSERT ... SELECT` is running
+unguarded again.
 
 ### Database Issues
 

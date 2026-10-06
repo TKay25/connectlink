@@ -1,0 +1,15 @@
+﻿commit f219e03cbd69be573b7d596bcc6f08901989a0b4
+Author: TKay25 <echelonequipmentimports@gmail.com>
+Date:   Mon Oct 5 23:07:57 2026 +0200
+
+    ´╗┐Decide every stock status in one place, and never call a foreign item "in stock"
+    
+    The in stock / low stock / out of stock labels disagreed with each other: the inventory table and both exports called anything under 5 "Low" and everything else "OK" (so an item with 0 read "Low", and an item with 26 read "OK" even if the branch's minimum is 30), while the till used 10, and none of them said anything about an item this branch has never stocked.
+    
+    stockStatusOf() is now the only place a status is decided and returns exactly one of In stock, Low, Out of stock or Not stocked here. It is used by the till's product cards and its three KPI counts and lists, the inventory table's status column, and the Inventory Excel and PDF exports, so the same item cannot read two different things. Low means below the item's OWN minimum stock level - the rule /api/dashboard/stats already used - and an item this branch has never stocked reads "Not stocked here" instead of being dressed up as low or in stock. The Low Stock card's sub-label now reads "Below the item's minimum".
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+ DEPLOYMENT_RUNBOOK.md     |  8 ++++++++
+ templates/pos-system.html | 49 ++++++++++++++++++++++++++++++++---------------
+ 2 files changed, 42 insertions(+), 15 deletions(-)

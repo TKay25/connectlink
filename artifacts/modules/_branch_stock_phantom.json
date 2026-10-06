@@ -1,0 +1,42 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "BranchStockPhantom",
+  "file": "_branch_stock_phantom.py",
+  "purpose": "Find (and optionally remove) Shurugwi product_stock rows it never earned.",
+  "entry_function": "line(text = '')",
+  "entry_flows": [
+    "_branch_stock_phantom → cur.execute, cur.fetchone"
+  ],
+  "public_api": [
+    "line(text = '')",
+    "has_column(cur, table, column)",
+    "has_table(cur, table)",
+    "find_phantoms(cur)",
+    "report(cur)",
+    "apply(cur, conn, phantoms)",
+    "main()"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: DEFAULT_DSN = 'postgresql://connectlinkdata_user:RsYLVxq6lzCBXV7m3e2drdiNMebYBFIC@dpg-d4m0bqggjchc73avg3eg-a.oregon-postgres.render.com/connectlinkdata', FIRST_CODE = (os.getenv('BRANCH_FIRST_CODE') or 'SHU').strip().upper() or 'SHU', BACKUP_TABLE = 'product_stock_repair_backup', LOT_BACKUP_TABLE = 'stock_lots_repair_backup'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "bbccdd7f4a737b78",
+  "file_mtime": 1791291909059.8079,
+  "file_size": 2880,
+  "file_birthtime": 1791291909057.7966,
+  "generated_at": "2026-10-06T13:14:09.533985Z",
+  "stale": false
+}

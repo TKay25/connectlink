@@ -1,12 +1,12 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "FixEnquiriesTable",
-  "file": "fix_enquiries_table.py",
-  "purpose": "Fix enquiries table styling to match other tables",
+  "module": "SyntaxCheck",
+  "file": "_syntax_check.py",
+  "purpose": "Syntax-check ConnectLink.py alone (the big file) and record the verdict.",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
   "entry_flows": [
-    "fix_enquiries_table → f.read"
+    "_syntax_check → ast.parse, fh.read, fh.write"
   ],
   "public_api": [
     "<!-- list public functions/methods here -->"
@@ -27,10 +27,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "0583a0122bdb64b4",
-  "file_mtime": 1776794366000,
-  "file_size": 6231,
-  "file_birthtime": 1776794366274.5469,
-  "generated_at": "2026-10-06T12:55:28.179820Z",
+  "file_hash": "34a77b4107bd91c9",
+  "file_mtime": 1791292244894.1216,
+  "file_size": 731,
+  "file_birthtime": 1791292244890.5962,
+  "generated_at": "2026-10-06T13:10:47.625546Z",
   "stale": false
 }

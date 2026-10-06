@@ -1,13 +1,11 @@
 {
   "_readonly": true,
   "_managed_by": "artifacto-plugin",
-  "module": "FixEnquiriesTable",
-  "file": "fix_enquiries_table.py",
-  "purpose": "Fix enquiries table styling to match other tables",
+  "module": "Syn",
+  "file": "_syn.txt",
+  "purpose": "<!-- Describe what Syn does -->",
   "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
-  "entry_flows": [
-    "fix_enquiries_table → f.read"
-  ],
+  "entry_flows": [],
   "public_api": [
     "<!-- list public functions/methods here -->"
   ],
@@ -27,10 +25,10 @@
   "known_risks": [],
   "changelog": [],
   "generated_from_commit": "",
-  "file_hash": "0583a0122bdb64b4",
-  "file_mtime": 1776794366000,
-  "file_size": 6231,
-  "file_birthtime": 1776794366274.5469,
-  "generated_at": "2026-10-06T12:55:28.179820Z",
+  "file_hash": "e3b0c44298fc1c14",
+  "file_mtime": 1791292485629.291,
+  "file_size": 0,
+  "file_birthtime": 1791292485629.291,
+  "generated_at": "2026-10-06T13:14:47.333Z",
   "stale": false
 }

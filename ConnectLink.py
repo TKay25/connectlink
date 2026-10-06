@@ -3169,11 +3169,31 @@ def ensure_branches_schema(cursor, connection):
             print(f"Note: transaction_items.cost_at_time not added: {e}")
 
         if first_branch_id:
-            # Everything that existed before this change was this shop's stock.
+            # Everything that existed before this change was this shop's stock --
+            # and ONLY those products. A product that already carries a branch row
+            # was created AFTER per-branch stock existed, and the row it has is the
+            # shop that actually created it, so it must never be gifted to anyone
+            # else.
+            #
+            # The NOT EXISTS guard is load-bearing, not belt-and-braces. This block
+            # re-runs on EVERY process start (_ensure_db_initialized's flag is per
+            # worker, not per database, and every Render deploy recycles the
+            # worker), so without it each boot re-seeded every product that had no
+            # Shurugwi row yet -- including items added at Chegutu -- using
+            # COALESCE(p.stock, 0), which is the COMPANY total. Shurugwi then
+            # carried a quantity it had never received and never sold: a speaker
+            # created at Chegutu showed up in Shurugwi's inventory with Chegutu's
+            # figure, and because stocked_here (see run1hardware) is "does this
+            # branch have a product_stock row at all", the row also stopped the
+            # till hiding it. The total below then doubled, because the units were
+            # now counted in both branches.
             cursor.execute("""
                 INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level)
                 SELECT p.id, %s, COALESCE(p.stock, 0), COALESCE(p.min_stock_level, 10)
                 FROM products p
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM product_stock ps WHERE ps.product_id = p.id
+                )
                 ON CONFLICT (product_id, branch_id) DO NOTHING
             """, (first_branch_id,))
             seeded = cursor.rowcount
@@ -3189,7 +3209,10 @@ def ensure_branches_schema(cursor, connection):
                                 WHERE ps.product_id = p.id), 0)
             """)
             connection.commit()
-            print(f"[ok] product_stock ready ({seeded} product row(s) seeded to {BRANCH_FIRST_CODE})")
+            # 0 is the healthy steady state: only a product that pre-dates
+            # per-branch stock can ever be seeded, and only on the first boot.
+            print(f"[ok] product_stock ready (pre-branch rows seeded to "
+                  f"{BRANCH_FIRST_CODE}: {seeded}; 0 on every later boot)")
 
             # Opening FIFO layer for stock that was already on hand when costing
             # became FIFO: one lot per (product, branch) at the product's current

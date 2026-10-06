@@ -1,0 +1,47 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Check",
+  "file": "_check.py",
+  "purpose": "Offline check for _branch_stock_phantom.py + ConnectLink.py.",
+  "entry_function": "class StubCursor  # line 71",
+  "entry_flows": [
+    "StubCursor.__init__(rows = None) → _check.py, fh.write, RESULTS.append, ast.parse",
+    "StubConn.__init__() → _check.py, fh.write, RESULTS.append, ast.parse"
+  ],
+  "public_api": [
+    "class StubCursor  # line 71",
+    "  StubCursor.__init__(rows = None)",
+    "  StubCursor.execute(sql, params = None)",
+    "  StubCursor.fetchall()",
+    "  StubCursor.fetchone()",
+    "class StubConn  # line 106",
+    "  StubConn.__init__()",
+    "  StubConn.commit()",
+    "  StubConn.rollback()",
+    "check(name, ok, detail = '')",
+    "refuse()"
+  ],
+  "dependencies": [
+    "_branch_stock_phantom"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: RESULTS = [], OUT = '_check_out.txt', PHANTOM_ROWS = [(10, 'Speaker A', 5, 10, 10, 5, 10, 0, 0, 0), (11, 'Speaker B', 3, 10, 6, 3, 6, 2, 0, 0), (12, 'Cable', 4, 10, 4, 0, 4, 0, 0, 0), (13, 'Speaker C', 2, 10, 2, 2, 4, 0, 1, 0), (14, 'Speaker D', 1, 10, 1, 1, 2, 0, 0, 3)]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "67c044af812900e3",
+  "file_mtime": 1791292001833.7034,
+  "file_size": 3383,
+  "file_birthtime": 1791292001833.013,
+  "generated_at": "2026-10-06T13:14:00.062012Z",
+  "stale": false
+}

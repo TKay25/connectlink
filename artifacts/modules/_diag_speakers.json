@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "DiagSpeakers",
+  "file": "_diag_speakers.py",
+  "purpose": "Read-only diagnostic: where is the \"speaker\" stock and how is it scoped?",
+  "entry_function": "p()",
+  "entry_flows": [
+    "_diag_speakers → psycopg2.connect, conn.cursor, out.append, cur.execute, cur.fetchall"
+  ],
+  "public_api": [
+    "p()"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: URL = os.getenv('DATABASE_URL', 'postgresql://connectlinkdata_user:RsYLVxq6lzCBXV7m3e2drdiNMebYBFIC@dpg-d4m0bqggjchc73avg3eg-a.oregon-postgres.render.com/connectlinkdata')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "b3257c29674ab6aa",
+  "file_mtime": 1791291494118.2544,
+  "file_size": 2680,
+  "file_birthtime": 1791291494116.262,
+  "generated_at": "2026-10-06T12:58:17.527315Z",
+  "stale": false
+}

@@ -1,0 +1,18 @@
+﻿commit eea97e5d6260efcfdb21d40bd097ffa27bfc1e0c
+Author: TKay25 <echelonequipmentimports@gmail.com>
+Date:   Mon Oct 5 23:00:32 2026 +0200
+
+    ´╗┐Offer only this branch's items on the till
+    
+    The catalogue is shared, so the till showed every product in the company: an item created for Chegutu sat in Shurugwi's grid with 0, and the reverse, until you could not find what the shop actually sells.
+    
+    /api/products now reports stocked_here, taken from product_stock for the session branch: a row means the branch carries the item (even at 0, which shows as "Out of stock"), no row means it has never been here. The till hides those, and its own counts follow the same rule (Total Products - now sub-labelled "Stocked in this branch" - Low Stock and Out of Stock, plus the lists behind them). A missing field on an older cached payload shows the item, so the rule can only hide what the server declares.
+    
+    Nothing becomes unreachable: Inventory, the audit report and the Excel/PDF exports still list every product, Add Stock on any of them gives the item a branch row and it returns to the till, and the transfer list still offers the exact item a row asked for. A till search that finds nothing because the match belongs to the other branch says so rather than inviting a duplicate. The read-only All Branches view still lists the whole catalogue with company totals.
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+ ConnectLink.py            | 13 ++++++++++--
+ DEPLOYMENT_RUNBOOK.md     | 25 +++++++++++++++++++++++
+ templates/pos-system.html | 51 +++++++++++++++++++++++++++++++++++++----------
+ 3 files changed, 77 insertions(+), 12 deletions(-)
