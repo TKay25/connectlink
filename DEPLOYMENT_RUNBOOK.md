@@ -502,17 +502,19 @@ Also worth setting (pre-existing behaviour, unchanged):
   hidden from the sale screen (the catalogue is shared, so this is what keeps one shop's
   list out of the other shop's till). An item this branch *does* stock but is out of today
   keeps its card and reads "Out of stock", so a cashier can still say "we stock it, we're
-  out". The Inventory tab, the audit report and the Excel/PDF exports still list every
-  product, and **Add Stock** on any of them puts an item back on the till.
-* **The Inventory tab can be narrowed to this branch, if you want it.** It lists every
-  product by default — that is where an item is given a branch row again — and a
-  **"Stocked in this branch only"** switch (unticked by default) hides the items this
-  branch has never carried, in the table *and* in the Excel/PDF exports that follow it.
-  The switch is not offered on the read-only All Branches view, where every line is the
-  company's own. Nothing is lost by ticking it: the names of those products are still
-  offered wherever a product is chosen by name — the **Add Product** form's name hints
-  and the **Upload New Stock** template's *Product Names* sheet both list the whole
-  catalogue — so an item created at another branch can still be found and added to.
+  out". The Inventory tab now lists this branch's own stock (see the next bullet); the audit
+  report still reaches every product, and **Add Stock** puts an item back on the till.
+* **The Inventory tab is this branch's own stock.** The table, the metric cards above it and
+  the Excel/PDF exports that follow it list only the items this branch carries — an item it
+  has never stocked is not a row here. Giving such an item a branch row is what puts it back
+  on the till (**Add Stock** on the audit report, a transfer in, or an upload). Nothing is
+  lost by it: those products are still offered wherever a product is chosen by name — the
+  **Add Product** form's name hints (a name this branch has never stocked is marked
+  *"already in the catalogue at another branch - use this exact name"*) and the **Upload New
+  Stock** template's *Product Names* sheet both list the whole catalogue — so an item created
+  at another branch can still be found here and given a row. A search that only matches the
+  other branch's item says exactly that, and names those two ways in. The read-only All
+  Branches view is unchanged: every line there is the company's own.
 * **Stock shown** — on a real branch every figure is that branch's. On the read-only
   All Branches view, stock figures are the company total. **Add Stock** and **Subtract**
   always re-read the figure from the server as they open (and correct the row, grid and
@@ -578,6 +580,16 @@ If an older database lacks `branch_id`/`voided` columns the checks degrade to fl
 *fewer* rows, never more. `--apply` copies what it is about to remove into
 `product_stock_repair_backup` (and FIFO layers into `stock_lots_repair_backup`), then
 re-derives `products.stock`. Before and after figures for both shops are printed.
+
+**Verifying the rules that keep this from coming back.** `python _check_inventory_stocked_only.py`
+reads the page and the app and asserts, with no database and no browser, that the Inventory
+table narrows to the items this branch has a `product_stock` row for (and that nothing narrows
+the catalogue *itself*), that the metrics and both exports follow the table, that an empty
+table names the way in, and that the Add Product name hints and the upload template's *Product
+Names* sheet still carry **every** catalogue name; it then drives a real browser against a
+stand-in POS API — a branch stocking 2 of 3 items, a search that only matches the other shop's
+item, the name hints and the read-only All Branches view. It writes
+`_check_inventory_stocked_only_out.txt`.
 
 ### A reverted sale still counted as a sale (the audit report)
 
@@ -996,6 +1008,13 @@ Apply.
   choose *Add to the existing category*, *Use the category from my file*
   (`merge_category`, which changes the product's category as well as its stock), or
   *Create a separate product*. Nothing is applied until you decide.
+* **The template hands you every name the catalogue already uses.** Its *Product Names*
+  sheet is built from the **whole** catalogue, across every branch — so a name another shop
+  created is there to pick — and the **Product Name** column now says the rule out loud:
+  *"Pick the name the catalogue already uses to add stock to that product. A name that is
+  not on the list creates a NEW product, so only type one when the item really is new."*
+  The Inventory table lists only this branch's own stock, so this sheet (and the Add Product
+  form's name hints) is where the other branches' names are found.
 * There is no re-check between *Check File* and *Apply*, so do not leave a checked file
   sitting while someone else adds the same product.
 
@@ -1397,9 +1416,10 @@ clear it:
 python _branch_stock_phantom.py --apply
 ```
 
-Then reload the POS — the item disappears from Shurugwi's till (it is still on the
-Inventory tab, which lists the whole catalogue), and the company totals fall back to
-reality. Both tables it touches are backed up first (`product_stock_repair_backup`,
+Then reload the POS — the item disappears from Shurugwi's till and from its Inventory tab
+(the item itself is untouched: it is still in the shared catalogue, so it is still offered
+by name on the Add Product form and in the upload template), and the company totals fall
+back to reality. Both tables it touches are backed up first (`product_stock_repair_backup`,
 `stock_lots_repair_backup`). Full background: see *An item this shop never stocked* under
 **MULTI-BRANCH POS**.
 
@@ -1640,6 +1660,35 @@ sudo systemctl start connectlink
 
 ## Changelog
 
+**October 2026 — the Inventory tab lists only what this branch carries**
+- ✅ **The Inventory table is this shop's own stock, and nothing else.** It used to list the
+  whole shared catalogue, with the other shop's items reading *"Not stocked here"* — behind
+  an opt-in *"Stocked in this branch only"* switch that was **unticked by default**, so in
+  practice one shop's list filled the other shop's Inventory. The switch is **gone** and the
+  table always narrows to the items this branch has a `product_stock` row for: the table,
+  the metric cards above it, and the Excel and PDF exports (which follow the table).
+- ✅ **An empty table says why, and names the way in.** A search that only matches an item
+  the *other* shop carries reads *"1 item(s) match this search in the shared catalogue, but
+  this branch does not stock them. Use Upload New Stock - or Add Product with that exact
+  name - to start selling one here."*, and a genuinely empty branch reads *"Nothing is
+  stocked in this branch yet. Add a product, or upload stock for an item the catalogue
+  already has."*
+- ✅ **Every name is still offered, so nothing gets entered twice.** The catalogue itself was
+  never touched: the removed switch narrowed a *view* only. Both places where a product is
+  chosen **by name** still list every name in the catalogue — the **Add Product** form's
+  name hints, which now mark a name this branch has never stocked *"already in the catalogue
+  at another branch - use this exact name"*, and the **Upload New Stock** template's
+  *Product Names* sheet, whose **Product Name** cell now prompts *"Pick the name the
+  catalogue already uses to add stock to that product. A name that is not on the list
+  creates a NEW product, so only type one when the item really is new."*
+- ✅ The consolidated **All Branches** view is unchanged: every product is listed with
+  company totals, because the server there reports every item as the company's own.
+- Verified without a database: `python _check_inventory_stocked_only.py` — the switch has
+  really gone (page, wiring and markup), the filter narrows, the empty note, both exports
+  following the table, the hints and the template pick-list still carrying every name, then
+  a real browser against a stand-in POS API (a branch stocking 2 of 3 items, the search
+  matching only the other shop's item, the name hints, and All Branches).
+
 **October 2026 — the till never trusts a stock figure it cannot confirm**
 - ✅ **A screen that is showing the copy this device saved now says so, and stops pretending.**
   A catalogue load that failed for *any* reason used to leave the previous figures in place
@@ -1702,12 +1751,15 @@ sudo systemctl start connectlink
   item's **own** minimum stock level (the rule the dashboard already used) instead of a
   fixed 5 or 10, and an item this branch has never stocked reads "Not stocked here"
   rather than being dressed up as low or in stock. The Low Stock card's sub-label reads
-  "Below the item's minimum".
-- ✅ **Nothing becomes unreachable.** The Inventory tab, the audit report and the Excel/PDF
-  exports still list every product, **Add Stock** on any of them gives the item a branch row
-  and it returns to the till, and the transfer list still offers the exact item a row asked
-  for. A till search that finds nothing because the match belongs to the other branch says
-  so, instead of inviting a duplicate product to be created.
+  "Below the item's minimum". Those *"Not stocked here"* lines have since left the grid
+  itself — the Inventory table and its two exports now list only what this branch carries —
+  so the status survives as the rule's fallback rather than as a row operators see.
+- ✅ **Nothing becomes unreachable.** The audit report and the transfer list still reach every
+  product, **Add Stock** gives an item a branch row and it returns to the till, and a till
+  search that finds nothing because the match belongs to the other branch says so, instead of
+  inviting a duplicate product to be created. (The Inventory tab listed the whole catalogue at
+  this point; it is branch-only now — see *the Inventory tab lists only what this branch
+  carries*.)
 - ✅ The consolidated **All Branches** view is unchanged: it is a company-wide read-only
   view, so it still lists the whole catalogue with company totals.
 

@@ -1,78 +1,52 @@
 PASS  script started
-PASS  read the POS page  -> 927498 chars
-PASS  read the committed POS page for comparison  -> 923590 chars via C:\Users\tzvakasikwa\AppData\Local\Programs\Git\cmd\git.EXE
+PASS  read the POS page  -> 927382 chars
+PASS  read the committed POS page for comparison  -> 927498 chars via C:\Users\tzvakasikwa\AppData\Local\Programs\Git\cmd\git.EXE
 PASS  the page still has its script blocks  -> new=4 old=4
 PASS  no script block gained a syntax error (vs the committed page)
 PASS  every declaration this change touched parses on its own
 PASS  all of the touched declarations were found
-PASS  the switch is declared OFF by default (the tab keeps listing everything)
-PASS  the toolbar carries the switch, hidden until the page says otherwise
-PASS  the switch says what it does, in words
-PASS  the switch sits in the toolbar, before the search box
-PASS  the switch is wired to the flag and to a re-render
-PASS  filterInventory narrows by this branch only when the switch is on
-PASS  and it still applies the search box on top
-PASS  filterInventory never reassigns the catalogue
+PASS  the opt-in switch is gone from the page entirely
+PASS  so the old "list the whole catalogue" default cannot come back
+PASS  filterInventory narrows to what this branch carries, with no way round it
+PASS  and it still applies the search box on top of that
+PASS  filterInventory only ever READS the catalogue (never reassigns it)
 PASS  nothing narrows the catalogue ITSELF (products is only replaced by a payload)
 PASS  the catalogue still comes straight from the API payload
-PASS  the renderInventory that RUNS is the one that consults the switch
+PASS  the renderInventory that RUNS lists the narrowed set
 PASS  the page still defines renderInventory twice (a pre-existing duplicate)
-PASS  the empty-table message explains the switch instead of blaming the search
-PASS  the Add-Product name hints still read the WHOLE catalogue
-PASS  the hints are byte-for-byte what they were before this change
-PASS  the hints are not narrowed to this branch (that is the point of them)
-PASS  the hints element is still on the Add-Product form
+PASS  the winning render has no trace of the removed switch
+PASS  the empty table says why, and names the way in
+PASS  the empty note offers Upload New Stock, or the exact existing name
+PASS  the note covers both real cases (nothing stocked here / no such search hit)
+PASS  the metrics can never disagree with the table (the same branch rule)
 PASS  both inventory exports export the table as it is shown  -> excel=True pdf=True
 PASS  the exports call sites are unchanged by this change  -> now=4 before=4 (2 renders + 2 exports)
-PASS  read the stock-upload template route out of ConnectLink.py  -> 5061 chars
+PASS  the All Branches view still reports every item as the company's
+PASS  the Add-Product name hints still read the WHOLE catalogue
+PASS  a name this branch has never stocked is marked as such in the hints
+PASS  and picking it still fills the form from the product it names
+PASS  the marker is the only thing this change did to the hints  -> marks a name that is only in the other branch's catalogue
+PASS  the hints element is still on the Add-Product form
+PASS  the till's own empty search points at the two ways in
+PASS  the Upload New Stock steps point at the pick-list
+PASS  read the stock-upload template route out of ConnectLink.py  -> 5700 chars
 PASS  the Product Names sheet is still built from the whole products table
 PASS  the template still lists EVERY active product name (no branch filter)
 PASS  that sheet is still the pick-list behind the Product Name column
+PASS  and the Product Name cell now carries the one-name rule as an input hint
 PASS  the throw-away POS server is up  -> http://127.0.0.1:8796
 PASS  the page loads with this change installed
 PASS  the Inventory tab opens (the page is really shown)
-PASS  with the switch OFF the tab still lists EVERY product  -> ["Stocked Speaker", "Stocked Cable", "Chegutu-Only Speaker"]
-PASS  including the item this branch has NEVER stocked
-FAIL  the switch is offered on a real branch, unticked, and named in words  -> {"hidden": true, "checked": false, "label": "Stocked in this branch only"}
-PASS  the switch starts from the OFF default in code too
-PASS  the switch is really laid out on the page, not hidden in a wrapper  -> {"w": 13, "h": 13, "disp": "inline-block", "vis": "visible", "inline": "cursor:pointer;", "page": "block", "rows": 3, "chain": "inventoryStockedOnly:inline-block/visible < inventoryStockedOnlyWrap:block/visible < DIV:block/visible < DIV:block/visible < DIV:block/visible < inventoryPage:block/visible < mainContent:block/visible < posSystem:block/visible"}
-FAIL  ticking the switch is what narrows the table (a real change event)
-FAIL  ticking it drops the item this branch has never stocked  -> ["Stocked Speaker", "Stocked Cable", "Chegutu-Only Speaker"]
-FAIL  and keeps the items this branch does carry  -> ["Stocked Speaker", "Stocked Cable", "Chegutu-Only Speaker"]
-FAIL  the CATALOGUE itself is untouched (only the view narrowed)  -> catalogue=3 flag=False
-PASS  the Add-Product name hints still offer a never-stocked product, with the switch ON  -> Chegutu-Only Speaker
-FAIL  searching for a never-stocked item with the switch ON finds nothing  -> ["Chegutu-Only Speaker"]
-PASS  unticking the switch brings it straight back  -> ["Chegutu-Only Speaker"]
-FAIL  the browser run completed  -> Error: Page.evaluate: TypeError: Failed to fetch
-    at window.fetch (http://127.0.0.1:8796/pos-system.html:20996:23)
-    at eval (eval at evaluate (:302:30), <anonymous>:2:19)
-    at UtilityScript.evaluate (<anonymous>:309:18)
-    at UtilityScript.<anonymous> (<anonymous>:1:44)
-Traceback (most recent call last):
-  File "C:\Users\tzvakasikwa\OneDrive - CBZ Bank Limited\Documents\GitHub\connectlink\_check_inventory_stocked_only.py", line 559, in <module>
-    page.evaluate("""async () => {
-    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
-        await fetch('/__consolidated');
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-        renderInventory();
-        ^^^^^^^^^^^^^^^^^^
-    }""" % json.dumps(ALL_BRANCHES))
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\tzvakasikwa\OneDrive - CBZ Bank Limited\Documents\GitHub\connectlink\.venv\Lib\site-packages\playwright\sync_api\_generated.py", line 9122, in evaluate
-    self._sync(
-    ~~~~~~~~~~^
-        self._impl_obj.evaluate(expression=expression, arg=mapping.to_impl(arg))
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\tzvakasikwa\OneDrive - CBZ Bank Limited\Documents\GitHub\connectlink\.venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
-    return task.result()
-           ~~~~~~~~~~~^^
-playwright._impl._errors.Error: Page.evaluate: TypeError: Failed to fetch
-    at window.fetch (http://127.0.0.1:8796/pos-system.html:20996:23)
-    at eval (eval at evaluate (:302:30), <anonymous>:2:19)
-    at UtilityScript.evaluate (<anonymous>:309:18)
-    at UtilityScript.<anonymous> (<anonymous>:1:44)
-
-page errors: 
+PASS  the table lists exactly what this branch carries  -> ["Stocked Speaker", "Stocked Cable"]
+PASS  the item this branch has NEVER stocked is not listed
+PASS  no row reads "Not stocked here" any more  -> 7 Stocked Speaker Audio piece N/A $10.00 $15.00 8 In stock Add Stock Subtract Transfer Remove 8 Stocked Cable Audio piece N/A $10.00 $15.00 3 Low Add Stock Subt
+PASS  and there is no switch left to bring such a row back
+PASS  the CATALOGUE is untouched (only the view narrowed)  -> catalogue=3 elsewhere=1
+PASS  searching finds this branch's own item  -> ["Stocked Cable"]
+PASS  searching for a never-stocked item finds no row  -> []
+PASS  and the table says why, and how to start stocking it  -> 1 item(s) match this search in the shared catalogue, but this branch does not stock them. Use Upload New Stock - or Add Product with that exact name - to start 
+PASS  the Add-Product name hints still offer a never-stocked product  -> Chegutu-Only Speakeralready in the catalogue at another branch - use this exact name
+PASS  and say that the name is already the catalogue's, at another branch  -> Chegutu-Only Speakeralready in the catalogue at another branch - use this exact name
+PASS  on the read-only All Branches view every product is listed again  -> ["Stocked Speaker", "Stocked Cable", "Chegutu-Only Speaker"]
+PASS  because the server there reports every item as the company's
+PASS  no page error was raised (the page can see stockedInThisBranch)

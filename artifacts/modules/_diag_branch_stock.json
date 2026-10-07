@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "DiagBranchStock",
+  "file": "_diag_branch_stock.py",
+  "purpose": "READ-ONLY diagnosis: why a branch shows \"Not stocked here\" / phantom stock.",
+  "entry_function": "main()",
+  "entry_flows": [
+    "_diag_branch_stock → cur.execute, cur.fetchone, argv.index, psycopg2.connect, conn.cursor"
+  ],
+  "public_api": [
+    "main()"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: DEFAULT_DSN = 'postgresql://connectlinkdata_user:RsYLVxq6lzCBXV7m3e2drdiNMebYBFIC@dpg-d4m0bqggjchc73avg3eg-a.oregon-postgres.render.com/connectlinkdata', FIRST_CODE = (os.getenv('BRANCH_FIRST_CODE') or 'SHU').strip().upper() or 'SHU'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7d476997ca5a6ccf",
+  "file_mtime": 1791359419990.9011,
+  "file_size": 2214,
+  "file_birthtime": 1791359419990.9011,
+  "generated_at": "2026-10-07T08:08:45.415375Z",
+  "stale": false
+}

@@ -16610,6 +16610,14 @@ def pos_stock_upload_template():
             dv = DataValidation(type='list',
                                 formula1=f"'Product Names'!$A$2:$A${len(names) + 1}",
                                 allow_blank=True, showErrorMessage=False)
+            # Say what the pick-list is FOR while the cell is selected. A name typed a
+            # different way (or a new one where the product already exists) splits one
+            # product into two, and the same product then carries two names across the
+            # branches -- which is exactly what this sheet is here to prevent.
+            dv.promptTitle = 'Product Name'
+            dv.prompt = ('Pick the name the catalogue already uses to add stock to that '
+                         'product. A name that is not on the list creates a NEW product, '
+                         'so only type one when the item really is new.')
             ws.add_data_validation(dv)
             dv.add('A2:A%d' % BULK_STOCK_MAX_ROWS)
 

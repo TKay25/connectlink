@@ -3,13 +3,13 @@
   "_managed_by": "artifacto-plugin",
   "module": "CheckInventoryStockedOnly",
   "file": "_check_inventory_stocked_only.py",
-  "purpose": "Check for the Inventory tab's opt-in \"Stocked in this branch only\" switch",
-  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 335",
+  "purpose": "Check that the Inventory tab lists ONLY what this branch carries",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 369",
   "entry_flows": [
     "Handler.__init__() → _check_inventory_stocked_only.py, pathlib.Path, environ.get, fh.write"
   ],
   "public_api": [
-    "class Handler(SimpleHTTPRequestHandler)  # line 335",
+    "class Handler(SimpleHTTPRequestHandler)  # line 369",
     "  Handler.__init__()",
     "  Handler.log_message()",
     "  Handler.do_GET()",
@@ -34,7 +34,7 @@
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "Key constants: ROOT = pathlib.Path(__file__).parent, PORT = int(os.environ.get('POS_TOGGLE_PORT', '8796')), TEMPLATE = 'templates/pos-system.html', OUT = '_check_inventory_stocked_only_out.txt', RESULTS = [], NEW = (ROOT / TEMPLATE).read_text(encoding='utf-8')",
+  "notes": "Key constants: ROOT = pathlib.Path(__file__).parent, PORT = int(os.environ.get('POS_TOGGLE_PORT', '8796')), TEMPLATE = 'templates/pos-system.html', APP = 'ConnectLink.py', OUT = '_check_inventory_stocked_only_out.txt', RESULTS = []",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -44,6 +44,7 @@
   "file_mtime": 1791301570271.287,
   "file_size": 3269,
   "file_birthtime": 1791301570269.2695,
-  "generated_at": "2026-10-06T15:56:52.112190Z",
-  "stale": false
+  "generated_at": "2026-10-07T08:53:19.572523Z",
+  "stale": false,
+  "stale_reason": "source file deleted"
 }

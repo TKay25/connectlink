@@ -6373,7 +6373,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                         <span class="upload-step-num">1</span>
                                         <div>
                                             <strong>Download the template</strong>
-                                            <div class="upload-step-hint">Excel file with the four columns you need to fill in.</div>
+                                            <div class="upload-step-hint">Excel file with the columns you need to fill in. Its <strong>Product Names</strong> sheet lists every name the catalogue already has &mdash; use those exact names.</div>
                                         </div>
                                     </div>
                                     <button class="btn btn-sm btn-success upload-step-action" onclick="downloadStockTemplate()">
@@ -6385,7 +6385,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                         <span class="upload-step-num">2</span>
                                         <div>
                                             <strong>Fill it in, then choose the file</strong>
-                                            <div class="upload-step-hint">Product Name, Quantity, Unit Buying Price, Unit Selling Price.</div>
+                                            <div class="upload-step-hint">Product Name (pick an existing name to add stock to that product), Quantity, Unit Buying Price, Unit Selling Price.</div>
                                         </div>
                                     </div>
                                     <input type="file" class="form-control form-control-sm upload-step-action" id="uploadStockFile" accept=".xlsx,.xlsm">
@@ -7015,14 +7015,12 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                              when these figures were last confirmed by the server. -->
                         <div id="inventoryAsAt" class="text-muted" style="font-size:0.68rem;"></div>
                             <div class="d-flex gap-2 align-items-center">
-                                <!-- Opt-in branch view for the table below. OFF by default, so the
-                                     shared catalogue stays exactly as the runbook describes, and
-                                     hidden on the read-only All Branches view, where every line is
-                                     the company's and the switch would do nothing. -->
-                                <div class="form-check form-switch mb-0 d-none" id="inventoryStockedOnlyWrap">
-                                    <input class="form-check-input" type="checkbox" role="switch" id="inventoryStockedOnly" style="cursor:pointer;">
-                                    <label class="form-check-label ms-1" for="inventoryStockedOnly" style="font-size:0.78rem;white-space:nowrap;cursor:pointer;" title="Show only the items this branch carries. Unticked shows the whole shared catalogue.">Stocked in this branch only</label>
-                                </div>
+                                <!-- There is no switch back to the whole catalogue here. The table
+                                     below lists what THIS branch carries, because an item with no
+                                     row for this branch (product_stock) is not stock this shop
+                                     holds. Its NAME is still offered on the Add-Product form and
+                                     in the Upload-New-Stock template, which is how one product
+                                     keeps one name across the branches. -->
                                 <div class="position-relative" style="width: 250px;">
                                     <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
                                     <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
@@ -11865,12 +11863,11 @@ async function refreshPOS() {
 let inventorySearchTerm = "";
 let currentEditProduct = null;
 
-// Inventory tab: the "Stocked in this branch only" switch. OFF by default, so the
-// Inventory table keeps listing the whole shared catalogue. It changes only what
-// the TABLE shows (and its two exports, which follow the table): the Add-Product
-// name hints and the Upload-New-Stock template still offer every catalogue name,
-// including an item this branch has never stocked.
-let inventoryStockedOnly = false;
+// Inventory tab: the table lists ONLY what this branch carries (see filterInventory).
+// The catalogue behind it is still the shared one, so an item this branch has never
+// stocked stays reachable by the one thing that must never be duplicated -- its NAME:
+// the Add-Product form's hints and the Upload-New-Stock template's Product Names sheet
+// both offer every catalogue name, including that item's.
 
 function openEditProductModal(productId) {
     const product = products.find(p => p.id === productId);
@@ -15283,7 +15280,7 @@ function renderProductsWithFilter(filteredProducts = null) {
                 (p.name.toLowerCase().includes(term) ||
                  (p.unit_details && p.unit_details.toLowerCase().includes(term))));
             if (elsewhere.length) {
-                note = elsewhere.length + ' matching item(s) belong to the other branch, not this one. See the Inventory tab.';
+                note = elsewhere.length + ' matching item(s) are in the catalogue for another branch. Add stock for one of them (Upload New Stock, or Add Product with that exact name) to sell it here.';
             }
         }
         container.innerHTML = '<div class="col-12 text-center py-5"><div class="empty-state-icon"><i class="fas fa-box-open"></i></div><p class="fw-semibold mb-1" style="font-size:0.85rem;">No products found</p><p class="text-muted" style="font-size:0.68rem;">' + escapeHtml(note) + '</p></div>';
@@ -16118,12 +16115,23 @@ function setupAddProductFundingSelection() {
             const matches = existingNames.filter(name => name.toLowerCase().includes(inputValue));
             if (matches.length === 0) return;
             matches.forEach(match => {
+                const existingProduct = products.find(p => p.name === match);
                 const div = document.createElement('div');
-                div.innerHTML = match;
+                div.innerText = match;
+                // An item this branch has never stocked is the whole reason a hint is
+                // offered for it: the name already exists in the shared catalogue, and
+                // typing it here -- instead of inventing a spelling -- is what keeps one
+                // product one product when it starts being sold at this branch.
+                if (existingProduct && !stockedInThisBranch(existingProduct)) {
+                    const note = document.createElement('span');
+                    note.className = 'text-muted ms-1';
+                    note.style.fontSize = '0.72em';
+                    note.innerText = 'already in the catalogue at another branch - use this exact name';
+                    div.appendChild(note);
+                }
                 div.addEventListener('click', function() {
                     productNameInput.value = match;
                     suggestionsDiv.innerHTML = '';
-                    const existingProduct = products.find(p => p.name === match);
                     if (existingProduct) {
                         // Find and set the main category and sub-category
                         let mainCategory = null;
@@ -19051,14 +19059,16 @@ function renderAnalytics() {
         setTimeout(() => toast.remove(), 2500);
     }
 
-// Filter inventory: the search box, plus the opt-in "Stocked in this branch only"
-// switch. It only ever READS `products` and returns a new array -- it must never
-// reassign that catalogue, because the Add-Product name hints (setupAutocomplete)
-// and the upload template's pick-list must keep seeing EVERY name, including an
-// item this branch has never stocked (the whole point of the hints is to stop the
-// same product being typed in twice).
+// Filter inventory: what THIS branch carries, plus the search box.
+//
+// An item this branch has never stocked has no product_stock row, so it is not stock
+// this shop holds and it is left out of the table, the metrics and both exports (which
+// follow the table). The catalogue is only ever READ here and must never be reassigned:
+// the Add-Product name hints (setupAutocomplete) and the upload template's pick-list
+// must keep seeing EVERY name, including an item this branch has never stocked --
+// offering those names is what stops the same product being entered twice.
 function filterInventory() {
-    let rows = inventoryStockedOnly ? products.filter(stockedInThisBranch) : products;
+    const rows = products.filter(stockedInThisBranch);
     if (!inventorySearchTerm) return rows;
     
     const term = inventorySearchTerm.toLowerCase();
@@ -19071,24 +19081,26 @@ function filterInventory() {
     );
 }
 
-// The switch is only meaningful on a real, writable branch: the read-only All
-// Branches view reports every item as the company's own, so there is no "this
-// branch" to filter on and the switch stays out of the way.
-function inventoryStockedOnlyUsable() {
-    if (branchIsReadOnly()) return false;
-    return !!(posBranch && posBranch.id !== null && posBranch.id !== undefined);
-}
-
-// Show/hide the switch to match the view, and never leave a hidden switch still
-// filtering the table.
-function syncInventoryStockedSwitch() {
-    const wrap = document.getElementById('inventoryStockedOnlyWrap');
-    const box = document.getElementById('inventoryStockedOnly');
-    if (!wrap) return;
-    const usable = inventoryStockedOnlyUsable();
-    wrap.classList.toggle('d-none', !usable);
-    if (box) box.checked = usable && inventoryStockedOnly;
-    if (!usable && inventoryStockedOnly) inventoryStockedOnly = false;
+// Why the table is empty. A search may be matching an item that exists in the shared
+// catalogue for the OTHER branch only, so say so -- and name the way in (Upload New
+// Stock, or Add Product with that exact name), because the alternative is a second
+// product created for something the catalogue already has.
+function inventoryEmptyNote() {
+    if (!inventorySearchTerm) {
+        return 'Nothing is stocked in this branch yet. Add a product, or upload stock '
+             + 'for an item the catalogue already has.';
+    }
+    const term = inventorySearchTerm.toLowerCase();
+    const elsewhere = products.filter(p => !stockedInThisBranch(p) &&
+        (p.name.toLowerCase().includes(term) ||
+         (p.category && p.category.toLowerCase().includes(term)) ||
+         (p.unit_details && p.unit_details.toLowerCase().includes(term))));
+    if (elsewhere.length) {
+        return elsewhere.length + ' item(s) match this search in the shared catalogue, '
+             + 'but this branch does not stock them. Use Upload New Stock - or Add '
+             + 'Product with that exact name - to start selling one here.';
+    }
+    return 'No products found matching your search.';
 }
 
 function renderInventory() {
@@ -19328,11 +19340,6 @@ async function confirmPriceUpdate(productId) {
 function renderInventory() {
     const tbody = document.getElementById('inventoryList');
     if (!tbody) return;
-
-    // The "Stocked in this branch only" switch is only offered where it can do
-    // something, and it is re-checked on every render so it can never be left on
-    // while hidden (e.g. after switching to the read-only All Branches view).
-    syncInventoryStockedSwitch();
     
     const filteredProducts = filterInventory();
     
@@ -19341,9 +19348,7 @@ function renderInventory() {
     
     if (!filteredProducts.length) {
         tbody.innerHTML = '<tr><td colspan="10" class="text-center">'
-            + ((inventoryStockedOnly && !inventorySearchTerm)
-                ? 'No items are stocked in this branch yet - untick "Stocked in this branch only" to see the whole catalogue.'
-                : 'No products found matching your search')
+            + escapeHtml(inventoryEmptyNote())
             + '</td></tr>';
         return;
     }
@@ -19504,17 +19509,6 @@ function setupEventListeners() {
         });
     }
     
-    // Inventory Page - "Stocked in this branch only" switch. This is a VIEW: it
-    // narrows the table (and its exports) to the items this branch carries, and
-    // touches nothing else -- the catalogue itself, the Add-Product name hints and
-    // the upload template are all unaffected.
-    const inventoryStockedOnlyBox = document.getElementById('inventoryStockedOnly');
-    if (inventoryStockedOnlyBox) {
-        inventoryStockedOnlyBox.addEventListener('change', (e) => {
-            inventoryStockedOnly = !!e.target.checked;
-            renderInventory();
-        });
-    }
     
     // Cash amount input for change calculation
     const cashAmount = document.getElementById('cashAmount');

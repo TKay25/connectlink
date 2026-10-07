@@ -1,23 +1,33 @@
-"""Check for the Inventory tab's opt-in "Stocked in this branch only" switch
-(templates/pos-system.html).
+"""Check that the Inventory tab lists ONLY what this branch carries
+(templates/pos-system.html) -- and that the NAMES are still offered where a name is
+typed (templates/pos-system.html + ConnectLink.py).
 
-The background: the till hides an item this branch has NEVER stocked (the catalogue
-is shared, so without that rule the other shop's whole list fills the grid), while
-the Inventory tab deliberately lists every product -- that is where an item is
-given a branch row again, and the audit report and the exports are read from the
-same place. That default is KEPT. This adds a switch, OFF by default, so the tab
-can be narrowed to what the branch actually carries.
+The rule: the catalogue is SHARED, so an item created for another shop used to fill
+this shop's Inventory table with a row reading "Not stocked here" -- a line nobody
+here can sell, count or correct. An item this branch carries has a row in
+product_stock; NO row means it has never been here. The Inventory table, its metrics
+and its two exports (which follow the table) now list only the former. There is no
+switch back: the consolidated read-only All Branches view is the place where every
+item really is the company's own, and it still lists everything.
 
-The one thing that must NOT change: the names of those never-stocked products must
-still be offered where a product is being added by NAME
+The one thing that must NOT break is the reason those rows were reachable at all: the
+NAME of such an item has to stay available, or the same product gets created a second
+time under a second spelling -- and the same product then carries two names across the
+branches. So both name surfaces must still carry EVERY catalogue name:
   * the Add-Product form's name hints (setupAutocomplete -> productNameSuggestions),
-  * the "Upload New Stock" Excel template's Product Name pick-list (built
-    server-side in ConnectLink.py from the whole products table).
-So this checks both halves: the switch really narrows the table (and its two
-exports, which follow the table), and the hints and the template still carry every
-catalogue name -- including an item this branch has never stocked.
+    which now mark such a name "already in the catalogue at another branch - use this
+    exact name";
+  * the "Upload New Stock" Excel template's Product Names pick-list (built server-side
+    in ConnectLink.py from the whole products table), whose Product Name cell carries
+    that rule as an input hint.
 
 Run:  python _check_inventory_stocked_only.py   (writes _check_inventory_stocked_only_out.txt)
+
+The rule half needs nothing but the standard library. The browser half (the last
+section) needs the project's virtual environment -- esprima for the syntax checks and
+Playwright + Chromium for the run -- so use:
+
+    .venv\\Scripts\\python.exe _check_inventory_stocked_only.py
 """
 import json
 import os
@@ -33,6 +43,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 ROOT = pathlib.Path(__file__).parent
 PORT = int(os.environ.get('POS_TOGGLE_PORT', '8796'))
 TEMPLATE = 'templates/pos-system.html'
+APP = 'ConnectLink.py'
 OUT = '_check_inventory_stocked_only_out.txt'
 
 RESULTS = []
@@ -57,6 +68,7 @@ check('script started', True)
 try:
     NEW = (ROOT / TEMPLATE).read_text(encoding='utf-8')
     check('read the POS page', True, '%d chars' % len(NEW))
+    APP_SRC = (ROOT / APP).read_text(encoding='utf-8')
 except Exception as exc:                                               # noqa: BLE001
     check('read the POS page', False, '%s: %s' % (type(exc).__name__, exc))
     print('\n'.join(RESULTS))
@@ -76,6 +88,7 @@ if not GIT:
             break
 GIT = GIT or 'git'
 
+OLD = None
 try:
     proc = subprocess.run([GIT, 'show', 'HEAD:' + TEMPLATE],
                           capture_output=True, cwd=str(ROOT))
@@ -88,14 +101,11 @@ try:
     check('read the committed POS page for comparison', True,
           '%d chars via %s' % (len(OLD), GIT))
 except Exception as exc:                                               # noqa: BLE001
-    OLD = None
     check('read the committed POS page for comparison', False,
-          '%s: %s' % (type(exc).__name__, exc))
+          'no baseline, syntax diff skipped (%s)' % exc)
 
-
-
-# ------------------------------------------------- 1. every script parses
 def blocks(html):
+    """(first line number, body) for every inline <script> in the page."""
     out = []
     for m in re.finditer(r'<script([^>]*)>(.*?)</script>', html, re.S):
         attrs, body = m.group(1), m.group(2)
@@ -197,12 +207,16 @@ def extract(src, start_marker, last=False):
     raise ValueError('unbalanced braces for ' + start_marker)
 
 
+# =====================================================================
+# 1. the rule: the table lists this branch's stock, and only that
+# =====================================================================
 TOUCHED = [
-    ('let inventoryStockedOnly', False),
+    ('let inventorySearchTerm', False),
     ('function filterInventory(', False),
-    ('function inventoryStockedOnlyUsable(', False),
-    ('function syncInventoryStockedSwitch(', False),
+    ('function inventoryEmptyNote(', False),
+    ('function stockedInThisBranch(', False),
     ('function renderInventory(', True),
+    ('function setupAutocomplete(', False),
 ]
 bad = []
 for marker, last in TOUCHED:
@@ -215,35 +229,22 @@ for marker, last in TOUCHED:
         bad.append('%s: %s' % (marker, exc))
 check('every declaration this change touched parses on its own',
       not bad, '; '.join(bad[:3]))
-check('all of the touched declarations were found', len(TOUCHED) == 5)
+check('all of the touched declarations were found', len(TOUCHED) == 6)
 
+check('the opt-in switch is gone from the page entirely',
+      'inventoryStockedOnly' not in NEW
+      and 'Stocked in this branch only' not in NEW)
+check('so the old "list the whole catalogue" default cannot come back',
+      '? products.filter(stockedInThisBranch) : products' not in NEW
+      and 'let inventoryStockedOnly' not in NEW)
 
-# ------------------------------- 2. the switch exists, is off, and is wired
-check('the switch is declared OFF by default (the tab keeps listing everything)',
-      NEW.count('let inventoryStockedOnly = ') == 1
-      and 'let inventoryStockedOnly = false;' in NEW)
-check('the toolbar carries the switch, hidden until the page says otherwise',
-      'id="inventoryStockedOnlyWrap"' in NEW
-      and 'form-check form-switch mb-0 d-none' in NEW)
-check('the switch says what it does, in words',
-      'Stocked in this branch only' in
-      NEW[NEW.index('id="inventoryStockedOnlyWrap"'):][:900])
-check('the switch sits in the toolbar, before the search box',
-      NEW.index('id="inventoryStockedOnlyWrap"') < NEW.index('id="inventorySearch"'))
-wiring = extract(NEW, 'function setupEventListeners(')
-check('the switch is wired to the flag and to a re-render',
-      "document.getElementById('inventoryStockedOnly')" in wiring
-      and 'inventoryStockedOnly = !!e.target.checked;' in wiring
-      and 'renderInventory();' in wiring)
-
-# ------------------------------- 3. the table narrows; the catalogue does not
 filter_fn = extract(NEW, 'function filterInventory(')
-check('filterInventory narrows by this branch only when the switch is on',
-      'inventoryStockedOnly ? products.filter(stockedInThisBranch) : products'
-      in filter_fn)
-check('and it still applies the search box on top',
-      'inventorySearchTerm.toLowerCase()' in filter_fn)
-check('filterInventory never reassigns the catalogue',
+check('filterInventory narrows to what this branch carries, with no way round it',
+      'const rows = products.filter(stockedInThisBranch);' in filter_fn)
+check('and it still applies the search box on top of that',
+      'inventorySearchTerm.toLowerCase()' in filter_fn
+      and 'p.name.toLowerCase().includes(term)' in filter_fn)
+check('filterInventory only ever READS the catalogue (never reassigns it)',
       'products =' not in filter_fn and 'products.push' not in filter_fn)
 narrowing = [m.group(0).strip() for m in re.finditer(r'products\s*=\s*[^;\n]*', NEW)
              if '.filter(' in m.group(0) or '.slice(' in m.group(0)]
@@ -252,44 +253,74 @@ check('nothing narrows the catalogue ITSELF (products is only replaced by a payl
 check('the catalogue still comes straight from the API payload',
       'products = productsData.products;' in NEW)
 winning = extract(NEW, 'function renderInventory(', last=True)
-check('the renderInventory that RUNS is the one that consults the switch',
-      'syncInventoryStockedSwitch();' in winning)
+check('the renderInventory that RUNS lists the narrowed set',
+      'const filteredProducts = filterInventory();' in winning)
 check('the page still defines renderInventory twice (a pre-existing duplicate)',
       NEW.count('function renderInventory(') == 2
       and (OLD is None or OLD.count('function renderInventory(') == 2))
-check('the empty-table message explains the switch instead of blaming the search',
-      'untick "Stocked in this branch only"' in winning)
+check('the winning render has no trace of the removed switch',
+      'inventoryStockedOnly' not in winning
+      and 'syncInventoryStockedSwitch' not in winning)
+check('the empty table says why, and names the way in',
+      'inventoryEmptyNote()' in winning)
+note_fn = extract(NEW, 'function inventoryEmptyNote(')
+check('the empty note offers Upload New Stock, or the exact existing name',
+      'Upload New Stock' in note_fn and 'exact name' in note_fn
+      and 'stockedInThisBranch' in note_fn)
+check('the note covers both real cases (nothing stocked here / no such search hit)',
+      'Nothing is stocked in this branch yet' in note_fn
+      and 'No products found matching your search.' in note_fn)
+check('the metrics can never disagree with the table (the same branch rule)',
+      'products.filter(stockedInThisBranch)'
+      in extract(NEW, 'function updateInventoryMetrics('))
 
 
-# ------------------- 4. the Add-Product name hints still offer EVERY name
-auto = extract(NEW, 'function setupAutocomplete(')
-check('the Add-Product name hints still read the WHOLE catalogue',
-      'products.map(p => p.name)' in auto)
-check('the hints are byte-for-byte what they were before this change',
-      OLD is not None and extract(OLD, 'function setupAutocomplete(') == auto)
-check("the hints are not narrowed to this branch (that is the point of them)",
-      'stockedInThisBranch' not in auto and 'stocked_here' not in auto)
-check('the hints element is still on the Add-Product form',
-      'id="productNameSuggestions"' in NEW and 'id="productName"' in NEW)
-
-
-# ------------------- 5. the two inventory exports follow the table
+# ------------------- 2. the two inventory exports follow the table
 SITE = 'const filteredProducts = filterInventory();'
 xl_export = NEW[NEW.index("getElementById('downloadInventoryExcelBtn')"):][:6000]
 pdf_export = NEW[NEW.index('function downloadInventoryPDF('):][:6000]
 check('both inventory exports export the table as it is shown',
       SITE in xl_export and SITE in pdf_export,
       'excel=%s pdf=%s' % (SITE in xl_export, SITE in pdf_export))
-check('the exports' + " call sites are unchanged by this change",
+check('the exports call sites are unchanged by this change',
       OLD is not None and OLD.count(SITE) == NEW.count(SITE) == 4,
       'now=%d before=%s (2 renders + 2 exports)'
       % (NEW.count(SITE), OLD.count(SITE) if OLD else '?'))
 
+# The consolidated view is the one place where every item really is the company's own,
+# so the server reports every row as stocked there -- and the rule above lists them all.
+check('the All Branches view still reports every item as the company\'s',
+      'TRUE AS stocked_here' in APP_SRC
+      and '(ps.product_id IS NOT NULL) AS stocked_here' in APP_SRC)
 
-# -------- 6. the Excel template still carries every catalogue product name
+
+# ------------------- 3. the Add-Product name hints still offer EVERY name
+auto = extract(NEW, 'function setupAutocomplete(')
+check('the Add-Product name hints still read the WHOLE catalogue',
+      'products.map(p => p.name)' in auto
+      and 'const matches = existingNames.filter(name => '
+          'name.toLowerCase().includes(inputValue));' in auto)
+check('a name this branch has never stocked is marked as such in the hints',
+      '!stockedInThisBranch(existingProduct)' in auto
+      and 'already in the catalogue at another branch - use this exact name' in auto)
+check('and picking it still fills the form from the product it names',
+      'productNameInput.value = match;' in auto and 'if (existingProduct) {' in auto)
+check('the marker is the only thing this change did to the hints',
+      OLD is not None
+      and 'another branch' not in extract(OLD, 'function setupAutocomplete('),
+      'marks a name that is only in the other branch\'s catalogue')
+check('the hints element is still on the Add-Product form',
+      'id="productNameSuggestions"' in NEW and 'id="productName"' in NEW)
+check('the till\'s own empty search points at the two ways in',
+      'Upload New Stock, or Add Product with that exact name' in NEW)
+check('the Upload New Stock steps point at the pick-list',
+      'Product Names' in NEW
+      and 'pick an existing name to add stock to that product' in NEW)
+
+
+# -------- 4. the Excel template still carries every catalogue product name
 try:
-    CL = (ROOT / 'ConnectLink.py').read_text(encoding='utf-8')
-    tpl = CL[CL.index('def pos_stock_upload_template()'):]
+    tpl = APP_SRC[APP_SRC.index('def pos_stock_upload_template()'):]
     tpl = tpl[:tpl.index('\n@app.route', 10)]
     check('read the stock-upload template route out of ConnectLink.py', True,
           '%d chars' % len(tpl))
@@ -303,13 +334,16 @@ try:
           and 'branch_id' not in tpl)
     check('that sheet is still the pick-list behind the Product Name column',
           "'Product Names'!$A$2:$A$" in tpl and "dv.add('A2:A%d'" in tpl)
+    check('and the Product Name cell now carries the one-name rule as an input hint',
+          'dv.promptTitle = ' in tpl and 'creates a NEW product' in tpl
+          and 'name the catalogue already uses' in tpl)
 except Exception as exc:                                              # noqa: BLE001
     check('read the stock-upload template route out of ConnectLink.py', False,
           '%s: %s' % (type(exc).__name__, exc))
 
 
 # =====================================================================
-# 7. the real page, in a real browser, against stand-in POS API answers
+# 5. the real page, in a real browser, against stand-in POS API answers
 # =====================================================================
 def product(pid, name, stock, stocked_here):
     return {'id': pid, 'name': name, 'category': 'Audio', 'unit_type': 'piece',
@@ -321,9 +355,9 @@ def product(pid, name, stock, stocked_here):
             'low_stock': False}
 
 
-HERE_A = product(7, 'Stocked Speaker', 8, True)        # this branch carries it
-HERE_B = product(8, 'Stocked Cable', 3, True)          # this branch carries it
-ELSEWHERE = product(9, 'Chegutu-Only Speaker', 0, False)   # never stocked here
+HERE_A = product(7, 'Stocked Speaker', 8, True)          # this branch carries it
+HERE_B = product(8, 'Stocked Cable', 3, True)            # this branch carries it
+ELSEWHERE = product(9, 'Chegutu-Only Speaker', 0, False)  # never stocked here
 BRANCH = {'id': 1, 'code': 'SHU', 'name': 'Shurugwi', 'read_only': False}
 ALL_BRANCHES = {'id': 0, 'name': 'All Branches', 'read_only': True}
 
@@ -411,23 +445,45 @@ if (!window.bootstrap.Modal) {
 }
 """
 
-# What the table is showing, in one read: the row names, what the catalogue itself
-# holds, and the switch's own state.
+# What the table is showing, in one read: the row names, the words actually in the
+# rows (no row may read "Not stocked here"), and what the catalogue itself holds.
 READ = """() => ({
     names: Array.from(document.querySelectorAll('#inventoryList tr'))
         .map(tr => (tr.querySelectorAll('td')[1] || {}).innerText || '')
         .map(s => s.trim().split('\\n')[0]).filter(Boolean),
-    empty: document.getElementById('inventoryList').innerText.trim().slice(0, 120),
+    words: document.getElementById('inventoryList').innerText.replace(/\\s+/g, ' ').trim().slice(0, 300),
+    empty: document.getElementById('inventoryList').innerText.trim().slice(0, 220),
     catalogue: products.length,
-    flag: inventoryStockedOnly,
-    hidden: document.getElementById('inventoryStockedOnlyWrap').classList.contains('d-none'),
-    checked: document.getElementById('inventoryStockedOnly').checked,
-    label: (document.querySelector('label[for="inventoryStockedOnly"]') || {}).innerText || '',
+    elsewhere: products.filter(p => !stockedInThisBranch(p)).length,
+    switchOnPage: !!document.getElementById('inventoryStockedOnly'),
 })"""
 
 HINTS = """() => document.getElementById('productNameSuggestions').innerText"""
 
-from playwright.sync_api import sync_playwright                          # noqa: E402
+SET = """(args) => {
+    const el = document.querySelector(args.sel);
+    el.value = args.v;
+    el.dispatchEvent(new Event('input', {bubbles: true}));
+}"""
+
+try:
+    from playwright.sync_api import sync_playwright                      # noqa: E402
+except Exception as exc:                                                 # noqa: BLE001
+    # Everything above is a rule read out of the two files and needs no browser; it is
+    # reported even when the driver is missing, so a bare `python` still says what it
+    # checked instead of dying in a traceback.
+    check('the browser driver (Playwright) is installed', False,
+          '%s: %s -- run this with .venv\\Scripts\\python.exe'
+          % (type(exc).__name__, exc))
+    _out = '\n'.join(RESULTS)
+    try:
+        with open(OUT, 'w', encoding='utf-8') as fh:
+            fh.write(_out + '\n')
+    except Exception:                                                    # noqa: BLE001
+        pass
+    print(_out)
+    print('\nFAILURES: %d' % sum(1 for r in RESULTS if r.startswith('FAIL')))
+    raise SystemExit(1)
 
 BASE = 'http://127.0.0.1:%d' % PORT
 
@@ -452,6 +508,7 @@ try:
                   timeout=30000)
         page.wait_for_function(
             "typeof filterInventory === 'function'"
+            " && typeof inventoryEmptyNote === 'function'"
             " && typeof window.refreshCatalogueIfStale === 'function'", timeout=20000)
         check('the page loads with this change installed', True)
 
@@ -469,113 +526,71 @@ try:
         check('the Inventory tab opens (the page is really shown)', shown)
         started = page.evaluate(READ)
 
-        # 1. the default is unchanged: the tab lists the whole catalogue
-        check('with the switch OFF the tab still lists EVERY product',
-              sorted(started['names']) == sorted(['Stocked Speaker', 'Stocked Cable',
-                                                  'Chegutu-Only Speaker']),
+        # 1. THE requirement: the table lists this branch's stock, and nothing else
+        check('the table lists exactly what this branch carries',
+              sorted(started['names']) == sorted(['Stocked Speaker', 'Stocked Cable']),
               json.dumps(started['names']))
-        check('including the item this branch has NEVER stocked',
-              'Chegutu-Only Speaker' in started['names'])
-        check('the switch is offered on a real branch, unticked, and named in words',
-              started['hidden'] is False and started['checked'] is False
-              and started['label'].strip() == 'Stocked in this branch only',
-              json.dumps({k: started[k] for k in ('hidden', 'checked', 'label')}))
-        check('the switch starts from the OFF default in code too',
-              started['flag'] is False)
+        check('the item this branch has NEVER stocked is not listed',
+              'Chegutu-Only Speaker' not in started['names'])
+        check('no row reads "Not stocked here" any more',
+              'Not stocked here' not in started['words'], started['words'][:160])
+        check('and there is no switch left to bring such a row back',
+              started['switchOnPage'] is False)
+        check('the CATALOGUE is untouched (only the view narrowed)',
+              started['catalogue'] == 3 and started['elsewhere'] == 1,
+              'catalogue=%s elsewhere=%s' % (started['catalogue'],
+                                             started['elsewhere']))
 
-        # 2. ticking it narrows the table to what this branch carries. The probe is
-        #    deliberately separate from the click: the switch must be really laid out
-        #    (an operator has to be able to tick it), and the toggle below drives the
-        #    very same 'change' listener a mouse click fires.
-        probe = page.evaluate("""() => {
-            const el = document.getElementById('inventoryStockedOnly');
-            const r = el.getBoundingClientRect();
-            const cs = getComputedStyle(el);
-            const chain = [];
-            for (let n = el; n && n !== document.body; n = n.parentElement) {
-                const s = getComputedStyle(n);
-                chain.push((n.id || n.tagName) + ':' + s.display + '/' + s.visibility);
-            }
-            return {w: Math.round(r.width), h: Math.round(r.height),
-                    disp: cs.display, vis: cs.visibility,
-                    inline: el.getAttribute('style'),
-                    page: getComputedStyle(document.getElementById('inventoryPage')).display,
-                    rows: document.querySelectorAll('#inventoryList tr').length,
-                    chain: chain.join(' < ')};
-        }""")
-        check('the switch is really laid out on the page, not hidden in a wrapper',
-              probe['w'] > 0 and probe['h'] > 0 and probe['disp'] != 'none'
-              and probe['vis'] != 'hidden', json.dumps(probe))
-
-        TOGGLE = """(want) => {
-            const el = document.getElementById('inventoryStockedOnly');
-            if (el.checked !== want) el.click();   // fires the switch's own listener
-            return el.checked;
-        }"""
-        SET = """(args) => {
-            const el = document.querySelector(args.sel);
-            el.value = args.v;
-            el.dispatchEvent(new Event('input', {bubbles: true}));
-        }"""
-        check('ticking the switch is what narrows the table (a real change event)',
-              page.evaluate(TOGGLE, True) is True)
+        # 2. the search box still works within the branch's own items
+        page.evaluate(SET, {'sel': '#inventorySearch', 'v': 'cable'})
         page.wait_for_timeout(400)
-        on = page.evaluate(READ)
-        check('ticking it drops the item this branch has never stocked',
-              'Chegutu-Only Speaker' not in on['names'],
-              json.dumps(on['names']))
-        check('and keeps the items this branch does carry',
-              sorted(on['names']) == sorted(['Stocked Speaker', 'Stocked Cable']),
-              json.dumps(on['names']))
-        check('the CATALOGUE itself is untouched (only the view narrowed)',
-              on['catalogue'] == 3 and on['flag'] is True
-              and page.evaluate('products.length') == 3,
-              'catalogue=%s flag=%s' % (on['catalogue'], on['flag']))
+        found = page.evaluate(READ)
+        check("searching finds this branch's own item",
+              found['names'] == ['Stocked Cable'], json.dumps(found['names']))
 
-        # 3. THE requirement: the never-stocked name is still offered as a hint when
-        #    a product is being added by name -- even with the switch ON.
-        page.evaluate(SET, {'sel': '#productName', 'v': 'Chegutu'})
-        page.wait_for_timeout(250)
-        hints = page.evaluate(HINTS)
-        check('the Add-Product name hints still offer a never-stocked product, '
-              'with the switch ON',
-              'Chegutu-Only Speaker' in hints, hints[:120])
-
-        # 4. the search box and the switch work together
+        # 3. a search for a name only the other branch carries says so, and points at
+        #    the way in (the alternative being a second product for the same thing)
         page.evaluate(SET, {'sel': '#inventorySearch', 'v': 'chegutu'})
         page.wait_for_timeout(400)
-        searched = page.evaluate(READ)
-        check('searching for a never-stocked item with the switch ON finds nothing',
-              searched['names'] == [], json.dumps(searched['names']))
-        page.evaluate(TOGGLE, False)
-        page.wait_for_timeout(400)
-        back = page.evaluate(READ)
-        check('unticking the switch brings it straight back',
-              back['names'] == ['Chegutu-Only Speaker'], json.dumps(back['names']))
+        missed = page.evaluate(READ)
+        check('searching for a never-stocked item finds no row',
+              missed['names'] == [], json.dumps(missed['names']))
+        check('and the table says why, and how to start stocking it',
+              'Upload New Stock' in missed['empty'] and 'exact name' in missed['empty'],
+              missed['empty'][:160])
         page.evaluate(SET, {'sel': '#inventorySearch', 'v': ''})
         page.wait_for_timeout(400)
 
-        # 5. the read-only All Branches view: no switch, and no hidden filter
+        # 4. THE hint that makes the hiding safe: the name is still offered where a
+        #    product is being added by name.
+        page.evaluate(SET, {'sel': '#productName', 'v': 'Chegutu'})
+        page.wait_for_timeout(250)
+        hints = page.evaluate(HINTS)
+        check('the Add-Product name hints still offer a never-stocked product',
+              'Chegutu-Only Speaker' in hints, hints[:120])
+        check("and say that the name is already the catalogue's, at another branch",
+              'another branch' in hints and 'exact name' in hints, hints[:170])
+        page.evaluate(SET, {'sel': '#productName', 'v': ''})
+        page.wait_for_timeout(200)
+
+        # 5. the read-only All Branches view: every item really is the company's own
         page.evaluate("""async () => {
             await fetch('/__consolidated');
             applyPOSBranch(%s);
             await fetchProductsFromAPI();
-            inventoryStockedOnly = true;   // as if left on in the branch view
             renderInventory();
         }""" % json.dumps(ALL_BRANCHES))
         page.wait_for_timeout(700)
         consolidated = page.evaluate(READ)
-        check('on the read-only All Branches view the switch is hidden',
-              consolidated['hidden'] is True, json.dumps(consolidated['hidden']))
-        check('and a switch left on cannot go on filtering from behind it',
-              consolidated['flag'] is False)
-        check('so the consolidated view lists every product, as it always did',
+        check('on the read-only All Branches view every product is listed again',
               sorted(consolidated['names']) == sorted(['Stocked Speaker',
                                                        'Stocked Cable',
                                                        'Chegutu-Only Speaker']),
               json.dumps(consolidated['names']))
+        check("because the server there reports every item as the company's",
+              consolidated['elsewhere'] == 0)
 
-        check('no page error was raised (the switch can see stockedInThisBranch)',
+        check('no page error was raised (the page can see stockedInThisBranch)',
               not errors, ' | '.join(errors[:3]))
 
         browser.close()
@@ -599,6 +614,3 @@ except Exception:                                                        # noqa:
     pass
 print(out)
 print('\nFAILURES: %d' % sum(1 for r in RESULTS if r.startswith('FAIL')))
-
-
-

@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckUpdateModalHeight",
+  "file": "_check_update_modal_height.py",
+  "purpose": "Check the height of the PROJECT PROGRESS UPDATE modal (templates/adminpage.html,",
+  "entry_function": "check(name, ok, detail = '')",
+  "entry_flows": [
+    "_check_update_modal_height → _check_update_modal_height.py, pathlib.Path"
+  ],
+  "public_api": [
+    "check(name, ok, detail = '')",
+    "strip_jinja(text)",
+    "stage(msg)",
+    "css_rule(css_text, selector)"
+  ],
+  "dependencies": [
+    "playwright"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = pathlib.Path(__file__).parent, TEMPLATE = 'templates/adminpage.html', OUT = '_check_update_modal_height_out.txt', RESULTS = [], PAGE = (ROOT / TEMPLATE).read_text(encoding='utf-8'), MODAL = PAGE[start:end]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "b008d40e2b5ccdbf",
+  "file_mtime": 1791302983225.07,
+  "file_size": 5696,
+  "file_birthtime": 1791302983225.07,
+  "generated_at": "2026-10-07T07:44:14.860546Z",
+  "stale": false
+}
