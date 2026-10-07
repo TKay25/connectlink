@@ -1,0 +1,73 @@
+PASS  script started
+PASS  read the admin page  -> 1937884 chars
+PASS  the PROJECT PROGRESS UPDATE modal is still in the page  -> 30623 chars from the template
+PASS  the modal still has exactly one scrolling body  -> 1 found
+PASS  the fixed 450px cap that kept the form in a letterbox is gone  -> no inline style on the body
+PASS  no height is pinned on the body at all, so it can take what is left  -> no inline style on the body
+PASS  the body carries no inline sizing, so the stylesheet is what sizes it  -> no inline style on the body
+PASS  the form is a flex column, which is what hands the body the leftover height  -> <form id="updateProjectForm" method="POST" action="/update_project"
+              style="display: flex; flex-direction: column; min-height: 0;">
+PASS  the dialog still keeps its width (only the height changed)
+PASS  the dialog is still capped at 90vh by .modal-container
+PASS  and that cap still hides any overflow (so a mis-sized body would be cut off)  -> flex column: header + form, nothing else
+PASS  the footer cannot wrap onto a second row (its height is fixed)  -> padding 8px 14px, one row of buttons
+PASS  the header cannot grow with the dialog either  -> padding 10px 14px
+PASS  the body is the part that gives way, and it scrolls
+PASS  no script re-caps the body behind the stylesheet  -> nothing in the page sets .style.maxHeight
+PASS  the footer still carries "Save Changes"
+PASS  the footer still carries "Delete Project"
+PASS  the footer still carries "Close"
+PASS  every rule that sizes the dialog was found in the page  -> 10 rules copied verbatim
+PASS  the rule that sizes the dialog comes from the page as shipped
+PASS  the shared house stylesheets are on disk  -> design-system.css 32240 chars, components-ui.css 4662 chars
+PASS  the modal is opened the way openModal() opens it
+PASS  the markup that was lifted out is well formed  -> 120 <div> vs 120 </div>
+PASS  the preview was built from the page as shipped  -> update_modal_preview.html (70081 chars)
+PASS  the modal renders in a real browser
+PASS  the modal is on screen, exactly as the real page opens it
+PASS  1920x1080: the dialog fills the 90vh it is allowed  -> dialog 972px of layout, 90vh = 972px
+PASS  1920x1080: the body takes exactly the room left between header and footer  -> body 866px, 866px left in the dialog (header 50px + footer 54px)
+PASS  1920x1080: the footer (Save Changes / Close) is fully inside the dialog  -> footer bottom 1010px, dialog bottom 1011px
+PASS  1920x1080: the dialog is inside the window, top and bottom  -> top 88px, bottom 1011px, window 1080px
+PASS  1920x1080: the body ends above the footer, not under it  -> body bottom 959px, footer bottom 1010px
+PASS  1920x1080: the form is longer than its box, so it scrolls  -> 571px of fields below the fold
+PASS  1920x1080: the dialog is never shorter on screen than the old fixed 450px one  -> dialog 923px, was 528px (header + 450px + footer = 556px of layout)
+PASS  1920x1080: and it is at least 100px taller of layout, or as tall as the cap allows  -> dialog 972px of layout, was 556px under the old cap, 90vh = 972px
+PASS  1920x1080: the form shows at least the 450px the old cap allowed  -> 866px of form, was 450px
+PASS  1440x900: the dialog fills the 90vh it is allowed  -> dialog 810px of layout, 90vh = 810px
+PASS  1440x900: the body takes exactly the room left between header and footer  -> body 704px, 704px left in the dialog (header 50px + footer 54px)
+PASS  1440x900: the footer (Save Changes / Close) is fully inside the dialog  -> footer bottom 843px, dialog bottom 844px
+PASS  1440x900: the dialog is inside the window, top and bottom  -> top 75px, bottom 844px, window 900px
+PASS  1440x900: the body ends above the footer, not under it  -> body bottom 792px, footer bottom 843px
+PASS  1440x900: the form is longer than its box, so it scrolls  -> 733px of fields below the fold
+PASS  1440x900: the dialog is never shorter on screen than the old fixed 450px one  -> dialog 770px, was 528px (header + 450px + footer = 556px of layout)
+PASS  1440x900: and it is at least 100px taller of layout, or as tall as the cap allows  -> dialog 810px of layout, was 556px under the old cap, 90vh = 810px
+PASS  1440x900: the form shows at least the 450px the old cap allowed  -> 704px of form, was 450px
+PASS  1366x768: the dialog fills the 90vh it is allowed  -> dialog 691px of layout, 90vh = 691px
+PASS  1366x768: the body takes exactly the room left between header and footer  -> body 586px, 585px left in the dialog (header 50px + footer 54px)
+PASS  1366x768: the footer (Save Changes / Close) is fully inside the dialog  -> footer bottom 721px, dialog bottom 722px
+PASS  1366x768: the dialog is inside the window, top and bottom  -> top 65px, bottom 722px, window 768px
+PASS  1366x768: the body ends above the footer, not under it  -> body bottom 670px, footer bottom 721px
+PASS  1366x768: the form is longer than its box, so it scrolls  -> 851px of fields below the fold
+PASS  1366x768: the dialog is never shorter on screen than the old fixed 450px one  -> dialog 657px, was 528px (header + 450px + footer = 556px of layout)
+PASS  1366x768: and it is at least 100px taller of layout, or as tall as the cap allows  -> dialog 691px of layout, was 556px under the old cap, 90vh = 691px
+PASS  1366x768: the form shows at least the 450px the old cap allowed  -> 586px of form, was 450px
+PASS  1280x720: the dialog fills the 90vh it is allowed  -> dialog 648px of layout, 90vh = 648px
+PASS  1280x720: the body takes exactly the room left between header and footer  -> body 542px, 542px left in the dialog (header 50px + footer 54px)
+PASS  1280x720: the footer (Save Changes / Close) is fully inside the dialog  -> footer bottom 676px, dialog bottom 677px
+PASS  1280x720: the dialog is inside the window, top and bottom  -> top 62px, bottom 677px, window 720px
+PASS  1280x720: the body ends above the footer, not under it  -> body bottom 625px, footer bottom 676px
+PASS  1280x720: the form is longer than its box, so it scrolls  -> 895px of fields below the fold
+PASS  1280x720: the dialog is never shorter on screen than the old fixed 450px one  -> dialog 616px, was 528px (header + 450px + footer = 556px of layout)
+PASS  1280x720: and it is at least 100px taller of layout, or as tall as the cap allows  -> dialog 648px of layout, was 556px under the old cap, 90vh = 648px
+PASS  1280x720: the form shows at least the 450px the old cap allowed  -> 542px of form, was 450px
+PASS  1280x600: the dialog fills the 90vh it is allowed  -> dialog 540px of layout, 90vh = 540px
+PASS  1280x600: the body takes exactly the room left between header and footer  -> body 434px, 434px left in the dialog (header 50px + footer 54px)
+PASS  1280x600: the footer (Save Changes / Close) is fully inside the dialog  -> footer bottom 565px, dialog bottom 566px
+PASS  1280x600: the dialog is inside the window, top and bottom  -> top 53px, bottom 566px, window 600px
+PASS  1280x600: the body ends above the footer, not under it  -> body bottom 514px, footer bottom 565px
+PASS  1280x600: the form is longer than its box, so it scrolls  -> 1003px of fields below the fold
+PASS  1280x600: the dialog is never shorter on screen than the old fixed 450px one  -> dialog 513px, was 513px (header + 450px + footer = 540px of layout)
+PASS  1280x600: and it is at least 100px taller of layout, or as tall as the cap allows  -> dialog 540px of layout, was 540px under the old cap, 90vh = 540px
+PASS  1280x600: the old cap used to push the footer 14px past the dialog; it cannot now  -> the old dialog overflowed by 14px and overflow: hidden cut it off
+PASS  no page error was raised while the modal was opened  -> []

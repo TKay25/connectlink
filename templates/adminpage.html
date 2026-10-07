@@ -14309,8 +14309,16 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
-        <form id="updateProjectForm" method="POST" action="/update_project">
-            <div class="modal-body-custom" style="max-height: 450px; overflow-y: auto;">
+        <!-- A flex column, so the body below takes whatever height is left over. The dialog is
+             capped at 90vh by .modal-container (which also hides any overflow), so the header and
+             the footer keep their natural height, the body shrinks to fit what remains and
+             scrolls its own fields, and "Save Changes" / "Close" can never be pushed off the
+             bottom. That is a form of 866px on a 1080p screen (972px of dialog less a 50px header
+             and a 54px footer), against the fixed 450px it used to be, and it still fits a
+             600px-tall window without cutting anything off. -->
+        <form id="updateProjectForm" method="POST" action="/update_project"
+              style="display: flex; flex-direction: column; min-height: 0;">
+            <div class="modal-body-custom">
                 <input type="hidden" id="updateProjectId" name="project_id">
                 <input type="hidden" id="updateProjectQuotationId" name="project_quotation_id">
                 <input type="hidden" id="updateProjectAdjustedSchedules" name="adjusted_schedules_json" value="">
