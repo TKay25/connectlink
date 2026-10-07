@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ProbeScope",
+  "file": "_probe_scope.py",
+  "purpose": "Throwaway probe: what the page really contains at the spots the check reads.",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_probe_scope → pathlib.Path, s.find, idx.append, out.append, s.count"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "fc1c1f536abf4265",
+  "file_mtime": 1791371501636.8242,
+  "file_size": 1275,
+  "file_birthtime": 1791371501634.8027,
+  "generated_at": "2026-10-07T11:11:45.364751Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

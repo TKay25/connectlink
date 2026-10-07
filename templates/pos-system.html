@@ -7753,20 +7753,24 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 
             <!-- Analytics Page -->
             <div id="analyticsPage" style="display: none;">
-                <!-- Analytics-only period scope (does not require visiting the Sales Report) -->
+                <!-- Period scope for everything on this page. It is the SAME scope as the
+                     Sales Report's (one set of transactions), so picking a period here
+                     applies it at once, and the brief below then names the period its
+                     figures really came from. No option is pre-selected: the scope that
+                     is on screen is the one the report was filtered by. -->
                 <div class="an-scope">
                     <span class="an-scope-label"><i class="fas fa-calendar-days"></i> Period</span>
-                    <select id="anPeriod" class="form-select form-select-sm">
+                    <select id="anPeriod" class="form-select form-select-sm" onchange="onAnalyticsPeriodChange()" title="Applies straight away - the Sales Report uses the same period">
                         <option value="today">Today</option>
                         <option value="yesterday">Yesterday</option>
                         <option value="week">This week</option>
-                        <option value="month" selected>This month</option>
+                        <option value="month">This month</option>
                         <option value="quarter">This quarter</option>
                         <option value="year">This year</option>
                         <option value="custom">Custom...</option>
                     </select>
-                    <input type="date" id="anStartDate" class="form-control form-control-sm" title="Start date (custom period)">
-                    <input type="date" id="anEndDate" class="form-control form-control-sm" title="End date (custom period)">
+                    <input type="date" id="anStartDate" class="form-control form-control-sm" onchange="onAnalyticsDateChange()" title="Start date (custom period)">
+                    <input type="date" id="anEndDate" class="form-control form-control-sm" onchange="onAnalyticsDateChange()" title="End date (custom period)">
                     <button type="button" class="btn btn-sm btn-primary-dark" onclick="applyAnalyticsPeriod()">Apply</button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportAnalyticsBrief()" title="Print the brief"><i class="fas fa-print"></i></button>
                 </div>
@@ -8525,7 +8529,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                     const wb = XLSX.utils.book_new();
                     XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
                     logPosActivity('download', 'Downloaded Inventory to Excel (' + filteredProducts.length + ' products)');
-                    XLSX.writeFile(wb, `Inventory_ConnectLink_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    XLSX.writeFile(wb, `Inventory_ConnectLink_${toLocalISODate(new Date())}.xlsx`);
                 } catch (err) {
                     alert('Failed to export inventory Excel: ' + err.message);
                 } finally {
@@ -8630,7 +8634,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 
             const opt = {
                 margin: [0.4, 0.4, 0.4, 0.4],
-                filename: `Inventory_ConnectLink_${new Date().toISOString().split('T')[0]}.pdf`,
+                filename: `Inventory_ConnectLink_${toLocalISODate(new Date())}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 1.5 },
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
@@ -10505,7 +10509,7 @@ async function exportModalData(type, format) {
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, title);
-        XLSX.writeFile(wb, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        XLSX.writeFile(wb, `${filename}_${toLocalISODate(new Date())}.xlsx`);
         showToast('Excel export complete!', 'success');
     } else if (format === 'pdf') {
         const pdfContent = document.createElement('div');
@@ -10545,7 +10549,7 @@ async function exportModalData(type, format) {
         
         const opt = {
             margin: [0.5, 0.5, 0.5, 0.5],
-            filename: `${filename}_${new Date().toISOString().split('T')[0]}.pdf`,
+            filename: `${filename}_${toLocalISODate(new Date())}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 1.5 },
             jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
@@ -10648,12 +10652,12 @@ function toggleAuditReport() {
     const end = new Date();
     const start = new Date();
     start.setDate(start.getDate() - 30);
-    document.getElementById('modalAuditEndDate').value = end.toISOString().split('T')[0];
-    document.getElementById('modalAuditStartDate').value = start.toISOString().split('T')[0];
+    document.getElementById('modalAuditEndDate').value = toLocalISODate(end);
+    document.getElementById('modalAuditStartDate').value = toLocalISODate(start);
     
     // Also set the inline date fields for backward compatibility
-    document.getElementById('auditEndDate').value = end.toISOString().split('T')[0];
-    document.getElementById('auditStartDate').value = start.toISOString().split('T')[0];
+    document.getElementById('auditEndDate').value = toLocalISODate(end);
+    document.getElementById('auditStartDate').value = toLocalISODate(start);
     
     // Open the modal
     const modal = new bootstrap.Modal(document.getElementById('auditReportModal'));
@@ -10684,8 +10688,8 @@ async function toggleActivityLog() {
     if (fromEl && !fromEl.value) {
         const now = new Date();
         const first = new Date(now.getFullYear(), now.getMonth(), 1);
-        fromEl.value = first.toISOString().split('T')[0];
-        toEl.value = now.toISOString().split('T')[0];
+        fromEl.value = toLocalISODate(first);
+        toEl.value = toLocalISODate(now);
     }
     // Populate the cashier dropdown once (kept stable across refreshes)
     const userSel = document.getElementById('activityLogUser');
@@ -10854,7 +10858,7 @@ function exportPosActivityLogPDF() {
     logPosActivity('download', 'Exported POS Activity Log to PDF (' + rows.length + ' entries)');
     const opt = {
         margin: [0.5, 0.5, 0.5, 0.5],
-        filename: 'POS_Activity_Log_' + new Date().toISOString().split('T')[0] + '.pdf',
+        filename: 'POS_Activity_Log_' + toLocalISODate(new Date()) + '.pdf',
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 1.5 },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
@@ -12286,7 +12290,7 @@ async function deleteStockAddition() {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Sales Report');
             
-            const filename = `sales_report_${new Date().toISOString().split('T')[0]}.xlsx`;
+            const filename = `sales_report_${toLocalISODate(new Date())}.xlsx`;
             XLSX.writeFile(wb, filename);
             showToast('Export complete!', 'success');
         } else if (type === 'pdf') {
@@ -12340,7 +12344,7 @@ async function deleteStockAddition() {
             
             const opt = {
                 margin: [0.5, 0.5, 0.5, 0.5],
-                filename: `sales_report_${new Date().toISOString().split('T')[0]}.pdf`,
+                filename: `sales_report_${toLocalISODate(new Date())}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 1.5 },
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
@@ -12359,7 +12363,10 @@ async function deleteStockAddition() {
         }
     }
 
-    function updateReportDateRange() {
+    // `load` is false when the period has already been applied elsewhere (the
+    // Analytics tab sets this same scope and does its own load), so only the
+    // custom-range boxes need moving -- without fetching the same data twice.
+    function updateReportDateRange(load = true) {
         const period = document.getElementById('reportPeriod').value;
         const startDiv = document.getElementById('dateRangeStartDiv');
         const endDiv = document.getElementById('dateRangeEndDiv');
@@ -12372,7 +12379,7 @@ async function deleteStockAddition() {
             startDiv.style.display = 'none';
             endDiv.style.display = 'none';
             // Auto-load report for predefined periods
-            loadSalesReport(`Loading ${period} report...`);
+            if (load !== false) loadSalesReport(`Loading ${period} report...`);
         }
     }
     
@@ -12486,6 +12493,12 @@ async function loadSalesReport(message = 'Loading sales report...') {
         console.log('Date range:', startDate, 'to', endDate); // Debug
         // Remember the range so Analytics can compare against the PREVIOUS period
         window.__reportRange = { start: startDate, end: endDate };
+        // ...and the scope itself. This is the only place the report is filtered,
+        // so it is the only thing that can say which period the figures on the
+        // Analytics tab belong to; it also points that tab's own selector at the
+        // period that was just applied, keeping the two in agreement.
+        window.__reportScope = { period: period, start: startDate, end: endDate };
+        syncAnalyticsScope();
         
         const [transactionsRes, reinvestmentRes] = await Promise.all([
             fetch(`${API_BASE}/api/transactions?limit=2000`, { credentials: 'include' }),
@@ -12582,8 +12595,9 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
         const hour = new Date(t.created_at).getHours();
         hourlyData[hour] += t.total;
         
-        // Daily aggregation
-        const date = new Date(t.created_at).toISOString().split('T')[0];
+        // Daily aggregation, keyed by the day the shop traded on its own clock (a
+        // UTC key would put a sale made near midnight on the neighbouring day).
+        const date = toLocalISODate(new Date(t.created_at));
         if (!dailyData[date]) {
             dailyData[date] = { sales: 0, profit: 0, count: 0 };
         }
@@ -13126,13 +13140,14 @@ function viewReceipt(transactionId) {
         filteredTransactions = transactionsData.transactions.filter(t => {
             let match = true;
             
-            // Date filter
+            // Date filter (the picked dates are calendar days on the shop's own
+            // clock, so the transaction's day is read the same way)
             if (startDate && t.created_at) {
-                const transDate = new Date(t.created_at).toISOString().split('T')[0];
+                const transDate = toLocalISODate(new Date(t.created_at));
                 if (transDate < startDate) match = false;
             }
             if (endDate && t.created_at) {
-                const transDate = new Date(t.created_at).toISOString().split('T')[0];
+                const transDate = toLocalISODate(new Date(t.created_at));
                 if (transDate > endDate) match = false;
             }
             
@@ -13674,7 +13689,7 @@ function renderFilteredTransactions() {
         
         const opt = {
             margin: [0.5, 0.5, 0.5, 0.5],
-            filename: `transactions_${new Date().toISOString().split('T')[0]}.pdf`,
+            filename: `transactions_${toLocalISODate(new Date())}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 1.5 },
             jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
@@ -18329,15 +18344,117 @@ async function applyAnalyticsPeriod() {
     if (!p || !rp) return;
 
     if (p.value === 'custom') {
-        if (!s.value || !e.value) { showToast('Pick both a start and an end date.', 'error'); return; }
+        if (!s || !e || !s.value || !e.value) { showToast('Pick both a start and an end date.', 'error'); return; }
         if (s.value > e.value) { showToast('The start date must be before the end date.', 'error'); return; }
         if (rs) rs.value = s.value;
         if (re) re.value = e.value;
     }
     rp.value = p.value;
+    // Move the Sales Report's own date boxes (shown for a custom range) into step
+    // -- without a second fetch of the very data we are about to load.
+    updateReportDateRange(false);
     await loadSalesReport('Applying period...');
     renderAnalytics();
     showToast('Analytics period updated.', 'success');
+}
+
+// The period the figures on screen were actually filtered by. The two pages read
+// the SAME transactions, so the applied scope is remembered here: a selector can
+// hold a choice that has not been applied yet, or that was changed on the other
+// page, and a sentence that named that choice would describe one period using
+// the numbers of another. Set by loadSalesReport, the one funnel that filters
+// the report, so it can never be set to a range that was not applied.
+window.__reportScope = null;
+
+const REPORT_PERIOD_NAMES = {
+    today: 'Today', yesterday: 'Yesterday', week: 'This week', month: 'This month',
+    quarter: 'This quarter', year: 'This year', custom: 'Custom range'
+};
+
+// yyyy-mm-dd as the viewer's own clock reads it. toISOString() keys a date by
+// UTC, so a sale made near midnight would be filed under the neighbouring day.
+function toLocalISODate(d) {
+    if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+    const pad = n => (n < 10 ? '0' : '') + n;
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// "7 Oct 2026"
+function fmtDay(d) {
+    return d.getDate() + ' ' + MONTH_SHORT[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+// A yyyy-mm-dd key as it would be said out loud, for the day the brief names:
+// "Wednesday, 7 Oct 2026".
+function fmtDayLong(key) {
+    const parts = String(key).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return key;
+    const day = new Date(parts[0], parts[1] - 1, parts[2]);
+    return DAY_LONG[day.getDay()] + ', ' + fmtDay(day);
+}
+
+// The period the numbers came from, phrased so it can be dropped into a
+// sentence: "Today (7 Oct 2026)", "This month (1 Oct 2026 to 7 Oct 2026)". Read
+// from the scope that was APPLIED, so the words and the figures cannot disagree
+// -- not while a choice sits unapplied, and not after the period is changed on
+// the Sales Report.
+function reportScopeLabel() {
+    const scope = window.__reportScope;
+    if (!scope) {
+        const anP = document.getElementById('anPeriod');
+        return anP ? (REPORT_PERIOD_NAMES[anP.value] || 'The selected period')
+                   : 'The selected period';
+    }
+    const name = REPORT_PERIOD_NAMES[scope.period] || 'the selected period';
+    const start = scope.start, end = scope.end;
+    if (!start || !end) return name;
+    const sameDay = start.getFullYear() === end.getFullYear()
+        && start.getMonth() === end.getMonth() && start.getDate() === end.getDate();
+    return name + ' (' + (sameDay ? fmtDay(start) : fmtDay(start) + ' to ' + fmtDay(end)) + ')';
+}
+
+// One scope, two selectors: point the Analytics selector at whatever the report
+// was just filtered by, so the control on screen matches the data on screen.
+function syncAnalyticsScope() {
+    const scope = window.__reportScope;
+    if (!scope) return;
+    const anP = document.getElementById('anPeriod');
+    if (anP && anP.value !== scope.period) anP.value = scope.period;
+    if (scope.period === 'custom') {
+        const rs = document.getElementById('reportStartDate');
+        const re = document.getElementById('reportEndDate');
+        const s = document.getElementById('anStartDate');
+        const e = document.getElementById('anEndDate');
+        if (rs && re && s && e) { s.value = rs.value; e.value = re.value; }
+    }
+}
+
+// Picking a period here applies it at once. The brief and the KPIs are written
+// from the report data, so a choice that waited for a second click would leave
+// them describing the old range under the new period's name.
+function onAnalyticsPeriodChange() {
+    const p = document.getElementById('anPeriod');
+    if (!p) return;
+    if (p.value !== 'custom') { applyAnalyticsPeriod(); return; }
+    // Custom: start from the range on screen, then wait for both dates (Apply
+    // still works, and either date can be picked again afterwards).
+    const scope = window.__reportScope;
+    const s = document.getElementById('anStartDate');
+    const e = document.getElementById('anEndDate');
+    if (s && !s.value && scope && scope.start) s.value = toLocalISODate(scope.start);
+    if (e && !e.value && scope && scope.end) e.value = toLocalISODate(scope.end);
+}
+
+function onAnalyticsDateChange() {
+    const p = document.getElementById('anPeriod');
+    const s = document.getElementById('anStartDate');
+    const e = document.getElementById('anEndDate');
+    if (!p || !s || !e || p.value !== 'custom' || !s.value || !e.value) return;
+    applyAnalyticsPeriod();
 }
 
 function exportAnalyticsBrief() {
@@ -18365,8 +18482,27 @@ function exportAnalyticsBrief() {
 function renderAnalytics() {
     // If we don't have data, load it first
     if (!currentReportData || currentReportData.length === 0) {
-        console.log('No analytics data, loading...');
-        loadSalesReport('Loading analytics data...');
+        // Nothing has been filtered yet (the page was opened straight onto this tab):
+        // fetch the report, which comes back and draws this function again.
+        if (!window.__reportScope) {
+            console.log('No analytics data, loading...');
+            loadSalesReport('Loading analytics data...');
+            return;
+        }
+        // The period WAS applied and really traded nothing, so it has to say so:
+        // drawing nothing would leave the previous period's brief and figures on
+        // screen under this period's name -- the very disagreement this page is here
+        // to prevent.
+        const emptyBrief = document.getElementById('analyticsBrief');
+        if (emptyBrief) {
+            emptyBrief.innerHTML = '<div class="an-brief-title"><i class="fas fa-lightbulb"></i> Management brief</div>' +
+                '<p class="an-brief-text">Across ' + reportScopeLabel() + ' the shop rang up no sales.</p>';
+        }
+        ['analyticsKpis', 'analyticsIntel', 'analyticsActions', 'moversList',
+         'topProductsListReport', 'topProfitProductsList'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '';
+        });
         return;
     }
     
@@ -18385,9 +18521,11 @@ function renderAnalytics() {
             hourlyData[hour] += transaction.total || 0;
         }
         
-        // Daily sales for trend
+        // Daily sales for trend, bucketed by the day the shop traded on its own
+        // clock (a UTC key would file a sale made near midnight under the
+        // neighbouring day).
         if (transaction.created_at) {
-            const date = new Date(transaction.created_at).toISOString().split('T')[0];
+            const date = toLocalISODate(new Date(transaction.created_at));
             if (!dailySales[date]) {
                 dailySales[date] = { sales: 0, profit: 0 };
             }
@@ -18521,10 +18659,12 @@ function renderAnalytics() {
     // ---- Automated management brief ----
     const briefEl = document.getElementById('analyticsBrief');
     if (briefEl) {
-        const anP = document.getElementById('anPeriod');
-        const periodLabel = (anP && anP.value === 'custom')
-            ? (document.getElementById('anStartDate').value + ' to ' + document.getElementById('anEndDate').value)
-            : (anP ? anP.options[anP.selectedIndex].text : 'the selected period');
+        // The period named here is the range the figures below were filtered by.
+        // It is read from the scope that was applied, never from this page's own
+        // selector: a selector can hold a period that has not been applied yet, or
+        // that was changed on the Sales Report -- which is how this came to read
+        // "This month" over a single day's takings.
+        const periodLabel = reportScopeLabel();
         const catRanked = Object.keys(categorySales).sort((a, b) => categorySales[b] - categorySales[a]);
         const topCat = catRanked[0];
         const topCatShare = (topCat && totalRevenue > 0) ? (categorySales[topCat] / totalRevenue * 100) : 0;
@@ -18539,7 +18679,7 @@ function renderAnalytics() {
             s.push(topCat + ' leads the categories at ' + topCatShare.toFixed(0) + '% of revenue' +
                    (fastMovers[0] ? ', driven by ' + fastMovers[0].name + ' (' + fastMovers[0].qty + ' sold)' : '') + '.');
         }
-        if (bestDay) s.push('The strongest trading day was ' + bestDay + ' ($' + dailySales[bestDay].sales.toFixed(2) + ').');
+        if (bestDay) s.push('The strongest trading day was ' + fmtDayLong(bestDay) + ' ($' + dailySales[bestDay].sales.toFixed(2) + ').');
         if (deadStock.length) {
             s.push(deadStock.length + ' product(s) are holding stock but sold nothing this period - review their pricing, shelf position or run a promotion before reordering.');
         }
@@ -19471,11 +19611,14 @@ function navigateTo(page) {
         fetchLaybys();
     }
     if (page === 'analytics') {
-        // If we have sales data, use it; otherwise load it
+        // The brief and every figure on this page are written from the report data, so
+        // make sure it is there and then draw the page ON that data. Without this a
+        // first visit fetched the report and left the page blank, and a visit that
+        // raced the fetch drew an older period's figures under the new period's name.
         if (currentReportData && currentReportData.length) {
             renderAnalytics();
         } else {
-            loadSalesReport('Loading analytics...');
+            loadSalesReport('Loading analytics...').then(() => renderAnalytics());
         }
     }
 

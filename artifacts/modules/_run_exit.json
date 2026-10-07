@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "RunExit",
+  "file": "_run_exit.txt",
+  "purpose": "<!-- Describe what RunExit does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "668e2627040f833a",
+  "file_mtime": 1791371432694.9094,
+  "file_size": 15,
+  "file_birthtime": 1791371432694.9094,
+  "generated_at": "2026-10-07T11:10:34.308Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

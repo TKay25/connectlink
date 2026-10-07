@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "Probe2",
+  "file": "_probe2.txt",
+  "purpose": "<!-- Describe what Probe2 does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7e024b8e82521025",
+  "file_mtime": 1791368044319.9705,
+  "file_size": 746,
+  "file_birthtime": 1791368043806.995,
+  "generated_at": "2026-10-07T10:14:05.932Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

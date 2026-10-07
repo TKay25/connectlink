@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "HeadBytes",
+  "file": "_head_bytes.txt",
+  "purpose": "<!-- Describe what HeadBytes does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "372d3cb9b93e2724",
+  "file_mtime": 1791371938901.0232,
+  "file_size": 18,
+  "file_birthtime": 1791371938884.864,
+  "generated_at": "2026-10-07T11:19:01.630Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

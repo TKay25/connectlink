@@ -1,0 +1,49 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "RefHarness",
+  "file": "_ref_harness.py",
+  "purpose": "Check that the Inventory tab lists ONLY what this branch carries",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 369",
+  "entry_flows": [
+    "Handler.__init__() → _check_inventory_stocked_only.py, pathlib.Path, environ.get, fh.write"
+  ],
+  "public_api": [
+    "class Handler(SimpleHTTPRequestHandler)  # line 369",
+    "  Handler.__init__()",
+    "  Handler.log_message()",
+    "  Handler.do_GET()",
+    "  Handler.do_POST()",
+    "check(name, ok, detail = '')",
+    "blocks(html)",
+    "first_error(body)",
+    "extract(src, start_marker, last = False)",
+    "product(pid, name, stock, stocked_here)",
+    "serve()"
+  ],
+  "dependencies": [
+    "esprima",
+    "http",
+    "playwright",
+    "urllib"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = pathlib.Path(__file__).parent, PORT = int(os.environ.get('POS_TOGGLE_PORT', '8796')), TEMPLATE = 'templates/pos-system.html', APP = 'ConnectLink.py', OUT = '_check_inventory_stocked_only_out.txt', RESULTS = []",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "25a31a273c868b63",
+  "file_mtime": 1791362860373.287,
+  "file_size": 28773,
+  "file_birthtime": 1791367248342.2473,
+  "generated_at": "2026-10-07T10:00:51.169390Z",
+  "stale": false
+}

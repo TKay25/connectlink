@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ProbeBlocks",
+  "file": "_probe_blocks.py",
+  "purpose": "Who",
+  "entry_function": "who(line_no)",
+  "entry_flows": [
+    "_probe_blocks → pathlib.Path, h.split, m.start, m.end, m.group"
+  ],
+  "public_api": [
+    "who(line_no)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "482de843d6b6a4f2",
+  "file_mtime": 1791367372869.1367,
+  "file_size": 1258,
+  "file_birthtime": 1791367372868.1262,
+  "generated_at": "2026-10-07T10:02:56.398031Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

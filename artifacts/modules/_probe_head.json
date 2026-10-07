@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ProbeHead",
+  "file": "_probe_head.py",
+  "purpose": "Throwaway probe: why does extract() fail on the committed renderAnalytics()?",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_probe_head → pathlib.Path, s.find, src.index, src.count"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "41c00015e8847330",
+  "file_mtime": 1791372024868.3289,
+  "file_size": 1522,
+  "file_birthtime": 1791372024848.9685,
+  "generated_at": "2026-10-07T11:20:35.035753Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

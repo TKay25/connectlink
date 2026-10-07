@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ProbeSyntax",
+  "file": "_probe_syntax.py",
+  "purpose": "Quick parse of every inline script block in the POS page (esprima).",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_probe_syntax → pathlib.Path, m.group, body.strip, m.start, esprima.parseScript"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "esprima"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "97380c6cc6f56e1a",
+  "file_mtime": 1791367698390.8596,
+  "file_size": 962,
+  "file_birthtime": 1791367698371.275,
+  "generated_at": "2026-10-07T10:08:21.666005Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

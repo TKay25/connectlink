@@ -1,0 +1,142 @@
+﻿
+LineNumber Line                                                                                
+---------- ----                                                                                
+         1 # ConnectLink - Deployment & Operations Runbook                                     
+         3 ## Table of Contents                                                                
+        19 ## PRE-DEPLOYMENT CHECKLIST                                                         
+        21 ### System Requirements                                                             
+        32 ### Pre-Deployment Tasks                                                            
+        49 ## INSTALLATION ON WINDOWS                                                          
+        51 ### Step 1: Install Python 3.8+                                                     
+        66 ### Step 2: Install Git                                                             
+        79 ### Step 3: Install PostgreSQL                                                      
+        94 ### Step 4: Create Database & User                                                  
+       124 ### Step 5: Clone ConnectLink Repository                                            
+       137 ### Step 6: Create Virtual Environment                                              
+       149 ### Step 7: Install Python Dependencies                                             
+       158 ### Step 8: Create Environment Configuration                                        
+       162 # Database                                                                          
+       165 # Flask                                                                             
+       171 # API Keys                                                                          
+       176 # Email (Optional)                                                                  
+       179 # Application                                                                       
+       184 ### Step 9: Initialize Database                                                     
+       202 ### Step 10: Access the Application                                                 
+       215 ## INSTALLATION ON MACOS/LINUX                                                      
+       217 ### Step 1: Install System Dependencies                                             
+       221 # Install Homebrew first if not installed                                           
+       224 # Install dependencies                                                              
+       235 ### Step 2: Verify Installations                                                    
+       243 ### Step 3: Start PostgreSQL Service                                                
+       256 ### Step 4: Create Database User                                                    
+       259 # Connect to PostgreSQL                                                             
+       262 # In PostgreSQL:                                                                    
+       270 ### Step 5-10: Follow Windows Steps 5-10 Above                                      
+       276 ## INSTALLATION ON PRODUCTION SERVER                                                
+       278 ### Pre-Production Considerations                                                   
+       289 ### Production Setup                                                                
+       398 ## MULTI-BRANCH POS (Shurugwi + Chegutu)                                            
+       404 ### How it works (in one paragraph)                                                 
+       414 ### Environment variables — SET THESE BEFORE GO-LIVE                                
+       436 ### Roles                                                                           
+       445 ### Go-live checklist                                                               
+       480 ### Behaviour worth knowing                                                         
+       524 ### An item this shop never stocked (phantom `product_stock` rows)                  
+       594 ### A reverted sale still counted as a sale (the audit report)                      
+       632 ### A quantity on screen that is not the server's (the till's saved copy)           
+       678 ### A sale rung offline that took more than the shelf held                          
+       718 ### A till that has been logged out with sales still on it                          
+       759 ### The project portal with no connection (read-only, plus contracts)               
+       809 ### Project changes in the audit log                                                
+       851 ### Stock reconciliation — repairing stock that was mixed up                        
+       879 ### Layby (reserve now, pay in instalments)                                         
+       920 ### Laybys on a till with no connection                                             
+       950 ### Stock a till has promised but not yet uploaded                                  
+       975 ### Printing the layby agreement                                                    
+       990 ### Bulk stock upload (Excel) — what it will and will not duplicate                 
+      1023 ## CONFIGURATION                                                                    
+      1025 ### Environment Variables                                                           
+      1047 ### Generate Secure SECRET_KEY                                                      
+      1050 # Python                                                                            
+      1055 ### Configure Database Connection                                                   
+      1064 # Local development                                                                 
+      1067 # Production                                                                        
+      1071 ### Configure API Keys                                                              
+      1091 ## DATABASE MANAGEMENT                                                              
+      1093 ### Backup Database                                                                 
+      1107 # Edit crontab                                                                      
+      1110 # Add this line (backup daily at 2 AM)                                              
+      1114 ### Restore Database                                                                
+      1126 ### Database Optimization                                                           
+      1146 ### Verify Database Health                                                          
+      1149 # Check database size                                                               
+      1152 # List all tables                                                                   
+      1155 # Check table sizes                                                                 
+      1161 ## BACKUP & RECOVERY                                                                
+      1163 ### Automated Backup Strategy                                                       
+      1168 # backup.sh                                                                         
+      1174 # Create backup directory if not exists                                             
+      1177 # Perform backup                                                                    
+      1180 # Keep only last 30 days of backups                                                 
+      1193 # Daily at 2 AM                                                                     
+      1196 # Multiple times per day (every 6 hours)                                            
+      1200 ### Disaster Recovery Plan                                                          
+      1209 # Stop application                                                                  
+      1212 # Restore database                                                                  
+      1215 # Verify restore                                                                    
+      1218 # Restart application                                                               
+      1235 ## MONITORING & MAINTENANCE                                                         
+      1237 ### Application Monitoring                                                          
+      1241 # Systemd service status                                                            
+      1244 # Check if listening on port                                                        
+      1246 # or                                                                                
+      1252 # View recent logs                                                                  
+      1256 # Follow logs in real-time                                                          
+      1260 ### Database Monitoring                                                             
+      1278 ### System Monitoring                                                               
+      1282 # Overall system                                                                    
+      1286 # PostgreSQL process                                                                
+      1295 # PostgreSQL logs                                                                   
+      1299 ### Automated Health Checks                                                         
+      1305 # Check application                                                                 
+      1311 # Check database                                                                    
+      1322 # Add to crontab                                                                    
+      1326 ### Maintenance Schedule                                                            
+      1355 ## TROUBLESHOOTING                                                                  
+      1357 ### Application Won't Start                                                         
+      1361 # Find process using port 5000                                                      
+      1363 # or                                                                                
+      1366 # Kill the process                                                                  
+      1372 # Verify virtual environment is activated                                           
+      1374 # Should show: /path/to/connectlink/venv/bin/python                                 
+      1376 # If not, activate it                                                               
+      1378 # or                                                                                
+      1381 # Reinstall dependencies                                                            
+      1387 # Check PostgreSQL is running                                                       
+      1390 # Start PostgreSQL if stopped                                                       
+      1393 # Verify connection string in .env                                                  
+      1394 # Format: postgresql://user:password@host:port/database                             
+      1398 ### Multi-Branch: one shop's item shows up in the other shop's till                 
+      1431 ### Multi-Branch: a shop's stock figure is higher than the server's (the saved copy)
+      1459 ### Database Issues                                                                 
+      1463 # Create database                                                                   
+      1468 # Initialize tables                                                                 
+      1489 ### API Integration Issues                                                          
+      1493 # Test WhatsApp connection                                                          
+      1510 ### Performance Issues                                                              
+      1524 # Restart application                                                               
+      1527 # Check for memory leaks                                                            
+      1529 # End process if >50% memory                                                        
+      1534 ### Render Worker Timeouts / OOM ("WORKER TIMEOUT ... SIGKILL ... out of memory")   
+      1550 ## UPGRADE PROCEDURES                                                               
+      1552 ### Before Upgrade                                                                  
+      1560 ### Upgrade Steps                                                                   
+      1594 # Test in browser at http://localhost:5000                                          
+      1605 # Check logs                                                                        
+      1608 # Test functionality                                                                
+      1612 ### Rollback Procedure (if needed)                                                  
+      1640 ## Version History                                                                  
+      1650 ## Support & Resources                                                              
+      1661 ## Changelog                                                                        
+
+

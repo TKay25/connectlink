@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ProbeCount",
+  "file": "_probe_count.py",
+  "purpose": "Every remaining UTC day key in the POS page, with its line number.",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_probe_count → pathlib.Path, p.read_text, m.start, m.end, text.strip"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "aee10abdfc379639",
+  "file_mtime": 1791368030516.415,
+  "file_size": 472,
+  "file_birthtime": 1791368030511.5994,
+  "generated_at": "2026-10-07T10:13:54.949349Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

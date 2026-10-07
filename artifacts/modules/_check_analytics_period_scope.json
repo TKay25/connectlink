@@ -1,0 +1,54 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckAnalyticsPeriodScope",
+  "file": "_check_analytics_period_scope.py",
+  "purpose": "Check that the POS management brief always describes the period its figures came",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 502 — Serves the real page, and stands in for the POS APIs it asks for.",
+  "entry_flows": [
+    "Handler.__init__() → _check_analytics_period_scope.py, pathlib.Path, environ.get, fh.write"
+  ],
+  "public_api": [
+    "class Handler(SimpleHTTPRequestHandler)  # line 502 — Serves the real page, and stands in for the POS APIs it asks for.",
+    "  Handler.__init__()",
+    "  Handler.log_message()",
+    "  Handler.do_GET()",
+    "  Handler.do_POST()",
+    "check(name, ok, detail = '')",
+    "first_error(body)",
+    "extract(src, start_marker, last = False)",
+    "between(src, start_marker, end_marker)",
+    "count(src, needle)",
+    "stamp(day, hour, minute)",
+    "sale(number, day, hour, minute, items)",
+    "revenue_on(first, last)"
+  ],
+  "dependencies": [
+    "esprima",
+    "http",
+    "playwright",
+    "urllib"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = pathlib.Path(__file__).parent, PORT = int(os.environ.get('POS_SCOPE_PORT', '8798')), TEMPLATE = 'templates/pos-system.html', PAGE_PATH = '/pos-system.html', OUT = '_check_analytics_period_scope_out.txt', RESULTS = []",
+  "why": {
+    "QuietServer.run()": "runs in background thread — do not call directly, use start()",
+    "QuietServer daemon=True": "dies with main thread — intentional, no cleanup needed"
+  },
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "81008fb66ce62352",
+  "file_mtime": 1791368419923.9622,
+  "file_size": 4378,
+  "file_birthtime": 1791368419922.8203,
+  "generated_at": "2026-10-07T11:37:54.639619Z",
+  "stale": false
+}
