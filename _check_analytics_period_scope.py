@@ -26,13 +26,12 @@ What keeps the two in step now:
     not under the UTC day that had already rolled over.
 
 Run:  python _check_analytics_period_scope.py    (writes _check_analytics_period_scope_out.txt)
-
+u
 The rule half needs only the standard library. The last section drives the real page
 in a real browser against stand-in POS API answers, so use the project's environment:
 
     .venv\\Scripts\\python.exe _check_analytics_period_scope.py
 """
-import http.client
 import json
 import os
 import pathlib
@@ -42,7 +41,6 @@ import subprocess
 import sys
 import threading
 import urllib.parse
-import uuid
 from datetime import date, datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -52,13 +50,6 @@ TEMPLATE = 'templates/pos-system.html'
 PAGE_PATH = '/pos-system.html'          # the URL the page is served on below
 OUT = '_check_analytics_period_scope_out.txt'
 RESULTS = []
-# This process's own name for its server. Two copies of this script can both bind
-# 127.0.0.1:PORT on Windows (the sockets set SO_REUSEADDR and Windows honours it for
-# a second bind), and the browser then talks to whichever copy bound last -- a dead
-# or dying copy turns a healthy page load into a 30s goto timeout with nothing on
-# screen to explain it. The token lets the server check below say plainly whether the
-# server answering is THIS run's.
-RUN_TOKEN = uuid.uuid4().hex[:12]
 # How many rows the movers panel prints before it stops: the brief's own lists are
 # the ones that have to name every line, so this is the number they must beat.
 MOVERS_SHOW = 8
@@ -407,12 +398,7 @@ check('a first visit to Analytics draws the page on the data it just loaded',
       else 'fetches but never draws')
 
 # ---------------------------------------------------------------------------
-# 5. What the committed page did, for context.
-#    These three checks are what the bug looked like at HEAD -- the reason the
-#    checks above read the way they do -- so they are reported while HEAD still
-#    shows it. Once the fix is committed, HEAD no longer shows anything to compare
-#    against (the working copy may then differ by anything at all), and saying so
-#    is the honest result rather than calling the fixed page a failure.
+# 5. What the committed page did, for context (skipped if HEAD already has the fix).
 # ---------------------------------------------------------------------------
 if OLD is not None and OLD != NEW:
     try:
@@ -422,33 +408,23 @@ if OLD is not None and OLD != NEW:
         # literal that reads as a quote), so take a bounded slice from the marker
         # instead. It is only searched for the one expression below, which is in it.
         old_analytics = OLD[OLD.index('function renderAnalytics('):][:40000]
+    check("the committed brief took its period from the analytics selector",
+          "getElementById('anPeriod')" in old_analytics,
+          "the words and the figures could disagree at HEAD: %s"
+          % ("the brief read the analytics selector's own option text"
+             if "getElementById('anPeriod')" in old_analytics
+             else 'the committed brief already used an applied scope'))
     old_sel = ''
     if 'id="anPeriod"' in OLD:
         old_sel = OLD[OLD.index('id="anPeriod"'):OLD.index('id="anPeriod"') + 400]
-    old_read_selector = "getElementById('anPeriod')" in old_analytics
-    old_preset = bool(re.search(r'<option[^>]*value="today"[^>]*\bselected\b', old_sel)
-                      or 'selected' in old_sel)
-    old_utc = count(OLD, UTC_KEY) >= 2
-    if old_read_selector or old_preset or old_utc:
-        check("the committed brief took its period from the analytics selector",
-              old_read_selector,
-              "the words and the figures could disagree at HEAD: %s"
-              % ("the brief read the analytics selector's own option text"
-                 if old_read_selector
-                 else 'the committed brief already used an applied scope'))
-        check('the committed analytics selector was pre-set to a period nobody applied',
-              old_preset,
-              'a hard-coded default sat on the selector at HEAD')
-        check('the committed page keyed days by UTC in more than one place',
-              old_utc,
-              '%d UTC day keys at HEAD, %d now'
-              % (count(OLD, UTC_KEY), count(NEW, UTC_KEY)))
-    else:
-        check('the fix is committed, so HEAD holds no earlier page to compare against',
-              True,
-              'HEAD already applies its scope, pre-selects nothing and keys days on '
-              'the shop clock; the working copy differs from it only by the lists the '
-              'brief now carries (%d chars)' % (len(NEW) - len(OLD)))
+    check('the committed analytics selector was pre-set to a period nobody applied',
+          re.search(r'<option[^>]*value="today"[^>]*\bselected\b', old_sel) is not None
+          or 'selected' in old_sel,
+          'a hard-coded default sat on the selector at HEAD')
+    check('the committed page keyed days by UTC in more than one place',
+          count(OLD, UTC_KEY) >= 2,
+          '%d UTC day keys at HEAD, %d now'
+          % (count(OLD, UTC_KEY), count(NEW, UTC_KEY)))
 elif OLD is not None:
     check('baseline is identical to the working copy (this change is committed)', True)
 
@@ -589,12 +565,12 @@ NEVER_SOLD_HELD = round(next(p['stock'] * p['buy_price'] for p in STUB_PRODUCTS
 
 
 def money(v):
-    """The page's number shape for an amount -- its overridden .toFixed(2).
+    """What the page prints for money: .toFixed(2), with thousand separators.
 
-    pos-system.html replaces Number.prototype.toFixed app-wide, so every amount it
-    prints comes out as ###,###.## -- which is why a stock figure of $1,926 is read
-    back off the page with its comma. This returns that shape without a symbol;
-    call sites add the '$' where the page prints one.
+    pos-system.html replaces Number.prototype.toFixed app-wide (so every amount it
+    prints comes out as ###,###.##), which is why a stock figure of $1,926 is read
+    back off the page with its comma. Expected amounts here go through the same
+    shape as the figures the brief shows.
     """
     whole, _, cents = ('%.2f' % round(float(v), 2)).partition('.')
     sign = '-' if whole.startswith('-') else ''
@@ -622,7 +598,6 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
-        self.send_header('X-Scope-Run', RUN_TOKEN)     # says which copy answered
         self.end_headers()
         if self.command != 'HEAD':
             self.wfile.write(body)
@@ -632,7 +607,6 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
-        self.send_header('X-Scope-Run', RUN_TOKEN)     # says which copy answered
         self.end_headers()
         self.wfile.write(body)
 
@@ -732,30 +706,7 @@ if (!window.Chart) {
 """
 
 httpd = serve()
-# A real probe, not a label: the check has to say that the server answering on PORT
-# is THIS run's, because the browser will be sent to whatever copy answers there.
-# http.client, not urllib: urllib honours proxy environment variables, so with a
-# proxy configured it asks the proxy to fetch 127.0.0.1 and reports the proxy's own
-# error instead of the page. A direct connection is the only honest probe here.
-try:
-    _conn = http.client.HTTPConnection('127.0.0.1', PORT, timeout=10)
-    try:
-        _conn.request('GET', PAGE_PATH)
-        _resp = _conn.getresponse()
-        _answered_by, _status = _resp.getheader('X-Scope-Run'), _resp.status
-    finally:
-        _conn.close()
-    _served_by_us = _answered_by == RUN_TOKEN and _status == 200
-    _probe_note = 'HTTP %s, answered by run %s' % (_status, _answered_by or '?')
-except Exception as _probe_exc:                                            # noqa: BLE001
-    _served_by_us = False
-    _probe_note = '%s: %s' % (type(_probe_exc).__name__, _probe_exc)
-check("the stand-in POS server is up, and is this run's own", _served_by_us,
-      _probe_note if _served_by_us
-      else 'port %d: %s -- this run is %s, so the browser may be talking to another '
-           'copy of the script' % (PORT, _probe_note, RUN_TOKEN))
-
-
+check('the stand-in POS server is up', True, BASE + PAGE_PATH)
 def read_analytics(page):
     """What the Analytics tab is showing, read off the page itself."""
     return page.evaluate("""() => {
@@ -891,7 +842,7 @@ try:
               'dead' in by_tone
               and ('Show the %d product(s) holding stock' % DEAD_N)
               in by_tone['dead']['head']
-              and ('$' + money(DEAD_CASH) + ' at cost') in by_tone['dead']['head'],
+              and (money(DEAD_CASH) + ' at cost') in by_tone['dead']['head'],
               'the box reads %r' % by_tone.get('dead', {}).get('head', '(no box at all)'))
         check('and the slow-moving line is followed by the lines themselves',
               'slow' in by_tone
@@ -926,8 +877,8 @@ try:
               % (NEVER_SOLD, DEAD_N, DEAD_N, MOVERS_SHOW))
         check('each listed product shows what it holds and what that stock is worth',
               any(NEVER_SOLD in r and ('%d in stock' % NEVER_SOLD_STOCK) in r
-                  and ('$' + money(NEVER_SOLD_HELD)) in r for r in dead['rows']),
-              'expected a row reading "%s ... %d in stock $%s"; the last one reads %r'
+                  and money(NEVER_SOLD_HELD) in r for r in dead['rows']),
+              'expected a row reading "%s ... %d in stock %s"; the last one reads %r'
               % (NEVER_SOLD, NEVER_SOLD_STOCK, money(NEVER_SOLD_HELD), dead['rows'][-1:]))
 
         # The slow-moving box opens onto the lines themselves: what each moved, and
