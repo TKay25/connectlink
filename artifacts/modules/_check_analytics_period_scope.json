@@ -4,12 +4,12 @@
   "module": "CheckAnalyticsPeriodScope",
   "file": "_check_analytics_period_scope.py",
   "purpose": "Check that the POS management brief always describes the period its figures came",
-  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 502 — Serves the real page, and stands in for the POS APIs it asks for.",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 607 — Serves the real page, and stands in for the POS APIs it asks for.",
   "entry_flows": [
-    "Handler.__init__() → _check_analytics_period_scope.py, pathlib.Path, environ.get, fh.write"
+    "Handler.__init__() → _check_analytics_period_scope.py, pathlib.Path, environ.get, uuid.uuid4"
   ],
   "public_api": [
-    "class Handler(SimpleHTTPRequestHandler)  # line 502 — Serves the real page, and stands in for the POS APIs it asks for.",
+    "class Handler(SimpleHTTPRequestHandler)  # line 607 — Serves the real page, and stands in for the POS APIs it asks for.",
     "  Handler.__init__()",
     "  Handler.log_message()",
     "  Handler.do_GET()",
@@ -27,7 +27,8 @@
     "esprima",
     "http",
     "playwright",
-    "urllib"
+    "urllib",
+    "uuid"
   ],
   "prompt_locations": [],
   "token_controls": [],
@@ -49,6 +50,6 @@
   "file_mtime": 1791368419923.9622,
   "file_size": 4378,
   "file_birthtime": 1791368419922.8203,
-  "generated_at": "2026-10-07T11:37:54.639619Z",
+  "generated_at": "2026-10-07T12:45:18.212921Z",
   "stale": false
 }

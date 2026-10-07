@@ -1,22 +1,31 @@
 PASS  script started
-PASS  read the POS page  -> 935243 chars
-PASS  read the committed POS page for comparison  -> 927382 chars
-PASS  loadSalesReport() parses  -> 3970 chars (lines 12449-12534)
-PASS  updateReportDateRange() parses  -> 717 chars (lines 12369-12384)
-PASS  renderSalesReport() parses  -> 22188 chars (lines 12534-12982)
-PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 18337-18361)
-PASS  renderAnalytics() parses  -> 35026 chars (lines 18482-19178)
-PASS  reportScopeLabel() parses  -> 681 chars (lines 18405-18418)
-PASS  syncAnalyticsScope() parses  -> 576 chars (lines 18422-18434)
-PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 18439-18450)
-PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 18452-18458)
-PASS  toLocalISODate() parses  -> 222 chars (lines 18376-18380)
-PASS  fmtDayLong() parses  -> 259 chars (lines 18393-18398)
+PASS  read the POS page  -> 941532 chars
+PASS  read the committed POS page for comparison  -> 935243 chars
+PASS  loadSalesReport() parses  -> 3970 chars (lines 12525-12610)
+PASS  updateReportDateRange() parses  -> 717 chars (lines 12445-12460)
+PASS  renderSalesReport() parses  -> 22188 chars (lines 12610-13058)
+PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 18413-18437)
+PASS  renderAnalytics() parses  -> 37870 chars (lines 18567-19306)
+PASS  reportScopeLabel() parses  -> 681 chars (lines 18481-18494)
+PASS  syncAnalyticsScope() parses  -> 576 chars (lines 18498-18510)
+PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 18515-18526)
+PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 18528-18534)
+PASS  toLocalISODate() parses  -> 222 chars (lines 18452-18456)
+PASS  fmtDayLong() parses  -> 259 chars (lines 18469-18474)
 PASS  the analytics page is drawn from one filtered report, not its own fetch  -> renderAnalytics() draws currentReportData (0 fetch( inside it); the report itself is fetched once, in loadSalesReport
 PASS  loadSalesReport() publishes the applied scope  -> window.__reportScope present
 PASS  the scope is published BEFORE the fetch, never after it  -> scope at 2485, fetch at 2693
-PASS  the brief's period comes from the applied scope  -> the sentence is composed from reportScopeLabel() and written into the brief (2710 chars)
+PASS  the brief's period comes from the applied scope  -> the sentence is composed from reportScopeLabel() and written into the brief (5554 chars)
 PASS  the brief does NOT read its period from the analytics selector  -> no selector read inside the brief block
+PASS  the brief follows its counts with the products and lines themselves  -> each count is followed by a collapsible list
+PASS  the dead-stock list is built from the same lines the sentence counted  -> the list is deadStock itself, and the box repeats its length
+PASS  the slow-moving list is built from the same filter the count uses  -> the same qty < 5 filter, so the list and the count cannot drift apart
+PASS  the brief lists EVERY line, not the handful the movers panel caps at  -> the movers panel above is the one that shows 8 and stops; the brief lists them all
+PASS  a listed product carries what it holds and what that stock is worth  -> stock on hand plus cash tied up at cost
+PASS  a listed slow line carries what it sold and what is left  -> units sold plus stock on hand
+PASS  the box is built closed, so the brief still reads as a brief  -> no open attribute: the operator opens the list they want
+PASS  a list is only rendered when there is something in it  -> empty counts leave no empty box behind
+PASS  the printed brief styles the lists too  -> the print sheet carries the row and detail styles
 PASS  reportScopeLabel() names a range from the applied scope  -> reads the applied scope only
 PASS  reportScopeLabel() spells out both ends of a multi-day range
 PASS  reportScopeLabel() reaches the selector ONLY when no scope has been applied yet  -> selector is a pre-load fallback
@@ -39,16 +48,22 @@ PASS  an empty period is written as empty, not left as the last period on screen
 PASS  the empty brief still names the applied period  -> uses reportScopeLabel()
 PASS  the empty page clears the previous period's figures  -> clears KPI / intel / action / mover / top-product containers
 PASS  a first visit to Analytics draws the page on the data it just loaded  -> loadSalesReport(...).then(... renderAnalytics())
-PASS  the committed brief took its period from the analytics selector  -> the words and the figures could disagree at HEAD: the brief read the analytics selector's own option text
-PASS  the committed analytics selector was pre-set to a period nobody applied  -> a hard-coded default sat on the selector at HEAD
-PASS  the committed page keyed days by UTC in more than one place  -> 18 UTC day keys at HEAD, 0 now
-PASS  the stand-in POS server is up  -> http://127.0.0.1:8798/pos-system.html
+PASS  the fix is committed, so HEAD holds no earlier page to compare against  -> HEAD already applies its scope, pre-selects nothing and keys days on the shop clock; the working copy differs from it only by the lists the brief now carries (6289 chars)
+PASS  the stand-in POS server is up, and is this run's own  -> HTTP 200, answered by run 2c28cc2d572c
 PASS  the real page loads in a real browser  -> http://127.0.0.1:8798/pos-system.html
 PASS  the browser is on the shop's clock  -> Africa/Harare
 PASS  a first visit to Analytics draws the tab on the data it just loaded  -> display=block  MANAGEMENT BRIEF Across Today (7 Oct 2026) the shop rang up 2 sale(s) for $105.00 in revenue and $41.76 gross profit, a 39.8% margin, with an average 
 PASS  the brief's figures are the applied period's figures  -> today = $105.00 over 2 sale(s)
 PASS  the day the brief names is the shop's day, not the UTC day  -> strongest trading day: 'Wednesday, 7 Oct 2026' (a UTC key would say 'Tuesday, 6 Oct 2026')
 PASS  the two selectors and the applied scope all read the same period  -> scope=today analytics=today sales=today
+PASS  the "holding stock but sold nothing" sentence is followed by the products themselves  -> the box reads 'Show the 10 product(s) holding stock - $1,926.00 at cost'
+PASS  and the slow-moving line is followed by the lines themselves  -> the box reads 'Show the 1 line(s) that moved under 5 units'
+PASS  neither list puts itself in the way until it is asked for  -> 2 box(es), 0 open, 0 row(s) rendered, and the shut rows stay out of the brief
+PASS  opening it shows one row for every product the sentence counted  -> 10 of 10 row(s) rendered, open=True
+PASS  and it names the products the movers panel above leaves out, rather than the same 8  -> the brief names 'Garden Fork' at row 10 of 10; the panel shows the top 8 and stops
+PASS  each listed product shows what it holds and what that stock is worth  -> expected a row reading "Garden Fork ... 9 in stock $126.00"; the last one reads ['Garden Fork DIY 9 in stock $126.00']
+PASS  the slow-moving box opens onto the lines that moved under 5 units  -> slow rows: ['Roof Paint 5L DIY 2 sold 6 in stock']
+PASS  both shut again, leaving the brief reading as it did  -> 2 box(es), 0 still open, 0 row(s) rendered
 PASS  picking a period on the Analytics tab applies it at once, and the brief names it  -> MANAGEMENT BRIEF Across This month (1 Oct 2026 to 7 Oct 2026) the shop rang up 3 sale(s) for $125.00 in revenue and $49.76 gross profit, a 39.8% margin, with an average s
 PASS  and the month's money is the month's, not a single day's  -> month = $125.00 over 3 sale(s)
 PASS  the shorter period it came from is no longer quoted, so the words and the figures moved together  -> today $105.00 is gone from a month brief

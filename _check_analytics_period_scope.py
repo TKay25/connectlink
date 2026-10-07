@@ -32,6 +32,7 @@ in a real browser against stand-in POS API answers, so use the project's environ
 
     .venv\\Scripts\\python.exe _check_analytics_period_scope.py
 """
+import http.client
 import json
 import os
 import pathlib
@@ -41,6 +42,7 @@ import subprocess
 import sys
 import threading
 import urllib.parse
+import uuid
 from datetime import date, datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -50,6 +52,16 @@ TEMPLATE = 'templates/pos-system.html'
 PAGE_PATH = '/pos-system.html'          # the URL the page is served on below
 OUT = '_check_analytics_period_scope_out.txt'
 RESULTS = []
+# This process's own name for its server. Two copies of this script can both bind
+# 127.0.0.1:PORT on Windows (the sockets set SO_REUSEADDR and Windows honours it for
+# a second bind), and the browser then talks to whichever copy bound last -- a dead
+# or dying copy turns a healthy page load into a 30s goto timeout with nothing on
+# screen to explain it. The token lets the server check below say plainly whether the
+# server answering is THIS run's.
+RUN_TOKEN = uuid.uuid4().hex[:12]
+# How many rows the movers panel prints before it stops: the brief's own lists are
+# the ones that have to name every line, so this is the number they must beat.
+MOVERS_SHOW = 8
 
 
 def _flush():
@@ -242,6 +254,50 @@ check("the brief does NOT read its period from the analytics selector",
       'no selector read inside the brief block'
       if 'anPeriod' not in brief else 'the brief still reads the analytics selector')
 
+# The counts mean nothing without the names: "112 product(s) are holding stock"
+# tells the operator how bad it is, not which 112 to walk the shelf with. So each
+# count is followed by the list of what it counted, in a box that opens and shuts.
+check('the brief follows its counts with the products and lines themselves',
+      '<details class="an-brief-items ' in brief and '<summary>' in brief
+      and '</details>' in brief,
+      'each count is followed by a collapsible list' if '<details' in brief
+      else 'the brief counts the offenders but never names them')
+check('the dead-stock list is built from the same lines the sentence counted',
+      'deadStock.map(' in brief and "' product(s) are holding stock" in brief
+      and 'deadRows.length' in brief,
+      'the list is deadStock itself, and the box repeats its length')
+check('the slow-moving list is built from the same filter the count uses',
+      'ranked.filter(r => r.qty < 5)' in brief and "' sold'" in brief,
+      'the same qty < 5 filter, so the list and the count cannot drift apart')
+check('the brief lists EVERY line, not the handful the movers panel caps at',
+      'deadStock.slice(' not in brief,
+      'the movers panel above is the one that shows %d and stops; the brief lists '
+      'them all' % MOVERS_SHOW
+      if 'deadStock.slice(' not in brief else 'the list is truncated like the panel')
+dead_rows_fn = between(brief, 'const deadRows = deadStock.map(', 'const slowRows =')
+check('a listed product carries what it holds and what that stock is worth',
+      "' in stock'" in dead_rows_fn and 'buy_price' in dead_rows_fn
+      and '.toFixed(2)' in dead_rows_fn,
+      'stock on hand plus cash tied up at cost')
+slow_rows_fn = between(brief, 'const slowRows = ranked.filter', 'const briefBoxes =')
+check('a listed slow line carries what it sold and what is left',
+      "r.qty + ' sold'" in slow_rows_fn and 'r.stock + ' in slow_rows_fn,
+      'units sold plus stock on hand')
+box_fn = between(brief, 'const briefBox = (tone, head, rows) =>', '// Cash tied up')
+check('the box is built closed, so the brief still reads as a brief',
+      ' open>' not in box_fn and '<summary>' in box_fn,
+      'no open attribute: the operator opens the list they want')
+check('a list is only rendered when there is something in it',
+      'deadRows.length' in brief and 'slowRows.length' in brief,
+      'empty counts leave no empty box behind')
+
+print_fn = between(NEW, 'function exportAnalyticsBrief(', 'w.document.close();')
+check('the printed brief styles the lists too',
+      '.an-brief-row' in print_fn and 'details{' in print_fn
+      and 'summary{' in print_fn,
+      'the print sheet carries the row and detail styles' if '.an-brief-row' in print_fn
+      else 'the printed brief would show the rows as one run-on line')
+
 label_fn = extract(NEW, 'function reportScopeLabel(')
 check('reportScopeLabel() names a range from the applied scope',
       '__reportScope' in label_fn and 'REPORT_PERIOD_NAMES' in label_fn,
@@ -351,7 +407,12 @@ check('a first visit to Analytics draws the page on the data it just loaded',
       else 'fetches but never draws')
 
 # ---------------------------------------------------------------------------
-# 5. What the committed page did, for context (skipped if HEAD already has the fix).
+# 5. What the committed page did, for context.
+#    These three checks are what the bug looked like at HEAD -- the reason the
+#    checks above read the way they do -- so they are reported while HEAD still
+#    shows it. Once the fix is committed, HEAD no longer shows anything to compare
+#    against (the working copy may then differ by anything at all), and saying so
+#    is the honest result rather than calling the fixed page a failure.
 # ---------------------------------------------------------------------------
 if OLD is not None and OLD != NEW:
     try:
@@ -361,23 +422,33 @@ if OLD is not None and OLD != NEW:
         # literal that reads as a quote), so take a bounded slice from the marker
         # instead. It is only searched for the one expression below, which is in it.
         old_analytics = OLD[OLD.index('function renderAnalytics('):][:40000]
-    check("the committed brief took its period from the analytics selector",
-          "getElementById('anPeriod')" in old_analytics,
-          "the words and the figures could disagree at HEAD: %s"
-          % ("the brief read the analytics selector's own option text"
-             if "getElementById('anPeriod')" in old_analytics
-             else 'the committed brief already used an applied scope'))
     old_sel = ''
     if 'id="anPeriod"' in OLD:
         old_sel = OLD[OLD.index('id="anPeriod"'):OLD.index('id="anPeriod"') + 400]
-    check('the committed analytics selector was pre-set to a period nobody applied',
-          re.search(r'<option[^>]*value="today"[^>]*\bselected\b', old_sel) is not None
-          or 'selected' in old_sel,
-          'a hard-coded default sat on the selector at HEAD')
-    check('the committed page keyed days by UTC in more than one place',
-          count(OLD, UTC_KEY) >= 2,
-          '%d UTC day keys at HEAD, %d now'
-          % (count(OLD, UTC_KEY), count(NEW, UTC_KEY)))
+    old_read_selector = "getElementById('anPeriod')" in old_analytics
+    old_preset = bool(re.search(r'<option[^>]*value="today"[^>]*\bselected\b', old_sel)
+                      or 'selected' in old_sel)
+    old_utc = count(OLD, UTC_KEY) >= 2
+    if old_read_selector or old_preset or old_utc:
+        check("the committed brief took its period from the analytics selector",
+              old_read_selector,
+              "the words and the figures could disagree at HEAD: %s"
+              % ("the brief read the analytics selector's own option text"
+                 if old_read_selector
+                 else 'the committed brief already used an applied scope'))
+        check('the committed analytics selector was pre-set to a period nobody applied',
+              old_preset,
+              'a hard-coded default sat on the selector at HEAD')
+        check('the committed page keyed days by UTC in more than one place',
+              old_utc,
+              '%d UTC day keys at HEAD, %d now'
+              % (count(OLD, UTC_KEY), count(NEW, UTC_KEY)))
+    else:
+        check('the fix is committed, so HEAD holds no earlier page to compare against',
+              True,
+              'HEAD already applies its scope, pre-selects nothing and keys days on '
+              'the shop clock; the working copy differs from it only by the lists the '
+              'brief now carries (%d chars)' % (len(NEW) - len(OLD)))
 elif OLD is not None:
     check('baseline is identical to the working copy (this change is committed)', True)
 
@@ -482,7 +553,11 @@ WEEK_LABEL = ('This week (%s)' % fmt_day(WEEK_START)) if WEEK_START == DAY \
 CUSTOM_LABEL = ('Custom range (%s)' % fmt_day(MONTH_START)) if MONTH_START == YESTERDAY \
     else ('Custom range (%s to %s)' % (fmt_day(MONTH_START), fmt_day(YESTERDAY)))
 
-# Stock for the movers panel: one line that sells today and one that never moves.
+# Stock for the movers panel: two lines that sell and -- more of them than that
+# panel cares to show -- lines that hold stock and never move. The movers panel
+# lists the top 8 of those; the brief's list has to name every one of them, so
+# there is deliberately one more than the panel can show, and the line that sorts
+# last ('Garden Fork') is the one to look for in the brief and NOT in the panel.
 STUB_PRODUCTS = [
     {'id': 11, 'name': 'Cement 50kg', 'category': 'DIY', 'stock': 40, 'sell_price': 15.0,
      'buy_price': 9.0, 'unit_type': 'bag', 'unit_details': '50kg', 'low_stock': False,
@@ -494,6 +569,36 @@ STUB_PRODUCTS = [
      'buy_price': 14.0, 'unit_type': 'piece', 'unit_details': '', 'low_stock': False,
      'barcode': '333'},
 ]
+STUB_PRODUCTS += [
+    {'id': 20 + i, 'name': 'Shelf Warmer %02d' % i, 'category': 'Hardware',
+     'stock': 30 - i, 'sell_price': 12.0, 'buy_price': 8.0, 'unit_type': 'piece',
+     'unit_details': '', 'low_stock': False, 'barcode': '9%03d' % i}
+    for i in range(1, 10)
+]
+
+# The two lines the stand-in sales actually ring up, so everything else is stock
+# that sat still in every period the run selects.
+SOLDS = ('Cement 50kg', 'Roof Paint 5L')
+DEAD_STOCK = [p for p in STUB_PRODUCTS if p['name'] not in SOLDS]
+DEAD_N = len(DEAD_STOCK)                       # what the brief's sentence counts
+DEAD_CASH = round(sum(p['stock'] * p['buy_price'] for p in DEAD_STOCK), 2)
+NEVER_SOLD = 'Garden Fork'                     # sorts last: beyond the panel's top 8
+NEVER_SOLD_STOCK = next(p['stock'] for p in STUB_PRODUCTS if p['name'] == NEVER_SOLD)
+NEVER_SOLD_HELD = round(next(p['stock'] * p['buy_price'] for p in STUB_PRODUCTS
+                             if p['name'] == NEVER_SOLD), 2)
+
+
+def money(v):
+    """The page's number shape for an amount -- its overridden .toFixed(2).
+
+    pos-system.html replaces Number.prototype.toFixed app-wide, so every amount it
+    prints comes out as ###,###.## -- which is why a stock figure of $1,926 is read
+    back off the page with its comma. This returns that shape without a symbol;
+    call sites add the '$' where the page prints one.
+    """
+    whole, _, cents = ('%.2f' % round(float(v), 2)).partition('.')
+    sign = '-' if whole.startswith('-') else ''
+    return sign + re.sub(r'\B(?=(\d{3})+(?!\d))', ',', whole.lstrip('-')) + '.' + cents
 
 
 BRANCH = {'id': 1, 'code': 'POS', 'name': 'Shop', 'read_only': False}
@@ -517,6 +622,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(code)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('X-Scope-Run', RUN_TOKEN)     # says which copy answered
         self.end_headers()
         if self.command != 'HEAD':
             self.wfile.write(body)
@@ -526,6 +632,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('X-Scope-Run', RUN_TOKEN)     # says which copy answered
         self.end_headers()
         self.wfile.write(body)
 
@@ -625,7 +732,30 @@ if (!window.Chart) {
 """
 
 httpd = serve()
-check('the stand-in POS server is up', True, BASE + PAGE_PATH)
+# A real probe, not a label: the check has to say that the server answering on PORT
+# is THIS run's, because the browser will be sent to whatever copy answers there.
+# http.client, not urllib: urllib honours proxy environment variables, so with a
+# proxy configured it asks the proxy to fetch 127.0.0.1 and reports the proxy's own
+# error instead of the page. A direct connection is the only honest probe here.
+try:
+    _conn = http.client.HTTPConnection('127.0.0.1', PORT, timeout=10)
+    try:
+        _conn.request('GET', PAGE_PATH)
+        _resp = _conn.getresponse()
+        _answered_by, _status = _resp.getheader('X-Scope-Run'), _resp.status
+    finally:
+        _conn.close()
+    _served_by_us = _answered_by == RUN_TOKEN and _status == 200
+    _probe_note = 'HTTP %s, answered by run %s' % (_status, _answered_by or '?')
+except Exception as _probe_exc:                                            # noqa: BLE001
+    _served_by_us = False
+    _probe_note = '%s: %s' % (type(_probe_exc).__name__, _probe_exc)
+check("the stand-in POS server is up, and is this run's own", _served_by_us,
+      _probe_note if _served_by_us
+      else 'port %d: %s -- this run is %s, so the browser may be talking to another '
+           'copy of the script' % (PORT, _probe_note, RUN_TOKEN))
+
+
 def read_analytics(page):
     """What the Analytics tab is showing, read off the page itself."""
     return page.evaluate("""() => {
@@ -644,6 +774,30 @@ def read_analytics(page):
             kpis: txt('analyticsKpis')
         };
     }""")
+
+
+def read_brief_boxes(page):
+    """The brief's expandable lists: what they say, and whether they are open.
+
+    `shown` counts the rows whose text is really rendered. A row height cannot stand
+    in for that: in this Chromium the rows of a SHUT <details> still report a
+    non-zero rect, while their text is not rendered at all, so innerText is the
+    honest signal for "the operator is looking at these rows".
+    """
+    return page.evaluate("""() => Array.from(
+        document.querySelectorAll('#analyticsBrief details.an-brief-items')
+    ).map(d => {
+        const rows = Array.from(d.querySelectorAll('.an-brief-row'));
+        const head = d.querySelector('summary');
+        return {
+            tone: d.classList.contains('dead') ? 'dead'
+                  : (d.classList.contains('slow') ? 'slow' : ''),
+            open: d.open === true,
+            head: head ? head.innerText.replace(/\\s+/g, ' ').trim() : '',
+            rows: rows.map(r => r.innerText.replace(/\\s+/g, ' ').trim()),
+            shown: rows.filter(r => r.innerText.trim() !== '').length
+        };
+    })""")
 
 
 def settle(page, period, needle, timeout=25000):
@@ -721,6 +875,90 @@ try:
               'scope=%s analytics=%s sales=%s'
               % (today['applied'], today['analyticsPeriod'], today['reportPeriod']))
 
+        # ---- The brief's counts, and the names behind them ----
+        # "10 product(s) are holding stock but sold nothing this period" is only
+        # actionable if the products are named, so the sentence is followed by the
+        # list of what it counted: every one of them, in a box that opens on the
+        # brief itself. The movers panel above shows the top 8 and stops, so the
+        # line that sorts last (Garden Fork) is the one that tells the two apart.
+        boxes = read_brief_boxes(page)
+        by_tone = {b['tone']: b for b in boxes}
+        panel = page.evaluate(
+            "() => { const el = document.getElementById('moversList');"
+            " return el ? el.textContent.replace(/\\s+/g, ' ') : ''; }")
+        check('the "holding stock but sold nothing" sentence is followed by the '
+              'products themselves',
+              'dead' in by_tone
+              and ('Show the %d product(s) holding stock' % DEAD_N)
+              in by_tone['dead']['head']
+              and ('$' + money(DEAD_CASH) + ' at cost') in by_tone['dead']['head'],
+              'the box reads %r' % by_tone.get('dead', {}).get('head', '(no box at all)'))
+        check('and the slow-moving line is followed by the lines themselves',
+              'slow' in by_tone
+              and 'Show the 1 line(s) that moved under 5 units' in by_tone['slow']['head'],
+              'the box reads %r' % by_tone.get('slow', {}).get('head', '(no box at all)'))
+        check('neither list puts itself in the way until it is asked for',
+              len(boxes) == 2 and all(not b['open'] and b['shown'] == 0 for b in boxes)
+              and NEVER_SOLD not in today['brief'],
+              '%d box(es), %d open, %d row(s) rendered, and the shut rows stay out '
+              'of the brief' % (len(boxes), sum(1 for b in boxes if b['open']),
+                                sum(b['shown'] for b in boxes)))
+
+        # The box is the operator's to open, and what it opens onto has to be the
+        # whole list: every product the sentence counted, with what it is holding.
+        dead_summary = '#analyticsBrief details.an-brief-items.dead > summary'
+        page.click(dead_summary)
+        page.wait_for_function(
+            """() => {
+                const d = document.querySelector('#analyticsBrief details.an-brief-items.dead');
+                return !!d && d.open === true;
+            }""", timeout=5000)
+        dead = [b for b in read_brief_boxes(page) if b['tone'] == 'dead'][0]
+        check('opening it shows one row for every product the sentence counted',
+              dead['open'] and dead['shown'] == DEAD_N and len(dead['rows']) == DEAD_N,
+              '%d of %d row(s) rendered, open=%s'
+              % (dead['shown'], len(dead['rows']), dead['open']))
+        check('and it names the products the movers panel above leaves out, rather '
+              'than the same 8',
+              any(NEVER_SOLD in r for r in dead['rows'])
+              and NEVER_SOLD not in panel and 'Shelf Warmer 01' in panel,
+              'the brief names %r at row %d of %d; the panel shows the top %d and stops'
+              % (NEVER_SOLD, DEAD_N, DEAD_N, MOVERS_SHOW))
+        check('each listed product shows what it holds and what that stock is worth',
+              any(NEVER_SOLD in r and ('%d in stock' % NEVER_SOLD_STOCK) in r
+                  and ('$' + money(NEVER_SOLD_HELD)) in r for r in dead['rows']),
+              'expected a row reading "%s ... %d in stock $%s"; the last one reads %r'
+              % (NEVER_SOLD, NEVER_SOLD_STOCK, money(NEVER_SOLD_HELD), dead['rows'][-1:]))
+
+        # The slow-moving box opens onto the lines themselves: what each moved, and
+        # what is still on the shelf behind it.
+        page.click('#analyticsBrief details.an-brief-items.slow > summary')
+        page.wait_for_function(
+            """() => {
+                const d = document.querySelector('#analyticsBrief details.an-brief-items.slow');
+                return !!d && d.open === true;
+            }""", timeout=5000)
+        slow = [b for b in read_brief_boxes(page) if b['tone'] == 'slow'][0]
+        check('the slow-moving box opens onto the lines that moved under 5 units',
+              any('Roof Paint 5L' in r and '2 sold' in r and '6 in stock' in r
+                  for r in slow['rows']),
+              'slow rows: %r' % slow['rows'])
+
+        # Shut again, and the brief is back to being one paragraph with a count in it.
+        page.click(dead_summary)
+        page.click('#analyticsBrief details.an-brief-items.slow > summary')
+        page.wait_for_function(
+            """() => Array.from(
+                document.querySelectorAll('#analyticsBrief details.an-brief-items')
+            ).every(d => d.open === false)""", timeout=5000)
+        shut = read_brief_boxes(page)
+        check('both shut again, leaving the brief reading as it did',
+              len(shut) == 2 and all(not b['open'] and b['shown'] == 0 for b in shut)
+              and NEVER_SOLD not in read_analytics(page)['brief'],
+              '%d box(es), %d still open, %d row(s) rendered'
+              % (len(shut), sum(1 for b in shut if b['open']),
+                 sum(b['shown'] for b in shut)))
+
         # ---- This month, picked on the Analytics tab ----
         page.select_option('#anPeriod', 'month')
         settle(page, 'month', 'Across ' + MONTH_LABEL + ' the shop rang up')
@@ -776,6 +1014,25 @@ try:
             page.fill('#anStartDate', MONTH_START.isoformat())
             page.fill('#anEndDate', YESTERDAY.isoformat())
             settle(page, 'custom', 'Across ' + CUSTOM_LABEL + ' the shop rang up')
+            # Picking the two dates applies the range TWICE: the box that is not being
+            # typed into is filled in from the scope the page is already on, so the
+            # first date alone already applies a (too wide) range -- and the scope is
+            # published before its fetch. The words can therefore be a moment ahead of
+            # the figures, which is a reading artefact rather than the words/figures
+            # disagreement this file is about. So wait for the custom range's own money
+            # before judging it, and report a failure of its own if it never arrives.
+            try:
+                page.wait_for_function(
+                    "([label, amount]) => {"
+                    " const b = document.getElementById('analyticsBrief');"
+                    " return !!b && b.innerText.indexOf(label) >= 0"
+                    " && b.innerText.indexOf(amount) >= 0; }",
+                    arg=['Across ' + CUSTOM_LABEL + ' the shop rang up',
+                         '$%.2f in revenue' % CUSTOM_REV], timeout=20000)
+            except Exception as exc:                                      # noqa: BLE001
+                check('the custom range redrew its figures, not just its words', False,
+                      '%s: the brief still reads %r'
+                      % (type(exc).__name__, read_analytics(page)['brief'][:140]))
             custom = read_analytics(page)
             check('once the dates are picked the brief follows the dates that were applied',
                   'Across ' + CUSTOM_LABEL + ' the shop rang up' in custom['brief'],

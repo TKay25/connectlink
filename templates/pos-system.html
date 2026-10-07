@@ -5861,6 +5861,82 @@ body.dark-theme #analyticsPage .an-kpi-value { color: #E2E8F0; }
     line-height: 1.65;
 }
 
+/* The names behind the brief's counts, in lists that open on demand */
+#analyticsPage .an-brief-items {
+    margin-top: 8px;
+    border: 1px solid #E5EAF1;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.72);
+}
+#analyticsPage .an-brief-items > summary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    font-size: 0.66rem !important;
+    font-weight: 700;
+    list-style: none;
+    cursor: pointer;
+}
+#analyticsPage .an-brief-items > summary::-webkit-details-marker { display: none; }
+#analyticsPage .an-brief-items > summary:hover { background: #F1F5F9; border-radius: 10px; }
+#analyticsPage .an-brief-items.dead > summary { color: #B91C1C; }
+#analyticsPage .an-brief-items.slow > summary { color: #B45309; }
+#analyticsPage .an-brief-items-arrow { margin-left: auto; transition: transform 0.15s ease; }
+#analyticsPage .an-brief-items[open] .an-brief-items-arrow { transform: rotate(180deg); }
+#analyticsPage .an-brief-items-body {
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 4px 10px 8px;
+    border-top: 1px solid #EDF2F7;
+}
+#analyticsPage .an-brief-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid #F1F5F9;
+}
+#analyticsPage .an-brief-row-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.66rem !important;
+    color: #0F1B2D;
+}
+#analyticsPage .an-brief-row-tag {
+    flex: 0 0 auto;
+    font-size: 0.58rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #94A3B8;
+}
+#analyticsPage .an-brief-row-qty,
+#analyticsPage .an-brief-row-money {
+    flex: 0 0 auto;
+    font-size: 0.62rem !important;
+    font-weight: 700;
+    white-space: nowrap;
+}
+#analyticsPage .an-brief-row-qty { color: #64748B; min-width: 72px; text-align: right; }
+#analyticsPage .an-brief-row-money { min-width: 78px; text-align: right; }
+#analyticsPage .an-brief-items.dead .an-brief-row-money { color: #B91C1C; }
+#analyticsPage .an-brief-items.slow .an-brief-row-money { color: #B45309; }
+body.dark-theme #analyticsPage .an-brief-items {
+    background: rgba(22,35,58,0.65);
+    border-color: #26344D;
+}
+body.dark-theme #analyticsPage .an-brief-items > summary { color: #E2E8F0; }
+body.dark-theme #analyticsPage .an-brief-items.dead > summary { color: #FCA5A5; }
+body.dark-theme #analyticsPage .an-brief-items.slow > summary { color: #FCD34D; }
+body.dark-theme #analyticsPage .an-brief-items > summary:hover { background: #16233A; }
+body.dark-theme #analyticsPage .an-brief-items-body { border-top-color: #26344D; }
+body.dark-theme #analyticsPage .an-brief-row { border-bottom-color: #1E2C44; }
+body.dark-theme #analyticsPage .an-brief-row-name { color: #E2E8F0; }
+
 /* Fast / slow / no-movement breakdown */
 #analyticsPage .an-mover-cols {
     display: grid;
@@ -7940,7 +8016,22 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
             </div>
             <div class="modal-body">
                 <input type="hidden" id="editProductId">
-                
+
+                <!-- WHERE A CHANGE LANDS. The catalogue row is ONE record shared by every
+                     branch, so name, barcode and category are company-wide; only the selling
+                     price can be pinned to the shop you are in. The scope is stated here, kept
+                     honest under the price box, and confirmed in words before saving - because
+                     this one dialog edits both kinds of field. -->
+                <div class="alert alert-warning small py-2 px-3 mb-3" id="editProductScopeNote">
+                    <i class="fas fa-globe me-1"></i>
+                    <strong>Changes for every branch:</strong> name, barcode and category are
+                    part of the shared catalogue.
+                    <br>
+                    <i class="fas fa-store me-1"></i>
+                    <strong><span id="editProductScopeNoteBranch">This branch</span> only:</strong>
+                    the selling price, using &ldquo;Apply this price to&rdquo; below.
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Product Name *</label>
                     <input type="text" class="form-control" id="editProductName" required>
@@ -7991,6 +8082,26 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
             <div class="modal-footer">
                 <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button class="btn btn-primary-dark btn-sm" onclick="updateProduct()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation for a product edit. The catalogue is shared, so this same dialog
+     changes some things for every branch and (at most) the price for this one. This
+     says which is which BEFORE anything is written, so nobody has to discover
+     afterwards that the other shop's catalogue moved too. -->
+<div class="modal fade" id="editProductScopeConfirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
+                <h5 class="modal-title"><i class="fas fa-circle-question me-1"></i>Confirm the change</h5>
+                <button type="button" class="btn-close btn-close-white" onclick="cancelEditProductScopeConfirm()"></button>
+            </div>
+            <div class="modal-body" id="editProductScopeConfirmBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="cancelEditProductScopeConfirm()">Back</button>
+                <button type="button" class="btn btn-primary-dark btn-sm" onclick="applyProductUpdate()">Save Changes</button>
             </div>
         </div>
     </div>
@@ -11867,6 +11978,12 @@ async function refreshPOS() {
 let inventorySearchTerm = "";
 let currentEditProduct = null;
 
+// The figures the edit dialog was opened with, so the confirmation can say what
+// really changes (and in which branches) instead of asking blindly, and the save
+// itself can be handed to applyProductUpdate() once it has been agreed.
+let editProductBaseline = null;
+let pendingProductEdit = null;
+
 // Inventory tab: the table lists ONLY what this branch carries (see filterInventory).
 // The catalogue behind it is still the shared one, so an item this branch has never
 // stocked stays reachable by the one thing that must never be duplicated -- its NAME:
@@ -11914,14 +12031,160 @@ function openEditProductModal(productId) {
     if (sellPriceInput) sellPriceInput.value = Number(branchPrice).toFixed(2);
     const scopeSelect = document.getElementById('editProductPriceScope');
     if (scopeSelect) scopeSelect.value = 'branch';
-    const priceHint = document.getElementById('editProductPriceHint');
-    if (priceHint) {
-        priceHint.innerHTML = (Math.abs(Number(branchPrice) - sharedPrice) > 0.004)
-            ? `This branch has its own price. The shared catalogue price is $${sharedPrice.toFixed(2)}.`
-            : `Shared catalogue price: $${sharedPrice.toFixed(2)} — the same in every branch unless you set one here.`;
+
+    // Remember what the dialog opened with. The confirmation measures the save
+    // against these figures, so it can name the field that really changes and say
+    // which branches feel it.
+    editProductBaseline = {
+        name: product.name || '',
+        category: product.category || '',
+        barcode: (product.barcode || ''),
+        branchPrice: Number(branchPrice || 0),
+        sharedPrice: Number(sharedPrice || 0)
+    };
+
+    // Name the branch in the scope note, and keep the hint under the price box in
+    // step with whatever scope/price is selected right now.
+    const scopeNoteBranch = document.getElementById('editProductScopeNoteBranch');
+    if (scopeNoteBranch) scopeNoteBranch.innerText = branchLabelForEdit();
+    if (scopeSelect) {
+        scopeSelect.removeEventListener('change', describeEditPriceScope);
+        scopeSelect.addEventListener('change', describeEditPriceScope);
     }
+    if (sellPriceInput) {
+        sellPriceInput.removeEventListener('input', describeEditPriceScope);
+        sellPriceInput.addEventListener('input', describeEditPriceScope);
+    }
+    describeEditPriceScope();
 
     new bootstrap.Modal(document.getElementById('editProductModal')).show();
+}
+
+// ---------------------------------------------------------------------------
+// WHICH BRANCHES DOES AN EDIT REACH?
+// `products` is ONE catalogue row shared by every shop, so name, barcode and
+// category are company-wide; only the selling price can be pinned to the branch
+// this till is working in (product_prices). This one dialog edits both kinds of
+// field, so the scope is stated under the fields, kept honest as the scope/price
+// changes, and confirmed in words before anything is written.
+// ---------------------------------------------------------------------------
+
+// The branch this till is working in, named the way the user sees it.
+function branchLabelForEdit() {
+    return (typeof posBranch !== 'undefined' && posBranch && posBranch.name)
+        ? String(posBranch.name) : 'this branch';
+}
+
+// The hint under the price box. Rewritten whenever the price or the scope changes,
+// so it can never describe a choice that is no longer selected.
+function describeEditPriceScope() {
+    const hint = document.getElementById('editProductPriceHint');
+    if (!hint) return;
+    const scopeEl = document.getElementById('editProductPriceScope');
+    const priceEl = document.getElementById('editProductSellPrice');
+    const scope = (scopeEl && scopeEl.value) || 'branch';
+    const price = Number(priceEl ? priceEl.value : 0);
+    const base = editProductBaseline || { sharedPrice: 0, branchPrice: 0 };
+    const shared = Number(base.sharedPrice || 0);
+    const money = (v) => '$' + Number(v || 0).toFixed(2);
+    const here = escapeHtml(branchLabelForEdit());
+
+    if (scope === 'all') {
+        hint.innerHTML = `Every branch charges ${money(price)}`
+            + (Math.abs(price - shared) > 0.004 ? ` (was ${money(shared)})` : '')
+            + `, and any price a branch had pinned for this item is cleared.`;
+        return;
+    }
+    if (Math.abs(price - shared) < 0.005) {
+        hint.innerHTML = `The shared catalogue price: every branch (including ${here}) charges `
+            + `${money(shared)}, so ${here} keeps no price of its own.`;
+        return;
+    }
+    hint.innerHTML = `${here} only &mdash; the other branches keep the shared ${money(shared)}. `
+        + `The name, barcode and category below still change for every branch.`;
+}
+
+// The confirmation body: the fields every branch sees, and the field only this shop
+// sees. Returns '' when the save would change nothing at all (the dialog re-sends
+// the same figures), so a no-op never interrupts.
+function editScopeSummaryHtml(p) {
+    const esc = (v) => String(v == null ? '' : v)
+        .replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+    const money = (v) => '$' + Number(v || 0).toFixed(2);
+    const everyBranch = [];
+    const thisBranch = [];
+
+    if (p.nameChanged) everyBranch.push(`Name: ${esc(p.oldName)} &rarr; <strong>${esc(p.name)}</strong>`);
+    if (p.categoryChanged) everyBranch.push(`Category: ${esc(p.oldCategory || '(none)')} &rarr; <strong>${esc(p.category || '(none)')}</strong>`);
+    if (p.barcodeChanged) everyBranch.push(`Barcode: ${esc(p.oldBarcode || '(none)')} &rarr; <strong>${esc(p.barcode || '(none)')}</strong>`);
+    if (p.priceChanged) {
+        if (p.priceScope === 'all') {
+            everyBranch.push(`Selling price: ${money(p.sharedPrice)} &rarr; <strong>${money(p.sellPrice)}</strong>`);
+        } else {
+            thisBranch.push(`Selling price: ${money(p.branchPrice)} &rarr; <strong>${money(p.sellPrice)}</strong>`);
+        }
+    } else if (p.priceScope === 'all') {
+        // The figure has not moved, but choosing "All branches" still CLEARS any
+        // price a branch had pinned - so it is a company-wide change and is said so.
+        everyBranch.push(`Selling price: <strong>${money(p.sellPrice)}</strong> everywhere`
+            + ` (any price a branch had pinned is cleared)`);
+    }
+    if (!everyBranch.length && !thisBranch.length) return '';
+
+    const block = (title, items) =>
+        `<div class="mb-2"><div class="fw-bold" style="font-size:0.72rem;">${title}</div>`
+        + `<ul class="mb-0 ps-3" style="font-size:0.7rem;">`
+        + items.map(t => `<li>${t}</li>`).join('')
+        + `</ul></div>`;
+
+    let html = '';
+    if (everyBranch.length) html += block('<i class="fas fa-globe me-1"></i>Every branch', everyBranch);
+    if (thisBranch.length) html += block(`<i class="fas fa-store me-1"></i>${esc(branchLabelForEdit())} only`, thisBranch);
+
+    if (p.priceChanged && p.priceScope === 'branch') {
+        const sameAsShared = Math.abs(p.sellPrice - p.sharedPrice) < 0.005;
+        html += `<div class="text-muted" style="font-size:0.7rem;">Other branches keep `
+            + (sameAsShared
+                ? `${money(p.sharedPrice)} &mdash; the same figure, so this branch stops carrying a price of its own.`
+                : `${money(p.sharedPrice)}, the shared catalogue price.`)
+            + `</div>`;
+    }
+    if (everyBranch.length) {
+        html += `<div class="text-muted mt-1" style="font-size:0.7rem;">Each branch sees these when its till `
+            + `next loads the catalogue (the Refresh button, or the next sale).</div>`;
+    }
+    return html;
+}
+
+// Swap the editor for the confirmation. The editor is closed first: two stacked
+// dialogs would leave half-editable fields behind the question.
+function renderEditScopeConfirm(html) {
+    const body = document.getElementById('editProductScopeConfirmBody');
+    if (body) body.innerHTML = html;
+    const editEl = document.getElementById('editProductModal');
+    if (editEl) {
+        const m = bootstrap.Modal.getInstance(editEl);
+        if (m) m.hide();
+    }
+    const confirmEl = document.getElementById('editProductScopeConfirmModal');
+    if (confirmEl) bootstrap.Modal.getOrCreateInstance(confirmEl).show();
+}
+
+function reopenEditProductModal() {
+    const editEl = document.getElementById('editProductModal');
+    if (editEl) bootstrap.Modal.getOrCreateInstance(editEl).show();
+}
+
+// "Back" on the confirmation: put the editor back with everything the user typed
+// still in it, and re-state the scope in case it was changed while hidden.
+function cancelEditProductScopeConfirm() {
+    const confirmEl = document.getElementById('editProductScopeConfirmModal');
+    if (confirmEl) {
+        const m = bootstrap.Modal.getInstance(confirmEl);
+        if (m) m.hide();
+    }
+    reopenEditProductModal();
+    describeEditPriceScope();
 }
 
 // Update product
@@ -11956,40 +12219,95 @@ async function updateProduct() {
         }
     }
     
+    // What will this save actually change, and WHERE? The catalogue row is one
+    // shared record, so name/barcode/category land in EVERY branch while the price
+    // can be kept to this shop. Say so before anything is written - both kinds of
+    // field are edited in this one dialog.
+    const base = editProductBaseline || { name: '', category: '', barcode: '', sharedPrice: 0, branchPrice: 0 };
+    const priceBefore = (priceScope === 'all') ? Number(base.sharedPrice || 0) : Number(base.branchPrice || 0);
+
+    pendingProductEdit = {
+        productId: productId,
+        name: name,
+        category: category,
+        barcode: barcode,
+        sellPrice: newSellPrice,
+        priceScope: priceScope,
+        oldName: base.name || '',
+        oldCategory: base.category || '',
+        oldBarcode: base.barcode || '',
+        sharedPrice: Number(base.sharedPrice || 0),
+        branchPrice: Number(base.branchPrice || 0),
+        nameChanged: String(name).trim() !== String(base.name || '').trim(),
+        categoryChanged: String(category || '') !== String(base.category || ''),
+        barcodeChanged: String(barcode) !== String(base.barcode || ''),
+        priceChanged: Math.abs(newSellPrice - priceBefore) > 0.004
+    };
+
+    const scopeSummary = editScopeSummaryHtml(pendingProductEdit);
+    if (!scopeSummary) {
+        // Nothing really changes (the dialog re-sent the same figures), so there is
+        // nothing to warn about and no reason to interrupt.
+        return applyProductUpdate();
+    }
+    return renderEditScopeConfirm(scopeSummary);
+}
+
+// The write itself, run only once the confirmation above has been read.
+async function applyProductUpdate() {
+    const p = pendingProductEdit;
+    if (!p) return;
+    const scopeConfirmEl = document.getElementById('editProductScopeConfirmModal');
+    if (scopeConfirmEl) {
+        const m = bootstrap.Modal.getInstance(scopeConfirmEl);
+        if (m) m.hide();
+    }
+
     showLoader('Updating product...');
     
     try {
-        const response = await fetch(`${API_BASE}/api/products/${productId}`, {
+        const response = await fetch(`${API_BASE}/api/products/${p.productId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
-                name: name,
-                category: category,
-                barcode: barcode,
-                sell_price: newSellPrice,
-                price_scope: priceScope
+                name: p.name,
+                category: p.category,
+                barcode: p.barcode,
+                sell_price: p.sellPrice,
+                price_scope: p.priceScope
             })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            showToast('Product updated successfully!', 'success');
+            showToast(p.priceScope === 'all'
+                ? 'Product updated in every branch.'
+                : 'Product updated. The price applies to ' + branchLabelForEdit() + ' only.',
+                'success');
             
             // Refresh products
             await fetchProductsFromAPI();
             
-            // Close modal
-            bootstrap.Modal.getInstance(document.getElementById('editProductModal')).hide();
+            // Close the editor (it was hidden to show the confirmation, so this is
+            // a no-op when that path was taken).
+            const editEl = document.getElementById('editProductModal');
+            const editModal = editEl ? bootstrap.Modal.getInstance(editEl) : null;
+            if (editModal) editModal.hide();
         } else {
             showToast(data.error || 'Failed to update product', 'error');
+            // The write was refused - put the editor back rather than losing what
+            // the user typed.
+            reopenEditProductModal();
         }
     } catch (error) {
         console.error('Error updating product:', error);
         showToast('Connection error', 'error');
+        reopenEditProductModal();
     } finally {
         hideLoader();
+        pendingProductEdit = null;
     }
 }
 // Store current editing addition data
@@ -18468,7 +18786,16 @@ function exportAnalyticsBrief() {
         'h1{font-size:18px;border-bottom:3px solid #C12B3E;padding-bottom:8px}' +
         '.k{display:inline-block;border:1px solid #E5EAF1;border-radius:10px;padding:8px 12px;margin:0 8px 8px 0}' +
         '.k b{display:block;font-size:16px}.k span{font-size:10px;color:#64748B;text-transform:uppercase}' +
-        'p{font-size:12px;line-height:1.7}</style></head><body>' +
+        'p{font-size:12px;line-height:1.7}' +
+        // The brief's expandable lists print as they stand on screen: the summary
+        // line always, the rows too when the operator had the list open.
+        'details{border:1px solid #E5EAF1;border-radius:8px;padding:6px 10px;margin:8px 0}' +
+        'summary{font-size:11px;font-weight:bold;cursor:pointer}' +
+        '.an-brief-row{display:flex;gap:8px;font-size:11px;padding:3px 0;border-bottom:1px solid #F1F5F9}' +
+        '.an-brief-row-name{flex:1 1 auto}' +
+        '.an-brief-row-tag{color:#64748B;text-transform:uppercase;font-size:9px}' +
+        '.an-brief-row-qty,.an-brief-row-money{font-weight:bold}' +
+        '</style></head><body>' +
         '<h1>ConnectLink POS - Management Brief</h1>' +
         '<p><em>' + new Date().toLocaleString() + '</em></p>' +
         (kpis ? kpis.innerHTML.replace(/<i class="fas[^"]*"><\/i>/g, '') : '') +
@@ -18692,8 +19019,51 @@ function renderAnalytics() {
         if (fastMovers.length) {
             s.push('Priority action: keep ' + fastMovers.slice(0, 3).map(r => r.name).join(', ') + ' from running out.');
         }
+        // ---- The names behind those counts, in lists that open on demand --------
+        // "N product(s) are holding stock" says how bad it is; it does not say WHICH
+        // products, and that is the only part the operator can act on. So each count
+        // is followed by the list of everything it counted -- every line, not the
+        // top 8 the movers panel above shows -- collapsed by default so the brief
+        // still reads as a brief, and scrollable so a long list cannot push the
+        // page around.
+        const prodByName = {};
+        (products || []).forEach(p => { prodByName[p.name] = p; });
+        const briefRow = (name, tag, qty, money) =>
+            '<div class="an-brief-row">' +
+                '<span class="an-brief-row-name" title="' + escName(name) + '">' + escName(name) + '</span>' +
+                (tag ? '<span class="an-brief-row-tag">' + escName(tag) + '</span>' : '') +
+                '<span class="an-brief-row-qty">' + escName(qty) + '</span>' +
+                (money ? '<span class="an-brief-row-money">' + escName(money) + '</span>' : '') +
+            '</div>';
+        const briefBox = (tone, head, rows) =>
+            '<details class="an-brief-items ' + tone + '">' +
+                '<summary><i class="fas ' + (tone === 'dead' ? 'fa-box-open' : 'fa-hourglass-half') + '"></i>' +
+                    '<span>' + head + '</span>' +
+                    '<span class="an-brief-items-arrow"><i class="fas fa-chevron-down"></i></span>' +
+                '</summary>' +
+                '<div class="an-brief-items-body">' + rows.join('') + '</div>' +
+            '</details>';
+        // Cash tied up in the lines that did not move: the money to free up first.
+        const deadCash = deadStock.reduce((sum, p) => sum + (p.stock || 0) * (p.buy_price || 0), 0);
+        const deadRows = deadStock.map(p => {
+            const held = (p.stock || 0) * (p.buy_price || 0);
+            return briefRow(p.name, p.category || '', (p.stock || 0) + ' in stock',
+                            held > 0 ? '$' + held.toFixed(2) : '');
+        });
+        const slowRows = ranked.filter(r => r.qty < 5)
+            .sort((a, b) => (a.qty - b.qty) || (b.stock - a.stock))
+            .map(r => briefRow(r.name, (prodByName[r.name] || {}).category || '',
+                               r.qty + ' sold', r.stock + ' in stock'));
+        const briefBoxes = (deadRows.length
+                ? briefBox('dead', 'Show the ' + deadRows.length + ' product(s) holding stock' +
+                           (deadCash > 0 ? ' - $' + deadCash.toFixed(2) + ' at cost' : ''), deadRows)
+                : '') +
+            (slowRows.length
+                ? briefBox('slow', 'Show the ' + slowRows.length +
+                           ' line(s) that moved under 5 units', slowRows)
+                : '');
         briefEl.innerHTML = '<div class="an-brief-title"><i class="fas fa-lightbulb"></i> Management brief</div>' +
-                            '<p class="an-brief-text">' + s.join(' ') + '</p>';
+                            '<p class="an-brief-text">' + s.join(' ') + '</p>' + briefBoxes;
     }
 
     // ---- Advanced retail intelligence ----
