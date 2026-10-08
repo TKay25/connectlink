@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-10-06T12:55:20.229Z",
-  "module_count": 77,
+  "last_sync": "2026-10-07T14:16:58.134Z",
+  "module_count": 107,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 101,
+  "orphaned_count": 137,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -106,8 +106,24 @@
       "source": "_clean_leave3.py"
     },
     {
+      "artifact": "artifacts/modules/_co.json",
+      "source": "_co.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_compile.json",
+      "source": "_compile.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_compile_exit.json",
+      "source": "_compile_exit.txt"
+    },
+    {
       "artifact": "artifacts/modules/_ConnectLink_py_backup.json",
       "source": "_ConnectLink_py_backup.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_crlf.json",
+      "source": "_crlf.txt"
     },
     {
       "artifact": "artifacts/modules/_dayend_result.json",
@@ -134,8 +150,28 @@
       "source": "_diag_user_link.py"
     },
     {
+      "artifact": "artifacts/modules/_diff.json",
+      "source": "_diff.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_done.json",
+      "source": "_done.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_env.json",
+      "source": "_env.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_final_diff.json",
+      "source": "_final_diff.txt"
+    },
+    {
       "artifact": "artifacts/modules/_final_result.json",
       "source": "_final_result.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_final_status.json",
+      "source": "_final_status.txt"
     },
     {
       "artifact": "artifacts/modules/_fix_approve_msg.json",
@@ -162,6 +198,38 @@
       "source": "_fix_v3.py"
     },
     {
+      "artifact": "artifacts/modules/_fx_index.json",
+      "source": "_fx_index.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_fx_lines.json",
+      "source": "_fx_lines.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_git.json",
+      "source": "_git.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_git_status.json",
+      "source": "_git_status.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_gl.json",
+      "source": "_gl.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_grep1.json",
+      "source": "_grep1.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_gs.json",
+      "source": "_gs.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_gs2.json",
+      "source": "_gs2.txt"
+    },
+    {
       "artifact": "artifacts/modules/_guard_out.json",
       "source": "_guard_out.txt"
     },
@@ -170,12 +238,20 @@
       "source": "_guard_result.txt"
     },
     {
+      "artifact": "artifacts/modules/_head_bytes.json",
+      "source": "_head_bytes.txt"
+    },
+    {
       "artifact": "artifacts/modules/_health2_result.json",
       "source": "_health2_result.txt"
     },
     {
       "artifact": "artifacts/modules/_health_result.json",
       "source": "_health_result.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_ls.json",
+      "source": "_ls.txt"
     },
     {
       "artifact": "artifacts/modules/_params_result.json",
@@ -278,12 +354,60 @@
       "source": "_preview_verify.py"
     },
     {
+      "artifact": "artifacts/modules/_probe.json",
+      "source": "_probe.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_probe2.json",
+      "source": "_probe2.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_probe_blocks.json",
+      "source": "_probe_blocks.py"
+    },
+    {
+      "artifact": "artifacts/modules/_probe_count.json",
+      "source": "_probe_count.py"
+    },
+    {
+      "artifact": "artifacts/modules/_probe_head.json",
+      "source": "_probe_head.py"
+    },
+    {
+      "artifact": "artifacts/modules/_probe_scope.json",
+      "source": "_probe_scope.py"
+    },
+    {
+      "artifact": "artifacts/modules/_probe_syntax.json",
+      "source": "_probe_syntax.py"
+    },
+    {
+      "artifact": "artifacts/modules/_pyc.json",
+      "source": "_pyc.txt"
+    },
+    {
       "artifact": "artifacts/modules/_report_today.json",
       "source": "_report_today.py"
     },
     {
       "artifact": "artifacts/modules/_rerun_aug_payroll.json",
       "source": "_rerun_aug_payroll.py"
+    },
+    {
+      "artifact": "artifacts/modules/_run_exit.json",
+      "source": "_run_exit.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_scope_out.json",
+      "source": "_scope_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_scope_probe.json",
+      "source": "_scope_probe.py"
+    },
+    {
+      "artifact": "artifacts/modules/_scope_stamp.json",
+      "source": "_scope_stamp.txt"
     },
     {
       "artifact": "artifacts/modules/_test_branches_unit.json",
@@ -354,6 +478,26 @@
       "source": "_tmp_short_stream.txt"
     },
     {
+      "artifact": "artifacts/modules/_tmp_tail.json",
+      "source": "_tmp_tail.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ast.json",
+      "source": "_t_ast.py"
+    },
+    {
+      "artifact": "artifacts/modules/_t_ast_out.json",
+      "source": "_t_ast_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_t_compile.json",
+      "source": "_t_compile.py"
+    },
+    {
+      "artifact": "artifacts/modules/_t_compile_out.json",
+      "source": "_t_compile_out.txt"
+    },
+    {
       "artifact": "artifacts/modules/_t_ws_check.json",
       "source": "_t_ws_check.py"
     },
@@ -410,5 +554,18 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "_cleanup.txt",
+      "ts": "2026-10-07T12:47:11.589Z"
+    },
+    {
+      "rel": "_final.txt",
+      "ts": "2026-10-07T12:46:19.543Z"
+    },
+    {
+      "rel": "_d3.txt",
+      "ts": "2026-10-07T12:44:53.786Z"
+    }
+  ]
 }
