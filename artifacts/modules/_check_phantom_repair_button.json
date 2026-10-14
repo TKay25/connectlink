@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckPhantomRepairButton",
+  "file": "_check_phantom_repair_button.py",
+  "purpose": "Syntax + wiring check for the Inventory-page Phantom Stock Repair button.",
+  "entry_function": "say(ok, msg)",
+  "entry_flows": [
+    "_check_phantom_repair_button → lines.append, esprima.parseScript, html.find"
+  ],
+  "public_api": [
+    "say(ok, msg)"
+  ],
+  "dependencies": [
+    "esprima"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), TEMPLATE = os.path.join(ROOT, 'templates', 'pos-system.html')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "340e49526c87e749",
+  "file_mtime": 1791982295544.6768,
+  "file_size": 4050,
+  "file_birthtime": 1791982295544.6768,
+  "generated_at": "2026-10-14T12:51:39.462933Z",
+  "stale": false
+}

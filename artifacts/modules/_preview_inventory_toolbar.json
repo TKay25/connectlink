@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "PreviewInventoryToolbar",
+  "file": "_preview_inventory_toolbar.py",
+  "purpose": "Render just the Inventory toolbar to a standalone HTML page for a layout check.",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_preview_inventory_toolbar → html.find, seg.find"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), SRC = os.path.join(ROOT, 'templates', 'pos-system.html'), OUT = os.path.join(ROOT, '_preview_inventory_toolbar.html')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "25fffeb2c5c64fe0",
+  "file_mtime": 1791982529160.7817,
+  "file_size": 2498,
+  "file_birthtime": 1791982529159.764,
+  "generated_at": "2026-10-14T12:55:32.438844Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

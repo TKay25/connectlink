@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TmpRoutes",
+  "file": "_tmp_routes.py",
+  "purpose": "<!-- main function",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [
+    "_tmp_routes → dups.append"
+  ],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "d99b307b5350d7f3",
+  "file_mtime": 1791981977512.3345,
+  "file_size": 647,
+  "file_birthtime": 1791981977510.8196,
+  "generated_at": "2026-10-14T12:46:20.705812Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}

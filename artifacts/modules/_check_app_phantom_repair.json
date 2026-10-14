@@ -1,0 +1,41 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckAppPhantomRepair",
+  "file": "_check_app_phantom_repair.py",
+  "purpose": "Offline check for the in-app phantom branch-stock repair.",
+  "entry_function": "class StubCursor  # line 108 — Answers the finder's queries with the case table above.",
+  "entry_flows": [
+    "StubCursor.__init__(cases = None) → path.dirname, path.abspath, lines.append, path.join"
+  ],
+  "public_api": [
+    "class StubCursor  # line 108 — Answers the finder's queries with the case table above.",
+    "  StubCursor.__init__(cases = None)",
+    "  StubCursor.execute(sql, params = None)",
+    "  StubCursor.fetchone()",
+    "  StubCursor.fetchall()",
+    "check(label, ok, detail = '')"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), CASES = [(10, 'Speaker A', 5, 10, 5, 0, 0, 0, True), (11, 'Speaker B', 3, 10, 3, 2, 0, 0, False), (12, 'Cable', 4, 10, 0, 0, 0, 0, False), (13, 'Speaker C', 2, 10, 2, 0, 1, 0, False), (14, 'Speaker D', 1, 10, 1, 0, 0, 3, False)]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "82fa7ffce00ef0b7",
+  "file_mtime": 1791981847126.746,
+  "file_size": 8302,
+  "file_birthtime": 1791981847125.727,
+  "generated_at": "2026-10-14T12:58:11.587903Z",
+  "stale": false
+}

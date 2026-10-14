@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckInventoryToolbarFit",
+  "file": "_check_inventory_toolbar_fit.py",
+  "purpose": "Regression check: the Inventory toolbar must always be able to wrap.",
+  "entry_function": "say(ok, msg)",
+  "entry_flows": [
+    "_check_inventory_toolbar_fit → lines.append, html.find, seg.find, seg.rfind, search_open.find"
+  ],
+  "public_api": [
+    "say(ok, msg)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), SRC = os.path.join(ROOT, 'templates', 'pos-system.html'), OUT = os.path.join(ROOT, '_preview_inventory_toolbar.html')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "eb3f179dea166fea",
+  "file_mtime": 1791982669752.8352,
+  "file_size": 2906,
+  "file_birthtime": 1791982669750.8115,
+  "generated_at": "2026-10-14T12:58:57.790627Z",
+  "stale": false
+}
