@@ -6946,6 +6946,38 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         </button>
                     </div>
                 </div>
+
+                <!-- What PAST repairs removed. A repair deletes its rows, so the
+                     backup table is the only surviving record of which items were
+                     affected -- including repairs run before the log named them. -->
+                <div class="mt-3 border-top pt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="small fw-bold">
+                            <i class="fas fa-clock-rotate-left me-1"></i>Already Repaired
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm"
+                                onclick="loadPhantomRemovedHistory()">
+                            <i class="fas fa-rotate me-1"></i>Show
+                        </button>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        Items removed by earlier repairs, read from the backup taken before
+                        each deletion. This is the only record of what those repairs removed.
+                    </div>
+                    <div id="phantomRemovedEmpty" class="small text-muted">Not loaded yet.</div>
+                    <div class="table-responsive" id="phantomRemovedWrap" style="display:none;max-height:35vh;overflow-y:auto;">
+                        <table class="table table-sm align-middle mb-0" id="phantomRemovedTable">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Removed</th><th>By</th>
+                                    <th class="text-end">Rows</th><th class="text-end">Qty</th>
+                                    <th>Items</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
@@ -16475,8 +16507,58 @@ function setupAddProductFundingSelection() {
         document.getElementById('phantomRepairError').style.display = 'none';
         document.getElementById('phantomRepairResult').style.display = 'none';
         document.getElementById('phantomRepairConfirm').value = '';
+        // Reset the history panel so it is never showing a previous visit's data.
+        document.getElementById('phantomRemovedEmpty').style.display = '';
+        document.getElementById('phantomRemovedEmpty').textContent = 'Not loaded yet.';
+        document.getElementById('phantomRemovedWrap').style.display = 'none';
         new bootstrap.Modal(document.getElementById('phantomStockRepairModal')).show();
         loadPhantomStockReport();
+    }
+
+    // What PAST repairs removed, from the backup taken before each deletion.
+    async function loadPhantomRemovedHistory() {
+        const empty = document.getElementById('phantomRemovedEmpty');
+        const wrap = document.getElementById('phantomRemovedWrap');
+        const tbody = wrap.querySelector('tbody');
+        empty.style.display = '';
+        empty.textContent = 'Loading…';
+        wrap.style.display = 'none';
+        try {
+            const res = await fetch(`${API_BASE}/api/branch-health/phantom-stock/removed`,
+                                    { credentials: 'include' });
+            if (res.status === 403) {
+                empty.textContent = 'Only an admin can view the repair history.';
+                return;
+            }
+            const data = await res.json();
+            if (!data.success) {
+                empty.textContent = data.error || 'Could not load the repair history.';
+                return;
+            }
+            const events = data.events || [];
+            if (!data.applicable || !events.length) {
+                empty.textContent = 'No earlier repairs recorded — nothing has been removed yet.';
+                return;
+            }
+            empty.style.display = 'none';
+            tbody.innerHTML = events.map(function (ev) {
+                const items = (ev.items || []).map(function (it) {
+                    return phantomEscapeHtml(it.name) +
+                        ' <span class="text-muted">(' + it.removed_stock + ')</span>';
+                }).join(', ');
+                return '<tr>' +
+                    '<td class="text-nowrap">' + phantomEscapeHtml(String(ev.removed_at || '').replace('T', ' ').slice(0, 16)) + '</td>' +
+                    '<td>' + phantomEscapeHtml(ev.removed_by || 'System') + '</td>' +
+                    '<td class="text-end">' + (ev.rows_removed || 0) + '</td>' +
+                    '<td class="text-end">' + (ev.quantity_removed || 0) + '</td>' +
+                    '<td>' + (items || '<span class="text-muted">—</span>') + '</td>' +
+                    '</tr>';
+            }).join('');
+            wrap.style.display = '';
+        } catch (e) {
+            empty.style.display = '';
+            empty.textContent = 'Could not reach the server.';
+        }
     }
 
     function phantomEscapeHtml(s) {
@@ -16566,6 +16648,8 @@ function setupAddProductFundingSelection() {
             resultEl.style.display = 'block';
             document.getElementById('phantomRepairConfirm').value = '';
             await loadPhantomStockReport();
+            // The repair just added to the history, so show it without a second click.
+            await loadPhantomRemovedHistory();
             // The grid and the summary cards were built from the old figures.
             await fetchProductsFromAPI();
         } catch (e) {

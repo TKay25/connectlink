@@ -17775,6 +17775,89 @@ def phantom_stock_repair():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/branch-health/phantom-stock/removed', methods=['GET'])
+@login_required
+def phantom_stock_removed():
+    """Admin-only history of what past repairs actually removed, per item.
+
+    A repair deletes its rows, so once it has run the backup table is the ONLY
+    record of which items were affected and in what quantity. This reads that
+    backup and names the products, newest removal first, so a repair run before
+    the repair log started naming items can still be accounted for.
+
+    Read-only. Supports ?branch_id= to look at one shop and ?limit= (max 500).
+    """
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+    try:
+        limit = request.args.get('limit', 200, type=int)
+        limit = max(1, min(limit or 200, 500))
+        branch_filter = request.args.get('branch_id', type=int)
+
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT to_regclass('public.product_stock_repair_backup')")
+            if cursor.fetchone()[0] is None:
+                return jsonify({'success': True, 'applicable': False, 'events': [],
+                                'count': 0,
+                                'note': 'No repair has been run yet, so nothing has '
+                                        'been removed.'})
+
+            conditions = []
+            params = []
+            if branch_filter:
+                conditions.append('rb.branch_id = %s')
+                params.append(branch_filter)
+            where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+
+            cursor.execute(f"""
+                SELECT rb.product_id, p.name, rb.branch_id, b.code, b.name,
+                       rb.stock, rb.removed_at, rb.removed_by, rb.reason
+                FROM product_stock_repair_backup rb
+                LEFT JOIN products p ON p.id = rb.product_id
+                LEFT JOIN branches b ON b.id = rb.branch_id
+                {where}
+                ORDER BY rb.removed_at DESC, rb.product_id DESC
+                LIMIT %s
+            """, tuple(params) + (limit,))
+            rows = cursor.fetchall()
+
+            # Group by the moment of removal, so one repair reads as one event
+            # rather than as a wall of individual rows.
+            by_event = {}
+            for row in rows:
+                removed_at = row[6]
+                key = (removed_at.isoformat() if removed_at else '', row[7] or 'System')
+                entry = by_event.setdefault(key, {
+                    'removed_at': removed_at.isoformat() if removed_at else '',
+                    'removed_by': row[7] or 'System',
+                    'branch': {'id': row[2], 'code': row[3], 'name': row[4]},
+                    'reason': row[8] or '',
+                    'rows_removed': 0,
+                    'quantity_removed': 0,
+                    'items': []
+                })
+                entry['rows_removed'] += 1
+                entry['quantity_removed'] += int(row[5] or 0)
+                entry['items'].append({
+                    'product_id': row[0],
+                    'name': row[1] or f'#{row[0]}',
+                    'removed_stock': int(row[5] or 0)
+                })
+
+            events = sorted(by_event.values(), key=lambda e: e['removed_at'], reverse=True)
+        return jsonify({
+            'success': True,
+            'applicable': True,
+            'count': len(rows),
+            'events': events,
+            'note': ('These rows were copied out before the repair deleted them. '
+                     'They are the only record of what the repair removed.')
+        })
+    except Exception as e:
+        print(f"Phantom stock removed-history error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/debug/hardware-users', methods=['GET'])
 def debug_hardware_users():
     """Debug endpoint to check hardware_users table - REMOVE IN PRODUCTION"""

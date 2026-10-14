@@ -78,6 +78,31 @@ say("auditRepairData.length" in html, 'the empty-state accounts for repairs')
 say("getElementById('auditRepairsContainer').style.display = 'none'"
     in html, 'the repairs panel is reset before each load')
 
+# ---------- 4. the already-repaired history (from the backup table) ----------
+say("@app.route('/api/branch-health/phantom-stock/removed', methods=['GET'])" in app,
+    'the removed-history endpoint exists')
+say('FROM product_stock_repair_backup' in app,
+    'the endpoint reads the backup taken before each deletion')
+say("session.get('role') != 'admin'" in app, 'the history endpoint is admin-gated')
+
+# The backup table has NO id column, so the query must not select one.
+try:
+    seg = app[app.index("def phantom_stock_removed("):]
+    seg = seg[:seg.index('\n@app.route', 10)]
+    say('rb.id' not in seg,
+        'the history query does not select a non-existent rb.id column')
+    say('rb.product_id' in seg and 'rb.removed_at' in seg,
+        'the history query selects columns the backup actually has')
+except ValueError:
+    say(False, 'phantom_stock_removed() not found')
+
+say('id="phantomRemovedTable"' in html, 'the modal has a repaired-history table')
+say('function loadPhantomRemovedHistory(' in html, 'a history loader exists')
+say('/api/branch-health/phantom-stock/removed' in html,
+    'the loader calls the history endpoint')
+say('loadPhantomRemovedHistory();' in html,
+    'the history refreshes after a repair runs')
+
 print('\n'.join(lines))
 failures = [l for l in lines if l.startswith('FAIL')]
 print('')
