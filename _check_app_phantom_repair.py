@@ -48,22 +48,26 @@ if src:
          'the read-only report route exists'),
         ("@app.route('/api/branch-health/phantom-stock/repair', methods=['POST'])",
          'the repair route exists'),
-        ("@app.route('/branch-stock-repair', methods=['GET'])",
-         'the repair console page route exists'),
         ('def find_phantom_branch_stock(', 'the finder is defined'),
     ]:
         check(needle in src, label)
 
-    # The console page must exist on disk too.
-    page = os.path.join(ROOT, 'templates', 'branch_stock_repair.html')
-    check('templates/branch_stock_repair.html exists', os.path.exists(page))
-    if os.path.exists(page):
-        with open(page, encoding='utf-8') as fh:
+    # The repair is driven from the Inventory tab, so the page must carry the
+    # button and the modal that calls these endpoints.
+    pos = os.path.join(ROOT, 'templates', 'pos-system.html')
+    check('templates/pos-system.html exists', os.path.exists(pos))
+    if os.path.exists(pos):
+        with open(pos, encoding='utf-8') as fh:
             html = fh.read()
-        check('the console posts to the repair API',
+        check('the Inventory tab offers the repair button',
+              'openPhantomStockRepairModal()' in html)
+        check('the repair modal exists', 'id="phantomStockRepairModal"' in html)
+        check('the modal posts to the repair API',
               '/api/branch-health/phantom-stock/repair' in html)
-        check('the console asks for explicit confirmation',
+        check('the modal asks for explicit confirmation',
               "'remove'" in html or '"remove"' in html)
+    check('the old standalone page route is gone',
+          '/branch-stock-repair' not in src)
 
     # Both repair endpoints must be admin-gated.
     for route, label in [

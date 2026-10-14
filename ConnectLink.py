@@ -17722,12 +17722,6 @@ def phantom_stock_repair():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/branch-stock-repair', methods=['GET'])
-def branch_stock_repair_page():
-    """The phantom branch-stock repair console (admin only, see the API)."""
-    return render_template('branch_stock_repair.html')
-
-
 @app.route('/api/debug/hardware-users', methods=['GET'])
 def debug_hardware_users():
     """Debug endpoint to check hardware_users table - REMOVE IN PRODUCTION"""

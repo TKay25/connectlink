@@ -6884,6 +6884,76 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
     </div>
 </div>
 
+<!-- Phantom Branch Stock Repair Modal -->
+<div class="modal fade" id="phantomStockRepairModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
+                <h5 class="modal-title"><i class="fas fa-broom me-1"></i>Repair Phantom Branch Stock</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-secondary small">
+                    <div class="fw-bold mb-1">What this fixes</div>
+                    When per-branch stock was introduced, a startup routine gave this branch a stock row
+                    for every product in the shared catalogue — seeded from the <em>company</em> total.
+                    Any item added at another branch therefore appeared here carrying that branch's own
+                    figure, which is why the shelf count disagrees with the system.
+                    <div class="mt-1">
+                        A row is listed only when this branch has <strong>no receipt, no cost layer and
+                        no sale</strong> behind it, while another branch genuinely holds the item.
+                        Nothing else is ever touched, and removed rows are backed up first.
+                    </div>
+                </div>
+
+                <div id="phantomRepairError" class="alert alert-danger small py-2" style="display:none;"></div>
+                <div id="phantomRepairResult" class="alert alert-success small py-2" style="display:none;"></div>
+
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="small text-muted">
+                        Checking: <strong id="phantomRepairBranch">—</strong>
+                    </div>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="loadPhantomStockReport()">
+                        <i class="fas fa-rotate me-1"></i>Re-check
+                    </button>
+                </div>
+
+                <div class="table-responsive" style="max-height:45vh;overflow-y:auto;">
+                    <table class="table table-sm align-middle mb-0" id="phantomRepairTable">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>ID</th><th>Product</th>
+                                <th class="text-end">Shown here</th>
+                                <th class="text-end">Held elsewhere</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="4" class="text-muted">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="phantomRepairApply" style="display:none;" class="mt-3 border-top pt-3">
+                    <label class="form-label small fw-bold" for="phantomRepairConfirm">
+                        Type <span class="text-danger">remove</span> to confirm
+                    </label>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control form-control-sm" id="phantomRepairConfirm"
+                               placeholder="remove" autocomplete="off" style="max-width:220px;">
+                        <button class="btn btn-danger btn-sm" id="phantomRepairApplyBtn"
+                                onclick="applyPhantomStockRepair()">
+                            <i class="fas fa-broom me-1"></i>Remove These Rows
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Revert Transaction Modal -->
 <div class="modal fade" id="revertTransactionModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -7125,6 +7195,9 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 </button>
                                 <button class="btn btn-primary-dark" onclick="window.location.href='/pos/reconciliation'">
                                     <i class="fas fa-scale-balanced me-1"></i>Stock Reconciliation
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="openPhantomStockRepairModal()">
+                                    <i class="fas fa-broom me-1"></i>Repair Phantom Stock
                                 </button>
                                 <button class="btn btn-outline-danger" onclick="openRemoveAllStockModal()">
                                     <i class="fas fa-eraser me-1"></i>Remove All Items &amp; History
@@ -16330,6 +16403,115 @@ function setupAddProductFundingSelection() {
             showToast('Connection error', 'error');
         } finally {
             hideLoader(); // ALWAYS hide loader
+        }
+    }
+
+    // ==================== PHANTOM BRANCH STOCK REPAIR ====================
+    // Stock this branch shows but never actually received (see the API). Kept on
+    // the Inventory page because that is where the wrong figure is noticed.
+    function openPhantomStockRepairModal() {
+        document.getElementById('phantomRepairError').style.display = 'none';
+        document.getElementById('phantomRepairResult').style.display = 'none';
+        document.getElementById('phantomRepairConfirm').value = '';
+        new bootstrap.Modal(document.getElementById('phantomStockRepairModal')).show();
+        loadPhantomStockReport();
+    }
+
+    function phantomEscapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    async function loadPhantomStockReport() {
+        const tbody = document.querySelector('#phantomRepairTable tbody');
+        const errEl = document.getElementById('phantomRepairError');
+        const resultEl = document.getElementById('phantomRepairResult');
+        errEl.style.display = 'none';
+        resultEl.style.display = 'none';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Checking…</td></tr>';
+        document.getElementById('phantomRepairApply').style.display = 'none';
+        try {
+            const res = await fetch(`${API_BASE}/api/branch-health/phantom-stock`, { credentials: 'include' });
+            if (res.status === 403) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Only an admin can run this repair.</td></tr>';
+                return;
+            }
+            const data = await res.json();
+            if (!data.success) {
+                errEl.textContent = data.error || 'Could not check the branch stock.';
+                errEl.style.display = 'block';
+                tbody.innerHTML = '<tr><td colspan="4" class="text-muted">—</td></tr>';
+                return;
+            }
+            if (!data.applicable) {
+                document.getElementById('phantomRepairBranch').textContent = '—';
+                tbody.innerHTML = '<tr><td colspan="4" class="text-muted">' +
+                    phantomEscapeHtml(data.note || 'Nothing to check.') + '</td></tr>';
+                return;
+            }
+            document.getElementById('phantomRepairBranch').textContent =
+                data.branch.name + ' (' + data.branch.code + ')';
+            if (!data.count) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-success">' +
+                    'Nothing to repair — this branch holds only stock it actually received.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.phantoms.map(function (p) {
+                return '<tr>' +
+                    '<td>' + p.product_id + '</td>' +
+                    '<td>' + phantomEscapeHtml(p.name) + '</td>' +
+                    '<td class="text-end text-danger">' + p.branch_stock + '</td>' +
+                    '<td class="text-end">' + p.other_branches_stock + '</td>' +
+                    '</tr>';
+            }).join('');
+            document.getElementById('phantomRepairApply').style.display = '';
+        } catch (e) {
+            errEl.textContent = 'Could not reach the server.';
+            errEl.style.display = 'block';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-muted">—</td></tr>';
+        }
+    }
+
+    async function applyPhantomStockRepair() {
+        const errEl = document.getElementById('phantomRepairError');
+        const resultEl = document.getElementById('phantomRepairResult');
+        errEl.style.display = 'none';
+        resultEl.style.display = 'none';
+        const typed = document.getElementById('phantomRepairConfirm').value.trim().toLowerCase();
+        if (typed !== 'remove') {
+            errEl.textContent = 'Type "remove" in the box before applying.';
+            errEl.style.display = 'block';
+            return;
+        }
+        const btn = document.getElementById('phantomRepairApplyBtn');
+        btn.disabled = true;
+        showLoader('Removing phantom stock...');
+        try {
+            const res = await fetch(`${API_BASE}/api/branch-health/phantom-stock/repair`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ confirm: 'remove' })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                errEl.textContent = data.error || 'The repair did not complete.';
+                errEl.style.display = 'block';
+                return;
+            }
+            resultEl.textContent = data.message || 'Repair complete.';
+            resultEl.style.display = 'block';
+            document.getElementById('phantomRepairConfirm').value = '';
+            await loadPhantomStockReport();
+            // The grid and the summary cards were built from the old figures.
+            await fetchProductsFromAPI();
+        } catch (e) {
+            errEl.textContent = 'Could not reach the server.';
+            errEl.style.display = 'block';
+        } finally {
+            hideLoader();
+            btn.disabled = false;
         }
     }
 
