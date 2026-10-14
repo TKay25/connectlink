@@ -7448,6 +7448,30 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                     </div>
                 </div>
 
+                <!-- Phantom Branch Stock Repairs in the period -->
+                <div id="auditRepairsContainer" style="display:none;margin-top:12px;">
+                    <h6 class="fw-bold mb-2"><i class="fas fa-broom me-1"></i>Phantom Stock Repairs</h6>
+                    <p class="text-muted mb-2" style="font-size:0.62rem;">
+                        Stock this branch showed but never actually received, removed by the
+                        Repair Phantom Stock tool. These are DELETIONS, so they cannot appear
+                        as movements; the items affected are listed here.
+                    </p>
+                    <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+                        <table class="table table-sm table-hover" id="auditRepairsTable" style="font-size:0.65rem;">
+                            <thead class="table-light" style="position:sticky;top:0;background:var(--dark-blue-deep);z-index:2;">
+                                <tr>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Date</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Items Removed</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Rows</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">FIFO Layers</th>
+                                    <th style="background:var(--dark-blue-deep);color:white;">Done By</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditRepairsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- Per-Product Summary Table -->
                 <div id="auditProductSummaryContainer" style="display:none;margin-top:12px;">
                     <h6 class="fw-bold mb-2"><i class="fas fa-chart-bar me-1"></i>Stock Summary by Product</h6>
@@ -10832,6 +10856,7 @@ function updateInventoryMetrics() {
 let auditMovementData = [];
 let auditProductData = [];
 let auditRemovalData = [];
+let auditRepairData = [];
 let auditVoidedData = [];
 let auditSummaryData = {};
 
@@ -10853,7 +10878,7 @@ function toggleAuditReport() {
 }
 
 // ==================== POS USER ACTIVITY LOG ====================
-const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','download'];
+const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','download','branch_stock_repair'];
 let _posActivityRows = [];
 
 // Best-effort client-side activity logging (exports/downloads happen in the browser)
@@ -10954,7 +10979,8 @@ function posActivityBadge(type) {
         'wipe_all': 'danger',
         'pos_login': 'secondary',
         'pos_logout': 'secondary',
-        'download': 'info'
+        'download': 'info',
+        'branch_stock_repair': 'warning'
     };
     const cls = map[type] || 'secondary';
     const label = String(type || 'action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
@@ -11006,7 +11032,8 @@ function exportPosActivityLogPDF() {
         'sale': 'Sale', 'product_create': 'Product Create', 'stock_add': 'Stock Add',
         'product_update': 'Product Update', 'price_change': 'Price Change', 'stock_remove': 'Stock Remove',
         'product_delete': 'Product Delete', 'wipe_all': 'Wipe All', 'pos_login': 'POS Login',
-        'pos_logout': 'POS Logout', 'download': 'Download'
+        'pos_logout': 'POS Logout', 'download': 'Download',
+        'branch_stock_repair': 'Stock Repair'
     };
     const content = document.createElement('div');
     content.style.padding = '20px';
@@ -11133,6 +11160,7 @@ async function loadStockAuditReport() {
     document.getElementById('auditSummaryCards').style.display = 'none';
     document.getElementById('auditMovementsContainer').style.display = 'none';
     document.getElementById('auditRemovalsContainer').style.display = 'none';
+    document.getElementById('auditRepairsContainer').style.display = 'none';
     document.getElementById('auditProductSummaryContainer').style.display = 'none';
     document.getElementById('auditNoData').style.display = 'none';
     document.getElementById('exportAuditBtn').style.display = 'none';
@@ -11152,6 +11180,7 @@ async function loadStockAuditReport() {
         auditMovementData = data.movements || [];
         auditProductData = data.products || [];
         auditRemovalData = data.removals || [];
+        auditRepairData = data.repairs || [];
         auditSummaryData = data.summary || {};
         const summary = auditSummaryData;
         
@@ -11172,6 +11201,9 @@ async function loadStockAuditReport() {
         
         // Render removed items table
         renderAuditRemovals(auditRemovalData);
+
+        // Render phantom-stock repairs (deletions, so no movement rows)
+        renderAuditRepairs(auditRepairData);
         
         // Render product summary table
         renderAuditProductSummary(auditProductData);
@@ -11180,7 +11212,7 @@ async function loadStockAuditReport() {
         const voided = await loadVoidedTransactions(startDate, endDate);
         renderAuditVoided(voided);
         
-        if (!auditMovementData.length && !auditRemovalData.length && !(voided && voided.length)) {
+        if (!auditMovementData.length && !auditRemovalData.length && !(voided && voided.length) && !auditRepairData.length) {
             document.getElementById('auditNoData').style.display = 'block';
         }
         
@@ -11247,6 +11279,32 @@ function renderAuditRemovals(removals) {
                 <td><small>${escapeHtml(r.user || 'System')}</small></td>
             </tr>
         `;
+    }).join('');
+}
+
+// Repairs are DELETIONS, so they have no movement rows; the activity-log entry
+// carries the affected items, and that is what is shown here.
+function renderAuditRepairs(repairs) {
+    const container = document.getElementById('auditRepairsContainer');
+    const tbody = document.getElementById('auditRepairsBody');
+    if (!container || !tbody) return;
+    if (!repairs || !repairs.length) {
+        container.style.display = 'none';
+        return;
+    }
+    container.style.display = 'block';
+    tbody.innerHTML = repairs.map(r => {
+        const items = (r.items || []).map(function (it) {
+            return escapeHtml(it.name || ('#' + it.product_id)) +
+                   ' <span class="text-muted">(' + (it.removed_stock != null ? it.removed_stock : '?') + ')</span>';
+        }).join(', ');
+        return '<tr>' +
+            '<td style="white-space:nowrap;">' + formatDateShort(r.date) + '</td>' +
+            '<td>' + (items || '<span class="text-muted">—</span>') + '</td>' +
+            '<td class="text-end">' + (r.rows_removed || 0) + '</td>' +
+            '<td class="text-end">' + (r.lots_removed || 0) + '</td>' +
+            '<td><small>' + escapeHtml(r.user || 'System') + '</small></td>' +
+            '</tr>';
     }).join('');
 }
 

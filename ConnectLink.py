@@ -15000,12 +15000,54 @@ def get_stock_movements():
         'total_addition_cost': sum(m['total_cost'] for m in movements if m['type'] == 'addition'),
         'total_removed': len(removal_list),
     }
-    
+
+    # Branch-stock repairs in the period. A repair DELETES rows, so it cannot show
+    # as a movement -- but "we removed 40 phantom rows from this branch" is exactly
+    # the kind of change an audit report exists to record, so it is surfaced here
+    # from the activity log instead.
+    repair_list = []
+    try:
+        repair_branch_where, repair_params = branch_read_clause('branch_id')
+        repair_query = """
+            SELECT a.id, a.description, a.user_name, a.details, a.created_at
+            FROM activity_log a
+            WHERE a.action_type = 'branch_stock_repair'
+              AND a.created_at >= %s::timestamp
+              AND a.created_at <= (%s::timestamp + INTERVAL '1 day')
+        """ + repair_branch_where + """
+            ORDER BY a.created_at DESC
+        """
+        repairs = execute_query(
+            repair_query, (start_date, end_date) + tuple(repair_params), fetch_all=True) or []
+        for row in repairs:
+            details = row[3] or {}
+            if isinstance(details, str):
+                try:
+                    details = json.loads(details)
+                except Exception:
+                    details = {}
+            repair_list.append({
+                'id': row[0],
+                'description': row[1] or '',
+                'user': row[2] or 'System',
+                'date': row[4].isoformat() if row[4] else '',
+                'products': details.get('products', 0),
+                'rows_removed': details.get('rows_removed', 0),
+                'lots_removed': details.get('lots_removed', 0),
+                'items': details.get('items', [])
+            })
+    except Exception as rep_err:
+        print(f"Note: could not load stock repairs: {rep_err}")
+
+    summary['total_repairs'] = len(repair_list)
+    summary['total_repair_rows'] = sum(r['rows_removed'] for r in repair_list)
+
     return jsonify({
         'success': True,
         'products': products_list,
         'movements': movements,
         'removals': removal_list,
+        'repairs': repair_list,
         'summary': summary
     })
 
@@ -17699,12 +17741,23 @@ def phantom_stock_repair():
             connection.commit()
 
         try:
+            # Name the items, not just the count: "which products changed" is the
+            # question this log exists to answer, and a bare total cannot answer
+            # it once the rows themselves have been deleted.
+            items = [{'product_id': p['product_id'], 'name': p['name'],
+                      'removed_stock': p['branch_stock']} for p in phantoms]
+            preview = '; '.join(
+                f"{p['name']} ({p['branch_stock']})" for p in phantoms[:8])
+            if len(phantoms) > 8:
+                preview += f' +{len(phantoms) - 8} more'
             log_activity('branch_stock_repair',
                          f'Removed {rows_removed} phantom {BRANCH_FIRST_CODE} stock row(s) '
-                         f'and {lots_removed} opening FIFO layer(s) across {len(ids)} product(s)',
+                         f'and {lots_removed} opening FIFO layer(s) across {len(ids)} product(s)'
+                         + (f': {preview}' if preview else ''),
                          'product', None,
                          {'branch_id': branch_id, 'products': len(ids),
-                          'rows_removed': rows_removed, 'lots_removed': lots_removed})
+                          'rows_removed': rows_removed, 'lots_removed': lots_removed,
+                          'items': items})
         except Exception as log_err:
             print(f"Warning: could not log repair: {log_err}")
 
