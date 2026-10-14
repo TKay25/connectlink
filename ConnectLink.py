@@ -16094,7 +16094,12 @@ def pos_create_layby():
 @app.route('/api/pos/laybys', methods=['GET'])
 @login_required
 def pos_list_laybys():
-    """Every layby for the session branch (all branches on the read-only view)."""
+    """Every layby for the session branch (all branches on the read-only view).
+
+    GET, but it performs one self-heal UPDATE. That update is scoped to the
+    session's branch and skipped on the read-only consolidated view, so opening
+    one shop's layby list can never close another shop's layby.
+    """
     status_filter = (request.args.get('status') or '').strip().lower()
     sql = f"""
         SELECT {LAYBY_COLUMNS}
@@ -16120,8 +16125,12 @@ def pos_list_laybys():
             # reverted before this code existed) is not live. Close it here so it stops
             # counting as active, stops offering instalments, and can never be cancelled
             # a second time - which would put its goods back on the shelf twice.
-            # Never done from the read-only consolidated view.
+            #
+            # BRANCH-SCOPED, and never from the read-only consolidated view. Without
+            # the branch filter this ran over EVERY shop's laybys, so one branch
+            # opening its layby list cancelled the other branch's laybys too.
             if not branch_is_read_only():
+                session_branch = current_branch_id()
                 try:
                     cursor.execute("""
                         UPDATE laybys
@@ -16129,12 +16138,15 @@ def pos_list_laybys():
                             cancelled_at = COALESCE(cancelled_at, CURRENT_TIMESTAMP),
                             cancel_reason = COALESCE(NULLIF(cancel_reason, ''),
                                                      'Its sale was reverted from Transaction History')
-                        WHERE status <> 'cancelled'
+                        WHERE branch_id = %s
+                          AND status <> 'cancelled'
                           AND transaction_id IS NOT NULL
                           AND EXISTS (SELECT 1 FROM transactions tr
-                                      WHERE tr.id = laybys.transaction_id AND tr.voided = TRUE)
+                                      WHERE tr.id = laybys.transaction_id
+                                        AND tr.voided = TRUE
+                                        AND tr.branch_id = %s)
                         RETURNING id, reference
-                    """)
+                    """, (session_branch, session_branch))
                     healed = cursor.fetchall()
                     if healed:
                         connection.commit()
