@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckRepairBackupColumns",
+  "file": "_check_repair_backup_columns.py",
+  "purpose": "Check the removed-history query against the real backup-table schema.",
+  "entry_function": "say(ok, msg)",
+  "entry_flows": [
+    "_check_repair_backup_columns → lines.append, m.group, body.split, part.strip, part.split"
+  ],
+  "public_api": [
+    "say(ok, msg)",
+    "table_columns(name)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), APP = os.path.join(ROOT, 'ConnectLink.py')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "a90e111923703de1",
+  "file_mtime": 1791984350868.4648,
+  "file_size": 3446,
+  "file_birthtime": 1791984350868.4648,
+  "generated_at": "2026-10-14T13:28:48.758143Z",
+  "stale": false
+}

@@ -1,0 +1,36 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckRepairAuditTrail",
+  "file": "_check_repair_audit_trail.py",
+  "purpose": "Check: the phantom-stock repair reaches BOTH audit surfaces.",
+  "entry_function": "say(ok, msg)",
+  "entry_flows": [
+    "_check_repair_audit_trail → lines.append, esprima.parseScript, m.group"
+  ],
+  "public_api": [
+    "say(ok, msg)"
+  ],
+  "dependencies": [
+    "esprima"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), TPL = os.path.join(ROOT, 'templates', 'pos-system.html'), APP = os.path.join(ROOT, 'ConnectLink.py')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "94cd5e9214039606",
+  "file_mtime": 1791983993897.913,
+  "file_size": 3604,
+  "file_birthtime": 1791983993895.5378,
+  "generated_at": "2026-10-14T13:28:48.591450Z",
+  "stale": false
+}
