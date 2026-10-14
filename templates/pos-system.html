@@ -7160,14 +7160,18 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <!-- A quantity is only as good as the moment it was read, so say
                              when these figures were last confirmed by the server. -->
                         <div id="inventoryAsAt" class="text-muted" style="font-size:0.68rem;"></div>
-                            <div class="d-flex gap-2 align-items-center">
+                            <!-- The tools are many, so the row WRAPS. Without flex-wrap
+                                 the single line runs off the right edge of the screen
+                                 and the last buttons (Remove All Items &amp; History)
+                                 become unreachable. -->
+                            <div class="d-flex gap-2 align-items-center flex-wrap justify-content-end">
                                 <!-- There is no switch back to the whole catalogue here. The table
                                      below lists what THIS branch carries, because an item with no
                                      row for this branch (product_stock) is not stock this shop
                                      holds. Its NAME is still offered on the Add-Product form and
                                      in the Upload-New-Stock template, which is how one product
                                      keeps one name across the branches. -->
-                                <div class="position-relative" style="width: 250px;">
+                                <div class="position-relative" style="width: 250px; max-width: 100%;">
                                     <label for="inventorySearch" class="visually-hidden">Search Inventory</label>
                                     <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
                                     <input type="text" class="form-control ps-5" id="inventorySearch" placeholder="Search by name, category, or details..." style="border-radius: 30px; font-size: 0.9rem; padding: 8px 14px;" autocomplete="off">
