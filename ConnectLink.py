@@ -3511,6 +3511,17 @@ def add_branch_stock(cursor, product_id, branch_id, delta, lot_cost=None):
     """
     if not delta:
         return
+    # A branch may only GAIN stock it can show a receipt for. This is the same
+    # rule that repairs the damage the old boot seeder did: without it, any caller
+    # that guesses a product id could hand a shop goods it never received, and
+    # the row would then make the till stop hiding the item (stocked_here).
+    # Reported, never raised: a legitimate transfer writes its stock_additions
+    # row AFTER this call, so refusing here would break a real movement. The
+    # audit trail is what makes an unearned addition visible instead.
+    if delta > 0 and not _branch_can_hold_stock(cursor, product_id, branch_id):
+        print(f"[warn] branch {branch_id} credited with {delta} x product "
+              f"{product_id} with no receipt on file")
+
     cursor.execute("""
         INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
         VALUES (%s, %s, %s, 10, CURRENT_TIMESTAMP)
@@ -3522,6 +3533,24 @@ def add_branch_stock(cursor, product_id, branch_id, delta, lot_cost=None):
     sync_lots_to_stock(cursor, product_id, branch_id,
                       unit_cost=lot_cost if delta > 0 else None)
     sync_product_avg_cost(cursor, product_id)
+
+
+def _branch_can_hold_stock(cursor, product_id, branch_id):
+    """May this branch be credited with more of this product?
+
+    True when the branch already carries the item (so this is a top-up), and true
+    when a receipt for it exists. False is the phantom signature: a branch being
+    handed goods with nothing behind them.
+    """
+    cursor.execute(
+        "SELECT stock FROM product_stock WHERE product_id = %s AND branch_id = %s",
+        (product_id, branch_id))
+    if cursor.fetchone() is not None:
+        return True
+    cursor.execute(
+        "SELECT 1 FROM stock_additions WHERE product_id = %s AND branch_id = %s LIMIT 1",
+        (product_id, branch_id))
+    return cursor.fetchone() is not None
 
 
 # ===================== FIFO COSTING + PER-BRANCH PRICING =====================
@@ -17438,6 +17467,265 @@ def branch_health():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== PHANTOM BRANCH-STOCK REPAIR ====================
+# The boot-time seeder in ensure_branches_schema() used to give the first branch
+# (Shurugwi) a product_stock row for EVERY product that had none -- seeded from
+# products.stock, the COMPANY total. It re-ran on every Render deploy, so an item
+# added at Chegutu silently appeared at Shurugwi carrying Chegutu's own figure,
+# and Shurugwi's till stopped hiding it (stocked_here is "does this branch have a
+# row at all"). The seeder is fixed, but the rows it already wrote are still in
+# the database and only a repair can remove them.
+#
+# This is that repair, run in-app so it always has the database in reach. It is
+# admin-only, reports before it changes anything, and refuses to touch a row this
+# branch has any evidence of earning.
+
+def _phantom_first_branch(cursor):
+    """(id, code, name) of BRANCH_FIRST_CODE, or None when it is not there."""
+    cursor.execute("SELECT id, code, name FROM branches WHERE code = %s", (BRANCH_FIRST_CODE,))
+    return cursor.fetchone()
+
+
+def _phantom_column(cur, table, column):
+    """Is `column` present? branch_id arrives via a migration that can fail."""
+    cur.execute("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = %s AND column_name = %s
+    """, (table, column))
+    return cur.fetchone() is not None
+
+
+def find_phantom_branch_stock(cursor):
+    """Rows the first branch holds with nothing behind them.
+
+    A row qualifies ONLY when every one of these is true:
+      * some OTHER branch stocks the product (so this branch is not its home),
+      * the first branch has no stock_additions row for it,
+      * the first branch has no FIFO layer for it other than the 'opening' /
+        'backfill' pair the same buggy boot created,
+      * the first branch never sold it.
+    A default is chosen so a missing column flags FEWER rows, never more.
+    """
+    first = _phantom_first_branch(cursor)
+    if not first:
+        return None, []
+
+    sa_branch = _phantom_column(cursor, 'stock_additions', 'branch_id')
+    tx_branch = _phantom_column(cursor, 'transactions', 'branch_id')
+    tx_voided = _phantom_column(cursor, 'transactions', 'voided')
+
+    additions_where = "sa.branch_id = ps.branch_id" if sa_branch else "TRUE"
+    sales_where = "t.branch_id = ps.branch_id" if tx_branch else "TRUE"
+    if tx_voided:
+        sales_where += " AND COALESCE(t.voided, FALSE) = FALSE"
+
+    cursor.execute(f"""
+        SELECT p.id, p.name, ps.stock, ps.min_stock_level,
+               COALESCE((SELECT SUM(a.stock) FROM product_stock a
+                         WHERE a.product_id = p.id
+                           AND a.branch_id <> ps.branch_id), 0) AS other_branches,
+               (SELECT COUNT(*) FROM stock_additions sa
+                WHERE sa.product_id = p.id AND ({additions_where})) AS additions_here,
+               (SELECT COUNT(*) FROM stock_lots sl
+                WHERE sl.product_id = p.id AND sl.branch_id = ps.branch_id
+                  AND COALESCE(sl.source, '') NOT IN ('opening', 'backfill'))
+                                                   AS real_lots_here,
+               (SELECT COUNT(*) FROM transactions t
+                JOIN transaction_items ti ON ti.transaction_id = t.id
+                WHERE ti.product_id = p.id AND ({sales_where})) AS sales_here
+        FROM product_stock ps
+        JOIN products p ON p.id = ps.product_id
+        WHERE ps.branch_id = %s
+        ORDER BY p.name
+    """, (first[0],))
+
+    phantoms = []
+    for pid, name, stock, min_level, other, additions, lots, sales in cursor.fetchall():
+        if int(other or 0) <= 0:
+            continue          # nothing else stocks it: this row is its real home
+        if additions or lots or sales:
+            continue          # this branch earned it somehow - leave it alone
+        phantoms.append({
+            'product_id': pid,
+            'name': name or '',
+            'branch_stock': int(stock or 0),
+            'min_stock_level': int(min_level or 10),
+            'other_branches_stock': int(other or 0),
+            'evidence': {'receipts': 0, 'fifo_layers': 0, 'sales': 0}
+        })
+    return first, phantoms
+
+
+def _phantom_column(cur, table, column):
+    """Is `column` present? branch_id arrives via a migration that can fail."""
+    cur.execute("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = %s AND column_name = %s
+    """, (table, column))
+    return cur.fetchone() is not None
+
+
+@app.route('/api/branch-health/phantom-stock', methods=['GET'])
+@login_required
+def phantom_stock_report():
+    """Admin-only READ-ONLY report of branch-stock rows nothing earned."""
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT to_regclass('public.product_stock')")
+            if cursor.fetchone()[0] is None:
+                return jsonify({'success': True, 'applicable': False,
+                                'phantoms': [], 'count': 0,
+                                'note': 'This database has no per-branch stock yet.'})
+            first, phantoms = find_phantom_branch_stock(cursor)
+            if not first:
+                return jsonify({'success': True, 'applicable': False, 'phantoms': [],
+                                'count': 0,
+                                'note': f'Branch {BRANCH_FIRST_CODE} does not exist.'})
+        return jsonify({
+            'success': True,
+            'applicable': True,
+            'branch': {'id': first[0], 'code': first[1], 'name': first[2]},
+            'count': len(phantoms),
+            'phantoms': phantoms,
+            'note': ('These are rows the branch has no receipt, FIFO layer or sale '
+                     'behind. Applying the repair removes them and re-derives the '
+                     'catalogue totals. A copy is saved first.')
+        })
+    except Exception as e:
+        print(f"Phantom stock report error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/branch-health/phantom-stock/repair', methods=['POST'])
+@login_required
+def phantom_stock_repair():
+    """Admin-only APPLY of the repair. `confirm` must be the literal "remove".
+
+    Deliberately NOT gated on block_writes_in_consolidated_view: this is a repair
+    of the branch schema itself, and the operator fixing it will often be sitting
+    on the consolidated view. It is gated on admin AND an explicit typed
+    confirmation instead, and it only ever removes rows it can prove are phantoms.
+    """
+    if session.get('role') != 'admin':
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+    data = request.get_json(silent=True) or {}
+    if (data.get('confirm') or '').strip().lower() != 'remove':
+        return jsonify({'success': False,
+                        'error': 'Type "remove" to confirm.'}), 400
+    try:
+        with get_db() as (cursor, connection):
+            first, phantoms = find_phantom_branch_stock(cursor)
+            if not first:
+                return jsonify({'success': False,
+                                'error': f'Branch {BRANCH_FIRST_CODE} does not exist.'}), 404
+            if not phantoms:
+                return jsonify({'success': True, 'removed_rows': 0, 'removed_lots': 0,
+                                'products_fixed': 0,
+                                'message': 'Nothing to repair - no phantom rows found.'})
+
+            ids = [p['product_id'] for p in phantoms]
+            reason = ('phantom: seeded from products.stock by the pre-fix boot seeder; '
+                      'no receipt, no real FIFO layer and no sale at this branch')
+            branch_id = first[0]
+
+            # Back up before deleting, so the change is reversible.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS product_stock_repair_backup (
+                    product_id INTEGER, branch_id INTEGER, stock INTEGER,
+                    min_stock_level INTEGER, updated_at TIMESTAMP,
+                    removed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reason TEXT, removed_by VARCHAR(150))
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS stock_lots_repair_backup (
+                    id INTEGER, product_id INTEGER, branch_id INTEGER,
+                    quantity_received INTEGER, quantity_remaining INTEGER,
+                    unit_cost DECIMAL(10,2), source VARCHAR(20), reference VARCHAR(60),
+                    received_at TIMESTAMP, removed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reason TEXT, removed_by VARCHAR(150))
+            """)
+            actor = session.get('user_name') or session.get('username') or 'System'
+
+            cursor.execute("""
+                INSERT INTO product_stock_repair_backup
+                    (product_id, branch_id, stock, min_stock_level, updated_at, reason, removed_by)
+                SELECT ps.product_id, ps.branch_id, ps.stock, ps.min_stock_level,
+                       ps.updated_at, %s, %s
+                FROM product_stock ps
+                WHERE ps.branch_id = %s AND ps.product_id = ANY(%s)
+            """, (reason, actor, branch_id, ids))
+
+            # Remove only the layers the boot itself created, and only while they
+            # are untouched (quantity_remaining = quantity_received).
+            cursor.execute("""
+                INSERT INTO stock_lots_repair_backup
+                    (id, product_id, branch_id, quantity_received, quantity_remaining,
+                     unit_cost, source, reference, received_at, reason, removed_by)
+                SELECT sl.id, sl.product_id, sl.branch_id, sl.quantity_received,
+                       sl.quantity_remaining, sl.unit_cost, sl.source, sl.reference,
+                       sl.received_at, %s, %s
+                FROM stock_lots sl
+                WHERE sl.branch_id = %s AND sl.product_id = ANY(%s)
+                  AND COALESCE(sl.source, '') IN ('opening', 'backfill')
+                  AND sl.quantity_remaining = sl.quantity_received
+            """, (reason, actor, branch_id, ids))
+
+            cursor.execute("""
+                DELETE FROM stock_lots
+                WHERE branch_id = %s AND product_id = ANY(%s)
+                  AND COALESCE(source, '') IN ('opening', 'backfill')
+                  AND quantity_remaining = quantity_received
+            """, (branch_id, ids))
+            lots_removed = cursor.rowcount
+
+            cursor.execute("""
+                DELETE FROM product_stock
+                WHERE branch_id = %s AND product_id = ANY(%s)
+            """, (branch_id, ids))
+            rows_removed = cursor.rowcount
+
+            # product_stock is the truth again: re-derive each catalogue total.
+            cursor.execute("""
+                UPDATE products p
+                SET stock = COALESCE((SELECT SUM(ps.stock) FROM product_stock ps
+                                      WHERE ps.product_id = p.id), 0),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE p.id = ANY(%s)
+            """, (ids,))
+            connection.commit()
+
+        try:
+            log_activity('branch_stock_repair',
+                         f'Removed {rows_removed} phantom {BRANCH_FIRST_CODE} stock row(s) '
+                         f'and {lots_removed} opening FIFO layer(s) across {len(ids)} product(s)',
+                         'product', None,
+                         {'branch_id': branch_id, 'products': len(ids),
+                          'rows_removed': rows_removed, 'lots_removed': lots_removed})
+        except Exception as log_err:
+            print(f"Warning: could not log repair: {log_err}")
+
+        return jsonify({
+            'success': True,
+            'removed_rows': rows_removed,
+            'removed_lots': lots_removed,
+            'products_fixed': len(ids),
+            'message': (f'Removed {rows_removed} phantom row(s) and {lots_removed} '
+                        f'opening FIFO layer(s); catalogue totals re-derived. '
+                        f'Originals saved in product_stock_repair_backup.')
+        })
+    except Exception as e:
+        print(f"Phantom stock repair error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/branch-stock-repair', methods=['GET'])
+def branch_stock_repair_page():
+    """The phantom branch-stock repair console (admin only, see the API)."""
+    return render_template('branch_stock_repair.html')
 
 
 @app.route('/api/debug/hardware-users', methods=['GET'])
