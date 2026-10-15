@@ -6988,6 +6988,75 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
     </div>
 </div>
 
+<!-- Auto Audit: physical count sheet vs the system as at a chosen date -->
+<div class="modal fade" id="stockAuditModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#0e7490;color:white;">
+                <h5 class="modal-title"><i class="fas fa-magnifying-glass-chart me-1"></i>Auto Audit Stock</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">
+                    Count what is physically on the ground and put it in the
+                    <strong>Upload New Stock</strong> template. This compares it to what the system
+                    says was in stock on the date you choose. <strong>Nothing is changed</strong> —
+                    this is a check, not an upload.
+                </p>
+                <div class="row g-2 align-items-end mb-2">
+                    <div class="col-sm-5">
+                        <label class="form-label small fw-bold mb-1" for="stockAuditFile">Count sheet (.xlsx)</label>
+                        <input type="file" class="form-control form-control-sm" id="stockAuditFile" accept=".xlsx,.xlsm">
+                    </div>
+                    <div class="col-sm-4">
+                        <label class="form-label small fw-bold mb-1" for="stockAuditDate">Compare as at</label>
+                        <input type="date" class="form-control form-control-sm" id="stockAuditDate">
+                    </div>
+                    <div class="col-sm-3">
+                        <button class="btn btn-info text-white w-100 btn-sm" id="stockAuditRunBtn" onclick="runStockAudit()">
+                            <i class="fas fa-play me-1"></i>Run Audit
+                        </button>
+                    </div>
+                </div>
+                <div class="small text-muted mb-2">
+                    Stock is compared for <strong id="stockAuditBranch">this branch</strong>.
+                    A blank quantity in the sheet means "not counted", not zero.
+                </div>
+                <div id="stockAuditError" class="alert alert-danger py-2 small" style="display:none;"></div>
+
+                <div id="stockAuditResult" style="display:none;">
+                    <div id="stockAuditSummary" class="mb-2"></div>
+                    <div class="table-responsive" style="max-height:320px;overflow:auto;">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr>
+                                <th>Product</th><th class="text-end">Counted</th>
+                                <th class="text-end">System</th><th class="text-end">Difference</th>
+                                <th>Status</th>
+                            </tr></thead>
+                            <tbody id="stockAuditBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="stockAuditUncounted" class="mt-3" style="display:none;"></div>
+                    <div id="stockAuditFailedWrap" class="mt-2" style="display:none;">
+                        <div class="alert alert-warning py-2 small mb-0">
+                            <strong>Rows skipped</strong>
+                            <ul id="stockAuditFailedList" class="mb-0"></ul>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-outline-primary btn-sm" onclick="downloadStockAudit()">
+                            <i class="fas fa-file-excel me-1"></i>Download this audit
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Revert Transaction Modal -->
 <div class="modal fade" id="revertTransactionModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
@@ -7236,6 +7305,9 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 </button>
                                 <button class="btn btn-primary-dark" onclick="window.location.href='/pos/reconciliation'">
                                     <i class="fas fa-scale-balanced me-1"></i>Stock Reconciliation
+                                </button>
+                                <button class="btn btn-info text-white" onclick="openStockAuditModal()">
+                                    <i class="fas fa-magnifying-glass-chart me-1"></i>Auto Audit
                                 </button>
                                 <button class="btn btn-outline-warning" onclick="openPhantomStockRepairModal()">
                                     <i class="fas fa-broom me-1"></i>Repair Phantom Stock
@@ -16619,6 +16691,162 @@ function setupAddProductFundingSelection() {
     // ==================== PHANTOM BRANCH STOCK REPAIR ====================
     // Stock this branch shows but never actually received (see the API). Kept on
     // the Inventory page because that is where the wrong figure is noticed.
+    // ==================== AUTO AUDIT (physical count vs system) ====================
+    let _stockAuditData = null;
+
+    function openStockAuditModal() {
+        _stockAuditData = null;
+        const f = document.getElementById('stockAuditFile');
+        if (f) f.value = '';
+        const d = document.getElementById('stockAuditDate');
+        if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+        const b = document.getElementById('stockAuditBranch');
+        if (b) b.textContent = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
+        document.getElementById('stockAuditError').style.display = 'none';
+        document.getElementById('stockAuditResult').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('stockAuditModal')).show();
+    }
+    window.openStockAuditModal = openStockAuditModal;
+
+    async function runStockAudit() {
+        const errEl = document.getElementById('stockAuditError');
+        const fileEl = document.getElementById('stockAuditFile');
+        const dateEl = document.getElementById('stockAuditDate');
+        const btn = document.getElementById('stockAuditRunBtn');
+        const show = (m) => { errEl.innerText = m; errEl.style.display = 'block'; };
+        errEl.style.display = 'none';
+
+        if (!fileEl || !fileEl.files.length) return show('Choose the count sheet first.');
+        if (!dateEl || !dateEl.value) return show('Choose the date to compare against.');
+
+        const orig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
+        try {
+            const fd = new FormData();
+            fd.append('file', fileEl.files[0]);
+            fd.append('as_at', dateEl.value);
+            const res = await fetch(`${API_BASE}/api/pos/stock-audit/run`, {
+                method: 'POST', body: fd, credentials: 'include'
+            });
+            const data = await res.json();
+            if (!data.success) { show(data.error || 'Could not run the audit.'); return; }
+            _stockAuditData = data;
+            renderStockAudit(data);
+        } catch (e) {
+            show('Could not run the audit: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    }
+    window.runStockAudit = runStockAudit;
+
+    function renderStockAudit(data) {
+        const s = data.summary || {};
+        const sum = document.getElementById('stockAuditSummary');
+        if (sum) {
+            const bits = [];
+            if (s.matched) bits.push(`<span class="badge bg-success me-1">${s.matched} match</span>`);
+            if (s.surplus) bits.push(`<span class="badge bg-warning text-dark me-1">${s.surplus} surplus on the ground</span>`);
+            if (s.shortage) bits.push(`<span class="badge bg-danger me-1">${s.shortage} short</span>`);
+            if (s.not_in_system) bits.push(`<span class="badge bg-secondary me-1">${s.not_in_system} not in the system</span>`);
+            if (s.similar_name) bits.push(`<span class="badge bg-info text-dark me-1">${s.similar_name} name mismatch</span>`);
+            const net = s.net_difference || 0;
+            bits.push(`<span class="badge ${net === 0 ? 'bg-secondary' : (net > 0 ? 'bg-warning text-dark' : 'bg-danger')} me-1">` +
+                      `net ${net > 0 ? '+' : ''}${net} unit(s)</span>`);
+            sum.innerHTML =
+                `<div class="small text-muted mb-1">Compared against the system as at ` +
+                `<strong>${escapeHtml(data.as_at_label || data.as_at)}</strong> in ` +
+                `${escapeHtml(data.branch_name || '')} — ${s.lines} line(s), ` +
+                `${s.counted_units} counted vs ${s.system_units} on the system.</div>` + bits.join('');
+        }
+
+        const colour = {
+            match: 'table-success', surplus: 'table-warning',
+            shortage: 'table-danger', not_in_system: 'table-secondary',
+            similar_name: 'table-info'
+        };
+        const label = {
+            match: 'match', surplus: 'surplus on ground', shortage: 'short on ground',
+            not_in_system: 'not in the system', similar_name: 'name does not match'
+        };
+        const body = document.getElementById('stockAuditBody');
+        if (body) {
+            body.innerHTML = (data.lines || []).map(l => {
+                const nameExtra = l.status === 'similar_name'
+                    ? `<div class="text-muted small">sheet said “${escapeHtml(l.counted_was)}”</div>` : '';
+                const sys = (l.system_at_date === null) ? '<span class="text-muted">—</span>' : l.system_at_date;
+                const diff = (l.difference === null) ? '<span class="text-muted">—</span>'
+                    : (l.difference === 0 ? '0'
+                       : `<strong>${l.difference > 0 ? '+' : ''}${l.difference}</strong>`);
+                return `<tr class="${colour[l.status] || ''}">
+                    <td class="small">${escapeHtml(l.name)}${nameExtra}</td>
+                    <td class="text-end small">${l.counted}</td>
+                    <td class="text-end small">${sys}</td>
+                    <td class="text-end small">${diff}</td>
+                    <td class="small">${label[l.status] || ''}</td></tr>`;
+            }).join('') || '<tr><td colspan="5" class="text-muted small">Nothing to show.</td></tr>';
+        }
+
+        // Items the branch holds that the sheet never counted.
+        const uw = document.getElementById('stockAuditUncounted');
+        if (uw) {
+            const unc = data.uncounted || [];
+            if (unc.length) {
+                uw.innerHTML =
+                    `<div class="alert alert-secondary py-2 small mb-0">
+                       <strong>${unc.length} product(s) were not counted at all</strong>
+                       <span class="text-muted">— the sheet did not mention them, so they are not
+                       counted as zero. Together they hold ${data.summary.uncounted_units} unit(s) on the system.</span>
+                       <div class="mt-1" style="max-height:110px;overflow:auto;">
+                         ${unc.slice(0, 60).map(u => `${escapeHtml(u.name)} <span class="text-muted">(${u.system_at_date})</span>`).join(' · ')}
+                         ${unc.length > 60 ? ` <span class="text-muted">… +${unc.length - 60} more</span>` : ''}
+                       </div>
+                     </div>`;
+                uw.style.display = 'block';
+            } else {
+                uw.style.display = 'none';
+            }
+        }
+
+        const failedWrap = document.getElementById('stockAuditFailedWrap');
+        const failedList = document.getElementById('stockAuditFailedList');
+        if (failedWrap && failedList) {
+            if ((data.failed || []).length) {
+                failedList.innerHTML = data.failed.map(f => '<li>' + escapeHtml(f) + '</li>').join('');
+                failedWrap.style.display = 'block';
+            } else {
+                failedWrap.style.display = 'none';
+            }
+        }
+
+        document.getElementById('stockAuditResult').style.display = 'block';
+    }
+    window.renderStockAudit = renderStockAudit;
+
+    // Built client-side from the stored result, so no extra endpoint or query.
+    function downloadStockAudit() {
+        const d = _stockAuditData;
+        if (!d) { showToast('Run the audit first.', 'warning'); return; }
+        const esc = (v) => `"${String(v === null || v === undefined ? '' : v).replace(/"/g, '""')}"`;
+        const rows = [['Product', 'Sheet Said', 'Counted', 'System', 'Difference', 'Status']];
+        (d.lines || []).forEach(l => rows.push([
+            l.name, l.counted_was || '', l.counted,
+            l.system_at_date === null ? '' : l.system_at_date,
+            l.difference === null ? '' : l.difference,
+            l.status]));
+        (d.uncounted || []).forEach(u => rows.push([u.name, '', '', u.system_at_date, '', 'not counted']));
+        const csv = rows.map(r => r.map(esc).join(',')).join('\r\n');
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `stock_audit_${(d.branch_name || 'branch').replace(/\s+/g, '')}_${d.as_at}.csv`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    }
+    window.downloadStockAudit = downloadStockAudit;
+
     function openPhantomStockRepairModal() {
         document.getElementById('phantomRepairError').style.display = 'none';
         document.getElementById('phantomRepairResult').style.display = 'none';

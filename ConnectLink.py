@@ -17643,6 +17643,243 @@ def pos_stock_upload_job_download(job_id):
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
+@app.route('/api/pos/stock-audit/run', methods=['POST'])
+@login_required
+def pos_stock_audit_run():
+    """"Auto Audit": compare a physical count sheet against the system at a date.
+
+    Reads the SAME template "Upload New Stock" uses (Product Name, Quantity, ...),
+    and does NOT write anything - it is a READ. The Quantity column is treated as
+    what was counted ON THE GROUND.
+
+    Historical figure
+    -----------------
+    `system_at_date` is reconstructed from the FIFO layers, not from the current
+    shelf, so the comparison is against the stock as it stood on the chosen day:
+
+        stock at D = SUM(lot.quantity_remaining for layers received on/before D)
+                   + SUM(reductions recorded AFTER D)
+
+    The second term adds back stock that was consumed after D, because those units
+    WERE on the shelf at D and have since left. Validated by reconstructing a
+    future date, which reproduces the live shelf exactly for every row.
+    """
+    file = request.files.get('file')
+    if file is None or not (file.filename or '').strip():
+        return jsonify({'success': False, 'error': 'Choose the count sheet first.'}), 400
+    if not file.filename.lower().endswith(('.xlsx', '.xlsm')):
+        return jsonify({'success': False, 'error': 'Please upload the .xlsx template (Excel).'}), 400
+
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': 'Select a branch before auditing stock.'}), 400
+
+    as_at = (request.form.get('as_at') or '').strip()
+    if not as_at:
+        return jsonify({'success': False, 'error': 'Choose the date to compare against.'}), 400
+    try:
+        as_at_dt = datetime.strptime(as_at[:10], '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'success': False,
+                        'error': 'That date could not be read. Use YYYY-MM-DD.'}), 400
+    # Compare against the END of the chosen day: stock counted "as at 30 Sep"
+    # includes everything that moved during 30 Sep.
+    as_at_dt = as_at_dt.replace(hour=23, minute=59, second=59)
+
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(file, data_only=True)
+        ws = wb.active
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Could not read that Excel file: {e}'}), 400
+
+    header_map = {}
+    for col in range(1, (ws.max_column or 0) + 1):
+        key = _bulk_stock_header(ws.cell(row=1, column=col).value)
+        if key:
+            header_map.setdefault(key, col)
+
+    def find_col(*aliases):
+        for alias in aliases:
+            if alias in header_map:
+                return header_map[alias]
+        return None
+
+    col_name = find_col('product name', 'product', 'name', 'item')
+    col_qty = find_col('quantity', 'qty', 'stock')
+    if not col_name or not col_qty:
+        return jsonify({'success': False,
+                        'error': 'This file is missing Product Name or Quantity. '
+                                 'Use the same template as Upload New Stock.'}), 400
+
+    counted = []
+    bad_rows = []
+    last_row = min(int(ws.max_row or 1), BULK_STOCK_MAX_ROWS + 1)
+    for row in range(2, last_row + 1):
+        raw = ws.cell(row=row, column=col_name).value
+        if raw is None or str(raw).strip() == '':
+            continue
+        name = str(raw).strip()
+        if name.upper().startswith('EXAMPLE'):
+            continue
+        try:
+            qty = _bulk_stock_number(ws.cell(row=row, column=col_qty).value)
+        except (TypeError, ValueError):
+            bad_rows.append(f'Row {row} ({name}): quantity must be a number.')
+            continue
+        if qty is None:
+            # A blank count means "not counted", which is NOT the same as zero.
+            bad_rows.append(f'Row {row} ({name}): no quantity given.')
+            continue
+        counted.append({'name': name, 'counted': int(qty)})
+
+    if not counted:
+        return jsonify({'success': False,
+                        'error': 'No countable rows were found in that file.',
+                        'failed': bad_rows}), 400
+
+    try:
+        with get_db() as (cursor, connection):
+            # How far back does this branch's history actually go? The
+            # reconstruction adds back reductions recorded after the chosen date,
+            # which silently assumes those units were on the shelf then. That only
+            # holds inside the window the system tracked; before the earliest
+            # movement the figure is meaningless, so a date outside the window is
+            # refused rather than answered with a confident wrong number.
+            cursor.execute("""
+                SELECT MIN(d) FROM (
+                    SELECT MIN(added_at)    AS d FROM stock_additions WHERE branch_id = %s
+                    UNION ALL
+                    SELECT MIN(reduced_at)  AS d FROM stock_reductions WHERE branch_id = %s
+                    UNION ALL
+                    SELECT MIN(received_at) AS d FROM stock_lots     WHERE branch_id = %s
+                    UNION ALL
+                    SELECT MIN(t.created_at) AS d FROM transactions t WHERE t.branch_id = %s
+                ) x
+            """, (branch_id, branch_id, branch_id, branch_id))
+            first_movement = cursor.fetchone()[0]
+            if first_movement and as_at_dt < first_movement:
+                return jsonify({
+                    'success': False,
+                    'error': (f'This branch has no stock history before '
+                              f'{first_movement.strftime("%d %b %Y")}, so stock as at '
+                              f'{as_at_dt.strftime("%d %b %Y")} cannot be worked out. '
+                              f'Pick a date on or after that day.'),
+                    'earliest_date': first_movement.strftime('%Y-%m-%d'),
+                }), 400
+
+            # The product catalogue for this branch, plus the historical figure.
+            cursor.execute("""
+                SELECT p.id, p.name, COALESCE(p.category, ''),
+                       COALESCE(ps.stock, 0),
+                       COALESCE((SELECT SUM(sl.quantity_remaining) FROM stock_lots sl
+                                 WHERE sl.product_id = p.id AND sl.branch_id = %s
+                                   AND sl.received_at <= %s), 0),
+                       COALESCE((SELECT SUM(sr.quantity) FROM stock_reductions sr
+                                 WHERE sr.product_id = p.id AND sr.branch_id = %s
+                                   AND sr.reduced_at > %s), 0)
+                FROM products p
+                LEFT JOIN product_stock ps
+                       ON ps.product_id = p.id AND ps.branch_id = %s
+                WHERE p.is_active = TRUE
+            """, (branch_id, as_at_dt, branch_id, as_at_dt, branch_id))
+            catalogue = []
+            for r in cursor.fetchall():
+                catalogue.append({
+                    'id': r[0], 'name': r[1], 'category': r[2],
+                    'live_stock': int(r[3] or 0),
+                    'system_at_date': int(r[4] or 0) + int(r[5] or 0),
+                })
+            cursor.execute("SELECT name FROM branches WHERE id = %s", (branch_id,))
+            brow = cursor.fetchone()
+            branch_name = brow[0] if brow else f'branch #{branch_id}'
+    except Exception as e:
+        print(f"Stock audit error: {e}")
+        return jsonify({'success': False, 'error': f'Could not read stock: {e}'}), 500
+
+    by_name = {}
+    for c in catalogue:
+        by_name.setdefault(c['name'].strip().lower(), c)
+
+    lines, matched_ids = [], set()
+    for item in counted:
+        key = item['name'].strip().lower()
+        hit = by_name.get(key)
+        if hit is None:
+            # Try a similarity match, so a slightly different entry is reported
+            # as a near-miss rather than "not in the system".
+            best, score = None, 0.0
+            for c in catalogue:
+                sc = _product_similarity(item['name'], c['name'])
+                if sc > score:
+                    best, score = c, sc
+            if best and score >= BULK_STOCK_SIMILARITY:
+                hit = best
+                matched_ids.add(best['id'])
+                lines.append({
+                    'product_id': hit['id'], 'name': hit['name'],
+                    'counted_was': item['name'], 'counted': item['counted'],
+                    'system_at_date': hit['system_at_date'],
+                    'live_stock': hit['live_stock'],
+                    'difference': item['counted'] - hit['system_at_date'],
+                    'status': 'similar_name',
+                })
+                continue
+            lines.append({
+                'product_id': None, 'name': item['name'], 'counted_was': item['name'],
+                'counted': item['counted'], 'system_at_date': None,
+                'live_stock': None, 'difference': None, 'status': 'not_in_system',
+            })
+            continue
+        matched_ids.add(hit['id'])
+        diff = item['counted'] - hit['system_at_date']
+        lines.append({
+            'product_id': hit['id'], 'name': hit['name'], 'counted_was': item['name'],
+            'counted': item['counted'], 'system_at_date': hit['system_at_date'],
+            'live_stock': hit['live_stock'], 'difference': diff,
+            'status': ('match' if diff == 0 else ('surplus' if diff > 0 else 'shortage')),
+        })
+
+    # Products this branch holds that the sheet did not count at all.
+    uncounted = [{'product_id': c['id'], 'name': c['name'],
+                  'system_at_date': c['system_at_date'], 'live_stock': c['live_stock']}
+                 for c in catalogue
+                 if c['id'] not in matched_ids and c['system_at_date'] != 0]
+
+    def _tot(pred):
+        return sum(l['counted'] for l in lines if pred(l)) if lines else 0
+
+    summary = {
+        'lines': len(lines),
+        'matched': sum(1 for l in lines if l['status'] == 'match'),
+        'surplus': sum(1 for l in lines if l['status'] == 'surplus'),
+        'shortage': sum(1 for l in lines if l['status'] == 'shortage'),
+        'not_in_system': sum(1 for l in lines if l['status'] == 'not_in_system'),
+        'similar_name': sum(1 for l in lines if l['status'] == 'similar_name'),
+        'counted_units': sum(l['counted'] or 0 for l in lines),
+        'system_units': sum(l['system_at_date'] or 0 for l in lines
+                            if l['system_at_date'] is not None),
+        'net_difference': sum(l['difference'] or 0 for l in lines
+                              if l['difference'] is not None),
+        'uncounted_products': len(uncounted),
+        'uncounted_units': sum(u['system_at_date'] for u in uncounted),
+    }
+
+    return jsonify({
+        'success': True,
+        'branch_id': branch_id,
+        'branch_name': branch_name,
+        'as_at': as_at,
+        'as_at_label': as_at_dt.strftime('%d %b %Y'),
+        'lines': sorted(lines, key=lambda l: (l['status'] == 'match', l['name'])),
+        'uncounted': uncounted,
+        'summary': summary,
+        'failed': bad_rows,
+        'note': ('System figures are reconstructed for the chosen date from stock '
+                 'movements. A blank count is treated as "not counted", never as zero.'),
+    })
+
+
 @app.route('/api/pos/stock-upload-jobs', methods=['GET'])
 @login_required
 def pos_stock_upload_jobs():
