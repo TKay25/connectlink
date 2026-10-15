@@ -6547,7 +6547,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             <div id="uploadStockJobsWrap" class="mt-4" style="display:none;">
                                 <div class="d-flex align-items-center mb-1">
                                     <strong>Previous uploads</strong>
-                                    <span class="text-muted small ms-2">— revert one to take its stock back off the shelf</span>
+                                    <span class="text-muted small ms-2">— download what one did, or revert it to take its stock back off the shelf</span>
                                     <button type="button" class="btn btn-sm btn-link ms-auto" onclick="loadStockUploadJobs()">Refresh</button>
                                 </div>
                                 <div class="table-responsive" style="max-height:220px;overflow:auto;">
@@ -14996,12 +14996,17 @@ async function fetchTransactionsData() {
                        <span class="text-muted">— correct the affected products individually.</span>
                    </td></tr>`
                 : '';
+            // The rows are already stored (they are what a revert needs), so a
+            // past upload can always be downloaded - reverted ones included, which
+            // is exactly when someone wants to see what it had done.
+            const dl = `<a class="btn btn-sm btn-outline-secondary" href="${API_BASE}/api/pos/stock-upload-jobs/${j.id}/download"
+                            title="Download what this upload did (Excel)"><i class="fas fa-file-excel"></i></a>`;
             return `<tr>
                 <td class="small">${escapeHtml(j.created_at)}</td>
                 <td class="small">${escapeHtml(j.reference)}</td>
                 <td class="small">${j.total_quantity} unit(s)<div class="text-muted">${j.updated_count} updated, ${j.created_count} new</div></td>
                 <td>${status}</td>
-                <td class="text-end">${action}</td></tr>${blockedNote}`;
+                <td class="text-end"><span class="d-inline-flex gap-1">${action}${dl}</span></td></tr>${blockedNote}`;
         }).join('');
     }
 

@@ -17476,6 +17476,173 @@ def bulk_upload_blockers(cursor, job_id, reference, branch_id):
     return blockers
 
 
+@app.route('/api/pos/stock-upload-jobs/<int:job_id>/download', methods=['GET'])
+@login_required
+def pos_stock_upload_job_download(job_id):
+    """Download one past upload as an Excel workbook - exactly what it did.
+
+    The rows already live in `bulk_upload_items` (kept so the job can be
+    reverted), so this exports the RECORD, not a re-import of the original file.
+    That means the workbook still works after products were renamed or the
+    catalogue moved on, and it shows the before-figures a revert relies on.
+
+    Scoped to the session branch like the jobs list itself, so one shop cannot
+    read another shop's uploads by guessing an id.
+    """
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False,
+                        'error': 'Pick a branch first.'}), 400
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT j.id, j.reference, j.branch_id, b.name, j.username, j.file_name,
+                       j.updated_count, j.created_count, j.total_quantity, j.total_cost,
+                       j.status, j.created_at, j.reverted_at, j.reverted_by
+                FROM bulk_upload_jobs j
+                LEFT JOIN branches b ON b.id = j.branch_id
+                WHERE j.id = %s AND j.branch_id = %s
+            """, (job_id, branch_id))
+            head = cursor.fetchone()
+            if not head:
+                return jsonify({'success': False,
+                                'error': 'That upload was not found in this branch.'}), 404
+            cursor.execute("""
+                SELECT i.product_id, i.product_name, i.action, i.quantity, i.buy_price,
+                       i.sell_price, i.created_product, i.prev_branch_stock,
+                       i.prev_sell_price, i.prev_buy_price, i.prev_is_active,
+                       COALESCE(ps.stock, 0)
+                FROM bulk_upload_items i
+                LEFT JOIN product_stock ps
+                       ON ps.product_id = i.product_id AND ps.branch_id = %s
+                WHERE i.job_id = %s
+                ORDER BY i.id
+            """, (branch_id, job_id))
+            items = cursor.fetchall()
+    except Exception as e:
+        print(f"Upload job download error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+
+        wb = Workbook()
+        head_font = Font(bold=True, color='FFFFFF', size=11)
+        head_fill = PatternFill('solid', fgColor='1E293B')
+        bold = Font(bold=True)
+        thin = Side(style='thin', color='D0D5DD')
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        # ---- Sheet 1: the summary of the job ----
+        ws = wb.active
+        ws.title = 'Upload Summary'
+        ws.append(['Bulk Stock Upload'])
+        ws['A1'].font = Font(bold=True, size=14)
+        ws.append([])
+        summary = [
+            ('Reference', head[1]),
+            ('Branch', head[3] or f'branch #{head[2]}'),
+            ('Uploaded by', head[4] or ''),
+            ('Original file name', head[5] or ''),
+            ('Uploaded at', head[11].strftime('%Y-%m-%d %H:%M:%S') if head[11] else ''),
+            ('Status', head[10]),
+            ('Reverted at', head[12].strftime('%Y-%m-%d %H:%M:%S') if head[12] else ''),
+            ('Reverted by', head[13] or ''),
+            ('Products updated', head[6] or 0),
+            ('Products created', head[7] or 0),
+            ('Total units added', head[8] or 0),
+            ('Total cost', float(head[9] or 0)),
+            ('Rows in this export', len(items)),
+        ]
+        for k, v in summary:
+            ws.append([k, v])
+            ws.cell(row=ws.max_row, column=1).font = bold
+        ws.column_dimensions['A'].width = 22
+        ws.column_dimensions['B'].width = 46
+
+        # ---- Sheet 2: the rows, as recorded ----
+        ws2 = wb.create_sheet('Uploaded Rows')
+        columns = ['Product ID', 'Product Name', 'Action', 'Quantity', 'Unit Buy Price',
+                   'Unit Sell Price', 'Created Product', 'Stock Before (branch)',
+                   'Stock After (branch)', 'Prev Sell Price', 'Prev Buy Price',
+                   'Line Cost', 'Currently Active Stock']
+        ws2.append(columns)
+        for c in range(1, len(columns) + 1):
+            cell = ws2.cell(row=1, column=c)
+            cell.font = head_font
+            cell.fill = head_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+        total_units = 0
+        total_cost = 0.0
+        for (pid, name, action, qty, buy, sell, created, prev_stock,
+             prev_sell, prev_buy, prev_active, live_stock) in items:
+            qty_i = int(qty or 0)
+            buy_f = float(buy or 0)
+            line_cost = round(buy_f * qty_i, 2)
+            before = int(prev_stock or 0)
+            # What the shelf became for a merge. A created product started at 0.
+            after = before + qty_i if action != 'create' else qty_i
+            total_units += qty_i
+            total_cost += line_cost
+            ws2.append([pid, name, action, qty_i, buy_f, float(sell or 0),
+                        1 if created else 0, before, after,
+                        float(prev_sell) if prev_sell is not None else '',
+                        float(prev_buy) if prev_buy is not None else '',
+                        line_cost, int(live_stock or 0)])
+
+        # Totals row, so the sheet adds up on its own.
+        tr = ws2.max_row + 1
+        ws2.cell(row=tr, column=1, value='TOTAL').font = bold
+        ws2.cell(row=tr, column=4, value=total_units).font = bold
+        ws2.cell(row=tr, column=12, value=round(total_cost, 2)).font = bold
+        for c in (1, 4, 12):
+            ws2.cell(row=tr, column=c).fill = PatternFill('solid', fgColor='E7EAF0')
+
+        for r in range(2, tr + 1):
+            for c in range(1, len(columns) + 1):
+                ws2.cell(row=r, column=c).border = border
+        for i, w in enumerate([10, 34, 10, 10, 14, 14, 14, 18, 18, 14, 14, 12, 18], 1):
+            ws2.column_dimensions[get_column_letter(i)].width = w
+        ws2.freeze_panes = 'A2'
+
+        # ---- Sheet 3: how to read it ----
+        ws3 = wb.create_sheet('Notes')
+        notes = [
+            'This workbook is the RECORD of the upload, exported from the job table -',
+            'not a copy of the original Excel file.',
+            '',
+            'It therefore still works after products were renamed, and it carries the',
+            'figures a revert needs:',
+            '',
+            '  Stock Before (branch)  what this branch held before this upload added',
+            '  Stock After (branch)   what it became. For a product this UPLOAD CREATED',
+            '                         the starting point was 0, not Stock Before.',
+            '  Prev Sell/Buy Price    the prices in force before the upload overwrote them',
+            '  Currently Active Stock the branch holds NOW, which differs from Stock After',
+            '                         whenever the stock has since sold or been adjusted',
+            '',
+            'Quantity is what the upload ADDED, never the new total.',
+            'Cost is Quantity x Unit Buy Price.',
+        ]
+        for line in notes:
+            ws3.append([line])
+        ws3.column_dimensions['A'].width = 88
+
+        bio = io.BytesIO()
+        wb.save(bio)
+        blob = bio.getvalue()
+    except Exception as e:
+        print(f"Upload job excel error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    fname = f'upload_{head[1]}.xlsx'
+    return send_file(io.BytesIO(blob), as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
 @app.route('/api/pos/stock-upload-jobs', methods=['GET'])
 @login_required
 def pos_stock_upload_jobs():
