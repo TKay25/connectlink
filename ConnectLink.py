@@ -16750,17 +16750,97 @@ def _norm_product_name(name):
 
 
 def _product_similarity(a, b):
-    """0..1 similarity between two product names (1.0 = same once normalised)."""
+    """0..1 similarity between two product names (1.0 = same once normalised).
+
+    Two signals, because names in this catalogue are not uniform:
+
+    * Containment ('mug' in 'mug red') is strong evidence ONLY when the shorter
+      name still carries a distinctive word. A name that reduces to a bare
+      category word - 'Plates @$2' becomes just 'plate' once the price is
+      stripped - is contained in half the catalogue, so treating that as an 0.85
+      match offered 'kids plate melamine divided' and 'melamine plates singles'
+      as the same product. Generic single words are therefore NOT treated as
+      containment evidence.
+    * Otherwise fall back to a character-ratio, which still catches typos and
+      word-order differences without pretending unrelated items are related.
+    """
     na, nb = _norm_product_name(a), _norm_product_name(b)
     if not na or not nb:
         return 0.0
     if na == nb:
         return 1.0
+
     import difflib
+    wa, wb = na.split(), nb.split()
+    shorter, longer = (wa, wb) if len(wa) <= len(wb) else (wb, wa)
+
+    # A one-word name only counts as contained when that word is specific enough
+    # to identify a product on its own. These are the words shoppers use for a
+    # whole family of goods, so 'plate' must never match every plate on the shelf.
+    generic = {
+        'plate', 'bowl', 'cup', 'mug', 'pot', 'pan', 'dish', 'spoon', 'fork',
+        'knife', 'glass', 'jug', 'kettle', 'tray', 'bucket', 'basket', 'box',
+        'bag', 'bottle', 'flask', 'lamp', 'bulb', 'switch', 'socket', 'plug',
+        'wire', 'cable', 'pipe', 'tap', 'valve', 'hose', 'brush', 'paint',
+        'cement', 'nail', 'screw', 'bolt', 'nut', 'hinge', 'lock', 'handle',
+        'tile', 'sheet', 'rod', 'bar', 'tube', 'roll', 'pack', 'set', 'item',
+        'small', 'large', 'medium', 'big', 'mini', 'kids', 'kid', 'baby',
+        'plain', 'white', 'black', 'blue', 'red', 'green', 'silver', 'gold',
+        'round', 'square', 'long', 'short', 'single', 'double', 'new', 'old',
+    }
+
+    # Containment of a FULL word sequence (not a substring), so 'art' inside
+    # 'carton' can never match. A word must also be long enough to be a real
+    # product name on its own, and short names must match the WHOLE other name -
+    # 'bore' inside 'boredom' is coincidence, not a match.
+    contained = False
+    if len(shorter) == 1 and len(shorter[0]) >= 5 and shorter[0] not in generic:
+        if shorter[0] in longer:
+            contained = True
+
     score = difflib.SequenceMatcher(None, na, nb).ratio()
-    # One name containing the other ('mug' in 'mug red') is a strong signal.
-    if na in nb or nb in na:
-        score = max(score, 0.85)
+
+    # Word ORDER must not matter ('Melamine Plate Large' = 'Large Melamine Plate'),
+    # so a sorted-token comparison is also taken.
+    if len(wa) > 1 and len(wb) > 1:
+        score = max(score, difflib.SequenceMatcher(None, ' '.join(sorted(wa)),
+                                                   ' '.join(sorted(wb))).ratio())
+
+    if contained:
+        # Extra words mean extra specification, so two names that differ by more
+        # than a couple of qualifiers should not be pushed to a near-certain
+        # match. 'mug' in 'mug red' stays strong; a long descriptive phrase does
+        # not get the same treatment.
+        extra = len(longer) - len(shorter)
+        boost = 0.92 if extra <= 1 else (0.86 if extra == 2 else 0.78)
+        score = max(score, boost)
+
+    # These two caps are applied LAST so nothing below can lift the score back
+    # over the threshold. Order matters here: an earlier version ended with a
+    # `max(score, 0.74)` that undid both of them.
+    #
+    # Two names sharing their FIRST word but disagreeing on a later word are a
+    # different product ('Copper Cable' vs 'Copper Pipe'), not a variant. Token
+    # overlap is compared on the ORIGINAL tokens, so a join like 'screwdriver'
+    # vs 'screw driver' is left to the character ratio above.
+    if len(wa) > 1 and len(wb) > 1 and wa[0] == wb[0] and len(wa[0]) >= 4:
+        tail_a = {w for w in wa[1:] if not any(c.isdigit() for c in w)}
+        tail_b = {w for w in wb[1:] if not any(c.isdigit() for c in w)}
+        if tail_a and tail_b and not (tail_a & tail_b):
+            score = min(score, 0.60)
+
+    # A short name spelling out the START of a longer unrelated word is
+    # coincidence, not a match: 'bore' vs 'boredom' scores 0.727 purely from
+    # shared leading characters. The check only applies when the shorter name is
+    # NOT properly contained in the longer one - 'Water Pump' inside
+    # 'Water Pump 0.5hp' is a real match, and sizes like '0.5hp' must never make
+    # an otherwise identical name look unrelated.
+    comparable = max(len(na), len(nb)) <= 1.5 * max(1, min(len(na), len(nb)))
+    contained_ok = bool(shorter) and all(
+        tok in longer for tok in shorter) and len(shorter) < len(longer)
+    if not comparable and not contained_ok:
+        score = min(score, 0.55)
+
     return score
 
 
