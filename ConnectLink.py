@@ -144,7 +144,12 @@ def log_untracked_system_change(response):
             or not request.endpoint
             or request.endpoint in {
                 'handle_activity_log',
+                # Read-only steps. These CHANGE NOTHING, so a 'Completed POST ...'
+                # row for them is pure noise in the log - it says a request
+                # happened, not that anything was done. Each of them writes its
+                # own meaningful activity row where it actually applies changes.
                 'pos_stock_audit_run',
+                'pos_stock_audit_columns',
                 'pos_upload_stock_analyze',
             }):
         return response
@@ -19062,7 +19067,8 @@ def pos_stock_audit_adopt_reviewed():
             line_map = {line['row']: line for line in lines}
             products = {product['id']: product for product in catalogue}
             selected, archives = [], []
-            row_seen, product_seen = set(), set()
+            row_seen, product_seen, adopted_rows = set(), set(), set()
+            adopted_products = {}
 
             for op in operations:
                 if (not isinstance(op, dict) or not isinstance(op.get('action'), str)
@@ -19096,9 +19102,17 @@ def pos_stock_audit_adopt_reviewed():
                     if not product or not (valid_line or valid_omitted):
                         return jsonify({'success': False,
                                         'error': 'Only an uncounted product from this branch can be archived.'}), 409
+                    # Archive and adopted-count are opposite decisions for one
+                    # product, so a selection that asks for both is rejected rather
+                    # than resolved by whichever happened to run first.
+                    if product_id in adopted_products:
+                        return jsonify({'success': False,
+                                        'error': f'"{product["name"]}" is both counted and marked for '
+                                                 'removal. Keep one of the two.'}), 400
                     if product_id in product_seen:
                         return jsonify({'success': False,
-                                        'error': 'A product was selected more than once.'}), 400
+                                        'error': f'"{product["name"]}" is selected more than once. '
+                                                 'Pick either its count or its removal, not both.'}), 400
                     product_seen.add(product_id)
                     archives.append(product)
                     continue
@@ -19114,8 +19128,23 @@ def pos_stock_audit_adopt_reviewed():
                                         'error': 'The product match changed. Run the audit again.'}), 409
                     if product_id in product_seen:
                         return jsonify({'success': False,
-                                        'error': 'A product was selected more than once.'}), 400
-                    product_seen.add(product_id)
+                                        'error': f'"{line["name"]}" is both counted and marked for '
+                                                 'removal. Keep one of the two.'}), 400
+                    # Two DIFFERENT sheet rows can legitimately point at the same
+                    # system product - fuzzy name matching maps 'Plates' and
+                    # 'Plates @$2' to one product. Refusing that rejected valid
+                    # work, so the SAME row repeated is the real error; two rows
+                    # naming one product are combined below.
+                    if row_id in adopted_rows:
+                        return jsonify({'success': False,
+                                        'error': f'Row {row_id} was sent more than once.'}), 400
+                    adopted_rows.add(row_id)
+                    if product_id in adopted_products:
+                        # Another row already covers this product: attach this line
+                        # to it so both counts are adopted together.
+                        entry = adopted_products[product_id]
+                        entry['lines'].append(line)
+                        break
                     choices = op.get('field_choices') or {}
                     if not isinstance(choices, dict):
                         return jsonify({'success': False, 'error': 'Product field choices are invalid.'}), 400
@@ -19131,8 +19160,11 @@ def pos_stock_audit_adopt_reviewed():
                                 return jsonify({'success': False,
                                                 'error': f'The sheet has no {field.replace("_", " ")} value for "{line["name"]}".'}), 400
                             updates[field] = value
-                    selected.append({'action': 'adopt', 'line': line,
-                                     'product': products[product_id], 'updates': updates})
+                    entry = {'action': 'adopt', 'line': line,
+                             'product': products[product_id],
+                             'lines': [line], 'updates': updates}
+                    adopted_products[product_id] = entry
+                    selected.append(entry)
                 else:
                     if line['exact']:
                         return jsonify({'success': False,
@@ -19222,6 +19254,13 @@ def pos_stock_audit_adopt_reviewed():
                 line = item['line']
                 product = item['product']
                 updates = item['updates']
+                # A product can be named by more than one sheet row (fuzzy matching
+                # maps 'Plates' and 'Plates @$2' to one product). Their counts are
+                # combined into ONE correction, because the audit compares the
+                # product's total on the shelf - applying each row separately would
+                # set the same figure twice.
+                item_lines = item.get('lines') or [line]
+                combined_counted = sum(int(l['counted'] or 0) for l in item_lines)
                 if item['action'] == 'create':
                     if updates['barcode']:
                         cursor.execute("""SELECT name FROM products WHERE barcode = %s
@@ -19304,7 +19343,7 @@ def pos_stock_audit_adopt_reviewed():
                                (product['id'], branch_id))
                 if cursor.rowcount:
                     changes.append(f'restored in {branch_name}')
-                delta = line['counted'] - int(product.get('system_at_date') or 0)
+                delta = combined_counted - int(product.get('system_at_date') or 0)
                 cursor.execute("""
                     INSERT INTO product_stock (product_id, branch_id, stock, updated_at)
                     VALUES (%s, %s, 0, CURRENT_TIMESTAMP)
@@ -19328,7 +19367,7 @@ def pos_stock_audit_adopt_reviewed():
                              counted_quantity, effective_at, product_name, source_file, user_name)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                     """, (product['id'], branch_id, delta, product.get('system_at_date', 0),
-                          line['counted'], as_at_dt, product['name'], source_file, username))
+                          combined_counted, as_at_dt, product['name'], source_file, username))
                     adjustment_id = cursor.fetchone()[0]
                     reference = f'STOCK-AUDIT-{adjustment_id}'
                     buy_price = float(product['buy_price'] or 0)
@@ -19375,17 +19414,20 @@ def pos_stock_audit_adopt_reviewed():
                         """, (product['id'], -delta,
                               f'Auto Audit count adopted as at {as_at_dt:%Y-%m-%d}',
                               user_id, branch_id, reference))
-                    changes.append(f'stock {product.get("system_at_date", 0)} to {line["counted"]}')
+                    changes.append(f'stock {product.get("system_at_date", 0)} to {combined_counted}')
 
                 details = {'action': item['action'], 'branch': branch_name,
                            'source_file': source_file, 'sheet_row': line['row'],
+                           # Every sheet row that fed this one correction, so the
+                           # audit trail explains a combined count.
+                           'sheet_rows': [l['row'] for l in item_lines],
                            'source_product_name': line['counted_was'],
                            'product_fields': {
                                field: product.get(field)
                                for field in STOCK_AUDIT_PRODUCT_FIELDS
                            },
                            'previous_system_quantity': product.get('system_at_date', 0),
-                           'counted_quantity': line['counted'], 'quantity_delta': delta,
+                           'counted_quantity': combined_counted, 'quantity_delta': delta,
                            'valuation_delta': valuation_delta, 'adjustment_id': adjustment_id,
                            'live_stock_before': live_before, 'live_stock_after': live_after,
                            'product_changes': changes}
@@ -19398,7 +19440,7 @@ def pos_stock_audit_adopt_reviewed():
                       + '; '.join(changes), username, product['id'],
                       psycopg2.extras.Json(details), branch_id))
                 adjusted.append({'product_id': product['id'], 'name': product['name'],
-                                 'counted_quantity': line['counted'],
+                                 'counted_quantity': combined_counted,
                                  'quantity_delta': delta, 'live_stock_after': live_after})
 
             connection.commit()

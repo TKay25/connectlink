@@ -8670,6 +8670,12 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <option value="desc" selected>Newest first</option>
                                 <option value="asc">Oldest first</option>
                             </select>
+                            <label class="small fw-bold mb-0 ms-2">Show:</label>
+                            <select id="activityLogKind" class="form-select form-select-sm" style="width:150px;font-size:0.7rem;" onchange="renderPosActivityRows(orderedPosActivityRows())">
+                                <option value="" selected>Everything</option>
+                                <option value="audit">Auto Audit only</option>
+                                <option value="other">Everything except Auto Audit</option>
+                            </select>
                         </div>
                         <div class="d-flex gap-2 align-items-center flex-wrap">
                             <div class="position-relative">
@@ -11190,7 +11196,7 @@ async function loadPosActivityLog() {
     }
 }
 
-function posActivityBadge(type) {
+function posActivityBadge(type, row) {
     const map = {
         'sale': 'success',
         'product_create': 'success',
@@ -11207,6 +11213,46 @@ function posActivityBadge(type) {
         'stock_audit_adopt': 'primary',
         'system_change': 'info'
     };
+    const d = (row && row.details) || {};
+    const fromAudit = posActivityIsAudit(row);
+
+    // Auto Audit entries are labelled by what they DID, so a glance at the log
+    // separates a counted correction from a new product or a removal - all three
+    // are written by the same audit operation and would otherwise look identical.
+    if (fromAudit) {
+        let auditLabel = 'Auto Audit';
+        let auditIcon = 'fa-magnifying-glass-chart';
+        let auditCls = 'primary';
+        if (d.action === 'branch_archive') {
+            auditLabel = 'Auto Audit \u00b7 Removed';
+            auditIcon = 'fa-box-archive';
+            auditCls = 'danger';
+        } else if (d.action === 'create') {
+            // Only a create that came from a SHEET is an audit create; a product
+            // added by hand from the inventory screen must keep its own badge.
+            auditLabel = 'Auto Audit \u00b7 New product';
+            auditIcon = 'fa-plus';
+            auditCls = 'success';
+        } else if (d.action === 'adopt') {
+            const q = Number(d.quantity_delta);
+            if (Number.isFinite(q) && q < 0) {
+                auditLabel = 'Auto Audit \u00b7 Shortage';
+                auditIcon = 'fa-arrow-down';
+                auditCls = 'warning';
+            } else if (Number.isFinite(q) && q > 0) {
+                auditLabel = 'Auto Audit \u00b7 Surplus';
+                auditIcon = 'fa-arrow-up';
+                auditCls = 'success';
+            } else {
+                auditLabel = 'Auto Audit \u00b7 Count';
+                auditIcon = 'fa-equals';
+                auditCls = 'primary';
+            }
+        }
+        return '<span class="badge bg-' + auditCls + '">' +
+               '<i class="fas ' + auditIcon + ' me-1"></i>' + auditLabel + '</span>';
+    }
+
     const cls = map[type] || 'secondary';
     const label = String(type || 'action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
     return '<span class="badge bg-' + cls + '">' + label + '</span>';
@@ -11219,21 +11265,104 @@ function renderPosActivityRows(rows) {
     if (!body) return;
     const list = rows || [];
     empty.style.display = list.length ? 'none' : 'block';
-    body.innerHTML = list.map(function(a) {
+    body.innerHTML = list.map(function(a, i) {
+        const extra = posActivityDetailsHtml(a, i);
         return '<tr>' +
             '<td class="text-nowrap">' + escapeHtml(a.created_at || '') + '</td>' +
             '<td class="text-nowrap"><i class="fas fa-user me-1 text-muted"></i>' + escapeHtml(a.user_name || 'System') + '</td>' +
-            '<td>' + posActivityBadge(a.action_type) + '</td>' +
-            '<td>' + escapeHtml(a.description || '') + '</td>' +
+            '<td>' + posActivityBadge(a.action_type, a) + '</td>' +
+            '<td>' + escapeHtml(a.description || '') + extra + '</td>' +
         '</tr>';
     }).join('');
+}
+
+// The `details` JSON carries what actually happened - which products, what the
+// quantities were, what changed. Rendering only the description threw that away,
+// so an audit of 169 products looked like a single vague line. This turns the
+// stored detail into something readable, and stays collapsed by default so a long
+// log is not flooded by it.
+function posActivityDetailsHtml(a, index) {
+    const d = a.details;
+    if (!d || typeof d !== 'object') return '';
+    const bits = [];
+
+    // Products touched, each with its quantity movement.
+    if (Array.isArray(d.items) && d.items.length) {
+        bits.push('<ul class="mb-1 ps-3">' + d.items.slice(0, 200).map(function(it) {
+            const parts = [];
+            if (it.name) parts.push('<strong>' + escapeHtml(String(it.name)) + '</strong>');
+            if (it.counted_quantity !== undefined && it.counted_quantity !== null) {
+                parts.push('counted ' + escapeHtml(String(it.counted_quantity)));
+            }
+            if (it.quantity_delta !== undefined && it.quantity_delta !== null) {
+                const q = Number(it.quantity_delta);
+                parts.push('<span class="' + (q < 0 ? 'text-danger' : 'text-success') + '">' +
+                           (q > 0 ? '+' : '') + escapeHtml(String(q)) + '</span>');
+            }
+            if (it.live_stock_after !== undefined && it.live_stock_after !== null) {
+                parts.push('now ' + escapeHtml(String(it.live_stock_after)));
+            }
+            return '<li>' + parts.join(' &middot; ') + '</li>';
+        }).join('') +
+        (d.items.length > 200 ? '<li class="text-muted">and ' + (d.items.length - 200) + ' more</li>' : '') +
+        '</ul>');
+    }
+
+    // Stock movement: from what, to what.
+    if (d.previous_system_quantity !== undefined && d.counted_quantity !== undefined) {
+        bits.push('Stock ' + escapeHtml(String(d.previous_system_quantity)) +
+                  ' &rarr; ' + escapeHtml(String(d.counted_quantity)));
+    }
+    if (d.quantity_delta !== undefined && d.quantity_delta !== null && !bits.length) {
+        bits.push('Movement ' + escapeHtml(String(d.quantity_delta)));
+    }
+    // Product field changes ('selling price changed from 2 to 1.5').
+    if (Array.isArray(d.product_changes) && d.product_changes.length) {
+        bits.push('<div>' + d.product_changes.slice(0, 12).map(escapeHtml).join('<br>') +
+                  (d.product_changes.length > 12
+                      ? '<br>and ' + (d.product_changes.length - 12) + ' more' : '') + '</div>');
+    }
+    if (Array.isArray(d.titles) && d.titles.length) {
+        bits.push('<div>' + d.titles.slice(0, 12).map(escapeHtml).join(', ') +
+                  (d.titles.length > 12 ? ', +' + (d.titles.length - 12) + ' more' : '') + '</div>');
+    }
+    if (d.branch) bits.push('<span class="text-muted">Branch: ' + escapeHtml(String(d.branch)) + '</span>');
+    if (d.source_file) bits.push('<span class="text-muted">File: ' + escapeHtml(String(d.source_file)) + '</span>');
+    if (d.reference) bits.push('<span class="text-muted">Ref: ' + escapeHtml(String(d.reference)) + '</span>');
+    if (Array.isArray(d.sheet_rows) && d.sheet_rows.length > 1) {
+        bits.push('<span class="text-muted">Sheet rows: ' + escapeHtml(d.sheet_rows.join(', ')) + '</span>');
+    }
+    if (!bits.length) return '';
+    const id = 'actDetail' + index;
+    return '<div class="mt-1">' +
+        '<a class="small" data-bs-toggle="collapse" href="#' + id + '" role="button">' +
+            '<i class="fas fa-chevron-down me-1"></i>Show details' +
+        '</a>' +
+        '<div class="collapse small text-muted mt-1" id="' + id + '">' + bits.join('<br>') + '</div>' +
+    '</div>';
+}
+
+// True when this row was written by the Auto Audit feature. Detected from the
+// audit-specific details the audit writes (the source file and the sheet row),
+// NOT from the action_type alone - a product added by hand also uses
+// 'product_create' and must keep its own badge.
+function posActivityIsAudit(row) {
+    if (!row) return false;
+    const d = row.details;
+    if (!d || typeof d !== 'object') return false;
+    return (d.source_file !== undefined && d.source_file !== null) ||
+           d.sheet_row !== undefined || d.sheet_rows !== undefined;
 }
 
 // Return the loaded rows in the user-selected order (desc = newest first, asc = oldest first)
 function orderedPosActivityRows() {
     const orderEl = document.getElementById('activityLogOrder');
     const asc = orderEl && orderEl.value === 'asc';
-    const rows = (_posActivityRows || []).slice();
+    const kindEl = document.getElementById('activityLogKind');
+    const kind = kindEl ? kindEl.value : '';
+    let rows = (_posActivityRows || []).slice();
+    if (kind === 'audit') rows = rows.filter(posActivityIsAudit);
+    else if (kind === 'other') rows = rows.filter(function(r) { return !posActivityIsAudit(r); });
     if (asc) rows.reverse();
     return rows;
 }
@@ -11259,7 +11388,7 @@ function exportPosActivityLogPDF() {
         'product_delete': 'Product Delete', 'wipe_all': 'Wipe All', 'pos_login': 'POS Login',
         'pos_logout': 'POS Logout', 'download': 'Download',
         'branch_stock_repair': 'Stock Repair',
-        'stock_audit_adopt': 'Stock Audit Adopted',
+        'stock_audit_adopt': 'Auto Audit',
         'system_change': 'System Change'
     };
     const content = document.createElement('div');
