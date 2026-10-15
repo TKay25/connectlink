@@ -17602,11 +17602,13 @@ function setupAddProductFundingSelection() {
         const changes = operations.length - archives;
         const dateLabel = data.as_at_label || data.as_at;
         // Large selections are sent in batches. Each product costs many database
-        // round-trips against a REMOTE server, so adopting all 169 lines in one
-        // request ran for minutes and the host cut the connection - which the
-        // browser reports only as "Failed to fetch". Batching keeps every request
-        // short enough to finish.
-        const BATCH_SIZE = 20;
+        // round-trips against a REMOTE server, and each batch also re-reads the
+        // sheet and the catalogue, so the request has a fixed cost PLUS a per-line
+        // cost. 20 was still too slow for a real catalogue and the host cut the
+        // connection (seen as "Failed to fetch") before any response was sent.
+        // 8 keeps a batch comfortably short; more batches is far better than a
+        // request that dies silently.
+        const BATCH_SIZE = 8;
         const batches = [];
         for (let i = 0; i < operations.length; i += BATCH_SIZE) {
             batches.push(operations.slice(i, i + BATCH_SIZE));

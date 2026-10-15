@@ -19009,19 +19009,32 @@ def pos_stock_audit_adopt_reviewed():
             # (several correlated subqueries each) once per batch, which is what
             # made a large adoption so slow that the host dropped the connection.
             #
-            # Scope is applied ONLY when every selected operation already names its
-            # product. A 'create' row has no product id yet, and the resolver below
-            # MATCHES rows against the catalogue by similarity - hiding products
-            # from it would change (and could silently break) that matching, so any
-            # unnamed action falls back to the full catalogue.
+            # The scope is safe whenever every op that NAMES a product is the only
+            # kind of op that needs the catalogue. A 'create' row names nothing and
+            # is resolved by NAME against the rows, not against the catalogue, so it
+            # must not force a full load - requiring that would silently disable the
+            # scope for any batch containing a create, which is exactly what
+            # happened and why batching alone did not fix the timeout.
             named = [op for op in operations
                      if isinstance(op, dict) and str(op.get('product_id') or '').isdigit()]
-            every_named = len(named) == len(operations)
-            wanted_ids = sorted({int(op['product_id']) for op in named}) if every_named else []
+            creates = [op for op in operations
+                       if isinstance(op, dict) and op.get('action') == 'create']
+            # Only adopt/archive need catalogue rows, and both name their product.
+            resolvable = [op for op in operations if isinstance(op, dict)
+                          and op.get('action') in {'adopt', 'archive'}]
+            scope_ok = bool(named) and len(named) == len(resolvable)
+            wanted_ids = sorted({int(op['product_id']) for op in named}) if scope_ok else []
             scope_clause = 'AND p.id = ANY(%s)' if wanted_ids else ''
             scope_params = (wanted_ids,) if wanted_ids else ()
 
-            cursor.execute(f"""
+            # The full catalogue scan is only needed to ADOPT or ARCHIVE, both of
+            # which name their product. A batch of pure creates needs no catalogue
+            # rows at all, so that expensive scan is skipped rather than run for
+            # nothing. Adopts still need it (for the as-at-date stock figure).
+            needs_catalogue = bool(resolvable)
+            catalogue = []
+            if needs_catalogue:
+                cursor.execute(f"""
                 SELECT p.id, p.name, COALESCE(p.category, ''), COALESCE(p.buy_price, 0),
                        COALESCE(pp.sell_price, p.sell_price, 0), COALESCE(p.unit_type, 'piece'),
                        COALESCE(p.unit_details, ''), COALESCE(p.barcode, ''),
@@ -19052,20 +19065,32 @@ def pos_stock_audit_adopt_reviewed():
                 WHERE p.is_active = TRUE {scope_clause}
             """, (branch_id, as_at_dt, branch_id, as_at_dt, as_at_dt,
                   as_at_dt, branch_id, as_at_dt, branch_id, branch_id) + scope_params)
-            catalogue = [{
-                'id': r[0], 'name': r[1], 'category': r[2],
-                'buy_price': float(r[3] or 0), 'sell_price': float(r[4] or 0),
-                'unit_type': r[5] or 'piece', 'unit_details': r[6] or '',
-                'barcode': r[7] or '', 'description': r[8] or '',
-                'live_stock': int(r[9] or 0), 'stocked_here': bool(r[10]),
-                # Stock as at the audit date is ONE column (the 13th, index 12):
-                # lots received, less reductions and count adjustments made after
-                # that date. Summing three columns raised tuple index out of range.
-                'system_at_date': int(r[12] or 0),
-            } for r in cursor.fetchall()]
+                catalogue = [{
+                    'id': r[0], 'name': r[1], 'category': r[2],
+                    'buy_price': float(r[3] or 0), 'sell_price': float(r[4] or 0),
+                    'unit_type': r[5] or 'piece', 'unit_details': r[6] or '',
+                    'barcode': r[7] or '', 'description': r[8] or '',
+                    'live_stock': int(r[9] or 0), 'stocked_here': bool(r[10]),
+                    # Stock as at the audit date is ONE column (the 13th, index 12):
+                    # lots received, less reductions and count adjustments made after
+                    # that date. Summing three columns raised tuple index out of range.
+                    'system_at_date': int(r[12] or 0),
+                } for r in cursor.fetchall()]
             lines, matched_ids = _stock_audit_resolve_rows(rows, catalogue)
             line_map = {line['row']: line for line in lines}
             products = {product['id']: product for product in catalogue}
+
+            # When the catalogue above was SCOPED, it holds only the products being
+            # adopted/archived. A create row must still know whether its name already
+            # exists anywhere, so the full name list is read cheaply (names only - no
+            # lot-history subqueries) for that check. This keeps the create guard
+            # correct without paying for the expensive per-product scan.
+            all_names = {}
+            if scope_params:
+                cursor.execute("""
+                    SELECT id, LOWER(TRIM(name)) FROM products WHERE is_active = TRUE
+                """)
+                all_names = {name: pid for pid, name in cursor.fetchall()}
             selected, archives = [], []
             row_seen, product_seen, adopted_rows = set(), set(), set()
             adopted_products = {}
@@ -19169,6 +19194,12 @@ def pos_stock_audit_adopt_reviewed():
                     if line['exact']:
                         return jsonify({'success': False,
                                         'error': 'That row already exactly matches a system product.'}), 409
+                    # With a scoped catalogue, `line['exact']` alone cannot prove the
+                    # name is unused, so the full name list is checked as well.
+                    if all_names and all_names.get(line['counted_was'].strip().lower()):
+                        return jsonify({'success': False,
+                                        'error': f'"{line["counted_was"]}" already exists in the '
+                                                 'catalogue. Run the audit again and adopt it.'}), 409
                     values = op.get('create_values') or {}
                     if not isinstance(values, dict):
                         return jsonify({'success': False, 'error': 'New product details are invalid.'}), 400
