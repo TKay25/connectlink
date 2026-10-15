@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "RepairChegutuLots",
+  "file": "_repair_chegutu_lots.py",
+  "purpose": "Bring Chegutu's FIFO layers back in line with the corrected shelf counts.",
+  "entry_function": "trim_layers(cur, product_id, branch_id, surplus)",
+  "entry_flows": [
+    "_repair_chegutu_lots → cur.execute, cur.fetchall"
+  ],
+  "public_api": [
+    "trim_layers(cur, product_id, branch_id, surplus)",
+    "top_up_layers(cur, product_id, branch_id, deficit)",
+    "main()"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: DEFAULT_DSN = None, DRIFT_SQL = '\\n    SELECT ps.product_id, p.name, ps.stock,\\n           COALESCE((SELECT SUM(sl.quantity_remaining) FROM stock_lots sl\\n                     WHERE sl.product_id = ps.product_id\\n                       AND sl.branch_id = ps.branch_id), 0) AS lots\\n    FROM product_stock ps\\n    JOIN products p ON p.id = ps.product_id\\n    WHERE ps.branch_id = %s\\n      AND ps.stock <> COALESCE((SELECT SUM(sl.quantity_remaining) FROM stock_lots sl\\n                                WHERE sl.product_id = ps.product_id\\n                                  AND sl.branch_id = ps.branch_id), 0)\\n    ORDER BY ps.product_id\\n'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "7ec888ff76f544ad",
+  "file_mtime": 1792052074255.1702,
+  "file_size": 9011,
+  "file_birthtime": 1792052074254.17,
+  "generated_at": "2026-10-15T08:14:36.450044Z",
+  "stale": false
+}

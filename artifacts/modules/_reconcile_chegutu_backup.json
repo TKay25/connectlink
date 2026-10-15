@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ReconcileChegutuBackup",
+  "file": "_reconcile_chegutu_backup.json",
+  "purpose": "JSON config/data — 5 top-level keys",
+  "entry_function": "branch_id",
+  "entry_flows": [],
+  "public_api": [
+    "branch_id: int",
+    "branch_name: str",
+    "job_good: int",
+    "job_bad: int",
+    "products: list"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "8a94575cd4679f25",
+  "file_mtime": 1792051979818.8274,
+  "file_size": 35495,
+  "file_birthtime": 1792051979818.0444,
+  "generated_at": "2026-10-15T08:13:01.915824Z",
+  "stale": false
+}

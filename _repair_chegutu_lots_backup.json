@@ -1,0 +1,1109 @@
+{
+  "branch_id": 2,
+  "plan": [
+    {
+      "product_id": 1027,
+      "name": "7kg gas tank",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1028,
+      "name": "9kg gas tank",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1100,
+      "name": "3kg Gas Tank",
+      "shelf": 40,
+      "lots_before": 84,
+      "delta": 44,
+      "action": "trim"
+    },
+    {
+      "product_id": 1127,
+      "name": "Gas Pipe",
+      "shelf": 4,
+      "lots_before": 8,
+      "delta": 4,
+      "action": "trim"
+    },
+    {
+      "product_id": 1318,
+      "name": "Toasters",
+      "shelf": 6,
+      "lots_before": 15,
+      "delta": 9,
+      "action": "trim"
+    },
+    {
+      "product_id": 1319,
+      "name": "Small Irons",
+      "shelf": 2,
+      "lots_before": 7,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1320,
+      "name": "Big Irons",
+      "shelf": 3,
+      "lots_before": 8,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1321,
+      "name": "RAF Blender",
+      "shelf": 6,
+      "lots_before": 16,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1331,
+      "name": "2 plate stove Electric",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1341,
+      "name": "Headboard",
+      "shelf": 4,
+      "lots_before": 0,
+      "delta": 4,
+      "action": "topup"
+    },
+    {
+      "product_id": 1366,
+      "name": "Kango cups",
+      "shelf": 0,
+      "lots_before": 20,
+      "delta": 20,
+      "action": "trim"
+    },
+    {
+      "product_id": 1367,
+      "name": "Kango plate",
+      "shelf": 94,
+      "lots_before": 190,
+      "delta": 96,
+      "action": "trim"
+    },
+    {
+      "product_id": 1380,
+      "name": "Mug cups",
+      "shelf": 40,
+      "lots_before": 160,
+      "delta": 120,
+      "action": "trim"
+    },
+    {
+      "product_id": 1389,
+      "name": "$60 pots",
+      "shelf": 4,
+      "lots_before": 13,
+      "delta": 9,
+      "action": "trim"
+    },
+    {
+      "product_id": 1390,
+      "name": "$70 pots",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1392,
+      "name": "$50 pots",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1394,
+      "name": "$40 pots",
+      "shelf": 2,
+      "lots_before": 6,
+      "delta": 4,
+      "action": "trim"
+    },
+    {
+      "product_id": 1395,
+      "name": "$35 pots",
+      "shelf": 6,
+      "lots_before": 14,
+      "delta": 8,
+      "action": "trim"
+    },
+    {
+      "product_id": 1397,
+      "name": "$15 pots",
+      "shelf": 6,
+      "lots_before": 15,
+      "delta": 9,
+      "action": "trim"
+    },
+    {
+      "product_id": 1398,
+      "name": "$120 pots",
+      "shelf": 5,
+      "lots_before": 14,
+      "delta": 9,
+      "action": "trim"
+    },
+    {
+      "product_id": 1402,
+      "name": "$90 pots",
+      "shelf": 3,
+      "lots_before": 9,
+      "delta": 6,
+      "action": "trim"
+    },
+    {
+      "product_id": 1412,
+      "name": "Deep fryer",
+      "shelf": 3,
+      "lots_before": 6,
+      "delta": 3,
+      "action": "trim"
+    },
+    {
+      "product_id": 1413,
+      "name": "Silver Kango",
+      "shelf": 8,
+      "lots_before": 18,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1418,
+      "name": "Dinner plates",
+      "shelf": 61,
+      "lots_before": 184,
+      "delta": 123,
+      "action": "trim"
+    },
+    {
+      "product_id": 1420,
+      "name": "Half gas/Electric",
+      "shelf": 4,
+      "lots_before": 8,
+      "delta": 4,
+      "action": "trim"
+    },
+    {
+      "product_id": 1474,
+      "name": "Gas plate",
+      "shelf": 36,
+      "lots_before": 76,
+      "delta": 40,
+      "action": "trim"
+    },
+    {
+      "product_id": 1478,
+      "name": "5kg gas tank @ $20",
+      "shelf": 9,
+      "lots_before": 19,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1570,
+      "name": "Kango Bellied Pots 3pc",
+      "shelf": 3,
+      "lots_before": 9,
+      "delta": 6,
+      "action": "trim"
+    },
+    {
+      "product_id": 1574,
+      "name": "43-inch Samsung TV",
+      "shelf": 2,
+      "lots_before": 0,
+      "delta": 2,
+      "action": "topup"
+    },
+    {
+      "product_id": 1577,
+      "name": "60-inch Samsung TV",
+      "shelf": 2,
+      "lots_before": 0,
+      "delta": 2,
+      "action": "topup"
+    },
+    {
+      "product_id": 1580,
+      "name": "Double Gas Fryer",
+      "shelf": 1,
+      "lots_before": 2,
+      "delta": 1,
+      "action": "trim"
+    },
+    {
+      "product_id": 1586,
+      "name": "Microwave @$95",
+      "shelf": 0,
+      "lots_before": 3,
+      "delta": 3,
+      "action": "trim"
+    },
+    {
+      "product_id": 1591,
+      "name": "D230 Defy Fridge",
+      "shelf": 1,
+      "lots_before": 0,
+      "delta": 1,
+      "action": "topup"
+    },
+    {
+      "product_id": 1595,
+      "name": "Defy Stove",
+      "shelf": 1,
+      "lots_before": 0,
+      "delta": 1,
+      "action": "topup"
+    },
+    {
+      "product_id": 1598,
+      "name": "R.7800 2L kettle (RK8578)",
+      "shelf": 1,
+      "lots_before": 6,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1600,
+      "name": "12pcs Kango Pots @84",
+      "shelf": 7,
+      "lots_before": 15,
+      "delta": 8,
+      "action": "trim"
+    },
+    {
+      "product_id": 1601,
+      "name": "Food Warmers - Medium",
+      "shelf": 3,
+      "lots_before": 6,
+      "delta": 3,
+      "action": "trim"
+    },
+    {
+      "product_id": 1604,
+      "name": " Bread Box Rose Gold @$20",
+      "shelf": 9,
+      "lots_before": 19,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1610,
+      "name": "JG-20 sets of knives",
+      "shelf": 10,
+      "lots_before": 20,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1714,
+      "name": "Kango Dheka Small",
+      "shelf": 12,
+      "lots_before": 24,
+      "delta": 12,
+      "action": "trim"
+    },
+    {
+      "product_id": 1718,
+      "name": "Defy Bar Fridge",
+      "shelf": 3,
+      "lots_before": 6,
+      "delta": 3,
+      "action": "trim"
+    },
+    {
+      "product_id": 1725,
+      "name": "15kg Gas Tank",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1750,
+      "name": "Defy DFF456 SBS Glassdoor",
+      "shelf": 1,
+      "lots_before": 0,
+      "delta": 1,
+      "action": "topup"
+    },
+    {
+      "product_id": 1751,
+      "name": "Hisense Mirror fridge",
+      "shelf": 1,
+      "lots_before": 0,
+      "delta": 1,
+      "action": "topup"
+    },
+    {
+      "product_id": 1752,
+      "name": "Keson Solar Fridge",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1753,
+      "name": "Media Double bar fridge",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1754,
+      "name": "Gain Star4 plate gas stove",
+      "shelf": 20,
+      "lots_before": 40,
+      "delta": 20,
+      "action": "trim"
+    },
+    {
+      "product_id": 1755,
+      "name": "6 plate gas stove",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1756,
+      "name": "Defy Deep Fridge CF185",
+      "shelf": 4,
+      "lots_before": 8,
+      "delta": 4,
+      "action": "trim"
+    },
+    {
+      "product_id": 1757,
+      "name": "Top loader washing machine",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1758,
+      "name": "Defy c285 upright",
+      "shelf": 1,
+      "lots_before": 2,
+      "delta": 1,
+      "action": "trim"
+    },
+    {
+      "product_id": 1759,
+      "name": "Hisense double fridge small",
+      "shelf": 1,
+      "lots_before": 2,
+      "delta": 1,
+      "action": "trim"
+    },
+    {
+      "product_id": 1760,
+      "name": "Defy Washing",
+      "shelf": 1,
+      "lots_before": 2,
+      "delta": 1,
+      "action": "trim"
+    },
+    {
+      "product_id": 1761,
+      "name": "Ceeedye search light",
+      "shelf": 10,
+      "lots_before": 20,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1762,
+      "name": "L-835 search light",
+      "shelf": 9,
+      "lots_before": 19,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1763,
+      "name": "CS0815/813 Speaker",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1764,
+      "name": "CS4414 Speaker",
+      "shelf": 4,
+      "lots_before": 9,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1765,
+      "name": "P9 headset",
+      "shelf": 7,
+      "lots_before": 17,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1766,
+      "name": "p47 headset",
+      "shelf": 8,
+      "lots_before": 18,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1767,
+      "name": "soft dish washer sponge",
+      "shelf": 14,
+      "lots_before": 28,
+      "delta": 14,
+      "action": "trim"
+    },
+    {
+      "product_id": 1768,
+      "name": "Big Personal Speaker",
+      "shelf": 1,
+      "lots_before": 0,
+      "delta": 1,
+      "action": "topup"
+    },
+    {
+      "product_id": 1769,
+      "name": "Botswana Medium Speaker",
+      "shelf": 1,
+      "lots_before": 0,
+      "delta": 1,
+      "action": "topup"
+    },
+    {
+      "product_id": 1770,
+      "name": "Botswana Small Speaker",
+      "shelf": 0,
+      "lots_before": 1,
+      "delta": 1,
+      "action": "trim"
+    },
+    {
+      "product_id": 1772,
+      "name": "S1 Carbon Steel Storage Rack 3F Black",
+      "shelf": 1,
+      "lots_before": 4,
+      "delta": 3,
+      "action": "trim"
+    },
+    {
+      "product_id": 1773,
+      "name": "Round-framed 5-layer Storage Rack",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1774,
+      "name": "Gas Regulator big",
+      "shelf": 20,
+      "lots_before": 40,
+      "delta": 20,
+      "action": "trim"
+    },
+    {
+      "product_id": 1775,
+      "name": "Gas Regulator small",
+      "shelf": 18,
+      "lots_before": 37,
+      "delta": 19,
+      "action": "trim"
+    },
+    {
+      "product_id": 1776,
+      "name": "Air fryer papers",
+      "shelf": 17,
+      "lots_before": 35,
+      "delta": 18,
+      "action": "trim"
+    },
+    {
+      "product_id": 1777,
+      "name": "Light Grey Knife set",
+      "shelf": 4,
+      "lots_before": 9,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1778,
+      "name": "Wood handle knife big",
+      "shelf": 11,
+      "lots_before": 23,
+      "delta": 12,
+      "action": "trim"
+    },
+    {
+      "product_id": 1779,
+      "name": "Wood handle knife small",
+      "shelf": 10,
+      "lots_before": 21,
+      "delta": 11,
+      "action": "trim"
+    },
+    {
+      "product_id": 1780,
+      "name": "White handled Knife",
+      "shelf": 10,
+      "lots_before": 21,
+      "delta": 11,
+      "action": "trim"
+    },
+    {
+      "product_id": 1781,
+      "name": "Peeler",
+      "shelf": 17,
+      "lots_before": 37,
+      "delta": 20,
+      "action": "trim"
+    },
+    {
+      "product_id": 1782,
+      "name": "Grater",
+      "shelf": 7,
+      "lots_before": 16,
+      "delta": 9,
+      "action": "trim"
+    },
+    {
+      "product_id": 1783,
+      "name": "Grater with wood",
+      "shelf": 16,
+      "lots_before": 35,
+      "delta": 19,
+      "action": "trim"
+    },
+    {
+      "product_id": 1784,
+      "name": "Wood chopping board",
+      "shelf": 9,
+      "lots_before": 18,
+      "delta": 9,
+      "action": "trim"
+    },
+    {
+      "product_id": 1785,
+      "name": "Grid kitchen Knives",
+      "shelf": 4,
+      "lots_before": 9,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1786,
+      "name": "Ai 02s Speaker",
+      "shelf": 5,
+      "lots_before": 0,
+      "delta": 5,
+      "action": "topup"
+    },
+    {
+      "product_id": 1787,
+      "name": "GTS1767 Speaker",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1789,
+      "name": "CHM802 Speaker",
+      "shelf": 4,
+      "lots_before": 9,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1790,
+      "name": "Sound Speaker AI 178sun",
+      "shelf": 1,
+      "lots_before": 3,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1791,
+      "name": "Sound Speaker AI 02plus",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1792,
+      "name": "Sound Speaker BOMBOX4",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1793,
+      "name": "Sound Speaker YG A151",
+      "shelf": 1,
+      "lots_before": 3,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1794,
+      "name": "Sound Speaker AI 05s",
+      "shelf": 1,
+      "lots_before": 2,
+      "delta": 1,
+      "action": "trim"
+    },
+    {
+      "product_id": 1795,
+      "name": "Sound Speaker AI 07sun",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1797,
+      "name": "Kadoma Air Fryer",
+      "shelf": 2,
+      "lots_before": 6,
+      "delta": 4,
+      "action": "trim"
+    },
+    {
+      "product_id": 1798,
+      "name": "Breadbox wood large",
+      "shelf": 9,
+      "lots_before": 19,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1799,
+      "name": "White Bread Bin",
+      "shelf": 3,
+      "lots_before": 6,
+      "delta": 3,
+      "action": "trim"
+    },
+    {
+      "product_id": 1800,
+      "name": "Bread Box black/white large",
+      "shelf": 10,
+      "lots_before": 20,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1801,
+      "name": "Bread Box wood",
+      "shelf": 3,
+      "lots_before": 8,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1802,
+      "name": "CH880 speaker",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1803,
+      "name": "ZQS24 speaker",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1804,
+      "name": "R.7978 2L Kettle",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1805,
+      "name": "Electric Kettle @ $9",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1806,
+      "name": "Electric Kettle @ $10",
+      "shelf": 4,
+      "lots_before": 9,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1807,
+      "name": "Electric Kettle @ $12",
+      "shelf": 2,
+      "lots_before": 7,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1808,
+      "name": "Stand Mixer R6628",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1809,
+      "name": "Hand Mixer R6690",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1810,
+      "name": "R2580S Sandwich Machine small",
+      "shelf": 18,
+      "lots_before": 38,
+      "delta": 20,
+      "action": "trim"
+    },
+    {
+      "product_id": 1811,
+      "name": "R.2580S sandwich maker",
+      "shelf": 3,
+      "lots_before": 8,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1812,
+      "name": "Potato Chipper",
+      "shelf": 6,
+      "lots_before": 13,
+      "delta": 7,
+      "action": "trim"
+    },
+    {
+      "product_id": 1813,
+      "name": "Egg Mold cutlery set",
+      "shelf": 10,
+      "lots_before": 20,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1814,
+      "name": "Canister",
+      "shelf": 10,
+      "lots_before": 20,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1815,
+      "name": "Rice Cooker",
+      "shelf": 2,
+      "lots_before": 6,
+      "delta": 4,
+      "action": "trim"
+    },
+    {
+      "product_id": 1816,
+      "name": "Electric Fan",
+      "shelf": 0,
+      "lots_before": 2,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1817,
+      "name": "Metal Gas Stove Two-Plate",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1818,
+      "name": "1 Plate Electrical Stove (H-002)",
+      "shelf": 18,
+      "lots_before": 38,
+      "delta": 20,
+      "action": "trim"
+    },
+    {
+      "product_id": 1819,
+      "name": "Kango Dheka Big",
+      "shelf": 12,
+      "lots_before": 24,
+      "delta": 12,
+      "action": "trim"
+    },
+    {
+      "product_id": 1821,
+      "name": "Gas Double Chip Fryer",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1822,
+      "name": "Gas Single Chip Fryer",
+      "shelf": 3,
+      "lots_before": 6,
+      "delta": 3,
+      "action": "trim"
+    },
+    {
+      "product_id": 1823,
+      "name": "P-19S Black 19-piece Silicone",
+      "shelf": 5,
+      "lots_before": 12,
+      "delta": 7,
+      "action": "trim"
+    },
+    {
+      "product_id": 1824,
+      "name": "12 pc spice bottle",
+      "shelf": 41,
+      "lots_before": 89,
+      "delta": 48,
+      "action": "trim"
+    },
+    {
+      "product_id": 1825,
+      "name": "Stanley Cup",
+      "shelf": 8,
+      "lots_before": 25,
+      "delta": 17,
+      "action": "trim"
+    },
+    {
+      "product_id": 1826,
+      "name": "Stanley Cup - No Handle",
+      "shelf": 12,
+      "lots_before": 26,
+      "delta": 14,
+      "action": "trim"
+    },
+    {
+      "product_id": 1827,
+      "name": "Botswana 3-Door Wardrobe",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1828,
+      "name": "Kitchen Unit",
+      "shelf": 1,
+      "lots_before": 2,
+      "delta": 1,
+      "action": "trim"
+    },
+    {
+      "product_id": 1829,
+      "name": "3-Door Botswana Wardrobe",
+      "shelf": 1,
+      "lots_before": 2,
+      "delta": 1,
+      "action": "trim"
+    },
+    {
+      "product_id": 1830,
+      "name": "10L Air Fryer",
+      "shelf": 1,
+      "lots_before": 0,
+      "delta": 1,
+      "action": "topup"
+    },
+    {
+      "product_id": 1831,
+      "name": "7.5L Air Fryer",
+      "shelf": 1,
+      "lots_before": 3,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1832,
+      "name": "Slow Juicer",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1833,
+      "name": "2 plate metal gas stove",
+      "shelf": 3,
+      "lots_before": 7,
+      "delta": 4,
+      "action": "trim"
+    },
+    {
+      "product_id": 1835,
+      "name": "$65 pots",
+      "shelf": 1,
+      "lots_before": 4,
+      "delta": 3,
+      "action": "trim"
+    },
+    {
+      "product_id": 1836,
+      "name": "$110 pots",
+      "shelf": 2,
+      "lots_before": 4,
+      "delta": 2,
+      "action": "trim"
+    },
+    {
+      "product_id": 1837,
+      "name": "$6 pan",
+      "shelf": 4,
+      "lots_before": 17,
+      "delta": 13,
+      "action": "trim"
+    },
+    {
+      "product_id": 1838,
+      "name": "$10 pots",
+      "shelf": 8,
+      "lots_before": 19,
+      "delta": 11,
+      "action": "trim"
+    },
+    {
+      "product_id": 1839,
+      "name": "Silver Pans",
+      "shelf": 18,
+      "lots_before": 38,
+      "delta": 20,
+      "action": "trim"
+    },
+    {
+      "product_id": 1840,
+      "name": "$30 pots",
+      "shelf": 0,
+      "lots_before": 4,
+      "delta": 4,
+      "action": "trim"
+    },
+    {
+      "product_id": 1841,
+      "name": "Gold Plates",
+      "shelf": 113,
+      "lots_before": 226,
+      "delta": 113,
+      "action": "trim"
+    },
+    {
+      "product_id": 1842,
+      "name": "fish and platter plates",
+      "shelf": 19,
+      "lots_before": 73,
+      "delta": 54,
+      "action": "trim"
+    },
+    {
+      "product_id": 1843,
+      "name": "$2 Plates",
+      "shelf": 126,
+      "lots_before": 300,
+      "delta": 174,
+      "action": "trim"
+    },
+    {
+      "product_id": 1844,
+      "name": "White 3-piece Striped Soup Pot Set",
+      "shelf": 5,
+      "lots_before": 10,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1845,
+      "name": "TG3011 Pure White Double Ear Soup Pot",
+      "shelf": 4,
+      "lots_before": 9,
+      "delta": 5,
+      "action": "trim"
+    },
+    {
+      "product_id": 1846,
+      "name": "white and gold 3 pots soup plate",
+      "shelf": 10,
+      "lots_before": 20,
+      "delta": 10,
+      "action": "trim"
+    },
+    {
+      "product_id": 1848,
+      "name": "Mugs large",
+      "shelf": 122,
+      "lots_before": 248,
+      "delta": 126,
+      "action": "trim"
+    },
+    {
+      "product_id": 1849,
+      "name": "Mug stand",
+      "shelf": 52,
+      "lots_before": 107,
+      "delta": 55,
+      "action": "trim"
+    },
+    {
+      "product_id": 1850,
+      "name": "Gold bowls",
+      "shelf": 48,
+      "lots_before": 146,
+      "delta": 98,
+      "action": "trim"
+    },
+    {
+      "product_id": 1858,
+      "name": "16 piece dinner plate",
+      "shelf": 0,
+      "lots_before": 2,
+      "delta": 2,
+      "action": "trim"
+    }
+  ]
+}

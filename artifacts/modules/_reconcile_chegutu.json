@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "ReconcileChegutu",
+  "file": "_reconcile_chegutu.py",
+  "purpose": "Reconcile Chegutu stock after two duplicate bulk uploads (2026-10-05).",
+  "entry_function": "build_rows(cur, branch_id)",
+  "entry_flows": [
+    "_reconcile_chegutu → cur.execute, cur.fetchall"
+  ],
+  "public_api": [
+    "build_rows(cur, branch_id)",
+    "write_sheet(rows, branch_name)",
+    "main()"
+  ],
+  "dependencies": [
+    "openpyxl",
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: DEFAULT_DSN = None, JOB_GOOD = 10, JOB_BAD = 11, SHEET = '_reconcile_chegutu.xlsx', BACKUP = '_reconcile_chegutu_backup.json'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "95f15ce25ecfeb1e",
+  "file_mtime": 1792051671258.7964,
+  "file_size": 12860,
+  "file_birthtime": 1792051671258.0881,
+  "generated_at": "2026-10-15T08:07:53.384345Z",
+  "stale": false
+}

@@ -1,0 +1,35 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "RepairChegutuLotsBackup",
+  "file": "_repair_chegutu_lots_backup.json",
+  "purpose": "JSON config/data — 2 top-level keys",
+  "entry_function": "branch_id",
+  "entry_flows": [],
+  "public_api": [
+    "branch_id: int",
+    "plan: list"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "bb727d056b81f019",
+  "file_mtime": 1792052089197.0503,
+  "file_size": 22961,
+  "file_birthtime": 1792052089197.0503,
+  "generated_at": "2026-10-15T08:14:51.372501Z",
+  "stale": false
+}
