@@ -7216,6 +7216,9 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <button class="btn btn-warning" onclick="openUploadStockModal()">
                                     <i class="fas fa-file-upload me-1"></i>Upload New Stock
                                 </button>
+                                <button class="btn btn-primary-dark" onclick="openUploadStockJobs()">
+                                    <i class="fas fa-clock-rotate-left me-1"></i>Upload Jobs
+                                </button>
                                 <button class="btn btn-success" id="downloadInventoryExcelBtn">
                                     <i class="fas fa-file-excel me-1"></i>Download Excel
                                 </button>
@@ -14539,6 +14542,42 @@ async function fetchTransactionsData() {
     }
     window.openUploadStockModal = openUploadStockModal;
 
+    // The same modal, opened for its "Previous uploads" list rather than for a
+    // new file. Deliberately NOT blocked by branchIsReadOnly(): reading the job
+    // history is not a write, and the All Branches view is where an owner is
+    // most likely to want it. The revert buttons inside stay disabled there
+    // because the endpoint refuses writes in the consolidated view.
+    function openUploadStockJobs() {
+        const modalEl = document.getElementById('uploadStockModal');
+        const branchEl = document.getElementById('uploadStockBranch');
+        if (branchEl) branchEl.innerText = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
+        const fileEl = document.getElementById('uploadStockFile');
+        if (fileEl) fileEl.value = '';
+        resetStockUploadView();
+        loadUploadStockCategories();
+        loadStockUploadJobs();
+        if (!modalEl) return;
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        // Bring the jobs list into view once the modal has finished opening,
+        // otherwise it sits below the fold and looks like nothing happened.
+        // The list is fetched asynchronously, so retry briefly until the wrapper
+        // exists and is visible rather than scrolling to a hidden element once.
+        modalEl.addEventListener('shown.bs.modal', function scrollToJobs() {
+            modalEl.removeEventListener('shown.bs.modal', scrollToJobs);
+            let tries = 0;
+            const tick = () => {
+                const wrap = document.getElementById('uploadStockJobsWrap');
+                if (wrap && wrap.style.display !== 'none' && wrap.offsetHeight) {
+                    wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    return;
+                }
+                if (tries++ < 20) setTimeout(tick, 100);
+            };
+            tick();
+        });
+    }
+    window.openUploadStockJobs = openUploadStockJobs;
+
     function resetStockUploadView() {
         _bulkStockPlan = null;
         _bulkStockDecisions = [];
@@ -14940,15 +14979,29 @@ async function fetchTransactionsData() {
                 action = `<button type="button" class="btn btn-sm btn-outline-danger" onclick="requestRevertJob(${i})">Revert</button>`;
             } else {
                 const why = (j.blockers || []).join(' ');
-                action = `<button type="button" class="btn btn-sm btn-outline-secondary" onclick="showRevertBlockers(${i})"
-                                   title="${escapeHtml(why)}">Revert</button>`;
+                // Say WHY inline. A greyed button with only a tooltip reads as
+                // broken, and this is the row an owner goes looking for.
+                action = `<span class="d-inline-flex align-items-center gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    onclick="showRevertBlockers(${i})"
+                                    title="${escapeHtml(why)}">Revert</button>
+                            <i class="fas fa-circle-info text-muted" role="button"
+                               title="${escapeHtml(why)}" onclick="showRevertBlockers(${i})"></i>
+                          </span>`;
             }
+            const blockedNote = (!done && !j.can_revert && (j.blockers || []).length)
+                ? `<tr><td colspan="5" class="small text-warning-emphasis bg-warning-subtle">
+                       <i class="fas fa-triangle-exclamation me-1"></i>${escapeHtml(j.blockers[0])}
+                       ${j.blockers.length > 1 ? `(+${j.blockers.length - 1} more product(s))` : ''}
+                       <span class="text-muted">— correct the affected products individually.</span>
+                   </td></tr>`
+                : '';
             return `<tr>
                 <td class="small">${escapeHtml(j.created_at)}</td>
                 <td class="small">${escapeHtml(j.reference)}</td>
                 <td class="small">${j.total_quantity} unit(s)<div class="text-muted">${j.updated_count} updated, ${j.created_count} new</div></td>
                 <td>${status}</td>
-                <td class="text-end">${action}</td></tr>`;
+                <td class="text-end">${action}</td></tr>${blockedNote}`;
         }).join('');
     }
 
