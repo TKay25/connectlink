@@ -17856,8 +17856,169 @@ def pos_stock_upload_job_download(job_id):
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
-def _read_stock_audit_count_sheet(file):
-    """Parse counted and explicitly uncounted product rows from an audit sheet."""
+# The fields an audit sheet must supply, and the words shops actually put on the
+# header row. Detection is deliberately generous, but an unusual sheet (another
+# language, a supplier's own layout) can still defeat it - which is why the
+# uploader gets to map the columns by hand (see STOCK_AUDIT_COLUMN_SPEC below).
+STOCK_AUDIT_COLUMN_SPEC = (
+    ('product_name', 'Product name', True,
+     ('product name', 'product', 'name', 'item', 'description of goods', 'goods',
+      'item name', 'stock item', 'particulars', 'product description')),
+    ('quantity', 'Quantity counted', True,
+     ('quantity', 'qty', 'stock', 'counted quantity', 'counted qty', 'count',
+      'physical count', 'on hand', 'actual', 'balance', 'quantity counted')),
+    ('buy_price', 'Unit buying price', False,
+     ('unit buying price', 'buying price', 'buy price', 'unit cost', 'cost',
+      'cost price', 'purchase price')),
+    ('sell_price', 'Unit selling price', False,
+     ('unit selling price', 'selling price', 'sell price', 'price', 'retail price',
+      'selling price per unit')),
+    ('category', 'Category', False,
+     ('category', 'main category', 'product category', 'department', 'group')),
+    ('unit_type', 'Unit type', False,
+     ('unit type', 'unit', 'uom', 'unit of measure', 'measure', 'pack type')),
+    ('unit_details', 'Unit detail', False,
+     ('unit detail', 'unit details', 'size', 'specification', 'spec', 'pack size',
+      'dimensions')),
+    ('barcode', 'Barcode / SKU', False,
+     ('barcode', 'barcode / sku', 'sku', 'product code', 'code', 'item code',
+      'bar code')),
+    ('description', 'Description', False,
+     ('description', 'product description', 'details', 'notes', 'remarks')),
+)
+
+# Audit fields that hold text rather than numbers/prices.
+STOCK_AUDIT_TEXT_FIELDS = {'product_name', 'category', 'unit_type', 'unit_details',
+                           'barcode', 'description'}
+STOCK_AUDIT_PRICE_FIELDS = {'buy_price', 'sell_price'}
+
+
+def _stock_audit_read_header(ws, header_row=1):
+    """Return {'headers': [...], 'detected': {...}} for one sheet.
+
+    `headers` keeps EVERY non-blank header in sheet order so the uploader can be
+    shown the real names their file uses, and `detected` is the best automatic
+    guess per audit field. Detection only reads this sheet - it never guesses
+    from another sheet, because the audit parser reads wb.active only.
+    """
+    headers = []
+    header_map = {}
+    for col in range(1, (ws.max_column or 0) + 1):
+        raw = ws.cell(row=header_row, column=col).value
+        label = str(raw).strip() if raw is not None else ''
+        if not label:
+            continue
+        headers.append({'column': col, 'label': label[:120]})
+        key = _bulk_stock_header(label)
+        if key:
+            header_map.setdefault(key, col)
+
+    detected = {}
+    for field, _label, _required, aliases in STOCK_AUDIT_COLUMN_SPEC:
+        hit = None
+        for alias in aliases:
+            if alias in header_map:
+                hit = header_map[alias]
+                break
+        if hit is not None:
+            detected[field] = hit
+    return {'headers': headers, 'detected': detected}
+
+
+def _stock_audit_peek_rows(ws, header_row=1, sample=4):
+    """A few data rows as raw strings, so the uploader can see their own file
+    next to each column they are choosing."""
+    out = []
+    if not ws.max_column:
+        return out
+    for row in range(header_row + 1, min(int(ws.max_row or 1), header_row + sample) + 1):
+        values = []
+        for col in range(1, (ws.max_column or 0) + 1):
+            value = ws.cell(row=row, column=col).value
+            values.append('' if value is None else str(value).strip()[:60])
+        if any(values):
+            out.append({'row': row, 'values': values})
+    return out
+
+
+def _stock_audit_columns_from_request(ws, raw_mapping, header_row=1):
+    """Merge the uploader's column choices with automatic detection.
+
+    Returns (columns, error) where `columns` maps audit field -> sheet column, or
+    None when the field is genuinely absent from the sheet.
+
+    A field the uploader has marked "not in this file" is honoured as absent and
+    does NOT block the audit: the audit simply ignores that detail for every
+    product. That is deliberate - a shop whose sheet carries no prices should
+    still be able to adopt its counts, rather than being turned away because a
+    column they never needed is missing. A field is only a hard stop when it is
+    required AND nothing was decided about it at all.
+    """
+    header_info = _stock_audit_read_header(ws, header_row)
+    column_count = max((h['column'] for h in header_info['headers']), default=0)
+    columns = dict(header_info['detected'])
+
+    if raw_mapping is not None:
+        if not isinstance(raw_mapping, dict):
+            return None, ('The column mapping was not readable.', 400)
+        mapping = raw_mapping
+    else:
+        mapping = {}
+
+    chosen = {}
+    # Fields the uploader has explicitly declared absent. These override both
+    # detection and any earlier choice, and are exempt from the required check.
+    declared_absent = set()
+    for field, label, _required, _aliases in STOCK_AUDIT_COLUMN_SPEC:
+        if field not in mapping:
+            continue
+        value = mapping[field]
+        if isinstance(value, str) and value.strip().lower() in ('absent', 'missing', 'not_in_file',
+                                                                'not in this file', 'ignore', 'skip'):
+            declared_absent.add(field)
+            chosen[field] = None
+            continue
+        # Blank / None / '' / 'auto' all mean "use the detected column".
+        if value is None or (isinstance(value, str)
+                             and value.strip().lower() in ('', 'auto', 'detected', 'none')):
+            continue
+        try:
+            col = int(value)
+        except (TypeError, ValueError):
+            return None, (f'The column chosen for {label} was not a number.', 400)
+        if col < 1 or col > max(column_count, 1):
+            return None, (f'The column chosen for {label} is outside this sheet.', 400)
+        chosen[field] = col
+
+    # One sheet column cannot feed two different fields.
+    seen = {}
+    for field, col in {**columns, **chosen}.items():
+        if col is None:
+            continue
+        if col in seen:
+            return None, (f'Column {col} is assigned to both '
+                          f'"{seen[col]}" and "{field}". Each column can supply only '
+                          f'one field.', 400)
+        seen[col] = field
+
+    columns.update(chosen)
+
+    missing = [label for field, label, required, _a in STOCK_AUDIT_COLUMN_SPEC
+               if required and columns.get(field) is None
+               and field not in declared_absent]
+    if missing:
+        return None, ('This file is missing ' + ', '.join(missing) +
+                      '. Match them to the file\'s own column names above, or mark '
+                      'them as not in this file to carry on without them.', 400)
+    return columns, None
+
+
+def _read_stock_audit_count_sheet(file, column_mapping=None, header_row=1):
+    """Parse counted and explicitly uncounted product rows from an audit sheet.
+
+    `column_mapping` is the uploader's own field -> column choice, used when the
+    sheet's headers are named differently from the ones we look for.
+    """
     if file is None or not (file.filename or '').strip():
         return None, None, ('Choose the count sheet first.', 400)
     if not file.filename.lower().endswith(('.xlsx', '.xlsm')):
@@ -17870,33 +18031,28 @@ def _read_stock_audit_count_sheet(file):
     except Exception as e:
         return None, None, (f'Could not read that Excel file: {e}', 400)
 
-    header_map = {}
-    for col in range(1, (ws.max_column or 0) + 1):
-        key = _bulk_stock_header(ws.cell(row=1, column=col).value)
-        if key:
-            header_map.setdefault(key, col)
+    columns, column_error = _stock_audit_columns_from_request(ws, column_mapping, header_row)
+    if column_error:
+        return None, None, column_error
 
-    def find_col(*aliases):
-        for alias in aliases:
-            if alias in header_map:
-                return header_map[alias]
-        return None
-
-    col_name = find_col('product name', 'product', 'name', 'item')
-    col_qty = find_col('quantity', 'qty', 'stock', 'counted quantity', 'counted qty')
-    col_buy = find_col('unit buying price', 'buying price', 'buy price', 'unit cost', 'cost')
-    col_sell = find_col('unit selling price', 'selling price', 'sell price', 'price')
-    col_cat = find_col('category', 'main category', 'product category')
-    col_unit = find_col('unit type', 'unit', 'uom', 'unit of measure')
-    col_detail = find_col('unit detail', 'unit details', 'size', 'specification', 'spec')
-    col_barcode = find_col('barcode', 'barcode / sku', 'sku', 'product code')
-    col_description = find_col('description', 'product description', 'details')
-    if not col_name or not col_qty:
-        return None, None, ('This file is missing Product Name or Quantity. '
-                            'Use the same template as Upload New Stock.', 400)
+    col_name = columns.get('product_name')
+    col_qty = columns.get('quantity')
+    col_buy = columns.get('buy_price')
+    col_sell = columns.get('sell_price')
+    col_cat = columns.get('category')
+    col_unit = columns.get('unit_type')
+    col_detail = columns.get('unit_details')
+    col_barcode = columns.get('barcode')
+    col_description = columns.get('description')
 
     rows = []
     bad_rows = []
+    # Without a Product name column there is no way to say WHICH product a row is
+    # about, so every row is unreadable and nothing can be audited. Refusing here
+    # is clearer than crashing or silently returning nothing.
+    if not col_name:
+        return None, None, ('A product name column is needed for every row. '
+                            'Match Product name to a column in this file.', 400)
     last_row = min(int(ws.max_row or 1), BULK_STOCK_MAX_ROWS + 1)
     for row in range(2, last_row + 1):
         raw = ws.cell(row=row, column=col_name).value
@@ -17909,7 +18065,11 @@ def _read_stock_audit_count_sheet(file):
             bad_rows.append(f'Row {row}: product name must be 100 characters or fewer.')
             continue
         try:
-            qty = _bulk_stock_number(ws.cell(row=row, column=col_qty).value)
+            # An ignored quantity column means "no count in this file for any row".
+            # That is not an error: the sheet still lists products, and adopting
+            # simply changes nothing for them.
+            qty = (_bulk_stock_number(ws.cell(row=row, column=col_qty).value)
+                   if col_qty else None)
             buy_price = (_bulk_stock_number(ws.cell(row=row, column=col_buy).value)
                          if col_buy else None)
             sell_price = (_bulk_stock_number(ws.cell(row=row, column=col_sell).value)
@@ -17948,6 +18108,76 @@ STOCK_AUDIT_PRODUCT_FIELDS = (
     'name', 'category', 'buy_price', 'sell_price', 'unit_type',
     'unit_details', 'barcode', 'description',
 )
+
+
+def _stock_audit_sheet_preview(ws, column_mapping=None):
+    """What the UI needs to let the uploader match columns by hand."""
+    header_info = _stock_audit_read_header(ws, 1)
+    columns, _error = _stock_audit_columns_from_request(ws, column_mapping, 1)
+    # Once a field is mapped or declared absent, it is no longer "missing" - the
+    # audit will run either way.
+    resolved = columns or {}
+    return {
+        'headers': header_info['headers'],
+        'detected': {field: col for field, col in header_info['detected'].items()},
+        'resolved': {field: col for field, col in resolved.items()},
+        'samples': _stock_audit_peek_rows(ws, 1),
+        'fields': [{'field': field, 'label': label, 'required': required}
+                   for field, label, required, _aliases in STOCK_AUDIT_COLUMN_SPEC],
+    }
+
+
+@app.route('/api/pos/stock-audit/columns', methods=['POST'])
+@login_required
+def pos_stock_audit_columns():
+    """Read the uploaded audit sheet's headers so they can be matched by hand.
+
+    Writes NOTHING and needs no branch: it is the step that lets a sheet whose
+    columns are named differently still be audited. The file is re-sent with the
+    audit itself, so nothing has to be stored between the two calls.
+    """
+    file = request.files.get('file')
+    if file is None or not (file.filename or '').strip():
+        return jsonify({'success': False, 'error': 'Choose the count sheet first.'}), 400
+    if not file.filename.lower().endswith(('.xlsx', '.xlsm')):
+        return jsonify({'success': False, 'error': 'Please upload the .xlsx template (Excel).'}), 400
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(file, data_only=True)
+        ws = wb.active
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Could not read that Excel file: {e}'}), 400
+
+    # A mapping sent with this call is only a preview of the uploader's current
+    # choices, so an invalid one must not fail the column list itself.
+    try:
+        raw_mapping = json.loads(request.form.get('column_mapping') or 'null')
+    except (TypeError, ValueError):
+        raw_mapping = None
+    if not isinstance(raw_mapping, dict):
+        raw_mapping = None
+
+    preview = _stock_audit_sheet_preview(ws, raw_mapping)
+    if not preview['headers']:
+        return jsonify({'success': False,
+                        'error': 'That sheet has no header row. Column names must be in row 1.'}), 400
+    resolved = preview['resolved']
+    missing = [f['label'] for f in preview['fields']
+               if f['required'] and resolved.get(f['field']) is None]
+    return jsonify({
+        'success': True,
+        'sheet_name': ws.title,
+        'headers': preview['headers'],
+        'detected': preview['detected'],
+        'resolved': resolved,
+        'samples': preview['samples'],
+        'fields': preview['fields'],
+        'missing_required': missing,
+        'needs_mapping': bool(missing),
+        # Says plainly that an unmapped column is not fatal, so the uploader can
+        # knowingly carry on without it.
+        'can_ignore': True,
+    })
 
 
 def _stock_audit_resolve_rows(rows, catalogue):
@@ -18014,6 +18244,24 @@ def _stock_audit_resolve_rows(rows, catalogue):
     return lines, matched_ids
 
 
+def _stock_audit_mapping_from_form():
+    """The uploader's column choices, sent with the sheet as JSON.
+
+    Returns (mapping, error). A missing value means "use automatic detection", so
+    an ordinary well-named template needs no mapping at all.
+    """
+    raw = request.form.get('column_mapping')
+    if raw is None or str(raw).strip() == '':
+        return None, None
+    try:
+        mapping = json.loads(raw)
+    except (TypeError, ValueError):
+        return None, ('The column matching was not readable. Please match the columns again.', 400)
+    if not isinstance(mapping, dict):
+        return None, ('The column matching was not readable. Please match the columns again.', 400)
+    return mapping, None
+
+
 @app.route('/api/pos/stock-audit/run', methods=['POST'])
 @login_required
 def pos_stock_audit_run():
@@ -18021,7 +18269,11 @@ def pos_stock_audit_run():
 
     Reads the same template as Upload New Stock and does not change inventory.
     """
-    rows, bad_rows, parse_error = _read_stock_audit_count_sheet(request.files.get('file'))
+    column_mapping, mapping_error = _stock_audit_mapping_from_form()
+    if mapping_error:
+        return jsonify({'success': False, 'error': mapping_error[0]}), mapping_error[1]
+    rows, bad_rows, parse_error = _read_stock_audit_count_sheet(
+        request.files.get('file'), column_mapping)
     if parse_error:
         return jsonify({'success': False, 'error': parse_error[0]}), parse_error[1]
 
@@ -18202,12 +18454,16 @@ def pos_stock_audit_adopt():
         return jsonify({'success': False,
                         'error': 'Stock counts cannot be adopted for a future date.'}), 400
 
-    parsed_rows, bad_rows, parse_error = _read_stock_audit_count_sheet(request.files.get('file'))
+    parsed_rows, bad_rows, parse_error = _read_stock_audit_count_sheet(
+        request.files.get('file'), column_mapping)
     if parse_error:
         return jsonify({'success': False, 'error': parse_error[0]}), parse_error[1]
     counted = [row for row in parsed_rows if row['counted'] is not None]
     if not counted:
         return jsonify({'success': False, 'error': 'No countable rows were found in that file.',
+                        'hint': ('If your sheet has no Quantity column, match the columns and mark '
+                                 'Quantity as not in this file, then use the reviewed steps to '
+                                 'create or archive products.'),
                         'failed': bad_rows}), 400
 
     mode = (request.form.get('mode') or '').strip()
@@ -18479,6 +18735,9 @@ def pos_stock_audit_adopt():
 def pos_stock_audit_adopt_reviewed():
     """Apply reviewed count, product-detail, creation, and branch archive choices."""
     branch_id = current_branch_id()
+    column_mapping, mapping_error = _stock_audit_mapping_from_form()
+    if mapping_error:
+        return jsonify({'success': False, 'error': mapping_error[0]}), mapping_error[1]
     if not branch_id:
         return jsonify({'success': False, 'error': 'Select a branch before adopting stock.'}), 400
     try:
@@ -18492,7 +18751,8 @@ def pos_stock_audit_adopt_reviewed():
     if as_at_dt.date() > datetime.now(pytz.timezone('Africa/Harare')).date():
         return jsonify({'success': False, 'error': 'Stock counts cannot be adopted for a future date.'}), 400
 
-    rows, bad_rows, parse_error = _read_stock_audit_count_sheet(request.files.get('file'))
+    rows, bad_rows, parse_error = _read_stock_audit_count_sheet(
+        request.files.get('file'), column_mapping)
     if parse_error:
         return jsonify({'success': False, 'error': parse_error[0]}), parse_error[1]
     try:

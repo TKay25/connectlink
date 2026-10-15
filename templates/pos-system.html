@@ -7024,6 +7024,47 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 </div>
                 <div id="stockAuditError" class="alert alert-danger py-2 small" style="display:none;"></div>
 
+                <!-- Match columns: only needed when the sheet's headers are named
+                     differently from the ones we look for. -->
+                <div id="stockAuditMappingWrap" class="mb-2" style="display:none;">
+                    <div class="border rounded p-2" style="background:#f8fafc;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small fw-bold">
+                                <i class="fas fa-table-columns me-1"></i>Match columns to the system
+                            </span>
+                            <button type="button" class="btn btn-link btn-sm p-0"
+                                    onclick="hideStockAuditMapping()">Hide</button>
+                        </div>
+                        <div class="small text-muted mb-2" id="stockAuditMappingHint"></div>
+                        <div class="alert alert-info py-1 px-2 small mb-2">
+                            <i class="fas fa-circle-info me-1"></i>A column your file does not have
+                            does <strong>not</strong> block anything. Pick
+                            <em>"not in this file"</em> and the audit simply ignores that detail for
+                            every product &mdash; it still counts and adopts the stock.
+                        </div>
+                        <div class="table-responsive" style="max-height:260px;overflow:auto;">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead><tr>
+                                    <th style="min-width:150px;">System field</th>
+                                    <th style="min-width:150px;">Column in your file</th>
+                                    <th>Your file's values (first rows)</th>
+                                </tr></thead>
+                                <tbody id="stockAuditMappingBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex gap-3 align-items-center mt-2">
+                            <button type="button" class="btn btn-info text-white btn-sm"
+                                    onclick="applyStockAuditMapping()">
+                                <i class="fas fa-rotate me-1"></i>Use this matching &amp; run audit
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    onclick="resetStockAuditMapping()">Reset to automatic</button>
+                            <span class="small text-muted">Only Product name and Quantity are required;
+                                the rest are used when present.</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="stockAuditResult" style="display:none;">
                     <div id="stockAuditSummary" class="mb-2"></div>
                     <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
@@ -16763,11 +16804,132 @@ function setupAddProductFundingSelection() {
     // the Inventory page because that is where the wrong figure is noticed.
     // ==================== AUTO AUDIT (physical count vs system) ====================
     let _stockAuditData = null;
+    let _stockAuditMapping = null;   // field -> chosen column, or null for automatic
+
+    // ==================== COLUMN MATCHING ====================
+    // Shops name their columns differently ("Goods", "Qty Counted", "Cost"). This
+    // step reads the sheet's OWN header row and lets the uploader line those names
+    // up with the fields the audit actually reads, instead of the audit guessing.
+    async function loadStockAuditColumns(silent) {
+        const fileEl = document.getElementById('stockAuditFile');
+        const errEl = document.getElementById('stockAuditError');
+        const wrap = document.getElementById('stockAuditMappingWrap');
+        if (!fileEl || !fileEl.files.length) {
+            if (!silent) { errEl.innerText = 'Choose the count sheet first.'; errEl.style.display = 'block'; }
+            return null;
+        }
+        const fd = new FormData();
+        fd.append('file', fileEl.files[0]);
+        let data;
+        try {
+            const res = await fetch(`${API_BASE}/api/pos/stock-audit/columns`, {
+                method: 'POST', body: fd, credentials: 'include'
+            });
+            data = await res.json();
+        } catch (e) {
+            // The headers are only a convenience: if this call fails, the audit
+            // itself is still worth attempting with automatic detection.
+            if (!silent) { errEl.innerText = 'Could not read the sheet columns: ' + e.message; errEl.style.display = 'block'; }
+            return null;
+        }
+        if (!data.success) {
+            // A sheet with no header row cannot be mapped, and cannot be audited.
+            if (wrap) wrap.style.display = 'none';
+            if (!silent) { errEl.innerText = data.error || 'Could not read the sheet columns.'; errEl.style.display = 'block'; }
+            return null;
+        }
+        _stockAuditColumnInfo = data;
+        renderStockAuditMapping(data);
+        // Surface the section automatically only when something is genuinely
+        // missing, so the common well-named template stays one click.
+        if (wrap) wrap.style.display = (data.needs_mapping || _stockAuditMapping) ? 'block' : 'none';
+        return data;
+    }
+
+    let _stockAuditColumnInfo = null;
+
+    function renderStockAuditMapping(info) {
+        const body = document.getElementById('stockAuditMappingBody');
+        const hint = document.getElementById('stockAuditMappingHint');
+        if (!body) return;
+        const headers = info.headers || [];
+        const detected = info.detected || {};
+        const samples = info.samples || [];
+        const chosen = _stockAuditMapping || {};
+        const sampleFor = (col) => samples.map(s => (s.values[col - 1] || '')).filter(Boolean).slice(0, 4);
+        const label = (col) => {
+            const h = headers.find(x => x.column === col);
+            return h ? h.label : '';
+        };
+        if (hint) {
+            const missing = info.missing_required || [];
+            hint.innerHTML = missing.length
+                ? `<span class="text-danger fw-bold"><i class="fas fa-triangle-exclamation me-1"></i>Could not find: ${missing.map(escapeHtml).join(', ')}. Choose the right column below &mdash; or mark it "not in this file" to carry on without it.</span>`
+                : 'These columns were matched automatically. Change any that are wrong.';
+        }
+        body.innerHTML = (info.fields || []).map(f => {
+            const auto = detected[f.field];
+            const chosenHere = Object.prototype.hasOwnProperty.call(chosen, f.field);
+            // '' = not in this file, absent = leave it to automatic detection.
+            const value = chosenHere
+                ? (chosen[f.field] === null ? '' : String(chosen[f.field]))
+                : (auto ? String(auto) : '');
+            const opts = ['<option value="">not in this file (ignore it)</option>']
+                .concat(headers.map(h =>
+                    `<option value="${h.column}"${value === String(h.column) ? ' selected' : ''}>` +
+                    `col ${h.column}: ${escapeHtml(h.label)}</option>`))
+                .join('');
+            const preview = value
+                ? sampleFor(Number(value)).map(escapeHtml).join(', ')
+                : '<span class="text-muted">ignored for every product</span>';
+            const req = f.required
+                ? '<span class="badge bg-danger ms-1">required</span>'
+                : '<span class="badge bg-secondary ms-1">optional</span>';
+            return `<tr>
+                <td class="small fw-bold">${escapeHtml(f.label)}${req}</td>
+                <td><select class="form-select form-select-sm" data-audit-field="${escapeHtml(f.field)}"
+                            onchange="setStockAuditMapping('${escapeHtml(f.field)}', this.value)">${opts}</select></td>
+                <td class="small text-muted">${preview}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function setStockAuditMapping(field, value) {
+        if (!_stockAuditMapping) _stockAuditMapping = {};
+        // '' is a deliberate "not in this file", so it must be SENT as such (not
+        // dropped, which would silently fall back to automatic detection). The
+        // server treats the absent sentinel as "ignore this field".
+        _stockAuditMapping[field] = (value === '' || value === null) ? 'absent' : Number(value);
+    }
+    window.setStockAuditMapping = setStockAuditMapping;
+
+    function resetStockAuditMapping() {
+        _stockAuditMapping = null;
+        if (_stockAuditColumnInfo) renderStockAuditMapping(_stockAuditColumnInfo);
+    }
+    window.resetStockAuditMapping = resetStockAuditMapping;
+
+    function hideStockAuditMapping() {
+        const wrap = document.getElementById('stockAuditMappingWrap');
+        if (wrap) wrap.style.display = 'none';
+    }
+    window.hideStockAuditMapping = hideStockAuditMapping;
+
+    function applyStockAuditMapping() {
+        // Re-run so the audit is always produced with the matching now on screen.
+        if (_stockAuditMapping) _stockAuditData = null;
+        runStockAudit();
+    }
+    window.applyStockAuditMapping = applyStockAuditMapping;
 
     function openStockAuditModal() {
         _stockAuditData = null;
+        _stockAuditMapping = null;
+        _stockAuditColumnInfo = null;
         const f = document.getElementById('stockAuditFile');
         if (f) f.value = '';
+        const wrap = document.getElementById('stockAuditMappingWrap');
+        if (wrap) wrap.style.display = 'none';
         const d = document.getElementById('stockAuditDate');
         if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
         [f, d].forEach(el => {
@@ -16782,6 +16944,16 @@ function setupAddProductFundingSelection() {
                 error.style.display = 'block';
             });
         });
+        if (f && !f.dataset.auditColumnsBound) {
+            f.dataset.auditColumnsBound = 'true';
+            f.addEventListener('change', () => {
+                // A different file almost certainly has different headers, so the
+                // old matching must not be silently applied to it.
+                _stockAuditMapping = null;
+                _stockAuditColumnInfo = null;
+                loadStockAuditColumns(true);
+            });
+        }
         const b = document.getElementById('stockAuditBranch');
         if (b) b.textContent = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
         document.getElementById('stockAuditError').style.display = 'none';
@@ -16808,12 +16980,22 @@ function setupAddProductFundingSelection() {
             const fd = new FormData();
             fd.append('file', fileEl.files[0]);
             fd.append('as_at', dateEl.value);
+            if (_stockAuditMapping) fd.append('column_mapping', JSON.stringify(_stockAuditMapping));
             const res = await fetch(`${API_BASE}/api/pos/stock-audit/run`, {
                 method: 'POST', body: fd, credentials: 'include'
             });
             const data = await res.json();
-            if (!data.success) { show(data.error || 'Could not run the audit.'); return; }
+            if (!data.success) {
+                show(data.error || 'Could not run the audit.');
+                // When the server says a column is missing, that is exactly when
+                // the matching table is useful - open it instead of a dead end.
+                if (!_stockAuditColumnInfo) await loadStockAuditColumns(true);
+                const wrap = document.getElementById('stockAuditMappingWrap');
+                if (wrap && _stockAuditColumnInfo) wrap.style.display = 'block';
+                return;
+            }
             _stockAuditData = data;
+            hideStockAuditMapping();
             renderStockAudit(data);
         } catch (e) {
             show('Could not run the audit: ' + e.message);
@@ -17041,6 +17223,9 @@ function setupAddProductFundingSelection() {
             form.append('as_at', data.as_at);
             form.append('branch_id', String(data.branch_id));
             form.append('operations', JSON.stringify(operations));
+            // The same column matching the audit used, so adoption re-reads the
+            // sheet exactly as it was reviewed.
+            if (_stockAuditMapping) form.append('column_mapping', JSON.stringify(_stockAuditMapping));
             const response = await fetch(`${API_BASE}/api/pos/stock-audit/adopt-reviewed`, {
                 method: 'POST',
                 body: form,
