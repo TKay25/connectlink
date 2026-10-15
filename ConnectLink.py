@@ -17082,14 +17082,16 @@ def pos_upload_stock_analyze():
             # Shurugwi shelf while the uploader was deciding what to do.
             cursor.execute("""
                 SELECT p.id, p.name, COALESCE(p.category, ''), COALESCE(ps.stock, 0),
-                       COALESCE(p.sell_price, 0), COALESCE(p.buy_price, 0)
+                       COALESCE(p.sell_price, 0), COALESCE(p.buy_price, 0),
+                       COALESCE(p.barcode, '')
                 FROM products p
                 LEFT JOIN product_stock ps
                        ON ps.product_id = p.id AND ps.branch_id = %s
                 WHERE p.is_active = TRUE
             """, (branch_id,))
             catalogue = [{'id': r[0], 'name': r[1], 'category': r[2], 'stock': int(r[3] or 0),
-                          'sell_price': float(r[4] or 0), 'buy_price': float(r[5] or 0)}
+                          'sell_price': float(r[4] or 0), 'buy_price': float(r[5] or 0),
+                          'barcode': r[6] or ''}
                          for r in cursor.fetchall()]
 
             # Has this stock already been uploaded to this branch? Checked HERE,
@@ -17143,9 +17145,62 @@ def pos_upload_stock_analyze():
     for item in catalogue:
         exact_by_name.setdefault(item['name'].strip().lower(), item)
 
+    # Barcodes are unique across the catalogue, so a NON-BLANK barcode can only
+    # ever belong to one product. A blank one is "no barcode" and never collides.
+    # This map is what turns a barcode clash into a decision the uploader makes
+    # here instead of a 409 when they press Apply.
+    by_barcode = {}
+    for item in catalogue:
+        code = (item.get('barcode') or '').strip()
+        if code and code not in by_barcode:
+            by_barcode[code] = item
+    claimed = {}          # barcode -> first sheet row name that claimed it
+
     exact, brand_new, conflicts = [], [], []
     for item in rows:
+        file_barcode = (item.get('barcode') or '').strip()
         hit = exact_by_name.get(item['name'].strip().lower())
+
+        # --- does this row's barcode already belong to another catalogue product? ---
+        barcode_clash = None
+        if file_barcode and file_barcode in by_barcode:
+            owner = by_barcode[file_barcode]
+            if not hit or owner['id'] != hit['id']:
+                barcode_clash = owner
+
+        # Two sheet rows cannot both claim one barcode either.
+        clashing_row = None
+        if file_barcode:
+            if file_barcode in claimed and claimed[file_barcode] != item['name']:
+                clashing_row = claimed[file_barcode]
+            else:
+                claimed.setdefault(file_barcode, item['name'])
+
+        if barcode_clash or clashing_row:
+            owner = barcode_clash
+            mismatch = {'file_barcode': file_barcode}
+            if owner:
+                mismatch.update({'product_id': owner['id'], 'product_name': owner['name'],
+                                 'product_barcode': (owner.get('barcode') or '')})
+            if clashing_row:
+                mismatch['duplicate_row'] = clashing_row
+            candidates = [dict(owner, score=1.0)] if owner else []
+            if hit and not any(c['id'] == hit['id'] for c in candidates):
+                candidates.append(dict(hit, score=1.0))
+            # The two clashes are NOT the same mistake: one is a slip inside the
+            # file, the other contradicts the live catalogue. They are separated
+            # into distinct reasons so the page can report each at its own volume.
+            conflicts.append(dict(
+                item,
+                reason='barcode_conflict' if owner else 'barcode_duplicate_row',
+                mismatch=mismatch,
+                # Without a product to merge into, the only safe outcome is to
+                # drop the clashing code - so that is what is offered.
+                candidates=candidates,
+                allow_create=owner is None,
+            ))
+            continue
+
         if hit:
             # The name matches, but the file may be putting the item in a
             # different category. That disagreement is silent once the upload is
@@ -17275,6 +17330,9 @@ def pos_upload_stock_apply():
                 row_unit = 'piece'
             barcode = d.get('barcode') or ''
             description = d.get('description') or ''
+            # A BLANK barcode is "no barcode" and is left blank. Several new
+            # products with no barcode are perfectly normal and must not be
+            # rejected as duplicates of each other.
             if not isinstance(barcode, str) or not isinstance(description, str):
                 failed.append(f'{name}: barcode and description must be text.')
                 continue
@@ -17283,6 +17341,26 @@ def pos_upload_stock_apply():
             if len(barcode) > 100 or len(description) > 1000:
                 failed.append(f'{name}: barcode or description exceeds its allowed length.')
                 continue
+            # The Check step escalates a clashing barcode to the uploader. If they
+            # chose "create without the barcode", honour it; otherwise the clash
+            # is still a hard stop rather than a silent duplicate.
+            if barcode and not bool(d.get('drop_barcode')):
+                try:
+                    with get_db() as (bc_cursor, _bc_connection):
+                        bc_cursor.execute("""SELECT name FROM products
+                                             WHERE barcode = %s AND COALESCE(barcode, '') <> ''""",
+                                          (barcode,))
+                        owner = bc_cursor.fetchone()
+                except Exception as bc_err:
+                    print(f"Note: barcode check could not run ({bc_err}); upload continues.")
+                    owner = None
+                if owner:
+                    failed.append(f'{name}: barcode {barcode} is already on the system for a '
+                                  f'differently named product, "{owner[0]}". Resolve it in the '
+                                  f'conflicts list, or clear the barcode.')
+                    continue
+            if bool(d.get('drop_barcode')):
+                barcode = ''
             to_create.append((name, qty, buy, sell, row_cat,
                               row_unit, str(d.get('unit_details') or '').strip()[:100],
                               barcode, description))
@@ -17385,18 +17463,15 @@ def pos_upload_stock_apply():
             # -- new products first, so they can be stocked like any other merge --
             created_ids = set()
             if to_create:
+                # The per-row checks above already vetted every barcode that is
+                # still present. Only blank-safe assertions are left, because a
+                # blank barcode is "no barcode" and repeats freely.
                 barcodes = [barcode for *_, barcode, _description in to_create if barcode]
                 if len(barcodes) != len(set(barcodes)):
+                    names = sorted({row[0] for row in to_create if row[7]})
                     return jsonify({'success': False,
-                                    'error': 'A barcode is repeated on multiple new products.'}), 409
-                if barcodes:
-                    cursor.execute("""SELECT barcode, name FROM products
-                                      WHERE barcode = ANY(%s) AND COALESCE(barcode, '') <> ''""",
-                                   (barcodes,))
-                    duplicate = cursor.fetchone()
-                    if duplicate:
-                        return jsonify({'success': False,
-                                        'error': f'Barcode {duplicate[0]} already belongs to "{duplicate[1]}".'}), 409
+                                    'error': 'These rows share one barcode, and only one '
+                                             'product can own it: ' + ', '.join(names[:5])}), 409
                 inserted = execute_values(cursor, """
                     INSERT INTO products (name, category, unit_type, unit_details, buy_price,
                                           sell_price, stock, min_stock_level, description, barcode)
@@ -18671,7 +18746,7 @@ def pos_stock_audit_adopt_reviewed():
                         RETURNING id
                     """, (updates['name'], updates['category'], updates['unit_type'],
                           updates['unit_details'], updates['buy_price'], updates['sell_price'],
-                          updates['description'], updates['barcode'] or None))
+                          updates['description'], updates['barcode']))
                     product_id = cursor.fetchone()[0]
                     cursor.execute("""
                         INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level)
@@ -19878,8 +19953,11 @@ def update_product(product_id):
 
     for field in updatable_fields:
         if field in data and not (field == 'sell_price' and scoped_sell_price is not None):
+            # A BLANK barcode is "no barcode", not a shared value: store it as ''
+            # (the products.barcode default) so it stays out of the unique index.
+            value = str(data[field]).strip() if field == 'barcode' and data[field] is not None else data[field]
             update_fields.append(f"{field} = %s")
-            params.append(data[field])
+            params.append(value)
 
     wants_stock_change = ('stock' in data) or ('min_stock_level' in data)
     
@@ -20102,6 +20180,9 @@ def subtract_stock(product_id):
         with get_db() as (cursor, connection):
             set_branch_stock(cursor, product_id, current_branch_id(), new_stock)
             if barcode is not None:
+                # Blank = "this product has no barcode" and is stored as '' so it
+                # stays outside products_barcode_unique, like every other
+                # barcode-less product.
                 cursor.execute("""
                     UPDATE products SET barcode = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s
                 """, (barcode, product_id))

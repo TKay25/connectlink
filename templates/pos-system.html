@@ -14804,23 +14804,56 @@ async function fetchTransactionsData() {
             confWrap.style.display = conflicts.length ? 'block' : 'none';
             confBody.innerHTML = conflicts.map((c, i) => {
                 const isCat = c.reason === 'category';
+                // Two DIFFERENT barcode problems, reported at different volumes:
+                //  - barcode_conflict    : the code belongs to another product on
+                //                          the system -> loud, it contradicts the
+                //                          catalogue.
+                //  - barcode_duplicate_row: two rows in THIS file share a code ->
+                //                          quiet, it is a typing slip in the sheet.
+                const isSysBarcode = c.reason === 'barcode_conflict';
+                const isRowBarcode = c.reason === 'barcode_duplicate_row';
+                const isBarcode = isSysBarcode || isRowBarcode;
                 const opts = (c.candidates || []).map(cand =>
                     `<option value="${cand.id}">${escapeHtml(cand.name)} — ${escapeHtml(cand.category || 'no category')}, stock ${cand.stock}, sell ${money(cand.sell_price)}${cand.score < 1 ? ` (${Math.round(cand.score * 100)}% similar)` : ''}</option>`).join('');
-                const note = isCat
-                    ? `<div class="text-danger small mt-1"><i class="fas fa-triangle-exclamation me-1"></i>Already in the catalogue as <strong>${escapeHtml((c.mismatch && c.mismatch.product_category) || 'no category')}</strong>; this file says <strong>${escapeHtml((c.mismatch && c.mismatch.file_category) || '')}</strong>.</div>`
-                    : '';
+                const dupeRow = (c.mismatch && c.mismatch.duplicate_row) || '';
+                const owner = c.mismatch && c.mismatch.product_name;
+                const fileCode = (c.mismatch && c.mismatch.file_barcode) || c.barcode || '';
+                let note = '';
+                if (isCat) {
+                    note = `<div class="text-danger small mt-1"><i class="fas fa-triangle-exclamation me-1"></i>Already in the catalogue as <strong>${escapeHtml((c.mismatch && c.mismatch.product_category) || 'no category')}</strong>; this file says <strong>${escapeHtml((c.mismatch && c.mismatch.file_category) || '')}</strong>.</div>`;
+                } else if (isSysBarcode) {
+                    note = `<div class="text-danger small mt-1"><i class="fas fa-barcode me-1"></i>Barcode <strong>${escapeHtml(fileCode)}</strong> is already on the system for a DIFFERENTLY NAMED product: <strong>${escapeHtml(owner || 'a product already in the catalogue')}</strong>. This row calls it <strong>${escapeHtml(c.name)}</strong>. <span class="text-muted">Two different products cannot share one barcode.</span></div>`;
+                } else if (isRowBarcode) {
+                    note = `<div class="text-warning-emphasis small mt-1"><i class="fas fa-copy me-1"></i>Barcode <strong>${escapeHtml(fileCode)}</strong> is also used by <strong>${escapeHtml(dupeRow)}</strong> earlier in this same file. One code cannot identify two products${opts ? '' : '; clear it on one of the rows'}.</div>`;
+                }
+                // NOTE: the candidate list must be visible for EVERY reason that
+                // can offer one -- a barcode clash on a new product offers an
+                // existing owner to add the stock to, and the old
+                // "merge_category only" rule hid it.
                 const catOption = isCat
                     ? `<option value="merge_category">Add to it AND set its category to "${escapeHtml((c.mismatch && c.mismatch.file_category) || '')}"</option>`
                     : '';
-                return `<tr>
-                    <td><strong>${escapeHtml(c.name)}</strong>
-                        <div class="text-muted small">${c.quantity} × buy ${money(c.buy_price)}, sell ${money(c.sell_price)}</div>${note}</td>
+                const dropOption = isBarcode
+                    ? `<option value="create_without_barcode">Create a new product and clear the barcode</option>`
+                    : '';
+                const createOption = c.allow_create === false
+                    ? ''
+                    : '<option value="create">Create a new product</option>';
+                const diffName = (isSysBarcode && owner)
+                    ? `<span class="badge bg-danger ms-1">barcode owned by "${escapeHtml(owner)}"</span>`
+                    : (isRowBarcode
+                        ? `<span class="badge bg-warning text-dark ms-1">barcode repeated in this file</span>`
+                        : '');
+                return `<tr class="${isSysBarcode ? 'table-danger' : ''}">
+                    <td><strong>${escapeHtml(c.name)}</strong>${diffName}
+                        <div class="text-muted small">${c.quantity} × buy ${money(c.buy_price)}, sell ${money(c.sell_price)}${fileCode ? ` · barcode ${escapeHtml(fileCode)}` : ''}</div>${note}</td>
                     <td>
                         <select class="form-select form-select-sm" data-conflict="${i}" onchange="onConflictChoice(${i}, this.value)">
                             <option value="">- choose -</option>
                             <option value="merge">Add to an existing product</option>
                             ${catOption}
-                            <option value="create">Create a new product</option>
+                            ${dropOption}
+                            ${createOption}
                         </select>
                         <select class="form-select form-select-sm mt-1" id="uploadCandidate${i}" style="display:none;">${opts}</select>
                     </td></tr>`;
@@ -14842,7 +14875,15 @@ async function fetchTransactionsData() {
 
     function onConflictChoice(index, value) {
         const cand = document.getElementById('uploadCandidate' + index);
-        if (cand) cand.style.display = (value === 'merge' || value === 'merge_category') ? '' : 'none';
+        if (!cand) return;
+        const plan = (_bulkStockPlan && (_bulkStockPlan.conflicts || [])[index]) || {};
+        // The candidate list is needed whenever the choice has to name a product:
+        // a plain merge, a merge that also fixes the category, or a barcode clash
+        // against the system when nothing can be created.
+        const isBarcode = plan.reason === 'barcode_conflict' || plan.reason === 'barcode_duplicate_row';
+        const needsCandidate = value === 'merge' || value === 'merge_category' ||
+            (isBarcode && value === 'create_without_barcode' && plan.allow_create === false);
+        cand.style.display = needsCandidate && cand.options.length ? '' : 'none';
     }
     window.onConflictChoice = onConflictChoice;
 
@@ -14878,6 +14919,21 @@ async function fetchTransactionsData() {
                 const cand = document.getElementById('uploadCandidate' + i);
                 if (!cand || !cand.value) return { error: `Pick a product to merge "${c.name}" into.` };
                 row.product_id = parseInt(cand.value, 10);
+            } else if (action === 'create_without_barcode') {
+                if (c.allow_create === false) {
+                    // No product can be created here, so the only way to keep the
+                    // stock is to add it to the product that owns the barcode.
+                    const cand = document.getElementById('uploadCandidate' + i);
+                    if (!cand || !cand.value) {
+                        return { error: `Barcode ${c.barcode || ''} already belongs to another product; choose which one to add "${c.name}" to.` };
+                    }
+                    row.action = 'merge';
+                    row.product_id = parseInt(cand.value, 10);
+                } else {
+                    // Create the product, but clear the clashing code so two
+                    // products never share one barcode.
+                    row.drop_barcode = true;
+                }
             }
             rows.push(row);
         }
