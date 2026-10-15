@@ -18991,18 +18991,12 @@ def pos_stock_audit_adopt_reviewed():
 
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("""
-                SELECT MIN(d) FROM (
-                    SELECT MIN(added_at) AS d FROM stock_additions WHERE branch_id = %s
-                    UNION ALL SELECT MIN(reduced_at) FROM stock_reductions WHERE branch_id = %s
-                    UNION ALL SELECT MIN(received_at) FROM stock_lots WHERE branch_id = %s
-                    UNION ALL SELECT MIN(created_at) FROM transactions WHERE branch_id = %s
-                ) x
-            """, (branch_id, branch_id, branch_id, branch_id))
-            first_movement = cursor.fetchone()[0]
-            if first_movement and as_at_dt < first_movement:
-                return jsonify({'success': False,
-                                'error': f'This branch has no stock history before {first_movement:%d %b %Y}.'}), 400
+            # NOTE: the earliest-movement check is NOT repeated here. It is a
+            # date sanity check that the audit RUN already performed, and running
+            # it again on every batch meant four MIN() scans across
+            # stock_additions, stock_reductions, stock_lots and transactions -
+            # expensive, repeated needlessly, and part of what made each batch slow
+            # enough for the host to cut the connection before anything was written.
 
             # A batched call only needs the products it is acting on. Loading the
             # WHOLE catalogue for every batch re-read every product's lot history
@@ -19027,11 +19021,14 @@ def pos_stock_audit_adopt_reviewed():
             scope_clause = 'AND p.id = ANY(%s)' if wanted_ids else ''
             scope_params = (wanted_ids,) if wanted_ids else ()
 
-            # The full catalogue scan is only needed to ADOPT or ARCHIVE, both of
-            # which name their product. A batch of pure creates needs no catalogue
-            # rows at all, so that expensive scan is skipped rather than run for
-            # nothing. Adopts still need it (for the as-at-date stock figure).
-            needs_catalogue = bool(resolvable)
+            # The full catalogue scan is only needed to ADOPT, which requires the
+            # as-at-date stock figure. An ARCHIVE needs only the product's name and
+            # whether this branch stocks it, and a CREATE needs no catalogue rows at
+            # all - so the expensive scan is skipped whenever nothing is adopted.
+            # This is what made an archive-only selection slow for no reason.
+            adopting = [op for op in operations
+                        if isinstance(op, dict) and op.get('action') == 'adopt']
+            needs_catalogue = bool(adopting)
             catalogue = []
             if needs_catalogue:
                 cursor.execute(f"""
@@ -19374,7 +19371,15 @@ def pos_stock_audit_adopt_reviewed():
                                (product['id'], branch_id))
                 if cursor.rowcount:
                     changes.append(f'restored in {branch_name}')
-                delta = combined_counted - int(product.get('system_at_date') or 0)
+                # What is on the ground, against what the branch holds NOW. The
+                # count is the current truth, so the shelf must END UP at the
+                # counted figure - not at the old figure plus the difference
+                # between the counted figure and some past reconstruction.
+                #
+                # Measuring against `system_at_date` was wrong whenever that
+                # reconstruction differed from live stock: with 100 on the audit
+                # date, 90 counted and 70 actually in stock today, the shelf became
+                # 70 + (90-100) = 60 instead of the 90 that was counted.
                 cursor.execute("""
                     INSERT INTO product_stock (product_id, branch_id, stock, updated_at)
                     VALUES (%s, %s, 0, CURRENT_TIMESTAMP)
@@ -19384,20 +19389,24 @@ def pos_stock_audit_adopt_reviewed():
                                   WHERE product_id = %s AND branch_id = %s FOR UPDATE""",
                                (product['id'], branch_id))
                 live_before = int(cursor.fetchone()[0] or 0)
-                live_after = live_before + delta
+                delta = combined_counted - live_before
+                live_after = combined_counted
                 if live_after < 0:
                     return jsonify({'success': False,
-                                    'error': f'Cannot carry the shortage for "{product["name"]}" forward; current stock is {live_before}.'}), 409
+                                    'error': f'Cannot set "{product["name"]}" to a negative stock.'}), 409
 
                 adjustment_id = None
                 valuation_delta = 0
                 if delta:
+                    # The ledger records what the branch ACTUALLY held before this
+                    # (live_before), so the audit trail explains the change that was
+                    # really made rather than a historical reconstruction.
                     cursor.execute("""
                         INSERT INTO stock_count_adjustments
                             (product_id, branch_id, quantity_delta, previous_quantity,
                              counted_quantity, effective_at, product_name, source_file, user_name)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
-                    """, (product['id'], branch_id, delta, product.get('system_at_date', 0),
+                    """, (product['id'], branch_id, delta, live_before,
                           combined_counted, as_at_dt, product['name'], source_file, username))
                     adjustment_id = cursor.fetchone()[0]
                     reference = f'STOCK-AUDIT-{adjustment_id}'
@@ -19445,7 +19454,7 @@ def pos_stock_audit_adopt_reviewed():
                         """, (product['id'], -delta,
                               f'Auto Audit count adopted as at {as_at_dt:%Y-%m-%d}',
                               user_id, branch_id, reference))
-                    changes.append(f'stock {product.get("system_at_date", 0)} to {combined_counted}')
+                    changes.append(f'stock {live_before} to {combined_counted}')
 
                 details = {'action': item['action'], 'branch': branch_name,
                            'source_file': source_file, 'sheet_row': line['row'],
@@ -19457,7 +19466,7 @@ def pos_stock_audit_adopt_reviewed():
                                field: product.get(field)
                                for field in STOCK_AUDIT_PRODUCT_FIELDS
                            },
-                           'previous_system_quantity': product.get('system_at_date', 0),
+                           'previous_system_quantity': live_before,
                            'counted_quantity': combined_counted, 'quantity_delta': delta,
                            'valuation_delta': valuation_delta, 'adjustment_id': adjustment_id,
                            'live_stock_before': live_before, 'live_stock_after': live_after,
