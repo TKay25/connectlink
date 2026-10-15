@@ -17991,32 +17991,76 @@ def pos_stock_upload_job_download(job_id):
 # header row. Detection is deliberately generous, but an unusual sheet (another
 # language, a supplier's own layout) can still defeat it - which is why the
 # uploader gets to map the columns by hand (see STOCK_AUDIT_COLUMN_SPEC below).
+#
+# Each alias carries a WEIGHT: 2 = the header means this field and nothing else,
+# 1 = a likely variant. When two fields claim the same column the heavier alias
+# wins, and the margin is reported so a doubtful pick is shown as doubtful
+# instead of being silently presented as fact.
 STOCK_AUDIT_COLUMN_SPEC = (
-    ('product_name', 'Product name', True,
-     ('product name', 'product', 'name', 'item', 'description of goods', 'goods',
-      'item name', 'stock item', 'particulars', 'product description')),
-    ('quantity', 'Quantity counted', True,
-     ('quantity', 'qty', 'stock', 'counted quantity', 'counted qty', 'count',
-      'physical count', 'on hand', 'actual', 'balance', 'quantity counted')),
-    ('buy_price', 'Unit buying price', False,
-     ('unit buying price', 'buying price', 'buy price', 'unit cost', 'cost',
-      'cost price', 'purchase price')),
-    ('sell_price', 'Unit selling price', False,
-     ('unit selling price', 'selling price', 'sell price', 'price', 'retail price',
-      'selling price per unit')),
-    ('category', 'Category', False,
-     ('category', 'main category', 'product category', 'department', 'group')),
-    ('unit_type', 'Unit type', False,
-     ('unit type', 'unit', 'uom', 'unit of measure', 'measure', 'pack type')),
-    ('unit_details', 'Unit detail', False,
-     ('unit detail', 'unit details', 'size', 'specification', 'spec', 'pack size',
-      'dimensions')),
-    ('barcode', 'Barcode / SKU', False,
-     ('barcode', 'barcode / sku', 'sku', 'product code', 'code', 'item code',
-      'bar code')),
-    ('description', 'Description', False,
-     ('description', 'product description', 'details', 'notes', 'remarks')),
+    ('product_name', 'Product name', True, (
+        ('product name', 2), ('item name', 2), ('stock item', 2),
+        ('description of goods', 2), ('particulars', 2),
+        ('product', 1), ('name', 1), ('item', 1), ('goods', 1),
+        ('product description', 1),
+    )),
+    ('quantity', 'Quantity counted', True, (
+        ('quantity counted', 2), ('counted quantity', 2), ('physical count', 2),
+        ('counted qty', 2),
+        # 'quantity' and 'qty' are THE words for this field, not a guess.
+        ('quantity', 2), ('qty', 2),
+        ('count', 1), ('on hand', 1), ('actual', 1), ('stock', 1), ('balance', 1),
+    )),
+    ('buy_price', 'Unit buying price', False, (
+        ('unit buying price', 2), ('buying price', 2), ('buy price', 2),
+        ('unit cost', 2), ('cost price', 2), ('purchase price', 2),
+        ('buying', 1), ('cost', 1), ('buy', 1),
+    )),
+    ('sell_price', 'Unit selling price', False, (
+        ('unit selling price', 2), ('selling price', 2), ('sell price', 2),
+        ('unit price', 2), ('retail price', 2),
+        ('selling', 1), ('sell', 1), ('retail', 1), ('price', 1),
+    )),
+    ('category', 'Category', False, (
+        ('product category', 2), ('main category', 2),
+        # A bare 'category' column means exactly this.
+        ('category', 2),
+        ('department', 1), ('group', 1),
+    )),
+    ('unit_type', 'Unit type', False, (
+        ('unit of measure', 2), ('unit type', 2), ('pack type', 2),
+        ('uom', 1), ('unit', 1), ('measure', 1),
+    )),
+    ('unit_details', 'Unit detail', False, (
+        ('unit details', 2), ('unit detail', 2), ('pack size', 2),
+        ('specification', 2), ('dimensions', 2),
+        ('size', 1), ('spec', 1),
+    )),
+    ('barcode', 'Barcode / SKU', False, (
+        ('barcode / sku', 2), ('bar code', 2), ('product code', 2),
+        ('item code', 2), ('barcode', 2),
+        ('sku', 1), ('code', 1),
+    )),
+    ('description', 'Description', False, (
+        ('product description', 2), ('remarks', 2),
+        # 'description' on its own is this field's own name.
+        ('description', 2),
+        ('details', 1), ('notes', 1),
+    )),
 )
+
+# Detection at or above this weight is treated as confident. Below it the
+# uploader is told the column is a guess, so a wrong one is visible before the
+# audit runs rather than after it has produced nonsense comparisons.
+STOCK_AUDIT_CONFIDENT_WEIGHT = 2
+
+# Headers that mean different things on different sheets. 'Description' is this
+# app's own description field, but on a supplier's sheet it is often the SPEC of
+# the item rather than its name. These are always shown for confirmation, even
+# though an exact alias matched, because guessing wrong silently mis-reads the
+# whole sheet.
+STOCK_AUDIT_AMBIGUOUS_HEADERS = {
+    'description', 'details', 'code', 'item', 'stock', 'size', 'unit',
+}
 
 # Audit fields that hold text rather than numbers/prices.
 STOCK_AUDIT_TEXT_FIELDS = {'product_name', 'category', 'unit_type', 'unit_details',
@@ -18025,15 +18069,22 @@ STOCK_AUDIT_PRICE_FIELDS = {'buy_price', 'sell_price'}
 
 
 def _stock_audit_read_header(ws, header_row=1):
-    """Return {'headers': [...], 'detected': {...}} for one sheet.
+    """Return {'headers': [...], 'detected': {...}, 'confidence': {...}}.
 
     `headers` keeps EVERY non-blank header in sheet order so the uploader can be
-    shown the real names their file uses, and `detected` is the best automatic
-    guess per audit field. Detection only reads this sheet - it never guesses
-    from another sheet, because the audit parser reads wb.active only.
+    shown the real names their file uses. `detected` is the best automatic guess
+    per field and `confidence` records how strong that guess was, so a doubtful
+    match can be flagged rather than presented as certain. Detection only reads
+    this sheet - it never guesses from another sheet, because the audit parser
+    reads wb.active only.
+
+    Aliases are weighted (see STOCK_AUDIT_COLUMN_SPEC). A column is assigned to
+    the field with the heaviest alias; a weak alias only wins when no stronger
+    claim exists, and it is reported as low confidence.
     """
     headers = []
-    header_map = {}
+    # column -> {field: weight}, so competing claims can be compared.
+    claims = {}
     for col in range(1, (ws.max_column or 0) + 1):
         raw = ws.cell(row=header_row, column=col).value
         label = str(raw).strip() if raw is not None else ''
@@ -18041,19 +18092,40 @@ def _stock_audit_read_header(ws, header_row=1):
             continue
         headers.append({'column': col, 'label': label[:120]})
         key = _bulk_stock_header(label)
-        if key:
-            header_map.setdefault(key, col)
+        if not key:
+            continue
+        for field, _label, _required, aliases in STOCK_AUDIT_COLUMN_SPEC:
+            for alias, weight in aliases:
+                if key == alias:
+                    best = claims.setdefault(col, {})
+                    if weight > best.get(field, 0):
+                        best[field] = weight
 
     detected = {}
-    for field, _label, _required, aliases in STOCK_AUDIT_COLUMN_SPEC:
-        hit = None
-        for alias in aliases:
-            if alias in header_map:
-                hit = header_map[alias]
-                break
-        if hit is not None:
-            detected[field] = hit
-    return {'headers': headers, 'detected': detected}
+    confidence = {}
+    # Assign the strongest claim in each column first, so a header that names a
+    # field exactly ('unit buying price') is not stolen by a vaguer field that
+    # merely lists the same words.
+    ordered = []
+    for col, field_weights in claims.items():
+        for field, weight in field_weights.items():
+            ordered.append((weight, col, field))
+    ordered.sort(key=lambda t: (-t[0], t[1]))
+    labels = {h['column']: h['label'] for h in headers}
+    for weight, col, field in ordered:
+        if field in detected:
+            continue
+        if col in detected.values():
+            continue
+        detected[field] = col
+        # A confident alias is only reported as certain when the header is not one
+        # of the words that mean different things on different sheets.
+        head = _bulk_stock_header(labels.get(col, ''))
+        if weight >= STOCK_AUDIT_CONFIDENT_WEIGHT and head not in STOCK_AUDIT_AMBIGUOUS_HEADERS:
+            confidence[field] = 'high'
+        else:
+            confidence[field] = 'low'
+    return {'headers': headers, 'detected': detected, 'confidence': confidence}
 
 
 def _stock_audit_peek_rows(ws, header_row=1, sample=4):
@@ -18251,9 +18323,12 @@ def _stock_audit_sheet_preview(ws, column_mapping=None):
     return {
         'headers': header_info['headers'],
         'detected': {field: col for field, col in header_info['detected'].items()},
+        'confidence': dict(header_info['confidence']),
         'resolved': {field: col for field, col in resolved.items()},
         'samples': _stock_audit_peek_rows(ws, 1),
-        'fields': [{'field': field, 'label': label, 'required': required}
+        'fields': [{'field': field, 'label': label, 'required': required,
+                    # A low-confidence guess is one the uploader should check.
+                    'confidence': header_info['confidence'].get(field, 'none')}
                    for field, label, required, _aliases in STOCK_AUDIT_COLUMN_SPEC],
     }
 
@@ -18295,16 +18370,26 @@ def pos_stock_audit_columns():
     resolved = preview['resolved']
     missing = [f['label'] for f in preview['fields']
                if f['required'] and resolved.get(f['field']) is None]
+    # A column matched only by a weak alias is a GUESS. The uploader is shown the
+    # matching panel whenever anything is missing OR merely guessed, because a
+    # wrong-but-present column silently compares the wrong data - e.g. a sheet
+    # whose 'Description' is a spec note being read as the product name.
+    doubted = [f['label'] for f in preview['fields']
+               if resolved.get(f['field']) is not None
+               and preview.get('confidence', {}).get(f['field']) == 'low']
     return jsonify({
         'success': True,
         'sheet_name': ws.title,
         'headers': preview['headers'],
         'detected': preview['detected'],
+        'confidence': preview.get('confidence', {}),
         'resolved': resolved,
         'samples': preview['samples'],
         'fields': preview['fields'],
         'missing_required': missing,
+        'doubted': doubted,
         'needs_mapping': bool(missing),
+        'should_review': bool(missing or doubted),
         # Says plainly that an unmapped column is not fatal, so the uploader can
         # knowingly carry on without it.
         'can_ignore': True,
@@ -18914,7 +18999,24 @@ def pos_stock_audit_adopt_reviewed():
                 return jsonify({'success': False,
                                 'error': f'This branch has no stock history before {first_movement:%d %b %Y}.'}), 400
 
-            cursor.execute("""
+            # A batched call only needs the products it is acting on. Loading the
+            # WHOLE catalogue for every batch re-read every product's lot history
+            # (several correlated subqueries each) once per batch, which is what
+            # made a large adoption so slow that the host dropped the connection.
+            #
+            # Scope is applied ONLY when every selected operation already names its
+            # product. A 'create' row has no product id yet, and the resolver below
+            # MATCHES rows against the catalogue by similarity - hiding products
+            # from it would change (and could silently break) that matching, so any
+            # unnamed action falls back to the full catalogue.
+            named = [op for op in operations
+                     if isinstance(op, dict) and str(op.get('product_id') or '').isdigit()]
+            every_named = len(named) == len(operations)
+            wanted_ids = sorted({int(op['product_id']) for op in named}) if every_named else []
+            scope_clause = 'AND p.id = ANY(%s)' if wanted_ids else ''
+            scope_params = (wanted_ids,) if wanted_ids else ()
+
+            cursor.execute(f"""
                 SELECT p.id, p.name, COALESCE(p.category, ''), COALESCE(p.buy_price, 0),
                        COALESCE(pp.sell_price, p.sell_price, 0), COALESCE(p.unit_type, 'piece'),
                        COALESCE(p.unit_details, ''), COALESCE(p.barcode, ''),
@@ -18942,16 +19044,19 @@ def pos_stock_audit_adopt_reviewed():
                        ON ps.product_id = p.id AND ps.branch_id = %s
                 LEFT JOIN product_prices pp
                        ON pp.product_id = p.id AND pp.branch_id = %s
-                WHERE p.is_active = TRUE
+                WHERE p.is_active = TRUE {scope_clause}
             """, (branch_id, as_at_dt, branch_id, as_at_dt, as_at_dt,
-                  as_at_dt, branch_id, as_at_dt, branch_id, branch_id))
+                  as_at_dt, branch_id, as_at_dt, branch_id, branch_id) + scope_params)
             catalogue = [{
                 'id': r[0], 'name': r[1], 'category': r[2],
                 'buy_price': float(r[3] or 0), 'sell_price': float(r[4] or 0),
                 'unit_type': r[5] or 'piece', 'unit_details': r[6] or '',
                 'barcode': r[7] or '', 'description': r[8] or '',
                 'live_stock': int(r[9] or 0), 'stocked_here': bool(r[10]),
-                'system_at_date': int(r[11] or 0) + int(r[12] or 0) + int(r[13] or 0),
+                # Stock as at the audit date is ONE column (the 13th, index 12):
+                # lots received, less reductions and count adjustments made after
+                # that date. Summing three columns raised tuple index out of range.
+                'system_at_date': int(r[12] or 0),
             } for r in cursor.fetchall()]
             lines, matched_ids = _stock_audit_resolve_rows(rows, catalogue)
             line_map = {line['row']: line for line in lines}

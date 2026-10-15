@@ -16906,9 +16906,10 @@ function setupAddProductFundingSelection() {
         }
         _stockAuditColumnInfo = data;
         renderStockAuditMapping(data);
-        // Surface the section automatically only when something is genuinely
-        // missing, so the common well-named template stays one click.
-        if (wrap) wrap.style.display = (data.needs_mapping || _stockAuditMapping) ? 'block' : 'none';
+        // Surface the panel whenever something is missing OR merely guessed, so a
+        // wrong-but-present column can be corrected before the audit runs. A
+        // fully confident match stays out of the way.
+        if (wrap) wrap.style.display = (data.should_review || _stockAuditMapping) ? 'block' : 'none';
         return data;
     }
 
@@ -16929,9 +16930,14 @@ function setupAddProductFundingSelection() {
         };
         if (hint) {
             const missing = info.missing_required || [];
-            hint.innerHTML = missing.length
-                ? `<span class="text-danger fw-bold"><i class="fas fa-triangle-exclamation me-1"></i>Could not find: ${missing.map(escapeHtml).join(', ')}. Choose the right column below &mdash; or mark it "not in this file" to carry on without it.</span>`
-                : 'These columns were matched automatically. Change any that are wrong.';
+            const doubted = info.doubted || [];
+            if (missing.length) {
+                hint.innerHTML = `<span class="text-danger fw-bold"><i class="fas fa-triangle-exclamation me-1"></i>Could not find: ${missing.map(escapeHtml).join(', ')}. Choose the right column below &mdash; or mark it "not in this file" to carry on without it.</span>`;
+            } else if (doubted.length) {
+                hint.innerHTML = `<span class="text-warning-emphasis fw-bold"><i class="fas fa-circle-question me-1"></i>Please check the column for: ${doubted.map(escapeHtml).join(', ')}. The header was not an exact match, so the wrong column may have been picked.</span>`;
+            } else {
+                hint.textContent = 'These columns were matched automatically. Change any that are wrong.';
+            }
         }
         body.innerHTML = (info.fields || []).map(f => {
             const auto = detected[f.field];
@@ -16951,8 +16957,11 @@ function setupAddProductFundingSelection() {
             const req = f.required
                 ? '<span class="badge bg-danger ms-1">required</span>'
                 : '<span class="badge bg-secondary ms-1">optional</span>';
-            return `<tr>
-                <td class="small fw-bold">${escapeHtml(f.label)}${req}</td>
+            // Say when a match is only a guess, so it is never trusted blindly.
+            const guessed = (!chosenHere && value && f.confidence === 'low')
+                ? '<span class="badge bg-warning text-dark ms-1">check this</span>' : '';
+            return `<tr class="${guessed ? 'table-warning' : ''}">
+                <td class="small fw-bold">${escapeHtml(f.label)}${req}${guessed}</td>
                 <td><select class="form-select form-select-sm" data-audit-field="${escapeHtml(f.field)}"
                             onchange="setStockAuditMapping('${escapeHtml(f.field)}', this.value)">${opts}</select></td>
                 <td class="small text-muted">${preview}</td>
@@ -17417,46 +17426,96 @@ function setupAddProductFundingSelection() {
         const archives = operations.filter(op => op.action === 'archive').length;
         const changes = operations.length - archives;
         const dateLabel = data.as_at_label || data.as_at;
+        // Large selections are sent in batches. Each product costs many database
+        // round-trips against a REMOTE server, so adopting all 169 lines in one
+        // request ran for minutes and the host cut the connection - which the
+        // browser reports only as "Failed to fetch". Batching keeps every request
+        // short enough to finish.
+        const BATCH_SIZE = 20;
+        const batches = [];
+        for (let i = 0; i < operations.length; i += BATCH_SIZE) {
+            batches.push(operations.slice(i, i + BATCH_SIZE));
+        }
         const confirmed = window.confirm(
             `Apply ${changes} product/count change(s) and archive ${archives} product(s) in ${data.branch_name}?\n\n` +
             `Stock counts are effective as at ${dateLabel} and their differences carry into current branch stock. ` +
-            'Archive only hides a product in this branch; it does not delete history or change its stock.'
+            'Archive only hides a product in this branch; it does not delete history or change its stock.' +
+            (batches.length > 1
+                ? `\n\nThis will be applied in ${batches.length} batches of up to ${BATCH_SIZE}. Leave this page open until it finishes.`
+                : '')
         );
         if (!confirmed) return;
 
         const buttons = [document.getElementById('stockAuditApplySelectedBtn')].filter(Boolean);
         buttons.forEach(button => { button.disabled = true; });
         errEl.style.display = 'none';
-        try {
+        const originalLabel = buttons.length ? buttons[0].innerHTML : '';
+        let adjusted = 0, archived = 0;
+        const problems = [];
+
+        for (let b = 0; b < batches.length; b++) {
+            // Progress matters: without it a long run looks like a crash, and a
+            // failure part-way must say how far it got.
+            const progress = `Applying batch ${b + 1} of ${batches.length}` +
+                             ` (${adjusted + archived} of ${operations.length} applied)...`;
+            if (buttons.length) {
+                buttons[0].innerHTML =
+                    '<i class="fas fa-spinner fa-spin me-1"></i>' + progress;
+            }
+            errEl.innerText = progress;
+            errEl.style.display = 'block';
+
             const form = new FormData();
             form.append('file', fileEl.files[0]);
             form.append('as_at', data.as_at);
             form.append('branch_id', String(data.branch_id));
-            form.append('operations', JSON.stringify(operations));
+            form.append('operations', JSON.stringify(batches[b]));
             // The same column matching the audit used, so adoption re-reads the
             // sheet exactly as it was reviewed.
             if (_stockAuditMapping) form.append('column_mapping', JSON.stringify(_stockAuditMapping));
-            const response = await fetch(`${API_BASE}/api/pos/stock-audit/adopt-reviewed`, {
-                method: 'POST',
-                body: form,
-                credentials: 'include'
-            });
-            const result = await response.json();
-            if (!result.success) {
-                errEl.innerText = result.error || 'Could not adopt the selected counts.';
-                errEl.style.display = 'block';
-                return;
+
+            let result;
+            try {
+                const response = await fetch(`${API_BASE}/api/pos/stock-audit/adopt-reviewed`, {
+                    method: 'POST', body: form, credentials: 'include'
+                });
+                result = await response.json();
+            } catch (netError) {
+                // Stop at the first failed batch. Earlier batches are already
+                // committed, so say exactly how far it got rather than implying
+                // nothing happened.
+                problems.push(`Batch ${b + 1} of ${batches.length} did not complete ` +
+                              `(${netError.message}).`);
+                break;
             }
-            showToast(result.message || 'Stock counts adopted.', 'success');
-            if ((result.adjusted && result.adjusted.length) ||
-                (result.archived && result.archived.length)) await runStockAudit();
-        } catch (error) {
-            errEl.innerText = 'Could not adopt stock counts: ' + error.message;
-            errEl.style.display = 'block';
-        } finally {
-            buttons.forEach(button => { button.disabled = false; });
-            updateStockAuditAdoptControls();
+
+            if (!result.success) {
+                problems.push(`Batch ${b + 1} of ${batches.length}: ` +
+                              (result.error || 'the server refused it.'));
+                break;
+            }
+            adjusted += (result.adjusted || []).length;
+            archived += (result.archived || []).length;
         }
+
+        if (problems.length) {
+            errEl.innerHTML =
+                `<strong>Applied ${adjusted} product change(s) and archived ${archived} ` +
+                `product(s) before stopping.</strong><br>` +
+                problems.map(escapeHtml).join('<br>') +
+                '<br>The lines already applied are saved. Fix the problem above and ' +
+                'apply the rest by selecting the remaining lines only.';
+            errEl.style.display = 'block';
+            showToast(`Stopped after ${adjusted + archived} of ${operations.length}.`, 'warning');
+        } else if (adjusted || archived) {
+            errEl.style.display = 'none';
+            showToast(`Applied ${adjusted} product change(s) and archived ${archived} product(s).`,
+                      'success');
+        }
+        if (adjusted || archived) await runStockAudit();
+        if (buttons.length) buttons[0].innerHTML = originalLabel;
+        buttons.forEach(button => { button.disabled = false; });
+        updateStockAuditAdoptControls();
     }
     window.adoptStockAuditCounts = adoptStockAuditCounts;
 
