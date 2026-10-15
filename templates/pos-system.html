@@ -7110,6 +7110,30 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 onclick="adoptStockAuditCounts()" disabled>
                             <i class="fas fa-check me-1"></i>Apply selected audit actions
                         </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                onclick="setAllStockAuditLines(true)">
+                            <i class="fas fa-check-double me-1"></i>Select all
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                onclick="setAllStockAuditLines(false)">
+                            <i class="fas fa-xmark me-1"></i>Deselect all
+                        </button>
+                        <span class="small text-muted" id="stockAuditLineCount"></span>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center flex-wrap mb-1">
+                        <input type="text" class="form-control form-control-sm"
+                               style="max-width:240px;" id="stockAuditLineSearch"
+                               placeholder="Search lines by product..." oninput="filterStockAuditLines()">
+                        <select class="form-select form-select-sm" style="max-width:210px;"
+                                id="stockAuditLineFilter" onchange="filterStockAuditLines()">
+                            <option value="">All statuses</option>
+                            <option value="surplus">Surplus on the ground</option>
+                            <option value="shortage">Shortage</option>
+                            <option value="match">Match</option>
+                            <option value="similar_name">Name mismatch</option>
+                            <option value="not_in_system">Not in the system</option>
+                            <option value="not_counted">Explicitly not counted</option>
+                        </select>
                         <span class="small text-muted">Product changes and archive actions are reviewed individually.</span>
                     </div>
                     <div class="table-responsive" style="max-height:320px;overflow:auto;">
@@ -7123,7 +7147,8 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         </table>
                     </div>
                     <div id="stockAuditUncounted" class="mt-3" style="display:none;"></div>
-                    <div id="stockAuditFailedWrap" class="mt-2" style="display:none;">                        <div class="alert alert-warning py-2 small mb-0">
+                    <div id="stockAuditFailedWrap" class="mt-2" style="display:none;">
+                        <div class="alert alert-warning py-2 small mb-0">
                             <strong>Rows skipped</strong>
                             <ul id="stockAuditFailedList" class="mb-0"></ul>
                         </div>
@@ -17133,7 +17158,9 @@ function setupAddProductFundingSelection() {
                        </div>` : '';
                 const review = fields || createFields
                     ? `<div class="mt-1">${fields}${createFields}</div>` : '';
-                return `<tr class="${colour[l.status] || ''}">
+                return `<tr class="stock-audit-line ${colour[l.status] || ''}"
+                            data-status="${escapeHtml(l.status)}"
+                            data-name="${escapeHtml(String(l.name).toLowerCase())}">
                     <td class="small">${escapeHtml(l.name)}${nameExtra}${review}</td>
                     <td class="text-end small">${counted}</td>
                     <td class="text-end small">${sys}</td>
@@ -17141,6 +17168,12 @@ function setupAddProductFundingSelection() {
                     <td class="small">${label[l.status] || ''}</td>
                     <td>${checkbox}</td></tr>`;
             }).join('') || '<tr><td colspan="6" class="text-muted small">Nothing to show.</td></tr>';
+            // Reset any filter left over from a previous run, so the new audit is
+            // never shown pre-filtered by a stale search term.
+            const searchEl = document.getElementById('stockAuditLineSearch');
+            if (searchEl) searchEl.value = '';
+            const filterEl = document.getElementById('stockAuditLineFilter');
+            if (filterEl) filterEl.value = '';
         }
         updateStockAuditAdoptControls();
 
@@ -17264,6 +17297,53 @@ function setupAddProductFundingSelection() {
     }
     window.updateStockAuditUncountedCount = updateStockAuditUncountedCount;
 
+    function setAllStockAuditLines(checked) {
+        // Only rows that are not filtered out, so a search or status filter makes
+        // "select all" mean "all of what I am looking at".
+        document.querySelectorAll('#stockAuditBody .stock-audit-line').forEach(row => {
+            if (row.style.display === 'none') return;
+            const box = row.querySelector('.stock-audit-action-check');
+            if (box) box.checked = !!checked;
+        });
+        updateStockAuditAdoptControls();
+    }
+    window.setAllStockAuditLines = setAllStockAuditLines;
+
+    function filterStockAuditLines() {
+        const input = document.getElementById('stockAuditLineSearch');
+        const sel = document.getElementById('stockAuditLineFilter');
+        const term = (input && input.value ? input.value : '').trim().toLowerCase();
+        const status = sel ? sel.value : '';
+        document.querySelectorAll('#stockAuditBody .stock-audit-line').forEach(row => {
+            const name = row.getAttribute('data-name') || '';
+            const matchesTerm = !term || name.indexOf(term) !== -1;
+            const matchesStatus = !status || row.getAttribute('data-status') === status;
+            row.style.display = (matchesTerm && matchesStatus) ? '' : 'none';
+        });
+        updateStockAuditLineCount();
+    }
+    window.filterStockAuditLines = filterStockAuditLines;
+
+    function updateStockAuditLineCount() {
+        const el = document.getElementById('stockAuditLineCount');
+        if (!el) return;
+        const rows = Array.from(document.querySelectorAll('#stockAuditBody .stock-audit-line'));
+        if (!rows.length) { el.textContent = ''; return; }
+        const visible = rows.filter(r => r.style.display !== 'none').length;
+        const selectable = rows.filter(r =>
+            r.querySelector('.stock-audit-action-check')).length;
+        const selected = rows.filter(r => {
+            const b = r.querySelector('.stock-audit-action-check');
+            return b && b.checked;
+        }).length;
+        let text = visible === rows.length
+            ? rows.length + ' line(s), ' + selectable + ' selectable'
+            : visible + ' of ' + rows.length + ' line(s) shown';
+        if (selected) text += ' · ' + selected + ' selected';
+        el.textContent = text;
+    }
+    window.updateStockAuditLineCount = updateStockAuditLineCount;
+
     function updateStockAuditAdoptControls() {
         const button = document.getElementById('stockAuditApplySelectedBtn');
         const selected = document.querySelectorAll(
@@ -17278,6 +17358,7 @@ function setupAddProductFundingSelection() {
                 (count === 1 ? 'Apply 1 selected action'
                              : 'Apply ' + count + ' selected actions');
         }
+        updateStockAuditLineCount();
         updateStockAuditUncountedCount();
     }
     window.updateStockAuditAdoptControls = updateStockAuditAdoptControls;
