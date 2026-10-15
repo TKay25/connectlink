@@ -3271,6 +3271,7 @@ body {
     display: flex;
     flex-direction: column;
     max-height: calc(100vh - 2rem);
+    max-width: none;
     overflow: hidden;
     width: 100%;
 }
@@ -3296,14 +3297,6 @@ body {
 .modal .modal-dialog.modal-md { max-width: min(94vw, 640px); }
 .modal .modal-dialog.modal-lg { max-width: min(94vw, 800px); }
 .modal .modal-dialog.modal-xl { max-width: min(95vw, 1140px); }
-
-/* Upload New Stock: design-system.css caps .modal-content at 520px, which
-   shrank this modal AND left it stuck to the left inside its wide modal-xl
-   dialog. Let the content fill the dialog so it is truly centred. */
-#uploadStockModal .modal-content {
-    max-width: none !important;
-    width: 100% !important;
-}
 
 /* ---- Subtract Stock: keep footer always visible, body scrollable ---- */
 #subtractStockModal .modal-dialog {
@@ -6990,7 +6983,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 
 <!-- Auto Audit: physical count sheet vs the system as at a chosen date -->
 <div class="modal fade" id="stockAuditModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <div class="modal-header" style="background:#0e7490;color:white;">
                 <h5 class="modal-title"><i class="fas fa-magnifying-glass-chart me-1"></i>Auto Audit Stock</h5>
@@ -7000,8 +6993,11 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <p class="small text-muted mb-2">
                     Count what is physically on the ground and put it in the
                     <strong>Upload New Stock</strong> template. This compares it to what the system
-                    says was in stock on the date you choose. <strong>Nothing is changed</strong> —
-                    this is a check, not an upload.
+                    says was in stock on the date you choose. Running the audit makes no changes.
+                    After reviewing, adopt exact Excel matches in bulk or select individual lines.
+                    An adopted correction is dated to the comparison day and its difference is
+                    carried into the branch's current stock. Added units use the current buying
+                    price for FIFO valuation.
                 </p>
                 <div class="row g-2 align-items-end mb-2">
                     <div class="col-sm-5">
@@ -7026,12 +7022,23 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 
                 <div id="stockAuditResult" style="display:none;">
                     <div id="stockAuditSummary" class="mb-2"></div>
+                    <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
+                        <button class="btn btn-success btn-sm" id="stockAuditApplyAllBtn"
+                                onclick="adoptStockAuditCounts('all_exact')" style="display:none;">
+                            <i class="fas fa-file-import me-1"></i>Adopt exact matches from Excel
+                        </button>
+                        <button class="btn btn-warning btn-sm" id="stockAuditApplySelectedBtn"
+                                onclick="adoptStockAuditCounts('selected')" disabled>
+                            <i class="fas fa-check me-1"></i>Adopt selected lines
+                        </button>
+                        <span class="small text-muted">Selected lines include name suggestions you have confirmed.</span>
+                    </div>
                     <div class="table-responsive" style="max-height:320px;overflow:auto;">
                         <table class="table table-sm align-middle mb-0">
                             <thead><tr>
                                 <th>Product</th><th class="text-end">Counted</th>
                                 <th class="text-end">System</th><th class="text-end">Difference</th>
-                                <th>Status</th>
+                                <th>Status</th><th>Adopt</th>
                             </tr></thead>
                             <tbody id="stockAuditBody"></tbody>
                         </table>
@@ -10987,7 +10994,7 @@ function toggleAuditReport() {
 }
 
 // ==================== POS USER ACTIVITY LOG ====================
-const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','download','branch_stock_repair'];
+const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','download','branch_stock_repair','stock_audit_adopt','system_change'];
 let _posActivityRows = [];
 
 // Best-effort client-side activity logging (exports/downloads happen in the browser)
@@ -11089,7 +11096,9 @@ function posActivityBadge(type) {
         'pos_login': 'secondary',
         'pos_logout': 'secondary',
         'download': 'info',
-        'branch_stock_repair': 'warning'
+        'branch_stock_repair': 'warning',
+        'stock_audit_adopt': 'primary',
+        'system_change': 'info'
     };
     const cls = map[type] || 'secondary';
     const label = String(type || 'action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
@@ -11142,7 +11151,9 @@ function exportPosActivityLogPDF() {
         'product_update': 'Product Update', 'price_change': 'Price Change', 'stock_remove': 'Stock Remove',
         'product_delete': 'Product Delete', 'wipe_all': 'Wipe All', 'pos_login': 'POS Login',
         'pos_logout': 'POS Logout', 'download': 'Download',
-        'branch_stock_repair': 'Stock Repair'
+        'branch_stock_repair': 'Stock Repair',
+        'stock_audit_adopt': 'Stock Audit Adopted',
+        'system_change': 'System Change'
     };
     const content = document.createElement('div');
     content.style.padding = '20px';
@@ -16700,6 +16711,18 @@ function setupAddProductFundingSelection() {
         if (f) f.value = '';
         const d = document.getElementById('stockAuditDate');
         if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+        [f, d].forEach(el => {
+            if (!el || el.dataset.auditInvalidationBound) return;
+            el.dataset.auditInvalidationBound = 'true';
+            el.addEventListener('change', () => {
+                if (!_stockAuditData) return;
+                _stockAuditData = null;
+                document.getElementById('stockAuditResult').style.display = 'none';
+                const error = document.getElementById('stockAuditError');
+                error.innerText = 'The count sheet or audit date changed. Run the audit again before adopting.';
+                error.style.display = 'block';
+            });
+        });
         const b = document.getElementById('stockAuditBranch');
         if (b) b.textContent = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
         document.getElementById('stockAuditError').style.display = 'none';
@@ -16776,6 +16799,8 @@ function setupAddProductFundingSelection() {
             body.innerHTML = (data.lines || []).map(l => {
                 const nameExtra = l.status === 'similar_name'
                     ? `<div class="text-muted small">sheet said “${escapeHtml(l.counted_was)}”</div>` : '';
+                const productId = Number(l.product_id);
+                const selectable = Number.isInteger(productId) && productId > 0;
                 const sys = (l.system_at_date === null) ? '<span class="text-muted">—</span>' : l.system_at_date;
                 const diff = (l.difference === null) ? '<span class="text-muted">—</span>'
                     : (l.difference === 0 ? '0'
@@ -16785,9 +16810,19 @@ function setupAddProductFundingSelection() {
                     <td class="text-end small">${l.counted}</td>
                     <td class="text-end small">${sys}</td>
                     <td class="text-end small">${diff}</td>
-                    <td class="small">${label[l.status] || ''}</td></tr>`;
-            }).join('') || '<tr><td colspan="5" class="text-muted small">Nothing to show.</td></tr>';
+                    <td class="small">${label[l.status] || ''}</td>
+                    <td>${selectable
+                        ? `<input type="checkbox" class="form-check-input stock-audit-adopt-check"
+                                  data-product-id="${productId}" onchange="updateStockAuditAdoptControls()"
+                                  aria-label="Select ${escapeHtml(l.name)} for stock adoption">`
+                        : '<span class="text-muted">—</span>'}</td></tr>`;
+            }).join('') || '<tr><td colspan="6" class="text-muted small">Nothing to show.</td></tr>';
         }
+        const hasExactMatches = (data.lines || []).some(l =>
+            l.product_id && l.status !== 'similar_name' && l.status !== 'not_in_system');
+        const applyAll = document.getElementById('stockAuditApplyAllBtn');
+        if (applyAll) applyAll.style.display = hasExactMatches ? '' : 'none';
+        updateStockAuditAdoptControls();
 
         // Items the branch holds that the sheet never counted.
         const uw = document.getElementById('stockAuditUncounted');
@@ -16824,6 +16859,78 @@ function setupAddProductFundingSelection() {
         document.getElementById('stockAuditResult').style.display = 'block';
     }
     window.renderStockAudit = renderStockAudit;
+
+    function updateStockAuditAdoptControls() {
+        const button = document.getElementById('stockAuditApplySelectedBtn');
+        if (button) {
+            button.disabled = !document.querySelector(
+                '#stockAuditBody .stock-audit-adopt-check:checked');
+        }
+    }
+    window.updateStockAuditAdoptControls = updateStockAuditAdoptControls;
+
+    async function adoptStockAuditCounts(mode) {
+        const data = _stockAuditData;
+        const fileEl = document.getElementById('stockAuditFile');
+        const errEl = document.getElementById('stockAuditError');
+        const selectedIds = Array.from(document.querySelectorAll(
+            '#stockAuditBody .stock-audit-adopt-check:checked'))
+            .map(el => Number(el.dataset.productId));
+        if (!data || !fileEl || !fileEl.files.length) {
+            errEl.innerText = 'Choose the count sheet and run the audit first.';
+            errEl.style.display = 'block';
+            return;
+        }
+        if (mode === 'selected' && !selectedIds.length) {
+            errEl.innerText = 'Select at least one audit line first.';
+            errEl.style.display = 'block';
+            return;
+        }
+        const requestedLines = mode === 'all_exact'
+            ? data.lines.filter(l => l.product_id && l.status !== 'similar_name' && l.status !== 'not_in_system')
+            : data.lines.filter(l => selectedIds.includes(Number(l.product_id)));
+        const dateLabel = data.as_at_label || data.as_at;
+        const confirmed = window.confirm(
+            `Adopt ${requestedLines.length} count(s) as at ${dateLabel} in ${data.branch_name}?\n\n` +
+            'This will record dated stock adjustments and carry each quantity difference into current branch stock.'
+        );
+        if (!confirmed) return;
+
+        const buttons = [
+            document.getElementById('stockAuditApplyAllBtn'),
+            document.getElementById('stockAuditApplySelectedBtn')
+        ].filter(Boolean);
+        buttons.forEach(button => { button.disabled = true; });
+        errEl.style.display = 'none';
+        try {
+            const form = new FormData();
+            form.append('file', fileEl.files[0]);
+            form.append('as_at', data.as_at);
+            form.append('branch_id', String(data.branch_id));
+            form.append('mode', mode);
+            form.append('product_ids', JSON.stringify(selectedIds));
+            const response = await fetch(`${API_BASE}/api/pos/stock-audit/adopt`, {
+                method: 'POST',
+                body: form,
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (!result.success) {
+                errEl.innerText = result.error || 'Could not adopt the selected counts.';
+                errEl.style.display = 'block';
+                return;
+            }
+            showToast(result.message || 'Stock counts adopted.', 'success');
+            if (result.adjusted && result.adjusted.length) await runStockAudit();
+        } catch (error) {
+            errEl.innerText = 'Could not adopt stock counts: ' + error.message;
+            errEl.style.display = 'block';
+        } finally {
+            buttons.forEach(button => { button.disabled = false; });
+            updateStockAuditAdoptControls();
+        }
+    }
+    window.adoptStockAuditCounts = adoptStockAuditCounts;
 
     // Built client-side from the stored result, so no extra endpoint or query.
     function downloadStockAudit() {

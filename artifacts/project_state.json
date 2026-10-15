@@ -1,6 +1,6 @@
 {
-  "last_sync": "2026-10-15T06:35:17.068Z",
-  "module_count": 113,
+  "last_sync": "2026-10-15T08:26:25.119Z",
+  "module_count": 120,
   "empty_project": false,
   "planning_ready": true,
   "orphaned_count": 140,
@@ -566,14 +566,5 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": [
-    {
-      "rel": "_tmp_routes2.py",
-      "ts": "2026-10-14T13:27:25.102Z"
-    },
-    {
-      "rel": "_tmp_routes2.py",
-      "ts": "2026-10-14T13:27:25.009Z"
-    }
-  ]
+  "recent_deletions": []
 }
