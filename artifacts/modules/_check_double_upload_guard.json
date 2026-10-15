@@ -1,0 +1,47 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckDoubleUploadGuard",
+  "file": "_check_double_upload_guard.py",
+  "purpose": "Check the bulk-upload duplicate guard, without a database or a browser.",
+  "entry_function": "class OverlapStub  # line 99 — Stands in for the cursor: returns a fixed prior job's items.",
+  "entry_flows": [
+    "OverlapStub.__init__(prior_items) → path.insert, path.dirname, path.abspath, FAILURES.append",
+    "StubCursor.__init__() → path.insert, path.dirname, path.abspath, FAILURES.append"
+  ],
+  "public_api": [
+    "class OverlapStub  # line 99 — Stands in for the cursor: returns a fixed prior job's items.",
+    "  OverlapStub.__init__(prior_items)",
+    "  OverlapStub.execute(sql, params = None)",
+    "  OverlapStub.fetchall()",
+    "class StubCursor  # line 164",
+    "  StubCursor.__init__()",
+    "  StubCursor.execute(sql, params = None)",
+    "  StubCursor.fetchone()",
+    "check(label, got, want)",
+    "main()",
+    "make_prior(pairs)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: FAILURES = []",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "625f96c3df553dae",
+  "file_mtime": 1792049212272.0564,
+  "file_size": 5356,
+  "file_birthtime": 1792049212271.0283,
+  "generated_at": "2026-10-15T07:32:47.159477Z",
+  "stale": false
+}

@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "FixDoubleUpload",
+  "file": "_fix_double_upload.py",
+  "purpose": "Undo the SECOND application of a bulk stock upload that was applied twice.",
+  "entry_function": "load_targets(cur, branch_id)",
+  "entry_flows": [
+    "_fix_double_upload → stock_lots.quantity_remaining"
+  ],
+  "public_api": [
+    "load_targets(cur, branch_id)",
+    "main()",
+    "set_branch_stock(cursor, pid, bid, new_stock)"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: DEFAULT_DSN = None, JOB_GOOD = 10, JOB_BAD = 11, REF_BAD = 'UPL-20261005-59D0BF'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "a77242d528f27ece",
+  "file_mtime": 1792047271816.9128,
+  "file_size": 9007,
+  "file_birthtime": 1792047271811.393,
+  "generated_at": "2026-10-15T07:36:28.103253Z",
+  "stale": false
+}

@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-10-14T12:24:36.641Z",
-  "module_count": 107,
+  "last_sync": "2026-10-15T06:35:17.068Z",
+  "module_count": 113,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 137,
+  "orphaned_count": 140,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -294,6 +294,10 @@
       "source": "_preview_final.py"
     },
     {
+      "artifact": "artifacts/modules/_preview_inventory_toolbar.json",
+      "source": "_preview_inventory_toolbar.py"
+    },
+    {
       "artifact": "artifacts/modules/_preview_multibranch.json",
       "source": "_preview_multibranch.py"
     },
@@ -470,6 +474,14 @@
       "source": "_tmp_pdf_v2.py"
     },
     {
+      "artifact": "artifacts/modules/_tmp_routes.json",
+      "source": "_tmp_routes.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_routes2.json",
+      "source": "_tmp_routes2.py"
+    },
+    {
       "artifact": "artifacts/modules/_tmp_sched_test.json",
       "source": "_tmp_sched_test.py"
     },
@@ -554,5 +566,14 @@
       "source": "_zero_allowances.py"
     }
   ],
-  "recent_deletions": []
+  "recent_deletions": [
+    {
+      "rel": "_tmp_routes2.py",
+      "ts": "2026-10-14T13:27:25.102Z"
+    },
+    {
+      "rel": "_tmp_routes2.py",
+      "ts": "2026-10-14T13:27:25.009Z"
+    }
+  ]
 }

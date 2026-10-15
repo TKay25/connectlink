@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "FixDoubleUploadBackup",
+  "file": "_fix_double_upload_backup.json",
+  "purpose": "JSON config/data — 5 top-level keys",
+  "entry_function": "job_good",
+  "entry_flows": [],
+  "public_api": [
+    "job_good: int",
+    "job_bad: int",
+    "reference: str",
+    "branch_id: int",
+    "products: list"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "d631e12d86b2c3c2",
+  "file_mtime": 1792047298634.1162,
+  "file_size": 24102,
+  "file_birthtime": 1792047298626.1294,
+  "generated_at": "2026-10-15T06:55:01.267825Z",
+  "stale": false
+}

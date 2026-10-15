@@ -1,0 +1,1072 @@
+{
+  "job_good": 10,
+  "job_bad": 11,
+  "reference": "UPL-20261005-59D0BF",
+  "branch_id": 2,
+  "products": [
+    {
+      "product_id": 1027,
+      "name": "7kg gas tank",
+      "stock_before": 15,
+      "lot_id": 1187,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1028,
+      "name": "9kg gas tank",
+      "stock_before": 15,
+      "lot_id": 1188,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1100,
+      "name": "3kg Gas Tank",
+      "stock_before": 128,
+      "lot_id": 1180,
+      "lot_remaining": 44,
+      "uploaded_qty": 44
+    },
+    {
+      "product_id": 1318,
+      "name": "Toasters",
+      "stock_before": 24,
+      "lot_id": 1280,
+      "lot_remaining": 9,
+      "uploaded_qty": 9
+    },
+    {
+      "product_id": 1319,
+      "name": "Small Irons",
+      "stock_before": 12,
+      "lot_id": 1267,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1320,
+      "name": "Big Irons",
+      "stock_before": 13,
+      "lot_id": 1192,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1321,
+      "name": "RAF Blender",
+      "stock_before": 26,
+      "lot_id": 1259,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1331,
+      "name": "2 plate stove Electric",
+      "stock_before": 15,
+      "lot_id": 1177,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1341,
+      "name": "Headboard",
+      "stock_before": 4,
+      "lot_id": 1232,
+      "lot_remaining": 4,
+      "uploaded_qty": 9
+    },
+    {
+      "product_id": 1367,
+      "name": "Kango plate",
+      "stock_before": 286,
+      "lot_id": 1240,
+      "lot_remaining": 96,
+      "uploaded_qty": 96
+    },
+    {
+      "product_id": 1380,
+      "name": "Mug cups",
+      "stock_before": 280,
+      "lot_id": 1248,
+      "lot_remaining": 120,
+      "uploaded_qty": 120
+    },
+    {
+      "product_id": 1389,
+      "name": "$60 pots",
+      "stock_before": 22,
+      "lot_id": 1165,
+      "lot_remaining": 9,
+      "uploaded_qty": 9
+    },
+    {
+      "product_id": 1390,
+      "name": "$70 pots",
+      "stock_before": 15,
+      "lot_id": 1168,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1392,
+      "name": "$50 pots",
+      "stock_before": 6,
+      "lot_id": 1164,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1394,
+      "name": "$40 pots",
+      "stock_before": 10,
+      "lot_id": 1163,
+      "lot_remaining": 4,
+      "uploaded_qty": 4
+    },
+    {
+      "product_id": 1395,
+      "name": "$35 pots",
+      "stock_before": 22,
+      "lot_id": 1162,
+      "lot_remaining": 8,
+      "uploaded_qty": 8
+    },
+    {
+      "product_id": 1397,
+      "name": "$15 pots",
+      "stock_before": 24,
+      "lot_id": 1159,
+      "lot_remaining": 9,
+      "uploaded_qty": 9
+    },
+    {
+      "product_id": 1398,
+      "name": "$120 pots",
+      "stock_before": 23,
+      "lot_id": 1158,
+      "lot_remaining": 9,
+      "uploaded_qty": 9
+    },
+    {
+      "product_id": 1401,
+      "name": "$80 pots",
+      "stock_before": 2,
+      "lot_id": 1169,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1402,
+      "name": "$90 pots",
+      "stock_before": 15,
+      "lot_id": 1170,
+      "lot_remaining": 6,
+      "uploaded_qty": 6
+    },
+    {
+      "product_id": 1412,
+      "name": "Deep fryer",
+      "stock_before": 9,
+      "lot_id": 1208,
+      "lot_remaining": 3,
+      "uploaded_qty": 3
+    },
+    {
+      "product_id": 1413,
+      "name": "Silver Kango",
+      "stock_before": 28,
+      "lot_id": 1264,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1418,
+      "name": "Dinner plates",
+      "stock_before": 307,
+      "lot_id": 1215,
+      "lot_remaining": 123,
+      "uploaded_qty": 123
+    },
+    {
+      "product_id": 1420,
+      "name": "Half gas/Electric",
+      "stock_before": 12,
+      "lot_id": 1231,
+      "lot_remaining": 4,
+      "uploaded_qty": 4
+    },
+    {
+      "product_id": 1478,
+      "name": "5kg gas tank @ $20",
+      "stock_before": 29,
+      "lot_id": 1183,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1570,
+      "name": "Kango Bellied Pots 3pc",
+      "stock_before": 15,
+      "lot_id": 1236,
+      "lot_remaining": 6,
+      "uploaded_qty": 6
+    },
+    {
+      "product_id": 1574,
+      "name": "43-inch Samsung TV",
+      "stock_before": 2,
+      "lot_id": 1181,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1575,
+      "name": "32-inch Samsung TV",
+      "stock_before": 0,
+      "lot_id": 1178,
+      "lot_remaining": 0,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1577,
+      "name": "60-inch Samsung TV",
+      "stock_before": 2,
+      "lot_id": 1184,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1580,
+      "name": "Double Gas Fryer",
+      "stock_before": 3,
+      "lot_id": 1216,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1586,
+      "name": "Microwave @$95",
+      "stock_before": 7,
+      "lot_id": 1247,
+      "lot_remaining": 4,
+      "uploaded_qty": 4
+    },
+    {
+      "product_id": 1591,
+      "name": "D230 Defy Fridge",
+      "stock_before": 1,
+      "lot_id": 1207,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1594,
+      "name": "Univa Stove",
+      "stock_before": 0,
+      "lot_id": 1282,
+      "lot_remaining": 0,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1595,
+      "name": "Defy Stove",
+      "stock_before": 1,
+      "lot_id": 1213,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1598,
+      "name": "R.7800 2L kettle (RK8578)",
+      "stock_before": 11,
+      "lot_id": 1257,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1600,
+      "name": "12pcs Kango Pots @84",
+      "stock_before": 23,
+      "lot_id": 1172,
+      "lot_remaining": 8,
+      "uploaded_qty": 8
+    },
+    {
+      "product_id": 1601,
+      "name": "Food Warmers - Medium",
+      "stock_before": 9,
+      "lot_id": 1223,
+      "lot_remaining": 3,
+      "uploaded_qty": 3
+    },
+    {
+      "product_id": 1604,
+      "name": " Bread Box Rose Gold @$20",
+      "stock_before": 29,
+      "lot_id": 1199,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1714,
+      "name": "Kango Dheka Small",
+      "stock_before": 36,
+      "lot_id": 1239,
+      "lot_remaining": 12,
+      "uploaded_qty": 12
+    },
+    {
+      "product_id": 1718,
+      "name": "Defy Bar Fridge",
+      "stock_before": 9,
+      "lot_id": 1209,
+      "lot_remaining": 3,
+      "uploaded_qty": 3
+    },
+    {
+      "product_id": 1725,
+      "name": "15kg Gas Tank",
+      "stock_before": 15,
+      "lot_id": 1174,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1750,
+      "name": "Defy DFF456 SBS Glassdoor",
+      "stock_before": 1,
+      "lot_id": 1212,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1751,
+      "name": "Hisense Mirror fridge",
+      "stock_before": 1,
+      "lot_id": 1234,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1752,
+      "name": "Keson Solar Fridge",
+      "stock_before": 6,
+      "lot_id": 1241,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1753,
+      "name": "Media Double bar fridge",
+      "stock_before": 6,
+      "lot_id": 1245,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1754,
+      "name": "Gain Star4 plate gas stove",
+      "stock_before": 60,
+      "lot_id": 1182,
+      "lot_remaining": 20,
+      "uploaded_qty": 20
+    },
+    {
+      "product_id": 1755,
+      "name": "6 plate gas stove",
+      "stock_before": 6,
+      "lot_id": 1185,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1756,
+      "name": "Defy Deep Fridge CF185",
+      "stock_before": 12,
+      "lot_id": 1211,
+      "lot_remaining": 4,
+      "uploaded_qty": 4
+    },
+    {
+      "product_id": 1757,
+      "name": "Top loader washing machine",
+      "stock_before": 6,
+      "lot_id": 1281,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1758,
+      "name": "Defy c285 upright",
+      "stock_before": 3,
+      "lot_id": 1210,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1759,
+      "name": "Hisense double fridge small",
+      "stock_before": 3,
+      "lot_id": 1233,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1760,
+      "name": "Defy Washing",
+      "stock_before": 3,
+      "lot_id": 1214,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1761,
+      "name": "Ceeedye search light",
+      "stock_before": 30,
+      "lot_id": 1203,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1762,
+      "name": "L-835 search light",
+      "stock_before": 29,
+      "lot_id": 1243,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1764,
+      "name": "CS4414 Speaker",
+      "stock_before": 14,
+      "lot_id": 1206,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1765,
+      "name": "P9 headset",
+      "stock_before": 27,
+      "lot_id": 1253,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1766,
+      "name": "p47 headset",
+      "stock_before": 28,
+      "lot_id": 1252,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1767,
+      "name": "soft dish washer sponge",
+      "stock_before": 42,
+      "lot_id": 1268,
+      "lot_remaining": 14,
+      "uploaded_qty": 14
+    },
+    {
+      "product_id": 1768,
+      "name": "Big Personal Speaker",
+      "stock_before": 1,
+      "lot_id": 1193,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1769,
+      "name": "Botswana Medium Speaker",
+      "stock_before": 1,
+      "lot_id": 1196,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1770,
+      "name": "Botswana Small Speaker",
+      "stock_before": 2,
+      "lot_id": 1197,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1771,
+      "name": "Botswana Medium Long Speaker",
+      "stock_before": 0,
+      "lot_id": 1195,
+      "lot_remaining": 0,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1772,
+      "name": "S1 Carbon Steel Storage Rack 3F Black",
+      "stock_before": 7,
+      "lot_id": 1262,
+      "lot_remaining": 3,
+      "uploaded_qty": 3
+    },
+    {
+      "product_id": 1773,
+      "name": "Round-framed 5-layer Storage Rack",
+      "stock_before": 6,
+      "lot_id": 1261,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1776,
+      "name": "Air fryer papers",
+      "stock_before": 53,
+      "lot_id": 1190,
+      "lot_remaining": 18,
+      "uploaded_qty": 18
+    },
+    {
+      "product_id": 1777,
+      "name": "Light Grey Knife set",
+      "stock_before": 14,
+      "lot_id": 1244,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1778,
+      "name": "Wood handle knife big",
+      "stock_before": 35,
+      "lot_id": 1288,
+      "lot_remaining": 12,
+      "uploaded_qty": 12
+    },
+    {
+      "product_id": 1779,
+      "name": "Wood handle knife small",
+      "stock_before": 32,
+      "lot_id": 1289,
+      "lot_remaining": 11,
+      "uploaded_qty": 11
+    },
+    {
+      "product_id": 1780,
+      "name": "White handled Knife",
+      "stock_before": 32,
+      "lot_id": 1286,
+      "lot_remaining": 11,
+      "uploaded_qty": 11
+    },
+    {
+      "product_id": 1782,
+      "name": "Grater",
+      "stock_before": 25,
+      "lot_id": 1227,
+      "lot_remaining": 9,
+      "uploaded_qty": 9
+    },
+    {
+      "product_id": 1783,
+      "name": "Grater with wood",
+      "stock_before": 54,
+      "lot_id": 1228,
+      "lot_remaining": 19,
+      "uploaded_qty": 19
+    },
+    {
+      "product_id": 1784,
+      "name": "Wood chopping board",
+      "stock_before": 27,
+      "lot_id": 1287,
+      "lot_remaining": 9,
+      "uploaded_qty": 9
+    },
+    {
+      "product_id": 1785,
+      "name": "Grid kitchen Knives",
+      "stock_before": 14,
+      "lot_id": 1229,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1786,
+      "name": "Ai 02s Speaker",
+      "stock_before": 5,
+      "lot_id": 1189,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1787,
+      "name": "GTS1767 Speaker",
+      "stock_before": 15,
+      "lot_id": 1230,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1788,
+      "name": "S620 Speaker",
+      "stock_before": 0,
+      "lot_id": 1263,
+      "lot_remaining": 0,
+      "uploaded_qty": 3
+    },
+    {
+      "product_id": 1789,
+      "name": "CHM802 Speaker",
+      "stock_before": 14,
+      "lot_id": 1205,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1790,
+      "name": "Sound Speaker AI 178sun",
+      "stock_before": 5,
+      "lot_id": 1272,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1791,
+      "name": "Sound Speaker AI 02plus",
+      "stock_before": 6,
+      "lot_id": 1269,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1792,
+      "name": "Sound Speaker BOMBOX4",
+      "stock_before": 6,
+      "lot_id": 1273,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1793,
+      "name": "Sound Speaker YG A151",
+      "stock_before": 5,
+      "lot_id": 1274,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1794,
+      "name": "Sound Speaker AI 05s",
+      "stock_before": 3,
+      "lot_id": 1270,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1795,
+      "name": "Sound Speaker AI 07sun",
+      "stock_before": 6,
+      "lot_id": 1271,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1796,
+      "name": "Sturdy 2 plate stove",
+      "stock_before": 10,
+      "lot_id": 1278,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1797,
+      "name": "Kadoma Air Fryer",
+      "stock_before": 10,
+      "lot_id": 1235,
+      "lot_remaining": 4,
+      "uploaded_qty": 4
+    },
+    {
+      "product_id": 1798,
+      "name": "Breadbox wood large",
+      "stock_before": 29,
+      "lot_id": 1201,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1799,
+      "name": "White Bread Bin",
+      "stock_before": 9,
+      "lot_id": 1285,
+      "lot_remaining": 3,
+      "uploaded_qty": 3
+    },
+    {
+      "product_id": 1800,
+      "name": "Bread Box black/white large",
+      "stock_before": 30,
+      "lot_id": 1198,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1801,
+      "name": "Bread Box wood",
+      "stock_before": 13,
+      "lot_id": 1200,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1802,
+      "name": "CH880 speaker",
+      "stock_before": 15,
+      "lot_id": 1204,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1803,
+      "name": "ZQS24 speaker",
+      "stock_before": 15,
+      "lot_id": 1290,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1804,
+      "name": "R.7978 2L Kettle",
+      "stock_before": 15,
+      "lot_id": 1258,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1805,
+      "name": "Electric Kettle @ $9",
+      "stock_before": 15,
+      "lot_id": 1221,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1806,
+      "name": "Electric Kettle @ $10",
+      "stock_before": 14,
+      "lot_id": 1219,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1807,
+      "name": "Electric Kettle @ $12",
+      "stock_before": 12,
+      "lot_id": 1220,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1808,
+      "name": "Stand Mixer R6628",
+      "stock_before": 6,
+      "lot_id": 1275,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1810,
+      "name": "R2580S Sandwich Machine small",
+      "stock_before": 57,
+      "lot_id": 1255,
+      "lot_remaining": 19,
+      "uploaded_qty": 19
+    },
+    {
+      "product_id": 1811,
+      "name": "R.2580S sandwich maker",
+      "stock_before": 13,
+      "lot_id": 1256,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1812,
+      "name": "Potato Chipper",
+      "stock_before": 20,
+      "lot_id": 1254,
+      "lot_remaining": 7,
+      "uploaded_qty": 7
+    },
+    {
+      "product_id": 1813,
+      "name": "Egg Mold cutlery set",
+      "stock_before": 30,
+      "lot_id": 1217,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1814,
+      "name": "Canister",
+      "stock_before": 30,
+      "lot_id": 1202,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1815,
+      "name": "Rice Cooker",
+      "stock_before": 10,
+      "lot_id": 1260,
+      "lot_remaining": 4,
+      "uploaded_qty": 4
+    },
+    {
+      "product_id": 1816,
+      "name": "Electric Fan",
+      "stock_before": 4,
+      "lot_id": 1218,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1817,
+      "name": "Metal Gas Stove Two-Plate",
+      "stock_before": 15,
+      "lot_id": 1246,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1818,
+      "name": "1 Plate Electrical Stove (H-002)",
+      "stock_before": 58,
+      "lot_id": 1175,
+      "lot_remaining": 20,
+      "uploaded_qty": 20
+    },
+    {
+      "product_id": 1819,
+      "name": "Kango Dheka Big",
+      "stock_before": 36,
+      "lot_id": 1238,
+      "lot_remaining": 12,
+      "uploaded_qty": 12
+    },
+    {
+      "product_id": 1823,
+      "name": "P-19S Black 19-piece Silicone",
+      "stock_before": 19,
+      "lot_id": 1251,
+      "lot_remaining": 7,
+      "uploaded_qty": 7
+    },
+    {
+      "product_id": 1824,
+      "name": "12 pc spice bottle",
+      "stock_before": 137,
+      "lot_id": 1173,
+      "lot_remaining": 48,
+      "uploaded_qty": 48
+    },
+    {
+      "product_id": 1825,
+      "name": "Stanley Cup",
+      "stock_before": 42,
+      "lot_id": 1276,
+      "lot_remaining": 17,
+      "uploaded_qty": 17
+    },
+    {
+      "product_id": 1826,
+      "name": "Stanley Cup - No Handle",
+      "stock_before": 40,
+      "lot_id": 1277,
+      "lot_remaining": 14,
+      "uploaded_qty": 14
+    },
+    {
+      "product_id": 1827,
+      "name": "Botswana 3-Door Wardrobe",
+      "stock_before": 6,
+      "lot_id": 1194,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1828,
+      "name": "Kitchen Unit",
+      "stock_before": 3,
+      "lot_id": 1242,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1829,
+      "name": "3-Door Botswana Wardrobe",
+      "stock_before": 3,
+      "lot_id": 1179,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1830,
+      "name": "10L Air Fryer",
+      "stock_before": 1,
+      "lot_id": 1171,
+      "lot_remaining": 1,
+      "uploaded_qty": 1
+    },
+    {
+      "product_id": 1831,
+      "name": "7.5L Air Fryer",
+      "stock_before": 5,
+      "lot_id": 1186,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1832,
+      "name": "Slow Juicer",
+      "stock_before": 6,
+      "lot_id": 1266,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1833,
+      "name": "2 plate metal gas stove",
+      "stock_before": 11,
+      "lot_id": 1176,
+      "lot_remaining": 4,
+      "uploaded_qty": 4
+    },
+    {
+      "product_id": 1835,
+      "name": "$65 pots",
+      "stock_before": 7,
+      "lot_id": 1166,
+      "lot_remaining": 3,
+      "uploaded_qty": 3
+    },
+    {
+      "product_id": 1836,
+      "name": "$110 pots",
+      "stock_before": 6,
+      "lot_id": 1157,
+      "lot_remaining": 2,
+      "uploaded_qty": 2
+    },
+    {
+      "product_id": 1837,
+      "name": "$6 pan",
+      "stock_before": 30,
+      "lot_id": 1167,
+      "lot_remaining": 13,
+      "uploaded_qty": 13
+    },
+    {
+      "product_id": 1838,
+      "name": "$10 pots",
+      "stock_before": 30,
+      "lot_id": 1156,
+      "lot_remaining": 11,
+      "uploaded_qty": 11
+    },
+    {
+      "product_id": 1839,
+      "name": "Silver Pans",
+      "stock_before": 58,
+      "lot_id": 1265,
+      "lot_remaining": 20,
+      "uploaded_qty": 20
+    },
+    {
+      "product_id": 1840,
+      "name": "$30 pots",
+      "stock_before": 8,
+      "lot_id": 1161,
+      "lot_remaining": 4,
+      "uploaded_qty": 4
+    },
+    {
+      "product_id": 1841,
+      "name": "Gold Plates",
+      "stock_before": 339,
+      "lot_id": 1226,
+      "lot_remaining": 113,
+      "uploaded_qty": 113
+    },
+    {
+      "product_id": 1842,
+      "name": "fish and platter plates",
+      "stock_before": 127,
+      "lot_id": 1222,
+      "lot_remaining": 54,
+      "uploaded_qty": 54
+    },
+    {
+      "product_id": 1843,
+      "name": "$2 Plates",
+      "stock_before": 474,
+      "lot_id": 1160,
+      "lot_remaining": 174,
+      "uploaded_qty": 174
+    },
+    {
+      "product_id": 1844,
+      "name": "White 3-piece Striped Soup Pot Set",
+      "stock_before": 15,
+      "lot_id": 1283,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1845,
+      "name": "TG3011 Pure White Double Ear Soup Pot",
+      "stock_before": 14,
+      "lot_id": 1279,
+      "lot_remaining": 5,
+      "uploaded_qty": 5
+    },
+    {
+      "product_id": 1846,
+      "name": "white and gold 3 pots soup plate",
+      "stock_before": 30,
+      "lot_id": 1284,
+      "lot_remaining": 10,
+      "uploaded_qty": 10
+    },
+    {
+      "product_id": 1848,
+      "name": "Mugs large",
+      "stock_before": 374,
+      "lot_id": 1249,
+      "lot_remaining": 126,
+      "uploaded_qty": 126
+    },
+    {
+      "product_id": 1849,
+      "name": "Mug stand",
+      "stock_before": 162,
+      "lot_id": 1250,
+      "lot_remaining": 55,
+      "uploaded_qty": 55
+    },
+    {
+      "product_id": 1850,
+      "name": "Gold bowls",
+      "stock_before": 244,
+      "lot_id": 1225,
+      "lot_remaining": 98,
+      "uploaded_qty": 98
+    },
+    {
+      "product_id": 1858,
+      "name": "16 piece dinner plate",
+      "stock_before": 5,
+      "lot_id": 1155,
+      "lot_remaining": 3,
+      "uploaded_qty": 3
+    }
+  ]
+}
