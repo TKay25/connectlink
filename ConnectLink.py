@@ -14837,13 +14837,21 @@ def get_stock_movements():
     
     # Get product list with initial stock (stock as recorded just before start_date)
     # We'll compute this by taking current stock and reversing movements in the period
+    # Products archived in the branch being viewed are left out, so the report does
+    # not list stock for an item this shop no longer carries (see the note on
+    # current_stocks below).
+    _audit_branch_id = current_branch_id()
     products_result = execute_query("""
         SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, 
                COALESCE(p.buy_price, 0) as buy_price, COALESCE(p.sell_price, 0) as sell_price
         FROM products p
-        WHERE p.is_active = TRUE OR p.is_active IS NULL
+        WHERE (p.is_active = TRUE OR p.is_active IS NULL)
+          AND (%s IS NULL OR NOT EXISTS (
+                  SELECT 1 FROM product_branch_archives pba
+                  WHERE pba.product_id = p.id AND pba.branch_id = %s
+              ))
         ORDER BY p.name
-    """, fetch_all=True)
+    """, (_audit_branch_id, _audit_branch_id), fetch_all=True)
     
     # Get additions in the period
     additions_query = """
@@ -15009,13 +15017,23 @@ def get_stock_movements():
     
     # Current stock is THIS BRANCH's quantity. On the consolidated view it is the
     # cross-branch total (products.stock is maintained as exactly that total).
+    #
+    # Products archived in the current branch are EXCLUDED: archiving removes an
+    # item from this shop's shelf, so leaving it in the audit report would show
+    # stock for something the branch no longer carries. The archive is per branch,
+    # so the filter is applied only when a branch is selected - the consolidated
+    # view still shows the product wherever another branch stocks it.
     if current_branch_id():
         current_stocks = execute_query("""
             SELECT p.id, COALESCE(ps.stock, 0)
             FROM products p
             LEFT JOIN product_stock ps ON ps.product_id = p.id AND ps.branch_id = %s
-            WHERE p.is_active = TRUE OR p.is_active IS NULL
-        """, (current_branch_id(),), fetch_all=True) or []
+            WHERE (p.is_active = TRUE OR p.is_active IS NULL)
+              AND NOT EXISTS (
+                  SELECT 1 FROM product_branch_archives pba
+                  WHERE pba.product_id = p.id AND pba.branch_id = %s
+              )
+        """, (current_branch_id(), current_branch_id()), fetch_all=True) or []
     else:
         current_stocks = execute_query("""
             SELECT id, COALESCE(stock, 0) FROM products
