@@ -18387,11 +18387,11 @@ def pos_stock_audit_run():
                        (ps.product_id IS NOT NULL), (pba.product_id IS NOT NULL),
                        COALESCE((SELECT SUM(sl.quantity_remaining) FROM stock_lots sl
                                  WHERE sl.product_id = p.id AND sl.branch_id = %s
-                                   AND sl.received_at <= %s), 0),
-                       COALESCE((SELECT SUM(sr.quantity) FROM stock_reductions sr
+                                   AND sl.received_at <= %s), 0)
+                       - COALESCE((SELECT SUM(sr.quantity) FROM stock_reductions sr
                                  WHERE sr.product_id = p.id AND sr.branch_id = %s
                                    AND sr.reduced_at > %s), 0)
-                       + COALESCE((SELECT SUM(
+                       - COALESCE((SELECT SUM(
                                        CASE WHEN sca.effective_at <= %s
                                             THEN sca.quantity_delta ELSE 0 END
                                        + CASE WHEN sca.quantity_delta < 0 THEN
@@ -18425,8 +18425,11 @@ def pos_stock_audit_run():
                     'barcode': r[8] or '', 'description': r[9] or '',
                     'stocked_here': bool(r[10]),
                     'branch_archived': bool(r[11]),
-                    'system_at_date': (int(r[12] or 0) + int(r[13] or 0)
-                                       + int(r[14] or 0)),
+                    # Stock as at the audit date. This is ONE column (the 13th, so
+                    # index 12): lots received, less reductions and count
+                    # adjustments made after that date. Reading it as three
+                    # separate columns raised "tuple index out of range".
+                    'system_at_date': int(r[12] or 0),
                 })
             cursor.execute("SELECT name FROM branches WHERE id = %s", (branch_id,))
             brow = cursor.fetchone()
