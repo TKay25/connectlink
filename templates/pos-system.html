@@ -3048,6 +3048,44 @@ body {
 .section-card h5 { font-size: 1.02rem !important; }
 .section-card h6 { font-size: 0.92rem !important; }
 
+/* ---------- Layby: compact layout ----------
+   Layby is a scanning screen - a shopkeeper reads many agreements at once, so
+   every vertical pixel is spent on information rather than whitespace. The
+   defaults (18px card padding, 1.45rem figures, full-width stacked rows) made
+   two laybys fill a screen. */
+#laybyPage .section-card { padding: 12px 14px !important; }
+#laybyPage .section-card h5 { font-size: 0.95rem !important; }
+
+/* Stats: a dense strip of four, not four tall cards. */
+#laybyStatStrip .stat-card { padding: 8px 10px !important; }
+#laybyStatStrip .stat-card:hover { transform: none; }
+#laybyStatStrip .stat-card h5 { font-size: 1.05rem !important; margin-bottom: 0 !important; }
+#laybyStatStrip .stat-card small { font-size: 0.62rem !important; line-height: 1.25; display: block; }
+#laybyStatStrip .stat-card i { font-size: 0.95rem !important; }
+#laybyStatStrip .stat-card > .d-flex { gap: 6px; }
+/* Halve the gutter so four stats fit a narrow till screen without wrapping. */
+#laybyStatStrip { --bs-gutter-x: 8px; --bs-gutter-y: 8px; margin-bottom: 10px !important; }
+
+/* Agreement rows */
+.layby-row { padding: 8px 10px; margin-bottom: 6px; }
+.layby-row .layby-who { line-height: 1.3; }
+.layby-row .layby-meta { font-size: 0.68rem !important; line-height: 1.35; }
+.layby-row .layby-figures > div { line-height: 1.35; }
+.layby-row .layby-items { font-size: 0.72rem; line-height: 1.4; margin-top: 4px; }
+.layby-row .layby-plan { margin-top: 3px; }
+.layby-row .layby-plan .badge { font-size: 0.62rem !important; margin-bottom: 0 !important; }
+.layby-row .layby-payments { margin-top: 4px; }
+.layby-row .layby-payments > div { font-size: 0.68rem !important; line-height: 1.4; }
+.layby-row .layby-actions { margin-top: 6px; }
+.layby-row .layby-actions .btn { padding: 2px 8px; font-size: 0.7rem; }
+
+/* Two agreements per row on anything wider than a phone. */
+@media (min-width: 992px) {
+    #laybyListContainer { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: start; }
+    #laybyListContainer > .lays-pending-full { grid-column: 1 / -1; }
+    .layby-row { margin-bottom: 0; }
+}
+
 /* ---------- Category chips ---------- */
 .category-chip {
     background: #fff;
@@ -7934,10 +7972,10 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
             <!-- Layby Page -->
             <div id="laybyPage" style="display: none;">
                 <div class="section-card">
-                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                         <h5 class="fw-bold mb-0"><i class="fas fa-hand-holding-dollar me-1"></i>Layby</h5>
                         <div class="d-flex gap-2 align-items-center">
-                            <select class="form-select form-select-sm" id="laybyStatusFilter" style="width: 160px;" onchange="fetchLaybys()">
+                            <select class="form-select form-select-sm" id="laybyStatusFilter" style="width: 150px;" onchange="fetchLaybys()">
                                 <option value="active" selected>Active laybys</option>
                                 <option value="">All laybys</option>
                                 <option value="completed">Paid off</option>
@@ -7949,55 +7987,59 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-3 col-sm-6">
+                    <!-- One dense strip instead of four tall cards: the figures are
+                         the point, the captions are only labels for them. -->
+                    <div class="row g-2" id="laybyStatStrip">
+                        <div class="col-6 col-lg-3">
                             <div class="stat-card">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Items on layby</small>
-                                        <h5 class="mb-1 fw-bold" id="laybyStatActive">0</h5>
-                                        <small class="text-muted">Waiting to be paid off</small>
+                                        <h5 class="fw-bold" id="laybyStatActive">0</h5>
                                     </div>
-                                    <i class="fas fa-hourglass-half fa-2x text-muted opacity-50"></i>
+                                    <i class="fas fa-hourglass-half text-muted opacity-50"></i>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-6 col-lg-3">
                             <div class="stat-card">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Still to collect</small>
-                                        <h5 class="mb-1 fw-bold text-danger" id="laybyStatOutstanding">$0.00</h5>
-                                        <small class="text-muted">Outstanding balance</small>
+                                        <h5 class="fw-bold text-danger" id="laybyStatOutstanding">$0.00</h5>
                                     </div>
-                                    <i class="fas fa-hand-holding-dollar fa-2x text-muted opacity-50"></i>
+                                    <i class="fas fa-hand-holding-dollar text-muted opacity-50"></i>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-6 col-lg-3">
                             <div class="stat-card">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Collected to date</small>
-                                        <h5 class="mb-1 fw-bold text-success" id="laybyStatCollected">$0.00</h5>
-                                        <small class="text-muted">Deposits and instalments</small>
+                                        <h5 class="fw-bold text-success" id="laybyStatCollected">$0.00</h5>
                                     </div>
-                                    <i class="fas fa-coins fa-2x text-muted opacity-50"></i>
+                                    <i class="fas fa-coins text-muted opacity-50"></i>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-6 col-lg-3">
                             <div class="stat-card">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Paid off</small>
-                                        <h5 class="mb-1 fw-bold text-success" id="laybyStatCompleted">0</h5>
-                                        <small class="text-muted">Goods released</small>
+                                        <h5 class="fw-bold text-success" id="laybyStatCompleted">0</h5>
                                     </div>
-                                    <i class="fas fa-circle-check fa-2x text-muted opacity-50"></i>
+                                    <i class="fas fa-circle-check text-muted opacity-50"></i>
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <div class="small text-muted mb-2" style="line-height:1.3;">
+                        Items on layby = waiting to be paid off &middot;
+                        Still to collect = outstanding balance &middot;
+                        Collected to date = deposits and instalments &middot;
+                        Paid off = goods released
                     </div>
 
                     <div id="laybyListContainer">
@@ -21841,8 +21883,13 @@ function setupEventListeners() {
         var cls = p.state === 'paid' ? 'bg-success'
                 : p.state === 'part' ? 'bg-warning text-dark' : 'bg-secondary';
         var when = p.due_date ? ' &middot; ' + text(p.due_date) : '';
+        // A part-paid instalment says how much of it is in, so the figure on the
+        // chip is never mistaken for money already received.
+        var detail = (p.state === 'part' && p.paid != null)
+            ? ' (' + money(p.paid) + ' of ' + money(p.amount) + ')'
+            : '';
         return '<span class="badge ' + cls + ' me-1 mb-1">#' + p.seq + ' ' +
-               money(p.amount) + when + '</span>';
+               money(p.amount) + detail + when + '</span>';
     }
 
     function laybyCard(l) {
@@ -21864,27 +21911,31 @@ function setupEventListeners() {
 
         var payments = l.payments && l.payments.length
             ? l.payments.map(function (p) {
-                  return '<div class="small text-muted">' +
-                             '<i class="fas fa-check-circle text-success me-1"></i>' +
-                             money(p.amount) + ' ' + text(p.method) +
+                  var isDeposit = (p.kind || 'payment') === 'deposit';
+                  return '<div class="text-muted">' +
+                             '<i class="fas ' + (isDeposit ? 'fa-receipt' : 'fa-check-circle') +
+                             ' text-success me-1"></i>' +
+                             money(p.amount) +
+                             ' <span class="fw-bold">' + (isDeposit ? 'deposit' : text(p.method)) + '</span>' +
+                             (p.seq && !isDeposit ? ' (instalment ' + p.seq + ')' : '') +
                              ' &middot; ' + text((p.paid_at || '').replace('T', ' ').slice(0, 16)) +
-                             (p.notes ? ' &middot; ' + text(p.notes) : '') +
+                             (!isDeposit && p.notes ? ' &middot; ' + text(p.notes) : '') +
                          '</div>';
               }).join('')
-            : '<div class="small text-muted">No payments yet.</div>';
+            : '<div class="text-muted">Nothing paid yet.</div>';
         var refundLines = (l.refunds || []).map(function (p) {
-            return '<div class="small text-danger">' +
+            return '<div class="text-danger">' +
                        '<i class="fas fa-rotate-left me-1"></i>' +
                        money(p.amount) + ' refunded ' + text(p.method) +
                        ' &middot; ' + text((p.paid_at || '').replace('T', ' ').slice(0, 16)) + '</div>';
         }).join('');
 
-        return '<div class="border rounded p-3 mb-2">' +
+        return '<div class="border rounded layby-row">' +
             '<div class="d-flex justify-content-between align-items-start flex-wrap gap-2">' +
-                '<div>' +
+                '<div class="layby-who">' +
                     '<div class="fw-bold">' + text(l.customer_name) +
                         ' <span class="badge ' + badge + '">' + label + '</span></div>' +
-                    '<div class="small text-muted">' +
+                    '<div class="layby-meta text-muted">' +
                         'ID ' + text(l.customer_id_number) +
                         (l.customer_phone ? ' &middot; ' + text(l.customer_phone) : '') +
                         ' &middot; ' + text(l.reference) +
@@ -21892,7 +21943,7 @@ function setupEventListeners() {
                         ' &middot; ' + text((l.created_at || '').replace('T', ' ').slice(0, 16)) +
                     '</div>' +
                 '</div>' +
-                '<div class="text-end">' +
+                '<div class="text-end layby-figures">' +
                     '<div class="small text-muted">Total ' + money(l.total_amount) + '</div>' +
                     '<div class="small">Paid <strong class="text-success">' + money(l.paid_amount) + '</strong></div>' +
                     (l.refunded_amount > 0
@@ -21905,15 +21956,15 @@ function setupEventListeners() {
                             : (l.status === 'cancelled' ? 'Cancelled' : 'Paid off')) + '</div>' +
                 '</div>' +
             '</div>' +
-            '<div class="small mt-2">' +
+            '<div class="layby-items">' +
                 (l.items || []).map(function (i) {
                     return '<span class="me-2">' + text(i.name) + ' x' + i.quantity + '</span>';
                 }).join('') +
             '</div>' +
-            ((l.plan || []).length ? '<div class="mt-2">' +
+            ((l.plan || []).length ? '<div class="layby-plan">' +
                 l.plan.map(planChip).join('') + '</div>' : '') +
-            '<div class="mt-2">' + payments + refundLines + '</div>' +
-            (actions ? '<div class="mt-2">' + actions + '</div>' : '') +
+            '<div class="layby-payments">' + payments + refundLines + '</div>' +
+            (actions ? '<div class="layby-actions">' + actions + '</div>' : '') +
             (l.status === 'cancelled' && l.cancel_reason
                 ? '<div class="small text-danger mt-1">Cancelled: ' + text(l.cancel_reason) + '</div>' : '') +
         '</div>';
@@ -22006,13 +22057,12 @@ function setupEventListeners() {
                            e.client_ref + '\')"><i class="fas fa-print me-1"></i>Print agreement</button>';
             }
 
-            return '<div class="border rounded p-3 mb-2" style="border-left:4px solid #D97706 !important;">' +
+            return '<div class="border rounded layby-row" style="border-left:4px solid #D97706 !important;">' +
                 '<div class="fw-bold">' + title + ' <span class="badge bg-warning text-dark">' +
                 (e.status === 'blocked' ? 'needs attention' : 'not yet synced') + '</span></div>' +
-                body + '<div class="mt-2">' + actions + '</div></div>';
+                body + '<div class="layby-actions">' + actions + '</div></div>';
         }).join('');
     }
-
     // ---------- Printable layby agreement ----------
     // The customer's copy of the deal, built from whatever the Layby tab is
     // showing - so it can be handed over even for a layby the server has not
@@ -22040,6 +22090,15 @@ function setupEventListeners() {
         var refunded = Number(l.refunded_amount || 0);
         var balance = (l.balance != null)
             ? Number(l.balance) : Math.round((total - paid) * 100) / 100;
+        // A deposit is not an instalment. They are shown as the separate monies
+        // they are, so "instalments received" can never include a deposit.
+        var depositList = l.deposits || [];
+        var depositTotal = (l.deposit_paid != null)
+            ? Number(l.deposit_paid)
+            : depositList.reduce(function (s, p) { return s + Number(p.amount || 0); }, 0);
+        var instalmentTotal = (l.instalment_paid != null)
+            ? Number(l.instalment_paid)
+            : Math.round((paid - depositTotal) * 100) / 100;
         var statusLabel = l.status === 'completed' ? 'Paid off'
                         : l.status === 'cancelled' ? 'Cancelled' : 'In progress';
 
@@ -22055,20 +22114,49 @@ function setupEventListeners() {
 
         var planRows = (l.plan || []).length
             ? l.plan.map(function (p) {
-                  var state = p.state === 'paid' ? 'Paid'
-                            : p.state === 'part' ? 'Part paid' : 'Due';
+                  var amount = Number(p.amount || 0);
+                  var paidHere = Number(p.paid || 0);
+                  var state, stateStyle = '';
+                  if (p.state === 'paid') {
+                      state = 'Paid'; stateStyle = 'color:#15803D;font-weight:bold;';
+                  } else if (p.state === 'part') {
+                      // Say how much of THIS instalment is in, not just that some of it is.
+                      state = 'Part paid';
+                      stateStyle = 'color:#B45309;font-weight:bold;';
+                  } else {
+                      state = 'Due';
+                  }
+                  var paidNote = (paidHere > 0 && p.state !== 'paid')
+                      ? '<div style="font-size:10px;color:#B45309;">' +
+                        money(paidHere) + ' of ' + money(amount) + ' received' +
+                        (Number(p.remaining || 0) > 0
+                            ? ' &middot; ' + money(p.remaining) + ' still due' : '') + '</div>'
+                      : '';
                   return '<tr><td style="' + AG_TD + '">Instalment ' + p.seq + '</td>' +
                          '<td style="' + AG_TD + '">' +
                              (p.due_date ? text(p.due_date) : 'as agreed') + '</td>' +
-                         '<td style="' + AG_TDN + '">' + money(p.amount) + '</td>' +
-                         '<td style="' + AG_TD + '">' + state + '</td></tr>';
+                         '<td style="' + AG_TDN + '">' + money(amount) + '</td>' +
+                         '<td style="' + AG_TD + stateStyle + '">' + state + paidNote + '</td></tr>';
               }).join('')
             : '<tr><td style="' + AG_TD + '" colspan="4">Nothing in instalments - ' +
               'settled in full on this agreement.</td></tr>';
 
-        var payRows = (l.payments || []).map(function (p) {
+        // Deposits and instalments are different money and are listed separately,
+        // so a deposit is never read as an instalment that was paid.
+        var depositRows = (l.deposits || []).map(function (p) {
+            return '<tr><td style="' + AG_TD + '">' + agWhen(p.paid_at) + '</td>' +
+                   '<td style="' + AG_TD + '">Deposit &middot; ' + text(p.method) +
+                       (p.notes && p.notes !== 'Deposit'
+                           ? ' &middot; ' + text(p.notes) : '') + '</td>' +
+                   '<td style="' + AG_TDN + '">' + money(p.amount) + '</td></tr>';
+        }).join('');
+
+        var payRows = (l.payments || [])
+            .filter(function (p) { return (p.kind || 'payment') !== 'deposit'; })
+            .map(function (p) {
             return '<tr><td style="' + AG_TD + '">' + agWhen(p.paid_at) + '</td>' +
                    '<td style="' + AG_TD + '">' + text(p.method) +
+                       (p.seq ? ' &middot; instalment ' + p.seq : '') +
                        (p.notes ? ' &middot; ' + text(p.notes) : '') + '</td>' +
                    '<td style="' + AG_TDN + '">' + money(p.amount) + '</td></tr>';
         }).join('');
@@ -22147,18 +22235,35 @@ function setupEventListeners() {
             '<div style="' + AG_H + '">Money</div>' +
             '<table style="' + AG_T + '">' +
                 block('Total price', money(total)) +
-                block('Paid to date', money(paid)) +
+                (depositTotal > 0
+                    ? block('Deposit paid', money(depositTotal))
+                    : '') +
+                (instalmentTotal > 0
+                    ? block('Instalments received', money(instalmentTotal))
+                    : '') +
+                block('Paid to date', '<strong>' + money(paid) + '</strong>') +
                 (refunded > 0 ? block('Refunded', money(refunded)) : '') +
                 block('Balance outstanding',
                       '<strong>' + money(balance) + '</strong>') +
             '</table>' +
+
+            (depositRows
+                ? '<div style="' + AG_H + '">Deposit</div>' +
+                  '<table style="' + AG_T + '"><tr>' +
+                      '<th style="' + AG_TH + '">Date</th>' +
+                      '<th style="' + AG_TH + '">Method</th>' +
+                      '<th style="' + AG_TH + ';text-align:right;">Amount</th></tr>' +
+                      depositRows + '</table>'
+                : '') +
 
             '<div style="' + AG_H + '">Instalments received</div>' +
             '<table style="' + AG_T + '"><tr>' +
                 '<th style="' + AG_TH + '">Date</th>' +
                 '<th style="' + AG_TH + '">Method</th>' +
                 '<th style="' + AG_TH + ';text-align:right;">Amount</th></tr>' +
-                payRows + '</table>' +
+                (payRows || '<tr><td style="' + AG_TD + '" colspan="3">' +
+                            'No instalment payments received yet.</td></tr>') +
+                '</table>' +
             refundRows +
 
             (l.notes ? '<div style="' + AG_H + '">Notes</div>' +

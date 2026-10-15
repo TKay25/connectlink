@@ -3480,6 +3480,22 @@ def ensure_layby_schema(cursor, connection):
             ALTER TABLE layby_payments
                 ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'payment'
         """)
+        # Deposits taken BEFORE the kind column existed were stored as 'payment',
+        # so an agreement would still call a deposit an instalment. A deposit is
+        # identifiable without guesswork: it carries no instalment number, its
+        # notes say 'Deposit', and it was written at the moment the layby opened.
+        # The three conditions are all required, and the money already counted as
+        # collected, so this only relabels - it never changes an amount.
+        cursor.execute("""
+            UPDATE layby_payments p
+               SET kind = 'deposit'
+              FROM laybys l
+             WHERE p.layby_id = l.id
+               AND p.kind = 'payment'
+               AND p.seq IS NULL
+               AND p.notes = 'Deposit'
+               AND p.paid_at = l.created_at
+        """)
         connection.commit()
         print("[ok] Layby schema ready")
     except Exception as e:
@@ -15898,24 +15914,48 @@ def _serialize_layby(cursor, row):
                    'kind': r[7]} for r in cursor.fetchall()]
     payments = [p for p in money_rows if p['kind'] != 'refund']
     refunds = [p for p in money_rows if p['kind'] == 'refund']
+    # A deposit is money paid to OPEN the agreement; an instalment is money paid
+    # against the plan. Only instalments can settle an instalment, so they are
+    # kept apart here - otherwise a deposit silently swallows instalment #1 and
+    # the plan shows a payment that never happened.
+    deposits = [p for p in payments if (p.get('kind') or 'payment') == 'deposit']
+    instalments = [p for p in payments if (p.get('kind') or 'payment') != 'deposit']
+    deposit_total = round(sum(p['amount'] for p in deposits), 2)
 
+    # Every payment still counts towards what the customer has paid; the split
+    # only decides WHICH instalments can be shown as settled.
     paid = round(sum(p['amount'] for p in payments), 2)
     refunded = round(sum(p['amount'] for p in refunds), 2)
     total = float(total_amount or 0)
     balance = round(total - paid, 2)
 
-    # Walk the plan against what has been received, so the tab can show which
-    # instalment is settled, which is part paid, and which is still due.
-    left = paid
+    # Settle the plan from INSTALMENT money only. A payment that names its
+    # instalment (seq) is applied to that one first, so a part payment is shown
+    # against the instalment it was actually made for rather than the next one in
+    # the list; anything unnamed then fills the plan in order.
+    unnamed = round(sum(p['amount'] for p in instalments if p.get('seq') is None), 2)
+    by_seq = {}
+    for p in instalments:
+        if p.get('seq') is not None:
+            by_seq[p['seq']] = round(by_seq.get(p['seq'], 0) + p['amount'], 2)
+
     for p in plan:
-        if left >= p['amount'] - 0.005:
+        directed = by_seq.pop(p['seq'], 0.0)
+        # Unnamed instalment money tops up this instalment once the money that was
+        # addressed to it has been used.
+        used_unnamed = min(unnamed, max(0.0, p['amount'] - directed))
+        unnamed = round(unnamed - used_unnamed, 2)
+        paid_here = round(directed + used_unnamed, 2)
+        p['paid'] = min(paid_here, p['amount'])
+        p['remaining'] = round(p['amount'] - p['paid'], 2)
+        if p['remaining'] <= 0.005:
             p['state'] = 'paid'
-            left = round(left - p['amount'], 2)
-        elif left > 0.005:
+        elif p['paid'] > 0.005:
             p['state'] = 'part'
-            left = 0.0
         else:
             p['state'] = 'due'
+    # Instalment money addressed to a plan row that no longer exists still counts
+    # as collected (it is in `paid`); it just has no instalment to tick off.
 
     return {
         'id': lid,
@@ -15929,6 +15969,10 @@ def _serialize_layby(cursor, row):
         'customer_phone': customer_phone or '',
         'total_amount': total,
         'deposit_amount': float(deposit_amount or 0),
+        # What has actually been handed over as a deposit, split out from
+        # instalments so the agreement can label it correctly.
+        'deposit_paid': deposit_total,
+        'instalment_paid': round(paid - deposit_total, 2),
         'paid_amount': paid,
         'refunded_amount': refunded,
         'net_collected': round(paid - refunded, 2),
@@ -15943,6 +15987,7 @@ def _serialize_layby(cursor, row):
         'items': items,
         'plan': plan,
         'payments': payments,
+        'deposits': deposits,
         'refunds': refunds
     }
 
@@ -16170,10 +16215,16 @@ def pos_create_layby():
                 """, (layby_id, p['seq'], p['due_date'], p['amount']))
 
             if deposit > 0:
+                # 'deposit' is NOT an instalment: it is the money that opens the
+                # agreement, taken before any instalment falls due. It is stamped
+                # as its own kind (and with no seq) so the plan and the payment
+                # list can each say what it really is. The column default is
+                # 'payment', so leaving it out made the deposit look like
+                # instalment money in every report that reads this table.
                 cursor.execute("""
                     INSERT INTO layby_payments (layby_id, seq, amount, method, notes,
-                                                user_id, user_name, paid_at, created_at)
-                    VALUES (%s, NULL, %s, %s, 'Deposit', %s, %s, %s, %s)
+                                                user_id, user_name, paid_at, created_at, kind)
+                    VALUES (%s, NULL, %s, %s, 'Deposit', %s, %s, %s, %s, 'deposit')
                 """, (layby_id, deposit, deposit_method, user_id, user_name,
                       zimbabwe_now, zimbabwe_now))
 
