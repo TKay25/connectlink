@@ -18998,6 +18998,41 @@ def pos_stock_audit_adopt_reviewed():
             # expensive, repeated needlessly, and part of what made each batch slow
             # enough for the host to cut the connection before anything was written.
 
+            # An ARCHIVE needs only each product's name, whether this branch stocks
+            # it, and whether the product still exists - NOT the expensive lot-history
+            # reconstruction that adopting needs. Reading just those fields keeps an
+            # archive-only batch fast, while still giving the archive path the
+            # product records it must have (a batch with no catalogue left
+            # `products` empty, so every archive was wrongly rejected).
+            archive_ids = sorted({int(op['product_id']) for op in operations
+                                  if isinstance(op, dict) and op.get('action') == 'archive'
+                                  and str(op.get('product_id') or '').isdigit()})
+            archive_products = {}
+            if archive_ids:
+                cursor.execute("""
+                    SELECT p.id, p.name, COALESCE(p.category, ''),
+                           COALESCE(pp.sell_price, p.sell_price, 0),
+                           COALESCE(p.buy_price, 0), COALESCE(p.unit_type, 'piece'),
+                           COALESCE(p.unit_details, ''), COALESCE(p.barcode, ''),
+                           COALESCE(p.description, ''), COALESCE(ps.stock, 0),
+                           (ps.product_id IS NOT NULL)
+                    FROM products p
+                    LEFT JOIN product_stock ps
+                           ON ps.product_id = p.id AND ps.branch_id = %s
+                    LEFT JOIN product_prices pp
+                           ON pp.product_id = p.id AND pp.branch_id = %s
+                    WHERE p.id = ANY(%s)
+                """, (branch_id, branch_id, archive_ids))
+                for r in cursor.fetchall():
+                    archive_products[r[0]] = {
+                        'id': r[0], 'name': r[1], 'category': r[2],
+                        'sell_price': float(r[3] or 0), 'buy_price': float(r[4] or 0),
+                        'unit_type': r[5] or 'piece', 'unit_details': r[6] or '',
+                        'barcode': r[7] or '', 'description': r[8] or '',
+                        'live_stock': int(r[9] or 0), 'stocked_here': bool(r[10]),
+                        'system_at_date': int(r[9] or 0),
+                    }
+
             # A batched call only needs the products it is acting on. Loading the
             # WHOLE catalogue for every batch re-read every product's lot history
             # (several correlated subqueries each) once per batch, which is what
@@ -19073,7 +19108,13 @@ def pos_stock_audit_adopt_reviewed():
                     # that date. Summing three columns raised tuple index out of range.
                     'system_at_date': int(r[12] or 0),
                 } for r in cursor.fetchall()]
-            lines, matched_ids = _stock_audit_resolve_rows(rows, catalogue)
+            # The resolver MATCHES sheet rows against a catalogue, so it must see
+            # every product a selected row refers to - including ones being
+            # archived. A blank-quantity row only resolves to its product when that
+            # product is in the list; with an empty list the row gets no product_id
+            # and the archive is then wrongly rejected.
+            resolver_products = catalogue or list(archive_products.values())
+            lines, matched_ids = _stock_audit_resolve_rows(rows, resolver_products)
             line_map = {line['row']: line for line in lines}
             products = {product['id']: product for product in catalogue}
 
@@ -19115,7 +19156,9 @@ def pos_stock_audit_adopt_reviewed():
                     return jsonify({'success': False, 'error': 'A selected product is invalid.'}), 400
 
                 if op['action'] == 'archive':
-                    product = products.get(product_id)
+                    # From the full catalogue when adopting is also happening, or
+                    # from the light archive lookup otherwise.
+                    product = products.get(product_id) or archive_products.get(product_id)
                     line = line_map.get(row_id) if row_id is not None else None
                     valid_line = (line and line['status'] == 'not_counted'
                                   and line['product_id'] == product_id)
