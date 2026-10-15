@@ -6488,6 +6488,8 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             <div id="uploadStockPlan" style="display:none;">
                                 <div id="uploadStockSummary" class="mb-2"></div>
 
+                                <div id="uploadStockDuplicateWrap" class="alert alert-danger py-2 small mb-3" style="display:none;"></div>
+
                                 <div id="uploadStockNewWrap" style="display:none;" class="mb-3">
                                     <div class="d-flex align-items-center gap-2 mb-1">
                                         <strong>New products</strong>
@@ -14521,6 +14523,7 @@ async function fetchTransactionsData() {
     // uploader resolves any similar-name conflicts, then "Apply Upload" writes.
     let _bulkStockPlan = null;
     let _bulkStockDecisions = [];
+    let _bulkStockRepeatConfirmed = false;
 
     function openUploadStockModal() {
         if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
@@ -14539,9 +14542,11 @@ async function fetchTransactionsData() {
     function resetStockUploadView() {
         _bulkStockPlan = null;
         _bulkStockDecisions = [];
+        _bulkStockRepeatConfirmed = false;
         ['uploadStockError', 'uploadStockPlan', 'uploadStockResult', 'uploadStockNewWrap',
          'uploadStockConflictWrap', 'uploadStockFailedWrap', 'uploadStockConfirm',
-         'uploadStockConfirmError', 'uploadStockRevertBox', 'uploadStockRevertError'
+         'uploadStockConfirmError', 'uploadStockRevertBox', 'uploadStockRevertError',
+         'uploadStockDuplicateWrap'
         ].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
@@ -14608,11 +14613,43 @@ async function fetchTransactionsData() {
     }
     window.analyzeStockUpload = analyzeStockUpload;
 
+    // A repeat upload is blocked until the uploader ticks the box in the plan.
+    function onRepeatConfirmChange(checked) {
+        _bulkStockRepeatConfirmed = !!checked;
+        const applyBtn = document.getElementById('uploadApplyBtn');
+        if (applyBtn) applyBtn.disabled = !checked;
+    }
+    window.onRepeatConfirmChange = onRepeatConfirmChange;
+
     function money(v) { return '$' + Number(v || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 
     function renderStockUploadPlan(plan) {
         const exact = plan.exact || [], brandNew = plan.new || [],
               conflicts = plan.conflicts || [], failed = plan.failed || [];
+
+        // A repeat upload would ADD the stock a second time. Say so in the plan,
+        // before the confirm step, and require a deliberate tick to proceed -
+        // this is the only mistake the feature can make that is silent.
+        const dupWrap = document.getElementById('uploadStockDuplicateWrap');
+        if (dupWrap) {
+            if (plan.duplicate) {
+                dupWrap.innerHTML =
+                    '<i class="fas fa-triangle-exclamation me-1"></i>' +
+                    escapeHtml(plan.duplicate.message) +
+                    '<div class="mt-2"><label class="d-flex align-items-start gap-2 mb-0">' +
+                    '<input type="checkbox" id="uploadStockRepeatConfirm" class="mt-1" ' +
+                    'onchange="onRepeatConfirmChange(this.checked)">' +
+                    '<span><strong>Upload this stock again anyway.</strong> ' +
+                    'I have checked, and this stock really did arrive a second time.</span></label></div>';
+                dupWrap.style.display = 'block';
+            } else {
+                dupWrap.innerHTML = '';
+                dupWrap.style.display = 'none';
+            }
+        }
+        const repeatOk = !!plan.duplicate;
+        const applyBtn = document.getElementById('uploadApplyBtn');
+        if (applyBtn && repeatOk) applyBtn.disabled = true;
 
         const sum = document.getElementById('uploadStockSummary');
         if (sum) {
@@ -14803,13 +14840,34 @@ async function fetchTransactionsData() {
                     default_category: catEl ? catEl.value : '',
                     branch_id: (_bulkStockPlan && _bulkStockPlan.branch_id) || (posBranch ? posBranch.id : null),
                     branch_code: code,
+                    file_fingerprint: (_bulkStockPlan && _bulkStockPlan.file_fingerprint) || '',
+                    confirm_repeat: !!_bulkStockRepeatConfirmed,
                     file_name: (document.getElementById('uploadStockFile') && document.getElementById('uploadStockFile').files[0]
                                 ? document.getElementById('uploadStockFile').files[0].name : ''),
                     rows: collected.rows
                 })
             });
             const data = await res.json();
-            if (!data.success) { fail(data.error || 'Upload failed.'); return; }
+            if (!data.success) {
+                if (data.duplicate) {
+                    // The server refused a repeat. Show it in the plan, where the
+                    // tick-box lives, rather than only in the confirm dialog.
+                    cancelApplyStockUpload();
+                    const dupWrap = document.getElementById('uploadStockDuplicateWrap');
+                    if (dupWrap) {
+                        dupWrap.innerHTML = '<i class="fas fa-triangle-exclamation me-1"></i>' +
+                            escapeHtml(data.error || 'This stock was already uploaded.');
+                        dupWrap.style.display = 'block';
+                    }
+                    const applyBtn = document.getElementById('uploadApplyBtn');
+                    if (applyBtn) applyBtn.disabled = true;
+                    stockUploadError(data.error || 'Upload failed.');
+                    if (typeof showToast === 'function') showToast('Duplicate upload refused.', 'error');
+                    return;
+                }
+                fail(data.error || 'Upload failed.');
+                return;
+            }
 
             let html = `<div class="alert alert-success py-2 mb-2"><strong>${escapeHtml(data.message)}</strong></div>`;
             html += `<div class="small text-muted mb-2">Upload reference <strong>${escapeHtml(data.reference || '')}</strong> — quote this to revert the upload.</div>`;

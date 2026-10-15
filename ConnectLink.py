@@ -3123,6 +3123,19 @@ def ensure_branches_schema(cursor, connection):
         """)
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_bulk_upload_jobs_ref ON bulk_upload_jobs (reference)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_bulk_upload_jobs_branch ON bulk_upload_jobs (branch_id, created_at DESC)")
+        # Fingerprint of what the file DID (product + quantity per row), so a
+        # repeated upload of the same sheet into the same branch can be spotted
+        # BEFORE it is applied a second time. There is no unique index: a repeat
+        # is refused by the route, and two different branches may legitimately
+        # take the same file.
+        try:
+            cursor.execute("ALTER TABLE bulk_upload_jobs ADD COLUMN IF NOT EXISTS file_fingerprint VARCHAR(64)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_bulk_upload_jobs_fingerprint "
+                           "ON bulk_upload_jobs (branch_id, file_fingerprint)")
+            connection.commit()
+        except Exception as e:
+            connection.rollback()
+            print(f"Note: bulk_upload_jobs.file_fingerprint not added: {e}")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS bulk_upload_items (
                 id SERIAL PRIMARY KEY,
@@ -16602,6 +16615,148 @@ def make_bulk_upload_reference():
     return 'UPL-' + datetime.now().strftime('%Y%m%d') + '-' + secrets.token_hex(3).upper()
 
 
+def bulk_upload_fingerprint(rows):
+    """Content hash of an upload's DECISIONS, for a whole-file repeat.
+
+    Hashes what the file actually does - each product id/name with its quantity
+    and prices - not the raw bytes, so a re-save of the same spreadsheet (which
+    changes the bytes and nothing else) is still recognised.
+
+    Sorted before hashing so row ORDER cannot disguise a repeat.
+
+    NOTE: this alone is NOT the guard. A user who edits one row and re-uploads
+    the whole sheet defeats it - which is exactly what happened on 2026-10-05,
+    where the second upload was the first with ~13 rows added and all 133 shared
+    products carrying identical quantities. `bulk_upload_overlap` is the check
+    that catches that; this is kept for the exact-match case and for the record.
+    """
+    parts = []
+    for r in rows:
+        parts.append('|'.join(str(x if x is not None else '') for x in (
+            r.get('product_id') or '',
+            (r.get('name') or '').strip().lower(),
+            int(r.get('quantity') or 0),
+            r.get('action') or 'merge',
+        )))
+    parts.sort()
+    digest = hashlib.sha256('\n'.join(parts).encode('utf-8')).hexdigest()
+    return digest[:32]
+
+
+# How much of a new upload must repeat a recent one, with the SAME quantity, before
+# it is treated as the same stock rather than a fresh delivery. A genuine second
+# delivery of the same sheet days later is possible, so this compares against the
+# most recent applied job ONLY (see bulk_upload_overlap) and never blocks silently
+# - it asks the uploader to confirm.
+BULK_UPLOAD_REPEAT_RATIO = 0.8
+BULK_UPLOAD_REPEAT_MIN_ROWS = 5
+
+
+def bulk_upload_overlap(cursor, branch_id, rows):
+    """Does this upload repeat the branch's most recent upload?
+
+    Compares (product_id, quantity) pairs. The signature of an accidental
+    re-upload is not an identical file - it is MOST OF THE SAME PRODUCTS AT THE
+    SAME QUANTITIES, which is what the 2026-10-05 Chegutu incident looked like:
+    133 shared products, 132 with an identical quantity, spread over one sheet
+    that had gained a few rows.
+
+    Returns a dict describing the repeat, or None. Only the MOST RECENT applied
+    job is compared, so topping a sheet up a third time still reports the job it
+    actually repeats rather than an ever-growing list.
+    """
+    want = {}
+    for r in rows:
+        pid = r.get('product_id')
+        if pid is None:
+            continue                      # a product this upload CREATES cannot repeat
+        want[int(pid)] = (int(r.get('quantity') or 0), (r.get('name') or '').strip())
+
+    if len(want) < BULK_UPLOAD_REPEAT_MIN_ROWS:
+        return None
+
+    cursor.execute("""
+        SELECT j.id, j.reference, COALESCE(j.file_name, ''), COALESCE(j.username, ''),
+               j.created_at, j.total_quantity,
+               i.product_id, i.quantity, COALESCE(i.product_name, '')
+        FROM bulk_upload_jobs j
+        JOIN bulk_upload_items i ON i.job_id = j.id
+        WHERE j.branch_id = %s AND j.status = 'applied'
+          AND j.id = (SELECT MAX(id) FROM bulk_upload_jobs
+                      WHERE branch_id = %s AND status = 'applied')
+    """, (branch_id, branch_id))
+    prior = cursor.fetchall()
+    if not prior:
+        return None
+
+    prev = {int(r[6]): (int(r[7] or 0), r[8]) for r in prior}
+    shared = set(want) & set(prev)
+    if not shared:
+        return None
+
+    same_qty = [pid for pid in shared if want[pid][0] == prev[pid][0]]
+    ratio = len(same_qty) / float(len(want))
+    if len(same_qty) < BULK_UPLOAD_REPEAT_MIN_ROWS or ratio < BULK_UPLOAD_REPEAT_RATIO:
+        return None
+
+    units = sum(want[pid][0] for pid in same_qty)
+    examples = ', '.join(
+        f'{want[pid][1]} x{want[pid][0]}' for pid in sorted(same_qty)[:5])
+    head = prior[0]
+    return {
+        'job_id': head[0], 'reference': head[1], 'file_name': head[2],
+        'username': head[3], 'applied_at': head[4],
+        'products': len(same_qty), 'quantity': units,
+        'rows_in_file': len(want), 'examples': examples,
+    }
+
+
+def find_prior_bulk_upload(cursor, branch_id, fingerprint):
+    """The most recent APPLIED upload in this branch with the same fingerprint.
+
+    Returns (id, reference, file_name, username, created_at, products, quantity)
+    or None. Reverted jobs are ignored on purpose: undoing an upload makes it
+    legitimate to apply the same file again.
+    """
+    cursor.execute("""
+        SELECT id, reference, COALESCE(file_name, ''), COALESCE(username, ''),
+               created_at, updated_count, total_quantity
+        FROM bulk_upload_jobs
+        WHERE branch_id = %s AND file_fingerprint = %s AND status = 'applied'
+        ORDER BY id DESC
+        LIMIT 1
+    """, (branch_id, fingerprint))
+    return cursor.fetchone()
+
+
+def bulk_upload_column_ready(cursor):
+    """Is `bulk_upload_jobs.file_fingerprint` present yet?
+
+    The column is added at boot by ensure_branches_schema(), but a request can
+    arrive before that migration has run (or it can fail on a locked table). The
+    callers check this so a missing column degrades to "cannot warn" instead of
+    turning every upload into a 500.
+    """
+    try:
+        cursor.execute("""SELECT 1 FROM information_schema.columns
+                          WHERE table_schema = 'public'
+                            AND table_name = 'bulk_upload_jobs'
+                            AND column_name = 'file_fingerprint'""")
+        return cursor.fetchone() is not None
+    except Exception:                                         # noqa: BLE001
+        return False
+
+
+def bulk_upload_repeat_message(overlap, when_text):
+    """One sentence naming what was already uploaded and what will happen."""
+    return (f'{overlap["products"]} of the {overlap["rows_in_file"]} product(s) in this file '
+            f'({overlap["quantity"]} unit(s), e.g. {overlap["examples"]}) are identical to '
+            f'upload {overlap["reference"]}, already applied to this branch on {when_text}'
+            f'{(" by " + overlap["username"]) if overlap["username"] else ""}. '
+            f'Applying it would ADD that stock a SECOND time. If you meant to top up the same '
+            f'items, change the quantity so it is a new delivery - or confirm to add it again.')
+
+
 @app.route('/api/pos/stock-upload-template', methods=['GET'])
 @login_required
 def pos_stock_upload_template():
@@ -16823,8 +16978,53 @@ def pos_upload_stock_analyze():
             catalogue = [{'id': r[0], 'name': r[1], 'category': r[2], 'stock': int(r[3] or 0),
                           'sell_price': float(r[4] or 0), 'buy_price': float(r[5] or 0)}
                          for r in cursor.fetchall()]
+
+            # Has this stock already been uploaded to this branch? Checked HERE,
+            # in the step that writes nothing, so the uploader is told before the
+            # stock moves rather than after. Applying the same stock twice is the
+            # one way this feature can silently double a shelf - the quantities
+            # are ADDED, never set - and the second run otherwise leaves a
+            # perfectly normal-looking job behind.
+            #
+            # This compares PRODUCT + QUANTITY against the branch's most recent
+            # upload, not the file as a whole: on 2026-10-05 the repeat was the
+            # same sheet with a few rows added, so a whole-file match saw nothing.
+            column_ready = bulk_upload_column_ready(cursor)
+            fingerprint = bulk_upload_fingerprint(
+                [{'product_id': exact_by_name.get(_r['name'].strip().lower(), {}).get('id'),
+                  'name': _r['name'], 'quantity': _r['quantity'],
+                  'action': 'merge' if _r['name'].strip().lower() in exact_by_name else 'create'}
+                 for _r in rows])
+            prior = find_prior_bulk_upload(cursor, branch_id, fingerprint) if column_ready else None
+            overlap = bulk_upload_overlap(
+                cursor, branch_id,
+                [{'product_id': exact_by_name.get(_r['name'].strip().lower(), {}).get('id'),
+                  'name': _r['name'], 'quantity': _r['quantity']} for _r in rows])
     except Exception as e:
         return jsonify({'success': False, 'error': f'Could not read the catalogue: {e}'}), 500
+
+    duplicate = None
+    if prior:
+        duplicate = {
+            'kind': 'same_file',
+            'job_id': prior[0],
+            'reference': prior[1],
+            'file_name': prior[2],
+            'username': prior[3],
+            'applied_at': prior[4].isoformat() if prior[4] else '',
+            'products': int(prior[5] or 0),
+            'quantity': int(prior[6] or 0),
+            'message': (f'This is the exact file already uploaded to this branch on '
+                        f'{prior[4].strftime("%d %b %Y at %H:%M") if prior[4] else "an earlier date"} '
+                        f'as {prior[1]} ({prior[2] or "no file name"}), adding {int(prior[6] or 0)} '
+                        f'units across {int(prior[5] or 0)} product(s). Applying it again will ADD '
+                        f'the same stock a SECOND time. Re-download the template if you meant to '
+                        f'upload a different file.'),
+        }
+    elif overlap:
+        when_text = overlap['applied_at'].strftime('%d %b %Y at %H:%M') if overlap['applied_at'] else 'an earlier date'
+        duplicate = dict(overlap, kind='same_stock', message=bulk_upload_repeat_message(overlap, when_text))
+        duplicate['applied_at'] = overlap['applied_at'].isoformat() if overlap['applied_at'] else ''
 
     exact_by_name = {}
     for item in catalogue:
@@ -16872,8 +17072,9 @@ def pos_upload_stock_analyze():
         'new': brand_new,
         'conflicts': conflicts,
         'failed': failed,
+        'duplicate': duplicate,
+        'file_fingerprint': fingerprint,
     })
-
 
 @app.route('/api/pos/upload-stock-apply', methods=['POST'])
 @login_required
@@ -17002,6 +17203,57 @@ def pos_upload_stock_apply():
 
     created = 0
     reference = make_bulk_upload_reference()
+
+    # HARD GUARD, not just the warning the Check step shows. The apply step is
+    # reachable on its own, and applying the same file twice is the only way this
+    # feature can silently double a shelf -- the quantities are ADDED, never set.
+    #
+    # Computed from the NORMALISED decision lists (to_merge/to_create), which is
+    # exactly what the Check step fingerprints, so the two always agree. A
+    # confirm_repeat lets a deliberate re-upload through.
+    confirm_repeat = bool(data.get('confirm_repeat'))
+    probe_rows = (
+        [{'product_id': pid, 'name': name, 'quantity': qty}
+         for pid, qty, _b, _s, name, _c in to_merge] +
+        [{'product_id': None, 'name': name, 'quantity': qty}
+         for name, qty, _b, _s, _c, _u, _d in to_create])
+    fingerprint = bulk_upload_fingerprint(
+        [dict(r, action='merge' if r.get('product_id') else 'create') for r in probe_rows])
+    try:
+        with get_db() as (cursor, connection):
+            column_ready = bulk_upload_column_ready(cursor)
+            prior = find_prior_bulk_upload(cursor, branch_id, fingerprint) if column_ready else None
+            overlap = None if (prior or not column_ready) else bulk_upload_overlap(cursor, branch_id, probe_rows)
+            if (prior or overlap) and not confirm_repeat:
+                connection.rollback()
+                if prior:
+                    when = prior[4].strftime('%d %b %Y at %H:%M') if prior[4] else 'an earlier date'
+                    message = (f'This is the exact stock of upload {prior[1]}, already applied to '
+                               f'this branch on {when}, adding {int(prior[6] or 0)} unit(s) across '
+                               f'{int(prior[5] or 0)} product(s). Applying it again would ADD that '
+                               f'stock a SECOND time.')
+                else:
+                    when = (overlap['applied_at'].strftime('%d %b %Y at %H:%M')
+                            if overlap['applied_at'] else 'an earlier date')
+                    message = bulk_upload_repeat_message(overlap, when)
+                return jsonify({
+                    'success': False,
+                    'duplicate': True,
+                    'error': message,
+                    'prior': ({'job_id': prior[0], 'reference': prior[1], 'file_name': prior[2],
+                               'username': prior[3],
+                               'applied_at': prior[4].isoformat() if prior[4] else '',
+                               'products': int(prior[5] or 0), 'quantity': int(prior[6] or 0)}
+                              if prior else
+                              {'job_id': overlap['job_id'], 'reference': overlap['reference'],
+                               'file_name': overlap['file_name'], 'username': overlap['username'],
+                               'applied_at': overlap['applied_at'].isoformat() if overlap['applied_at'] else '',
+                               'products': overlap['products'], 'quantity': overlap['quantity']}),
+                }), 409
+    except Exception as e:
+        # A failed check must never block real work; it just cannot warn.
+        print(f"Note: duplicate-upload check could not run ({e}); upload continues.")
+
     try:
         from psycopg2.extras import execute_values
         with get_db() as (cursor, connection):
@@ -17052,14 +17304,26 @@ def pos_upload_stock_apply():
                                    'buy': r[3], 'active': r[4], 'name': r[5]}
 
             # -- The job header (same transaction as the movements it describes) --
-            cursor.execute("""
-                INSERT INTO bulk_upload_jobs (reference, branch_id, user_id, username, file_name,
-                                              updated_count, created_count, total_quantity, total_cost)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (reference, branch_id, user_id or None, username,
-                  str(data.get('file_name') or '')[:255],
-                  len(product_ids), created, total_qty, round(total_cost, 2)))
+            if column_ready:
+                cursor.execute("""
+                    INSERT INTO bulk_upload_jobs (reference, branch_id, user_id, username, file_name,
+                                                  updated_count, created_count, total_quantity, total_cost,
+                                                  file_fingerprint)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (reference, branch_id, user_id or None, username,
+                      str(data.get('file_name') or '')[:255],
+                      len(product_ids), created, total_qty, round(total_cost, 2),
+                      fingerprint))
+            else:
+                cursor.execute("""
+                    INSERT INTO bulk_upload_jobs (reference, branch_id, user_id, username, file_name,
+                                                  updated_count, created_count, total_quantity, total_cost)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (reference, branch_id, user_id or None, username,
+                      str(data.get('file_name') or '')[:255],
+                      len(product_ids), created, total_qty, round(total_cost, 2)))
             job_id = cursor.fetchone()[0]
 
             # -- One row per product: what the job did, and how to put it back --
@@ -17146,11 +17410,13 @@ def pos_upload_stock_apply():
     branch_label = code_branch_name or f'branch #{branch_id}'
     log_activity('stock_upload',
                  f'Bulk stock upload {reference}: {updated} existing product(s) updated, '
-                 f'{created} created, {total_qty} unit(s) into {branch_label}',
+                 f'{created} created, {total_qty} unit(s) into {branch_label}'
+                 + (' - CONFIRMED REPEAT of an earlier upload' if confirm_repeat else ''),
                  'product', job_id,
                  {'reference': reference, 'job_id': job_id, 'products': len(product_ids),
                   'updated': updated, 'created': created, 'units': total_qty,
-                  'cost': round(total_cost, 2), 'failed': failed, 'branch_id': branch_id})
+                  'cost': round(total_cost, 2), 'failed': failed, 'branch_id': branch_id,
+                  'file_fingerprint': fingerprint, 'confirmed_repeat': confirm_repeat})
 
     message = (f'{updated} existing product(s) updated, {created} created - '
                f'{total_qty} unit(s) into {branch_label}.')
