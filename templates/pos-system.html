@@ -11107,7 +11107,10 @@ function toggleAuditReport() {
 }
 
 // ==================== POS USER ACTIVITY LOG ====================
-const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','download','branch_stock_repair','stock_audit_adopt','system_change'];
+// Action types this POS view asks for. Every entry must be a type the app
+// actually writes - a name that is never written silently hides nothing but
+// looks like a filter that works.
+const POS_ACTIVITY_TYPES = ['pos_login','pos_logout','sale','product_create','product_update','price_change','stock_add','stock_remove','product_delete','wipe_all','branch_stock_repair','stock_audit_adopt','transaction_revert','stock_upload','stock_upload_revert','layby_create','layby_cancel','layby_cancelled','layby_payment','installment_paid','stock_transfer','stock_reconciliation','pos_branch_switch','system_change'];
 let _posActivityRows = [];
 
 // Best-effort client-side activity logging (exports/downloads happen in the browser)
@@ -11211,6 +11214,11 @@ function posActivityBadge(type, row) {
         'download': 'info',
         'branch_stock_repair': 'warning',
         'stock_audit_adopt': 'primary',
+        'transaction_revert': 'danger',
+        'stock_upload_revert': 'warning',
+        'layby_cancelled': 'warning',
+        'layby_cancel': 'warning',
+        'installment_paid': 'success',
         'system_change': 'info'
     };
     const d = (row && row.details) || {};
@@ -11254,6 +11262,14 @@ function posActivityBadge(type, row) {
     }
 
     const cls = map[type] || 'secondary';
+    // A revert is a destructive act on a completed sale, so it says so plainly
+    // instead of the generic 'Transaction Revert'.
+    if (type === 'transaction_revert') {
+        return '<span class="badge bg-danger"><i class="fas fa-rotate-left me-1"></i>Sale Reverted</span>';
+    }
+    if (type === 'stock_upload_revert') {
+        return '<span class="badge bg-warning text-dark"><i class="fas fa-rotate-left me-1"></i>Upload Reverted</span>';
+    }
     const label = String(type || 'action').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
     return '<span class="badge bg-' + cls + '">' + label + '</span>';
 }
@@ -11288,19 +11304,33 @@ function posActivityDetailsHtml(a, index) {
 
     // Products touched, each with its quantity movement.
     if (Array.isArray(d.items) && d.items.length) {
-        bits.push('<ul class="mb-1 ps-3">' + d.items.slice(0, 200).map(function(it) {
+        const isSale = d.transaction_number !== undefined || d.items_restored !== undefined;
+        bits.push((isSale ? '<div><strong>Items returned to stock:</strong></div>' : '') +
+            '<ul class="mb-1 ps-3">' + d.items.slice(0, 200).map(function(it) {
             const parts = [];
             if (it.name) parts.push('<strong>' + escapeHtml(String(it.name)) + '</strong>');
-            if (it.counted_quantity !== undefined && it.counted_quantity !== null) {
-                parts.push('counted ' + escapeHtml(String(it.counted_quantity)));
-            }
-            if (it.quantity_delta !== undefined && it.quantity_delta !== null) {
-                const q = Number(it.quantity_delta);
-                parts.push('<span class="' + (q < 0 ? 'text-danger' : 'text-success') + '">' +
-                           (q > 0 ? '+' : '') + escapeHtml(String(q)) + '</span>');
-            }
-            if (it.live_stock_after !== undefined && it.live_stock_after !== null) {
-                parts.push('now ' + escapeHtml(String(it.live_stock_after)));
+            if (isSale) {
+                // A reverted receipt: quantity, unit price and line total.
+                const qty = it.quantity;
+                if (qty !== undefined && qty !== null) {
+                    parts.push(escapeHtml(String(qty)) + ' \u00d7 ' +
+                               money(it.sell_price !== undefined ? it.sell_price : 0));
+                }
+                if (it.line_total !== undefined && it.line_total !== null) {
+                    parts.push('<span class="text-success">' + money(it.line_total) + '</span>');
+                }
+            } else {
+                if (it.counted_quantity !== undefined && it.counted_quantity !== null) {
+                    parts.push('counted ' + escapeHtml(String(it.counted_quantity)));
+                }
+                if (it.quantity_delta !== undefined && it.quantity_delta !== null) {
+                    const q = Number(it.quantity_delta);
+                    parts.push('<span class="' + (q < 0 ? 'text-danger' : 'text-success') + '">' +
+                               (q > 0 ? '+' : '') + escapeHtml(String(q)) + '</span>');
+                }
+                if (it.live_stock_after !== undefined && it.live_stock_after !== null) {
+                    parts.push('now ' + escapeHtml(String(it.live_stock_after)));
+                }
             }
             return '<li>' + parts.join(' &middot; ') + '</li>';
         }).join('') +
@@ -11312,6 +11342,22 @@ function posActivityDetailsHtml(a, index) {
     if (d.previous_system_quantity !== undefined && d.counted_quantity !== undefined) {
         bits.push('Stock ' + escapeHtml(String(d.previous_system_quantity)) +
                   ' &rarr; ' + escapeHtml(String(d.counted_quantity)));
+    }
+    // A reverted sale: what it was worth and how many lines came back.
+    if (d.transaction_number !== undefined) {
+        bits.push('Receipt <strong>' + escapeHtml(String(d.transaction_number)) + '</strong>' +
+                  (d.total !== undefined && d.total !== null
+                      ? ' &middot; total <strong>' + money(d.total) + '</strong>' : '') +
+                  (d.items_restored !== undefined
+                      ? ' &middot; ' + escapeHtml(String(d.items_restored)) + ' line(s) returned to stock'
+                      : ''));
+    }
+    if (d.reverted_by) {
+        bits.push('<span class="text-muted">Reverted by: ' + escapeHtml(String(d.reverted_by)) + '</span>');
+    }
+    if (Array.isArray(d.laybys_closed) && d.laybys_closed.length) {
+        bits.push('<div class="text-danger">Layby closed with it: ' +
+                  d.laybys_closed.map(escapeHtml).join(', ') + '</div>');
     }
     if (d.quantity_delta !== undefined && d.quantity_delta !== null && !bits.length) {
         bits.push('Movement ' + escapeHtml(String(d.quantity_delta)));

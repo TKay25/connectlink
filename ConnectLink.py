@@ -21769,7 +21769,10 @@ def revert_transaction(transaction_id):
                 return jsonify({'success': False, 'error': f'Transaction {t[1]} has already been reverted'}), 400
 
             cursor.execute("""
-                SELECT ti.product_id, ti.quantity, COALESCE(ti.cost_at_time, p.buy_price)
+                SELECT ti.product_id, ti.quantity, COALESCE(ti.cost_at_time, p.buy_price),
+                       COALESCE(p.name, ''),
+                       COALESCE(ti.price_at_time, p.sell_price, 0),
+                       COALESCE(ti.subtotal, 0)
                 FROM transaction_items ti
                 LEFT JOIN products p ON ti.product_id = p.id
                 WHERE ti.transaction_id = %s
@@ -21779,6 +21782,7 @@ def revert_transaction(transaction_id):
                 return jsonify({'success': False, 'error': 'No items found for this transaction'}), 400
 
             restored = 0
+            restored_items = []
             for it in items:
                 pid = it[0]
                 qty = int(it[1] or 0)
@@ -21797,6 +21801,12 @@ def revert_transaction(transaction_id):
                 except Exception as sa_err:
                     print(f"Warning: Could not log reverted stock addition: {sa_err}")
                 restored += 1
+                # The name and price are captured for the activity entry, so the log
+                # can itemise what the receipt held instead of only counting lines.
+                restored_items.append({'product_id': pid, 'name': it[3] or f'product #{pid}',
+                                       'quantity': qty, 'sell_price': float(it[4] or 0),
+                                       'line_total': round(float(it[5] or 0), 2) or
+                                                     round(float(it[4] or 0) * qty, 2)})
 
             # Remove the sale's stock-reduction rows (keyed by the sale note)
             try:
@@ -21836,7 +21846,12 @@ def revert_transaction(transaction_id):
                 + (f'; layby {reverted_laybys[0][1]} closed with it'
                    if reverted_laybys else ''),
                 'transaction', transaction_id,
-                {'transaction_number': t[1], 'reverted_by': user_name, 'items_restored': restored,
+                {'transaction_number': t[1], 'reverted_by': user_name,
+                 'items_restored': restored,
+                 # What the receipt actually held, item by item, so the activity log
+                 # can show the sale's contents instead of only a line count.
+                 'items': restored_items,
+                 'total': float(t[4] or 0),
                  'laybys_closed': [r[1] for r in reverted_laybys]}
             )
         except Exception as log_err:
