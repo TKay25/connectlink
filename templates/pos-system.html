@@ -7123,8 +7123,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         </table>
                     </div>
                     <div id="stockAuditUncounted" class="mt-3" style="display:none;"></div>
-                    <div id="stockAuditFailedWrap" class="mt-2" style="display:none;">
-                        <div class="alert alert-warning py-2 small mb-0">
+                    <div id="stockAuditFailedWrap" class="mt-2" style="display:none;">                        <div class="alert alert-warning py-2 small mb-0">
                             <strong>Rows skipped</strong>
                             <ul id="stockAuditFailedList" class="mb-0"></ul>
                         </div>
@@ -17145,26 +17144,66 @@ function setupAddProductFundingSelection() {
         }
         updateStockAuditAdoptControls();
 
-        // Products not present anywhere in the sheet can be archived only in this branch.
+        // On the system but NOT in the sheet: these are the "on system, not in
+        // Excel" products. Named explicitly and selectable, because removing a
+        // product from the branch is a real decision the shopkeeper must make
+        // one product at a time - never a side effect of uploading a file.
         const uw = document.getElementById('stockAuditUncounted');
         if (uw) {
             const unc = data.uncounted || [];
             if (unc.length) {
+                const units = data.summary.uncounted_units;
                 uw.innerHTML =
-                    `<div class="alert alert-secondary py-2 small mb-0">
-                       <strong>${unc.length} branch product(s) were omitted from the sheet</strong>
-                       <span class="text-muted">— the sheet did not mention them, so they are not
-                       counted as zero. Together they hold ${data.summary.uncounted_units} unit(s) on the system.</span>
-                       <div class="mt-1" style="max-height:110px;overflow:auto;">
-                         ${unc.map(u => `<label class="d-inline-flex align-items-center me-2 mb-1">
-                            <input type="checkbox" class="form-check-input stock-audit-omitted-archive-check me-1"
-                                   data-product-id="${Number(u.product_id)}"
-                                   onchange="updateStockAuditAdoptControls()">
-                            ${escapeHtml(u.name)} <span class="text-muted ms-1">(${u.system_at_date})</span>
-                          </label>`).join('')}
+                    `<div class="border rounded p-2">
+                       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+                         <div class="small">
+                           <i class="fas fa-boxes-stacked me-1"></i>
+                           <strong>On the system but not in the sheet</strong>
+                           <span class="text-muted">— ${unc.length} product(s) holding ${units} unit(s)
+                           in ${escapeHtml(data.branch_name || 'this branch')}.</span>
+                         </div>
+                         <div class="small text-muted">
+                           The sheet did not mention them, so they are <strong>not</strong> treated as zero.
+                         </div>
+                       </div>
+                       <div class="alert alert-warning py-1 px-2 small mb-2">
+                         <i class="fas fa-circle-info me-1"></i>Tick the products to
+                         <strong>remove from this branch</strong>. Removing keeps the stock, prices and
+                         history on record and does not touch any other branch. It can be undone by
+                         adopting a counted row for that product later.
+                       </div>
+                       <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                         <button type="button" class="btn btn-outline-secondary btn-sm"
+                                 onclick="setAllStockAuditArchives(true)">Select all</button>
+                         <button type="button" class="btn btn-outline-secondary btn-sm"
+                                 onclick="setAllStockAuditArchives(false)">Clear</button>
+                         <input type="text" class="form-control form-control-sm"
+                                style="max-width:220px;" id="stockAuditUncountedSearch"
+                                placeholder="Search these products..." oninput="filterStockAuditUncounted()">
+                         <span class="small text-muted" id="stockAuditUncountedCount"></span>
+                       </div>
+                       <div class="table-responsive" style="max-height:220px;overflow:auto;">
+                         <table class="table table-sm align-middle mb-0">
+                           <thead><tr>
+                             <th style="width:34px;"></th>
+                             <th>Product</th>
+                             <th class="text-end">On system</th>
+                             </tr></thead>
+                           <tbody>
+                             ${unc.map(u => `<tr class="stock-audit-omitted-row"
+                                             data-name="${escapeHtml(String(u.name).toLowerCase())}">
+                                <td><input type="checkbox" class="form-check-input stock-audit-omitted-archive-check"
+                                           data-product-id="${Number(u.product_id)}"
+                                           onchange="updateStockAuditAdoptControls()"></td>
+                                <td class="small">${escapeHtml(u.name)}</td>
+                                <td class="text-end small">${u.system_at_date}</td>
+                              </tr>`).join('')}
+                           </tbody>
+                         </table>
                        </div>
                      </div>`;
                 uw.style.display = 'block';
+                updateStockAuditUncountedCount();
             } else {
                 uw.style.display = 'none';
             }
@@ -17185,13 +17224,61 @@ function setupAddProductFundingSelection() {
     }
     window.renderStockAudit = renderStockAudit;
 
+    function setAllStockAuditArchives(checked) {
+        // Only the rows currently visible, so a search narrows "select all" to
+        // what the shopkeeper is actually looking at.
+        document.querySelectorAll('#stockAuditUncounted .stock-audit-omitted-row')
+            .forEach(row => {
+                if (row.style.display === 'none') return;
+                const box = row.querySelector('.stock-audit-omitted-archive-check');
+                if (box) box.checked = !!checked;
+            });
+        updateStockAuditAdoptControls();
+    }
+    window.setAllStockAuditArchives = setAllStockAuditArchives;
+
+    function filterStockAuditUncounted() {
+        const input = document.getElementById('stockAuditUncountedSearch');
+        const term = (input && input.value ? input.value : '').trim().toLowerCase();
+        document.querySelectorAll('#stockAuditUncounted .stock-audit-omitted-row').forEach(row => {
+            const name = row.getAttribute('data-name') || '';
+            row.style.display = (!term || name.indexOf(term) !== -1) ? '' : 'none';
+        });
+        updateStockAuditUncountedCount();
+    }
+    window.filterStockAuditUncounted = filterStockAuditUncounted;
+
+    function updateStockAuditUncountedCount() {
+        const el = document.getElementById('stockAuditUncountedCount');
+        if (!el) return;
+        const rows = Array.from(
+            document.querySelectorAll('#stockAuditUncounted .stock-audit-omitted-row'));
+        const visible = rows.filter(r => r.style.display !== 'none').length;
+        const selected = rows.filter(r => {
+            const b = r.querySelector('.stock-audit-omitted-archive-check');
+            return b && b.checked;
+        }).length;
+        el.textContent = (visible === rows.length)
+            ? (selected ? selected + ' of ' + rows.length + ' selected' : rows.length + ' product(s)')
+            : visible + ' shown, ' + selected + ' selected';
+    }
+    window.updateStockAuditUncountedCount = updateStockAuditUncountedCount;
+
     function updateStockAuditAdoptControls() {
         const button = document.getElementById('stockAuditApplySelectedBtn');
+        const selected = document.querySelectorAll(
+            '#stockAuditBody .stock-audit-action-check:checked, ' +
+            '#stockAuditUncounted .stock-audit-omitted-archive-check:checked');
         if (button) {
-            button.disabled = !document.querySelector(
-                '#stockAuditBody .stock-audit-action-check:checked, ' +
-                '#stockAuditUncounted .stock-audit-omitted-archive-check:checked');
+            button.disabled = !selected.length;
+            // Say what the button will actually do, since it now covers two
+            // different kinds of action.
+            const count = selected.length;
+            button.innerHTML = '<i class="fas fa-check me-1"></i>' +
+                (count === 1 ? 'Apply 1 selected action'
+                             : 'Apply ' + count + ' selected actions');
         }
+        updateStockAuditUncountedCount();
     }
     window.updateStockAuditAdoptControls = updateStockAuditAdoptControls;
 
