@@ -17601,6 +17601,15 @@ function setupAddProductFundingSelection() {
         const archives = operations.filter(op => op.action === 'archive').length;
         const changes = operations.length - archives;
         const dateLabel = data.as_at_label || data.as_at;
+        // Products to REMOVE are sent on their own, to their own endpoint. That
+        // call carries no Excel file and does no catalogue work, so it is fast and
+        // cannot be dragged down by the adoption batches' per-call cost - which is
+        // what previously left ticked products sitting in stock even though the
+        // apply button had been pressed.
+        const archiveIds = operations
+            .filter(op => op.action === 'archive')
+            .map(op => op.product_id);
+        const applyOps = operations.filter(op => op.action !== 'archive');
         // Large selections are sent in batches. Each product costs many database
         // round-trips against a REMOTE server, and each batch also re-reads the
         // sheet and the catalogue, so the request has a fixed cost PLUS a per-line
@@ -17610,15 +17619,16 @@ function setupAddProductFundingSelection() {
         // request that dies silently.
         const BATCH_SIZE = 8;
         const batches = [];
-        for (let i = 0; i < operations.length; i += BATCH_SIZE) {
-            batches.push(operations.slice(i, i + BATCH_SIZE));
+        for (let i = 0; i < applyOps.length; i += BATCH_SIZE) {
+            batches.push(applyOps.slice(i, i + BATCH_SIZE));
         }
         const confirmed = window.confirm(
-            `Apply ${changes} product/count change(s) and archive ${archives} product(s) in ${data.branch_name}?\n\n` +
-            `Stock counts are effective as at ${dateLabel} and their differences carry into current branch stock. ` +
-            'Archive only hides a product in this branch; it does not delete history or change its stock.' +
+            `Apply ${changes} product/count change(s) and remove ${archives} product(s) from ${data.branch_name}?\n\n` +
+            `Stock counts are set to the counted figure, effective as at ${dateLabel}. ` +
+            'Removing a product only hides it in this branch; it does not delete history, ' +
+            'it does not touch other branches, and it can be restored later.' +
             (batches.length > 1
-                ? `\n\nThis will be applied in ${batches.length} batches of up to ${BATCH_SIZE}. Leave this page open until it finishes.`
+                ? `\n\nCount changes are applied in ${batches.length} batches of up to ${BATCH_SIZE}. Leave this page open until it finishes.`
                 : '')
         );
         if (!confirmed) return;
@@ -17629,6 +17639,29 @@ function setupAddProductFundingSelection() {
         const originalLabel = buttons.length ? buttons[0].innerHTML : '';
         let adjusted = 0, archived = 0;
         const problems = [];
+
+        // --- removals first: separate endpoint, no file, no catalogue scan ---
+        if (archiveIds.length) {
+            if (buttons.length) {
+                buttons[0].innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>' +
+                    `Removing ${archiveIds.length} product(s)...`;
+            }
+            errEl.innerText = `Removing ${archiveIds.length} product(s) from ${data.branch_name}...`;
+            errEl.style.display = 'block';
+            try {
+                const res = await fetch(`${API_BASE}/api/pos/stock-audit/archive`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ branch_id: data.branch_id, product_ids: archiveIds })
+                });
+                const out = await res.json();
+                if (!out.success) problems.push('Removal: ' + (out.error || 'the server refused it.'));
+                else archived = (out.archived || []).length;
+            } catch (netError) {
+                problems.push(`Removal did not complete (${netError.message}).`);
+            }
+        }
 
         for (let b = 0; b < batches.length; b++) {
             // Progress matters: without it a long run looks like a crash, and a
@@ -17677,18 +17710,20 @@ function setupAddProductFundingSelection() {
 
         if (problems.length) {
             errEl.innerHTML =
-                `<strong>Applied ${adjusted} product change(s) and archived ${archived} ` +
+                `<strong>Applied ${adjusted} product change(s) and removed ${archived} ` +
                 `product(s) before stopping.</strong><br>` +
                 problems.map(escapeHtml).join('<br>') +
-                '<br>The lines already applied are saved. Fix the problem above and ' +
+                '<br>The work already done is saved. Fix the problem above and ' +
                 'apply the rest by selecting the remaining lines only.';
             errEl.style.display = 'block';
             showToast(`Stopped after ${adjusted + archived} of ${operations.length}.`, 'warning');
         } else if (adjusted || archived) {
             errEl.style.display = 'none';
-            showToast(`Applied ${adjusted} product change(s) and archived ${archived} product(s).`,
+            showToast(`Applied ${adjusted} product change(s) and removed ${archived} product(s).`,
                       'success');
         }
+        // Re-run whenever anything was written, so the on-screen list reflects the
+        // new state instead of still showing products that were just removed.
         if (adjusted || archived) await runStockAudit();
         if (buttons.length) buttons[0].innerHTML = originalLabel;
         buttons.forEach(button => { button.disabled = false; });

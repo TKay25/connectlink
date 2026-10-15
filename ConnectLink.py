@@ -19553,6 +19553,124 @@ def pos_stock_audit_adopt_reviewed():
         return jsonify({'success': False, 'error': f'Could not apply audit decisions: {e}'}), 500
 
 
+@app.route('/api/pos/stock-audit/archive', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_stock_audit_archive_products():
+    """Archive products in this branch from the Auto Audit's omitted list.
+
+    Deliberately SEPARATE from the adoption endpoint, and deliberately cheap:
+
+    * no Excel file is uploaded or parsed - the products are identified by id, so
+      there is nothing to re-read per call;
+    * no catalogue scan, no lot-history subqueries, no fuzzy name matching - the
+      only work is one small lookup plus one archive row per product.
+
+    The adoption endpoint has a fixed per-call cost (it re-reads the sheet and
+    rebuilds the catalogue for every batch), which is what made archiving time out
+    and silently leave products in stock. Removing a product needs none of that,
+    so it is done here where it cannot be blocked by adoption's cost.
+
+    Archives are PER BRANCH: the product stays live in every other branch, its
+    stock, prices, lots and sales history are kept, and adopting a counted row for
+    it later restores it.
+    """
+    data = request.get_json(silent=True) or {}
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': 'Select a branch before removing products.'}), 400
+    try:
+        if int(data.get('branch_id') or 0) != branch_id:
+            return jsonify({'success': False,
+                            'error': 'The selected branch changed. Run the audit again.'}), 409
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'The selected branch changed.'}), 409
+
+    raw_ids = data.get('product_ids') or []
+    if not isinstance(raw_ids, list) or not raw_ids:
+        return jsonify({'success': False, 'error': 'Select at least one product to remove.'}), 400
+    if len(raw_ids) > BULK_STOCK_MAX_ROWS:
+        return jsonify({'success': False, 'error': 'Too many products in one request.'}), 400
+
+    wanted = []
+    for value in raw_ids:
+        if isinstance(value, bool) or not str(value).isdigit():
+            return jsonify({'success': False, 'error': 'A selected product is invalid.'}), 400
+        pid = int(value)
+        if pid not in wanted:
+            wanted.append(pid)
+
+    username = (session.get('user_name') or session.get('username') or 'System')[:100]
+    branch_name = session.get('branch_name') or f'branch #{branch_id}'
+    try:
+        with get_db() as (cursor, connection):
+            # One lookup, filtered to this branch so a product this shop does not
+            # stock can never be removed by another branch's id. Products already
+            # archived here are treated as done, NOT as missing - re-ticking one is
+            # harmless and must not read as an error.
+            cursor.execute("""
+                SELECT p.id, p.name,
+                       EXISTS (SELECT 1 FROM product_branch_archives pba
+                               WHERE pba.product_id = p.id AND pba.branch_id = %s)
+                FROM products p
+                JOIN product_stock ps
+                  ON ps.product_id = p.id AND ps.branch_id = %s
+                WHERE p.id = ANY(%s)
+            """, (branch_id, branch_id, wanted))
+            rows = cursor.fetchall()
+            found = {r[0]: r[1] for r in rows}
+            already = {r[0] for r in rows if r[2]}
+
+            missing = [pid for pid in wanted if pid not in found]
+            if missing:
+                return jsonify({
+                    'success': False,
+                    'error': ('These products are not stocked in ' + branch_name +
+                              ', so they cannot be removed here: ' +
+                              ', '.join(str(m) for m in missing[:8]) +
+                              (' and more' if len(missing) > 8 else '') + '.'),
+                }), 409
+
+            removed = []
+            for pid in wanted:
+                if pid in already:
+                    continue          # already hidden here; nothing to do
+                name = found[pid]
+                cursor.execute("""
+                    INSERT INTO product_branch_archives (product_id, branch_id, user_name)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (product_id, branch_id) DO UPDATE
+                       SET archived_at = CURRENT_TIMESTAMP, user_name = EXCLUDED.user_name
+                """, (pid, branch_id, username))
+                cursor.execute("""
+                    INSERT INTO activity_log
+                        (action_type, description, user_name, reference_type,
+                         reference_id, details, branch_id)
+                    VALUES ('stock_audit_adopt', %s, %s, 'product', %s, %s, %s)
+                """, (f'Archived "{name}" in {branch_name} from stock audit', username, pid,
+                      psycopg2.extras.Json({'action': 'branch_archive', 'branch': branch_name}),
+                      branch_id))
+                removed.append(name)
+            connection.commit()
+            g.activity_logged = True
+        if not removed:
+            return jsonify({
+                'success': True, 'archived': [],
+                'message': (f'{len(wanted)} product(s) were already removed from '
+                            f'{branch_name}; nothing to change.'),
+            })
+        return jsonify({
+            'success': True,
+            'archived': removed,
+            'message': (f'Removed {len(removed)} product(s) from {branch_name}: ' +
+                        ', '.join(removed[:5]) + (' and more' if len(removed) > 5 else '') +
+                        '. They stay live in every other branch and their history is kept.'),
+        })
+    except Exception as e:
+        print(f"Stock audit archive error: {e}")
+        return jsonify({'success': False, 'error': f'Could not remove the products: {e}'}), 500
+
+
 @app.route('/api/pos/stock-upload-jobs', methods=['GET'])
 @login_required
 def pos_stock_upload_jobs():
