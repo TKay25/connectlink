@@ -17146,47 +17146,22 @@ function setupAddProductFundingSelection() {
         updateStockAuditAdoptControls();
 
         // Products not present anywhere in the sheet can be archived only in this branch.
-        // A product whose name closely matches a sheet row is flagged: the sheet may
-        // have counted the same item under a different name, in which case archiving
-        // it would hide stock that IS on the ground.
         const uw = document.getElementById('stockAuditUncounted');
         if (uw) {
             const unc = data.uncounted || [];
             if (unc.length) {
-                const nearCount = unc.filter(u => (u.near_matches || []).length).length;
                 uw.innerHTML =
                     `<div class="alert alert-secondary py-2 small mb-0">
                        <strong>${unc.length} branch product(s) were omitted from the sheet</strong>
-                       <span class="text-muted">— the sheet did not mention them by name, so they are not
+                       <span class="text-muted">— the sheet did not mention them, so they are not
                        counted as zero. Together they hold ${data.summary.uncounted_units} unit(s) on the system.</span>
-                       ${nearCount ? `<div class="text-danger mt-1">
-                          <i class="fas fa-triangle-exclamation me-1"></i>
-                          <strong>${nearCount}</strong> of them look like a row that IS in your sheet
-                          (listed first, in red). Those may be the same product written differently —
-                          check before archiving.</div>` : ''}
-                       <div class="mt-1" style="max-height:190px;overflow:auto;">
-                         ${unc.map(u => {
-                            const near = u.near_matches || [];
-                            const risky = near.length > 0;
-                            const hint = risky
-                              ? `<div class="text-danger" style="padding-left:1.4rem;">
-                                   Looks like the sheet row “${escapeHtml(near[0].sheet_name)}”
-                                   (${Math.round(near[0].score * 100)}% similar${near[0].counted === null ||
-                                     near[0].counted === undefined ? ', no count' : ', counted ' + near[0].counted}).
-                                 </div>`
-                              : '';
-                            return `<div class="mb-1">
-                              <label class="d-inline-flex align-items-center mb-0">
-                                <input type="checkbox" class="form-check-input stock-audit-omitted-archive-check me-1"
-                                       data-product-id="${Number(u.product_id)}"
-                                       data-risky="${risky ? '1' : '0'}"
-                                       data-near="${escapeHtml(near.length ? near[0].sheet_name : '')}"
-                                       onchange="updateStockAuditAdoptControls()">
-                                <span class="${risky ? 'text-danger fw-bold' : ''}">${escapeHtml(u.name)}</span>
-                                <span class="text-muted ms-1">(${u.system_at_date})</span>
-                              </label>${hint}
-                            </div>`;
-                         }).join('')}
+                       <div class="mt-1" style="max-height:110px;overflow:auto;">
+                         ${unc.map(u => `<label class="d-inline-flex align-items-center me-2 mb-1">
+                            <input type="checkbox" class="form-check-input stock-audit-omitted-archive-check me-1"
+                                   data-product-id="${Number(u.product_id)}"
+                                   onchange="updateStockAuditAdoptControls()">
+                            ${escapeHtml(u.name)} <span class="text-muted ms-1">(${u.system_at_date})</span>
+                          </label>`).join('')}
                        </div>
                      </div>`;
                 uw.style.display = 'block';
@@ -17274,26 +17249,12 @@ function setupAddProductFundingSelection() {
         const archives = operations.filter(op => op.action === 'archive').length;
         const changes = operations.length - archives;
         const dateLabel = data.as_at_label || data.as_at;
-        // Name the products that look like a row in the sheet, so the warning is
-        // about a specific item rather than a count.
-        const risky = Array.from(document.querySelectorAll(
-            '#stockAuditUncounted .stock-audit-omitted-archive-check:checked'))
-            .filter(c => c.dataset.risky === '1')
-            .map(c => {
-                const name = c.closest('label').querySelector('span').textContent.trim();
-                const near = c.dataset.near || '';
-                return near ? `  • ${name}\n      sheet row: "${near}"` : `  • ${name}`;
-            });
-        let message =
+        const confirmed = window.confirm(
             `Apply ${changes} product/count change(s) and archive ${archives} product(s) in ${data.branch_name}?\n\n` +
             `Stock counts are effective as at ${dateLabel} and their differences carry into current branch stock. ` +
-            'Archive only hides a product in this branch; it does not delete history or change its stock.';
-        if (risky.length) {
-            message += `\n\nWARNING — ${risky.length} product(s) you are archiving look like a row that IS ` +
-                       `in your sheet. If they are the same product written differently, archiving hides ` +
-                       `stock that is really on the ground:\n${risky.join('\n')}`;
-        }
-        if (!window.confirm(message)) return;
+            'Archive only hides a product in this branch; it does not delete history or change its stock.'
+        );
+        if (!confirmed) return;
 
         const buttons = [document.getElementById('stockAuditApplySelectedBtn')].filter(Boolean);
         buttons.forEach(button => { button.disabled = true; });

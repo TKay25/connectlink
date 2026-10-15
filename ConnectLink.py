@@ -18441,35 +18441,11 @@ def pos_stock_audit_run():
     lines, matched_ids = _stock_audit_resolve_rows(rows, catalogue)
 
     # Products this branch holds that the sheet did not count at all.
-    #
-    # "Not counted" only means the sheet never matched them by name. It does NOT
-    # mean the goods are absent: a shop regularly writes the same item a slightly
-    # different way, and the audit's fuzzy matching can miss it. So each omitted
-    # product carries its closest sheet rows, letting the uploader see that
-    # they are about to archive something they may have counted under another
-    # name - instead of hiding real stock and calling it "not on the ground".
-    sheet_rows = [row for row in rows
-                  if (row.get('name') or '').strip()
-                  and not (row.get('name') or '').strip().upper().startswith('EXAMPLE')]
-    uncounted = []
-    for c in catalogue:
-        if c['id'] in matched_ids or not c['stocked_here'] or c['branch_archived']:
-            continue
-        near = []
-        for row in sheet_rows:
-            ratio = _product_similarity(c['name'], row['name'])
-            # A LOWER bar than the audit's own match threshold: this is a warning
-            # to look, not an automatic match, and a near miss is exactly the case
-            # worth showing.
-            if ratio >= 0.55:
-                near.append({'sheet_name': row['name'], 'score': round(ratio, 2),
-                             'counted': row['counted']})
-        near.sort(key=lambda n: -n['score'])
-        uncounted.append({'product_id': c['id'], 'name': c['name'],
-                          'system_at_date': c['system_at_date'],
-                          'live_stock': c['live_stock'],
-                          'near_matches': near[:4]})
-    uncounted.sort(key=lambda u: (-len(u['near_matches']), u['name'].lower()))
+    uncounted = [{'product_id': c['id'], 'name': c['name'],
+                  'system_at_date': c['system_at_date'], 'live_stock': c['live_stock']}
+                 for c in catalogue
+                 if c['id'] not in matched_ids and c['stocked_here']
+                 and not c['branch_archived']]
 
     summary = {
         'lines': len(lines),
