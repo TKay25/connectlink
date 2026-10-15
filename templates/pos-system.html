@@ -6994,7 +6994,11 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                     Count what is physically on the ground and put it in the
                     <strong>Upload New Stock</strong> template. This compares it to what the system
                     says was in stock on the date you choose. Running the audit makes no changes.
-                    After reviewing, adopt exact Excel matches in bulk or select individual lines.
+                    After reviewing each line, choose which system values or Excel values to keep.
+                    New products can be created from unmatched counted rows. Uncounted products can
+                    be archived in this branch without deleting history or affecting other branches.
+                    Name, buying price, category, unit, barcode and description changes update the
+                    shared product record; selling-price changes apply only to this branch.
                     An adopted correction is dated to the comparison day and its difference is
                     carried into the branch's current stock. Added units use the current buying
                     price for FIFO valuation.
@@ -7023,22 +7027,18 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <div id="stockAuditResult" style="display:none;">
                     <div id="stockAuditSummary" class="mb-2"></div>
                     <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
-                        <button class="btn btn-success btn-sm" id="stockAuditApplyAllBtn"
-                                onclick="adoptStockAuditCounts('all_exact')" style="display:none;">
-                            <i class="fas fa-file-import me-1"></i>Adopt exact matches from Excel
+                        <button class="btn btn-success btn-sm" id="stockAuditApplySelectedBtn"
+                                onclick="adoptStockAuditCounts()" disabled>
+                            <i class="fas fa-check me-1"></i>Apply selected audit actions
                         </button>
-                        <button class="btn btn-warning btn-sm" id="stockAuditApplySelectedBtn"
-                                onclick="adoptStockAuditCounts('selected')" disabled>
-                            <i class="fas fa-check me-1"></i>Adopt selected lines
-                        </button>
-                        <span class="small text-muted">Selected lines include name suggestions you have confirmed.</span>
+                        <span class="small text-muted">Product changes and archive actions are reviewed individually.</span>
                     </div>
                     <div class="table-responsive" style="max-height:320px;overflow:auto;">
                         <table class="table table-sm align-middle mb-0">
                             <thead><tr>
                                 <th>Product</th><th class="text-end">Counted</th>
                                 <th class="text-end">System</th><th class="text-end">Difference</th>
-                                <th>Status</th><th>Adopt</th>
+                                <th>Status</th><th>Action</th>
                             </tr></thead>
                             <tbody id="stockAuditBody"></tbody>
                         </table>
@@ -14851,13 +14851,15 @@ async function fetchTransactionsData() {
         const rows = [];
         (plan.exact || []).forEach(r => rows.push({
             name: r.name, quantity: r.quantity, buy_price: r.buy_price,
-            sell_price: r.sell_price, action: 'merge', product_id: r.product_id
+            sell_price: r.sell_price, action: 'merge', product_id: r.product_id,
+            barcode: r.barcode || '', description: r.description || ''
         }));
         (plan.new || []).forEach(r => rows.push({
             name: r.name, quantity: r.quantity, buy_price: r.buy_price,
             sell_price: r.sell_price, action: 'create',
             category: r.category || '', unit_type: r.unit_type || '',
-            unit_details: r.unit_details || ''
+            unit_details: r.unit_details || '', barcode: r.barcode || '',
+            description: r.description || ''
         }));
         const conflicts = plan.conflicts || [];
         for (let i = 0; i < conflicts.length; i++) {
@@ -14870,7 +14872,8 @@ async function fetchTransactionsData() {
             const row = { name: c.name, quantity: c.quantity, buy_price: c.buy_price,
                           sell_price: c.sell_price, action: action,
                           category: c.category || '', unit_type: c.unit_type || '',
-                          unit_details: c.unit_details || '' };
+                          unit_details: c.unit_details || '', barcode: c.barcode || '',
+                          description: c.description || '' };
             if (action === 'merge' || action === 'merge_category') {
                 const cand = document.getElementById('uploadCandidate' + i);
                 if (!cand || !cand.value) return { error: `Pick a product to merge "${c.name}" into.` };
@@ -16775,6 +16778,7 @@ function setupAddProductFundingSelection() {
             if (s.shortage) bits.push(`<span class="badge bg-danger me-1">${s.shortage} short</span>`);
             if (s.not_in_system) bits.push(`<span class="badge bg-secondary me-1">${s.not_in_system} not in the system</span>`);
             if (s.similar_name) bits.push(`<span class="badge bg-info text-dark me-1">${s.similar_name} name mismatch</span>`);
+            if (s.not_counted) bits.push(`<span class="badge bg-secondary me-1">${s.not_counted} explicitly not counted</span>`);
             const net = s.net_difference || 0;
             bits.push(`<span class="badge ${net === 0 ? 'bg-secondary' : (net > 0 ? 'bg-warning text-dark' : 'bg-danger')} me-1">` +
                       `net ${net > 0 ? '+' : ''}${net} unit(s)</span>`);
@@ -16788,11 +16792,12 @@ function setupAddProductFundingSelection() {
         const colour = {
             match: 'table-success', surplus: 'table-warning',
             shortage: 'table-danger', not_in_system: 'table-secondary',
-            similar_name: 'table-info'
+            similar_name: 'table-info', not_counted: 'table-secondary'
         };
         const label = {
             match: 'match', surplus: 'surplus on ground', shortage: 'short on ground',
-            not_in_system: 'not in the system', similar_name: 'name does not match'
+            not_in_system: 'not in the system', similar_name: 'name does not match',
+            not_counted: 'not counted'
         };
         const body = document.getElementById('stockAuditBody');
         if (body) {
@@ -16800,43 +16805,83 @@ function setupAddProductFundingSelection() {
                 const nameExtra = l.status === 'similar_name'
                     ? `<div class="text-muted small">sheet said “${escapeHtml(l.counted_was)}”</div>` : '';
                 const productId = Number(l.product_id);
-                const selectable = Number.isInteger(productId) && productId > 0;
+                const hasProduct = Number.isInteger(productId) && productId > 0;
                 const sys = (l.system_at_date === null) ? '<span class="text-muted">—</span>' : l.system_at_date;
+                const counted = l.counted === null ? '<span class="text-muted">—</span>' : l.counted;
                 const diff = (l.difference === null) ? '<span class="text-muted">—</span>'
                     : (l.difference === 0 ? '0'
                        : `<strong>${l.difference > 0 ? '+' : ''}${l.difference}</strong>`);
+                const action = l.status === 'not_counted' ? 'archive'
+                    : (hasProduct ? 'adopt' : 'create');
+                const selectable = l.status === 'not_counted' ? hasProduct : true;
+                const checkbox = selectable
+                    ? `<input type="checkbox" class="form-check-input stock-audit-action-check"
+                              data-row="${Number(l.row)}" data-action="${action}"
+                              ${hasProduct ? `data-product-id="${productId}"` : ''}
+                              onchange="updateStockAuditAdoptControls()"
+                              aria-label="Select ${escapeHtml(l.name)} for ${action}">`
+                    : '<span class="text-muted">—</span>';
+                const fields = l.system_fields && l.excel_fields
+                    ? ['name','sell_price','buy_price','category','barcode','unit_type','unit_details','description']
+                        .filter(field => l.excel_fields[field] !== null &&
+                            String(l.system_fields[field] || '') !== String(l.excel_fields[field] || ''))
+                        .map(field => {
+                            const titles = {name:'Name', sell_price:'Selling price', buy_price:'Buying price',
+                                category:'Category', barcode:'Barcode / SKU', unit_type:'Unit type',
+                                unit_details:'Unit detail', description:'Description'};
+                            return `<label class="d-inline-flex align-items-center gap-1 me-2 mb-1">
+                                <span>${titles[field]}: ${escapeHtml(l.system_fields[field] || '—')} / ${escapeHtml(l.excel_fields[field] || '—')}</span>
+                                <select class="form-select form-select-sm stock-audit-field-choice"
+                                        data-row="${Number(l.row)}" data-field="${field}" aria-label="${titles[field]} choice">
+                                    <option value="system">Keep system</option>
+                                    <option value="excel">Use Excel</option>
+                                </select></label>`;
+                        }).join('')
+                    : '';
+                const createFields = l.status === 'not_in_system'
+                    ? `<div class="mt-2 small"><strong>New product details</strong>
+                        ${[['category','Category','text'],['buy_price','Buying price','number'],
+                           ['sell_price','Selling price','number'],['unit_type','Unit type','text'],
+                           ['unit_details','Unit detail','text'],['barcode','Barcode / SKU','text'],
+                           ['description','Description','text']].map(([field,title,type]) =>
+                            `<label class="d-inline-block me-2 mb-1">${title}
+                              <input class="form-control form-control-sm stock-audit-create-value"
+                                     data-row="${Number(l.row)}" data-field="${field}" type="${type}"
+                                     ${type === 'number' ? 'min="0" step="0.01"' : ''}
+                                     value="${escapeHtml(l.excel_fields[field] || '')}"
+                                     ${['category','buy_price','sell_price'].includes(field) ? 'required' : ''}>
+                             </label>`).join('')}
+                       </div>` : '';
+                const review = fields || createFields
+                    ? `<div class="mt-1">${fields}${createFields}</div>` : '';
                 return `<tr class="${colour[l.status] || ''}">
-                    <td class="small">${escapeHtml(l.name)}${nameExtra}</td>
-                    <td class="text-end small">${l.counted}</td>
+                    <td class="small">${escapeHtml(l.name)}${nameExtra}${review}</td>
+                    <td class="text-end small">${counted}</td>
                     <td class="text-end small">${sys}</td>
                     <td class="text-end small">${diff}</td>
                     <td class="small">${label[l.status] || ''}</td>
-                    <td>${selectable
-                        ? `<input type="checkbox" class="form-check-input stock-audit-adopt-check"
-                                  data-product-id="${productId}" onchange="updateStockAuditAdoptControls()"
-                                  aria-label="Select ${escapeHtml(l.name)} for stock adoption">`
-                        : '<span class="text-muted">—</span>'}</td></tr>`;
+                    <td>${checkbox}</td></tr>`;
             }).join('') || '<tr><td colspan="6" class="text-muted small">Nothing to show.</td></tr>';
         }
-        const hasExactMatches = (data.lines || []).some(l =>
-            l.product_id && l.status !== 'similar_name' && l.status !== 'not_in_system');
-        const applyAll = document.getElementById('stockAuditApplyAllBtn');
-        if (applyAll) applyAll.style.display = hasExactMatches ? '' : 'none';
         updateStockAuditAdoptControls();
 
-        // Items the branch holds that the sheet never counted.
+        // Products not present anywhere in the sheet can be archived only in this branch.
         const uw = document.getElementById('stockAuditUncounted');
         if (uw) {
             const unc = data.uncounted || [];
             if (unc.length) {
                 uw.innerHTML =
                     `<div class="alert alert-secondary py-2 small mb-0">
-                       <strong>${unc.length} product(s) were not counted at all</strong>
+                       <strong>${unc.length} branch product(s) were omitted from the sheet</strong>
                        <span class="text-muted">— the sheet did not mention them, so they are not
                        counted as zero. Together they hold ${data.summary.uncounted_units} unit(s) on the system.</span>
                        <div class="mt-1" style="max-height:110px;overflow:auto;">
-                         ${unc.slice(0, 60).map(u => `${escapeHtml(u.name)} <span class="text-muted">(${u.system_at_date})</span>`).join(' · ')}
-                         ${unc.length > 60 ? ` <span class="text-muted">… +${unc.length - 60} more</span>` : ''}
+                         ${unc.map(u => `<label class="d-inline-flex align-items-center me-2 mb-1">
+                            <input type="checkbox" class="form-check-input stock-audit-omitted-archive-check me-1"
+                                   data-product-id="${Number(u.product_id)}"
+                                   onchange="updateStockAuditAdoptControls()">
+                            ${escapeHtml(u.name)} <span class="text-muted ms-1">(${u.system_at_date})</span>
+                          </label>`).join('')}
                        </div>
                      </div>`;
                 uw.style.display = 'block';
@@ -16864,42 +16909,74 @@ function setupAddProductFundingSelection() {
         const button = document.getElementById('stockAuditApplySelectedBtn');
         if (button) {
             button.disabled = !document.querySelector(
-                '#stockAuditBody .stock-audit-adopt-check:checked');
+                '#stockAuditBody .stock-audit-action-check:checked, ' +
+                '#stockAuditUncounted .stock-audit-omitted-archive-check:checked');
         }
     }
     window.updateStockAuditAdoptControls = updateStockAuditAdoptControls;
 
-    async function adoptStockAuditCounts(mode) {
+    async function adoptStockAuditCounts() {
         const data = _stockAuditData;
         const fileEl = document.getElementById('stockAuditFile');
         const errEl = document.getElementById('stockAuditError');
-        const selectedIds = Array.from(document.querySelectorAll(
-            '#stockAuditBody .stock-audit-adopt-check:checked'))
-            .map(el => Number(el.dataset.productId));
         if (!data || !fileEl || !fileEl.files.length) {
             errEl.innerText = 'Choose the count sheet and run the audit first.';
             errEl.style.display = 'block';
             return;
         }
-        if (mode === 'selected' && !selectedIds.length) {
+        let missingCreateValue = '';
+        const operations = Array.from(document.querySelectorAll(
+            '#stockAuditBody .stock-audit-action-check:checked')).map(check => {
+            const operation = {
+                row: Number(check.dataset.row),
+                action: check.dataset.action
+            };
+            if (check.dataset.productId) operation.product_id = Number(check.dataset.productId);
+            if (operation.action === 'adopt') {
+                operation.field_choices = {};
+                document.querySelectorAll(
+                    `.stock-audit-field-choice[data-row="${operation.row}"]`).forEach(select => {
+                    operation.field_choices[select.dataset.field] = select.value;
+                });
+            } else if (operation.action === 'create') {
+                operation.create_values = {};
+                document.querySelectorAll(
+                    `.stock-audit-create-value[data-row="${operation.row}"]`).forEach(input => {
+                    operation.create_values[input.dataset.field] = input.value;
+                });
+                const missing = ['category','buy_price','sell_price'].find(field =>
+                    !String(operation.create_values[field] || '').trim());
+                if (missing) {
+                    missingCreateValue = missing.replace('_', ' ');
+                }
+            }
+            return operation;
+        });
+        if (missingCreateValue) {
+            errEl.innerText = `Enter the missing ${missingCreateValue} for every selected new product.`;
+            errEl.style.display = 'block';
+            return;
+        }
+        Array.from(document.querySelectorAll(
+            '#stockAuditUncounted .stock-audit-omitted-archive-check:checked')).forEach(check => {
+            operations.push({ action: 'archive', product_id: Number(check.dataset.productId) });
+        });
+        if (!operations.length) {
             errEl.innerText = 'Select at least one audit line first.';
             errEl.style.display = 'block';
             return;
         }
-        const requestedLines = mode === 'all_exact'
-            ? data.lines.filter(l => l.product_id && l.status !== 'similar_name' && l.status !== 'not_in_system')
-            : data.lines.filter(l => selectedIds.includes(Number(l.product_id)));
+        const archives = operations.filter(op => op.action === 'archive').length;
+        const changes = operations.length - archives;
         const dateLabel = data.as_at_label || data.as_at;
         const confirmed = window.confirm(
-            `Adopt ${requestedLines.length} count(s) as at ${dateLabel} in ${data.branch_name}?\n\n` +
-            'This will record dated stock adjustments and carry each quantity difference into current branch stock.'
+            `Apply ${changes} product/count change(s) and archive ${archives} product(s) in ${data.branch_name}?\n\n` +
+            `Stock counts are effective as at ${dateLabel} and their differences carry into current branch stock. ` +
+            'Archive only hides a product in this branch; it does not delete history or change its stock.'
         );
         if (!confirmed) return;
 
-        const buttons = [
-            document.getElementById('stockAuditApplyAllBtn'),
-            document.getElementById('stockAuditApplySelectedBtn')
-        ].filter(Boolean);
+        const buttons = [document.getElementById('stockAuditApplySelectedBtn')].filter(Boolean);
         buttons.forEach(button => { button.disabled = true; });
         errEl.style.display = 'none';
         try {
@@ -16907,9 +16984,8 @@ function setupAddProductFundingSelection() {
             form.append('file', fileEl.files[0]);
             form.append('as_at', data.as_at);
             form.append('branch_id', String(data.branch_id));
-            form.append('mode', mode);
-            form.append('product_ids', JSON.stringify(selectedIds));
-            const response = await fetch(`${API_BASE}/api/pos/stock-audit/adopt`, {
+            form.append('operations', JSON.stringify(operations));
+            const response = await fetch(`${API_BASE}/api/pos/stock-audit/adopt-reviewed`, {
                 method: 'POST',
                 body: form,
                 credentials: 'include'
@@ -16921,7 +16997,8 @@ function setupAddProductFundingSelection() {
                 return;
             }
             showToast(result.message || 'Stock counts adopted.', 'success');
-            if (result.adjusted && result.adjusted.length) await runStockAudit();
+            if ((result.adjusted && result.adjusted.length) ||
+                (result.archived && result.archived.length)) await runStockAudit();
         } catch (error) {
             errEl.innerText = 'Could not adopt stock counts: ' + error.message;
             errEl.style.display = 'block';

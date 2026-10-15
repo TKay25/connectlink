@@ -35,7 +35,7 @@ import threading
 import sys
 import random
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import gc
 from flask_cors import CORS
 import secrets
@@ -3166,6 +3166,15 @@ def ensure_branches_schema(cursor, connection):
             CREATE INDEX IF NOT EXISTS idx_stock_count_adjustment_lots_adjustment
             ON stock_count_adjustment_lots (adjustment_id, lot_received_at)
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS product_branch_archives (
+                product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+                archived_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                user_name VARCHAR(100) NOT NULL DEFAULT 'System',
+                PRIMARY KEY (product_id, branch_id)
+            )
+        """)
         connection.commit()
 
         # ---- Bulk stock upload jobs -----------------------------------------
@@ -3549,6 +3558,17 @@ def get_branch_stock(cursor, product_id, branch_id):
         (product_id, branch_id))
     row = cursor.fetchone()
     return int(row[0] or 0) if row else 0
+
+
+def product_archived_in_branch(cursor, product_id, branch_id):
+    """Whether a shared product is hidden from one branch's POS catalogue."""
+    if not product_id or not branch_id:
+        return False
+    cursor.execute("""
+        SELECT 1 FROM product_branch_archives
+        WHERE product_id = %s AND branch_id = %s
+    """, (product_id, branch_id))
+    return cursor.fetchone() is not None
 
 
 def recalc_product_total_stock(cursor, product_id):
@@ -14444,9 +14464,13 @@ def run1hardware():
             LEFT JOIN product_stock ps ON ps.product_id = p.id AND ps.branch_id = %s
             LEFT JOIN product_prices pp ON pp.product_id = p.id AND pp.branch_id = %s
             WHERE p.is_active = TRUE
+              AND NOT EXISTS (
+                  SELECT 1 FROM product_branch_archives pba
+                  WHERE pba.product_id = p.id AND pba.branch_id = %s
+              )
             ORDER BY p.name
         """
-        result = execute_query(query, (branch_id, branch_id, branch_id), fetch_all=True)
+        result = execute_query(query, (branch_id, branch_id, branch_id, branch_id), fetch_all=True)
     else:
         query = """
             SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, p.buy_price, p.sell_price,
@@ -16001,6 +16025,13 @@ def pos_create_layby():
     if not lines:
         return jsonify({'success': False, 'error': 'The layby has no items.'}), 400
 
+    with get_db() as (cursor, connection):
+        archived = [line['product_id'] for line in lines
+                    if product_archived_in_branch(cursor, line['product_id'], branch_id)]
+        if archived:
+            return jsonify({'success': False,
+                            'error': 'A product in this layby has been archived in this branch. Refresh the product list.'}), 409
+
     total = round(sum(l['price'] * l['quantity'] for l in lines), 2)
     if total <= 0:
         return jsonify({'success': False, 'error': 'The layby total must be more than zero.'}), 400
@@ -16580,7 +16611,8 @@ def pos_cancel_layby(layby_id):
 # truth) and costed as a FIFO layer at the uploaded buying price, exactly like a
 # normal stock addition. The selling price goes to the shared catalogue price.
 BULK_STOCK_COLUMNS = ['Product Name', 'Quantity', 'Unit Buying Price', 'Unit Selling Price',
-                      'Unit Type', 'Unit Detail', 'Category']
+                      'Unit Type', 'Unit Detail', 'Category', 'Barcode / SKU',
+                      'Description']
 BULK_STOCK_MAX_ROWS = 5000
 # Names scoring at least this are offered to the uploader as a possible match
 # instead of being created silently.
@@ -16858,8 +16890,8 @@ def pos_stock_upload_template():
             cell.alignment = Alignment(horizontal='center', vertical='center')
             cell.border = border
         # A clearly-marked example row; the uploader ignores/removes it.
-        ws.append(['EXAMPLE - delete this row', 10, 5.5, 9.99, 'Piece', '2x4x8ft', 'DIY'])
-        for i, width in enumerate([48, 12, 20, 20, 14, 22, 18], start=1):
+        ws.append(['EXAMPLE - delete this row', 10, 5.5, 9.99, 'Piece', '2x4x8ft', 'DIY', '', ''])
+        for i, width in enumerate([48, 12, 20, 20, 14, 22, 18, 22, 40], start=1):
             ws.column_dimensions[get_column_letter(i)].width = width
         ws.freeze_panes = 'A2'
 
@@ -16992,6 +17024,8 @@ def pos_upload_stock_analyze():
     col_unit = find_col('unit type', 'unit', 'uom', 'unit of measure')
     col_detail = find_col('unit detail', 'unit details', 'size', 'specification', 'spec')
     col_cat = find_col('category', 'main category', 'product category')
+    col_barcode = find_col('barcode', 'barcode / sku', 'sku', 'product code')
+    col_description = find_col('description', 'product description', 'details')
     missing = [label for label, col in [('Product Name', col_name), ('Quantity', col_qty),
                                         ('Unit Buying Price', col_buy), ('Unit Selling Price', col_sell)]
                if not col]
@@ -17035,7 +17069,11 @@ def pos_upload_stock_analyze():
                      'unit_type': (_bulk_stock_unit(ws.cell(row=row, column=col_unit).value)
                                    if col_unit else ''),
                      'unit_details': (str(ws.cell(row=row, column=col_detail).value or '').strip()[:100]
-                                      if col_detail else '')})
+                                      if col_detail else ''),
+                     'barcode': (str(ws.cell(row=row, column=col_barcode).value or '').strip()[:100]
+                                 if col_barcode else ''),
+                     'description': (str(ws.cell(row=row, column=col_description).value or '').strip()[:1000]
+                                     if col_description else '')})
 
     try:
         with get_db() as (cursor, connection):
@@ -17235,8 +17273,19 @@ def pos_upload_stock_apply():
             row_unit = str(d.get('unit_type') or '').strip().lower()
             if row_unit not in BULK_STOCK_UNIT_TYPES:
                 row_unit = 'piece'
+            barcode = d.get('barcode') or ''
+            description = d.get('description') or ''
+            if not isinstance(barcode, str) or not isinstance(description, str):
+                failed.append(f'{name}: barcode and description must be text.')
+                continue
+            barcode = barcode.strip()
+            description = description.strip()
+            if len(barcode) > 100 or len(description) > 1000:
+                failed.append(f'{name}: barcode or description exceeds its allowed length.')
+                continue
             to_create.append((name, qty, buy, sell, row_cat,
-                              row_unit, str(d.get('unit_details') or '').strip()[:100]))
+                              row_unit, str(d.get('unit_details') or '').strip()[:100],
+                              barcode, description))
         else:
             if not d.get('product_id'):
                 failed.append(f'{name or "A row"}: no product was chosen for it.')
@@ -17254,16 +17303,17 @@ def pos_upload_stock_apply():
     # product is stocked twice in one upload.
     if to_create:
         collapsed, order = {}, []
-        for name, qty, buy, sell, cat, unit, details in to_create:
+        for name, qty, buy, sell, cat, unit, details, barcode, description in to_create:
             key = name.strip().lower()
             if key in collapsed:
                 prev = collapsed[key]
                 new_qty = prev[1] + qty
                 weighted = ((prev[2] * prev[1]) + (buy * qty)) / new_qty if new_qty else buy
                 collapsed[key] = (prev[0], new_qty, round(weighted, 2), sell,
-                                  prev[4] or cat, prev[5] or unit, prev[6] or details)
+                                  prev[4] or cat, prev[5] or unit, prev[6] or details,
+                                  prev[7] or barcode, prev[8] or description)
             else:
-                collapsed[key] = (name, qty, buy, sell, cat, unit, details)
+                collapsed[key] = (name, qty, buy, sell, cat, unit, details, barcode, description)
                 order.append(key)
         to_create = [collapsed[k] for k in order]
 
@@ -17291,7 +17341,7 @@ def pos_upload_stock_apply():
         [{'product_id': pid, 'name': name, 'quantity': qty}
          for pid, qty, _b, _s, name, _c in to_merge] +
         [{'product_id': None, 'name': name, 'quantity': qty}
-         for name, qty, _b, _s, _c, _u, _d in to_create])
+         for name, qty, _b, _s, _c, _u, _d, _bc, _desc in to_create])
     fingerprint = bulk_upload_fingerprint(
         [dict(r, action='merge' if r.get('product_id') else 'create') for r in probe_rows])
     try:
@@ -17335,14 +17385,27 @@ def pos_upload_stock_apply():
             # -- new products first, so they can be stocked like any other merge --
             created_ids = set()
             if to_create:
+                barcodes = [barcode for *_, barcode, _description in to_create if barcode]
+                if len(barcodes) != len(set(barcodes)):
+                    return jsonify({'success': False,
+                                    'error': 'A barcode is repeated on multiple new products.'}), 409
+                if barcodes:
+                    cursor.execute("""SELECT barcode, name FROM products
+                                      WHERE barcode = ANY(%s) AND COALESCE(barcode, '') <> ''""",
+                                   (barcodes,))
+                    duplicate = cursor.fetchone()
+                    if duplicate:
+                        return jsonify({'success': False,
+                                        'error': f'Barcode {duplicate[0]} already belongs to "{duplicate[1]}".'}), 409
                 inserted = execute_values(cursor, """
                     INSERT INTO products (name, category, unit_type, unit_details, buy_price,
                                           sell_price, stock, min_stock_level, description, barcode)
                     VALUES %s
                     RETURNING id
-                """, [(n, c, u, dt, b, s) for n, q, b, s, c, u, dt in to_create],
-                    template="(%s, %s, %s, %s, %s, %s, 0, 10, '', '')", fetch=True)
-                for (n, q, b, s, c, u, dt), new_id in zip(to_create, inserted):
+                """, [(n, c, u, dt, b, s, desc, barcode)
+                      for n, q, b, s, c, u, dt, barcode, desc in to_create],
+                    template="(%s, %s, %s, %s, %s, %s, 0, 10, %s, %s)", fetch=True)
+                for (n, q, b, s, c, u, dt, _barcode, _description), new_id in zip(to_create, inserted):
                     to_merge.append((new_id[0], q, b, s, n, ''))
                     created_ids.add(new_id[0])
                 created = len(to_create)
@@ -17719,7 +17782,7 @@ def pos_stock_upload_job_download(job_id):
 
 
 def _read_stock_audit_count_sheet(file):
-    """Parse the stock audit's Product Name and non-negative whole Quantity rows."""
+    """Parse counted and explicitly uncounted product rows from an audit sheet."""
     if file is None or not (file.filename or '').strip():
         return None, None, ('Choose the count sheet first.', 400)
     if not file.filename.lower().endswith(('.xlsx', '.xlsm')):
@@ -17745,12 +17808,19 @@ def _read_stock_audit_count_sheet(file):
         return None
 
     col_name = find_col('product name', 'product', 'name', 'item')
-    col_qty = find_col('quantity', 'qty', 'stock')
+    col_qty = find_col('quantity', 'qty', 'stock', 'counted quantity', 'counted qty')
+    col_buy = find_col('unit buying price', 'buying price', 'buy price', 'unit cost', 'cost')
+    col_sell = find_col('unit selling price', 'selling price', 'sell price', 'price')
+    col_cat = find_col('category', 'main category', 'product category')
+    col_unit = find_col('unit type', 'unit', 'uom', 'unit of measure')
+    col_detail = find_col('unit detail', 'unit details', 'size', 'specification', 'spec')
+    col_barcode = find_col('barcode', 'barcode / sku', 'sku', 'product code')
+    col_description = find_col('description', 'product description', 'details')
     if not col_name or not col_qty:
         return None, None, ('This file is missing Product Name or Quantity. '
                             'Use the same template as Upload New Stock.', 400)
 
-    counted = []
+    rows = []
     bad_rows = []
     last_row = min(int(ws.max_row or 1), BULK_STOCK_MAX_ROWS + 1)
     for row in range(2, last_row + 1):
@@ -17760,20 +17830,113 @@ def _read_stock_audit_count_sheet(file):
         name = str(raw).strip()
         if name.upper().startswith('EXAMPLE'):
             continue
+        if len(name) > 100:
+            bad_rows.append(f'Row {row}: product name must be 100 characters or fewer.')
+            continue
         try:
             qty = _bulk_stock_number(ws.cell(row=row, column=col_qty).value)
+            buy_price = (_bulk_stock_number(ws.cell(row=row, column=col_buy).value)
+                         if col_buy else None)
+            sell_price = (_bulk_stock_number(ws.cell(row=row, column=col_sell).value)
+                          if col_sell else None)
         except (TypeError, ValueError):
-            bad_rows.append(f'Row {row} ({name}): quantity must be a whole number.')
+            bad_rows.append(f'Row {row} ({name}): quantity and prices must be numbers.')
             continue
-        if qty is None:
-            bad_rows.append(f'Row {row} ({name}): no quantity given.')
-            continue
-        if qty < 0 or not float(qty).is_integer():
+        if qty is not None and (qty < 0 or not float(qty).is_integer()):
             bad_rows.append(f'Row {row} ({name}): quantity must be a non-negative whole number.')
             continue
-        counted.append({'name': name, 'counted': int(qty)})
+        if any(price is not None and price < 0 for price in (buy_price, sell_price)):
+            bad_rows.append(f'Row {row} ({name}): prices cannot be negative.')
+            continue
+        rows.append({
+            'row': row,
+            'name': name,
+            'counted': int(qty) if qty is not None else None,
+            'buy_price': round(float(buy_price), 2) if buy_price is not None else None,
+            'sell_price': round(float(sell_price), 2) if sell_price is not None else None,
+            'category': (str(ws.cell(row=row, column=col_cat).value or '').strip()
+                         if col_cat else ''),
+            'unit_type': (_bulk_stock_unit(ws.cell(row=row, column=col_unit).value)
+                          if col_unit else ''),
+            'unit_details': (str(ws.cell(row=row, column=col_detail).value or '').strip()[:100]
+                             if col_detail else ''),
+            'barcode': (str(ws.cell(row=row, column=col_barcode).value or '').strip()[:100]
+                        if col_barcode else ''),
+            'description': (str(ws.cell(row=row, column=col_description).value or '').strip()[:1000]
+                            if col_description else ''),
+        })
 
-    return counted, bad_rows, None
+    return rows, bad_rows, None
+
+
+STOCK_AUDIT_PRODUCT_FIELDS = (
+    'name', 'category', 'buy_price', 'sell_price', 'unit_type',
+    'unit_details', 'barcode', 'description',
+)
+
+
+def _stock_audit_resolve_rows(rows, catalogue):
+    """Match each sheet row to an exact or suggested catalogue product."""
+    by_name = {}
+    for product in catalogue:
+        by_name.setdefault(product['name'].strip().lower(), product)
+
+    lines = []
+    matched_ids = set()
+    for row in rows:
+        hit = by_name.get(row['name'].strip().lower())
+        exact = hit is not None
+        if hit is None:
+            best, score = None, 0.0
+            for product in catalogue:
+                candidate_score = _product_similarity(row['name'], product['name'])
+                if candidate_score > score:
+                    best, score = product, candidate_score
+            if best and score >= BULK_STOCK_SIMILARITY:
+                hit = best
+
+        excel_fields = {
+            'name': row['name'],
+            'category': row['category'] or None,
+            'buy_price': row['buy_price'],
+            'sell_price': row['sell_price'],
+            'unit_type': row['unit_type'] or None,
+            'unit_details': row['unit_details'] or None,
+            'barcode': row['barcode'] or None,
+            'description': row['description'] or None,
+        }
+        if hit:
+            matched_ids.add(hit['id'])
+            system_fields = {field: hit.get(field) for field in STOCK_AUDIT_PRODUCT_FIELDS}
+            difference = (row['counted'] - hit['system_at_date']
+                          if row['counted'] is not None else None)
+            if row['counted'] is None:
+                status = 'not_counted'
+            elif not exact:
+                status = 'similar_name'
+            elif difference == 0:
+                status = 'match'
+            elif difference > 0:
+                status = 'surplus'
+            else:
+                status = 'shortage'
+            lines.append({
+                'row': row['row'], 'product_id': hit['id'], 'name': hit['name'],
+                'counted_was': row['name'], 'counted': row['counted'],
+                'system_at_date': hit['system_at_date'],
+                'live_stock': hit['live_stock'], 'difference': difference,
+                'status': status, 'exact': exact,
+                'system_fields': system_fields, 'excel_fields': excel_fields,
+            })
+        else:
+            lines.append({
+                'row': row['row'], 'product_id': None, 'name': row['name'],
+                'counted_was': row['name'], 'counted': row['counted'],
+                'system_at_date': None, 'live_stock': None, 'difference': None,
+                'status': ('not_counted' if row['counted'] is None else 'not_in_system'),
+                'exact': False, 'system_fields': None, 'excel_fields': excel_fields,
+            })
+    return lines, matched_ids
 
 
 @app.route('/api/pos/stock-audit/run', methods=['POST'])
@@ -17783,7 +17946,7 @@ def pos_stock_audit_run():
 
     Reads the same template as Upload New Stock and does not change inventory.
     """
-    counted, bad_rows, parse_error = _read_stock_audit_count_sheet(request.files.get('file'))
+    rows, bad_rows, parse_error = _read_stock_audit_count_sheet(request.files.get('file'))
     if parse_error:
         return jsonify({'success': False, 'error': parse_error[0]}), parse_error[1]
 
@@ -17801,9 +17964,9 @@ def pos_stock_audit_run():
                         'error': 'That date could not be read. Use YYYY-MM-DD.'}), 400
     as_at_dt = as_at_dt.replace(hour=23, minute=59, second=59)
 
-    if not counted:
+    if not rows:
         return jsonify({'success': False,
-                        'error': 'No countable rows were found in that file.',
+                        'error': 'No usable product rows were found in that file.',
                         'failed': bad_rows}), 400
 
     try:
@@ -17840,6 +18003,10 @@ def pos_stock_audit_run():
             cursor.execute("""
                 SELECT p.id, p.name, COALESCE(p.category, ''),
                        COALESCE(ps.stock, 0), COALESCE(p.buy_price, 0),
+                       COALESCE(pp.sell_price, p.sell_price, 0),
+                       COALESCE(p.unit_type, 'piece'), COALESCE(p.unit_details, ''),
+                       COALESCE(p.barcode, ''), COALESCE(p.description, ''),
+                       (ps.product_id IS NOT NULL), (pba.product_id IS NOT NULL),
                        COALESCE((SELECT SUM(sl.quantity_remaining) FROM stock_lots sl
                                  WHERE sl.product_id = p.id AND sl.branch_id = %s
                                    AND sl.received_at <= %s), 0),
@@ -17862,17 +18029,26 @@ def pos_stock_audit_run():
                 FROM products p
                 LEFT JOIN product_stock ps
                        ON ps.product_id = p.id AND ps.branch_id = %s
+                LEFT JOIN product_prices pp
+                       ON pp.product_id = p.id AND pp.branch_id = %s
+                LEFT JOIN product_branch_archives pba
+                       ON pba.product_id = p.id AND pba.branch_id = %s
                 WHERE p.is_active = TRUE
             """, (branch_id, as_at_dt, branch_id, as_at_dt,
-                  as_at_dt, as_at_dt, branch_id, as_at_dt, branch_id))
+                  as_at_dt, as_at_dt, branch_id, as_at_dt, branch_id, branch_id, branch_id))
             catalogue = []
             for r in cursor.fetchall():
                 catalogue.append({
                     'id': r[0], 'name': r[1], 'category': r[2],
                     'live_stock': int(r[3] or 0),
                     'buy_price': float(r[4] or 0),
-                    'system_at_date': (int(r[5] or 0) + int(r[6] or 0)
-                                       + int(r[7] or 0)),
+                    'sell_price': float(r[5] or 0),
+                    'unit_type': r[6] or 'piece', 'unit_details': r[7] or '',
+                    'barcode': r[8] or '', 'description': r[9] or '',
+                    'stocked_here': bool(r[10]),
+                    'branch_archived': bool(r[11]),
+                    'system_at_date': (int(r[12] or 0) + int(r[13] or 0)
+                                       + int(r[14] or 0)),
                 })
             cursor.execute("SELECT name FROM branches WHERE id = %s", (branch_id,))
             brow = cursor.fetchone()
@@ -17881,57 +18057,14 @@ def pos_stock_audit_run():
         print(f"Stock audit error: {e}")
         return jsonify({'success': False, 'error': f'Could not read stock: {e}'}), 500
 
-    by_name = {}
-    for c in catalogue:
-        by_name.setdefault(c['name'].strip().lower(), c)
-
-    lines, matched_ids = [], set()
-    for item in counted:
-        key = item['name'].strip().lower()
-        hit = by_name.get(key)
-        if hit is None:
-            # Try a similarity match, so a slightly different entry is reported
-            # as a near-miss rather than "not in the system".
-            best, score = None, 0.0
-            for c in catalogue:
-                sc = _product_similarity(item['name'], c['name'])
-                if sc > score:
-                    best, score = c, sc
-            if best and score >= BULK_STOCK_SIMILARITY:
-                hit = best
-                matched_ids.add(best['id'])
-                lines.append({
-                    'product_id': hit['id'], 'name': hit['name'],
-                    'counted_was': item['name'], 'counted': item['counted'],
-                    'system_at_date': hit['system_at_date'],
-                    'live_stock': hit['live_stock'],
-                    'difference': item['counted'] - hit['system_at_date'],
-                    'status': 'similar_name',
-                })
-                continue
-            lines.append({
-                'product_id': None, 'name': item['name'], 'counted_was': item['name'],
-                'counted': item['counted'], 'system_at_date': None,
-                'live_stock': None, 'difference': None, 'status': 'not_in_system',
-            })
-            continue
-        matched_ids.add(hit['id'])
-        diff = item['counted'] - hit['system_at_date']
-        lines.append({
-            'product_id': hit['id'], 'name': hit['name'], 'counted_was': item['name'],
-            'counted': item['counted'], 'system_at_date': hit['system_at_date'],
-            'live_stock': hit['live_stock'], 'difference': diff,
-            'status': ('match' if diff == 0 else ('surplus' if diff > 0 else 'shortage')),
-        })
+    lines, matched_ids = _stock_audit_resolve_rows(rows, catalogue)
 
     # Products this branch holds that the sheet did not count at all.
     uncounted = [{'product_id': c['id'], 'name': c['name'],
                   'system_at_date': c['system_at_date'], 'live_stock': c['live_stock']}
                  for c in catalogue
-                 if c['id'] not in matched_ids and c['system_at_date'] != 0]
-
-    def _tot(pred):
-        return sum(l['counted'] for l in lines if pred(l)) if lines else 0
+                 if c['id'] not in matched_ids and c['stocked_here']
+                 and not c['branch_archived']]
 
     summary = {
         'lines': len(lines),
@@ -17940,13 +18073,17 @@ def pos_stock_audit_run():
         'shortage': sum(1 for l in lines if l['status'] == 'shortage'),
         'not_in_system': sum(1 for l in lines if l['status'] == 'not_in_system'),
         'similar_name': sum(1 for l in lines if l['status'] == 'similar_name'),
+        'not_counted': sum(1 for l in lines if l['status'] == 'not_counted'),
         'counted_units': sum(l['counted'] or 0 for l in lines),
         'system_units': sum(l['system_at_date'] or 0 for l in lines
                             if l['system_at_date'] is not None),
         'net_difference': sum(l['difference'] or 0 for l in lines
                               if l['difference'] is not None),
-        'uncounted_products': len(uncounted),
-        'uncounted_units': sum(u['system_at_date'] for u in uncounted),
+        'uncounted_products': len(uncounted) + sum(
+            1 for l in lines if l['status'] == 'not_counted' and l['product_id']),
+        'uncounted_units': sum(u['system_at_date'] for u in uncounted)
+                           + sum(l['system_at_date'] or 0 for l in lines
+                                 if l['status'] == 'not_counted'),
     }
 
     return jsonify({
@@ -17960,7 +18097,7 @@ def pos_stock_audit_run():
         'summary': summary,
         'failed': bad_rows,
         'note': ('System figures are reconstructed for the chosen date from stock '
-                 'movements. A blank count is treated as "not counted", never as zero.'),
+                 'movements. Blank quantities are not counted, never treated as zero.'),
     })
 
 
@@ -17990,9 +18127,10 @@ def pos_stock_audit_adopt():
         return jsonify({'success': False,
                         'error': 'Stock counts cannot be adopted for a future date.'}), 400
 
-    counted, bad_rows, parse_error = _read_stock_audit_count_sheet(request.files.get('file'))
+    parsed_rows, bad_rows, parse_error = _read_stock_audit_count_sheet(request.files.get('file'))
     if parse_error:
         return jsonify({'success': False, 'error': parse_error[0]}), parse_error[1]
+    counted = [row for row in parsed_rows if row['counted'] is not None]
     if not counted:
         return jsonify({'success': False, 'error': 'No countable rows were found in that file.',
                         'failed': bad_rows}), 400
@@ -18173,7 +18311,7 @@ def pos_stock_audit_adopt():
                         INSERT INTO stock_additions
                             (product_id, quantity, buy_price, total_cost, funding_source,
                              user_id, added_at, branch_id, reference)
-                        VALUES (%s, %s, %s, %s, 'ADJUSTMENT', %s, CURRENT_TIMESTAMP, %s, %s)
+                        VALUES (%s, %s, %s, %s, 'Audit adjustment', %s, CURRENT_TIMESTAMP, %s, %s)
                     """, (product['id'], delta, buy_price, valuation_delta,
                           user_id, branch_id, reference))
                     receive_stock_lot(cursor, product['id'], branch_id, delta, buy_price,
@@ -18210,7 +18348,7 @@ def pos_stock_audit_adopt():
                         INSERT INTO stock_reductions
                             (product_id, quantity, reason, notes, user_id, reduced_at,
                              branch_id, reference)
-                        VALUES (%s, %s, 'stock_audit', %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                        VALUES (%s, %s, 'Audit adjustment', %s, %s, CURRENT_TIMESTAMP, %s, %s)
                     """, (product['id'], -delta,
                           f'Auto Audit count adopted as at {as_at_dt:%Y-%m-%d}',
                           user_id, branch_id, reference))
@@ -18258,6 +18396,444 @@ def pos_stock_audit_adopt():
     except Exception as e:
         print(f"Stock audit adoption error: {e}")
         return jsonify({'success': False, 'error': f'Could not adopt stock counts: {e}'}), 500
+
+
+@app.route('/api/pos/stock-audit/adopt-reviewed', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_stock_audit_adopt_reviewed():
+    """Apply reviewed count, product-detail, creation, and branch archive choices."""
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False, 'error': 'Select a branch before adopting stock.'}), 400
+    try:
+        if int(request.form.get('branch_id') or 0) != branch_id:
+            return jsonify({'success': False,
+                            'error': 'The selected branch changed. Run the audit again.'}), 409
+        as_at_dt = datetime.strptime(request.form.get('as_at') or '', '%Y-%m-%d').replace(
+            hour=23, minute=59, second=59)
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Choose a valid audit date and branch.'}), 400
+    if as_at_dt.date() > datetime.now(pytz.timezone('Africa/Harare')).date():
+        return jsonify({'success': False, 'error': 'Stock counts cannot be adopted for a future date.'}), 400
+
+    rows, bad_rows, parse_error = _read_stock_audit_count_sheet(request.files.get('file'))
+    if parse_error:
+        return jsonify({'success': False, 'error': parse_error[0]}), parse_error[1]
+    try:
+        operations = json.loads(request.form.get('operations') or '[]')
+    except (TypeError, ValueError):
+        operations = None
+    if (not rows or not isinstance(operations, list) or not operations
+            or len(operations) > BULK_STOCK_MAX_ROWS):
+        return jsonify({'success': False,
+                        'error': 'Select at least one audit action.',
+                        'failed': bad_rows}), 400
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT MIN(d) FROM (
+                    SELECT MIN(added_at) AS d FROM stock_additions WHERE branch_id = %s
+                    UNION ALL SELECT MIN(reduced_at) FROM stock_reductions WHERE branch_id = %s
+                    UNION ALL SELECT MIN(received_at) FROM stock_lots WHERE branch_id = %s
+                    UNION ALL SELECT MIN(created_at) FROM transactions WHERE branch_id = %s
+                ) x
+            """, (branch_id, branch_id, branch_id, branch_id))
+            first_movement = cursor.fetchone()[0]
+            if first_movement and as_at_dt < first_movement:
+                return jsonify({'success': False,
+                                'error': f'This branch has no stock history before {first_movement:%d %b %Y}.'}), 400
+
+            cursor.execute("""
+                SELECT p.id, p.name, COALESCE(p.category, ''), COALESCE(p.buy_price, 0),
+                       COALESCE(pp.sell_price, p.sell_price, 0), COALESCE(p.unit_type, 'piece'),
+                       COALESCE(p.unit_details, ''), COALESCE(p.barcode, ''),
+                       COALESCE(p.description, ''), COALESCE(ps.stock, 0),
+                       (ps.product_id IS NOT NULL),
+                       COALESCE((SELECT SUM(sl.quantity_remaining) FROM stock_lots sl
+                                 WHERE sl.product_id = p.id AND sl.branch_id = %s
+                                   AND sl.received_at <= %s), 0),
+                       COALESCE((SELECT SUM(sr.quantity) FROM stock_reductions sr
+                                 WHERE sr.product_id = p.id AND sr.branch_id = %s
+                                   AND sr.reduced_at > %s), 0)
+                       + COALESCE((SELECT SUM(
+                                     CASE WHEN sca.effective_at <= %s THEN sca.quantity_delta ELSE 0 END
+                                     + CASE WHEN sca.quantity_delta < 0 THEN
+                                         COALESCE((SELECT SUM(scal.quantity)
+                                                   FROM stock_count_adjustment_lots scal
+                                                   WHERE scal.adjustment_id = sca.id
+                                                     AND scal.lot_received_at <= %s), 0)
+                                         + sca.quantity_delta ELSE 0 END)
+                                 FROM stock_count_adjustments sca
+                                 WHERE sca.product_id = p.id AND sca.branch_id = %s
+                                   AND sca.created_at > %s), 0)
+                FROM products p
+                LEFT JOIN product_stock ps
+                       ON ps.product_id = p.id AND ps.branch_id = %s
+                LEFT JOIN product_prices pp
+                       ON pp.product_id = p.id AND pp.branch_id = %s
+                WHERE p.is_active = TRUE
+            """, (branch_id, as_at_dt, branch_id, as_at_dt, as_at_dt,
+                  as_at_dt, branch_id, as_at_dt, branch_id, branch_id))
+            catalogue = [{
+                'id': r[0], 'name': r[1], 'category': r[2],
+                'buy_price': float(r[3] or 0), 'sell_price': float(r[4] or 0),
+                'unit_type': r[5] or 'piece', 'unit_details': r[6] or '',
+                'barcode': r[7] or '', 'description': r[8] or '',
+                'live_stock': int(r[9] or 0), 'stocked_here': bool(r[10]),
+                'system_at_date': int(r[11] or 0) + int(r[12] or 0) + int(r[13] or 0),
+            } for r in cursor.fetchall()]
+            lines, matched_ids = _stock_audit_resolve_rows(rows, catalogue)
+            line_map = {line['row']: line for line in lines}
+            products = {product['id']: product for product in catalogue}
+            selected, archives = [], []
+            row_seen, product_seen = set(), set()
+
+            for op in operations:
+                if (not isinstance(op, dict) or not isinstance(op.get('action'), str)
+                        or op['action'] not in {'adopt', 'create', 'archive'}):
+                    return jsonify({'success': False, 'error': 'An audit action is invalid.'}), 400
+                row_id = op.get('row')
+                if row_id is not None:
+                    if isinstance(row_id, bool) or not str(row_id).isdigit():
+                        return jsonify({'success': False, 'error': 'An audit sheet row is invalid.'}), 400
+                    row_id = int(row_id)
+                    if row_id in row_seen:
+                        return jsonify({'success': False, 'error': 'A sheet row was selected more than once.'}), 400
+                    row_seen.add(row_id)
+                raw_id = op.get('product_id')
+                try:
+                    if isinstance(raw_id, bool):
+                        raise ValueError
+                    if raw_id is not None and not str(raw_id).isdigit():
+                        raise ValueError
+                    product_id = int(raw_id) if raw_id is not None else None
+                except (TypeError, ValueError):
+                    return jsonify({'success': False, 'error': 'A selected product is invalid.'}), 400
+
+                if op['action'] == 'archive':
+                    product = products.get(product_id)
+                    line = line_map.get(row_id) if row_id is not None else None
+                    valid_line = (line and line['status'] == 'not_counted'
+                                  and line['product_id'] == product_id)
+                    valid_omitted = (row_id is None and product_id not in matched_ids
+                                     and product and product['stocked_here'])
+                    if not product or not (valid_line or valid_omitted):
+                        return jsonify({'success': False,
+                                        'error': 'Only an uncounted product from this branch can be archived.'}), 409
+                    if product_id in product_seen:
+                        return jsonify({'success': False,
+                                        'error': 'A product was selected more than once.'}), 400
+                    product_seen.add(product_id)
+                    archives.append(product)
+                    continue
+
+                line = line_map.get(row_id)
+                if not line or line['counted'] is None:
+                    return jsonify({'success': False,
+                                    'error': 'Only rows with a quantity can be adopted or created.'}), 400
+
+                if op['action'] == 'adopt':
+                    if not product_id or line['product_id'] != product_id:
+                        return jsonify({'success': False,
+                                        'error': 'The product match changed. Run the audit again.'}), 409
+                    if product_id in product_seen:
+                        return jsonify({'success': False,
+                                        'error': 'A product was selected more than once.'}), 400
+                    product_seen.add(product_id)
+                    choices = op.get('field_choices') or {}
+                    if not isinstance(choices, dict):
+                        return jsonify({'success': False, 'error': 'Product field choices are invalid.'}), 400
+                    updates = {}
+                    for field, choice in choices.items():
+                        if (field not in STOCK_AUDIT_PRODUCT_FIELDS
+                                or not isinstance(choice, str)
+                                or choice not in {'system', 'excel'}):
+                            return jsonify({'success': False, 'error': 'A product field choice is invalid.'}), 400
+                        if choice == 'excel':
+                            value = line['excel_fields'].get(field)
+                            if value is None or value == '':
+                                return jsonify({'success': False,
+                                                'error': f'The sheet has no {field.replace("_", " ")} value for "{line["name"]}".'}), 400
+                            updates[field] = value
+                    selected.append({'action': 'adopt', 'line': line,
+                                     'product': products[product_id], 'updates': updates})
+                else:
+                    if line['exact']:
+                        return jsonify({'success': False,
+                                        'error': 'That row already exactly matches a system product.'}), 409
+                    values = op.get('create_values') or {}
+                    if not isinstance(values, dict):
+                        return jsonify({'success': False, 'error': 'New product details are invalid.'}), 400
+                    fields = dict(line['excel_fields'])
+                    fields['name'] = line['counted_was']
+                    for field in ('category', 'buy_price', 'sell_price', 'unit_type',
+                                  'unit_details', 'barcode', 'description'):
+                        value = values.get(field)
+                        if value is not None and (isinstance(value, bool)
+                                                  or not isinstance(value, (str, int, float))):
+                            return jsonify({'success': False,
+                                            'error': 'New product details must be simple text or numeric values.'}), 400
+                        if value is not None and str(value).strip() != '':
+                            fields[field] = value
+                        if fields.get(field) in (None, ''):
+                            if field in {'category', 'buy_price', 'sell_price'}:
+                                return jsonify({'success': False,
+                                                'error': f'Enter {field.replace("_", " ")} for new product "{fields["name"]}".'}), 400
+                            fields[field] = 'piece' if field == 'unit_type' else ''
+                    for field in ('buy_price', 'sell_price'):
+                        try:
+                            amount = Decimal(str(fields[field]))
+                        except (InvalidOperation, TypeError, ValueError):
+                            return jsonify({'success': False,
+                                            'error': f'{field.replace("_", " ").title()} must be a valid amount.'}), 400
+                        if not amount.is_finite() or amount < 0:
+                            return jsonify({'success': False,
+                                            'error': f'{field.replace("_", " ").title()} cannot be negative.'}), 400
+                        fields[field] = round(float(amount), 2)
+                    fields['unit_type'] = _bulk_stock_unit(fields['unit_type']) or 'piece'
+                    fields['name'] = str(fields['name']).strip()
+                    fields['category'] = str(fields['category']).strip()
+                    fields['unit_details'] = str(fields['unit_details']).strip()
+                    fields['barcode'] = str(fields['barcode']).strip()
+                    fields['description'] = str(fields['description']).strip()
+                    if not fields['name'] or not fields['category']:
+                        return jsonify({'success': False,
+                                        'error': 'New products need a name and category.'}), 400
+                    if (len(fields['name']) > 100 or len(fields['category']) > 50
+                            or len(fields['unit_details']) > 100 or len(fields['barcode']) > 100
+                            or len(fields['description']) > 1000):
+                        return jsonify({'success': False,
+                                        'error': 'A new product field exceeds its allowed length.'}), 400
+                    selected.append({'action': 'create', 'line': line,
+                                     'product': None, 'updates': fields})
+
+            if not selected and not archives:
+                return jsonify({'success': False, 'error': 'No audit actions were selected.'}), 400
+
+            existing_ids = sorted({p['id'] for p in products.values()
+                                   if p['id'] in product_seen})
+            if existing_ids:
+                cursor.execute("SELECT id FROM products WHERE id = ANY(%s) FOR UPDATE", (existing_ids,))
+                if len(cursor.fetchall()) != len(existing_ids):
+                    return jsonify({'success': False,
+                                    'error': 'A selected product changed. Run the audit again.'}), 409
+
+            username = (session.get('user_name') or session.get('username') or 'System')[:100]
+            user_id = session.get('user_id') or session.get('userid') or 0
+            branch_name = session.get('branch_name') or f'branch #{branch_id}'
+            source_file = secure_filename(request.files['file'].filename or '')[:255]
+            adjusted, archived = [], []
+
+            for product in archives:
+                cursor.execute("""
+                    INSERT INTO product_branch_archives (product_id, branch_id, user_name)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (product_id, branch_id) DO UPDATE
+                       SET archived_at = CURRENT_TIMESTAMP, user_name = EXCLUDED.user_name
+                """, (product['id'], branch_id, username))
+                details = {'action': 'branch_archive', 'branch': branch_name,
+                           'source_file': source_file}
+                cursor.execute("""
+                    INSERT INTO activity_log
+                        (action_type, description, user_name, reference_type,
+                         reference_id, details, branch_id)
+                    VALUES ('stock_audit_adopt', %s, %s, 'product', %s, %s, %s)
+                """, (f'Archived "{product["name"]}" in {branch_name} from stock audit',
+                      username, product['id'], psycopg2.extras.Json(details), branch_id))
+                archived.append(product['name'])
+
+            for item in selected:
+                line = item['line']
+                product = item['product']
+                updates = item['updates']
+                if item['action'] == 'create':
+                    if updates['barcode']:
+                        cursor.execute("""SELECT name FROM products WHERE barcode = %s
+                                          AND COALESCE(barcode, '') <> ''""",
+                                       (updates['barcode'],))
+                        duplicate = cursor.fetchone()
+                        if duplicate:
+                            return jsonify({'success': False,
+                                            'error': f'Barcode belongs to "{duplicate[0]}".'}), 409
+                    cursor.execute("""SELECT id FROM products
+                                      WHERE LOWER(TRIM(name)) = LOWER(TRIM(%s))
+                                        AND is_active = TRUE""", (updates['name'],))
+                    if cursor.fetchone():
+                        return jsonify({'success': False,
+                                        'error': f'"{updates["name"]}" now exists. Run the audit again.'}), 409
+                    cursor.execute("""
+                        INSERT INTO products
+                            (name, category, unit_type, unit_details, buy_price, sell_price,
+                             stock, min_stock_level, description, barcode)
+                        VALUES (%s, %s, %s, %s, %s, %s, 0, 10, %s, %s)
+                        RETURNING id
+                    """, (updates['name'], updates['category'], updates['unit_type'],
+                          updates['unit_details'], updates['buy_price'], updates['sell_price'],
+                          updates['description'], updates['barcode'] or None))
+                    product_id = cursor.fetchone()[0]
+                    cursor.execute("""
+                        INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level)
+                        VALUES (%s, %s, 0, 10)
+                    """, (product_id, branch_id))
+                    product = dict(updates, id=product_id, live_stock=0,
+                                   system_at_date=0, stocked_here=True)
+                    item['product'] = product
+                    changes = ['created from audit sheet']
+                    action_type = 'product_create'
+                else:
+                    changes = []
+                    if (('name' in updates and len(str(updates['name'])) > 100)
+                            or ('category' in updates and len(str(updates['category'])) > 50)
+                            or ('unit_details' in updates and len(str(updates['unit_details'])) > 100)
+                            or ('barcode' in updates and len(str(updates['barcode'])) > 100)):
+                        return jsonify({'success': False,
+                                        'error': 'A product field exceeds its allowed length.'}), 400
+                    if updates.get('name') and updates['name'].strip().lower() != product['name'].strip().lower():
+                        cursor.execute("""SELECT id FROM products
+                                          WHERE LOWER(TRIM(name)) = LOWER(TRIM(%s))
+                                            AND is_active = TRUE AND id <> %s""",
+                                       (updates['name'], product['id']))
+                        if cursor.fetchone():
+                            return jsonify({'success': False,
+                                            'error': f'Product name "{updates["name"]}" already exists.'}), 409
+                    if updates.get('barcode'):
+                        cursor.execute("""SELECT name FROM products WHERE barcode = %s
+                                          AND COALESCE(barcode, '') <> '' AND id <> %s""",
+                                       (updates['barcode'], product['id']))
+                        duplicate = cursor.fetchone()
+                        if duplicate:
+                            return jsonify({'success': False,
+                                            'error': f'Barcode belongs to "{duplicate[0]}".'}), 409
+                    assignments = {key: value for key, value in updates.items()
+                                   if key != 'sell_price'
+                                   and str(value or '') != str(product.get(key) or '')}
+                    if assignments:
+                        sql = ', '.join(f'{key} = %s' for key in assignments)
+                        cursor.execute(f"UPDATE products SET {sql}, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                                       tuple(assignments.values()) + (product['id'],))
+                        changes.extend(
+                            f'{key.replace("_", " ")} changed from "{product.get(key) or ""}" to "{value}"'
+                            for key, value in assignments.items())
+                        product.update(assignments)
+                    if ('sell_price' in updates
+                            and float(updates['sell_price']) != float(product['sell_price'] or 0)):
+                        old_sell_price = product['sell_price']
+                        set_branch_sell_price(cursor, product['id'], branch_id, updates['sell_price'])
+                        product['sell_price'] = float(updates['sell_price'])
+                        changes.append(
+                            f'branch selling price changed from "{old_sell_price}" to "{product["sell_price"]}"')
+                    action_type = 'stock_audit_adopt'
+
+                cursor.execute("DELETE FROM product_branch_archives WHERE product_id = %s AND branch_id = %s",
+                               (product['id'], branch_id))
+                if cursor.rowcount:
+                    changes.append(f'restored in {branch_name}')
+                delta = line['counted'] - int(product.get('system_at_date') or 0)
+                cursor.execute("""
+                    INSERT INTO product_stock (product_id, branch_id, stock, updated_at)
+                    VALUES (%s, %s, 0, CURRENT_TIMESTAMP)
+                    ON CONFLICT (product_id, branch_id) DO NOTHING
+                """, (product['id'], branch_id))
+                cursor.execute("""SELECT stock FROM product_stock
+                                  WHERE product_id = %s AND branch_id = %s FOR UPDATE""",
+                               (product['id'], branch_id))
+                live_before = int(cursor.fetchone()[0] or 0)
+                live_after = live_before + delta
+                if live_after < 0:
+                    return jsonify({'success': False,
+                                    'error': f'Cannot carry the shortage for "{product["name"]}" forward; current stock is {live_before}.'}), 409
+
+                adjustment_id = None
+                valuation_delta = 0
+                if delta:
+                    cursor.execute("""
+                        INSERT INTO stock_count_adjustments
+                            (product_id, branch_id, quantity_delta, previous_quantity,
+                             counted_quantity, effective_at, product_name, source_file, user_name)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                    """, (product['id'], branch_id, delta, product.get('system_at_date', 0),
+                          line['counted'], as_at_dt, product['name'], source_file, username))
+                    adjustment_id = cursor.fetchone()[0]
+                    reference = f'STOCK-AUDIT-{adjustment_id}'
+                    buy_price = float(product['buy_price'] or 0)
+                    if delta > 0:
+                        valuation_delta = round(delta * buy_price, 2)
+                        cursor.execute("""
+                            INSERT INTO stock_additions
+                                (product_id, quantity, buy_price, total_cost, funding_source,
+                                 user_id, added_at, branch_id, reference)
+                            VALUES (%s, %s, %s, %s, 'Audit adjustment', %s, CURRENT_TIMESTAMP, %s, %s)
+                        """, (product['id'], delta, buy_price, valuation_delta, user_id, branch_id, reference))
+                        receive_stock_lot(cursor, product['id'], branch_id, delta, buy_price,
+                                          'stock_audit', reference)
+                        add_branch_stock(cursor, product['id'], branch_id, delta, lot_cost=buy_price)
+                    else:
+                        adjustment_cost, layers = consume_stock_lots_fifo(
+                            cursor, product['id'], branch_id, -delta)
+                        valuation_delta = -round(adjustment_cost, 2)
+                        lot_ids = [lot_id for lot_id, _quantity, _cost in layers if lot_id is not None]
+                        received = {}
+                        if lot_ids:
+                            cursor.execute("SELECT id, received_at FROM stock_lots WHERE id = ANY(%s)",
+                                           (lot_ids,))
+                            received = dict(cursor.fetchall())
+                        for lot_id, quantity, _cost in layers:
+                            if lot_id in received:
+                                cursor.execute("""
+                                    INSERT INTO stock_count_adjustment_lots
+                                        (adjustment_id, stock_lot_id, quantity, lot_received_at)
+                                    VALUES (%s, %s, %s, %s)
+                                """, (adjustment_id, lot_id, quantity, received[lot_id]))
+                        cursor.execute("""
+                            UPDATE product_stock SET stock = stock + %s, updated_at = CURRENT_TIMESTAMP
+                            WHERE product_id = %s AND branch_id = %s
+                        """, (delta, product['id'], branch_id))
+                        recalc_product_total_stock(cursor, product['id'])
+                        sync_lots_to_stock(cursor, product['id'], branch_id)
+                        sync_product_avg_cost(cursor, product['id'])
+                        cursor.execute("""
+                            INSERT INTO stock_reductions
+                                (product_id, quantity, reason, notes, user_id, reduced_at,
+                                 branch_id, reference)
+                            VALUES (%s, %s, 'Audit adjustment', %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                        """, (product['id'], -delta,
+                              f'Auto Audit count adopted as at {as_at_dt:%Y-%m-%d}',
+                              user_id, branch_id, reference))
+                    changes.append(f'stock {product.get("system_at_date", 0)} to {line["counted"]}')
+
+                details = {'action': item['action'], 'branch': branch_name,
+                           'source_file': source_file, 'sheet_row': line['row'],
+                           'source_product_name': line['counted_was'],
+                           'product_fields': {
+                               field: product.get(field)
+                               for field in STOCK_AUDIT_PRODUCT_FIELDS
+                           },
+                           'previous_system_quantity': product.get('system_at_date', 0),
+                           'counted_quantity': line['counted'], 'quantity_delta': delta,
+                           'valuation_delta': valuation_delta, 'adjustment_id': adjustment_id,
+                           'live_stock_before': live_before, 'live_stock_after': live_after,
+                           'product_changes': changes}
+                cursor.execute("""
+                    INSERT INTO activity_log
+                        (action_type, description, user_name, reference_type,
+                         reference_id, details, branch_id)
+                    VALUES (%s, %s, %s, 'product', %s, %s, %s)
+                """, (action_type, f'Auto Audit adjustment for "{product["name"]}": '
+                      + '; '.join(changes), username, product['id'],
+                      psycopg2.extras.Json(details), branch_id))
+                adjusted.append({'product_id': product['id'], 'name': product['name'],
+                                 'counted_quantity': line['counted'],
+                                 'quantity_delta': delta, 'live_stock_after': live_after})
+
+            connection.commit()
+            g.activity_logged = True
+        return jsonify({'success': True, 'adjusted': adjusted, 'archived': archived,
+                        'message': f'Applied {len(adjusted)} product change(s); archived {len(archived)} in this branch.'})
+    except Exception as e:
+        print(f"Reviewed stock audit adoption error: {e}")
+        return jsonify({'success': False, 'error': f'Could not apply audit decisions: {e}'}), 500
 
 
 @app.route('/api/pos/stock-upload-jobs', methods=['GET'])
@@ -19029,13 +19605,23 @@ def get_product_by_barcode(barcode):
         # scanner an arbitrary product.
         if not code:
             return jsonify({'success': False, 'error': 'No barcode supplied'}), 400
-        query = """
+        branch_id = current_branch_id()
+        archive_clause = ""
+        params = (code,)
+        if branch_id:
+            archive_clause = """AND NOT EXISTS (
+                SELECT 1 FROM product_branch_archives pba
+                WHERE pba.product_id = products.id AND pba.branch_id = %s
+            )"""
+            params += (branch_id,)
+        query = f"""
             SELECT id, name, category, unit_type, unit_details, buy_price, sell_price,
                    stock, min_stock_level, description, barcode
             FROM products
             WHERE barcode = %s AND COALESCE(barcode, '') <> '' AND is_active = TRUE
+            {archive_clause}
         """
-        result = execute_query(query, (code,), fetch_one=True)
+        result = execute_query(query, params, fetch_one=True)
         if not result:
             return jsonify({'success': False, 'error': 'No product found for this barcode'}), 404
 
@@ -19611,6 +20197,7 @@ def remove_all_stock():
             cursor.execute("DELETE FROM stock_reductions WHERE branch_id = %s", (branch_id,))
             cursor.execute("DELETE FROM stock_count_adjustments WHERE branch_id = %s", (branch_id,))
             cursor.execute("DELETE FROM stock_lots WHERE branch_id = %s", (branch_id,))
+            cursor.execute("DELETE FROM product_branch_archives WHERE branch_id = %s", (branch_id,))
             # Zero THIS branch's stock. The shared catalogue rows stay because the
             # other branch may still stock them; an item nobody stocks any more is
             # retired so the POS grid stays clean.
@@ -19945,6 +20532,17 @@ def sync_offline_transactions():
                             })
                             continue
 
+                    archived_ids = []
+                    for line in items:
+                        try:
+                            line_product_id = int(line.get('id'))
+                        except (TypeError, ValueError):
+                            continue
+                        if product_archived_in_branch(cursor, line_product_id, branch_id):
+                            archived_ids.append(line_product_id)
+                    if archived_ids:
+                        raise ValueError('A product in this sale has been archived in this branch.')
+
                     subtotal = 0.0
                     for item in items:
                         subtotal += float(item.get('price') or 0) * int(item.get('quantity') or 0)
@@ -20075,6 +20673,14 @@ def create_transaction():
         
         if not items:
             return jsonify({'error': 'No items in transaction'}), 400
+
+        sale_branch = current_branch_id()
+        item_ids = [int(item['id']) for item in items if item.get('id') is not None]
+        with get_db() as (cursor, connection):
+            for product_id in item_ids:
+                if product_archived_in_branch(cursor, product_id, sale_branch):
+                    return jsonify({'success': False,
+                                    'error': 'A product in this sale has been archived in this branch. Refresh the product list.'}), 409
         
         subtotal = sum(item['price'] * item['quantity'] for item in items)
         total = subtotal
@@ -20106,7 +20712,7 @@ def create_transaction():
             data.get('change_amount', 0),
             data.get('notes', ''),
             zimbabwe_now,
-            current_branch_id()
+            sale_branch
         )
         
         trans_result = execute_query(trans_query, trans_params, fetch_one=True, commit=True)
