@@ -15142,7 +15142,21 @@ def get_stock_movements():
     movements.sort(key=lambda m: m['date'], reverse=True)
     
     # Build summary
-    products_list = sorted(product_map.values(), key=lambda p: p['name'])
+    # A product the branch never held during the window has nothing to report:
+    # opening, additions, reductions and closing all come out zero. Those rows are
+    # dropped, because listing them claims stock for an item that never touched
+    # this shop's shelf. Note the arithmetic alone cannot be trusted to exclude
+    # them -- products.stock is the cross-branch total and opening is derived by
+    # running it backwards, so a product the branch never held can compute a
+    # NEGATIVE opening that `max(0, ...)` above then flattens to a plausible 0.
+    # Every figure is therefore checked, not just the opening: a row is kept if it
+    # moved at all, so a product fully sold out of stock (0 opening -> 0 closing,
+    # but sold) is still reported.
+    products_list = sorted(
+        (p for p in product_map.values()
+         if p['initial_stock'] or p['total_additions']
+         or p['total_reductions'] or p['final_stock']),
+        key=lambda p: p['name'])
     
     summary = {
         'total_products': len(products_list),
