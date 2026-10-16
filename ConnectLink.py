@@ -21479,9 +21479,22 @@ def sync_offline_transactions():
                                 'warning': warning})
             except Exception as sale_err:
                 failed += 1
-                results.append({'client_ref': client_ref, 'status': 'failed',
-                                'error': str(sale_err)})
-                print(f"Offline sale {client_ref} failed: {sale_err}")
+                # A sale the server can NEVER accept must not be retried until the
+                # till gives up on it and DELETES it - that loses the sale and the
+                # customer's money. Two cases are permanent until a human acts:
+                # a product archived in this branch, and a branch the sale does not
+                # belong to. Both are reported as 'blocked' so the device keeps them
+                # and shows them, instead of counting up failed attempts.
+                message = str(sale_err)
+                permanent = ('has been archived in this branch' in message
+                             or 'cannot be sold in this branch' in message)
+                results.append({
+                    'client_ref': client_ref,
+                    'status': 'blocked' if permanent else 'failed',
+                    'error': message,
+                })
+                print(f"Offline sale {client_ref} "
+                      f"{'blocked' if permanent else 'failed'}: {message}")
 
         try:
             log_activity(

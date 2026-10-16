@@ -7061,6 +7061,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                     A blank quantity in the sheet means "not counted", not zero.
                 </div>
                 <div id="stockAuditError" class="alert alert-danger py-2 small" style="display:none;"></div>
+                <div id="stockAuditOfflineWarn" class="alert alert-warning py-2 small" style="display:none;"></div>
 
                 <!-- Match columns: only needed when the sheet's headers are named
                      differently from the ones we look for. -->
@@ -17206,11 +17207,45 @@ function setupAddProductFundingSelection() {
         }
         const b = document.getElementById('stockAuditBranch');
         if (b) b.textContent = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
+        renderStockAuditOfflineWarning();
         document.getElementById('stockAuditError').style.display = 'none';
         document.getElementById('stockAuditResult').style.display = 'none';
         new bootstrap.Modal(document.getElementById('stockAuditModal')).show();
     }
     window.openStockAuditModal = openStockAuditModal;
+
+    // Sales rung on this device with no connection are ALREADY off the shelf but
+    // NOT yet out of the system. If one is still queued when a count is adopted,
+    // the count has already excluded those units and the sale then removes them
+    // again as soon as it syncs - the same stock leaving twice. The audit cannot
+    // see them (they are local to this device), so it says so plainly rather than
+    // silently producing a figure that will drift.
+    function renderStockAuditOfflineWarning() {
+        const el = document.getElementById('stockAuditOfflineWarn');
+        if (!el) return;
+        const pending = (typeof window.POSOffline !== 'undefined' && window.POSOffline.pendingCount)
+            ? window.POSOffline.pendingCount() : 0;
+        if (!pending) { el.style.display = 'none'; el.innerHTML = ''; return; }
+        const perProduct = (window.POSOffline.pendingSaleItems)
+            ? window.POSOffline.pendingSaleItems() : {};
+        const names = Object.keys(perProduct).map(id => {
+            const p = (window.products || []).find(x => String(x.id) === String(id));
+            return '<li>' + escapeHtml(p ? p.name : ('product ' + id)) +
+                   ' &middot; ' + perProduct[id] + ' unit(s) already sold</li>';
+        }).join('');
+        el.innerHTML =
+            `<strong><i class="fas fa-triangle-exclamation me-1"></i>${pending} sale(s) on this ` +
+            'device have not reached the server yet.</strong>' +
+            '<div class="mt-1">Those goods have physically left the shelf, but the system does ' +
+            'not know yet. If you adopt a count that already excludes them, they will be taken ' +
+            'off stock a second time when the sale syncs.</div>' +
+            (names ? `<div class="mt-1"><strong>Count these as still on the shelf, or sync first:</strong><ul class="mb-0 ps-3">${names}</ul></div>` : '') +
+            `<div class="mt-1">Best: <button type="button" class="btn btn-sm btn-warning py-0" ` +
+            `onclick="if(window.POSOffline&&POSOffline.syncNow){POSOffline.syncNow();setTimeout(renderStockAuditOfflineWarning,1500);}">` +
+            'Sync now</button> and re-run the audit.</div>';
+        el.style.display = 'block';
+    }
+    window.renderStockAuditOfflineWarning = renderStockAuditOfflineWarning;
 
     async function runStockAudit() {
         const errEl = document.getElementById('stockAuditError');
@@ -23584,13 +23619,18 @@ function setupEventListeners() {
             // The server dealt with this queue, so any "log in once" notice has
             // been answered -- a later logout is announced again.
             clearSessionNotice();
-            var done = {}, held = {};
+            var done = {}, held = {}, blocked = {};
             (data.results || []).forEach(function (r) {
                 if (r.status === 'synced' || r.status === 'duplicate') done[r.client_ref] = true;
                 // A sale rung in another branch is NOT a failure: it is kept
                 // untouched until that shop is selected again, and it must never
                 // age out of the queue - dropping it would lose the money.
                 if (r.status === 'branch_mismatch') held[r.client_ref] = true;
+                // The server can never accept this one unless a human acts (for
+                // example a product in it was archived in this branch). Keep it
+                // and its reason forever rather than letting it exhaust its
+                // attempts and be deleted, which would lose the sale.
+                if (r.status === 'blocked') blocked[r.client_ref] = r.error || '';
             });
             var remaining = [];
             readQueue().forEach(function (entry) {
@@ -23600,6 +23640,12 @@ function setupEventListeners() {
                     return;
                 }
                 if (held[entry.client_ref]) { entry.attempts = 0; remaining.push(entry); return; }
+                if (Object.prototype.hasOwnProperty.call(blocked, entry.client_ref)) {
+                    entry.attempts = 0;
+                    entry.blocked_reason = blocked[entry.client_ref];
+                    remaining.push(entry);
+                    return;
+                }
                 entry.attempts = (entry.attempts || 0) + 1;
                 if (entry.attempts >= MAX_ATTEMPTS) {
                     // Abandoned: release the hold too, otherwise this till would
@@ -23648,21 +23694,37 @@ function setupEventListeners() {
     function pendingLabel(n) {
         return n === 1 ? '1 item waiting to sync' : n + ' items waiting to sync';
     }
+    function blockedSaleCount() {
+        try {
+            return (readQueue() || []).filter(function (e) { return !!e.blocked_reason; }).length;
+        } catch (e) { return 0; }
+    }
+
     function updateSyncUI() {
         var n = readQueue().length + pendingLaybyCount();
         var blocked = blockedLaybyCount();
+        // A sale the server will never accept (e.g. a product in it was archived)
+        // is money on this till. It is called out separately so it cannot sit in
+        // the queue unnoticed.
+        var blockedSales = blockedSaleCount();
 
         var count = document.getElementById('posDrawerSyncCount');
         if (count) {
             // A parked layby item is money or a customer commitment that the
             // server refused, so it is called out rather than blended into the
             // ordinary pending count.
-            count.innerText = blocked
-                ? (blocked + ' layby item(s) need attention')
-                : (n ? pendingLabel(n) : (isOffline() ? 'Offline - saved here' : 'All sales synced'));
+            if (blockedSales && !blocked) {
+                count.innerText = blockedSales + ' sale(s) need attention';
+            } else if (blocked && !blockedSales) {
+                count.innerText = blocked + ' layby item(s) need attention';
+            } else if (blocked || blockedSales) {
+                count.innerText = (blockedSales + blocked) + ' item(s) need attention';
+            } else {
+                count.innerText = n ? pendingLabel(n) : (isOffline() ? 'Offline - saved here' : 'All sales synced');
+            }
         }
         var row = document.getElementById('posDrawerSyncRow');
-        if (row) row.classList.toggle('is-pending', n > 0 || blocked > 0);
+        if (row) row.classList.toggle('is-pending', n > 0 || blocked > 0 || blockedSales > 0);
 
         var chip = document.getElementById('posConnChip');
         if (chip) {
@@ -23758,6 +23820,24 @@ function setupEventListeners() {
         queueSale: queueSale,
         syncNow: function () { return syncOfflineSales(true); },
         pendingCount: function () { return readQueue().length; },
+        // Which products have sales still sitting on this device, with the
+        // quantities involved. The Auto Audit needs this: an unsynced sale is
+        // ALREADY off the shelf but NOT yet out of the system, so adopting a count
+        // would take those units off a second time when the sale finally syncs.
+        pendingSaleItems: function () {
+            var out = {};
+            (readQueue() || []).forEach(function (entry) {
+                var sale = (entry && entry.payload) || entry || {};
+                (sale.items || []).forEach(function (it) {
+                    var pid = Number(it.id);
+                    if (!pid) return;
+                    var qty = parseInt(it.quantity, 10) || 0;
+                    if (qty <= 0) return;
+                    out[pid] = (out[pid] || 0) + qty;
+                });
+            });
+            return out;
+        },
         updateUI: updateSyncUI,
         // Laybys and their instalments share this queue's guarantees.
         queueLayby: laybyQueueEvent,
