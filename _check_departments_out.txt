@@ -1,0 +1,41 @@
+PASS  the product_departments table exists
+PASS  it is keyed per product AND branch (so branches may differ)
+PASS  stock and cost layers gained a department column
+PASS  the product_stock key is widened to include department
+PASS  a shop may not silently lose its department when dispatch is edited
+PASS  no product_stock upsert is missing the department key
+PASS  move_product_department() is loadable
+PASS  a move reports what it moved  -> {'from': 'hardware', 'to': 'furniture', 'quantity': 10, 'cost': 42.0, 'lots': 2, 'unchanged': False}
+PASS  UNITS are conserved Hardware -> Furniture  -> 10 -> 10
+PASS  COST is conserved Hardware -> Furniture  -> 42.0 -> 42.0
+PASS  the source department is emptied  -> {'hardware': 0, 'furniture': 10}
+PASS  the destination holds exactly what left  -> {'hardware': 0, 'furniture': 10}
+PASS  every FIFO layer followed the goods
+PASS  layer quantities were not altered  -> [{'id': 1, 'qty': 4, 'cost': 3.0, 'dept': 'furniture'}, {'id': 2, 'qty': 6, 'cost': 5.0, 'dept': 'furniture'}]
+PASS  the department was recorded for the product/branch  -> furniture
+PASS  a round trip restores units exactly  -> 10 -> 10
+PASS  a round trip restores cost exactly
+PASS  an item with no stock is still moved (relabelled)  -> {'from': 'hardware', 'to': 'furniture', 'quantity': 0, 'cost': 0, 'lots': 0, 'unchanged': False}
+PASS  moving to the same department changes nothing  -> {'from': 'furniture', 'to': 'furniture', 'quantity': 0, 'cost': 0.0, 'unchanged': True}
+PASS  an unknown department is refused
+PASS  no product is refused
+PASS  no branch is refused
+PASS  the catalogue read is department-scoped
+PASS  the catalogue reads the DEPARTMENT quantity, not the branch total
+PASS  stock value is costed per department
+PASS  additions are scoped to the department
+PASS  reductions are scoped to the department
+PASS  sale lines are scoped to the department
+PASS  the transactions tab is scoped to the department
+PASS  a sale records the department it was rung in
+PASS  the department switch endpoint exists
+PASS  the per-product department endpoint exists
+PASS  the switch refuses an unknown department
+PASS  the switch requires a session
+PASS  the switch endpoint checks sign-in
+PASS  placing a product is guarded against the read-only view
+PASS  the POS header carries the department switch
+PASS  switching is wired to the server
+PASS  every tab is redrawn after a switch
+PASS  an inventory row offers the OTHER department
+PASS  the placement calls the server

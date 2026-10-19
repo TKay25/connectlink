@@ -95,7 +95,7 @@ def select_columns(block):
 
 
 SALES_START = 'SELECT ti.id, ti.product_id, p.name as product_name, p.category,'
-SALES_END = 'transaction_sales = execute_query(sales_query'
+SALES_END = 'transaction_sales = execute_query('
 ADD_START = 'SELECT sa.id, sa.product_id, p.name as product_name, p.category,'
 ADD_END = 'additions = execute_query(additions_query'
 try:

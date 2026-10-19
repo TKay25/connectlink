@@ -4894,6 +4894,48 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 #posPage .pos-stat-pill small { font-size: 0.4rem !important; }
 #posPage .pos-stat-pill strong { font-size: 0.6rem !important; }
 
+/* ---- Department switch (Hardware / Furniture) ----
+   Sits first in the POS header, before the cashier cards. One control for the
+   whole till: every tab below it follows the chosen department. */
+.pos-department-switch {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14);
+    flex: 0 0 auto;
+}
+.pos-dept-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    background: transparent;
+    color: rgba(255,255,255,0.72);
+    font-weight: 700;
+    font-size: 0.72rem;
+    padding: 7px 13px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+    white-space: nowrap;
+}
+.pos-dept-btn i { font-size: 0.8rem; }
+.pos-dept-btn:hover { background: rgba(255,255,255,0.10); color: #fff; }
+.pos-dept-btn.is-active {
+    background: #fff;
+    color: #0F1B2D;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+.pos-dept-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+@media (max-width: 575.98px) {
+    .pos-dept-btn { padding: 6px 10px; font-size: 0.66rem; }
+    .pos-dept-btn span { display: none; }
+    .pos-dept-btn i { font-size: 0.9rem; }
+    .pos-department-switch { padding: 3px; }
+}
+
 /* ---- Cashier cards ---- */
 #posPage .pos-header-cashiers { gap: 7px; }
 #posPage .cashier-card { min-width: 150px; padding: 6px 9px 7px !important; gap: 8px; border-radius: 10px; }
@@ -7262,6 +7304,18 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 <div id="posPage">
     <!-- POS Page Header -->
     <div class="pos-page-header">
+        <!-- Department switch: the till shows ONE department at a time. Every tab
+             below (POS grid, Inventory, sales, reports) follows this choice. -->
+        <div class="pos-department-switch" id="posDepartmentSwitch" role="group" aria-label="Department">
+            <button type="button" class="pos-dept-btn is-active" data-dept="hardware"
+                    onclick="switchDepartment('hardware')">
+                <i class="fas fa-screwdriver-wrench"></i><span>Hardware</span>
+            </button>
+            <button type="button" class="pos-dept-btn" data-dept="furniture"
+                    onclick="switchDepartment('furniture')">
+                <i class="fas fa-couch"></i><span>Furniture</span>
+            </button>
+        </div>
         <div class="pos-page-stats">
             <!-- Cashier breakdown cards (left of Today's Sales) -->
             <div class="pos-header-cashiers" id="cashierBreakdown">
@@ -14831,6 +14885,11 @@ async function fetchTransactionsData() {
     
     // Payment loader modal instance
     let paymentLoaderModal = null;
+
+    // Which department the till is showing: 'hardware' or 'furniture'. The
+    // server session is authoritative; applyDepartmentState() mirrors it here.
+    // Declared once, early, because the catalogue and every renderer read it.
+    let posDepartment = 'hardware';
     
     // ==================== AUTHENTICATION ====================
     
@@ -14842,6 +14901,7 @@ async function fetchTransactionsData() {
                 localStorage.setItem('isLoggedIn', 'true');
                 if (authData.user) localStorage.setItem('user', JSON.stringify(authData.user));
                 applyPOSBranch(authData.branch);
+                if (authData.department) applyDepartmentState(authData.department);
                 // Signed in with no shop: the general portal login also drops a
                 // hardware user here. The session is not this till's to use until a
                 // branch with its access code is chosen, because reads would fall
@@ -21749,6 +21809,11 @@ function renderInventory() {
                 <button class="btn btn-sm btn-outline-primary me-1" onclick="openTransferStockModal(${p.id})" title="Transfer this product to another branch">
                     <i class="fas fa-truck"></i> Transfer
                 </button>
+                <button class="btn btn-sm btn-outline-dark me-1" onclick="moveProductDepartment(${p.id})"
+                        title="Move this product to ${posDepartment === 'hardware' ? 'Furniture' : 'Hardware'}, taking its stock with it">
+                    <i class="fas ${posDepartment === 'hardware' ? 'fa-couch' : 'fa-screwdriver-wrench'}"></i>
+                    ${posDepartment === 'hardware' ? 'To Furniture' : 'To Hardware'}
+                </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="showDeleteConfirmation(${p.id})" title="Delete Product">
                     <i class="fas fa-trash"></i> Remove
                 </button>
@@ -22025,6 +22090,99 @@ function setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
 }
+
+// ==================== DEPARTMENT SWITCH ====================
+// Switch the whole till between Hardware and Furniture. Every tab (POS grid,
+// Inventory, sales, reports) follows this; the server holds the choice in the
+// session so a reload keeps it.
+async function switchDepartment(dept) {
+    if (!dept || dept === posDepartment) return;
+    if (typeof branchIsReadOnly === 'function' && branchIsReadOnly()) {
+        if (typeof showToast === 'function') showToast('All Branches is read-only.', 'error');
+        return;
+    }
+    try {
+        const res = await fetch(`${API_BASE}/api/pos/switch-department`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ department: dept })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            if (typeof showToast === 'function') showToast(data.message || 'Could not switch department.', 'error');
+            return;
+        }
+        applyDepartmentState(data.department);
+        try { localStorage.removeItem('pos_api_cache_v1'); } catch (e) {}
+        if (typeof showToast === 'function') showToast('Now viewing ' + (data.label || dept), 'success');
+        await reloadForDepartment();
+    } catch (e) {
+        if (typeof showToast === 'function') showToast('Connection error. Please try again.', 'error');
+    }
+}
+window.switchDepartment = switchDepartment;
+
+function applyDepartmentState(deptKey) {
+    posDepartment = deptKey || 'hardware';
+    document.querySelectorAll('.pos-dept-btn').forEach(function (btn) {
+        const on = btn.getAttribute('data-dept') === posDepartment;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    try { localStorage.setItem('pos_department', posDepartment); } catch (e) {}
+}
+window.applyDepartmentState = applyDepartmentState;
+
+// Everything on screen is derived from the catalogue, so re-read it and then
+// redraw whichever tab is open.
+async function reloadForDepartment() {
+    if (typeof fetchProductsFromAPI === 'function') await fetchProductsFromAPI();
+    if (currentPage === 'inventory' && typeof renderInventory === 'function') renderInventory();
+    if (currentPage === 'dispatch' && typeof loadDispatchAnalytics === 'function') loadDispatchAnalytics();
+    if (currentPage === 'sales' && typeof loadSalesReport === 'function') loadSalesReport();
+    if (currentPage === 'transactions' && typeof fetchTransactionsData === 'function') fetchTransactionsData();
+    if (currentPage === 'analytics' && typeof renderAnalytics === 'function') renderAnalytics();
+    if (currentPage === 'layby' && typeof fetchLaybys === 'function') fetchLaybys();
+}
+
+// Place ONE product in the other department for this branch.
+async function moveProductDepartment(productId) {
+    if (typeof branchIsReadOnly === 'function' && branchIsReadOnly()) {
+        if (typeof showToast === 'function') showToast('All Branches is read-only. Pick a branch first.', 'error');
+        return;
+    }
+    const target = posDepartment === 'hardware' ? 'furniture' : 'hardware';
+    const label = target === 'hardware' ? 'Hardware' : 'Furniture';
+    const prod = (products || []).find(p => String(p.id) === String(productId));
+    const qty = prod ? (prod.stock || 0) : 0;
+    // Say plainly what will happen to the stock: it MOVES, it is not copied.
+    const msg = `Move "${prod ? prod.name : 'this product'}" to ${label}?\n\n`
+        + `Its stock moves with it: ${qty} unit(s) will leave `
+        + `${posDepartment === 'hardware' ? 'Hardware' : 'Furniture'} and arrive in ${label}.\n`
+        + `The total held by this branch does not change.`;
+    if (!window.confirm(msg)) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/pos/product-department`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ product_id: productId, department: target })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            if (typeof showToast === 'function') showToast(data.error || 'Could not move the product.', 'error');
+            return;
+        }
+        if (typeof showToast === 'function') showToast(data.message || 'Product moved.', 'success');
+        // The item has left this department's list, so the catalogue is stale.
+        await reloadForDepartment();
+    } catch (e) {
+        if (typeof showToast === 'function') showToast('Connection error. Please try again.', 'error');
+    }
+}
+window.moveProductDepartment = moveProductDepartment;
 
 function navigateTo(page) {
     currentPage = page;

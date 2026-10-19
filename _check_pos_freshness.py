@@ -362,9 +362,12 @@ try:
     sync = _cl[_start:_stop]
     check('the sync route reports a sale that took more than the shelf held',
           'oversold' in sync and 'warning' in sync)
+    # The intent is ORDERING: the shelf is decremented, THEN the negative is
+    # detected. Match the call by its opening rather than its full argument list,
+    # which legitimately grew a department argument.
+    _dec = re.search(r"add_branch_stock\(cursor, pid, branch_id, -qty", sync)
     check('the shelf is read where the stock is actually taken',
-          sync.index('add_branch_stock(cursor, pid, branch_id, -qty)')
-          < sync.index('if _held_now < 0:'))
+          _dec is not None and _dec.start() < sync.index('if _held_now < 0:'))
     check('the shortfall is named in the reply, not only counted',
           'short_lines.append(' in sync and "'warning': warning" in sync)
     check('the reply carries the count beside the per-sale statuses',

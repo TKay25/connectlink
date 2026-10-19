@@ -3213,6 +3213,90 @@ def ensure_branches_schema(cursor, connection):
         """)
         connection.commit()
 
+        # ---- Departments (Hardware / Furniture) ------------------------------
+        # A branch can run more than one department (Hardware and Furniture)
+        # side by side, and the till shows ONE of them at a time. The department
+        # of a product is recorded PER BRANCH, exactly like product_stock and
+        # product_branch_archives: the same catalogue row can be sold as
+        # Hardware in Shurugwi and as Furniture in Chegutu.
+        #
+        # Deliberately a SEPARATE table rather than a column on `products`: the
+        # catalogue row is shared by every branch, so a column there could only
+        # hold one global answer and would let one branch's choice leak into
+        # another's. It also keeps `products.category` untouched -- the existing
+        # 'Furniture' CATEGORY is an unrelated classification and stays as-is.
+        #
+        # Stock: each department holds its OWN quantity, so the stock tables gain
+        # a department dimension too (see the ALTERs under product_stock and
+        # stock_lots). Moving an item between departments is therefore a real
+        # transfer of goods, not a relabelling -- see move_product_department().
+        cursor.execute("""
+           CREATE TABLE IF NOT EXISTS product_departments (
+               product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+               branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+               department VARCHAR(20) NOT NULL DEFAULT 'hardware',
+               updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+               user_name VARCHAR(100) NOT NULL DEFAULT 'System',
+               PRIMARY KEY (product_id, branch_id)
+           )
+        """)
+        cursor.execute("""
+           CREATE INDEX IF NOT EXISTS idx_product_departments_dept
+           ON product_departments (branch_id, department)
+        """)
+        connection.commit()
+
+        # The stock tables are keyed on (product, branch). Each department holds
+        # its own quantity, so the key gains the department. Existing rows are
+        # all Hardware: that is what the business sold before departments existed,
+        # so backfilling to 'hardware' is a statement of fact, not a guess.
+        for table in ('product_stock', 'stock_lots'):
+           cursor.execute("""
+               ALTER TABLE %s
+               ADD COLUMN IF NOT EXISTS department VARCHAR(20) NOT NULL DEFAULT 'hardware'
+           """ % table)
+        # Sales and movements record the department they happened in, so a
+        # report for one department never has to GUESS where an old row belongs.
+        # Existing rows default to Hardware, which is what they were.
+        for table in ('transaction_items', 'stock_additions', 'stock_reductions'):
+           cursor.execute("""
+               ALTER TABLE %s
+               ADD COLUMN IF NOT EXISTS department VARCHAR(20) DEFAULT 'hardware'
+           """ % table)
+        connection.commit()
+
+        # Widen product_stock's key so BOTH departments can hold a row for the
+        # same product in the same branch. Without this the second department's
+        # insert would collide with the first and overwrite its quantity --
+        # exactly the silent stock loss this feature must not cause.
+        # Dropped and re-added only when the old key is still in place, so this
+        # is safe to run on every boot.
+        cursor.execute("""
+           SELECT 1 FROM information_schema.table_constraints
+           WHERE table_name = 'product_stock'
+             AND constraint_type = 'PRIMARY KEY'
+             AND constraint_name = 'product_stock_pkey'
+        """)
+        if cursor.fetchone():
+           cursor.execute("""
+               SELECT COUNT(*) FROM information_schema.key_column_usage
+               WHERE table_name = 'product_stock'
+                 AND constraint_name = 'product_stock_pkey'
+                 AND column_name = 'department'
+           """)
+           if int(cursor.fetchone()[0] or 0) == 0:
+               cursor.execute("ALTER TABLE product_stock DROP CONSTRAINT product_stock_pkey")
+               cursor.execute("""
+                   ALTER TABLE product_stock
+                   ADD PRIMARY KEY (product_id, branch_id, department)
+               """)
+        connection.commit()
+        cursor.execute("""
+           CREATE INDEX IF NOT EXISTS idx_product_stock_dept
+           ON product_stock (branch_id, department)
+        """)
+        connection.commit()
+
         # ---- Bulk stock upload jobs -----------------------------------------
         # Every Excel upload is recorded as a JOB so it can be audited and, while
         # its stock is still untouched, REVERTED as a unit. The per-item rows
@@ -3319,14 +3403,14 @@ def ensure_branches_schema(cursor, connection):
             # till hiding it. The total below then doubled, because the units were
             # now counted in both branches.
             cursor.execute("""
-                INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level)
-                SELECT p.id, %s, COALESCE(p.stock, 0), COALESCE(p.min_stock_level, 10)
+                INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level)
+                SELECT p.id, %s, %s, COALESCE(p.stock, 0), COALESCE(p.min_stock_level, 10)
                 FROM products p
                 WHERE NOT EXISTS (
                     SELECT 1 FROM product_stock ps WHERE ps.product_id = p.id
                 )
-                ON CONFLICT (product_id, branch_id) DO NOTHING
-            """, (first_branch_id,))
+                ON CONFLICT (product_id, branch_id, department) DO NOTHING
+            """, (first_branch_id, DEFAULT_DEPARTMENT))
             seeded = cursor.rowcount
             # products.stock keeps meaning "total across all branches" so the
             # shared-catalogue consumers (procurement picker, Finance balance
@@ -3640,32 +3724,40 @@ def recalc_product_total_stock(cursor, product_id):
     """, (product_id, product_id))
 
 
-def set_branch_stock(cursor, product_id, branch_id, new_stock, min_stock_level=None, lot_cost=None):
+def set_branch_stock(cursor, product_id, branch_id, new_stock, min_stock_level=None, lot_cost=None,
+                     department=None):
     """Set one branch's stock for a product and refresh the catalogue total.
 
     The FIFO ledger is reconciled afterwards, so the cost layers always tie out
     to product_stock however the quantity was set. `lot_cost` prices the newly
     received units when they are not already costed by the caller.
+
+    `department` defaults to Hardware so every pre-existing caller keeps writing
+    exactly the row it wrote before departments existed.
     """
     cursor.execute("""
-        INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
-        VALUES (%s, %s, %s, COALESCE(%s, 10), CURRENT_TIMESTAMP)
-        ON CONFLICT (product_id, branch_id) DO UPDATE
+        INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level, updated_at)
+        VALUES (%s, %s, %s, %s, COALESCE(%s, 10), CURRENT_TIMESTAMP)
+        ON CONFLICT (product_id, branch_id, department) DO UPDATE
             SET stock = EXCLUDED.stock,
                 min_stock_level = COALESCE(EXCLUDED.min_stock_level, product_stock.min_stock_level),
                 updated_at = CURRENT_TIMESTAMP
-    """, (product_id, branch_id, int(new_stock or 0), min_stock_level))
+    """, (product_id, branch_id, department or DEFAULT_DEPARTMENT,
+          int(new_stock or 0), min_stock_level))
     recalc_product_total_stock(cursor, product_id)
     sync_lots_to_stock(cursor, product_id, branch_id, unit_cost=lot_cost)
     sync_product_avg_cost(cursor, product_id)
 
 
-def add_branch_stock(cursor, product_id, branch_id, delta, lot_cost=None):
+def add_branch_stock(cursor, product_id, branch_id, delta, lot_cost=None, department=None):
     """Add (or subtract, with a negative delta) stock for ONE branch, then refresh the total.
 
     A subtraction consumes the FIFO layers oldest-first; an addition is costed
     at `lot_cost` when the caller knows it (a transfer, a void) and otherwise at
     the product's current cost.
+
+    `department` defaults to Hardware so every pre-existing caller keeps writing
+    exactly the row it wrote before departments existed.
     """
     if not delta:
         return
@@ -3681,12 +3773,12 @@ def add_branch_stock(cursor, product_id, branch_id, delta, lot_cost=None):
               f"{product_id} with no receipt on file")
 
     cursor.execute("""
-        INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
-        VALUES (%s, %s, %s, 10, CURRENT_TIMESTAMP)
-        ON CONFLICT (product_id, branch_id) DO UPDATE
+        INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level, updated_at)
+        VALUES (%s, %s, %s, %s, 10, CURRENT_TIMESTAMP)
+        ON CONFLICT (product_id, branch_id, department) DO UPDATE
             SET stock = product_stock.stock + EXCLUDED.stock,
                 updated_at = CURRENT_TIMESTAMP
-    """, (product_id, branch_id, int(delta)))
+    """, (product_id, branch_id, department or DEFAULT_DEPARTMENT, int(delta)))
     recalc_product_total_stock(cursor, product_id)
     sync_lots_to_stock(cursor, product_id, branch_id,
                       unit_cost=lot_cost if delta > 0 else None)
@@ -3711,6 +3803,99 @@ def _branch_can_hold_stock(cursor, product_id, branch_id):
     return cursor.fetchone() is not None
 
 
+def move_product_department(cursor, product_id, branch_id, to_department, user_id=0,
+                            user_name='System', notes=''):
+    """Move one product's stock from its department to another, inside one branch.
+
+    This is the ONLY way a product changes department, and it deliberately moves
+    the GOODS rather than relabelling them: the quantity the branch holds leaves
+    the source department and arrives in the destination, and the FIFO layers
+    travel at their own cost so the shop's cost of the item is unchanged.
+
+    Nothing is destroyed: the quantity before equals the quantity after, and the
+    cost before equals the cost after. That invariant is what the caller (and
+    _check_departments.py) asserts.
+
+    Returns a dict describing what moved, or None when there was nothing to move.
+    """
+    to_department = (to_department or '').strip().lower()
+    if to_department not in DEPARTMENTS:
+        raise ValueError('Unknown department: %s' % to_department)
+    if not product_id or not branch_id:
+        raise ValueError('A product and a branch are required.')
+
+    from_department = resolve_product_department(cursor, product_id, branch_id)
+    if from_department == to_department:
+        return {'from': from_department, 'to': to_department, 'quantity': 0,
+                'cost': 0.0, 'unchanged': True}
+
+    # What the source department actually holds.
+    cursor.execute("""
+        SELECT COALESCE(stock, 0) FROM product_stock
+        WHERE product_id = %s AND branch_id = %s
+          AND COALESCE(department, %s) = %s
+    """, (product_id, branch_id, DEFAULT_DEPARTMENT, from_department))
+    row = cursor.fetchone()
+    quantity = int(row[0] or 0) if row else 0
+
+    # The FIFO layers follow the goods, at the cost they were bought at.
+    cursor.execute("""
+        SELECT id, quantity_remaining, unit_cost FROM stock_lots
+        WHERE product_id = %s AND branch_id = %s
+          AND COALESCE(department, %s) = %s
+          AND quantity_remaining > 0
+        ORDER BY received_at, id
+    """, (product_id, branch_id, DEFAULT_DEPARTMENT, from_department))
+    layers = cursor.fetchall() or []
+    moved_cost = sum(float(l[1] or 0) * float(l[2] or 0) for l in layers)
+
+    if quantity <= 0 and not layers:
+        # Nothing held: the move is a pure relabelling of an empty line. Still
+        # record the department so the item appears on the other side's list.
+        pass
+    else:
+        # Take the goods out of the source department...
+        cursor.execute("""
+            UPDATE product_stock SET stock = 0, updated_at = CURRENT_TIMESTAMP
+            WHERE product_id = %s AND branch_id = %s
+              AND COALESCE(department, %s) = %s
+        """, (product_id, branch_id, DEFAULT_DEPARTMENT, from_department))
+        # ...and put the SAME quantity into the destination department, carrying
+        # each layer across with its remaining quantity intact so FIFO order and
+        # cost are preserved rather than recomputed.
+        cursor.execute("""
+            INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level, updated_at)
+            VALUES (%s, %s, %s, %s, 10, CURRENT_TIMESTAMP)
+            ON CONFLICT (product_id, branch_id, department) DO UPDATE
+                SET stock = product_stock.stock + EXCLUDED.stock,
+                    updated_at = CURRENT_TIMESTAMP
+        """, (product_id, branch_id, to_department, quantity))
+
+        for lot_id, remaining, unit_cost in layers:
+            # The layer moves house; its quantity and cost do not change.
+            cursor.execute("""
+                UPDATE stock_lots SET department = %s WHERE id = %s
+            """, (to_department, lot_id))
+
+    # Record the department on the product/branch pair.
+    cursor.execute("""
+        INSERT INTO product_departments (product_id, branch_id, department, updated_at, user_name)
+        VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s)
+        ON CONFLICT (product_id, branch_id) DO UPDATE
+            SET department = EXCLUDED.department,
+                updated_at = CURRENT_TIMESTAMP,
+                user_name = EXCLUDED.user_name
+    """, (product_id, branch_id, to_department, user_name[:100]))
+
+    # The two departments now hold different quantities, but the BRANCH total is
+    # unchanged. Keep the catalogue total in step with that (unchanged) sum.
+    recalc_product_total_stock(cursor, product_id)
+
+    return {'from': from_department, 'to': to_department,
+            'quantity': quantity, 'cost': round(moved_cost, 2),
+            'lots': len(layers), 'unchanged': False}
+
+
 # ===================== FIFO COSTING + PER-BRANCH PRICING =====================
 # The quantity truth is product_stock (per branch). The COST truth is stock_lots
 # (per branch, per receipt). Nothing here trusts "the latest buy price": a sale
@@ -3731,13 +3916,17 @@ def receive_stock_lot(cursor, product_id, branch_id, quantity, unit_cost, source
     return cursor.fetchone()[0]
 
 
-def consume_stock_lots_fifo(cursor, product_id, branch_id, quantity):
+def consume_stock_lots_fifo(cursor, product_id, branch_id, quantity, department=None):
     """Take `quantity` units out of a branch, oldest layer first.
 
     Returns (total_cost, [(lot_id, qty, unit_cost), ...]). If the layers hold
     less than `quantity` the shortfall is priced at the product's current cost
     so the caller still gets a number instead of an exception -- the drift is
     then visible in the reconciliation rather than hidden.
+
+    `department` limits the layers to the one department's pool, so a Furniture
+    sale can never consume (and wrongly cost) the Hardware shelf. It defaults to
+    Hardware for every pre-existing caller.
     """
     quantity = int(quantity or 0)
     if quantity <= 0 or not product_id or not branch_id:
@@ -3746,8 +3935,9 @@ def consume_stock_lots_fifo(cursor, product_id, branch_id, quantity):
         SELECT id, quantity_remaining, unit_cost
         FROM stock_lots
         WHERE product_id = %s AND branch_id = %s AND quantity_remaining > 0
+          AND COALESCE(department, %s) = %s
         ORDER BY received_at, id
-    """, (product_id, branch_id))
+    """, (product_id, branch_id, DEFAULT_DEPARTMENT, department or DEFAULT_DEPARTMENT))
     need = quantity
     total = 0.0
     layers = []
@@ -3879,6 +4069,82 @@ BRANCH_WRITE_BLOCKED_MESSAGE = (
     'The All Branches view is read-only. Pick a branch from the branch menu to '
     'sell or move stock.'
 )
+
+# ===================== DEPARTMENTS (HARDWARE / FURNITURE) =====================
+# A branch may run both departments, but the till works in ONE at a time. Which
+# one is held in the session and is a VIEW switch, never a permission: the same
+# user sees either. Defaults to Hardware so every existing session keeps exactly
+# the behaviour it had before departments existed.
+DEPARTMENTS = ('hardware', 'furniture')
+DEFAULT_DEPARTMENT = 'hardware'
+DEPARTMENT_LABELS = {'hardware': 'Hardware', 'furniture': 'Furniture'}
+
+
+def current_department():
+    """The department this session is looking at: 'hardware' or 'furniture'.
+
+    Anything unrecognised -- including a session from before departments existed
+    -- falls back to Hardware, which is what that session was already seeing.
+    """
+    dept = (session.get('department') or '').strip().lower()
+    return dept if dept in DEPARTMENTS else DEFAULT_DEPARTMENT
+
+
+def department_label(dept=None):
+    return DEPARTMENT_LABELS.get(dept or current_department(), 'Hardware')
+
+
+def other_department(dept=None):
+    d = dept or current_department()
+    return 'furniture' if d == 'hardware' else 'hardware'
+
+
+def department_filter(column, dept=None):
+    """SQL fragment + params limiting a stock query to one department.
+
+    Mirrors branch_read_clause: every department-aware read appends this. It is
+    applied to the stock tables (product_stock / stock_lots), never to
+    `products`, because the catalogue row is shared by both departments.
+    """
+    return f" AND COALESCE({column}, '{DEFAULT_DEPARTMENT}') = %s", [dept or current_department()]
+
+
+def department_scope_clause(parent_id_expr, child_table, child_fk, department_col='department'):
+    """SQL fragment + params limiting a parent row to the current department.
+
+    Used by the report endpoints, where a sale/movement is a PARENT row and the
+    department lives on its LINES. The parent is kept when at least one of its
+    lines belongs to the department being viewed, so a mixed sale still appears
+    on both departments' tabs instead of vanishing from each.
+
+    Returns ('', []) when the child table has no department column (an older
+    deployment mid-migration), so a missing column degrades to "show everything"
+    rather than breaking every report.
+    """
+    return (f" AND EXISTS (SELECT 1 FROM {child_table} _d "
+            f"WHERE _d.{child_fk} = {parent_id_expr} "
+            f"AND COALESCE(_d.{department_col}, '{DEFAULT_DEPARTMENT}') = %s)",
+            [current_department()])
+
+
+def resolve_product_department(cursor, product_id, branch_id):
+    """Which department a product sits in for one branch.
+
+    No row means Hardware, which is the department every product belonged to
+    before this feature existed. That default is also what keeps the migration
+    honest: nothing has to be backfilled for the catalogue to keep working.
+    """
+    if not product_id or not branch_id:
+        return DEFAULT_DEPARTMENT
+    cursor.execute(
+        "SELECT department FROM product_departments WHERE product_id = %s AND branch_id = %s",
+        (product_id, branch_id))
+    row = cursor.fetchone()
+    if not row or not row[0]:
+        return DEFAULT_DEPARTMENT
+    dept = str(row[0]).strip().lower()
+    return dept if dept in DEPARTMENTS else DEFAULT_DEPARTMENT
+
 
 # Brute-force guard for the branch codes. A branch code is shared by everyone in
 # that shop, so unlike a personal password it is guessable by design -- the code
@@ -14558,8 +14824,16 @@ def run1hardware():
     The catalogue is shared, so name/price/barcode come from `products` while the
     quantity comes from `product_stock` for the session's branch. On the
     consolidated view every branch is summed so the figure still means something.
+
+    DEPARTMENT: only the products sitting in the session's current department are
+    returned, and the quantity is that DEPARTMENT's quantity -- the Hardware and
+    Furniture pools are separate, so a product sold as Furniture must not report
+    (or be sellable from) the Hardware figure. A product with no
+    product_departments row is Hardware, which is where every product lived
+    before departments existed.
     """
     branch_id = current_branch_id()
+    dept = current_department()
     if branch_id:
         query = """
             SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, p.buy_price, p.sell_price,
@@ -14571,23 +14845,37 @@ def run1hardware():
                    COALESCE(pp.sell_price, p.sell_price) AS branch_sell_price,
                    COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
                              FROM stock_lots sl
-                             WHERE sl.product_id = p.id AND sl.branch_id = %s), 0) AS stock_value,
-                   -- Whether THIS branch has ever stocked the item. A branch row with
-                   -- 0 means "we carry it but it is out today"; NO row means the branch
-                   -- has never had it, and the till hides those (the catalogue is shared,
-                   -- so without this the whole of the other shop's list fills the grid).
+                             WHERE sl.product_id = p.id AND sl.branch_id = %s
+                               AND COALESCE(sl.department, %s) = %s), 0) AS stock_value,
+                   -- Whether THIS department has ever stocked the item. A row with
+                   -- 0 means "we carry it but it is out today"; NO row means the
+                   -- department has never had it, and the till hides those.
                    (ps.product_id IS NOT NULL) AS stocked_here
             FROM products p
-            LEFT JOIN product_stock ps ON ps.product_id = p.id AND ps.branch_id = %s
+            LEFT JOIN product_stock ps
+                   ON ps.product_id = p.id AND ps.branch_id = %s
+                  AND COALESCE(ps.department, %s) = %s
             LEFT JOIN product_prices pp ON pp.product_id = p.id AND pp.branch_id = %s
             WHERE p.is_active = TRUE
               AND NOT EXISTS (
                   SELECT 1 FROM product_branch_archives pba
                   WHERE pba.product_id = p.id AND pba.branch_id = %s
               )
+              -- The product is in this department for this branch unless the
+              -- branch explicitly filed it elsewhere.
+              AND COALESCE((
+                    SELECT pd.department FROM product_departments pd
+                    WHERE pd.product_id = p.id AND pd.branch_id = %s
+                  ), %s) = %s
             ORDER BY p.name
         """
-        result = execute_query(query, (branch_id, branch_id, branch_id, branch_id), fetch_all=True)
+        result = execute_query(query, (
+            branch_id, DEFAULT_DEPARTMENT, dept,
+            branch_id, DEFAULT_DEPARTMENT, dept,
+            branch_id,
+            branch_id,
+            branch_id, DEFAULT_DEPARTMENT, dept,
+        ), fetch_all=True)
     else:
         query = """
             SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, p.buy_price, p.sell_price,
@@ -14598,17 +14886,33 @@ def run1hardware():
                    p.sell_price AS branch_sell_price,
                    COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
                              FROM stock_lots sl
-                             WHERE sl.product_id = p.id), 0) AS stock_value,
+                             WHERE sl.product_id = p.id
+                               AND COALESCE(sl.department, %s) = %s), 0) AS stock_value,
                    -- No single branch to be "stocked in" on the consolidated view, so
                    -- the whole catalogue shows and the figures are the company total.
                    TRUE AS stocked_here
             FROM products p
             LEFT JOIN (SELECT product_id, SUM(stock) AS total
-                       FROM product_stock GROUP BY product_id) allb ON allb.product_id = p.id
+                       FROM product_stock
+                       WHERE COALESCE(department, %s) = %s
+                       GROUP BY product_id) allb ON allb.product_id = p.id
             WHERE p.is_active = TRUE
+              -- Consolidated view: show a product when ANY branch files it in the
+              -- current department (or has not filed it anywhere, i.e. Hardware).
+              AND (
+                    %s = %s
+                    OR EXISTS (
+                        SELECT 1 FROM product_departments pd
+                        WHERE pd.product_id = p.id AND pd.department = %s
+                    )
+                  )
             ORDER BY p.name
         """
-        result = execute_query(query, fetch_all=True)
+        result = execute_query(query, (
+            DEFAULT_DEPARTMENT, dept,
+            DEFAULT_DEPARTMENT, dept,
+            dept, DEFAULT_DEPARTMENT, dept,
+        ), fetch_all=True)
 
     products = []
     if result:
@@ -14810,11 +15114,15 @@ def get_stock_additions():
         LEFT JOIN admin_users u ON sa.user_id = u.id
     """
     spend_branch_where, spend_params = branch_read_clause('sa.branch_id')
-    query = query + spend_branch_where + """
+    # Department scope: goods received into THIS department only. A receipt is a
+    # single row with its own department, so no EXISTS is needed here.
+    spend_dept_where, spend_dept_params = department_filter('sa.department')
+    query = query + spend_branch_where + spend_dept_where + """
         ORDER BY sa.added_at DESC
         LIMIT 100
     """
-    result = execute_query(query, tuple(spend_params) if spend_params else None, fetch_all=True)
+    result = execute_query(query, tuple(spend_params) + tuple(spend_dept_params),
+                           fetch_all=True)
     
     additions = []
     if result:
@@ -14969,10 +15277,13 @@ def get_stock_movements():
         WHERE sa.added_at >= %s::timestamp AND sa.added_at <= (%s::timestamp + INTERVAL '1 day')
     """
     add_branch_where, add_params = branch_read_clause('sa.branch_id')
-    additions_query = additions_query + add_branch_where + """
+    add_dept_where, add_dept_params = department_filter('sa.department')
+    additions_query = additions_query + add_branch_where + add_dept_where + """
         ORDER BY sa.added_at DESC
     """
-    additions = execute_query(additions_query, (start_date, end_date) + tuple(add_params), fetch_all=True) or []
+    additions = execute_query(additions_query,
+                              (start_date, end_date) + tuple(add_params) + tuple(add_dept_params),
+                              fetch_all=True) or []
     
     # Get reductions in the period
     reductions_query = """
@@ -14988,10 +15299,13 @@ def get_stock_movements():
         WHERE sr.reduced_at >= %s::timestamp AND sr.reduced_at <= (%s::timestamp + INTERVAL '1 day')
     """
     red_branch_where, red_params = branch_read_clause('sr.branch_id')
-    reductions_query = reductions_query + red_branch_where + """
+    red_dept_where, red_dept_params = department_filter('sr.department')
+    reductions_query = reductions_query + red_branch_where + red_dept_where + """
         ORDER BY sr.reduced_at DESC
     """
-    reductions = execute_query(reductions_query, (start_date, end_date) + tuple(red_params), fetch_all=True) or []
+    reductions = execute_query(reductions_query,
+                               (start_date, end_date) + tuple(red_params) + tuple(red_dept_params),
+                               fetch_all=True) or []
     
     # Also get sales from transaction_items (captures ALL sales, including historical ones
     # that were never logged to stock_reductions)
@@ -15022,10 +15336,15 @@ def get_stock_movements():
         WHERE t.created_at >= %s::timestamp AND t.created_at <= (%s::timestamp + INTERVAL '1 day')
     """
     sales_branch_where, sales_params = branch_read_clause('t.branch_id')
-    sales_query = sales_query + sales_branch_where + """
+    # Each sale LINE now carries the department it was rung in, so this is a
+    # direct line filter: only the current department's lines are reported.
+    sales_dept_where, sales_dept_params = department_filter('ti.department')
+    sales_query = sales_query + sales_branch_where + sales_dept_where + """
         ORDER BY t.created_at DESC
     """
-    transaction_sales = execute_query(sales_query, (start_date, end_date) + tuple(sales_params), fetch_all=True) or []
+    transaction_sales = execute_query(
+        sales_query, (start_date, end_date) + tuple(sales_params) + tuple(sales_dept_params),
+        fetch_all=True) or []
 
     # A reverted sale leaves TWO traces inside this window: its own line in
     # transaction_items (reverting is a soft delete, so the row stays) and the
@@ -15467,6 +15786,11 @@ def api_login():
                     'read_only': branch_id == POS_ALL_BRANCHES_ID,
                     'is_dispatch': branch_is_dispatch(branch_id)
                 },
+                'department': {
+                    'key': current_department(),
+                    'label': department_label(),
+                    'options': [{'key': d, 'label': DEPARTMENT_LABELS[d]} for d in DEPARTMENTS]
+                },
                 'message': 'Login successful',
                 'redirect': '/pos-system.html'
             }), 200
@@ -15500,6 +15824,11 @@ def check_auth():
         # reduced menu rather than briefly offering a till the branch does not run.
         'is_dispatch': branch_is_dispatch(session.get('branch_id')) if chosen else False
     }
+    department = {
+        'key': current_department(),
+        'label': department_label(),
+        'options': [{'key': d, 'label': DEPARTMENT_LABELS[d]} for d in DEPARTMENTS]
+    }
     if 'user_id' in session:
         return jsonify({
             'authenticated': True,
@@ -15510,7 +15839,8 @@ def check_auth():
                 'full_name': session.get('full_name'),
                 'role': session.get('role', 'user')
             },
-            'branch': branch
+            'branch': branch,
+            'department': department
         })
     elif 'userid' in session:
         # For building project users without role
@@ -15523,7 +15853,8 @@ def check_auth():
                 'full_name': session.get('user_name', 'User'),
                 'role': 'admin'
             },
-            'branch': branch
+            'branch': branch,
+            'department': department
         })
     return jsonify({'authenticated': False}), 401
 
@@ -15578,6 +15909,111 @@ def pos_switch_branch():
                    'read_only': branch_id == POS_ALL_BRANCHES_ID,
                    'is_dispatch': branch_is_dispatch(branch_id)}
     })
+
+
+@app.route('/api/pos/switch-department', methods=['POST'])
+def pos_switch_department():
+    """Switch the POS between the branch's departments (Hardware / Furniture).
+
+    This is a VIEW switch, not a permission: any signed-in user who is already
+    working in a branch may look at either department. What it changes is which
+    products, stock, sales and reports the tabs show -- never which shop's books
+    may be written, which stays pinned to the session's branch.
+    """
+    if 'user_id' not in session and 'userid' not in session:
+        return jsonify({'success': False, 'message': 'Not signed in.'}), 401
+
+    data = request.get_json(silent=True) or {}
+    dept = str(data.get('department') or '').strip().lower()
+    if dept not in DEPARTMENTS:
+        return jsonify({'success': False,
+                        'message': 'Choose Hardware or Furniture.'}), 400
+
+    previous = current_department()
+    session['department'] = dept
+    session.modified = True
+    try:
+        log_activity('pos_department_switch',
+                     f'POS department changed from {department_label(previous)} '
+                     f'to {department_label(dept)}',
+                     'user', session.get('user_id') or session.get('userid'))
+    except Exception:
+        pass
+    return jsonify({'success': True,
+                    'department': dept,
+                    'label': department_label(dept)})
+
+
+@app.route('/api/pos/product-department', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def pos_set_product_department():
+    """Place ONE product in Hardware or Furniture for the session's branch.
+
+    The stock MOVES with the product (see move_product_department): the quantity
+    and its FIFO cost leave the old department and arrive in the new one, so the
+    branch's total holding never changes and no goods appear or vanish.
+    """
+    data = request.get_json(silent=True) or {}
+    branch_id = current_branch_id()
+    if not branch_id:
+        return jsonify({'success': False,
+                        'error': 'Select a branch before moving a product.'}), 400
+    try:
+        product_id = int(data.get('product_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'A product is required.'}), 400
+    to_department = str(data.get('department') or '').strip().lower()
+    if to_department not in DEPARTMENTS:
+        return jsonify({'success': False,
+                        'error': 'Choose Hardware or Furniture.'}), 400
+
+    user_name = (session.get('user_name') or session.get('username') or 'System')[:100]
+    user_id = session.get('user_id') or session.get('userid') or 0
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                "SELECT name FROM products WHERE id = %s AND is_active = TRUE", (product_id,))
+            prow = cursor.fetchone()
+            if not prow:
+                return jsonify({'success': False, 'error': 'Product not found.'}), 404
+            product_name = prow[0]
+
+            result = move_product_department(
+                cursor, product_id, branch_id, to_department,
+                user_id=user_id, user_name=user_name)
+            connection.commit()
+
+        try:
+            log_activity('product_department',
+                         f'Moved "{product_name}" from {department_label(result["from"])} '
+                         f'to {department_label(result["to"])}'
+                         + (f' ({result["quantity"]} unit(s))' if result.get('quantity') else ''),
+                         'product', product_id,
+                         {'from': result['from'], 'to': result['to'],
+                          'quantity': result.get('quantity', 0),
+                          'cost': result.get('cost', 0)})
+        except Exception:
+            pass
+
+        moved = result.get('quantity') or 0
+        return jsonify({
+            'success': True,
+            'product_id': product_id,
+            'department': to_department,
+            'from': result['from'],
+            'to': result['to'],
+            'moved_quantity': moved,
+            'moved_cost': result.get('cost', 0),
+            'message': (f'"{product_name}" moved to {department_label(to_department)}'
+                        + (f' with {moved} unit(s).' if moved else '.'))
+        })
+    except ValueError as ve:
+        return jsonify({'success': False, 'error': str(ve)}), 400
+    except Exception as e:
+        print(f"Product department move error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/pos/transfer-stock', methods=['POST'])
@@ -16613,24 +17049,28 @@ def pos_create_layby():
 
                 cursor.execute("""
                     INSERT INTO transaction_items (transaction_id, product_id, quantity,
-                                                   price_at_time, subtotal, unit_type, unit_details)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                                   price_at_time, subtotal, unit_type, unit_details,
+                                                   department)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                 """, (transaction_id, pid, qty, line['price'],
-                      round(line['price'] * qty, 2), prow[1] or '', prow[2] or ''))
+                      round(line['price'] * qty, 2), prow[1] or '', prow[2] or '',
+                      current_department()))
                 line_id = cursor.fetchone()[0]
 
                 # The goods are spoken for, so they leave THIS branch's shelf now
                 # and the cost is frozen from the layers that actually covered it.
-                fifo_cost, _layby_layers = consume_stock_lots_fifo(cursor, pid, branch_id, qty)
-                add_branch_stock(cursor, pid, branch_id, -qty)
+                fifo_cost, _layby_layers = consume_stock_lots_fifo(
+                    cursor, pid, branch_id, qty, department=current_department())
+                add_branch_stock(cursor, pid, branch_id, -qty, department=current_department())
                 cursor.execute('UPDATE transaction_items SET cost_at_time = %s WHERE id = %s',
                                (round(fifo_cost / max(1, qty), 4), line_id))
                 cursor.execute("""
                     INSERT INTO stock_reductions (product_id, quantity, reason, notes,
-                                                  user_id, reduced_at, branch_id)
-                    VALUES (%s, %s, 'layby_reserve', %s, %s, %s, %s)
-                """, (pid, qty, f'Layby {reference}', user_id, zimbabwe_now, branch_id))
+                                                  user_id, reduced_at, branch_id, department)
+                    VALUES (%s, %s, 'layby_reserve', %s, %s, %s, %s, %s)
+                """, (pid, qty, f'Layby {reference}', user_id, zimbabwe_now, branch_id,
+                      current_department()))
 
                 cursor.execute("""
                     INSERT INTO layby_items (layby_id, product_id, product_name, quantity,
@@ -18130,13 +18570,13 @@ def pos_upload_stock_apply():
                 # 1) Per-branch quantity (aggregated so the upsert touches each
                 #    product only once - Postgres refuses a double-affected row).
                 execute_values(cursor, """
-                    INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
+                    INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level, updated_at)
                     VALUES %s
-                    ON CONFLICT (product_id, branch_id) DO UPDATE
+                    ON CONFLICT (product_id, branch_id, department) DO UPDATE
                         SET stock = product_stock.stock + EXCLUDED.stock,
                             updated_at = CURRENT_TIMESTAMP
-                """, [(pid, branch_id, qty_by_product[pid], 10) for pid in product_ids],
-                    template="(%s, %s, %s, %s, CURRENT_TIMESTAMP)")
+                """, [(pid, branch_id, DEFAULT_DEPARTMENT, qty_by_product[pid], 10) for pid in product_ids],
+                    template="(%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)")
 
                 # 2) FIFO cost layers at the uploaded buying price, tagged with
                 #    the job reference so a revert removes exactly these layers.
@@ -19244,15 +19684,16 @@ def pos_stock_audit_adopt():
             for item in sorted(changed, key=lambda row: row['product']['id']):
                 product_id = item['product']['id']
                 cursor.execute("""
-                    INSERT INTO product_stock (product_id, branch_id, stock, updated_at)
-                    VALUES (%s, %s, 0, CURRENT_TIMESTAMP)
-                    ON CONFLICT (product_id, branch_id) DO NOTHING
-                """, (product_id, branch_id))
+                    INSERT INTO product_stock (product_id, branch_id, department, stock, updated_at)
+                    VALUES (%s, %s, %s, 0, CURRENT_TIMESTAMP)
+                    ON CONFLICT (product_id, branch_id, department) DO NOTHING
+                """, (product_id, branch_id, DEFAULT_DEPARTMENT))
                 cursor.execute("""
                     SELECT stock FROM product_stock
                     WHERE product_id = %s AND branch_id = %s
+                      AND COALESCE(department, %s) = %s
                     FOR UPDATE
-                """, (product_id, branch_id))
+                """, (product_id, branch_id, DEFAULT_DEPARTMENT, DEFAULT_DEPARTMENT))
                 current_stock[product_id] = int(cursor.fetchone()[0] or 0)
 
             for item in changed:
@@ -19852,13 +20293,14 @@ def pos_stock_audit_adopt_reviewed():
                 # date, 90 counted and 70 actually in stock today, the shelf became
                 # 70 + (90-100) = 60 instead of the 90 that was counted.
                 cursor.execute("""
-                    INSERT INTO product_stock (product_id, branch_id, stock, updated_at)
-                    VALUES (%s, %s, 0, CURRENT_TIMESTAMP)
-                    ON CONFLICT (product_id, branch_id) DO NOTHING
-                """, (product['id'], branch_id))
+                    INSERT INTO product_stock (product_id, branch_id, department, stock, updated_at)
+                    VALUES (%s, %s, %s, 0, CURRENT_TIMESTAMP)
+                    ON CONFLICT (product_id, branch_id, department) DO NOTHING
+                """, (product['id'], branch_id, DEFAULT_DEPARTMENT))
                 cursor.execute("""SELECT stock FROM product_stock
-                                  WHERE product_id = %s AND branch_id = %s FOR UPDATE""",
-                               (product['id'], branch_id))
+                                  WHERE product_id = %s AND branch_id = %s
+                                    AND COALESCE(department, %s) = %s FOR UPDATE""",
+                               (product['id'], branch_id, DEFAULT_DEPARTMENT, DEFAULT_DEPARTMENT))
                 live_before = int(cursor.fetchone()[0] or 0)
                 delta = combined_counted - live_before
                 live_after = combined_counted
@@ -21848,25 +22290,27 @@ def sync_offline_transactions():
                         product_info = cursor.fetchone() or ('', '')
                         cursor.execute("""
                             INSERT INTO transaction_items (transaction_id, product_id, quantity,
-                                                           price_at_time, subtotal, unit_type, unit_details)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                                           price_at_time, subtotal, unit_type, unit_details,
+                                                           department)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                             RETURNING id
                         """, (transaction_id, pid, qty, price, price * qty,
-                              product_info[0], product_info[1]))
+                              product_info[0], product_info[1], current_department()))
                         line_id = cursor.fetchone()[0]
 
                         fifo_cost, _fifo_layers = consume_stock_lots_fifo(
-                            cursor, pid, branch_id, qty)
-                        add_branch_stock(cursor, pid, branch_id, -qty)
+                            cursor, pid, branch_id, qty, department=current_department())
+                        add_branch_stock(cursor, pid, branch_id, -qty,
+                                         department=current_department())
                         cursor.execute(
                             'UPDATE transaction_items SET cost_at_time = %s WHERE id = %s',
                             (round(fifo_cost / max(1, qty), 4), line_id))
                         cursor.execute("""
                             INSERT INTO stock_reductions (product_id, quantity, reason, notes,
-                                                          user_id, reduced_at, branch_id)
-                            VALUES (%s, %s, 'item_sale', %s, %s, %s, %s)
+                                                          user_id, reduced_at, branch_id, department)
+                            VALUES (%s, %s, 'item_sale', %s, %s, %s, %s, %s)
                         """, (pid, qty, 'Sale #%s (offline sync)' % transaction_number,
-                              user_id, created_at, branch_id))
+                              user_id, created_at, branch_id, current_department()))
 
                         # The till rung this sale on a figure it could not confirm
                         # (no connection), so it may have taken more than the shelf
@@ -22000,8 +22444,8 @@ def create_transaction():
             unit_details = product_info[1] if product_info else ''
             
             item_query = """
-                INSERT INTO transaction_items (transaction_id, product_id, quantity, price_at_time, subtotal, unit_type, unit_details)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO transaction_items (transaction_id, product_id, quantity, price_at_time, subtotal, unit_type, unit_details, department)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
             item_params = (
                 transaction_id,
@@ -22010,7 +22454,8 @@ def create_transaction():
                 item['price'],
                 item['price'] * item['quantity'],
                 unit_type,
-                unit_details
+                unit_details,
+                current_department()
             )
             execute_query(item_query, item_params, commit=True)
             
@@ -22023,9 +22468,12 @@ def create_transaction():
             try:
                 with get_db() as (cursor, connection):
                     sale_branch = current_branch_id()
+                    sale_department = current_department()
                     fifo_cost, _fifo_layers = consume_stock_lots_fifo(
-                        cursor, item['id'], sale_branch, int(item['quantity']))
-                    add_branch_stock(cursor, item['id'], sale_branch, -int(item['quantity']))
+                        cursor, item['id'], sale_branch, int(item['quantity']),
+                        department=sale_department)
+                    add_branch_stock(cursor, item['id'], sale_branch, -int(item['quantity']),
+                                     department=sale_department)
                     cursor.execute("""
                         UPDATE transaction_items SET cost_at_time = %s
                         WHERE id = (SELECT id FROM transaction_items
@@ -22035,10 +22483,10 @@ def create_transaction():
                     """, (round(fifo_cost / max(1, int(item['quantity'])), 4),
                           transaction_id, item['id']))
                     cursor.execute("""
-                        INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
-                        VALUES (%s, %s, 'item_sale', %s, %s, CURRENT_TIMESTAMP, %s)
+                        INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id, department)
+                        VALUES (%s, %s, 'item_sale', %s, %s, CURRENT_TIMESTAMP, %s, %s)
                     """, (item['id'], item['quantity'], f"Sale #{transaction_number}",
-                          session.get('user_id', 0), sale_branch))
+                          session.get('user_id', 0), sale_branch, sale_department))
                     connection.commit()
             except Exception as log_err:
                 print(f"Warning: Could not apply sale stock movement: {str(log_err)}")
@@ -22108,12 +22556,17 @@ def get_transactions():
         WHERE t.voided = FALSE
     """
     branch_where, branch_params = branch_read_clause('t.branch_id')
-    query = query + branch_where + """
+    # Department scope: a sale belongs to the department it was rung in. Kept as
+    # an EXISTS on the sale's own lines, so a sale that contains only the other
+    # department's goods never appears on this tab.
+    dept_where, dept_params = department_scope_clause('t.id', 'transaction_items', 'transaction_id')
+    query = query + branch_where + dept_where + """
         ORDER BY t.created_at DESC
         LIMIT %s
     """
     
-    transactions = execute_query(query, tuple(branch_params) + (limit,), fetch_all=True)
+    transactions = execute_query(query, tuple(branch_params) + tuple(dept_params) + (limit,),
+                                 fetch_all=True)
     
     transaction_list = []
     for t in transactions:

@@ -152,9 +152,14 @@ for route_path, label in [('/api/login', 'login'),
 
 # ---- 6: the boot seeder must stay guarded (the original culprit) ------------
 try:
-    seeder = src[src.index('INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level)'):]
-    seeder = seeder[:seeder.index('""",')]
-    say('NOT EXISTS' in seeder,
+    # Match the seeder's column list by shape: it gained a `department` column
+    # when departments were introduced, so an exact string here breaks on any
+    # future column. The GUARD is what matters, not the exact list.
+    _seeder_m = re.search(
+        r"INSERT INTO product_stock \(product_id, branch_id[^)]*stock[^)]*\)\s*(.*?)\"\"\",",
+        src, re.S)
+    seeder = _seeder_m.group(0) if _seeder_m else ''
+    say(bool(seeder) and 'NOT EXISTS' in seeder,
         'the boot seeder still refuses products that already have a branch row')
     say('coalesce(p.stock' in seeder.lower(),
         'the seeder still seeds from products.stock (guarded, as designed)')
