@@ -4,12 +4,12 @@
   "module": "CheckInventoryStockedOnly",
   "file": "_check_inventory_stocked_only.py",
   "purpose": "Check that the Inventory tab lists ONLY what this branch carries",
-  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 369",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 376",
   "entry_flows": [
     "Handler.__init__() → _check_inventory_stocked_only.py, pathlib.Path, environ.get, fh.write"
   ],
   "public_api": [
-    "class Handler(SimpleHTTPRequestHandler)  # line 369",
+    "class Handler(SimpleHTTPRequestHandler)  # line 376",
     "  Handler.__init__()",
     "  Handler.log_message()",
     "  Handler.do_GET()",
@@ -44,7 +44,7 @@
   "file_mtime": 1791301570271.287,
   "file_size": 3269,
   "file_birthtime": 1791301570269.2695,
-  "generated_at": "2026-10-19T15:01:47.987580Z",
+  "generated_at": "2026-10-19T15:13:47.198956Z",
   "stale": false,
   "stale_reason": "source file deleted"
 }

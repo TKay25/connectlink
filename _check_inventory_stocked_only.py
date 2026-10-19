@@ -89,8 +89,15 @@ if not GIT:
 GIT = GIT or 'git'
 
 OLD = None
+# The commit the "another branch" marker was introduced in. This check exists to
+# prove that marker was the ONLY change made to the name hints, so it has to be
+# read from the version BEFORE the feature -- comparing against HEAD (which has
+# contained the marker for many commits) could never hold and reported a failure
+# on every run. 5ad907f is the last revision whose setupAutocomplete() has no
+# marker. Override with CHECK_BASELINE_REV when the baseline needs moving.
+BASELINE_REV = os.environ.get('CHECK_BASELINE_REV', '5ad907f')
 try:
-    proc = subprocess.run([GIT, 'show', 'HEAD:' + TEMPLATE],
+    proc = subprocess.run([GIT, 'show', BASELINE_REV + ':' + TEMPLATE],
                           capture_output=True, cwd=str(ROOT))
     if proc.returncode != 0:
         raise RuntimeError((proc.stderr or b'').decode('utf-8', 'replace').strip()
@@ -99,7 +106,7 @@ try:
     # code page, and git hands back the blob verbatim.
     OLD = proc.stdout.decode('utf-8', 'replace')
     check('read the committed POS page for comparison', True,
-          '%d chars via %s' % (len(OLD), GIT))
+          '%d chars via %s at %s' % (len(OLD), GIT, BASELINE_REV))
 except Exception as exc:                                               # noqa: BLE001
     check('read the committed POS page for comparison', False,
           'no baseline, syntax diff skipped (%s)' % exc)

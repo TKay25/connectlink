@@ -19989,12 +19989,19 @@ def pos_stock_audit_archive_products():
     branch_id = current_branch_id()
     if not branch_id:
         return jsonify({'success': False, 'error': 'Select a branch before removing products.'}), 400
+    # The browser's copy of the branch is only ever a staleness check against the
+    # SESSION's branch -- it never decides which branch is written. Compare it
+    # explicitly (rather than inline in an expression) so the rule is visible to
+    # _check_branch_write_scoping.py and to the next reader: a client-supplied
+    # branch is refused the moment it disagrees with the proved session branch,
+    # which is what stops a stale audit tab archiving another shop's products.
     try:
-        if int(data.get('branch_id') or 0) != branch_id:
-            return jsonify({'success': False,
-                            'error': 'The selected branch changed. Run the audit again.'}), 409
+        declared_branch = int(data.get('branch_id') or 0)
     except (TypeError, ValueError):
         return jsonify({'success': False, 'error': 'The selected branch changed.'}), 409
+    if declared_branch != branch_id:
+        return jsonify({'success': False,
+                        'error': 'The selected branch changed. Run the audit again.'}), 409
 
     raw_ids = data.get('product_ids') or []
     if not isinstance(raw_ids, list) or not raw_ids:
