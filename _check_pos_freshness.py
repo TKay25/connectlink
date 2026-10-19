@@ -418,7 +418,14 @@ check('the same news is not repeated for an unchanged count',
       'sessionNoticeKey' in notify and '< 60000' in notify)
 sales_sync = extract(NEW, 'function syncOfflineSales(')
 refuse = sales_sync[sales_sync.index('if (!reply.ok) {'):]
-refuse = refuse[:refuse.index('var done = {}, held = {};')]
+# The refusal branch ends where the queue is actually reconciled. That line has
+# gained buckets over time (done/held, then blocked), so match the shape rather
+# than one exact spelling -- a hard-coded string here silently broke this check
+# the moment a bucket was added.
+_end = re.search(r'var done = \{\}, held = \{\}(?:, \w+ = \{\})*;', refuse)
+check('found the end of the refusal branch', _end is not None)
+if _end:
+    refuse = refuse[:_end.start()]
 check('a refused batch that only needs a login is reported as sales waiting, not as an error',
       'data.session_expired' in refuse and 'notifySessionExpired();' in refuse
       and refuse.index('data.session_expired') < refuse.index('showToast(data.error'))
