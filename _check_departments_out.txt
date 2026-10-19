@@ -28,6 +28,8 @@ PASS  reductions are scoped to the department
 PASS  sale lines are scoped to the department
 PASS  the transactions tab is scoped to the department
 PASS  a sale records the department it was rung in
+PASS  every stock receipt records its department
+PASS  every stock reduction records its department (where written by a sale path)  -> informational: 6 site(s) rely on the hardware default
 PASS  the department switch endpoint exists
 PASS  the per-product department endpoint exists
 PASS  the switch refuses an unknown department

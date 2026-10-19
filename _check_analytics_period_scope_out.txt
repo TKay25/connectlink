@@ -1,17 +1,17 @@
 PASS  script started
-PASS  read the POS page  -> 1080130 chars
-PASS  read the committed POS page for comparison  -> 1080130 chars
-PASS  loadSalesReport() parses  -> 3970 chars (lines 13463-13548)
-PASS  updateReportDateRange() parses  -> 717 chars (lines 13383-13398)
-PASS  renderSalesReport() parses  -> 22188 chars (lines 13548-13996)
-PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 20503-20527)
-PASS  renderAnalytics() parses  -> 37870 chars (lines 20657-21396)
-PASS  reportScopeLabel() parses  -> 681 chars (lines 20571-20584)
-PASS  syncAnalyticsScope() parses  -> 576 chars (lines 20588-20600)
-PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 20605-20616)
-PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 20618-20624)
-PASS  toLocalISODate() parses  -> 222 chars (lines 20542-20546)
-PASS  fmtDayLong() parses  -> 259 chars (lines 20559-20564)
+PASS  read the POS page  -> 1087713 chars
+PASS  read the committed POS page for comparison  -> 1087713 chars
+PASS  loadSalesReport() parses  -> 3970 chars (lines 13517-13602)
+PASS  updateReportDateRange() parses  -> 717 chars (lines 13437-13452)
+PASS  renderSalesReport() parses  -> 22188 chars (lines 13602-14050)
+PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 20563-20587)
+PASS  renderAnalytics() parses  -> 37870 chars (lines 20717-21456)
+PASS  reportScopeLabel() parses  -> 681 chars (lines 20631-20644)
+PASS  syncAnalyticsScope() parses  -> 576 chars (lines 20648-20660)
+PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 20665-20676)
+PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 20678-20684)
+PASS  toLocalISODate() parses  -> 222 chars (lines 20602-20606)
+PASS  fmtDayLong() parses  -> 259 chars (lines 20619-20624)
 PASS  the analytics page is drawn from one filtered report, not its own fetch  -> renderAnalytics() draws currentReportData (0 fetch( inside it); the report itself is fetched once, in loadSalesReport
 PASS  loadSalesReport() publishes the applied scope  -> window.__reportScope present
 PASS  the scope is published BEFORE the fetch, never after it  -> scope at 2485, fetch at 2693

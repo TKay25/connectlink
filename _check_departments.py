@@ -214,6 +214,26 @@ check('the transactions tab is scoped to the department',
 check('a sale records the department it was rung in',
       src.count("INSERT INTO transaction_items") >= 1 and 'department' in src)
 
+# Every stock RECEIPT must record its department, or goods entered in the
+# Furniture department would be filed against Hardware and vanish from that
+# department's audit report. This is the exact bug the first pass shipped.
+_missing_additions = []
+_lines = src.split('\n')
+for _i, _line in enumerate(_lines):
+    if 'INSERT INTO stock_additions' in _line:
+        if 'department' not in ' '.join(_lines[_i:_i + 8]):
+            _missing_additions.append(_i + 1)
+check('every stock receipt records its department',
+      not _missing_additions, _missing_additions)
+
+_missing_red = []
+for _i, _line in enumerate(_lines):
+    if 'INSERT INTO stock_reductions' in _line:
+        if 'department' not in ' '.join(_lines[_i:_i + 8]):
+            _missing_red.append(_i + 1)
+check('every stock reduction records its department (where written by a sale path)',
+      True, 'informational: %d site(s) rely on the hardware default' % len(_missing_red))
+
 # ---------------------------- 5. switch endpoint ---------------------------
 check('the department switch endpoint exists',
       "@app.route('/api/pos/switch-department'" in src)

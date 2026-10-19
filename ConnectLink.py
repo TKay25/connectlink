@@ -16097,11 +16097,11 @@ def pos_transfer_stock():
             # ...and into the destination.
             add_branch_stock(cursor, product_id, to_branch, quantity)
             cursor.execute("""
-                INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
-                VALUES (%s, %s, %s, %s, 'TRANSFER', %s, CURRENT_TIMESTAMP, %s)
+                INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id, department)
+                VALUES (%s, %s, %s, %s, 'TRANSFER', %s, CURRENT_TIMESTAMP, %s, %s)
             """, (product_id, quantity,
                   round(moved_cost / max(1, quantity), 2), round(moved_cost, 2),
-                  user_id, to_branch))
+                  user_id, to_branch, current_department()))
 
             connection.commit()
 
@@ -16372,10 +16372,10 @@ def dispatch_push():
                 cursor.execute("""
                     INSERT INTO stock_additions
                         (product_id, quantity, buy_price, total_cost, funding_source,
-                         user_id, added_at, branch_id)
-                    VALUES (%s, %s, %s, %s, 'DISPATCH', %s, CURRENT_TIMESTAMP, %s)
+                         user_id, added_at, branch_id, department)
+                    VALUES (%s, %s, %s, %s, 'DISPATCH', %s, CURRENT_TIMESTAMP, %s, %s)
                 """, (pid, qty, round(moved_cost / max(1, qty), 2),
-                      round(moved_cost, 2), user_id, to_branch))
+                      round(moved_cost, 2), user_id, to_branch, current_department()))
 
                 dispatched.append({'product_id': pid, 'product_name': product_name,
                                    'quantity': qty, 'transfer_id': transfer_id})
@@ -16607,9 +16607,10 @@ def pos_reconciliation_reassign():
                 add_branch_stock(cursor, pid, from_branch, qty)
                 cursor.execute("""
                     INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
-                                                 funding_source, reference, user_id, added_at, branch_id)
-                    VALUES (%s, %s, 0, 0, 'CORRECTION', %s, %s, CURRENT_TIMESTAMP, %s)
-                """, (pid, qty, f'RECON-{t[1]}', user_id, from_branch))
+                                                 funding_source, reference, user_id, added_at, branch_id,
+                                                 department)
+                    VALUES (%s, %s, 0, 0, 'CORRECTION', %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                """, (pid, qty, f'RECON-{t[1]}', user_id, from_branch, current_department()))
 
                 # ...and take it off the branch that did the selling.
                 add_branch_stock(cursor, pid, to_branch, -qty)
@@ -17459,9 +17460,11 @@ def pos_cancel_layby(layby_id):
                 add_branch_stock(cursor, pid, branch_id, qty)
                 cursor.execute("""
                     INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
-                                                 funding_source, reference, user_id, added_at, branch_id)
-                    VALUES (%s, %s, 0, 0, 'LAYBY_CANCEL', %s, %s, %s, %s)
-                """, (pid, qty, f'CANCEL-{l[1]}', user_id, now, branch_id))
+                                                 funding_source, reference, user_id, added_at, branch_id,
+                                                 department)
+                    VALUES (%s, %s, 0, 0, 'LAYBY_CANCEL', %s, %s, %s, %s, %s)
+                """, (pid, qty, f'CANCEL-{l[1]}', user_id, now, branch_id,
+                      current_department()))
 
             cursor.execute("""
                 UPDATE laybys SET status = 'cancelled', cancelled_at = %s, cancel_reason = %s
@@ -18500,7 +18503,8 @@ def pos_upload_stock_apply():
                 cost_by_product[pid] = cost_by_product.get(pid, 0.0) + (buy * qty)
                 # (product_id, branch_id, quantity_received, quantity_remaining, unit_cost, reference)
                 lot_rows.append((pid, branch_id, qty, qty, buy, reference))
-                addition_rows.append((pid, qty, buy, round(buy * qty, 2), reference, user_id, branch_id))
+                addition_rows.append((pid, qty, buy, round(buy * qty, 2), reference, user_id,
+                                      branch_id, current_department()))
                 price_by_product[pid] = sell     # one price per product (last wins)
                 total_qty += qty
                 total_cost += buy * qty
@@ -18514,8 +18518,9 @@ def pos_upload_stock_apply():
                 FROM products p
                 LEFT JOIN product_stock ps
                        ON ps.product_id = p.id AND ps.branch_id = %s
+                      AND COALESCE(ps.department, %s) = %s
                 WHERE p.id = ANY(%s)
-            """, (branch_id, product_ids))
+            """, (branch_id, DEFAULT_DEPARTMENT, current_department(), product_ids))
             for r in cursor.fetchall():
                 snapshots[r[0]] = {'stock': int(r[1] or 0), 'sell': r[2],
                                    'buy': r[3], 'active': r[4], 'name': r[5]}
@@ -18589,9 +18594,10 @@ def pos_upload_stock_apply():
                 # 3) Audit trail (shows in the stock-movements / audit report).
                 execute_values(cursor, """
                     INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost,
-                                                 funding_source, reference, user_id, added_at, branch_id)
+                                                 funding_source, reference, user_id, added_at, branch_id,
+                                                 department)
                     VALUES %s
-                """, addition_rows, template="(%s, %s, %s, %s, 'UPLOAD', %s, %s, CURRENT_TIMESTAMP, %s)")
+                """, addition_rows, template="(%s, %s, %s, %s, 'UPLOAD', %s, %s, CURRENT_TIMESTAMP, %s, %s)")
 
                 # 4) Selling prices (the shared catalogue price).
                 execute_values(cursor, """
@@ -19734,10 +19740,10 @@ def pos_stock_audit_adopt():
                     cursor.execute("""
                         INSERT INTO stock_additions
                             (product_id, quantity, buy_price, total_cost, funding_source,
-                             user_id, added_at, branch_id, reference)
-                        VALUES (%s, %s, %s, %s, 'Audit adjustment', %s, CURRENT_TIMESTAMP, %s, %s)
+                             user_id, added_at, branch_id, reference, department)
+                        VALUES (%s, %s, %s, %s, 'Audit adjustment', %s, CURRENT_TIMESTAMP, %s, %s, %s)
                     """, (product['id'], delta, buy_price, valuation_delta,
-                          user_id, branch_id, reference))
+                          user_id, branch_id, reference, current_department()))
                     receive_stock_lot(cursor, product['id'], branch_id, delta, buy_price,
                                       'stock_audit', reference)
                     add_branch_stock(cursor, product['id'], branch_id, delta, lot_cost=buy_price)
@@ -20329,9 +20335,9 @@ def pos_stock_audit_adopt_reviewed():
                         cursor.execute("""
                             INSERT INTO stock_additions
                                 (product_id, quantity, buy_price, total_cost, funding_source,
-                                 user_id, added_at, branch_id, reference)
-                            VALUES (%s, %s, %s, %s, 'Audit adjustment', %s, CURRENT_TIMESTAMP, %s, %s)
-                        """, (product['id'], delta, buy_price, valuation_delta, user_id, branch_id, reference))
+                                 user_id, added_at, branch_id, reference, department)
+                            VALUES (%s, %s, %s, %s, 'Audit adjustment', %s, CURRENT_TIMESTAMP, %s, %s, %s)
+                        """, (product['id'], delta, buy_price, valuation_delta, user_id, branch_id, reference, current_department()))
                         receive_stock_lot(cursor, product['id'], branch_id, delta, buy_price,
                                           'stock_audit', reference)
                         add_branch_stock(cursor, product['id'], branch_id, delta, lot_cost=buy_price)
@@ -21613,8 +21619,8 @@ def update_product(product_id):
         try:
             quantity_added = (int(data.get('stock') or 0) - old_stock) if 'stock' in data else 0
             execute_query("""
-                INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
-                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
+                INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id, department)
+                VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s)
             """, (
                 product_id,
                 quantity_added,
@@ -22900,9 +22906,10 @@ def revert_transaction(transaction_id):
                 # Log the restoration for the audit trail (best-effort)
                 try:
                     cursor.execute("""
-                        INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id)
-                        VALUES (%s, %s, %s, %s, 'VOID', %s, CURRENT_TIMESTAMP, %s)
-                    """, (pid, qty, buy, round(buy * qty, 2), user_id, branch_id))
+                        INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id, department)
+                        VALUES (%s, %s, %s, %s, 'VOID', %s, CURRENT_TIMESTAMP, %s, %s)
+                    """, (pid, qty, buy, round(buy * qty, 2), user_id, branch_id,
+                          current_department()))
                 except Exception as sa_err:
                     print(f"Warning: Could not log reverted stock addition: {sa_err}")
                 restored += 1
