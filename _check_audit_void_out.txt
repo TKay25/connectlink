@@ -1,5 +1,5 @@
 PASS  script started
-PASS  read ConnectLink.py  -> 3095588 chars
+PASS  read ConnectLink.py  -> 3276008 chars
 PASS  both new pieces are valid Python
 PASS  the sale row carries the voided flag at the position read (14)  -> t.voided as is_voided
 PASS  and the moment it was reverted, at 15  -> t.voided_at as voided_at

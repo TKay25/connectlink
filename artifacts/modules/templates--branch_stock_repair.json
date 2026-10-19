@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "BranchStockRepair",
+  "file": "templates/branch_stock_repair.html",
+  "purpose": "<!-- Describe what BranchStockRepair does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "dff5995476ed4784",
+  "file_mtime": 1791981812000,
+  "file_size": 8931,
+  "file_birthtime": 1792330535179.8413,
+  "generated_at": "2026-10-19T14:02:24.740Z",
+  "stale": false
+}

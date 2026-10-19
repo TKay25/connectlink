@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phantom Branch Stock Repair — ConnectLink</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+    body { background: #f4f6f9; }
+    .wrap { max-width: 1150px; margin: 0 auto; padding: 24px 16px 60px; }
+    .card { border: 0; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-radius: 12px; }
+    .stat h3 { margin: 0; font-weight: 700; }
+    .stat small { color: #6c757d; text-transform: uppercase; letter-spacing: .04em; }
+    table { font-size: .875rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <h4 class="mb-0"><i class="fas fa-broom me-2"></i>Phantom Branch Stock Repair</h4>
+            <div class="text-muted small">
+                Stock a branch shows but never actually received. Checking:
+                <strong id="branchName">—</strong>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="loadReport()">
+                <i class="fas fa-rotate me-1"></i>Re-check
+            </button>
+            <a class="btn btn-outline-secondary btn-sm" href="/adminpage">Back to Admin</a>
+        </div>
+    </div>
+
+    <div id="alertBox"></div>
+
+    <div class="card p-3 mb-3">
+        <h6 class="fw-bold mb-2">What this is</h6>
+        <p class="text-muted small mb-2">
+            When per-branch stock was introduced, a startup routine gave this branch a stock row for
+            every product in the shared catalogue — seeded from the <em>company</em> total. Any item
+            added at another branch therefore appeared here carrying that branch's own figure, and this
+            branch's till stopped hiding it. The routine is fixed; the rows it already wrote are not
+            removed by themselves.
+        </p>
+        <p class="text-muted small mb-0">
+            A row is listed below only when this branch has <strong>no receipt, no cost layer and no
+            sale</strong> behind it, while another branch genuinely holds the item. Nothing else is
+            ever touched. Removed rows are copied to a backup table first, and the catalogue totals are
+            recalculated afterwards.
+        </p>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-4"><div class="card p-3 stat"><small>Rows to remove</small><h3 id="statCount">0</h3></div></div>
+        <div class="col-6 col-md-4"><div class="card p-3 stat"><small>Branch</small><h3 id="statBranch" style="font-size:1.25rem">—</h3></div></div>
+        <div class="col-6 col-md-4"><div class="card p-3 stat"><small>Status</small><h3 id="statStatus" style="font-size:1.25rem">—</h3></div></div>
+    </div>
+
+    <div class="card p-3 mb-3">
+        <h6 class="fw-bold mb-2"><i class="fas fa-list me-1"></i>Suspect rows</h6>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0" id="phantomTable">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Item</th>
+                        <th class="text-end">Shown here</th>
+                        <th class="text-end">Held elsewhere</th>
+                    </tr>
+                </thead>
+                <tbody><tr><td colspan="4" class="text-muted">Loading…</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card p-3" id="applyCard" style="display:none">
+        <h6 class="fw-bold mb-2"><i class="fas fa-toolbox me-1"></i>Apply the repair</h6>
+        <p class="text-muted small">
+            This deletes the rows above and their opening cost layers, then recalculates the catalogue
+            totals. Type <strong>remove</strong> to confirm.
+        </p>
+        <div class="row g-2 align-items-center">
+            <div class="col-sm-4">
+                <input type="text" class="form-control form-control-sm" id="confirmText"
+                       placeholder="type: remove" autocomplete="off">
+            </div>
+            <div class="col-sm-auto">
+                <button class="btn btn-danger btn-sm" id="applyBtn" onclick="applyRepair()">
+                    <i class="fas fa-broom me-1"></i>Remove phantom rows
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_BASE = '';
+
+function showAlert(kind, html) {
+    document.getElementById('alertBox').innerHTML =
+        '<div class="alert alert-' + kind + ' py-2">' + html + '</div>';
+}
+function clearAlert() { document.getElementById('alertBox').innerHTML = ''; }
+
+async function loadReport() {
+    clearAlert();
+    const tbody = document.querySelector('#phantomTable tbody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Loading…</td></tr>';
+    try {
+        const res = await fetch(API_BASE + '/api/branch-health/phantom-stock', { credentials: 'include' });
+        if (res.status === 403) {
+            document.getElementById('statStatus').textContent = 'Admin only';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Admin access is required.</td></tr>';
+            return;
+        }
+        const data = await res.json();
+        if (!data.success) {
+            showAlert('danger', 'Could not check: ' + (data.error || 'unknown error'));
+            tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Unable to load.</td></tr>';
+            return;
+        }
+        if (!data.applicable) {
+            document.getElementById('statStatus').textContent = 'Not applicable';
+            document.getElementById('branchName').textContent = '—';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-muted">' +
+                (data.note || 'Nothing to check.') + '</td></tr>';
+            return;
+        }
+        document.getElementById('branchName').textContent = data.branch.name + ' (' + data.branch.code + ')';
+        document.getElementById('statBranch').textContent = data.branch.name;
+        document.getElementById('statCount').textContent = data.count;
+        document.getElementById('statStatus').textContent = data.count ? 'Needs repair' : 'Clean';
+
+        if (!data.count) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-success">' +
+                'No phantom rows — this branch holds only stock it actually received.</td></tr>';
+            document.getElementById('applyCard').style.display = 'none';
+            return;
+        }
+        tbody.innerHTML = data.phantoms.map(function (p) {
+            return '<tr>' +
+                '<td>' + p.product_id + '</td>' +
+                '<td>' + escapeHtml(p.name) + '</td>' +
+                '<td class="text-end text-danger">' + p.branch_stock + '</td>' +
+                '<td class="text-end">' + p.other_branches_stock + '</td>' +
+                '</tr>';
+        }).join('');
+        document.getElementById('applyCard').style.display = '';
+    } catch (e) {
+        showAlert('danger', 'Could not reach the server.');
+        tbody.innerHTML = '<tr><td colspan="4" class="text-danger">Unable to load.</td></tr>';
+    }
+}
+
+async function applyRepair() {
+    const confirmText = document.getElementById('confirmText').value.trim().toLowerCase();
+    if (confirmText !== 'remove') {
+        showAlert('warning', 'Type <strong>remove</strong> in the box before applying.');
+        return;
+    }
+    const btn = document.getElementById('applyBtn');
+    btn.disabled = true;
+    try {
+        const res = await fetch(API_BASE + '/api/branch-health/phantom-stock/repair', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ confirm: 'remove' })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            showAlert('danger', 'Repair failed: ' + (data.error || 'unknown error'));
+            return;
+        }
+        showAlert('success', escapeHtml(data.message || 'Repair complete.'));
+        document.getElementById('confirmText').value = '';
+        await loadReport();
+    } catch (e) {
+        showAlert('danger', 'Could not reach the server.');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+}
+
+loadReport();
+</script>
+</body>
+</html>

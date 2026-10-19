@@ -6280,6 +6280,10 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                     <i class="fas fa-hand-holding-dollar"></i>
                     <span class="menu-text">Layby</span>
                 </div>
+                <div class="menu-item" data-page="dispatch">
+                    <i class="fas fa-warehouse"></i>
+                    <span class="menu-text">Dispatch Analytics</span>
+                </div>
                 <div class="sidebar-section-label menu-text">Reports &amp; Insights</div>
                 <div class="menu-item" data-page="sales">
                     <i class="fas fa-chart-line"></i>
@@ -6390,14 +6394,17 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <div class="modal-body">
                             <div class="mb-2">
                                 <label class="form-label fw-bold">Branch</label>
-                                <select class="form-select form-select-sm" id="branchSwitchSelect"></select>
+                                <select class="form-select form-select-sm" id="branchSwitchSelect" onchange="syncBranchSwitchCodeField()"></select>
                             </div>
-                            <div class="mb-2">
+                            <div class="mb-2" id="branchSwitchCodeGroup">
                                 <label class="form-label fw-bold">Branch Code</label>
                                 <input type="password" class="form-control form-control-sm" id="branchSwitchCode" placeholder="Branch access code">
                             </div>
+                            <div id="branchSwitchDispatchNote" class="alert alert-info py-2 small mb-2" style="display:none;">
+                                <i class="fas fa-warehouse me-1"></i>Central Dispatch needs no branch code.
+                            </div>
                             <div id="branchSwitchError" class="small text-danger" style="display:none;"></div>
-                            <div class="small text-muted mt-2">
+                            <div class="small text-muted mt-2" id="branchSwitchCartNote">
                                 <i class="fas fa-triangle-exclamation me-1"></i>The cart is cleared when you switch, so a sale can never span two shops.
                             </div>
                         </div>
@@ -6459,6 +6466,61 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <div class="modal-footer">
                             <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
                             <button class="btn btn-sm btn-primary-dark" id="transferConfirmBtn" onclick="confirmStockTransfer()">Transfer</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dispatch Docket Modal (Central Dispatch only) -->
+            <div class="modal fade" id="dispatchModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header" style="background:var(--dark-blue-deep);color:white;border-bottom:2px solid var(--crimson-bright);">
+                            <h5 class="modal-title"><i class="fas fa-warehouse me-1"></i>Dispatch Stock to a Shop</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">From</label>
+                                    <div class="form-control form-control-sm bg-light" id="dispatchFromBranch">Central Dispatch</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">To</label>
+                                    <select class="form-select form-select-sm" id="dispatchToBranch"></select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold">Product</label>
+                                    <select class="form-select form-select-sm" id="dispatchProduct"></select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Quantity</label>
+                                    <input type="number" min="1" class="form-control form-control-sm" id="dispatchQuantity" placeholder="0">
+                                </div>
+                                <div class="col-12">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="addDispatchLine()">
+                                        <i class="fas fa-plus me-1"></i>Add to docket
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-responsive mt-2" style="max-height:240px;overflow:auto;">
+                                <table class="table table-sm mb-0">
+                                    <thead><tr><th>Product</th><th class="text-end">Qty</th><th></th></tr></thead>
+                                    <tbody id="dispatchLinesBody"></tbody>
+                                </table>
+                            </div>
+                            <div class="mt-2">
+                                <label class="form-label fw-bold">Notes (optional)</label>
+                                <input type="text" class="form-control form-control-sm" id="dispatchNotes" placeholder="e.g. Weekly restock">
+                            </div>
+                            <div id="dispatchError" class="small text-danger mt-2" style="display:none;"></div>
+                            <div class="small text-muted mt-2">
+                                Stock leaves Dispatch and is added to the shop you choose. The whole docket is sent together: if any line is short, nothing is dispatched.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button class="btn btn-sm btn-primary-dark" id="dispatchConfirmBtn" onclick="confirmDispatch()">Dispatch</button>
                         </div>
                     </div>
                 </div>
@@ -7414,6 +7476,12 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <button class="btn btn-primary-dark" onclick="openTransferStockModal()">
                                     <i class="fas fa-truck me-1"></i>Transfer Stock
                                 </button>
+                                <!-- Dispatch branches push stock to the shops; a shop
+                                     only ever receives it, so this button is hidden
+                                     there (see applyDispatchMenu). -->
+                                <button class="btn btn-success" id="dispatchStockBtn" onclick="openDispatchModal()" style="display:none;">
+                                    <i class="fas fa-warehouse me-1"></i>Dispatch Stock
+                                </button>
                                 <button class="btn btn-primary-dark" onclick="window.location.href='/pos/reconciliation'">
                                     <i class="fas fa-scale-balanced me-1"></i>Stock Reconciliation
                                 </button>
@@ -8147,6 +8215,87 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             <tbody id="transactionsList">
                                 <tr><td colspan="8" class="text-center">No transactions yet</td></tr>
                             </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dispatch Analytics Page (Central Dispatch only) -->
+            <div id="dispatchPage" style="display: none;">
+                <div class="section-card">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-warehouse me-1"></i>Dispatch Analytics</h5>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <input type="date" id="dispatchStartDate" class="form-control form-control-sm" style="width:auto;">
+                            <input type="date" id="dispatchEndDate" class="form-control form-control-sm" style="width:auto;">
+                            <button class="btn btn-primary-dark btn-sm" onclick="loadDispatchAnalytics()">
+                                <i class="fas fa-sync me-1"></i>Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="small text-muted">Units Dispatched</div>
+                                        <h5 class="mb-0 fw-bold" id="dispatchTotalUnits">0</h5>
+                                    </div>
+                                    <i class="fas fa-boxes-stacked fa-2x text-muted"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="small text-muted">Dispatch Lines</div>
+                                        <h5 class="mb-0 fw-bold" id="dispatchTotalCount">0</h5>
+                                    </div>
+                                    <i class="fas fa-truck fa-2x text-muted"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-sm-6">
+                            <div class="stat-card">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="small text-muted">Value Dispatched</div>
+                                        <h5 class="mb-0 fw-bold" id="dispatchTotalValue">$0.00</h5>
+                                    </div>
+                                    <i class="fas fa-dollar-sign fa-2x text-muted"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <h6 class="fw-bold"><i class="fas fa-shop me-1"></i>By Destination Shop</h6>
+                            <div class="table-responsive" style="max-height:320px;">
+                                <table class="table table-sm table-striped mb-0">
+                                    <thead><tr><th>Shop</th><th class="text-end">Units</th><th class="text-end">Lines</th><th class="text-end">Value</th></tr></thead>
+                                    <tbody id="dispatchByBranchBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <h6 class="fw-bold"><i class="fas fa-box me-1"></i>By Product</h6>
+                            <div class="table-responsive" style="max-height:320px;">
+                                <table class="table table-sm table-striped mb-0">
+                                    <thead><tr><th>Product</th><th class="text-end">Units</th><th class="text-end">Lines</th></tr></thead>
+                                    <tbody id="dispatchByProductBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mt-4"><i class="fas fa-clock-rotate-left me-1"></i>Recent Dispatches</h6>
+                    <div class="table-responsive" style="max-height:360px;">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead><tr><th>Date</th><th>Product</th><th class="text-end">Qty</th><th>To</th><th>By</th><th>Notes</th></tr></thead>
+                            <tbody id="dispatchRecentBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -11652,7 +11801,7 @@ function renderAuditMovements(movements) {
                 <td class="${qtyColor} fw-bold">${isAddition ? '+' : '-'}${m.quantity}</td>
                 <td><small class="text-muted">${escapeHtml(m.details || '')}</small></td>
                 <td><small>${escapeHtml(m.user || 'System')}</small></td>
-                <td><small class="text-muted">${m.branch_name ? escapeHtml(m.branch_name) : '&mdash;'}</small></td>
+                <td><small class="text-muted">${m.branch_name ? escapeHtml(m.branch_name) + (m.is_dispatch ? ' <span class="badge bg-dark">warehouse</span>' : '') : '&mdash;'}</small></td>
             </tr>
         `;
     }).join('');
@@ -11756,6 +11905,15 @@ function renderAuditVoided(voided) {
             </tr>
         `;
     }).join('');
+}
+
+function auditBranchLabel(m) {
+    // Dispatch is labelled explicitly, so a downloaded report can never be
+    // mistaken for a shop's movements: both live in the same tables and only
+    // this label tells them apart.
+    const name = (m && m.branch_name) ? m.branch_name : '';
+    if (m && m.is_dispatch) return (name || 'Central Dispatch') + ' (Central Dispatch)';
+    return name;
 }
 
 function renderAuditProductSummary(products) {
@@ -11880,7 +12038,7 @@ async function exportStockAuditExcel() {
         m.type === 'addition' ? m.quantity : -m.quantity,
         m.details || '',
         m.user || '',
-        m.branch_name || ''
+        auditBranchLabel(m)
     ]);
     
     const wsMovements_data = [
@@ -12204,7 +12362,7 @@ async function exportStockAuditPDF() {
                 { content: (isAddition ? '+' : '-') + (m.quantity == null ? 0 : m.quantity), styles: { textColor: typeColor } },
                 String(m.details || ''),
                 String(m.user || 'System'),
-                String(m.branch_name || '\u2014')
+                String(auditBranchLabel(m) || '\u2014')
             ];
         });
         addTable(
@@ -14726,6 +14884,41 @@ async function fetchTransactionsData() {
         return !!(posBranch && posBranch.read_only);
     }
 
+    // Central Dispatch: a warehouse branch. It receives stock and pushes it to
+    // the shops, so the till, layby and sales pages do not apply to it.
+    function branchIsDispatch() {
+        return !!(posBranch && posBranch.is_dispatch);
+    }
+    window.branchIsDispatch = branchIsDispatch;
+
+    // Pages a dispatch branch must never show. Inventory and Dispatch Analytics
+    // are the only two it runs.
+    var DISPATCH_BLOCKED_PAGES = ['pos', 'sales', 'transactions', 'analytics', 'layby'];
+    window.DISPATCH_BLOCKED_PAGES = DISPATCH_BLOCKED_PAGES;
+
+    // Show only the menus this branch actually runs, and land the user on a page
+    // that exists: a dispatch login must never open on an empty till.
+    function applyDispatchMenu() {
+        var isDispatch = branchIsDispatch();
+        document.querySelectorAll('.menu-item[data-page]').forEach(function (item) {
+            var page = item.getAttribute('data-page');
+            if (isDispatch) {
+                item.style.display = (page === 'inventory' || page === 'dispatch') ? '' : 'none';
+            } else {
+                // Dispatch analytics is meaningless in a shop.
+                item.style.display = (page === 'dispatch') ? 'none' : '';
+            }
+        });
+        if (isDispatch && DISPATCH_BLOCKED_PAGES.indexOf(currentPage) !== -1) {
+            navigateTo('inventory');
+        }
+        // Dispatch pushes stock out; a shop has nothing to dispatch and does not
+        // need the Transfer button either (its transfer is a Dispatch coming in).
+        var dispatchBtn = document.getElementById('dispatchStockBtn');
+        if (dispatchBtn) dispatchBtn.style.display = isDispatch ? '' : 'none';
+    }
+    window.applyDispatchMenu = applyDispatchMenu;
+
     // The SESSION is the source of truth for which branch this till is on, so we
     // re-read it rather than trusting whatever a response body happens to carry.
     async function refreshBranchFromServer() {
@@ -14761,6 +14954,10 @@ async function fetchTransactionsData() {
         if (drawerBranch) drawerBranch.innerText = label;
         const drawerBranchChip = document.getElementById('posDrawerBranchChip');
         if (drawerBranchChip) drawerBranchChip.innerText = unchosen ? '\u2014' : (posBranch.name || '\u2014');
+
+        // A dispatch branch only runs Inventory + Dispatch Analytics, so the menu
+        // (and the page it lands on) changes with the branch.
+        if (typeof applyDispatchMenu === 'function') applyDispatchMenu();
     }
 
     function branchWriteBlockedToast() {
@@ -14793,6 +14990,12 @@ async function fetchTransactionsData() {
         if (errEl) { errEl.style.display = 'none'; errEl.innerText = ''; }
         if (codeEl) codeEl.value = '';
         if (sel) sel.innerHTML = '<option value="">Loading...</option>';
+        // Nothing is known about the branches until the list arrives, so hide the
+        // code box rather than show an empty one that the next step may remove.
+        const codeGroup = document.getElementById('branchSwitchCodeGroup');
+        if (codeGroup) codeGroup.style.display = 'none';
+        const dispatchNote = document.getElementById('branchSwitchDispatchNote');
+        if (dispatchNote) dispatchNote.style.display = 'none';
 
         const modalEl = document.getElementById('branchSwitchModal');
         if (modalEl) {
@@ -14809,21 +15012,50 @@ async function fetchTransactionsData() {
             .then(data => {
                 if (!sel) return;
                 let html = '';
+                // needs_code comes from the server so the form never asks for a
+                // code that does not exist (Central Dispatch has none).
+                branchSwitchNeedsCode = {};
                 ((data && data.branches) || []).forEach(b => {
-                    html += `<option value="${b.id}">${escapeHtml(b.name)}</option>`;
+                    branchSwitchNeedsCode[String(b.id)] = b.needs_code !== false;
+                    const label = b.is_dispatch ? `${b.name} (warehouse)` : b.name;
+                    html += `<option value="${b.id}">${escapeHtml(label)}</option>`;
                 });
                 if (data && data.all_branches) {
+                    branchSwitchNeedsCode[String(data.all_branches.id)] =
+                        data.all_branches.needs_code !== false;
                     html += `<option value="${data.all_branches.id}">${escapeHtml(data.all_branches.name)}</option>`;
                 }
                 sel.innerHTML = html || '<option value="">No branches available</option>';
                 if (posBranch && posBranch.id !== null && posBranch.id !== undefined) {
                     sel.value = String(posBranch.id);
                 }
+                syncBranchSwitchCodeField();
             })
             .catch(() => {
                 if (sel) sel.innerHTML = '<option value="">Could not load branches</option>';
             });
     }
+
+    // Which branches ask for an access code. Populated by openBranchSwitchModal.
+    let branchSwitchNeedsCode = {};
+
+    // Show the code box only when the selected branch actually has a code, so
+    // Central Dispatch can be entered without one.
+    function syncBranchSwitchCodeField() {
+        const sel = document.getElementById('branchSwitchSelect');
+        const group = document.getElementById('branchSwitchCodeGroup');
+        const codeEl = document.getElementById('branchSwitchCode');
+        const note = document.getElementById('branchSwitchDispatchNote');
+        const cartNote = document.getElementById('branchSwitchCartNote');
+        const selected = sel ? String(sel.value) : '';
+        const needsCode = branchSwitchNeedsCode[selected] !== false;
+        if (group) group.style.display = needsCode ? '' : 'none';
+        if (codeEl && !needsCode) codeEl.value = '';
+        if (note) note.style.display = needsCode ? 'none' : 'block';
+        // Dispatch does not sell, so "the cart is cleared" would be noise there.
+        if (cartNote) cartNote.style.display = needsCode ? '' : 'none';
+    }
+    window.syncBranchSwitchCodeField = syncBranchSwitchCodeField;
 
     async function confirmBranchSwitch() {
         const sel = document.getElementById('branchSwitchSelect');
@@ -14838,7 +15070,10 @@ async function fetchTransactionsData() {
         };
         if (errEl) errEl.style.display = 'none';
         if (!branchId) return fail('Select a branch.');
-        if (!branchCode) return fail('Enter the branch access code.');
+        // Only a branch that has a code demands one; Central Dispatch has none.
+        if (branchSwitchNeedsCode[String(branchId)] !== false && !branchCode) {
+            return fail('Enter the branch access code.');
+        }
 
         if (btn) btn.disabled = true;
         try {
@@ -21556,6 +21791,241 @@ function calculateInventoryMetrics() {
     
     // ==================== PAGE NAVIGATION ====================
     
+// ==================== CENTRAL DISPATCH ANALYTICS ====================
+// Reads what Dispatch has pushed out. Both lists and the recent docket view come
+// from stock_transfers -- the same rows the movement ledger is built from -- so
+// this screen can never disagree with the audit trail.
+async function loadDispatchAnalytics() {
+    const startEl = document.getElementById('dispatchStartDate');
+    const endEl = document.getElementById('dispatchEndDate');
+    const params = new URLSearchParams();
+    if (startEl && startEl.value) params.set('start_date', startEl.value);
+    if (endEl && endEl.value) params.set('end_date', endEl.value);
+
+    const byBranchBody = document.getElementById('dispatchByBranchBody');
+    const byProductBody = document.getElementById('dispatchByProductBody');
+    const recentBody = document.getElementById('dispatchRecentBody');
+    if (byBranchBody) byBranchBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Loading...</td></tr>';
+
+    try {
+        const res = await fetch(`${API_BASE}/api/dispatch/analytics?${params.toString()}`,
+                                { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) {
+            if (byBranchBody) byBranchBody.innerHTML =
+                `<tr><td colspan="4" class="text-center text-danger">${escapeHtml(data.error || 'Could not load dispatch analytics')}</td></tr>`;
+            return;
+        }
+        const totals = data.totals || {};
+        setText('dispatchTotalUnits', fmtCount(totals.units));
+        setText('dispatchTotalCount', fmtCount(totals.dispatches));
+        setText('dispatchTotalValue', '$' + (Number(totals.value) || 0).toFixed(2));
+
+        if (byBranchBody) {
+            byBranchBody.innerHTML = (data.by_branch || []).map(r => `
+                <tr>
+                    <td>${escapeHtml(r.branch_name)}</td>
+                    <td class="text-end fw-bold">${fmtCount(r.units)}</td>
+                    <td class="text-end">${fmtCount(r.dispatches)}</td>
+                    <td class="text-end">$${(r.value || 0).toFixed(2)}</td>
+                </tr>`).join('') ||
+                '<tr><td colspan="4" class="text-center text-muted">Nothing dispatched in this period</td></tr>';
+        }
+        if (byProductBody) {
+            byProductBody.innerHTML = (data.by_product || []).map(r => `
+                <tr>
+                    <td>${escapeHtml(r.product_name)}</td>
+                    <td class="text-end fw-bold">${fmtCount(r.units)}</td>
+                    <td class="text-end">${fmtCount(r.dispatches)}</td>
+                </tr>`).join('') ||
+                '<tr><td colspan="3" class="text-center text-muted">Nothing dispatched in this period</td></tr>';
+        }
+        if (recentBody) {
+            recentBody.innerHTML = (data.recent || []).map(r => `
+                <tr>
+                    <td style="white-space:nowrap;">${r.created_at ? formatDateShort(r.created_at) : ''}</td>
+                    <td>${escapeHtml(r.product_name)}</td>
+                    <td class="text-end fw-bold">${fmtCount(r.quantity)}</td>
+                    <td>${escapeHtml(r.branch_name)}</td>
+                    <td>${escapeHtml(r.user)}</td>
+                    <td><small class="text-muted">${escapeHtml(r.notes)}</small></td>
+                </tr>`).join('') ||
+                '<tr><td colspan="6" class="text-center text-muted">No dispatches yet</td></tr>';
+        }
+    } catch (e) {
+        if (byBranchBody) byBranchBody.innerHTML =
+            '<tr><td colspan="4" class="text-center text-danger">Connection error. Please try again.</td></tr>';
+    }
+}
+window.loadDispatchAnalytics = loadDispatchAnalytics;
+
+// ---- Dispatch docket ----
+// Lines are collected locally first so one docket goes to one shop in one
+// request; the server then commits the whole docket or none of it.
+let dispatchLines = [];
+let dispatchStockItems = [];
+
+async function openDispatchModal() {
+    if (!branchIsDispatch()) return;
+    const modalEl = document.getElementById('dispatchModal');
+    if (!modalEl) return;
+    dispatchLines = [];
+    renderDispatchLines();
+    const errEl = document.getElementById('dispatchError');
+    if (errEl) { errEl.style.display = 'none'; errEl.innerText = ''; }
+    const fromEl = document.getElementById('dispatchFromBranch');
+    if (fromEl) fromEl.innerText = (posBranch && posBranch.name) || 'Central Dispatch';
+    const qtyEl = document.getElementById('dispatchQuantity');
+    if (qtyEl) qtyEl.value = '';
+    const notesEl = document.getElementById('dispatchNotes');
+    if (notesEl) notesEl.value = '';
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+
+    const prodSel = document.getElementById('dispatchProduct');
+    if (prodSel) prodSel.innerHTML = '<option value="">Loading...</option>';
+
+    try {
+        const res = await fetch(`${API_BASE}/api/dispatch/stock`, { credentials: 'include' });
+        const data = await res.json();
+        if (!data.success) {
+            if (prodSel) prodSel.innerHTML = `<option value="">${escapeHtml(data.error || 'Could not load stock')}</option>`;
+            return;
+        }
+        dispatchStockItems = data.items || [];
+        if (prodSel) {
+            prodSel.innerHTML = '<option value="">Select a product...</option>' +
+                dispatchStockItems.filter(i => i.stock > 0).map(i =>
+                    `<option value="${i.id}">${escapeHtml(i.name)} (${i.stock} at Dispatch)</option>`
+                ).join('');
+        }
+    } catch (e) {
+        if (prodSel) prodSel.innerHTML = '<option value="">Could not load stock</option>';
+    }
+
+    const toSel = document.getElementById('dispatchToBranch');
+    if (toSel) {
+        try {
+            const res = await fetch(`${API_BASE}/api/branches`, { credentials: 'include' });
+            const data = await res.json();
+            // A shop only: Dispatch does not dispatch to itself, and sending to
+            // another warehouse would be a transfer, not a restock.
+            const shops = ((data && data.branches) || []).filter(b => !b.is_dispatch);
+            toSel.innerHTML = shops.length
+                ? '<option value="">Select a shop...</option>' +
+                  shops.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('')
+                : '<option value="">No shop available</option>';
+        } catch (e) {
+            toSel.innerHTML = '<option value="">Could not load branches</option>';
+        }
+    }
+}
+window.openDispatchModal = openDispatchModal;
+
+function addDispatchLine() {
+    const errEl = document.getElementById('dispatchError');
+    const fail = (m) => { if (errEl) { errEl.innerText = m; errEl.style.display = 'block'; } };
+    if (errEl) errEl.style.display = 'none';
+
+    const prodSel = document.getElementById('dispatchProduct');
+    const qtyEl = document.getElementById('dispatchQuantity');
+    const pid = prodSel ? prodSel.value : '';
+    const qty = parseInt(qtyEl ? qtyEl.value : '', 10);
+    if (!pid) return fail('Select a product.');
+    if (!qty || qty <= 0) return fail('Enter a quantity greater than zero.');
+
+    const item = dispatchStockItems.find(i => String(i.id) === String(pid));
+    if (!item) return fail('That product is not stocked at Dispatch.');
+
+    // Check the RUNNING total for this product, not just the quantity just
+    // typed: two lines of 6 against a shelf of 10 must not both be accepted.
+    const already = dispatchLines
+        .filter(l => String(l.product_id) === String(pid))
+        .reduce((s, l) => s + l.quantity, 0);
+    if (already + qty > item.stock) {
+        return fail(`Only ${item.stock} of ${item.name} at Dispatch` +
+                    (already ? ` (${already} already on this docket).` : '.'));
+    }
+
+    const existing = dispatchLines.find(l => String(l.product_id) === String(pid));
+    if (existing) existing.quantity += qty;
+    else dispatchLines.push({ product_id: item.id, product_name: item.name, quantity: qty });
+    if (qtyEl) qtyEl.value = '';
+    renderDispatchLines();
+}
+window.addDispatchLine = addDispatchLine;
+
+function removeDispatchLine(index) {
+    dispatchLines.splice(index, 1);
+    renderDispatchLines();
+}
+window.removeDispatchLine = removeDispatchLine;
+
+function renderDispatchLines() {
+    const tbody = document.getElementById('dispatchLinesBody');
+    if (!tbody) return;
+    if (!dispatchLines.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No items on this docket yet</td></tr>';
+        return;
+    }
+    tbody.innerHTML = dispatchLines.map((l, i) => `
+        <tr>
+            <td>${escapeHtml(l.product_name)}</td>
+            <td class="text-end fw-bold">${l.quantity}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-danger py-0" onclick="removeDispatchLine(${i})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </td>
+        </tr>`).join('');
+}
+
+async function confirmDispatch() {
+    const errEl = document.getElementById('dispatchError');
+    const btn = document.getElementById('dispatchConfirmBtn');
+    const fail = (m) => { if (errEl) { errEl.innerText = m; errEl.style.display = 'block'; } };
+    if (errEl) errEl.style.display = 'none';
+
+    const toSel = document.getElementById('dispatchToBranch');
+    const toBranchId = toSel ? toSel.value : '';
+    if (!toBranchId) return fail('Select a shop to dispatch to.');
+    if (!dispatchLines.length) return fail('Add at least one item to the docket.');
+
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch(`${API_BASE}/api/dispatch/push`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                to_branch_id: toBranchId,
+                items: dispatchLines.map(l => ({ product_id: l.product_id, quantity: l.quantity })),
+                notes: (document.getElementById('dispatchNotes') || {}).value || ''
+            })
+        });
+        const data = await res.json();
+        if (!data.success) return fail(data.error || data.message || 'Dispatch failed.');
+
+        showToast(data.message || 'Stock dispatched', 'success');
+        dispatchLines = [];
+        renderDispatchLines();
+        bootstrap.Modal.getInstance(document.getElementById('dispatchModal'))?.hide();
+        // Both the shelf counts and the dispatch analytics changed.
+        if (typeof refreshCatalogueIfStale === 'function') refreshCatalogueIfStale(true);
+        if (currentPage === 'dispatch') loadDispatchAnalytics();
+    } catch (e) {
+        fail('Connection error. Please try again.');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+window.confirmDispatch = confirmDispatch;
+
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
 function navigateTo(page) {
     currentPage = page;
     document.querySelectorAll('.menu-item').forEach(item => { 
@@ -21570,6 +22040,16 @@ function navigateTo(page) {
     document.getElementById('transactionsPage').style.display = 'none';
     document.getElementById('analyticsPage').style.display = 'none';
     document.getElementById('laybyPage').style.display = 'none';
+    const dispatchPageEl = document.getElementById('dispatchPage');
+    if (dispatchPageEl) dispatchPageEl.style.display = 'none';
+
+    // Central Dispatch runs a reduced POS: a warehouse takes in stock and pushes
+    // it to the shops, so there is no till, no layby and no sales report to show.
+    // Guarded here as well as in the menu, because a stale bookmark or a keyboard
+    // shortcut must not land on a page the branch does not run.
+    if (branchIsDispatch() && DISPATCH_BLOCKED_PAGES.indexOf(page) !== -1) {
+        page = 'inventory';
+    }
     
     // Show the selected page
     const targetPage = document.getElementById(page + 'Page');
@@ -21583,6 +22063,9 @@ function navigateTo(page) {
         // number that has already moved at the till or at the other shop.
         if (typeof window.refreshCatalogueIfStale === 'function') window.refreshCatalogueIfStale(true);
         renderInventory();
+    }
+    if (page === 'dispatch') {
+        loadDispatchAnalytics();
     }
     if (page === 'sales') {
         loadSalesReport();

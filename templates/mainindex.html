@@ -2321,16 +2321,21 @@
                     <div class="form-group">
                         <label>Branch</label>
                         <div class="input-group-modal">
-                            <select class="form-input-modal" id="hardwareBranch" required>
+                            <select class="form-input-modal" id="hardwareBranch" required onchange="syncHardwareBranchCodeField()">
                                 <option value="">Loading branches…</option>
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="hardwareBranchCodeGroup">
                         <label>Branch Code</label>
                         <div class="input-group-modal">
-                            <input type="password" class="form-input-modal" id="hardwareBranchCode" placeholder="Branch access code" required>
+                            <input type="password" class="form-input-modal" id="hardwareBranchCode" placeholder="Branch access code">
                             <div class="input-icon-modal"><i class="fas fa-key"></i></div>
+                        </div>
+                    </div>
+                    <div class="form-group" id="hardwareDispatchNote" style="display:none;">
+                        <div class="alert alert-info py-2 mb-0" style="font-size:0.75rem;">
+                            <i class="fas fa-warehouse me-1"></i>Central Dispatch needs no branch code.
                         </div>
                     </div>
                     <button type="submit" class="modal-login-btn"><i class="fas fa-sign-in-alt me-2"></i> Sign In</button>
@@ -3412,12 +3417,35 @@
         // browser -- this dropdown only ever carries branch ids and names, and the
         // code the user types is compared server-side.
         let hardwareBranchesLoaded = false;
+        // Branch id (as a string) -> does it ask for an access code? Central
+        // Dispatch is the one branch that does not.
+        let hardwareBranchNeedsCode = {};
 
         function escapeBranchLabel(text) {
             return String(text == null ? '' : text)
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
+
+        // Show the access-code box only for a branch that actually has a code, so
+        // Central Dispatch can be entered without one.
+        function syncHardwareBranchCodeField() {
+            const select = document.getElementById('hardwareBranch');
+            const group = document.getElementById('hardwareBranchCodeGroup');
+            const codeEl = document.getElementById('hardwareBranchCode');
+            const note = document.getElementById('hardwareDispatchNote');
+            const selected = select ? String(select.value) : '';
+            // An empty selection (the "Select branch" placeholder) keeps the field
+            // hidden until a real branch is chosen.
+            const needsCode = selected === '' ? true : hardwareBranchNeedsCode[selected] !== false;
+            if (group) group.style.display = needsCode ? '' : 'none';
+            if (codeEl) {
+                codeEl.required = needsCode;
+                if (!needsCode) codeEl.value = '';
+            }
+            if (note) note.style.display = needsCode ? 'none' : 'block';
+        }
+        window.syncHardwareBranchCodeField = syncHardwareBranchCodeField;
 
         function loadHardwareBranches() {
             const select = document.getElementById('hardwareBranch');
@@ -3432,15 +3460,21 @@
                         return;
                     }
                     let html = '<option value="">Select branch</option>';
+                    hardwareBranchNeedsCode = {};
                     branches.forEach(b => {
-                        html += '<option value="' + b.id + '">' + escapeBranchLabel(b.name) + '</option>';
+                        hardwareBranchNeedsCode[String(b.id)] = b.needs_code !== false;
+                        const label = b.is_dispatch ? (b.name + ' (warehouse)') : b.name;
+                        html += '<option value="' + b.id + '">' + escapeBranchLabel(label) + '</option>';
                     });
                     if (data.all_branches) {
+                        hardwareBranchNeedsCode[String(data.all_branches.id)] =
+                            data.all_branches.needs_code !== false;
                         html += '<option value="' + data.all_branches.id + '">' +
                                 escapeBranchLabel(data.all_branches.name) + '</option>';
                     }
                     select.innerHTML = html;
                     hardwareBranchesLoaded = true;
+                    syncHardwareBranchCodeField();
                 })
                 .catch(() => {
                     // Leave the flag unset so the next open retries.
@@ -3467,7 +3501,8 @@
                 setError('hardware', 'Please select a branch');
                 return;
             }
-            if (!branchCode) {
+            // Only a branch that has a code asks for one; Central Dispatch has none.
+            if (hardwareBranchNeedsCode[String(branchId)] !== false && !branchCode) {
                 setError('hardware', 'Please enter the branch access code');
                 return;
             }

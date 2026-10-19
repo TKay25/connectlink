@@ -1,6 +1,6 @@
 PASS  script started
-PASS  read the POS page  -> 927382 chars
-PASS  read the committed POS page for comparison  -> 927498 chars via C:\Users\tzvakasikwa\AppData\Local\Programs\Git\cmd\git.EXE
+PASS  read the POS page  -> 1080130 chars
+PASS  read the committed POS page for comparison  -> 1053773 chars via C:\Users\tzvakasikwa\AppData\Local\Programs\Git\cmd\git.EXE
 PASS  the page still has its script blocks  -> new=4 old=4
 PASS  no script block gained a syntax error (vs the committed page)
 PASS  every declaration this change touched parses on its own
@@ -25,11 +25,11 @@ PASS  the All Branches view still reports every item as the company's
 PASS  the Add-Product name hints still read the WHOLE catalogue
 PASS  a name this branch has never stocked is marked as such in the hints
 PASS  and picking it still fills the form from the product it names
-PASS  the marker is the only thing this change did to the hints  -> marks a name that is only in the other branch's catalogue
+FAIL  the marker is the only thing this change did to the hints  -> marks a name that is only in the other branch's catalogue
 PASS  the hints element is still on the Add-Product form
 PASS  the till's own empty search points at the two ways in
 PASS  the Upload New Stock steps point at the pick-list
-PASS  read the stock-upload template route out of ConnectLink.py  -> 5700 chars
+PASS  read the stock-upload template route out of ConnectLink.py  -> 5716 chars
 PASS  the Product Names sheet is still built from the whole products table
 PASS  the template still lists EVERY active product name (no branch filter)
 PASS  that sheet is still the pick-list behind the Product Name column

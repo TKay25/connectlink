@@ -2980,10 +2980,20 @@ POS_ALL_BRANCHES_ID = 0
 # the history that already exists stays attached to the right till.
 BRANCH_FIRST_CODE = 'SHU'
 
+# Central Dispatch is a real branch (it holds and moves stock) but it is not a
+# shop: goods are received there, barcodes are entered, and stock is pushed out
+# to the shops. It therefore gets a reduced POS -- Inventory and Dispatch
+# analytics only, no till, no layby, no sales reports -- and it is the ONE
+# branch that is NOT gated by an access code: it sells nothing and holds no
+# customer money, so a code would only be a shared password nobody could rotate
+# meaningfully. See branch_needs_access_code().
+BRANCH_DISPATCH_CODE = 'CPD'
+
 BRANCH_BOOTSTRAP_SEED = (
-    # (code, name, address, phone, access_code)
-    ('SHU', 'Shurugwi', '', '', BRANCH_SHURUGWI_CODE),
-    ('CHG', 'Chegutu', '', '', BRANCH_CHEGUTU_CODE),
+    # (code, name, address, phone, access_code, is_dispatch)
+    ('SHU', 'Shurugwi', '', '', BRANCH_SHURUGWI_CODE, False),
+    ('CHG', 'Chegutu', '', '', BRANCH_CHEGUTU_CODE, False),
+    ('CPD', 'Central Dispatch', '', '', '', True),
 )
 
 # Tables that carry branch_id. `products` is deliberately NOT in this list: the
@@ -3043,15 +3053,36 @@ def ensure_branches_schema(cursor, connection):
         """)
         connection.commit()
 
+        # is_dispatch marks Central Dispatch: a warehouse-like branch that
+        # receives and pushes stock but never sells. It is an explicit column
+        # rather than "has no access code", so a shop can never silently lose
+        # its code -- and the reduced POS -- because of a blank value. The POS
+        # reads it on /api/branches and /api/check-auth to decide which pages to
+        # offer.
+        cursor.execute("""
+            ALTER TABLE branches ADD COLUMN IF NOT EXISTS is_dispatch BOOLEAN DEFAULT FALSE
+        """)
+        # access_code was NOT NULL when every branch was a shop. Dispatch has
+        # none, so the column must permit NULL; a SQL check constraint cannot be
+        # conditional, so the rule "dispatch has no code, a shop always does" is
+        # enforced in verify_branch_code() instead.
+        cursor.execute("""
+            ALTER TABLE branches ALTER COLUMN access_code DROP NOT NULL
+        """)
+        connection.commit()
+
         # Codes come from the environment and are re-asserted on every boot so a
         # rotation can never silently fail to apply; name/address/phone are left
-        # alone so edits made in the database survive.
-        for code, name, address, phone, access_code in BRANCH_BOOTSTRAP_SEED:
+        # alone so edits made in the database survive. is_dispatch is re-asserted
+        # with the code because it decides which POS pages exist at all.
+        for code, name, address, phone, access_code, is_dispatch in BRANCH_BOOTSTRAP_SEED:
             cursor.execute("""
-                INSERT INTO branches (code, name, address, phone, access_code, is_active)
-                VALUES (%s, %s, %s, %s, %s, TRUE)
-                ON CONFLICT (code) DO UPDATE SET access_code = EXCLUDED.access_code
-            """, (code, name, address, phone, access_code))
+                INSERT INTO branches (code, name, address, phone, access_code, is_active, is_dispatch)
+                VALUES (%s, %s, %s, %s, %s, TRUE, %s)
+                ON CONFLICT (code) DO UPDATE
+                    SET access_code = EXCLUDED.access_code,
+                        is_dispatch = EXCLUDED.is_dispatch
+            """, (code, name, address, phone, access_code, is_dispatch))
         connection.commit()
 
         cursor.execute("SELECT id FROM branches WHERE code = %s", (BRANCH_FIRST_CODE,))
@@ -3913,16 +3944,23 @@ def verify_branch_code(branch_id, code):
     Returns (ok, display_name). POS_ALL_BRANCHES_ID is checked against the OWNER
     code instead, so the consolidated view stays out of reach of everyone below
     owner level without needing a per-user grant.
+
+    Central Dispatch is the ONE branch with no code: it is a warehouse, not a
+    till, and it was deliberately given no shared secret (see
+    BRANCH_DISPATCH_CODE). It still requires a signed-in user with hardware
+    permission -- the caller checks that before ever getting here -- so this
+    opens the branch to the POS, not to the public.
     """
     supplied = (code or '').strip()
-    if not supplied:
-        return False, None
     if branch_id == POS_ALL_BRANCHES_ID:
+        if not supplied:
+            return False, None
         return _codes_match(supplied, POS_ALL_BRANCHES_CODE), 'All Branches'
     try:
         with get_db() as (cursor, connection):
             cursor.execute(
-                "SELECT name, access_code FROM branches WHERE id = %s AND is_active = TRUE",
+                "SELECT name, access_code, COALESCE(is_dispatch, FALSE) "
+                "FROM branches WHERE id = %s AND is_active = TRUE",
                 (branch_id,))
             row = cursor.fetchone()
     except Exception as e:
@@ -3930,7 +3968,65 @@ def verify_branch_code(branch_id, code):
         return False, None
     if not row:
         return False, None
-    return _codes_match(supplied, (row[1] or '')), row[0]
+
+    # A shop must always have a code, and a blank one must never become a
+    # skeleton key: only a branch explicitly marked is_dispatch may open without
+    # one. Anything else with no stored code stays shut.
+    stored_code = row[1] or ''
+    if row[2]:
+        return True, row[0]
+    if not supplied or not stored_code:
+        return False, None
+    return _codes_match(supplied, stored_code), row[0]
+
+
+def branch_is_dispatch(branch_id):
+    """True when the given branch is Central Dispatch (the warehouse, not a shop).
+
+    Read fresh rather than from the session so a branch reclassified in the
+    database takes effect on the next request instead of only at the next login.
+    Any lookup failure reads as False: failing closed here means a dispatch
+    branch would be treated as an ordinary shop -- it keeps its till -- which is
+    far safer than accidentally handing every shop the reduced menu.
+    """
+    if not branch_id:
+        return False
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                "SELECT COALESCE(is_dispatch, FALSE) FROM branches WHERE id = %s",
+                (branch_id,))
+            row = cursor.fetchone()
+        return bool(row[0]) if row else False
+    except Exception as e:
+        print(f"Note: could not resolve dispatch flag: {e}")
+        return False
+
+
+def block_money_on_dispatch(f):
+    """Refuse any sale, layby or payment made while the session is Central Dispatch.
+
+    Dispatch is a warehouse: it has no till, takes no customer money and opens no
+    laybys. The menus already hide those pages, but hiding a button is not a
+    control -- a direct POST would still put money in the books against a branch
+    that never sold anything, and those figures feed day-end and the audit
+    report. So the rule is enforced here, at the endpoint, for every money path.
+
+    Deliberately separate from block_writes_in_consolidated_view: that one stops
+    the read-only view writing at all, whereas Dispatch must still be free to
+    move stock -- it just may not sell it.
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if branch_is_dispatch(current_branch_id()):
+            return jsonify({
+                'success': False,
+                'error': 'Central Dispatch is a warehouse and cannot take sales, '
+                         'laybys or payments. Stock can only be dispatched to a shop.',
+                'dispatch_no_money': True
+            }), 403
+        return f(*args, **kwargs)
+    return wrapper
 
 
 def block_writes_in_consolidated_view(f):
@@ -14862,7 +14958,10 @@ def get_stock_movements():
                -- Carried only so the goods a revert wrote back can be recognised as
                -- the second half of that reversal (see _drop_finished_reversals
                -- below); never displayed.
-               sa.branch_id as branch_id
+               sa.branch_id as branch_id,
+               -- Dispatch is labelled explicitly rather than by its name, so the
+               -- report still says "Central Dispatch" if the row is ever renamed.
+               COALESCE(b.is_dispatch, FALSE) as is_dispatch
         FROM stock_additions sa
         LEFT JOIN products p ON sa.product_id = p.id
         LEFT JOIN admin_users u ON sa.user_id = u.id
@@ -14880,7 +14979,8 @@ def get_stock_movements():
         SELECT sr.id, sr.product_id, p.name as product_name, p.category,
                'reduction' as movement_type, sr.quantity, 0 as buy_price, 0 as total_cost,
                sr.reason as funding_source, u.full_name as user_name, sr.reduced_at as movement_date,
-               b.name as branch_name
+               b.name as branch_name,
+               COALESCE(b.is_dispatch, FALSE) as is_dispatch
         FROM stock_reductions sr
         LEFT JOIN products p ON sr.product_id = p.id
         LEFT JOIN admin_users u ON sr.user_id = u.id
@@ -14912,7 +15012,8 @@ def get_stock_movements():
                -- inside the same window, because the two halves must move together.
                t.voided as is_voided,
                t.voided_at as voided_at,
-               t.branch_id as branch_id
+               t.branch_id as branch_id,
+               COALESCE(b.is_dispatch, FALSE) as is_dispatch
         FROM transaction_items ti
         JOIN transactions t ON ti.transaction_id = t.id
         LEFT JOIN products p ON ti.product_id = p.id
@@ -15094,7 +15195,8 @@ def get_stock_movements():
                 'user': row[9] or 'System',
                 'date': row[10].isoformat() if row[10] else '',
                 'reduction_type': None,
-                'branch_name': row[11] if len(row) > 11 else None
+                'branch_name': row[11] if len(row) > 11 else None,
+                'is_dispatch': bool(row[13]) if len(row) > 13 else False
             })
     
     # Parse movements - inventory edit reductions
@@ -15113,7 +15215,8 @@ def get_stock_movements():
                 'user': row[9] or 'System',
                 'date': row[10].isoformat() if row[10] else '',
                 'reduction_type': 'inventory_edit',
-                'branch_name': row[11] if len(row) > 11 else None
+                'branch_name': row[11] if len(row) > 11 else None,
+                'is_dispatch': bool(row[12]) if len(row) > 12 else False
             })
     
     # Parse movements - sales reductions
@@ -15135,7 +15238,8 @@ def get_stock_movements():
                 'reduction_type': 'item_sale',
                 'payment_method': row[12] if len(row) > 12 else None,
                 'transaction_number': row[13] if len(row) > 13 else None,
-                'branch_name': row[11] if len(row) > 11 else None
+                'branch_name': row[11] if len(row) > 11 else None,
+                'is_dispatch': bool(row[17]) if len(row) > 17 else False
             })
     
     # Sort movements by date descending
@@ -15227,12 +15331,18 @@ def get_branches():
     try:
         with get_db() as (cursor, connection):
             cursor.execute(
-                "SELECT id, code, name FROM branches WHERE is_active = TRUE ORDER BY id")
+                "SELECT id, code, name, COALESCE(is_dispatch, FALSE) "
+                "FROM branches WHERE is_active = TRUE ORDER BY id")
             rows = cursor.fetchall()
         return jsonify({
             'success': True,
-            'branches': [{'id': r[0], 'code': r[1], 'name': r[2]} for r in rows],
-            'all_branches': {'id': POS_ALL_BRANCHES_ID, 'name': 'All Branches (Read-only)'}
+            # needs_code tells the login form whether to ask for an access code
+            # at all, so Central Dispatch never shows a box the user cannot fill.
+            'branches': [{'id': r[0], 'code': r[1], 'name': r[2],
+                          'is_dispatch': bool(r[3]),
+                          'needs_code': not bool(r[3])} for r in rows],
+            'all_branches': {'id': POS_ALL_BRANCHES_ID, 'name': 'All Branches (Read-only)',
+                             'needs_code': True}
         })
     except Exception as e:
         print(f"Note: could not list branches: {e}")
@@ -15354,7 +15464,8 @@ def api_login():
                 'branch': {
                     'id': branch_id,
                     'name': branch_name,
-                    'read_only': branch_id == POS_ALL_BRANCHES_ID
+                    'read_only': branch_id == POS_ALL_BRANCHES_ID,
+                    'is_dispatch': branch_is_dispatch(branch_id)
                 },
                 'message': 'Login successful',
                 'redirect': '/pos-system.html'
@@ -15384,7 +15495,10 @@ def check_auth():
     branch = {
         'id': session.get('branch_id') if chosen else None,
         'name': session.get('branch_name') if chosen else None,
-        'read_only': branch_is_read_only()
+        'read_only': branch_is_read_only(),
+        # Dispatch mode is re-resolved here too, so a browser refresh restores the
+        # reduced menu rather than briefly offering a till the branch does not run.
+        'is_dispatch': branch_is_dispatch(session.get('branch_id')) if chosen else False
     }
     if 'user_id' in session:
         return jsonify({
@@ -15461,7 +15575,8 @@ def pos_switch_branch():
     return jsonify({
         'success': True,
         'branch': {'id': branch_id, 'name': branch_name,
-                   'read_only': branch_id == POS_ALL_BRANCHES_ID}
+                   'read_only': branch_id == POS_ALL_BRANCHES_ID,
+                   'is_dispatch': branch_is_dispatch(branch_id)}
     })
 
 
@@ -15563,6 +15678,284 @@ def pos_transfer_stock():
                         'message': f'{quantity} x {product_name} sent to {branch_names.get(to_branch)}.'})
     except Exception as e:
         print(f"Transfer error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== CENTRAL DISPATCH ====================
+# Dispatch is a branch that receives goods and pushes them to the shops. It has
+# no till, so there is no sale to move its stock: everything that leaves it is a
+# dispatch. Each one is written as a stock_transfers row PLUS the same
+# transfer_out / TRANSFER movement pair a manual transfer writes, so the audit
+# report, the Excel/PDF exports and day-end all pick it up with no extra work --
+# and the FIFO layers travel with the goods so a shop's cost is the real cost of
+# the units it received, not the latest purchase price.
+
+@app.route('/api/dispatch/stock', methods=['GET'])
+@login_required
+def dispatch_stock():
+    """What Dispatch currently holds, for the dispatch screen.
+
+    Deliberately its own endpoint rather than a reuse of /api/products: the
+    dispatch screen needs the quantity held at Dispatch for every item it
+    carries, which is the one figure the shop-facing catalogue does NOT give it.
+    """
+    dispatch_branch = current_branch_id()
+    if not branch_is_dispatch(dispatch_branch):
+        return jsonify({'success': False,
+                        'error': 'This is not the Central Dispatch branch.'}), 403
+    try:
+        rows = execute_query("""
+            SELECT p.id, p.name, p.category, p.barcode, p.unit_type, p.unit_details,
+                   COALESCE(ps.stock, 0) AS stock,
+                   COALESCE(p.buy_price, 0) AS buy_price,
+                   COALESCE(p.sell_price, 0) AS sell_price
+            FROM products p
+            LEFT JOIN product_stock ps
+                   ON ps.product_id = p.id AND ps.branch_id = %s
+            WHERE (p.is_active = TRUE OR p.is_active IS NULL)
+              AND NOT EXISTS (
+                  SELECT 1 FROM product_branch_archives pba
+                  WHERE pba.product_id = p.id AND pba.branch_id = %s
+              )
+            ORDER BY p.name
+        """, (dispatch_branch, dispatch_branch), fetch_all=True) or []
+        items = [{
+            'id': r[0], 'name': r[1], 'category': r[2], 'barcode': r[3],
+            'unit_type': r[4], 'unit_details': r[5],
+            'stock': int(r[6] or 0),
+            'buy_price': float(r[7] or 0), 'sell_price': float(r[8] or 0)
+        } for r in rows]
+        return jsonify({'success': True, 'items': items,
+                        'summary': {
+                            'products': len(items),
+                            'units': sum(i['stock'] for i in items),
+                            'value': round(sum(i['stock'] * i['buy_price'] for i in items), 2)
+                        }})
+    except Exception as e:
+        print(f"Dispatch stock error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/dispatch/analytics', methods=['GET'])
+@login_required
+def dispatch_analytics():
+    """What Dispatch has pushed out, over an optional date range.
+
+    Reads stock_transfers, which is the record every dispatch writes, so this
+    can never disagree with the movement ledger it is drawn from.
+    """
+    dispatch_branch = current_branch_id()
+    if not branch_is_dispatch(dispatch_branch):
+        return jsonify({'success': False,
+                        'error': 'This is not the Central Dispatch branch.'}), 403
+
+    start_date = (request.args.get('start_date') or '').strip()
+    end_date = (request.args.get('end_date') or '').strip()
+    where = "WHERE st.from_branch_id = %s"
+    params = [dispatch_branch]
+    if start_date:
+        where += " AND st.created_at >= %s::timestamp"
+        params.append(start_date)
+    if end_date:
+        # The screen sends a plain date; include the whole of that day.
+        where += " AND st.created_at <= (%s::timestamp + INTERVAL '1 day')"
+        params.append(end_date)
+    p = tuple(params)
+
+    try:
+        # Per destination, so the shop that is being under-served shows up.
+        by_branch = execute_query("""
+            SELECT st.to_branch_id, b.name,
+                   COALESCE(SUM(st.quantity), 0) AS units,
+                   COUNT(*) AS dispatches,
+                   COALESCE(SUM(st.quantity * COALESCE(p.buy_price, 0)), 0) AS value
+            FROM stock_transfers st
+            LEFT JOIN branches b ON b.id = st.to_branch_id
+            LEFT JOIN products p ON p.id = st.product_id
+            """ + where + """
+            GROUP BY st.to_branch_id, b.name
+            ORDER BY units DESC
+        """, p, fetch_all=True) or []
+
+        # Per product, so the item that is always short is visible.
+        by_product = execute_query("""
+            SELECT st.product_id, st.product_name,
+                   COALESCE(SUM(st.quantity), 0) AS units,
+                   COUNT(*) AS dispatches
+            FROM stock_transfers st
+            """ + where + """
+            GROUP BY st.product_id, st.product_name
+            ORDER BY units DESC
+            LIMIT 100
+        """, p, fetch_all=True) or []
+
+        recent = execute_query("""
+            SELECT st.id, st.product_id, st.product_name, st.quantity,
+                   st.to_branch_id, b.name, st.notes, st.user_name, st.created_at
+            FROM stock_transfers st
+            LEFT JOIN branches b ON b.id = st.to_branch_id
+            """ + where + """
+            ORDER BY st.created_at DESC
+            LIMIT 200
+        """, p, fetch_all=True) or []
+
+        destinations = execute_query("""
+            SELECT id, name FROM branches
+            WHERE is_active = TRUE AND id <> %s AND COALESCE(is_dispatch, FALSE) = FALSE
+            ORDER BY name
+        """, (dispatch_branch,), fetch_all=True) or []
+
+        return jsonify({
+            'success': True,
+            'by_branch': [{'to_branch_id': r[0], 'branch_name': r[1] or 'Unknown',
+                           'units': int(r[2] or 0), 'dispatches': int(r[3] or 0),
+                           'value': round(float(r[4] or 0), 2)} for r in by_branch],
+            'by_product': [{'product_id': r[0], 'product_name': r[1] or 'Unknown',
+                            'units': int(r[2] or 0), 'dispatches': int(r[3] or 0)}
+                           for r in by_product],
+            'recent': [{'id': r[0], 'product_id': r[1], 'product_name': r[2] or 'Unknown',
+                        'quantity': int(r[3] or 0), 'to_branch_id': r[4],
+                        'branch_name': r[5] or 'Unknown', 'notes': r[6] or '',
+                        'user': r[7] or 'System',
+                        'created_at': r[8].isoformat() if r[8] else ''} for r in recent],
+            'destinations': [{'id': r[0], 'name': r[1]} for r in destinations],
+            'totals': {
+                'units': sum(int(r[2] or 0) for r in by_branch),
+                'dispatches': sum(int(r[3] or 0) for r in by_branch),
+                'value': round(sum(float(r[4] or 0) for r in by_branch), 2)
+            }
+        })
+    except Exception as e:
+        print(f"Dispatch analytics error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/dispatch/push', methods=['POST'])
+@login_required
+@block_writes_in_consolidated_view
+def dispatch_push():
+    """Send stock from Dispatch to one shop.
+
+    One request carries lines for a single destination, because a dispatch docket
+    names one shop. The whole docket commits or none of it does -- a half-sent
+    docket would leave goods that are on neither shelf.
+    """
+    from_branch = current_branch_id()
+    if not branch_is_dispatch(from_branch):
+        return jsonify({'success': False,
+                        'error': 'Stock can only be dispatched from Central Dispatch.'}), 403
+
+    data = request.get_json(silent=True) or {}
+    try:
+        to_branch = int(data.get('to_branch_id'))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'error': 'Choose a destination branch.'}), 400
+
+    raw_items = data.get('items') or []
+    if not isinstance(raw_items, list) or not raw_items:
+        return jsonify({'success': False, 'error': 'Add at least one item to dispatch.'}), 400
+
+    # Collapse repeated lines for the same product first: two lines of the same
+    # item must not each pass the stock check on their own and then oversell it.
+    wanted = {}
+    for line in raw_items:
+        try:
+            pid = int(line.get('product_id') or line.get('id'))
+            qty = int(line.get('quantity') or 0)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'Every line needs a product and a quantity.'}), 400
+        if qty <= 0:
+            return jsonify({'success': False, 'error': 'Every quantity must be greater than zero.'}), 400
+        wanted[pid] = wanted.get(pid, 0) + qty
+
+    user_name = session.get('user_name') or session.get('username') or 'System'
+    user_id = session.get('user_id') or session.get('userid') or 0
+    notes = str(data.get('notes') or '')[:500]
+
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT id, name FROM branches WHERE id = %s AND is_active = TRUE",
+                           (to_branch,))
+            dest = cursor.fetchone()
+            if not dest:
+                return jsonify({'success': False, 'error': 'Destination branch not found.'}), 404
+            if to_branch == from_branch:
+                return jsonify({'success': False,
+                                'error': 'Choose a shop to dispatch to.'}), 400
+            if branch_is_dispatch(to_branch):
+                return jsonify({'success': False,
+                                'error': 'Dispatch cannot send stock to another dispatch.'}), 400
+
+            # Check every line BEFORE moving anything, so a shortfall on the last
+            # item cannot leave the first ones already dispatched.
+            short = []
+            for pid, qty in wanted.items():
+                held = get_branch_stock(cursor, pid, from_branch)
+                if qty > held:
+                    cursor.execute("SELECT name FROM products WHERE id = %s", (pid,))
+                    prow = cursor.fetchone()
+                    short.append('%s: have %d, need %d'
+                                 % ((prow[0] if prow else 'product %s' % pid), held, qty))
+            if short:
+                return jsonify({'success': False,
+                                'error': 'Not enough stock at Dispatch - ' + '; '.join(short)}), 400
+
+            dispatched = []
+            for pid, qty in wanted.items():
+                cursor.execute("SELECT name FROM products WHERE id = %s", (pid,))
+                prow = cursor.fetchone()
+                product_name = prow[0] if prow else 'product %s' % pid
+
+                cursor.execute("""
+                    INSERT INTO stock_transfers
+                        (product_id, product_name, from_branch_id, to_branch_id,
+                         quantity, status, notes, user_id, user_name)
+                    VALUES (%s, %s, %s, %s, %s, 'completed', %s, %s, %s)
+                    RETURNING id
+                """, (pid, product_name, from_branch, to_branch, qty,
+                      notes, user_id, user_name))
+                transfer_id = cursor.fetchone()[0]
+
+                # Cost travels with the goods: the layers leave Dispatch at their
+                # own cost and are re-laid at that SAME cost in the shop, so a
+                # dispatch never silently revalues stock.
+                moved_cost, moved_layers = consume_stock_lots_fifo(
+                    cursor, pid, from_branch, qty)
+                for _lot_id, layer_qty, layer_cost in moved_layers:
+                    receive_stock_lot(cursor, pid, to_branch, layer_qty, layer_cost,
+                                      'transfer_in', 'D%d' % transfer_id)
+                add_branch_stock(cursor, pid, from_branch, -qty)
+                cursor.execute("""
+                    INSERT INTO stock_reductions
+                        (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
+                    VALUES (%s, %s, 'transfer_out', %s, %s, CURRENT_TIMESTAMP, %s)
+                """, (pid, qty, 'Dispatch #%d to %s' % (transfer_id, dest[1]),
+                      user_id, from_branch))
+
+                add_branch_stock(cursor, pid, to_branch, qty)
+                cursor.execute("""
+                    INSERT INTO stock_additions
+                        (product_id, quantity, buy_price, total_cost, funding_source,
+                         user_id, added_at, branch_id)
+                    VALUES (%s, %s, %s, %s, 'DISPATCH', %s, CURRENT_TIMESTAMP, %s)
+                """, (pid, qty, round(moved_cost / max(1, qty), 2),
+                      round(moved_cost, 2), user_id, to_branch))
+
+                dispatched.append({'product_id': pid, 'product_name': product_name,
+                                   'quantity': qty, 'transfer_id': transfer_id})
+
+            connection.commit()
+
+        log_activity('stock_transfer',
+                     'Dispatched %d item(s) to %s' % (len(dispatched), dest[1]),
+                     'branch', to_branch,
+                     {'to_branch': to_branch, 'items': dispatched,
+                      'from_branch': from_branch, 'notes': notes})
+        return jsonify({'success': True, 'dispatched': dispatched,
+                        'message': '%d item(s) dispatched to %s.'
+                                   % (len(dispatched), dest[1])})
+    except Exception as e:
+        print(f"Dispatch push error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -16032,6 +16425,7 @@ def _serialize_layby(cursor, row):
 @app.route('/api/pos/laybys', methods=['POST'])
 @login_required
 @block_writes_in_consolidated_view
+@block_money_on_dispatch
 def pos_create_layby():
     """Open a layby: capture the customer, the plan, and reserve the goods.
 
@@ -16401,6 +16795,7 @@ def pos_list_laybys():
 @app.route('/api/pos/laybys/<int:layby_id>/pay', methods=['POST'])
 @login_required
 @block_writes_in_consolidated_view
+@block_money_on_dispatch
 def pos_layby_payment(layby_id):
     """Record one instalment received against an existing layby.
 
@@ -16552,6 +16947,7 @@ def pos_layby_payment(layby_id):
 @app.route('/api/pos/laybys/<int:layby_id>/cancel', methods=['POST'])
 @login_required
 @block_writes_in_consolidated_view
+@block_money_on_dispatch
 def pos_cancel_layby(layby_id):
     """Cancel a layby: goods back on the shelf, the sale voided, the money refunded.
 
@@ -21304,6 +21700,7 @@ def create_new_category():
 @app.route('/api/transactions/sync', methods=['POST'])
 @login_required
 @block_writes_in_consolidated_view
+@block_money_on_dispatch
 def sync_offline_transactions():
     """Replay sales that were rung up while the till had no internet.
 
@@ -21533,6 +21930,7 @@ def sync_offline_transactions():
 @app.route('/api/transactions', methods=['POST'])
 @login_required
 @block_writes_in_consolidated_view
+@block_money_on_dispatch
 def create_transaction():
     """Create new transaction"""
     try:
@@ -21984,6 +22382,7 @@ def clear_all_transactions():
 @app.route('/api/transactions/<int:transaction_id>/revert', methods=['POST'])
 @login_required
 @block_writes_in_consolidated_view
+@block_money_on_dispatch
 def revert_transaction(transaction_id):
     """Revert/void a sale from the POS Transaction History tab.
     - Marks the transaction as voided so it disappears from sales history.
