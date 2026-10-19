@@ -1,6 +1,6 @@
 PASS  script started
-PASS  read the POS page  -> 923590 chars
-PASS  read the committed POS page for comparison  -> 920172 chars
+PASS  read the POS page  -> 1080130 chars
+PASS  read the committed POS page for comparison  -> 1080130 chars
 PASS  the page still has its script blocks  -> new=4 old=4
 PASS  no script block gained a syntax error (vs the committed page)
 PASS  every declaration this change touched parses on its own
@@ -58,11 +58,3 @@ PASS  a logged-out till says how many sales are waiting on it
 PASS  and says one login files them, so the money is not lost
 PASS  it counts the layby events waiting too
 PASS  the same news is not repeated for an unchanged count
-PASS  a refused batch that only needs a login is reported as sales waiting, not as an error
-PASS  no retry is ever burned on a dead session (the sales cannot age out)
-PASS  a sync that gets through clears the notice, so a second logout is announced
-PASS  a layby event that only needs a login is not parked as a human decision
-PASS  and the rest of the layby queue is not failed item by item
-PASS  the layby replay tells a dead session apart from a refusal
-PASS  the server no longer claims a session lifetime its cookie does not have
-PASS  but a dead session is still reported as one (the till keys on that flag)
