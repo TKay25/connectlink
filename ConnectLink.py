@@ -16105,19 +16105,23 @@ def pos_transfer_stock():
             # transfer must not change what the goods are worth, only where
             # they are. (Layers are written first so the reconciliation inside
             # add_branch_stock finds the ledger already balanced.)
-            moved_cost, moved_layers = consume_stock_lots_fifo(cursor, product_id, from_branch, quantity)
+            moved_cost, moved_layers = consume_stock_lots_fifo(
+                cursor, product_id, from_branch, quantity, department=current_department())
             for _lot_id, layer_qty, layer_cost in moved_layers:
                 receive_stock_lot(cursor, product_id, to_branch, layer_qty, layer_cost,
-                                  'transfer_in', f'T{transfer_id}')
-            add_branch_stock(cursor, product_id, from_branch, -quantity)
+                                  'transfer_in', f'T{transfer_id}',
+                                  department=current_department())
+            add_branch_stock(cursor, product_id, from_branch, -quantity,
+                             department=current_department())
             cursor.execute("""
-                INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
-                VALUES (%s, %s, 'transfer_out', %s, %s, CURRENT_TIMESTAMP, %s)
+                INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id, department)
+                VALUES (%s, %s, 'transfer_out', %s, %s, CURRENT_TIMESTAMP, %s, %s)
             """, (product_id, quantity, f"Transfer #{transfer_id} to {branch_names.get(to_branch)}",
-                  user_id, from_branch))
+                  user_id, from_branch, current_department()))
 
             # ...and into the destination.
-            add_branch_stock(cursor, product_id, to_branch, quantity)
+            add_branch_stock(cursor, product_id, to_branch, quantity,
+                             department=current_department())
             cursor.execute("""
                 INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id, department)
                 VALUES (%s, %s, %s, %s, 'TRANSFER', %s, CURRENT_TIMESTAMP, %s, %s)
@@ -16388,12 +16392,14 @@ def dispatch_push():
                                  department=current_department())
                 cursor.execute("""
                     INSERT INTO stock_reductions
-                        (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
-                    VALUES (%s, %s, 'transfer_out', %s, %s, CURRENT_TIMESTAMP, %s)
+                        (product_id, quantity, reason, notes, user_id, reduced_at, branch_id,
+                         department)
+                    VALUES (%s, %s, 'transfer_out', %s, %s, CURRENT_TIMESTAMP, %s, %s)
                 """, (pid, qty, 'Dispatch #%d to %s' % (transfer_id, dest[1]),
-                      user_id, from_branch))
+                      user_id, from_branch, current_department()))
 
-                add_branch_stock(cursor, pid, to_branch, qty)
+                add_branch_stock(cursor, pid, to_branch, qty,
+                                 department=current_department())
                 cursor.execute("""
                     INSERT INTO stock_additions
                         (product_id, quantity, buy_price, total_cost, funding_source,
