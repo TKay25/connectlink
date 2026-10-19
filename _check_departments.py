@@ -211,6 +211,18 @@ transactions = grab('get_transactions')
 check('the transactions tab is scoped to the department',
       'department_scope_clause(' in transactions)
 
+# The POS header cards (cashier takings, Today's Sales, Items Sold) are a
+# separate aggregate. They were department-blind in the first pass, which made
+# the header keep showing the whole shop while the register showed one
+# department. This is the assertion that stops that returning.
+header = grab('today_by_cashier')
+check('the cashier header totals are department-scoped',
+      'COALESCE(_d.department, %s) = %s' in header)
+check("the header's Items Sold counts only this department",
+      'AND COALESCE(department, %s) = %s' in header)
+check('the header payment breakdown is department-scoped',
+      header.count('COALESCE(_d.department, %s) = %s') >= 2)
+
 check('a sale records the department it was rung in',
       src.count("INSERT INTO transaction_items") >= 1 and 'department' in src)
 
@@ -255,7 +267,7 @@ check('the POS header carries the department switch',
       and "data-dept=\"furniture\"" in tpl)
 check('switching is wired to the server', 'switch-department' in tpl)
 check('every tab is redrawn after a switch',
-      'function reloadForDepartment' in tpl
+      'function redrawActiveTab' in tpl
       and 'renderInventory()' in tpl and 'loadSalesReport()' in tpl)
 check('an inventory row offers the OTHER department',
       'moveProductDepartment(' in tpl and 'To Furniture' in tpl and 'To Hardware' in tpl)

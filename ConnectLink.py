@@ -3687,11 +3687,26 @@ def branch_read_clause(column='branch_id'):
     return f" AND {column} = %s", [branch_id]
 
 
-def get_branch_stock(cursor, product_id, branch_id):
-    """Current stock of a product in one branch (0 when it is not stocked there)."""
-    cursor.execute(
-        "SELECT stock FROM product_stock WHERE product_id = %s AND branch_id = %s",
-        (product_id, branch_id))
+def get_branch_stock(cursor, product_id, branch_id, department=None):
+    """Current stock of a product in one branch (0 when it is not stocked there).
+
+    `department` is OPTIONAL and deliberately so. When it is None the figure is
+    the branch's whole holding across every department, which is what the
+    aggregate/catalogue readers have always meant. When it is given, the answer
+    is that ONE department's pool -- which is what the till must use, because a
+    Hardware sale may not draw on the Furniture shelf. Callers that act on a
+    specific department (a sale, a transfer, a dispatch) pass it explicitly.
+    """
+    if department:
+        cursor.execute(
+            "SELECT stock FROM product_stock WHERE product_id = %s AND branch_id = %s "
+            "AND COALESCE(department, %s) = %s",
+            (product_id, branch_id, DEFAULT_DEPARTMENT, department))
+    else:
+        cursor.execute(
+            "SELECT COALESCE(SUM(stock), 0) FROM product_stock "
+            "WHERE product_id = %s AND branch_id = %s",
+            (product_id, branch_id))
     row = cursor.fetchone()
     return int(row[0] or 0) if row else 0
 
@@ -3902,17 +3917,23 @@ def move_product_department(cursor, product_id, branch_id, to_department, user_i
 # takes its cost from the layers it actually consumed, and stores that on the
 # sale line so the figure can never move afterwards.
 
-def receive_stock_lot(cursor, product_id, branch_id, quantity, unit_cost, source='addition', reference=''):
-    """Add one FIFO cost layer for goods arriving in a branch. Returns the lot id."""
+def receive_stock_lot(cursor, product_id, branch_id, quantity, unit_cost, source='addition', reference='',
+                      department=None):
+    """Add one FIFO cost layer for goods arriving in a branch. Returns the lot id.
+
+    `department` puts the layer in the pool that actually received the goods. It
+    defaults to Hardware so every pre-existing caller keeps its behaviour.
+    """
     quantity = int(quantity or 0)
     if not product_id or not branch_id or quantity <= 0:
         return None
     cursor.execute("""
-        INSERT INTO stock_lots (product_id, branch_id, quantity_received, quantity_remaining,
-                                unit_cost, source, reference, received_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        INSERT INTO stock_lots (product_id, branch_id, department, quantity_received,
+                                quantity_remaining, unit_cost, source, reference, received_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         RETURNING id
-    """, (product_id, branch_id, quantity, quantity, float(unit_cost or 0), source, reference or ''))
+    """, (product_id, branch_id, department or DEFAULT_DEPARTMENT, quantity, quantity,
+          float(unit_cost or 0), source, reference or ''))
     return cursor.fetchone()[0]
 
 
@@ -16062,7 +16083,8 @@ def pos_transfer_stock():
             if to_branch not in branch_names:
                 return jsonify({'success': False, 'error': 'Destination branch not found.'}), 404
 
-            available = get_branch_stock(cursor, product_id, from_branch)
+            available = get_branch_stock(cursor, product_id, from_branch,
+                                         department=current_department())
             if quantity > available:
                 return jsonify({
                     'success': False,
@@ -16326,7 +16348,8 @@ def dispatch_push():
             # item cannot leave the first ones already dispatched.
             short = []
             for pid, qty in wanted.items():
-                held = get_branch_stock(cursor, pid, from_branch)
+                held = get_branch_stock(cursor, pid, from_branch,
+                                        department=current_department())
                 if qty > held:
                     cursor.execute("SELECT name FROM products WHERE id = %s", (pid,))
                     prow = cursor.fetchone()
@@ -16356,11 +16379,13 @@ def dispatch_push():
                 # own cost and are re-laid at that SAME cost in the shop, so a
                 # dispatch never silently revalues stock.
                 moved_cost, moved_layers = consume_stock_lots_fifo(
-                    cursor, pid, from_branch, qty)
+                    cursor, pid, from_branch, qty, department=current_department())
                 for _lot_id, layer_qty, layer_cost in moved_layers:
                     receive_stock_lot(cursor, pid, to_branch, layer_qty, layer_cost,
-                                      'transfer_in', 'D%d' % transfer_id)
-                add_branch_stock(cursor, pid, from_branch, -qty)
+                                      'transfer_in', 'D%d' % transfer_id,
+                                      department=current_department())
+                add_branch_stock(cursor, pid, from_branch, -qty,
+                                 department=current_department())
                 cursor.execute("""
                     INSERT INTO stock_reductions
                         (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
@@ -21269,9 +21294,14 @@ def get_product(product_id):
     total_stock = product[7] or 0
     try:
         with get_db() as (cursor, connection):
-            cursor.execute("SELECT COALESCE(SUM(stock), 0) FROM product_stock WHERE product_id = %s", (product_id,))
+            cursor.execute(
+                "SELECT COALESCE(SUM(stock), 0) FROM product_stock "
+                "WHERE product_id = %s AND COALESCE(department, %s) = %s",
+                (product_id, DEFAULT_DEPARTMENT, current_department()))
             total_stock = int(cursor.fetchone()[0] or 0)
-            branch_stock = get_branch_stock(cursor, product_id, branch_id) if branch_id else total_stock
+            branch_stock = (get_branch_stock(cursor, product_id, branch_id,
+                                             department=current_department())
+                            if branch_id else total_stock)
     except Exception as stock_err:
         print(f"Warning: could not read branch stock: {stock_err}")
     
@@ -21335,7 +21365,8 @@ def get_product_by_barcode(barcode):
             branch_stock = 0
             try:
                 with get_db() as (cursor, connection):
-                    branch_stock = get_branch_stock(cursor, result[0], branch_id)
+                    branch_stock = get_branch_stock(cursor, result[0], branch_id,
+                                                    department=current_department())
             except Exception as stock_err:
                 print(f"Warning: could not read branch stock: {stock_err}")
         else:
@@ -21753,9 +21784,10 @@ def subtract_stock(product_id):
         if not product:
             return jsonify({'error': 'Product not found'}), 404
         
-        # THIS BRANCH's stock, not the catalogue-wide total
+        # THIS BRANCH's stock in THIS department, not the catalogue-wide total
         with get_db() as (cursor, connection):
-            branch_stock = get_branch_stock(cursor, product_id, current_branch_id())
+            branch_stock = get_branch_stock(cursor, product_id, current_branch_id(),
+                                            department=current_department())
         current_stock = branch_stock
         product_name = product[2]
         
@@ -22622,6 +22654,7 @@ def day_end_report():
                        FROM transaction_items ti
                        LEFT JOIN products p ON ti.product_id = p.id
                        WHERE ti.transaction_id = t.id
+                         AND COALESCE(ti.department, %s) = %s
                    ), '[]'::json) as items,
                    t.branch_id,
                    b.name as branch_name
@@ -22634,12 +22667,23 @@ def day_end_report():
               -- those are collected separately below; counting the whole layby
               -- here would claim takings the shop has not received yet.
               AND COALESCE(t.status, 'completed') <> 'layby'
+              -- Day-end is reported per department: the totals and the itemised
+              -- lines beside them must both describe the department on screen.
+              AND EXISTS (
+                  SELECT 1 FROM transaction_items _d
+                  WHERE _d.transaction_id = t.id
+                    AND COALESCE(_d.department, %s) = %s
+              )
         """
+        _dend_dept = current_department()
         branch_where, branch_params = branch_read_clause('t.branch_id')
         query = query + branch_where + """
             ORDER BY t.created_at ASC
         """
-        rows = execute_query(query, (day,) + tuple(branch_params), fetch_all=True)
+        rows = execute_query(
+            query,
+            (DEFAULT_DEPARTMENT, _dend_dept, day, DEFAULT_DEPARTMENT, _dend_dept)
+            + tuple(branch_params), fetch_all=True)
 
         from collections import OrderedDict
         cashier_map = OrderedDict()
@@ -22785,15 +22829,27 @@ def get_daily_summary():
             COALESCE(SUM(
                 (SELECT COALESCE(SUM(quantity), 0) 
                  FROM transaction_items 
-                 WHERE transaction_id = transactions.id)
+                 WHERE transaction_id = transactions.id
+                   AND COALESCE(department, %s) = %s)
             ), 0) as items_sold
         FROM transactions
         WHERE DATE(created_at) = CURRENT_DATE
         AND status = 'completed'
         AND voided = FALSE
+        -- Department scope, matching the header and the dashboard.
+        AND EXISTS (
+            SELECT 1 FROM transaction_items _d
+            WHERE _d.transaction_id = transactions.id
+              AND COALESCE(_d.department, %s) = %s
+        )
     """
+    _sum_dept = current_department()
+    sum_branch_where, sum_branch_params = branch_read_clause('branch_id')
+    query = query + sum_branch_where
     
-    result = execute_query(query, fetch_one=True)
+    result = execute_query(query,
+                           (DEFAULT_DEPARTMENT, _sum_dept, DEFAULT_DEPARTMENT, _sum_dept)
+                           + tuple(sum_branch_params), fetch_one=True)
     
     return jsonify({
         'success': True,
@@ -23015,6 +23071,11 @@ def get_voided_transactions():
         if start and end:
             where += " AND t.voided_at::date BETWEEN %s AND %s"
             params += [start, end]
+        # Department scope, so the voided list matches the department on screen.
+        where += (" AND EXISTS (SELECT 1 FROM transaction_items _d "
+                  "WHERE _d.transaction_id = t.id "
+                  "AND COALESCE(_d.department, %s) = %s)")
+        params += [DEFAULT_DEPARTMENT, current_department()]
 
         query = f"""
             SELECT t.id, t.transaction_number, t.user_id, u.full_name as cashier,
@@ -23028,13 +23089,18 @@ def get_voided_transactions():
                        FROM transaction_items ti
                        LEFT JOIN products p ON ti.product_id = p.id
                        WHERE ti.transaction_id = t.id
+                         AND COALESCE(ti.department, %s) = %s
                    ), '[]'::json) as items
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
             {where}
             ORDER BY t.voided_at DESC
         """
-        rows = execute_query(query, tuple(params), fetch_all=True)
+        # The two item-level placeholders sit inside the SELECT, so they come
+        # BEFORE the WHERE-clause params in the final parameter order.
+        rows = execute_query(query,
+                             (DEFAULT_DEPARTMENT, current_department()) + tuple(params),
+                             fetch_all=True)
         voided = []
         for r in rows:
             voided.append({
@@ -23085,16 +23151,27 @@ def get_dashboard_stats():
             COALESCE(SUM(
                 (SELECT COALESCE(SUM(quantity), 0) 
                  FROM transaction_items 
-                 WHERE transaction_id = transactions.id)
+                 WHERE transaction_id = transactions.id
+                   AND COALESCE(department, %s) = %s)
             ), 0) as items_sold
         FROM transactions
         WHERE DATE(created_at) = CURRENT_DATE
         AND status = 'completed'
         AND voided = FALSE
+        -- The dashboard follows the department the till is showing.
+        AND EXISTS (
+            SELECT 1 FROM transaction_items _d
+            WHERE _d.transaction_id = transactions.id
+              AND COALESCE(_d.department, %s) = %s
+        )
     """
+    _dash_dept = current_department()
     branch_where, branch_params = branch_read_clause('branch_id')
     today_query = today_query + branch_where
-    today_result = execute_query(today_query, tuple(branch_params) if branch_params else None, fetch_one=True)
+    today_result = execute_query(
+        today_query,
+        (DEFAULT_DEPARTMENT, _dash_dept, DEFAULT_DEPARTMENT, _dash_dept) + tuple(branch_params),
+        fetch_one=True)
     
     # Low stock is a PER-BRANCH figure: the same catalogue item can be plentiful
     # in one shop and nearly out in the other.
@@ -23156,19 +23233,30 @@ def today_by_cashier():
                        SELECT COALESCE(SUM(quantity), 0)
                        FROM transaction_items
                        WHERE transaction_id = t.id
+                         AND COALESCE(department, %s) = %s
                    )), 0) AS items_sold
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
             WHERE DATE(t.created_at) = CURRENT_DATE
               AND t.status = 'completed'
               AND t.voided = FALSE
+              -- A sale belongs to the department it was rung in: the header must
+              -- show the SELECTED department's takings, not the whole shop's.
+              AND EXISTS (
+                  SELECT 1 FROM transaction_items _d
+                  WHERE _d.transaction_id = t.id
+                    AND COALESCE(_d.department, %s) = %s
+              )
         """
+        _dept = current_department()
         tbc_where, tbc_params = branch_read_clause('t.branch_id')
         totals_query = totals_query + tbc_where + """
             GROUP BY u.full_name
             ORDER BY total DESC
         """
-        rows = execute_query(totals_query, tuple(tbc_params) if tbc_params else None, fetch_all=True)
+        rows = execute_query(totals_query,
+                             (DEFAULT_DEPARTMENT, _dept, DEFAULT_DEPARTMENT, _dept)
+                             + tuple(tbc_params), fetch_all=True)
 
         pm_query = """
             SELECT COALESCE(u.full_name, 'Unknown') AS cashier,
@@ -23179,12 +23267,18 @@ def today_by_cashier():
             WHERE DATE(t.created_at) = CURRENT_DATE
               AND t.status = 'completed'
               AND t.voided = FALSE
+              AND EXISTS (
+                  SELECT 1 FROM transaction_items _d
+                  WHERE _d.transaction_id = t.id
+                    AND COALESCE(_d.department, %s) = %s
+              )
         """
         pm_where, pm_params = branch_read_clause('t.branch_id')
         pm_query = pm_query + pm_where + """
             GROUP BY u.full_name, t.payment_method
         """
-        pm_rows = execute_query(pm_query, tuple(pm_params) if pm_params else None, fetch_all=True)
+        pm_rows = execute_query(pm_query, (DEFAULT_DEPARTMENT, _dept) + tuple(pm_params),
+                                fetch_all=True)
 
         cashier_map = OrderedDict()
         for r in rows:

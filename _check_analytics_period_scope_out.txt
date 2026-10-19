@@ -1,17 +1,17 @@
 PASS  script started
-PASS  read the POS page  -> 1087713 chars
+PASS  read the POS page  -> 1091643 chars
 PASS  read the committed POS page for comparison  -> 1087713 chars
-PASS  loadSalesReport() parses  -> 3970 chars (lines 13517-13602)
-PASS  updateReportDateRange() parses  -> 717 chars (lines 13437-13452)
-PASS  renderSalesReport() parses  -> 22188 chars (lines 13602-14050)
-PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 20563-20587)
-PASS  renderAnalytics() parses  -> 37870 chars (lines 20717-21456)
-PASS  reportScopeLabel() parses  -> 681 chars (lines 20631-20644)
-PASS  syncAnalyticsScope() parses  -> 576 chars (lines 20648-20660)
-PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 20665-20676)
-PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 20678-20684)
-PASS  toLocalISODate() parses  -> 222 chars (lines 20602-20606)
-PASS  fmtDayLong() parses  -> 259 chars (lines 20619-20624)
+PASS  loadSalesReport() parses  -> 3970 chars (lines 13545-13630)
+PASS  updateReportDateRange() parses  -> 717 chars (lines 13465-13480)
+PASS  renderSalesReport() parses  -> 22188 chars (lines 13630-14078)
+PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 20608-20632)
+PASS  renderAnalytics() parses  -> 37870 chars (lines 20762-21501)
+PASS  reportScopeLabel() parses  -> 681 chars (lines 20676-20689)
+PASS  syncAnalyticsScope() parses  -> 576 chars (lines 20693-20705)
+PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 20710-20721)
+PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 20723-20729)
+PASS  toLocalISODate() parses  -> 222 chars (lines 20647-20651)
+PASS  fmtDayLong() parses  -> 259 chars (lines 20664-20669)
 PASS  the analytics page is drawn from one filtered report, not its own fetch  -> renderAnalytics() draws currentReportData (0 fetch( inside it); the report itself is fetched once, in loadSalesReport
 PASS  loadSalesReport() publishes the applied scope  -> window.__reportScope present
 PASS  the scope is published BEFORE the fetch, never after it  -> scope at 2485, fetch at 2693
@@ -48,7 +48,9 @@ PASS  an empty period is written as empty, not left as the last period on screen
 PASS  the empty brief still names the applied period  -> uses reportScopeLabel()
 PASS  the empty page clears the previous period's figures  -> clears KPI / intel / action / mover / top-product containers
 PASS  a first visit to Analytics draws the page on the data it just loaded  -> loadSalesReport(...).then(... renderAnalytics())
-PASS  baseline is identical to the working copy (this change is committed)
+FAIL  the committed brief took its period from the analytics selector  -> the words and the figures could disagree at HEAD: the committed brief already used an applied scope
+FAIL  the committed analytics selector was pre-set to a period nobody applied  -> a hard-coded default sat on the selector at HEAD
+FAIL  the committed page keyed days by UTC in more than one place  -> 0 UTC day keys at HEAD, 0 now
 PASS  the stand-in POS server is up  -> http://127.0.0.1:8798/pos-system.html
 PASS  the real page loads in a real browser  -> http://127.0.0.1:8798/pos-system.html
 PASS  the browser is on the shop's clock  -> Africa/Harare

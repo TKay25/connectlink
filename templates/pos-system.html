@@ -4929,6 +4929,34 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     box-shadow: 0 2px 8px rgba(0,0,0,0.18);
 }
 .pos-dept-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* ---- Busy overlay for stock-moving department operations ----
+   A department move writes real stock, so the screen is blocked while the
+   server commits: nobody can fire the same move twice from a double tap. */
+.dept-busy-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 27, 45, 0.55);
+    backdrop-filter: blur(2px);
+}
+.dept-busy-overlay.is-visible { display: flex; }
+.dept-busy-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 26px 34px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 18px 48px rgba(0,0,0,0.28);
+    min-width: 220px;
+}
+.dept-busy-box .spinner-border { color: var(--crimson-bright, #B3122E); width: 2.4rem; height: 2.4rem; }
+.dept-busy-text { font-weight: 700; font-size: 0.86rem; color: #0F1B2D; text-align: center; }
 @media (max-width: 575.98px) {
     .pos-dept-btn { padding: 6px 10px; font-size: 0.66rem; }
     .pos-dept-btn span { display: none; }
@@ -14901,7 +14929,24 @@ async function fetchTransactionsData() {
                 localStorage.setItem('isLoggedIn', 'true');
                 if (authData.user) localStorage.setItem('user', JSON.stringify(authData.user));
                 applyPOSBranch(authData.branch);
-                if (authData.department) applyDepartmentState(authData.department);
+                // Landing/refresh always opens on Hardware, whatever was in use
+                // before. The server session may still hold the other department,
+                // so this is pushed back to the server as well -- otherwise the
+                // catalogue would arrive filtered to a department the switch is
+                // not showing.
+                applyDepartmentState('hardware');
+                if (authData.department && authData.department.key !== 'hardware') {
+                    // AWAITED: the catalogue is fetched straight after this, and it
+                    // must be filtered by the department the switch now shows.
+                    try {
+                        await fetch(`${API_BASE}/api/pos/switch-department`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ department: 'hardware' })
+                        });
+                    } catch (e) { /* the catalogue read will simply use the old one */ }
+                }
                 // Signed in with no shop: the general portal login also drops a
                 // hardware user here. The session is not this till's to use until a
                 // branch with its access code is chosen, because reads would fall
@@ -22093,35 +22138,73 @@ function setText(id, value) {
 
 // ==================== DEPARTMENT SWITCH ====================
 // Switch the whole till between Hardware and Furniture. Every tab (POS grid,
-// Inventory, sales, reports) follows this; the server holds the choice in the
-// session so a reload keeps it.
+// Inventory, sales, reports) follows this.
+// Hardware is always the landing department: the saved choice is deliberately
+// NOT restored on load, so a refresh never opens on the other department.
 async function switchDepartment(dept) {
     if (!dept || dept === posDepartment) return;
     if (typeof branchIsReadOnly === 'function' && branchIsReadOnly()) {
         if (typeof showToast === 'function') showToast('All Branches is read-only.', 'error');
         return;
     }
+    showDepartmentLoader(true);
     try {
-        const res = await fetch(`${API_BASE}/api/pos/switch-department`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ department: dept })
-        });
-        const data = await res.json();
-        if (!data.success) {
-            if (typeof showToast === 'function') showToast(data.message || 'Could not switch department.', 'error');
+        // The switch is a session flip; the catalogue is re-read in parallel
+        // rather than after it, so the swap does not wait on two round trips.
+        const [switchResult] = await Promise.all([
+            fetch(`${API_BASE}/api/pos/switch-department`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ department: dept })
+            }).then(r => r.json()).catch(() => null),
+            fetchProductsFromAPI()
+        ]);
+        if (!switchResult || !switchResult.success) {
+            if (typeof showToast === 'function') {
+                showToast((switchResult && switchResult.message) || 'Could not switch department.', 'error');
+            }
+            showDepartmentLoader(false);
             return;
         }
-        applyDepartmentState(data.department);
+        applyDepartmentState(switchResult.department);
         try { localStorage.removeItem('pos_api_cache_v1'); } catch (e) {}
-        if (typeof showToast === 'function') showToast('Now viewing ' + (data.label || dept), 'success');
-        await reloadForDepartment();
+        // Redraw the open tab from the catalogue already in hand.
+        redrawActiveTab();
+        // The header cards are a separate server aggregate; refresh them in
+        // the background so the switch itself stays instant.
+        if (typeof loadTodayByCashier === 'function') loadTodayByCashier();
+        if (typeof loadStats === 'function') loadStats();
+        if (typeof showToast === 'function') {
+            showToast('Now viewing ' + (switchResult.label || dept), 'success');
+        }
     } catch (e) {
         if (typeof showToast === 'function') showToast('Connection error. Please try again.', 'error');
+    } finally {
+        showDepartmentLoader(false);
     }
 }
 window.switchDepartment = switchDepartment;
+
+// Full-screen overlay for the operations that move real stock, so nobody can
+// press the button twice while the server is working.
+function showDepartmentLoader(show, message) {
+    let el = document.getElementById('deptBusyOverlay');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'deptBusyOverlay';
+        el.className = 'dept-busy-overlay';
+        el.innerHTML = '<div class="dept-busy-box">'
+            + '<div class="spinner-border" role="status"></div>'
+            + '<div class="dept-busy-text" id="deptBusyText">Working...</div></div>';
+        document.body.appendChild(el);
+    }
+    const txt = document.getElementById('deptBusyText');
+    if (txt) txt.textContent = message || 'Working...';
+    el.classList.toggle('is-visible', !!show);
+    el.setAttribute('aria-hidden', show ? 'false' : 'true');
+}
+window.showDepartmentLoader = showDepartmentLoader;
 
 function applyDepartmentState(deptKey) {
     posDepartment = deptKey || 'hardware';
@@ -22130,14 +22213,13 @@ function applyDepartmentState(deptKey) {
         btn.classList.toggle('is-active', on);
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
-    try { localStorage.setItem('pos_department', posDepartment); } catch (e) {}
 }
 window.applyDepartmentState = applyDepartmentState;
 
-// Everything on screen is derived from the catalogue, so re-read it and then
-// redraw whichever tab is open.
-async function reloadForDepartment() {
-    if (typeof fetchProductsFromAPI === 'function') await fetchProductsFromAPI();
+// Redraw whichever tab is open, using state already loaded.
+function redrawActiveTab() {
+    if (typeof renderProducts === 'function') renderProducts();
+    if (typeof updateInventoryMetrics === 'function') updateInventoryMetrics();
     if (currentPage === 'inventory' && typeof renderInventory === 'function') renderInventory();
     if (currentPage === 'dispatch' && typeof loadDispatchAnalytics === 'function') loadDispatchAnalytics();
     if (currentPage === 'sales' && typeof loadSalesReport === 'function') loadSalesReport();
@@ -22145,6 +22227,7 @@ async function reloadForDepartment() {
     if (currentPage === 'analytics' && typeof renderAnalytics === 'function') renderAnalytics();
     if (currentPage === 'layby' && typeof fetchLaybys === 'function') fetchLaybys();
 }
+window.redrawActiveTab = redrawActiveTab;
 
 // Place ONE product in the other department for this branch.
 async function moveProductDepartment(productId) {
@@ -22163,6 +22246,8 @@ async function moveProductDepartment(productId) {
         + `The total held by this branch does not change.`;
     if (!window.confirm(msg)) return;
 
+    // Money-moving operation: block the screen until the server has committed.
+    showDepartmentLoader(true, 'Moving to ' + label + '...');
     try {
         const res = await fetch(`${API_BASE}/api/pos/product-department`, {
             method: 'POST',
@@ -22176,10 +22261,12 @@ async function moveProductDepartment(productId) {
             return;
         }
         if (typeof showToast === 'function') showToast(data.message || 'Product moved.', 'success');
-        // The item has left this department's list, so the catalogue is stale.
-        await reloadForDepartment();
+        await fetchProductsFromAPI();
+        redrawActiveTab();
     } catch (e) {
         if (typeof showToast === 'function') showToast('Connection error. Please try again.', 'error');
+    } finally {
+        showDepartmentLoader(false);
     }
 }
 window.moveProductDepartment = moveProductDepartment;
