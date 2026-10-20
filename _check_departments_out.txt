@@ -32,7 +32,7 @@ PASS  the header's Items Sold counts only this department
 PASS  the header payment breakdown is department-scoped
 PASS  a sale records the department it was rung in
 PASS  every stock receipt records its department
-PASS  every stock reduction records its department (where written by a sale path)  -> informational: 6 site(s) rely on the hardware default
+PASS  every stock reduction records its department (where written by a sale path)  -> informational: 0 site(s) rely on the hardware default
 PASS  the department switch endpoint exists
 PASS  the per-product department endpoint exists
 PASS  the switch refuses an unknown department
@@ -41,6 +41,6 @@ PASS  the switch endpoint checks sign-in
 PASS  placing a product is guarded against the read-only view
 PASS  the POS header carries the department switch
 PASS  switching is wired to the server
-FAIL  every tab is redrawn after a switch
+PASS  every tab is redrawn after a switch
 PASS  an inventory row offers the OTHER department
 PASS  the placement calls the server

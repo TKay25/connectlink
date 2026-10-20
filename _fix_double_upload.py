@@ -185,9 +185,9 @@ def main():
         # it. (Keep this in step with set_branch_stock if that ever changes.)
         def set_branch_stock(cursor, pid, bid, new_stock):
             cursor.execute("""
-                INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
-                VALUES (%s, %s, %s, 10, CURRENT_TIMESTAMP)
-                ON CONFLICT (product_id, branch_id) DO UPDATE
+                INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level, updated_at)
+                VALUES (%s, %s, 'hardware', %s, 10, CURRENT_TIMESTAMP)
+                ON CONFLICT (product_id, branch_id, department) DO UPDATE
                     SET stock = EXCLUDED.stock, updated_at = CURRENT_TIMESTAMP
             """, (pid, bid, int(new_stock or 0)))
 

@@ -3760,7 +3760,8 @@ def set_branch_stock(cursor, product_id, branch_id, new_stock, min_stock_level=N
     """, (product_id, branch_id, department or DEFAULT_DEPARTMENT,
           int(new_stock or 0), min_stock_level))
     recalc_product_total_stock(cursor, product_id)
-    sync_lots_to_stock(cursor, product_id, branch_id, unit_cost=lot_cost)
+    sync_lots_to_stock(cursor, product_id, branch_id, unit_cost=lot_cost,
+                       department=department)
     sync_product_avg_cost(cursor, product_id)
 
 
@@ -3796,7 +3797,8 @@ def add_branch_stock(cursor, product_id, branch_id, delta, lot_cost=None, depart
     """, (product_id, branch_id, department or DEFAULT_DEPARTMENT, int(delta)))
     recalc_product_total_stock(cursor, product_id)
     sync_lots_to_stock(cursor, product_id, branch_id,
-                      unit_cost=lot_cost if delta > 0 else None)
+                       unit_cost=lot_cost if delta > 0 else None,
+                       department=department)
     sync_product_avg_cost(cursor, product_id)
 
 
@@ -3999,22 +4001,36 @@ def fifo_stock_value(cursor, product_id=None, branch_id=None):
     return float(row[0] or 0) if row else 0.0
 
 
-def sync_lots_to_stock(cursor, product_id, branch_id, unit_cost=None):
+def sync_lots_to_stock(cursor, product_id, branch_id, unit_cost=None, department=None):
     """Force the FIFO ledger to tie out to product_stock for one branch.
 
     Lots are the costing layer, product_stock is the quantity truth. Any gap is
     closed here: short by N adds a layer (at `unit_cost` when given), over by N
     consumes FIFO. This runs after every movement, so the valuation can never
     silently disagree with the stock report.
+
+    `department` scopes BOTH sides to one department's pool. Without it this
+    compared a single product_stock row (now one row PER DEPARTMENT, so
+    fetchone() picked an arbitrary one) against lots summed across every
+    department, then "repaired" the difference by creating or consuming Hardware
+    layers -- which would corrupt FIFO costing the moment a second department
+    held stock. It defaults to Hardware for callers that predate departments.
     """
     if not product_id or not branch_id:
         return
-    cursor.execute("SELECT COALESCE(stock, 0) FROM product_stock WHERE product_id = %s AND branch_id = %s",
-                   (product_id, branch_id))
+    dept = department or DEFAULT_DEPARTMENT
+    cursor.execute("""
+        SELECT COALESCE(SUM(stock), 0) FROM product_stock
+        WHERE product_id = %s AND branch_id = %s
+          AND COALESCE(department, %s) = %s
+    """, (product_id, branch_id, DEFAULT_DEPARTMENT, dept))
     row = cursor.fetchone()
     on_hand = int(row[0] or 0) if row else 0
-    cursor.execute("SELECT COALESCE(SUM(quantity_remaining), 0) FROM stock_lots WHERE product_id = %s AND branch_id = %s",
-                   (product_id, branch_id))
+    cursor.execute("""
+        SELECT COALESCE(SUM(quantity_remaining), 0) FROM stock_lots
+        WHERE product_id = %s AND branch_id = %s
+          AND COALESCE(department, %s) = %s
+    """, (product_id, branch_id, DEFAULT_DEPARTMENT, dept))
     in_lots = int(cursor.fetchone()[0] or 0)
     if in_lots == on_hand:
         return
@@ -4024,9 +4040,11 @@ def sync_lots_to_stock(cursor, product_id, branch_id, unit_cost=None):
             cursor.execute("SELECT COALESCE(buy_price, 0) FROM products WHERE id = %s", (product_id,))
             r = cursor.fetchone()
             cost = float(r[0] or 0) if r else 0.0
-        receive_stock_lot(cursor, product_id, branch_id, on_hand - in_lots, cost, 'adjustment', 'reconcile')
+        receive_stock_lot(cursor, product_id, branch_id, on_hand - in_lots, cost,
+                          'adjustment', 'reconcile', department=dept)
     else:
-        consume_stock_lots_fifo(cursor, product_id, branch_id, in_lots - on_hand)
+        consume_stock_lots_fifo(cursor, product_id, branch_id, in_lots - on_hand,
+                                department=dept)
 
 
 def sync_product_avg_cost(cursor, product_id):
@@ -16166,6 +16184,7 @@ def dispatch_stock():
         return jsonify({'success': False,
                         'error': 'This is not the Central Dispatch branch.'}), 403
     try:
+        _disp_dept = current_department()
         rows = execute_query("""
             SELECT p.id, p.name, p.category, p.barcode, p.unit_type, p.unit_details,
                    COALESCE(ps.stock, 0) AS stock,
@@ -16174,13 +16193,21 @@ def dispatch_stock():
             FROM products p
             LEFT JOIN product_stock ps
                    ON ps.product_id = p.id AND ps.branch_id = %s
+                  AND COALESCE(ps.department, %s) = %s
             WHERE (p.is_active = TRUE OR p.is_active IS NULL)
               AND NOT EXISTS (
                   SELECT 1 FROM product_branch_archives pba
                   WHERE pba.product_id = p.id AND pba.branch_id = %s
               )
+              -- Dispatch dispatches the department it is showing.
+              AND COALESCE((
+                    SELECT pd.department FROM product_departments pd
+                    WHERE pd.product_id = p.id AND pd.branch_id = %s
+                  ), %s) = %s
             ORDER BY p.name
-        """, (dispatch_branch, dispatch_branch), fetch_all=True) or []
+        """, (dispatch_branch, DEFAULT_DEPARTMENT, _disp_dept,
+              dispatch_branch, dispatch_branch, DEFAULT_DEPARTMENT, _disp_dept),
+            fetch_all=True) or []
         items = [{
             'id': r[0], 'name': r[1], 'category': r[2], 'barcode': r[3],
             'unit_type': r[4], 'unit_details': r[5],
@@ -16476,8 +16503,9 @@ def pos_reconciliation_report():
                     FROM transaction_items ti
                     LEFT JOIN products p ON p.id = ti.product_id
                     WHERE ti.transaction_id = ANY(%s)
+                      AND COALESCE(ti.department, %s) = %s
                     ORDER BY ti.id
-                """, (txn_ids,))
+                """, (txn_ids, DEFAULT_DEPARTMENT, current_department()))
                 for tid, pid, pname, qty in cursor.fetchall():
                     items_by_txn.setdefault(tid, []).append(
                         {'product_id': pid, 'name': pname or 'Unknown',
@@ -16489,8 +16517,9 @@ def pos_reconciliation_report():
                 JOIN products p ON p.id = ps.product_id
                 LEFT JOIN branches b ON b.id = ps.branch_id
                 WHERE ps.stock < 0
+                  AND COALESCE(ps.department, %s) = %s
             """
-            neg_params = []
+            neg_params = [DEFAULT_DEPARTMENT, current_department()]
             if branch_id:
                 neg_sql += " AND ps.branch_id = %s"
                 neg_params.append(branch_id)
@@ -16647,9 +16676,10 @@ def pos_reconciliation_reassign():
                 add_branch_stock(cursor, pid, to_branch, -qty)
                 cursor.execute("""
                     INSERT INTO stock_reductions (product_id, quantity, reason, notes,
-                                                  user_id, reduced_at, branch_id)
-                    VALUES (%s, %s, 'correction_out', %s, %s, CURRENT_TIMESTAMP, %s)
-                """, (pid, qty, f'Reconciliation of sale {t[1]}', user_id, to_branch))
+                                                  user_id, reduced_at, branch_id, department)
+                    VALUES (%s, %s, 'correction_out', %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                """, (pid, qty, f'Reconciliation of sale {t[1]}', user_id, to_branch,
+                      current_department()))
 
             # The sale's own reductions travel with it, and the sale is re-stamped.
             cursor.execute("""
@@ -18125,8 +18155,9 @@ def pos_upload_stock_analyze():
                 FROM products p
                 LEFT JOIN product_stock ps
                        ON ps.product_id = p.id AND ps.branch_id = %s
+                      AND COALESCE(ps.department, %s) = %s
                 WHERE p.is_active = TRUE
-            """, (branch_id,))
+            """, (branch_id, DEFAULT_DEPARTMENT, current_department()))
             catalogue = [{'id': r[0], 'name': r[1], 'category': r[2], 'stock': int(r[3] or 0),
                           'sell_price': float(r[4] or 0), 'buy_price': float(r[5] or 0),
                           'barcode': r[6] or ''}
@@ -18706,10 +18737,11 @@ def bulk_upload_blockers(cursor, job_id, reference, branch_id):
         FROM bulk_upload_items i
         LEFT JOIN product_stock ps
                ON ps.product_id = i.product_id AND ps.branch_id = %s
+              AND COALESCE(ps.department, %s) = %s
         LEFT JOIN products p ON p.id = i.product_id
         WHERE i.job_id = %s
         ORDER BY i.id
-    """, (branch_id, job_id))
+    """, (branch_id, DEFAULT_DEPARTMENT, current_department(), job_id))
 
     blockers = []
     for pid, stored_name, qty, current, live_name in cursor.fetchall():
@@ -19482,13 +19514,16 @@ def pos_stock_audit_run():
                 FROM products p
                 LEFT JOIN product_stock ps
                        ON ps.product_id = p.id AND ps.branch_id = %s
+                      AND COALESCE(ps.department, %s) = %s
                 LEFT JOIN product_prices pp
                        ON pp.product_id = p.id AND pp.branch_id = %s
                 LEFT JOIN product_branch_archives pba
                        ON pba.product_id = p.id AND pba.branch_id = %s
                 WHERE p.is_active = TRUE
             """, (branch_id, as_at_dt, branch_id, as_at_dt,
-                  as_at_dt, as_at_dt, branch_id, as_at_dt, branch_id, branch_id, branch_id))
+                  as_at_dt, as_at_dt, branch_id, as_at_dt,
+                  branch_id, DEFAULT_DEPARTMENT, current_department(),
+                  branch_id, branch_id))
             catalogue = []
             for r in cursor.fetchall():
                 catalogue.append({
@@ -19634,6 +19669,7 @@ def pos_stock_audit_adopt():
                 SELECT p.id, p.name, COALESCE(p.buy_price, 0), COALESCE(ps.stock, 0),
                        COALESCE((SELECT SUM(sl.quantity_remaining) FROM stock_lots sl
                                  WHERE sl.product_id = p.id AND sl.branch_id = %s
+                                   AND COALESCE(sl.department, %s) = %s
                                    AND sl.received_at <= %s), 0),
                        COALESCE((SELECT SUM(sr.quantity) FROM stock_reductions sr
                                  WHERE sr.product_id = p.id AND sr.branch_id = %s
@@ -19654,9 +19690,12 @@ def pos_stock_audit_adopt():
                 FROM products p
                 LEFT JOIN product_stock ps
                        ON ps.product_id = p.id AND ps.branch_id = %s
+                      AND COALESCE(ps.department, %s) = %s
                 WHERE p.is_active = TRUE
-            """, (branch_id, as_at_dt, branch_id, as_at_dt,
-                  as_at_dt, as_at_dt, branch_id, as_at_dt, branch_id))
+            """, (branch_id, DEFAULT_DEPARTMENT, current_department(), as_at_dt,
+                  branch_id, as_at_dt,
+                  as_at_dt, as_at_dt, branch_id, as_at_dt,
+                  branch_id, DEFAULT_DEPARTMENT, current_department()))
             catalogue = [{
                 'id': r[0], 'name': r[1], 'buy_price': float(r[2] or 0),
                 'live_stock': int(r[3] or 0),
@@ -19776,11 +19815,14 @@ def pos_stock_audit_adopt():
                     """, (product['id'], delta, buy_price, valuation_delta,
                           user_id, branch_id, reference, current_department()))
                     receive_stock_lot(cursor, product['id'], branch_id, delta, buy_price,
-                                      'stock_audit', reference)
-                    add_branch_stock(cursor, product['id'], branch_id, delta, lot_cost=buy_price)
+                                      'stock_audit', reference,
+                                      department=current_department())
+                    add_branch_stock(cursor, product['id'], branch_id, delta, lot_cost=buy_price,
+                                     department=current_department())
                 else:
                     adjustment_cost, consumed_layers = consume_stock_lots_fifo(
-                        cursor, product['id'], branch_id, -delta)
+                        cursor, product['id'], branch_id, -delta,
+                        department=current_department())
                     valuation_delta = -round(adjustment_cost, 2)
                     consumed_lot_ids = [lot_id for lot_id, _qty, _cost in consumed_layers
                                         if lot_id is not None]
@@ -19801,18 +19843,21 @@ def pos_stock_audit_adopt():
                         UPDATE product_stock
                         SET stock = stock + %s, updated_at = CURRENT_TIMESTAMP
                         WHERE product_id = %s AND branch_id = %s
-                    """, (delta, product['id'], branch_id))
+                          AND COALESCE(department, %s) = %s
+                    """, (delta, product['id'], branch_id, DEFAULT_DEPARTMENT,
+                          current_department()))
                     recalc_product_total_stock(cursor, product['id'])
-                    sync_lots_to_stock(cursor, product['id'], branch_id)
+                    sync_lots_to_stock(cursor, product['id'], branch_id,
+                                       department=current_department())
                     sync_product_avg_cost(cursor, product['id'])
                     cursor.execute("""
                         INSERT INTO stock_reductions
                             (product_id, quantity, reason, notes, user_id, reduced_at,
-                             branch_id, reference)
-                        VALUES (%s, %s, 'Audit adjustment', %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                             branch_id, reference, department)
+                        VALUES (%s, %s, 'Audit adjustment', %s, %s, CURRENT_TIMESTAMP, %s, %s, %s)
                     """, (product['id'], -delta,
                           f'Auto Audit count adopted as at {as_at_dt:%Y-%m-%d}',
-                          user_id, branch_id, reference))
+                          user_id, branch_id, reference, current_department()))
 
                 details = {
                     'adjustment_id': adjustment_id,
@@ -19925,10 +19970,12 @@ def pos_stock_audit_adopt_reviewed():
                     FROM products p
                     LEFT JOIN product_stock ps
                            ON ps.product_id = p.id AND ps.branch_id = %s
+                          AND COALESCE(ps.department, %s) = %s
                     LEFT JOIN product_prices pp
                            ON pp.product_id = p.id AND pp.branch_id = %s
                     WHERE p.id = ANY(%s)
-                """, (branch_id, branch_id, archive_ids))
+                """, (branch_id, DEFAULT_DEPARTMENT, current_department(),
+                      branch_id, archive_ids))
                 for r in cursor.fetchall():
                     archive_products[r[0]] = {
                         'id': r[0], 'name': r[1], 'category': r[2],
@@ -20264,9 +20311,9 @@ def pos_stock_audit_adopt_reviewed():
                           updates['description'], updates['barcode']))
                     product_id = cursor.fetchone()[0]
                     cursor.execute("""
-                        INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level)
-                        VALUES (%s, %s, 0, 10)
-                    """, (product_id, branch_id))
+                        INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level)
+                        VALUES (%s, %s, %s, 0, 10)
+                    """, (product_id, branch_id, current_department()))
                     product = dict(updates, id=product_id, live_stock=0,
                                    system_at_date=0, stocked_here=True)
                     item['product'] = product
@@ -20370,11 +20417,14 @@ def pos_stock_audit_adopt_reviewed():
                             VALUES (%s, %s, %s, %s, 'Audit adjustment', %s, CURRENT_TIMESTAMP, %s, %s, %s)
                         """, (product['id'], delta, buy_price, valuation_delta, user_id, branch_id, reference, current_department()))
                         receive_stock_lot(cursor, product['id'], branch_id, delta, buy_price,
-                                          'stock_audit', reference)
-                        add_branch_stock(cursor, product['id'], branch_id, delta, lot_cost=buy_price)
+                                          'stock_audit', reference,
+                                          department=current_department())
+                        add_branch_stock(cursor, product['id'], branch_id, delta, lot_cost=buy_price,
+                                         department=current_department())
                     else:
                         adjustment_cost, layers = consume_stock_lots_fifo(
-                            cursor, product['id'], branch_id, -delta)
+                            cursor, product['id'], branch_id, -delta,
+                            department=current_department())
                         valuation_delta = -round(adjustment_cost, 2)
                         lot_ids = [lot_id for lot_id, _quantity, _cost in layers if lot_id is not None]
                         received = {}
@@ -20392,18 +20442,21 @@ def pos_stock_audit_adopt_reviewed():
                         cursor.execute("""
                             UPDATE product_stock SET stock = stock + %s, updated_at = CURRENT_TIMESTAMP
                             WHERE product_id = %s AND branch_id = %s
-                        """, (delta, product['id'], branch_id))
+                              AND COALESCE(department, %s) = %s
+                        """, (delta, product['id'], branch_id, DEFAULT_DEPARTMENT,
+                              current_department()))
                         recalc_product_total_stock(cursor, product['id'])
-                        sync_lots_to_stock(cursor, product['id'], branch_id)
+                        sync_lots_to_stock(cursor, product['id'], branch_id,
+                                           department=current_department())
                         sync_product_avg_cost(cursor, product['id'])
                         cursor.execute("""
                             INSERT INTO stock_reductions
                                 (product_id, quantity, reason, notes, user_id, reduced_at,
-                                 branch_id, reference)
-                            VALUES (%s, %s, 'Audit adjustment', %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                                 branch_id, reference, department)
+                            VALUES (%s, %s, 'Audit adjustment', %s, %s, CURRENT_TIMESTAMP, %s, %s, %s)
                         """, (product['id'], -delta,
                               f'Auto Audit count adopted as at {as_at_dt:%Y-%m-%d}',
-                              user_id, branch_id, reference))
+                              user_id, branch_id, reference, current_department()))
                     changes.append(f'stock {live_before} to {combined_counted}')
 
                 details = {'action': item['action'], 'branch': branch_name,
@@ -21068,7 +21121,8 @@ def phantom_stock_repair():
                        ps.updated_at, %s, %s
                 FROM product_stock ps
                 WHERE ps.branch_id = %s AND ps.product_id = ANY(%s)
-            """, (reason, actor, branch_id, ids))
+                  AND COALESCE(ps.department, %s) = %s
+            """, (reason, actor, branch_id, ids, DEFAULT_DEPARTMENT, DEFAULT_DEPARTMENT))
 
             # Remove only the layers the boot itself created, and only while they
             # are untouched (quantity_remaining = quantity_received).
@@ -21093,10 +21147,15 @@ def phantom_stock_repair():
             """, (branch_id, ids))
             lots_removed = cursor.rowcount
 
+            # The boot seeder only ever created HARDWARE rows, so this removes
+            # only those: a Furniture row for the same product is real stock the
+            # branch holds and must not be swept away by a repair aimed at the
+            # seeder's leftovers.
             cursor.execute("""
                 DELETE FROM product_stock
                 WHERE branch_id = %s AND product_id = ANY(%s)
-            """, (branch_id, ids))
+                  AND COALESCE(department, %s) = %s
+            """, (branch_id, ids, DEFAULT_DEPARTMENT, DEFAULT_DEPARTMENT))
             rows_removed = cursor.rowcount
 
             # product_stock is the truth again: re-derive each catalogue total.
@@ -21665,7 +21724,8 @@ def update_product(product_id):
                 data.get('total_cost', 0),
                 data.get('funding_source'),
                 session.get('user_id'),
-                branch_id
+                branch_id,
+                current_department()
             ), commit=True)
         except Exception as stock_log_err:
             print(f"Warning: Could not log stock addition: {stock_log_err}")
@@ -21841,7 +21901,8 @@ def subtract_stock(product_id):
 
         # Branch stock is the truth; the catalogue total is refreshed for us.
         with get_db() as (cursor, connection):
-            set_branch_stock(cursor, product_id, current_branch_id(), new_stock)
+            set_branch_stock(cursor, product_id, current_branch_id(), new_stock,
+                             department=current_department())
             if barcode is not None:
                 # Blank = "this product has no barcode" and is stored as '' so it
                 # stays outside products_barcode_unique, like every other
@@ -21854,9 +21915,10 @@ def subtract_stock(product_id):
         # Try to log the stock reduction (table may not exist yet)
         try:
             execute_query("""
-                INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id)
-                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s)
-            """, (product_id, quantity, reason, notes, session.get('user_id', 0), current_branch_id()), commit=True)
+                INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id, department)
+                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s)
+            """, (product_id, quantity, reason, notes, session.get('user_id', 0),
+                  current_branch_id(), current_department()), commit=True)
         except Exception as log_error:
             # If the table doesn't exist, just log to console and continue
             print(f"Warning: Could not log stock reduction: {str(log_error)}")

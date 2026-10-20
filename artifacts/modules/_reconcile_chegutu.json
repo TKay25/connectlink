@@ -6,7 +6,7 @@
   "purpose": "Reconcile Chegutu stock after two duplicate bulk uploads (2026-10-05).",
   "entry_function": "build_rows(cur, branch_id)",
   "entry_flows": [
-    "_reconcile_chegutu → cur.execute, cur.fetchall"
+    "_reconcile_chegutu → cur.execute"
   ],
   "public_api": [
     "build_rows(cur, branch_id)",
@@ -34,6 +34,6 @@
   "file_mtime": 1792051671258.7964,
   "file_size": 12860,
   "file_birthtime": 1792051671258.0881,
-  "generated_at": "2026-10-15T08:27:05.292641Z",
+  "generated_at": "2026-10-20T07:28:29.380547Z",
   "stale": false
 }

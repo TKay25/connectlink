@@ -52,12 +52,18 @@ def build_rows(cur, branch_id):
     """One row per affected product: before, now, sold, and the proposed figure."""
     # prev_branch_stock for job 10 is the snapshot taken BEFORE the first upload
     # added anything, i.e. the stock the shop genuinely held.
+    #
+    # "Stock now" is this product's HARDWARE stock. This reconciles a job from
+    # before departments existed, so everything it touched is Hardware, and the
+    # before/sold figures alongside it are Hardware too. Reading Hardware only
+    # (rather than the branch total) keeps the three figures on one basis and
+    # stops a later Furniture row from leaking into the comparison.
     cur.execute("""
         SELECT i.product_id, i.product_name, i.quantity, i.prev_branch_stock,
-               COALESCE(ps.stock, 0)
+               COALESCE((SELECT SUM(ps.stock) FROM product_stock ps
+                         WHERE ps.product_id = i.product_id AND ps.branch_id = %s
+                           AND COALESCE(ps.department, 'hardware') = 'hardware'), 0)
         FROM bulk_upload_items i
-        LEFT JOIN product_stock ps
-               ON ps.product_id = i.product_id AND ps.branch_id = %s
         WHERE i.job_id = %s
         ORDER BY i.id
     """, (branch_id, JOB_GOOD))
@@ -249,9 +255,9 @@ def main():
             if r['delta'] == 0:
                 continue
             cur.execute("""
-                INSERT INTO product_stock (product_id, branch_id, stock, min_stock_level, updated_at)
-                VALUES (%s, %s, %s, 10, CURRENT_TIMESTAMP)
-                ON CONFLICT (product_id, branch_id) DO UPDATE
+                INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level, updated_at)
+                VALUES (%s, %s, 'hardware', %s, 10, CURRENT_TIMESTAMP)
+                ON CONFLICT (product_id, branch_id, department) DO UPDATE
                     SET stock = EXCLUDED.stock, updated_at = CURRENT_TIMESTAMP
             """, (r['product_id'], branch_id, r['want']))
             changed += 1
