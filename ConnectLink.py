@@ -16300,8 +16300,13 @@ def dispatch_stock():
     dispatch screen needs the quantity held at Dispatch for every item it
     carries, which is the one figure the shop-facing catalogue does NOT give it.
     """
+    # current_branch_id() deliberately falls back to the first branch for a
+    # session that never chose one. That fallback must not be allowed to satisfy a
+    # DISPATCH check: it would let a session sitting on Shurugwi read (and, worse,
+    # later act on) Central Dispatch's books. Dispatch is opt-in, so the session
+    # must be a real chosen Central Dispatch before anything is returned.
     dispatch_branch = current_branch_id()
-    if not branch_is_dispatch(dispatch_branch):
+    if not session_branch_chosen() or not branch_is_dispatch(dispatch_branch):
         return jsonify({'success': False,
                         'error': 'This is not the Central Dispatch branch.'}), 403
     try:
@@ -16354,8 +16359,13 @@ def dispatch_analytics():
     Reads stock_transfers, which is the record every dispatch writes, so this
     can never disagree with the movement ledger it is drawn from.
     """
+    # current_branch_id() deliberately falls back to the first branch for a
+    # session that never chose one. That fallback must not be allowed to satisfy a
+    # DISPATCH check: it would let a session sitting on Shurugwi read (and, worse,
+    # later act on) Central Dispatch's books. Dispatch is opt-in, so the session
+    # must be a real chosen Central Dispatch before anything is returned.
     dispatch_branch = current_branch_id()
-    if not branch_is_dispatch(dispatch_branch):
+    if not session_branch_chosen() or not branch_is_dispatch(dispatch_branch):
         return jsonify({'success': False,
                         'error': 'This is not the Central Dispatch branch.'}), 403
 
@@ -16451,7 +16461,10 @@ def dispatch_push():
     docket would leave goods that are on neither shelf.
     """
     from_branch = current_branch_id()
-    if not branch_is_dispatch(from_branch):
+    # Only a session sitting on a REAL, chosen Central Dispatch may move stock out.
+    # The unchosen-session fallback in current_branch_id() must never authorise a
+    # write on the warehouse's behalf.
+    if not session_branch_chosen() or not branch_is_dispatch(from_branch):
         return jsonify({'success': False,
                         'error': 'Stock can only be dispatched from Central Dispatch.'}), 403
 
