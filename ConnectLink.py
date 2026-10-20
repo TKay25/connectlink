@@ -18130,6 +18130,10 @@ def pos_stock_upload_template():
         ws2 = wb.create_sheet('Product Names')
         ws2.append(['Existing product name', 'Category', 'Buying Price', 'Selling Price',
                     'Department'])
+        # Which branch's department filing to show. Without this the sheet cannot
+        # say where THIS shop keeps each item, and the Department column would be
+        # filled in blind.
+        template_branch_id = current_branch_id()
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT p.name, COALESCE(p.category, ''),
@@ -18139,7 +18143,7 @@ def pos_stock_upload_template():
                 LEFT JOIN product_departments pd
                        ON pd.product_id = p.id AND pd.branch_id = %s
                 WHERE p.is_active = TRUE ORDER BY p.name
-            """, (branch_id,))
+            """, (template_branch_id or 0,))
             names = [(n, c, b, s, (d or DEFAULT_DEPARTMENT)) for n, c, b, s, d in cursor.fetchall()]
         for pname, pcat, pbuy, psell, pdept in names:
             ws2.append([pname, pcat, float(pbuy or 0), float(psell or 0), pdept.title()])
@@ -18315,6 +18319,13 @@ def pos_upload_stock_analyze():
             # This compares PRODUCT + QUANTITY against the branch's most recent
             # upload, not the file as a whole: on 2026-10-05 the repeat was the
             # same sheet with a few rows added, so a whole-file match saw nothing.
+            #
+            # Built here because the fingerprint below needs it, and it is the
+            # only name -> product map available inside this read.
+            exact_by_name = {}
+            for item in catalogue:
+                exact_by_name.setdefault(item['name'].strip().lower(), item)
+
             column_ready = bulk_upload_column_ready(cursor)
             fingerprint = bulk_upload_fingerprint(
                 [{'product_id': exact_by_name.get(_r['name'].strip().lower(), {}).get('id'),
@@ -18352,9 +18363,7 @@ def pos_upload_stock_analyze():
         duplicate = dict(overlap, kind='same_stock', message=bulk_upload_repeat_message(overlap, when_text))
         duplicate['applied_at'] = overlap['applied_at'].isoformat() if overlap['applied_at'] else ''
 
-    exact_by_name = {}
-    for item in catalogue:
-        exact_by_name.setdefault(item['name'].strip().lower(), item)
+    # (exact_by_name was built above, inside the catalogue read that needs it.)
 
     # Stock is held in ONE department per branch, so every row is resolved to the
     # department it will actually land in now, while nothing has been written:

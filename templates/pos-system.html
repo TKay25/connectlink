@@ -7537,6 +7537,21 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                     <i class="fas fa-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
                                     <input type="text" class="form-control ps-5" id="inventorySearch" placeholder="Search by name, category, or details..." style="border-radius: 30px; font-size: 0.9rem; padding: 8px 14px;" autocomplete="off">
                                 </div>
+                                <!-- Central Dispatch has no POS page, so the department switch
+                                     there is unreachable. Without one here a dispatch user is
+                                     stuck on Hardware and could never upload or dispatch
+                                     Furniture stock. Shops keep using the till's switch. -->
+                                <div class="pos-department-switch" id="inventoryDeptSwitch"
+                                     role="group" aria-label="Department" style="display:none;">
+                                    <button type="button" class="pos-dept-btn is-active" data-dept="hardware"
+                                            onclick="switchDepartment('hardware')">
+                                        <i class="fas fa-screwdriver-wrench"></i><span>Hardware</span>
+                                    </button>
+                                    <button type="button" class="pos-dept-btn" data-dept="furniture"
+                                            onclick="switchDepartment('furniture')">
+                                        <i class="fas fa-couch"></i><span>Furniture</span>
+                                    </button>
+                                </div>
                                 <button class="btn btn-primary-dark" onclick="showAddInventoryModal()">
                                     <i class="fas fa-plus me-1"></i>Add Product
                                 </button>
@@ -15036,6 +15051,10 @@ async function fetchTransactionsData() {
         // need the Transfer button either (its transfer is a Dispatch coming in).
         var dispatchBtn = document.getElementById('dispatchStockBtn');
         if (dispatchBtn) dispatchBtn.style.display = isDispatch ? '' : 'none';
+        // Dispatch has no POS page, so give it the department switch on Inventory -
+        // otherwise it could only ever upload and dispatch Hardware stock.
+        var invSwitch = document.getElementById('inventoryDeptSwitch');
+        if (invSwitch) invSwitch.style.display = isDispatch ? '' : 'none';
     }
     window.applyDispatchMenu = applyDispatchMenu;
 
