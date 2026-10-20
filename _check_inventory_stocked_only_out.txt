@@ -1,5 +1,5 @@
 PASS  script started
-PASS  read the POS page  -> 1080130 chars
+PASS  read the POS page  -> 1091643 chars
 PASS  read the committed POS page for comparison  -> 927498 chars via C:\Users\tzvakasikwa\AppData\Local\Programs\Git\cmd\git.EXE at 5ad907f
 PASS  the page still has its script blocks  -> new=4 old=4
 PASS  no script block gained a syntax error (vs the committed page)
@@ -39,7 +39,7 @@ PASS  the page loads with this change installed
 PASS  the Inventory tab opens (the page is really shown)
 PASS  the table lists exactly what this branch carries  -> ["Stocked Speaker", "Stocked Cable"]
 PASS  the item this branch has NEVER stocked is not listed
-PASS  no row reads "Not stocked here" any more  -> 7 Stocked Speaker Audio piece N/A $10.00 $15.00 8 In stock Add Stock Subtract Transfer Remove 8 Stocked Cable Audio piece N/A $10.00 $15.00 3 Low Add Stock Subt
+PASS  no row reads "Not stocked here" any more  -> 7 Stocked Speaker Audio piece N/A $10.00 $15.00 8 In stock Add Stock Subtract Transfer To Furniture Remove 8 Stocked Cable Audio piece N/A $10.00 $15.00 3 Low A
 PASS  and there is no switch left to bring such a row back
 PASS  the CATALOGUE is untouched (only the view narrowed)  -> catalogue=3 elsewhere=1
 PASS  searching finds this branch's own item  -> ["Stocked Cable"]

@@ -3269,27 +3269,46 @@ def ensure_branches_schema(cursor, connection):
         # same product in the same branch. Without this the second department's
         # insert would collide with the first and overwrite its quantity --
         # exactly the silent stock loss this feature must not cause.
+        #
         # Dropped and re-added only when the old key is still in place, so this
-        # is safe to run on every boot.
+        # is safe to run on every boot. The DDL is additionally wrapped because
+        # _ensure_db_initialized() guards per PROCESS: with several gunicorn
+        # workers, two can reach this at the same moment. DROP CONSTRAINT and
+        # ADD PRIMARY KEY are not idempotent, so the loser of that race would
+        # otherwise abort the rest of its schema setup. Here the loser simply
+        # re-checks and carries on once the winner's key is visible.
+        def _pk_includes_department():
+            cursor.execute("""
+                SELECT COUNT(*) FROM information_schema.key_column_usage
+                WHERE table_name = 'product_stock'
+                  AND constraint_name = 'product_stock_pkey'
+                  AND column_name = 'department'
+            """)
+            return int(cursor.fetchone()[0] or 0) > 0
+
         cursor.execute("""
            SELECT 1 FROM information_schema.table_constraints
            WHERE table_name = 'product_stock'
              AND constraint_type = 'PRIMARY KEY'
              AND constraint_name = 'product_stock_pkey'
         """)
-        if cursor.fetchone():
-           cursor.execute("""
-               SELECT COUNT(*) FROM information_schema.key_column_usage
-               WHERE table_name = 'product_stock'
-                 AND constraint_name = 'product_stock_pkey'
-                 AND column_name = 'department'
-           """)
-           if int(cursor.fetchone()[0] or 0) == 0:
-               cursor.execute("ALTER TABLE product_stock DROP CONSTRAINT product_stock_pkey")
-               cursor.execute("""
-                   ALTER TABLE product_stock
-                   ADD PRIMARY KEY (product_id, branch_id, department)
-               """)
+        if cursor.fetchone() and not _pk_includes_department():
+            try:
+                cursor.execute("ALTER TABLE product_stock DROP CONSTRAINT IF EXISTS product_stock_pkey")
+                cursor.execute("""
+                    ALTER TABLE product_stock
+                    ADD PRIMARY KEY (product_id, branch_id, department)
+                """)
+                connection.commit()
+            except Exception as pk_err:
+                connection.rollback()
+                # Either another worker won the race, or the key could not be
+                # widened. Only the second case is fatal: re-check before giving
+                # up, so a lost race does not leave this worker half-migrated.
+                if not _pk_includes_department():
+                    print(f"⚠️ could not widen product_stock key: {pk_err}")
+                    raise
+                print("[ok] product_stock key already widened by another worker")
         connection.commit()
         cursor.execute("""
            CREATE INDEX IF NOT EXISTS idx_product_stock_dept
