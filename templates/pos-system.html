@@ -12606,8 +12606,14 @@ function populateCategoryDropdown() {
 // Update fetchProductsFromAPI to include metrics update
 async function fetchProductsFromAPI() {
     try {
-        let url = `${API_BASE}/api/products`;
-        const productsResponse = await fetch(url, { credentials: 'include' });
+        // The catalogue is department-dependent and read from the session, so an
+        // HTTP-level copy (a proxy, a back/forward cache) can hand back the other
+        // department's list. Name the department in the URL: it makes each read a
+        // distinct resource, so the browser and any cache in between cannot answer
+        // a Furniture read with the Hardware list it stored a moment ago.
+        const deptForUrl = (typeof posDepartment !== 'undefined' && posDepartment) ? posDepartment : 'hardware';
+        let url = `${API_BASE}/api/products?department=${encodeURIComponent(deptForUrl)}&_=${Date.now()}`;
+        const productsResponse = await fetch(url, { credentials: 'include', cache: 'no-store' });
         if (productsResponse.status === 401) { window.location.href = '/login'; return; }
         // Was this answer the server's, or the copy this device saved? The offline
         // wrapper marks a replayed response (see the PWA block at the bottom).
@@ -15513,6 +15519,13 @@ async function fetchTransactionsData() {
                 const createOption = c.allow_create === false
                     ? ''
                     : '<option value="create">Create a new product</option>';
+                // A clash often means the catalogue already has the item under a
+                // different spelling. Renaming is the way out that neither merges
+                // into the wrong product nor invents a duplicate: the row keeps its
+                // own stock and prices, under the name the operator wants.
+                const renameOption = c.allow_create === false
+                    ? ''
+                    : '<option value="create_renamed">Create a new product under a different name</option>';
                 const diffName = (isSysBarcode && owner)
                     ? `<span class="badge bg-danger ms-1">barcode owned by "${escapeHtml(owner)}"</span>`
                     : (isRowBarcode
@@ -15528,8 +15541,15 @@ async function fetchTransactionsData() {
                             ${catOption}
                             ${dropOption}
                             ${createOption}
+                            ${renameOption}
                         </select>
                         <select class="form-select form-select-sm mt-1" id="uploadCandidate${i}" style="display:none;">${opts}</select>
+                        <div class="mt-1" id="uploadRenameWrap${i}" style="display:none;">
+                            <input type="text" class="form-control form-control-sm" id="uploadNewName${i}"
+                                   placeholder="New product name" maxlength="255"
+                                   onkeyup="checkNewNameClash(${i})" onchange="checkNewNameClash(${i})">
+                            <div class="small mt-1" id="uploadNameHint${i}"></div>
+                        </div>
                     </td></tr>`;
             }).join('');
         }
@@ -15548,6 +15568,7 @@ async function fetchTransactionsData() {
 
     function onConflictChoice(index, value) {
         const cand = document.getElementById('uploadCandidate' + index);
+        const renameWrap = document.getElementById('uploadRenameWrap' + index);
         if (!cand) return;
         const plan = (_bulkStockPlan && (_bulkStockPlan.conflicts || [])[index]) || {};
         // The candidate list is needed whenever the choice has to name a product:
@@ -15557,8 +15578,45 @@ async function fetchTransactionsData() {
         const needsCandidate = value === 'merge' || value === 'merge_category' ||
             (isBarcode && value === 'create_without_barcode' && plan.allow_create === false);
         cand.style.display = needsCandidate && cand.options.length ? '' : 'none';
+        if (renameWrap) {
+            const renaming = value === 'create_renamed';
+            renameWrap.style.display = renaming ? '' : 'none';
+            if (renaming) {
+                const input = document.getElementById('uploadNewName' + index);
+                if (input) {
+                    // Start from the name in the file, so only the part that makes
+                    // it unique has to be typed.
+                    if (!input.value) input.value = plan.name || '';
+                    input.focus();
+                    input.select();
+                }
+                checkNewNameClash(index);
+            }
+        }
     }
     window.onConflictChoice = onConflictChoice;
+
+    // Warn while typing when the chosen name is already a product. The catalogue
+    // is already loaded for this till, so this needs no round trip. It warns, it
+    // does not block: the server refuses the create if the name really exists.
+    function checkNewNameClash(index) {
+        const input = document.getElementById('uploadNewName' + index);
+        const hint = document.getElementById('uploadNameHint' + index);
+        if (!input || !hint) return;
+        const wanted = (input.value || '').trim().toLowerCase();
+        if (!wanted) { hint.innerHTML = ''; return; }
+        const existing = (products || []).find(function (p) {
+            return (p.name || '').trim().toLowerCase() === wanted;
+        });
+        if (existing) {
+            hint.innerHTML = '<span class="text-danger"><i class="fas fa-triangle-exclamation me-1"></i>'
+                + 'Already a product in the catalogue (' + escapeHtml(existing.category || 'no category')
+                + '). Use "Add to an existing product" instead, or type a genuinely different name.</span>';
+        } else {
+            hint.innerHTML = '<span class="text-muted">A new product will be created with this name.</span>';
+        }
+    }
+    window.checkNewNameClash = checkNewNameClash;
 
     function collectStockUploadDecisions() {
         const plan = _bulkStockPlan || {};
@@ -15593,6 +15651,17 @@ async function fetchTransactionsData() {
                 const cand = document.getElementById('uploadCandidate' + i);
                 if (!cand || !cand.value) return { error: `Pick a product to merge "${c.name}" into.` };
                 row.product_id = parseInt(cand.value, 10);
+            } else if (action === 'create_renamed') {
+                const input = document.getElementById('uploadNewName' + i);
+                const typed = input ? input.value.trim() : '';
+                if (!typed) {
+                    return { error: `Type the new name for "${c.name}".` };
+                }
+                if (typed.toLowerCase() === (c.name || '').trim().toLowerCase()) {
+                    return { error: `The new name for "${c.name}" is the same as before. Choose "Add to an existing product", or type a different name.` };
+                }
+                row.action = 'create';
+                row.new_name = typed;
             } else if (action === 'create_without_barcode') {
                 if (c.allow_create === false) {
                     // No product can be created here, so the only way to keep the
@@ -15656,7 +15725,12 @@ async function fetchTransactionsData() {
         const btnEl = document.getElementById('uploadStockConfirmBtn');
         if (btnEl) btnEl.innerText = 'Yes, upload to ' + name;
         const codeEl = document.getElementById('uploadStockBranchCode');
-        if (codeEl) { codeEl.value = ''; codeEl.placeholder = 'Branch code for ' + name; }
+        const needsCode = !(posBranch && posBranch.is_dispatch);
+        if (codeEl) {
+            codeEl.value = '';
+            codeEl.style.display = needsCode ? '' : 'none';
+            codeEl.placeholder = 'Branch code for ' + name;
+        }
         const cErr = document.getElementById('uploadStockConfirmError');
         if (cErr) { cErr.style.display = 'none'; cErr.innerText = ''; }
         const box = document.getElementById('uploadStockConfirm');
@@ -15683,7 +15757,10 @@ async function fetchTransactionsData() {
         const code = codeEl ? codeEl.value.trim() : '';
         const cErr = document.getElementById('uploadStockConfirmError');
         const fail = (m) => { if (cErr) { cErr.innerText = m; cErr.style.display = 'block'; } };
-        if (!code) return fail('Enter the branch code to confirm.');
+        // Central Dispatch carries no access code, so the confirmation box asks
+        // for none there; the branch_id still has to match (server-side too).
+        const needsCode = !(posBranch && posBranch.is_dispatch);
+        if (needsCode && !code) return fail('Enter the branch code to confirm.');
         if (cErr) cErr.style.display = 'none';
 
         const collected = collectStockUploadDecisions();
@@ -22264,17 +22341,17 @@ async function switchDepartment(dept) {
     }
     showDepartmentLoader(true);
     try {
-        // The switch is a session flip; the catalogue is re-read in parallel
-        // rather than after it, so the swap does not wait on two round trips.
-        const [switchResult] = await Promise.all([
-            fetch(`${API_BASE}/api/pos/switch-department`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ department: dept })
-            }).then(r => r.json()).catch(() => null),
-            fetchProductsFromAPI()
-        ]);
+        // The server holds the department in the SESSION, and /api/products reads
+        // it from there. Firing both at once therefore read the catalogue on the
+        // OLD department roughly as often as the new one -- one warehouse upload
+        // leaves every product in Hardware, so switching to Furniture redrew the
+        // Hardware list and the two shelves looked identical. Flip first, then read.
+        const switchResult = await fetch(`${API_BASE}/api/pos/switch-department`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ department: dept })
+        }).then(r => r.json()).catch(() => null);
         if (!switchResult || !switchResult.success) {
             if (typeof showToast === 'function') {
                 showToast((switchResult && switchResult.message) || 'Could not switch department.', 'error');
@@ -22282,6 +22359,7 @@ async function switchDepartment(dept) {
             showDepartmentLoader(false);
             return;
         }
+        await fetchProductsFromAPI();
         applyDepartmentState(switchResult.department);
         try { localStorage.removeItem('pos_api_cache_v1'); } catch (e) {}
         // Redraw the open tab from the catalogue already in hand.
@@ -24018,6 +24096,11 @@ function setupEventListeners() {
         var url = (typeof input === 'string') ? input : ((input && input.url) || '');
         var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
         var cacheable = method === 'GET' && isCacheableGet(url);
+        // The catalogue is read per DEPARTMENT, and the department lives in the
+        // session. Saving the whole URL (which now carries department + a
+        // cache-buster) would file each switch under a fresh key and make the
+        // saved copy useless while offline. Key the catalogue by its path alone.
+        var storeKey = isCatalogueUrl(url) ? requestPath(url) : url;
 
         var pending = nativeFetch(input, init);
         if (!cacheable) return watchForBranchChoice(pending);
@@ -24029,7 +24112,7 @@ function setupEventListeners() {
                     try {
                         var store = {};
                         try { store = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch (e) { store = {}; }
-                        store[url] = { at: Date.now(), branch: currentBranchScope(), data: data };
+                        store[storeKey] = { at: Date.now(), branch: currentBranchScope(), data: data };
                         localStorage.setItem(CACHE_KEY, JSON.stringify(store));
                     } catch (e) { /* quota - ignore */ }
                 }).catch(function () {});
@@ -24038,7 +24121,7 @@ function setupEventListeners() {
         }).catch(function (err) {
             try {
                 var store = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-                var entry = store[url];
+                var entry = store[storeKey];
                 // Only the CURRENT shop's copy may be served. Older entries belong
                 // to whichever branch this device last worked in.
                 if (entry && entry.branch === currentBranchScope()) {

@@ -813,6 +813,12 @@ def initialize_database_tables():
                 ALTER TABLE quotations 
                 ADD COLUMN IF NOT EXISTS custom_category VARCHAR(200) DEFAULT ''
             """)
+            # VAT. Recorded on the quotation so a re-sent or re-downloaded PDF says
+            # the same thing the client was first quoted, even if the shop later
+            # changes its default rate.
+            cursor.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vat_enabled BOOLEAN DEFAULT FALSE")
+            cursor.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vat_rate DECIMAL(5, 2) DEFAULT 15")
+            cursor.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vat_mode VARCHAR(20) DEFAULT 'exclusive'")
 
             # Create quotation_items table to store construction items
             cursor.execute("""
@@ -4311,6 +4317,32 @@ def verify_branch_code(branch_id, code):
     if not supplied or not stored_code:
         return False, None
     return _codes_match(supplied, stored_code), row[0]
+
+
+def branch_requires_code(branch_id):
+    """Whether this branch asks for an access code at all.
+
+    Only a shop does. Central Dispatch is marked is_dispatch and has no shared
+    secret by design (see verify_branch_code), so asking it for one -- in the
+    POS login, a branch switch or a bulk upload -- leaves a field the user can
+    never satisfy. Mirrors the needs_code flag /api/branches already returns.
+    """
+    if not branch_id:
+        return False
+    if branch_id == POS_ALL_BRANCHES_ID:
+        return True
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute(
+                "SELECT COALESCE(is_dispatch, FALSE) FROM branches "
+                "WHERE id = %s AND is_active = TRUE", (branch_id,))
+            row = cursor.fetchone()
+    except Exception as e:
+        print(f"Note: branch code requirement check failed: {e}")
+        return True
+    if not row:
+        return True
+    return not bool(row[0])
 
 
 def branch_is_dispatch(branch_id):
@@ -18189,6 +18221,11 @@ def pos_stock_upload_template():
             dv.prompt = ('Pick the name the catalogue already uses to add stock to that '
                          'product. A name that is not on the list creates a NEW product, '
                          'so only type one when the item really is new.')
+            # Drop the dropdown arrow on empty cells: a 4000-row pick-range turns every
+            # blank cell in the column into an existing-product list, which reads like
+            # the products were pre-added. The list still offers the catalogue as soon
+            # as something is typed, so matching a name stays as easy as before.
+            dv.showDropDown = False
             ws.add_data_validation(dv)
             dv.add('A2:A%d' % BULK_STOCK_MAX_ROWS)
 
@@ -18481,7 +18518,15 @@ def pos_upload_stock_analyze():
                 scored.append(dict(cand, score=round(score, 2)))
         if scored:
             scored.sort(key=lambda c: -c['score'])
-            conflicts.append(dict(item, candidates=scored[:5]))
+            # Whether a product with this EXACT name is in the catalogue at all. The
+            # uploader may rename a clashing row, and the page uses this to warn
+            # when the chosen name is really an existing product (add the stock to
+            # it instead of splitting the catalogue into two spellings).
+            same_name = next((c for c in catalogue
+                              if (c.get('name') or '').strip().lower() == item['name'].strip().lower()),
+                             None)
+            conflicts.append(dict(item, candidates=scored[:5],
+                                  existing_name_id=same_name['id'] if same_name else None))
         else:
             brand_new.append(dict(item))
 
@@ -18533,13 +18578,17 @@ def pos_upload_stock_apply():
     # The uploader must name the branch they are stocking AND prove it with that
     # shop's code. Stock landing in the wrong shop is the costliest mistake this
     # feature can make, and it is silent once it happens. Same code, same
-    # lockout as switching branch.
+    # lockout as switching branch. Central Dispatch has no code by design, so it
+    # is confirmed by branch_id alone -- asking it for a code no one can supply
+    # would block every dispatch upload.
     username = session.get('username') or session.get('user_name') or 'unknown'
-    locked_for = branch_code_lockout_remaining(username)
-    if locked_for:
-        return jsonify({'success': False,
-                        'error': (f'Too many incorrect branch codes. Try again in '
-                                  f'{max(1, locked_for // 60)} minute(s).')}), 429
+    needs_code = branch_requires_code(branch_id)
+    if needs_code:
+        locked_for = branch_code_lockout_remaining(username)
+        if locked_for:
+            return jsonify({'success': False,
+                            'error': (f'Too many incorrect branch codes. Try again in '
+                                      f'{max(1, locked_for // 60)} minute(s).')}), 429
     try:
         confirmed_branch = int(data.get('branch_id'))
     except (TypeError, ValueError):
@@ -18549,17 +18598,22 @@ def pos_upload_stock_apply():
         return jsonify({'success': False,
                         'error': ('You are no longer working in the branch this file was '
                                   'checked for. Run Check File again.')}), 409
-    code_ok, code_branch_name = verify_branch_code(branch_id, data.get('branch_code'))
-    record_branch_code_attempt(username, code_ok)
-    if not code_ok:
-        return jsonify({'success': False,
-                        'error': (f'That branch code is not valid for '
-                                  f'{code_branch_name or "the selected branch"}.')}), 403
+    if needs_code:
+        code_ok, code_branch_name = verify_branch_code(branch_id, data.get('branch_code'))
+        record_branch_code_attempt(username, code_ok)
+        if not code_ok:
+            return jsonify({'success': False,
+                            'error': (f'That branch code is not valid for '
+                                      f'{code_branch_name or "the selected branch"}.')}), 403
 
     user_id = session.get('user_id') or session.get('userid') or 0
     to_merge, to_create, failed = [], [], []
     for d in decisions:
         name = str(d.get('name') or '').strip()
+        # A conflicting row may be re-typed as a different name. Only a row the
+        # uploader is CREATING can be renamed: a merge must address the product it
+        # was merged into, so the catalogue keeps one name per product.
+        new_name = str(d.get('new_name') or '').strip()[:255]
         try:
             qty = int(float(d.get('quantity') or 0))
             buy = round(float(d.get('buy_price') or 0), 2)
@@ -18576,6 +18630,8 @@ def pos_upload_stock_apply():
         action = str(d.get('action') or 'merge').strip().lower()
         row_dept = _bulk_stock_department(d.get('department')) or default_department
         if action == 'create':
+            if new_name:
+                name = new_name
             if not name:
                 failed.append('A row with no product name was skipped.')
                 continue
@@ -18618,6 +18674,24 @@ def pos_upload_stock_apply():
                     continue
             if bool(d.get('drop_barcode')):
                 barcode = ''
+            # A rename is offered to SEPARATE a product from a similar one, so the
+            # new name must not simply become an existing product: that would put
+            # one item in the catalogue twice under two spellings. Send the
+            # uploader back to the row to merge instead.
+            try:
+                with get_db() as (nm_cursor, _nm_connection):
+                    nm_cursor.execute("""SELECT id, name FROM products
+                                         WHERE LOWER(TRIM(name)) = LOWER(TRIM(%s))
+                                           AND is_active = TRUE LIMIT 1""", (name,))
+                    same = nm_cursor.fetchone()
+            except Exception as nm_err:
+                print(f"Note: name check could not run ({nm_err}); upload continues.")
+                same = None
+            if same:
+                failed.append(f'{name}: that name is already a product in the catalogue '
+                              f'({same[1]}). Choose "Add to an existing product" for this row '
+                              f'instead of creating a second one.')
+                continue
             to_create.append((name, qty, buy, sell, row_cat,
                               row_unit, str(d.get('unit_details') or '').strip()[:100],
                               barcode, description, row_dept))
@@ -45906,7 +45980,8 @@ def build_quotation_pdf_document(quotation_id):
     try:
         with get_db() as (cursor, _):
             cursor.execute("""
-                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage, custom_category
+                SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage, custom_category,
+                       COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15), COALESCE(vat_mode, 'exclusive')
                 FROM quotations
                 WHERE id = %s
             """, (quotation_id,))
@@ -45922,6 +45997,15 @@ def build_quotation_pdf_document(quotation_id):
             custom_category = quotation[7] if len(quotation) > 7 and quotation[7] else ''
             is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
             total_cost = float(quotation[5]) if quotation[5] else 0
+            vat_enabled = bool(quotation[8]) if len(quotation) > 8 else False
+            vat_rate = float(quotation[9]) if len(quotation) > 9 and quotation[9] is not None else 15
+            vat_mode = (quotation[10] or 'exclusive') if len(quotation) > 10 else 'exclusive'
+            vat_net, vat_amount, vat_total, vat_rate_used, vat_on = compute_quotation_vat(
+                total_cost, vat_enabled, vat_rate, vat_mode)
+            if vat_on:
+                # The client is quoted the VAT-inclusive figure and pays the deposit
+                # and instalments against it, so everything downstream uses vat_total.
+                total_cost = vat_total
 
             # Get schedules - a quotation's Gantt chart is its work schedule
             schedules = ensure_quotation_schedules(cursor, _, quotation_id)
@@ -46048,7 +46132,9 @@ def build_quotation_pdf_document(quotation_id):
             # Generate HTML and PDF
             html = generate_quotation_html(
                 client_name, quotation_date, category, total_cost,
-                items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen, custom_category
+                items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen, custom_category,
+                vat=dict(enabled=vat_enabled, rate=vat_rate_used, mode=vat_mode,
+                         net=vat_net, amount=vat_amount, total=vat_total)
             )
             
             pdf_bytes = HTML(string=html).write_pdf()
@@ -46066,6 +46152,37 @@ def build_quotation_pdf_document(quotation_id):
         raise
 
 
+def compute_quotation_vat(amount, vat_enabled=False, vat_rate=15, vat_mode='exclusive'):
+    """Break a quoted figure into its VAT breakdown.
+
+    'exclusive' => the figure is net and VAT is added on top.
+    'inclusive' => the figure already carries VAT, so it is extracted out of it.
+    Returns (net, vat, total, rate, enabled).
+    """
+    base = float(amount or 0)
+    if not vat_enabled:
+        return base, 0.0, base, 0.0, False
+    rate = float(vat_rate if vat_rate is not None else 15)
+    rate = max(0.0, min(rate, 100.0))
+    if (vat_mode or 'exclusive') == 'inclusive':
+        net = base / (1 + rate / 100) if rate else base
+        return net, base - net, base, rate, True
+    vat = base * (rate / 100)
+    return base, vat, base + vat, rate, True
+
+
+def quotation_vat_settings(data):
+    """Read the VAT fields from a save/update payload, clamped to safe values."""
+    enabled = str(data.get('vatEnabled')).lower() in ('1', 'true', 'yes', 'on')
+    try:
+        rate = float(data.get('vatRate') if data.get('vatRate') not in (None, '') else 15)
+    except (TypeError, ValueError):
+        rate = 15.0
+    rate = max(0.0, min(rate, 100.0))
+    mode = 'inclusive' if str(data.get('vatMode') or '').lower() == 'inclusive' else 'exclusive'
+    return enabled, rate, mode
+
+
 def format_quotation_category(category, is_kitchen=False, custom_category=''):
     """Convert raw category value to user-friendly display name"""
     if custom_category and str(custom_category).strip():
@@ -46079,8 +46196,36 @@ def format_quotation_category(category, is_kitchen=False, custom_category=''):
     return category.replace('_', ' ').title()
 
 
-def generate_quotation_html(client_name, quotation_date, category, total_cost, items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen=False, custom_category=''):
+def generate_quotation_html(client_name, quotation_date, category, total_cost, items_rows, items_total_row, schedule_rows, logo_b64, is_kitchen=False, custom_category='', vat=None):
     """Generate HTML for quotation PDF"""
+    vat = vat or {}
+    vat_enabled = bool(vat.get('enabled'))
+    vat_rate = vat.get('rate') or 0
+    vat_net = vat.get('net', total_cost)
+    vat_amount = vat.get('amount', 0)
+    vat_label = 'VAT (Included)' if vat.get('mode') == 'inclusive' else 'VAT'
+    vat_cell = (
+        f"<div style='padding: 0 5px; border-left: 1px solid #d8deef;'>"
+        f"<div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>"
+        f"{vat_label} ({vat_rate:g}%)</div>"
+        f"<div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {vat_amount:,.2f}</div></div>"
+        if vat_enabled else ''
+    )
+    # Net / VAT / total block, shown under the item table when VAT is on. The
+    # summary above quotes the VAT-inclusive figure the client actually pays; this
+    # is what the accountant needs to separate the two.
+    vat_rows = ''
+    if vat_enabled:
+        vat_rows = f"""
+                    <table style='width:100%; border-collapse:collapse; font-size:11px; margin:-10px 0 20px 0;'>
+                        <tr><td style='border:none; text-align:right; padding:4px 10px; color:#5a678a;'>Subtotal (excl. VAT)</td>
+                            <td style='border:none; text-align:right; width:22%; padding:4px 10px; font-weight:600;'>USD {vat_net:,.2f}</td></tr>
+                        <tr><td style='border:none; text-align:right; padding:4px 10px; color:#5a678a;'>{'VAT included' if vat.get('mode') == 'inclusive' else 'VAT'} @ {vat_rate:g}%</td>
+                            <td style='border:none; text-align:right; padding:4px 10px; font-weight:600;'>USD {vat_amount:,.2f}</td></tr>
+                        <tr><td style='border:none; text-align:right; padding:4px 10px; font-weight:800; color:#1E2A56;'>Total payable (incl. VAT)</td>
+                            <td style='border:none; text-align:right; padding:4px 10px; font-weight:800; color:#1E2A56;'>USD {total_cost:,.2f}</td></tr>
+                    </table>"""
+    summary_cols = 5 if vat_enabled else 4
     deposit = total_cost * 0.30
     balance = total_cost - deposit
 
@@ -46138,7 +46283,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
             <div style='page-break-inside:avoid; break-inside:avoid;'>
                 <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
                 <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
-                    <div style='display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;'>
+                    <div style='display: grid; grid-template-columns: repeat({summary_cols}, 1fr); gap: 10px; text-align: center;'>
                         <div style='padding: 0 5px;'>
                             <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Total Amount</div>
                             <div style='font-size: 13px; font-weight: 900; color: #1E2A56;'>USD {total_cost:,.2f}</div>
@@ -46151,6 +46296,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                             <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Balance</div>
                             <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {balance:,.2f}</div>
                         </div>
+                        {vat_cell}
                         <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
                             <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over {payment_period_text})</div>
                             <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {monthly:,.2f}</div>
@@ -46194,6 +46340,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                         {items_total_row}
                     </tbody>
                 </table>
+                {vat_rows}
             </div>
             
             <!-- WORK SCHEDULE -->
@@ -46235,7 +46382,8 @@ def generate_quotation_pdf_playwright(quotation_id):
     with get_db() as (cursor, _):
         cursor.execute("""
             SELECT id, client_name, quotation_date, category, project_size,
-                   total_cost, markup_percentage, notes
+                   total_cost, markup_percentage, notes,
+                   COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15), COALESCE(vat_mode, 'exclusive')
             FROM quotations WHERE id = %s
         """, (quotation_id,))
         q_row = cursor.fetchone()
@@ -46251,6 +46399,9 @@ def generate_quotation_pdf_playwright(quotation_id):
             'total_cost': float(q_row[5]) if q_row[5] else 0,
             'markup': float(q_row[6]) if q_row[6] else 30,
             'notes': q_row[7] or '',
+            'vat_enabled': bool(q_row[8]) if len(q_row) > 8 else False,
+            'vat_rate': float(q_row[9]) if len(q_row) > 9 and q_row[9] is not None else 15,
+            'vat_mode': (q_row[10] or 'exclusive') if len(q_row) > 10 else 'exclusive',
         }
 
     client_name = q['client_name']
@@ -46259,6 +46410,10 @@ def generate_quotation_pdf_playwright(quotation_id):
     is_kitchen = category in ('kitchen', 'kitchen_cabinets')
     is_construction = category in ('construction_single', 'construction_double')
     total_cost = q['total_cost']
+    vat_net, vat_amount, vat_total, vat_rate_used, vat_on = compute_quotation_vat(
+        total_cost, q['vat_enabled'], q['vat_rate'], q['vat_mode'])
+    if vat_on:
+        total_cost = vat_total
     project_size = q['project_size']
     deposit = total_cost * 0.30
     balance = total_cost - deposit
@@ -46341,16 +46496,34 @@ def generate_quotation_pdf_playwright(quotation_id):
                 </div>"""
 
     # Summary columns
+    vat_col_html = ''
+    if vat_on:
+        vat_col_html = f"""
+                            <div style="padding:0 5px;border-left:1px solid #d8deef;">
+                                <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">{'VAT (Included)' if q['vat_mode'] == 'inclusive' else 'VAT'} ({vat_rate_used:g}%)</div>
+                                <div style="font-size:13px;font-weight:700;">USD {vat_amount:,.2f}</div>
+                            </div>"""
+    else:
+        vat_col_html = ''
     if is_construction:
-        summary_cols = 4
+        summary_cols = 4 + (1 if vat_on else 0)
         duration_col_html = ''
     else:
-        summary_cols = 5
+        summary_cols = 5 + (1 if vat_on else 0)
         duration_col_html = f"""
                             <div style="padding:0 5px;border-left:1px solid #d8deef;">
                                 <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div>
                                 <div style="font-size:13px;font-weight:700;color:#2196F3;">{total_days} Days</div>
                             </div>"""
+
+    vat_rows_html = ''
+    if vat_on:
+        vat_rows_html = f"""
+  <table style="width:100%;border-collapse:collapse;font-size:11px;margin:-10px 0 20px 0;">
+    <tr><td style="border:none;text-align:right;padding:4px 10px;color:#5a678a;">Subtotal (excl. VAT)</td><td style="border:none;text-align:right;width:22%;padding:4px 10px;font-weight:600;">USD {vat_net:,.2f}</td></tr>
+    <tr><td style="border:none;text-align:right;padding:4px 10px;color:#5a678a;">{'VAT included' if q['vat_mode'] == 'inclusive' else 'VAT'} @ {vat_rate_used:g}%</td><td style="border:none;text-align:right;padding:4px 10px;font-weight:600;">USD {vat_amount:,.2f}</td></tr>
+    <tr><td style="border:none;text-align:right;padding:4px 10px;font-weight:800;">Total payable (incl. VAT)</td><td style="border:none;text-align:right;padding:4px 10px;font-weight:800;">USD {total_cost:,.2f}</td></tr>
+  </table>"""
 
     html_content = f"""<!DOCTYPE html>
 <html>
@@ -46391,6 +46564,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
       <div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;">USD {total_cost:,.2f}</div></div>
       <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;">USD {deposit:,.2f}</div></div>
       <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;">USD {balance:,.2f}</div></div>
+      {vat_col_html}
       <div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over {payment_period_text})</div><div style="font-size:13px;font-weight:700;">USD {monthly:,.2f}</div></div>
       {duration_col_html}
     </div>
@@ -46400,6 +46574,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
 
   <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">ITEM DETAILS</h4>
   <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
+  {vat_rows_html}
 
   <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
     <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">
@@ -47289,6 +47464,7 @@ def update_quotation(quotation_id):
 
             # Update header (including notes)
             notes = data.get('notes', '')
+            vat_enabled, vat_rate, vat_mode = quotation_vat_settings(data)
             cursor.execute("""
                 UPDATE quotations
                 SET client_name = %s,
@@ -47299,10 +47475,14 @@ def update_quotation(quotation_id):
                     project_size = %s,
                     total_cost = %s,
                     markup_percentage = %s,
-                    notes = %s
+                    notes = %s,
+                    vat_enabled = %s,
+                    vat_rate = %s,
+                    vat_mode = %s
                 WHERE id = %s
             """, (client_name, client_whatsapp, quotation_date, category, custom_category,
-                  project_size, total_cost, markup, notes, quotation_id))
+                  project_size, total_cost, markup, notes,
+                  vat_enabled, vat_rate, vat_mode, quotation_id))
 
             # Replace items
             cursor.execute("SELECT item_order, days FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
@@ -47472,14 +47652,16 @@ def save_quotation():
             # Insert quotation header (including notes and created_by)
             notes = data.get('notes', '')
             user_name = session.get('user_name') or session.get('username') or 'Admin'
+            vat_enabled, vat_rate, vat_mode = quotation_vat_settings(data)
             cursor.execute("""
                 INSERT INTO quotations
-                (client_name, client_whatsapp, quotation_date, category, custom_category, project_size, total_cost, markup_percentage, notes, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (client_name, client_whatsapp, quotation_date, category, custom_category, project_size, total_cost, markup_percentage, notes, created_by, vat_enabled, vat_rate, vat_mode)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (
                 client_name, client_whatsapp, quotation_date, category, custom_category,
-                project_size, total_cost, markup, notes, user_name
+                project_size, total_cost, markup, notes, user_name,
+                vat_enabled, vat_rate, vat_mode
             ))
             quotation_id = cursor.fetchone()[0]
             print(f"Created quotation ID: {quotation_id}")
@@ -47590,7 +47772,7 @@ def get_quotations():
             cursor.execute("""
                 SELECT id, client_name, client_whatsapp, quotation_date, 
                        category, project_size, total_cost, markup_percentage, notes,
-                       created_by, custom_category
+                       created_by, custom_category, vat_enabled, vat_rate, vat_mode
                 FROM quotations
                 ORDER BY id DESC
             """)
@@ -47719,6 +47901,9 @@ def get_quotations():
                     'notes': quotation[8] or '',
                     'createdBy': quotation[9] or '',
                     'customCategory': quotation[10] if len(quotation) > 10 and quotation[10] else '',
+                    'vatEnabled': bool(quotation[11]) if len(quotation) > 11 else False,
+                    'vatRate': float(quotation[12]) if len(quotation) > 12 and quotation[12] is not None else 15,
+                    'vatMode': (quotation[13] or 'exclusive') if len(quotation) > 13 else 'exclusive',
                     'items': items,
                     'schedules': schedules_by_quotation.get(quotation_id, [])
                 })
