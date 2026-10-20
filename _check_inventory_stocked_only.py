@@ -304,12 +304,15 @@ check('the All Branches view still reports every item as the company\'s',
 # ------------------- 3. the Add-Product name hints still offer EVERY name
 auto = extract(NEW, 'function setupAutocomplete(')
 check('the Add-Product name hints still read the WHOLE catalogue',
-      'products.map(p => p.name)' in auto
-      and 'const matches = existingNames.filter(name => '
-          'name.toLowerCase().includes(inputValue));' in auto)
+      'catalogueHintProducts' in auto
+      and 'const hintSource = (catalogueHintProducts && catalogueHintProducts.length)' in auto
+      and 'hintSource.map(p => p.name)' in auto,
+      'prefers the all-departments list, falling back to the loaded one')
+check('the all-departments hint list is fetched from the server',
+      'all_departments=1' in NEW and 'function loadCatalogueHints' in NEW)
 check('a name this branch has never stocked is marked as such in the hints',
       '!stockedInThisBranch(existingProduct)' in auto
-      and 'already in the catalogue at another branch - use this exact name' in auto)
+      and 'already in the catalogue - use this exact name' in auto)
 check('and picking it still fills the form from the product it names',
       'productNameInput.value = match;' in auto and 'if (existingProduct) {' in auto)
 check('the marker is the only thing this change did to the hints',
@@ -575,8 +578,8 @@ try:
         hints = page.evaluate(HINTS)
         check('the Add-Product name hints still offer a never-stocked product',
               'Chegutu-Only Speaker' in hints, hints[:120])
-        check("and say that the name is already the catalogue's, at another branch",
-              'another branch' in hints and 'exact name' in hints, hints[:170])
+        check("and say that the name is already in the catalogue, so it is reused",
+              'already in the catalogue' in hints and 'exact name' in hints, hints[:170])
         page.evaluate(SET, {'sel': '#productName', 'v': ''})
         page.wait_for_timeout(200)
 

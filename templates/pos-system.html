@@ -6624,7 +6624,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                         <span class="upload-step-num">2</span>
                                         <div>
                                             <strong>Fill it in, then choose the file</strong>
-                                            <div class="upload-step-hint">Product Name (pick an existing name to add stock to that product), Quantity, Unit Buying Price, Unit Selling Price.</div>
+                                            <div class="upload-step-hint">Product Name (pick an existing name to add stock to that product), Quantity, Unit Buying Price, Unit Selling Price. Department says which shelf the units go on &mdash; an item this branch already holds keeps its own department.</div>
                                         </div>
                                     </div>
                                     <input type="file" class="form-control form-control-sm upload-step-action" id="uploadStockFile" accept=".xlsx,.xlsm">
@@ -6693,6 +6693,9 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                         <i class="fas fa-triangle-exclamation me-1"></i>
                                         Stock will be added to <strong id="uploadStockConfirmBranch">this branch</strong> only.
                                         Other shops are not affected.
+                                        <span id="uploadStockConfirmDeptWrap">Department:
+                                            <strong id="uploadStockConfirmDept">Hardware</strong>.
+                                        </span>
                                     </div>
                                     <label class="form-label fw-bold mb-1">Branch code for this shop</label>
                                     <input type="password" class="form-control form-control-sm" id="uploadStockBranchCode"
@@ -8729,6 +8732,18 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <div class="col-md-6">
                             <label class="form-label" for="productBarcode">Barcode (optional)</label>
                             <input type="text" class="form-control" id="productBarcode" placeholder="Scan or type barcode" autocomplete="off">
+                        </div>
+                        <!-- Which department this item belongs to. Only shown in
+                             Central Dispatch (see showAddInventoryModal), so the item
+                             is filed in the right pool from the moment it is created
+                             and therefore dispatches into that same department. -->
+                        <div class="col-md-6" id="productDepartmentGroup" style="display:none;">
+                            <label class="form-label" for="productDepartment">Department *</label>
+                            <select class="form-select" id="productDepartment">
+                                <option value="hardware">Hardware</option>
+                                <option value="furniture">Furniture</option>
+                            </select>
+                            <div class="form-text">Where this item is held at Dispatch. It is dispatched to a shop in this same department.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label" for="productMainCategory">Main Category *</label>
@@ -15367,6 +15382,8 @@ async function fetchTransactionsData() {
     window.onRepeatConfirmChange = onRepeatConfirmChange;
 
     function money(v) { return '$' + Number(v || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+    function deptLabel(d) { return String(d || '').toLowerCase() === 'furniture' ? 'Furniture' : 'Hardware'; }
+    window.deptLabel = deptLabel;
 
     function renderStockUploadPlan(plan) {
         const exact = plan.exact || [], brandNew = plan.new || [],
@@ -15404,6 +15421,18 @@ async function fetchTransactionsData() {
             if (conflicts.length) bits.push(`<span class="badge bg-warning text-dark me-1">${conflicts.length} need a decision</span>`);
             if (failed.length) bits.push(`<span class="badge bg-danger me-1">${failed.length} row(s) skipped</span>`);
             sum.innerHTML = bits.join('') || '<span class="text-muted small">Nothing to upload.</span>';
+            // The file asked for one shelf, but the item is filed on the other.
+            // Said here because it is a decision the upload does NOT make for you.
+            const overrides = [...exact, ...brandNew, ...conflicts].filter(r => r.department_override);
+            if (overrides.length) {
+                const names = overrides.slice(0, 3).map(r => escapeHtml(r.name)).join(', ')
+                    + (overrides.length > 3 ? ` and ${overrides.length - 3} more` : '');
+                sum.innerHTML += `<div class="alert alert-warning py-2 small mt-2 mb-0">`
+                    + `<i class="fas fa-circle-info me-1"></i>`
+                    + `${overrides.length} row(s) name a department the item is not held in (${names}). `
+                    + `Stock follows each item's own department, so their choice is not applied. `
+                    + `Use <strong>To Furniture</strong> / <strong>To Hardware</strong> in Inventory to move an item.</div>`;
+            }
         }
 
         const newWrap = document.getElementById('uploadStockNewWrap');
@@ -15417,6 +15446,9 @@ async function fetchTransactionsData() {
                 }
                 bits.push(r.category ? escapeHtml(r.category)
                                      : '<em>uses the category picked below</em>');
+                bits.push(r.department
+                          ? `<span class="badge bg-secondary">${escapeHtml(deptLabel(r.department))}</span>`
+                          : `<em>uses the ${escapeHtml(deptLabel(posDepartment || 'hardware'))} department</em>`);
                 return `<li>${escapeHtml(r.name)} — ${bits.join(' · ')}</li>`;
             }).join('');
         }
@@ -15467,9 +15499,9 @@ async function fetchTransactionsData() {
                     : (isRowBarcode
                         ? `<span class="badge bg-warning text-dark ms-1">barcode repeated in this file</span>`
                         : '');
-                return `<tr class="${isSysBarcode ? 'table-danger' : ''}">
+                return `<tr>
                     <td><strong>${escapeHtml(c.name)}</strong>${diffName}
-                        <div class="text-muted small">${c.quantity} × buy ${money(c.buy_price)}, sell ${money(c.sell_price)}${fileCode ? ` · barcode ${escapeHtml(fileCode)}` : ''}</div>${note}</td>
+                        <div class="text-muted small">${c.quantity} × buy ${money(c.buy_price)}, sell ${money(c.sell_price)}${fileCode ? ` · barcode ${escapeHtml(fileCode)}` : ''}${c.department ? ` · <span class="badge bg-secondary">${escapeHtml(deptLabel(c.department))}</span>` : ''}</div>${note}</td>
                     <td>
                         <select class="form-select form-select-sm" data-conflict="${i}" onchange="onConflictChoice(${i}, this.value)">
                             <option value="">- choose -</option>
@@ -15482,7 +15514,6 @@ async function fetchTransactionsData() {
                     </td></tr>`;
             }).join('');
         }
-
         const failWrap = document.getElementById('uploadStockFailedWrap');
         if (failWrap) {
             failWrap.style.display = failed.length ? 'block' : 'none';
@@ -15516,14 +15547,15 @@ async function fetchTransactionsData() {
         (plan.exact || []).forEach(r => rows.push({
             name: r.name, quantity: r.quantity, buy_price: r.buy_price,
             sell_price: r.sell_price, action: 'merge', product_id: r.product_id,
-            barcode: r.barcode || '', description: r.description || ''
+            barcode: r.barcode || '', description: r.description || '',
+            department: r.department || ''
         }));
         (plan.new || []).forEach(r => rows.push({
             name: r.name, quantity: r.quantity, buy_price: r.buy_price,
             sell_price: r.sell_price, action: 'create',
             category: r.category || '', unit_type: r.unit_type || '',
             unit_details: r.unit_details || '', barcode: r.barcode || '',
-            description: r.description || ''
+            description: r.description || '', department: r.department || ''
         }));
         const conflicts = plan.conflicts || [];
         for (let i = 0; i < conflicts.length; i++) {
@@ -15537,7 +15569,7 @@ async function fetchTransactionsData() {
                           sell_price: c.sell_price, action: action,
                           category: c.category || '', unit_type: c.unit_type || '',
                           unit_details: c.unit_details || '', barcode: c.barcode || '',
-                          description: c.description || '' };
+                          description: c.description || '', department: c.department || '' };
             if (action === 'merge' || action === 'merge_category') {
                 const cand = document.getElementById('uploadCandidate' + i);
                 if (!cand || !cand.value) return { error: `Pick a product to merge "${c.name}" into.` };
@@ -15594,6 +15626,14 @@ async function fetchTransactionsData() {
         const name = (posBranch && posBranch.name) ? posBranch.name : 'this branch';
         const nameEl = document.getElementById('uploadStockConfirmBranch');
         if (nameEl) nameEl.innerText = name;
+        // Name the departments about to receive the stock: an upload that spans
+        // both shelves must say so before the code is entered.
+        const deptEl = document.getElementById('uploadStockConfirmDept');
+        if (deptEl) {
+            const depts = [...new Set(collected.rows.map(r => (r.department || posDepartment || 'hardware')))]
+                .map(deptLabel);
+            deptEl.innerText = depts.join(' and ');
+        }
         const btnEl = document.getElementById('uploadStockConfirmBtn');
         if (btnEl) btnEl.innerText = 'Yes, upload to ' + name;
         const codeEl = document.getElementById('uploadStockBranchCode');
@@ -15642,6 +15682,7 @@ async function fetchTransactionsData() {
                 credentials: 'include',
                 body: JSON.stringify({
                     default_category: catEl ? catEl.value : '',
+                    default_department: posDepartment || 'hardware',
                     branch_id: (_bulkStockPlan && _bulkStockPlan.branch_id) || (posBranch ? posBranch.id : null),
                     branch_code: code,
                     file_fingerprint: (_bulkStockPlan && _bulkStockPlan.file_fingerprint) || '',
@@ -17210,6 +17251,22 @@ function setupFundingSelection() {
         document.getElementById('productDescription').value = '';
         document.getElementById('productNameSuggestions').innerHTML = '';
         document.getElementById('profitPreview').innerHTML = '$0.00';
+
+        // Department: only Central Dispatch picks one, because the item it is
+        // creating is what it will later dispatch. A shop simply uses the
+        // department it is already working in.
+        const deptGroup = document.getElementById('productDepartmentGroup');
+        const deptSel = document.getElementById('productDepartment');
+        if (deptGroup && deptSel) {
+            const isDispatch = (typeof branchIsDispatch === 'function') && branchIsDispatch();
+            deptGroup.style.display = isDispatch ? '' : 'none';
+            deptSel.value = posDepartment || 'hardware';
+        }
+
+        // Load the WHOLE catalogue for the name hints (every department), so an
+        // item that already exists in the other department is still offered and
+        // the operator does not create a second spelling of it.
+        loadCatalogueHints();
         
         // Reset funding selection - NO DEFAULT, both inactive
         selectedProductFundingSource = null;  // Set to null instead of "profit"
@@ -17348,7 +17405,16 @@ function setupAddProductFundingSelection() {
                     buy_price: buyPrice,
                     sell_price: sellPrice,
                     stock: stock,
-                    description: description
+                    description: description,
+                    // Central Dispatch files the new item in the department it
+                    // picked; a shop sends the one it is working in. Either way
+                    // the server records it, so a later dispatch follows the item.
+                    department: ((document.getElementById('productDepartmentGroup') || {}).style || {}).display === 'none'
+                        ? (posDepartment || 'hardware')
+                        : ((document.getElementById('productDepartment') || {}).value || posDepartment || 'hardware'),
+                    // Which pot paid for the stock; recorded on the movement so the
+                    // funding report stays accurate when an existing product is reused.
+                    funding_source: selectedProductFundingSource || 'capital'
                 })
             });
             let addData;
@@ -17368,7 +17434,9 @@ function setupAddProductFundingSelection() {
                     addToCart(addData.product_id);
                     showToast(`${name} added & in cart (barcode ${scannedCode})`, 'success');
                 } else {
-                    showToast(`${name} added successfully!`, 'success');
+                    // Say when the stock joined an existing product, so "why is this
+                    // a top-up and not a new line?" never needs asking.
+                    showToast(addData.message || `${name} added successfully!`, 'success');
                 }
             } else {
                 showToast(addData.error || 'Failed to add product', 'error');
@@ -18389,6 +18457,30 @@ function setupAddProductFundingSelection() {
     }
     // ==================== AUTOCOMPLETE ====================
     
+    // Whole-catalogue list for the Add-Product name hints. Deliberately separate
+    // from `products`, which is the CURRENT DEPARTMENT's sellable list: a name
+    // that exists only in the other department must still be hinted, or the same
+    // product gets created twice under two spellings.
+    let catalogueHintProducts = [];
+    let catalogueHintsLoaded = false;
+
+    async function loadCatalogueHints() {
+        if (catalogueHintsLoaded) return;
+        try {
+            const res = await fetch(`${API_BASE}/api/products?all_departments=1`,
+                                    { credentials: 'include' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data && data.success && Array.isArray(data.products)) {
+                catalogueHintProducts = data.products;
+                catalogueHintsLoaded = true;
+            }
+        } catch (e) {
+            // Hints are a convenience; the loaded department list still works.
+        }
+    }
+    window.loadCatalogueHints = loadCatalogueHints;
+
     function setupAutocomplete() {
         const productNameInput = document.getElementById('productName');
         const suggestionsDiv = document.getElementById('productNameSuggestions');
@@ -18397,11 +18489,15 @@ function setupAddProductFundingSelection() {
             const inputValue = this.value.toLowerCase();
             suggestionsDiv.innerHTML = '';
             if (inputValue.length < 2) return;
-            const existingNames = [...new Set(products.map(p => p.name))];
+            // Prefer the whole catalogue; fall back to the loaded department list
+            // until that request lands.
+            const hintSource = (catalogueHintProducts && catalogueHintProducts.length)
+                ? catalogueHintProducts : products;
+            const existingNames = [...new Set(hintSource.map(p => p.name))];
             const matches = existingNames.filter(name => name.toLowerCase().includes(inputValue));
             if (matches.length === 0) return;
             matches.forEach(match => {
-                const existingProduct = products.find(p => p.name === match);
+                const existingProduct = hintSource.find(p => p.name === match);
                 const div = document.createElement('div');
                 div.innerText = match;
                 // An item this branch has never stocked is the whole reason a hint is
@@ -18412,7 +18508,7 @@ function setupAddProductFundingSelection() {
                     const note = document.createElement('span');
                     note.className = 'text-muted ms-1';
                     note.style.fontSize = '0.72em';
-                    note.innerText = 'already in the catalogue at another branch - use this exact name';
+                    note.innerText = 'already in the catalogue - use this exact name';
                     div.appendChild(note);
                 }
                 div.addEventListener('click', function() {

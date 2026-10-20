@@ -3375,6 +3375,15 @@ def ensure_branches_schema(cursor, connection):
             )
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_bulk_upload_items_job ON bulk_upload_items (job_id)")
+        # Which department each row's stock went into, so a revert puts it back on
+        # the SAME shelf instead of assuming Hardware.
+        try:
+            cursor.execute("ALTER TABLE bulk_upload_items "
+                           "ADD COLUMN IF NOT EXISTS department VARCHAR(20)")
+            connection.commit()
+        except Exception as e:
+            connection.rollback()
+            print(f"Note: bulk_upload_items.department not added: {e}")
         connection.commit()
 
         # ---- Per-branch selling price ---------------------------------------
@@ -14876,7 +14885,7 @@ def get_activity_log_users():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def run1hardware():
+def run1hardware(all_departments=False):
     """Fetch all active products with THIS branch's stock levels.
 
     The catalogue is shared, so name/price/barcode come from `products` while the
@@ -14889,9 +14898,47 @@ def run1hardware():
     (or be sellable from) the Hardware figure. A product with no
     product_departments row is Hardware, which is where every product lived
     before departments existed.
+
+    `all_departments=True` ignores the department split and returns the WHOLE
+    shared catalogue. The till's product-NAME hints use this, because a name that
+    already exists in the other department must still be offered: typing it
+    instead of inventing a spelling is what keeps one product one product.
     """
     branch_id = current_branch_id()
     dept = current_department()
+    if all_departments:
+        # Name hints only need the catalogue, and the quantity shown beside a hint
+        # must be everything the branch holds -- so sum across departments.
+        rows = execute_query("""
+            SELECT p.id, p.name, p.category, p.unit_type, p.unit_details,
+                   COALESCE(p.buy_price, 0) AS buy_price,
+                   COALESCE(p.sell_price, 0) AS sell_price,
+                   COALESCE((SELECT SUM(ps.stock) FROM product_stock ps
+                             WHERE ps.product_id = p.id AND ps.branch_id = %s), 0) AS stock,
+                   COALESCE(p.min_stock_level, 10) AS min_stock_level,
+                   COALESCE(p.description, '') AS description,
+                   COALESCE(p.barcode, '') AS barcode,
+                   p.created_at, p.updated_at,
+                   COALESCE((SELECT SUM(a.stock) FROM product_stock a
+                             WHERE a.product_id = p.id), 0) AS total_stock,
+                   COALESCE(p.sell_price, 0) AS branch_sell_price,
+                   COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
+                             FROM stock_lots sl
+                             WHERE sl.product_id = p.id AND sl.branch_id = %s), 0) AS stock_value,
+                   -- "carries it here" (a 0-stock row still counts), matching the
+                   -- department-scoped read, so the hint wording is accurate.
+                   EXISTS (SELECT 1 FROM product_stock ps
+                           WHERE ps.product_id = p.id AND ps.branch_id = %s) AS stocked_here
+            FROM products p
+            WHERE p.is_active = TRUE
+              AND (%s IS NULL OR NOT EXISTS (
+                    SELECT 1 FROM product_branch_archives pba
+                    WHERE pba.product_id = p.id AND pba.branch_id = %s
+              ))
+            ORDER BY p.name
+        """, (branch_id or 0, branch_id or 0, branch_id or 0, branch_id, branch_id),
+            fetch_all=True) or []
+        return _run1_rows_to_products(rows)
     if branch_id:
         query = """
             SELECT p.id, p.name, p.category, p.unit_type, p.unit_details, p.buy_price, p.sell_price,
@@ -14972,6 +15019,15 @@ def run1hardware():
             dept, DEFAULT_DEPARTMENT, dept,
         ), fetch_all=True)
 
+    return _run1_rows_to_products(result)
+
+
+def _run1_rows_to_products(result):
+    """Map run1hardware() rows to the product dicts the POS consumes.
+
+    Kept as one helper so the department-filtered read and the whole-catalogue
+    read (used for name hints) can never drift apart in shape.
+    """
     products = []
     if result:
         for row in result:
@@ -14999,7 +15055,6 @@ def run1hardware():
                 'stocked_here': bool(row[16]),
                 'low_stock': stock < min_stock
             })
-    
     return products
 
 
@@ -16396,10 +16451,14 @@ def dispatch_push():
 
             # Check every line BEFORE moving anything, so a shortfall on the last
             # item cannot leave the first ones already dispatched.
+            # Each product is checked against ITS OWN department's pool: an item
+            # filed as Furniture must not be dispatched out of Hardware stock.
+            line_dept = {}
             short = []
             for pid, qty in wanted.items():
+                line_dept[pid] = resolve_product_department(cursor, pid, from_branch)
                 held = get_branch_stock(cursor, pid, from_branch,
-                                        department=current_department())
+                                        department=line_dept[pid])
                 if qty > held:
                     cursor.execute("SELECT name FROM products WHERE id = %s", (pid,))
                     prow = cursor.fetchone()
@@ -16425,34 +16484,49 @@ def dispatch_push():
                       notes, user_id, user_name))
                 transfer_id = cursor.fetchone()[0]
 
+                # The product's OWN department travels with the goods, so the
+                # shop receives them into the same department they left Dispatch
+                # in -- not whatever the Dispatch screen happened to be showing.
+                dept = line_dept.get(pid) or current_department()
+
                 # Cost travels with the goods: the layers leave Dispatch at their
                 # own cost and are re-laid at that SAME cost in the shop, so a
                 # dispatch never silently revalues stock.
                 moved_cost, moved_layers = consume_stock_lots_fifo(
-                    cursor, pid, from_branch, qty, department=current_department())
+                    cursor, pid, from_branch, qty, department=dept)
                 for _lot_id, layer_qty, layer_cost in moved_layers:
                     receive_stock_lot(cursor, pid, to_branch, layer_qty, layer_cost,
                                       'transfer_in', 'D%d' % transfer_id,
-                                      department=current_department())
-                add_branch_stock(cursor, pid, from_branch, -qty,
-                                 department=current_department())
+                                      department=dept)
+                add_branch_stock(cursor, pid, from_branch, -qty, department=dept)
                 cursor.execute("""
                     INSERT INTO stock_reductions
                         (product_id, quantity, reason, notes, user_id, reduced_at, branch_id,
                          department)
                     VALUES (%s, %s, 'transfer_out', %s, %s, CURRENT_TIMESTAMP, %s, %s)
                 """, (pid, qty, 'Dispatch #%d to %s' % (transfer_id, dest[1]),
-                      user_id, from_branch, current_department()))
+                      user_id, from_branch, dept))
 
-                add_branch_stock(cursor, pid, to_branch, qty,
-                                 department=current_department())
+                add_branch_stock(cursor, pid, to_branch, qty, department=dept)
                 cursor.execute("""
                     INSERT INTO stock_additions
                         (product_id, quantity, buy_price, total_cost, funding_source,
                          user_id, added_at, branch_id, department)
                     VALUES (%s, %s, %s, %s, 'DISPATCH', %s, CURRENT_TIMESTAMP, %s, %s)
                 """, (pid, qty, round(moved_cost / max(1, qty), 2),
-                      round(moved_cost, 2), user_id, to_branch, current_department()))
+                      round(moved_cost, 2), user_id, to_branch, dept))
+
+                # The shop now carries this item in that department, so it appears
+                # on the matching tab there instead of vanishing into Hardware.
+                cursor.execute("""
+                    INSERT INTO product_departments
+                        (product_id, branch_id, department, updated_at, user_name)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s)
+                    ON CONFLICT (product_id, branch_id) DO UPDATE
+                        SET department = EXCLUDED.department,
+                            updated_at = CURRENT_TIMESTAMP,
+                            user_name = EXCLUDED.user_name
+                """, (pid, to_branch, dept, user_name[:100]))
 
                 dispatched.append({'product_id': pid, 'product_name': product_name,
                                    'quantity': qty, 'transfer_id': transfer_id})
@@ -17617,9 +17691,11 @@ def pos_cancel_layby(layby_id):
 # Quantities are added to the SESSION BRANCH (product_stock is the per-branch
 # truth) and costed as a FIFO layer at the uploaded buying price, exactly like a
 # normal stock addition. The selling price goes to the shared catalogue price.
+# Department is part of the row because stock lives in a department: skipping it
+# would drop every uploaded unit into Hardware, whichever shelf it belongs on.
 BULK_STOCK_COLUMNS = ['Product Name', 'Quantity', 'Unit Buying Price', 'Unit Selling Price',
                       'Unit Type', 'Unit Detail', 'Category', 'Barcode / SKU',
-                      'Description']
+                      'Description', 'Department']
 BULK_STOCK_MAX_ROWS = 5000
 # Names scoring at least this are offered to the uploader as a possible match
 # instead of being created silently.
@@ -17635,6 +17711,26 @@ BULK_STOCK_UNIT_TYPES = ['piece', 'length', 'roll', 'weight', 'volume', 'pack']
 
 def _bulk_stock_header(value):
     return str(value or '').strip().lower().replace('*', '').replace('_', ' ').strip()
+
+
+def _bulk_stock_department(value):
+    """Excel cell -> a stored department ('hardware' / 'furniture'). Unknown -> ''."""
+    text = str(value or '').strip().lower()
+    return text if text in DEPARTMENTS else ''
+
+
+def _bulk_stock_department_for(cursor, product_id, branch_id, requested):
+    """The department an upload row lands in, honouring where the item already is.
+
+    The uploaded department is the default. An EXISTING product that this branch
+    already files in the other department keeps that department, so a file left
+    on the template's Hardware default cannot move a Furniture item's stock into
+    Hardware.
+    """
+    if requested in DEPARTMENTS:
+        current = resolve_product_department(cursor, product_id, branch_id) if product_id else None
+        return current or requested
+    return resolve_product_department(cursor, product_id, branch_id)
 
 
 def _bulk_stock_unit(value):
@@ -17977,8 +18073,9 @@ def pos_stock_upload_template():
             cell.alignment = Alignment(horizontal='center', vertical='center')
             cell.border = border
         # A clearly-marked example row; the uploader ignores/removes it.
-        ws.append(['EXAMPLE - delete this row', 10, 5.5, 9.99, 'Piece', '2x4x8ft', 'DIY', '', ''])
-        for i, width in enumerate([48, 12, 20, 20, 14, 22, 18, 22, 40], start=1):
+        ws.append(['EXAMPLE - delete this row', 10, 5.5, 9.99, 'Piece', '2x4x8ft', 'DIY', '', '',
+                   'Hardware'])
+        for i, width in enumerate([48, 12, 20, 20, 14, 22, 18, 22, 40, 16], start=1):
             ws.column_dimensions[get_column_letter(i)].width = width
         ws.freeze_panes = 'A2'
 
@@ -17989,6 +18086,7 @@ def pos_stock_upload_template():
         last_row = BULK_STOCK_MAX_ROWS
         unit_col = get_column_letter(BULK_STOCK_COLUMNS.index('Unit Type') + 1)
         cat_col = get_column_letter(BULK_STOCK_COLUMNS.index('Category') + 1)
+        dept_col = get_column_letter(BULK_STOCK_COLUMNS.index('Department') + 1)
 
         unit_dv = DataValidation(
             type='list',
@@ -18008,23 +18106,44 @@ def pos_stock_upload_template():
         ws.add_data_validation(cat_dv)
         cat_dv.add(f'{cat_col}2:{cat_col}{last_row}')
 
+        # Department is what keeps the stock on the right shelf. Stock is held in
+        # one department or the other, so a row that leaves this blank would
+        # otherwise land in Hardware (or move a Furniture item's stock) unseen.
+        dept_dv = DataValidation(
+            type='list',
+            formula1='"' + ','.join(d.title() for d in DEPARTMENTS) + '"',
+            allow_blank=True, showErrorMessage=False)
+        dept_dv.promptTitle = 'Department'
+        dept_dv.prompt = ('Hardware or Furniture - where these units are held. An item this '
+                          'branch already holds in the other department keeps its own '
+                          'department.')
+        ws.add_data_validation(dept_dv)
+        dept_dv.add(f'{dept_col}2:{dept_col}{last_row}')
+
         # Sheet 2 doubles as the pick-list for the Product Name column, so the file
         # is filled with names the catalogue actually knows.
         # It also carries each product's current BUYING and SELLING price, so the
-        # costs are visible while filling the sheet. A product that is NEW has no
-        # row here at all, which is exactly when the user must type both prices.
+        # costs are visible while filling the sheet, and the DEPARTMENT this
+        # branch holds it in, so the Department column can be filled correctly.
+        # A product that is NEW has no row here at all, which is exactly when the
+        # user must supply both prices (and pick a department).
         ws2 = wb.create_sheet('Product Names')
-        ws2.append(['Existing product name', 'Category', 'Buying Price', 'Selling Price'])
+        ws2.append(['Existing product name', 'Category', 'Buying Price', 'Selling Price',
+                    'Department'])
         with get_db() as (cursor, connection):
             cursor.execute("""
-                SELECT name, COALESCE(category, ''),
-                       COALESCE(buy_price, 0), COALESCE(sell_price, 0)
-                FROM products WHERE is_active = TRUE ORDER BY name
-            """)
-            names = cursor.fetchall()
-        for pname, pcat, pbuy, psell in names:
-            ws2.append([pname, pcat, float(pbuy or 0), float(psell or 0)])
-        for col in range(1, 5):
+                SELECT p.name, COALESCE(p.category, ''),
+                       COALESCE(p.buy_price, 0), COALESCE(p.sell_price, 0),
+                       pd.department
+                FROM products p
+                LEFT JOIN product_departments pd
+                       ON pd.product_id = p.id AND pd.branch_id = %s
+                WHERE p.is_active = TRUE ORDER BY p.name
+            """, (branch_id,))
+            names = [(n, c, b, s, (d or DEFAULT_DEPARTMENT)) for n, c, b, s, d in cursor.fetchall()]
+        for pname, pcat, pbuy, psell, pdept in names:
+            ws2.append([pname, pcat, float(pbuy or 0), float(psell or 0), pdept.title()])
+        for col in range(1, 6):
             cell = ws2.cell(row=1, column=col)
             cell.font = head_font
             cell.fill = head_fill
@@ -18034,6 +18153,7 @@ def pos_stock_upload_template():
         ws2.column_dimensions['B'].width = 24
         ws2.column_dimensions['C'].width = 16
         ws2.column_dimensions['D'].width = 16
+        ws2.column_dimensions['E'].width = 16
         for row in range(2, len(names) + 2):
             ws2.cell(row=row, column=3).number_format = '0.00'
             ws2.cell(row=row, column=4).number_format = '0.00'
@@ -18113,6 +18233,7 @@ def pos_upload_stock_analyze():
     col_cat = find_col('category', 'main category', 'product category')
     col_barcode = find_col('barcode', 'barcode / sku', 'sku', 'product code')
     col_description = find_col('description', 'product description', 'details')
+    col_dept = find_col('department', 'department (hardware / furniture)')
     missing = [label for label, col in [('Product Name', col_name), ('Quantity', col_qty),
                                         ('Unit Buying Price', col_buy), ('Unit Selling Price', col_sell)]
                if not col]
@@ -18160,7 +18281,9 @@ def pos_upload_stock_analyze():
                      'barcode': (str(ws.cell(row=row, column=col_barcode).value or '').strip()[:100]
                                  if col_barcode else ''),
                      'description': (str(ws.cell(row=row, column=col_description).value or '').strip()[:1000]
-                                     if col_description else '')})
+                                     if col_description else ''),
+                     'department': (_bulk_stock_department(ws.cell(row=row, column=col_dept).value)
+                                    if col_dept else '')})
 
     try:
         with get_db() as (cursor, connection):
@@ -18232,6 +18355,25 @@ def pos_upload_stock_analyze():
     exact_by_name = {}
     for item in catalogue:
         exact_by_name.setdefault(item['name'].strip().lower(), item)
+
+    # Stock is held in ONE department per branch, so every row is resolved to the
+    # department it will actually land in now, while nothing has been written:
+    #  - no Department in the file -> the session's current department;
+    #  - an item this branch already holds -> the department it is held in, so a
+    #    file left on the Hardware default cannot move a Furniture item's stock.
+    #
+    # Where the file ASKED for a different department than the item is held in,
+    # the row says so. Silently ignoring the file would look like the upload had
+    # honoured it, and moving stock between shelves is deliberately a separate,
+    # explicit action (the Inventory page's "To Furniture" button).
+    for item in rows:
+        hit = exact_by_name.get(str(item.get('name') or '').strip().lower())
+        asked = item.get('department') or ''
+        item['department'] = _bulk_stock_department_for(
+            cursor, hit['id'] if hit else None, branch_id, asked)
+        item['requested_department'] = asked
+        item['department_override'] = bool(
+            asked and hit and item['department'] != asked and asked in DEPARTMENTS)
 
     # Barcodes are unique across the catalogue, so a NON-BLANK barcode can only
     # ever belong to one product. A blank one is "no barcode" and never collides.
@@ -18340,6 +18482,7 @@ def pos_upload_stock_apply():
 
     body = {
         'default_category': 'DIY',          # used for rows decided as 'create'
+        'default_department': 'hardware',   # used for rows that leave it blank
         'branch_id': 1,                     # the branch the file was checked for
         'branch_code': 'XXXX',              # that branch's access code
         'file_name': 'stock.xlsx',          # optional, kept for the job record
@@ -18355,6 +18498,7 @@ def pos_upload_stock_apply():
     data = request.get_json() or {}
     decisions = data.get('rows') or []
     default_category = (data.get('default_category') or '').strip()
+    default_department = _bulk_stock_department(data.get('default_department')) or current_department()
     if not decisions:
         return jsonify({'success': False, 'error': 'Nothing to apply.'}), 400
 
@@ -18406,6 +18550,7 @@ def pos_upload_stock_apply():
             failed.append(f'{name or "A row"}: prices cannot be negative.')
             continue
         action = str(d.get('action') or 'merge').strip().lower()
+        row_dept = _bulk_stock_department(d.get('department')) or default_department
         if action == 'create':
             if not name:
                 failed.append('A row with no product name was skipped.')
@@ -18451,7 +18596,7 @@ def pos_upload_stock_apply():
                 barcode = ''
             to_create.append((name, qty, buy, sell, row_cat,
                               row_unit, str(d.get('unit_details') or '').strip()[:100],
-                              barcode, description))
+                              barcode, description, row_dept))
         else:
             if not d.get('product_id'):
                 failed.append(f'{name or "A row"}: no product was chosen for it.')
@@ -18460,7 +18605,7 @@ def pos_upload_stock_apply():
             # is the one that is wrong, so the merge corrects it as well.
             merge_cat = (str(d.get('category') or '').strip()
                          if action == 'merge_category' else '')
-            to_merge.append((int(d['product_id']), qty, buy, sell, name, merge_cat))
+            to_merge.append((int(d['product_id']), qty, buy, sell, name, merge_cat, row_dept))
 
     # Two rows for the same NEW product in one file must not create it twice.
     # Nothing is written yet, so they are collapsed into one product here: the
@@ -18469,17 +18614,18 @@ def pos_upload_stock_apply():
     # product is stocked twice in one upload.
     if to_create:
         collapsed, order = {}, []
-        for name, qty, buy, sell, cat, unit, details, barcode, description in to_create:
-            key = name.strip().lower()
+        for name, qty, buy, sell, cat, unit, details, barcode, description, dept in to_create:
+            key = (name.strip().lower(), dept)
             if key in collapsed:
                 prev = collapsed[key]
                 new_qty = prev[1] + qty
                 weighted = ((prev[2] * prev[1]) + (buy * qty)) / new_qty if new_qty else buy
                 collapsed[key] = (prev[0], new_qty, round(weighted, 2), sell,
                                   prev[4] or cat, prev[5] or unit, prev[6] or details,
-                                  prev[7] or barcode, prev[8] or description)
+                                  prev[7] or barcode, prev[8] or description, prev[9])
             else:
-                collapsed[key] = (name, qty, buy, sell, cat, unit, details, barcode, description)
+                collapsed[key] = (name, qty, buy, sell, cat, unit, details, barcode,
+                                  description, dept)
                 order.append(key)
         to_create = [collapsed[k] for k in order]
 
@@ -18554,7 +18700,7 @@ def pos_upload_stock_apply():
                 # The per-row checks above already vetted every barcode that is
                 # still present. Only blank-safe assertions are left, because a
                 # blank barcode is "no barcode" and repeats freely.
-                barcodes = [barcode for *_, barcode, _description in to_create if barcode]
+                barcodes = [barcode for *_, barcode, _description, _dept in to_create if barcode]
                 if len(barcodes) != len(set(barcodes)):
                     names = sorted({row[0] for row in to_create if row[7]})
                     return jsonify({'success': False,
@@ -18566,26 +18712,30 @@ def pos_upload_stock_apply():
                     VALUES %s
                     RETURNING id
                 """, [(n, c, u, dt, b, s, desc, barcode)
-                      for n, q, b, s, c, u, dt, barcode, desc in to_create],
+                      for n, _q, b, s, c, u, dt, barcode, desc, _dept in to_create],
                     template="(%s, %s, %s, %s, %s, %s, 0, 10, %s, %s)", fetch=True)
-                for (n, q, b, s, c, u, dt, _barcode, _description), new_id in zip(to_create, inserted):
-                    to_merge.append((new_id[0], q, b, s, n, ''))
+                for (_n, _q, _b, _s, _c, _u, _dt, _barcode, _description, dept), new_id in zip(to_create, inserted):
+                    to_merge.append((new_id[0], _q, _b, _s, _n, '', dept))
                     created_ids.add(new_id[0])
                 created = len(to_create)
 
             qty_by_product, cost_by_product, price_by_product = {}, {}, {}
             category_overrides = {}
+            dept_by_product = {}
             lot_rows, addition_rows = [], []
             total_qty, total_cost = 0, 0.0
-            for pid, qty, buy, sell, _name, merge_cat in to_merge:
+            for pid, qty, buy, sell, _name, merge_cat, row_dept in to_merge:
                 if merge_cat:
                     category_overrides[pid] = merge_cat
+                # One stock posting per product: the department the row was
+                # resolved to, so a Furniture line adds to the Furniture shelf.
+                dept_by_product.setdefault(pid, row_dept or default_department)
                 qty_by_product[pid] = qty_by_product.get(pid, 0) + qty
                 cost_by_product[pid] = cost_by_product.get(pid, 0.0) + (buy * qty)
                 # (product_id, branch_id, quantity_received, quantity_remaining, unit_cost, reference)
                 lot_rows.append((pid, branch_id, qty, qty, buy, reference))
                 addition_rows.append((pid, qty, buy, round(buy * qty, 2), reference, user_id,
-                                      branch_id, current_department()))
+                                      branch_id, dept_by_product[pid]))
                 price_by_product[pid] = sell     # one price per product (last wins)
                 total_qty += qty
                 total_cost += buy * qty
@@ -18593,18 +18743,23 @@ def pos_upload_stock_apply():
             product_ids = list(qty_by_product.keys())
 
             # -- Snapshot the pre-upload state, so this job can be undone exactly --
+            # Read from the department the stock is actually going into, or the
+            # "before" figure would be the other shelf's and undo would look wrong.
             snapshots = {}
-            cursor.execute("""
-                SELECT p.id, COALESCE(ps.stock, 0), p.sell_price, p.buy_price, p.is_active, p.name
-                FROM products p
-                LEFT JOIN product_stock ps
-                       ON ps.product_id = p.id AND ps.branch_id = %s
-                      AND COALESCE(ps.department, %s) = %s
-                WHERE p.id = ANY(%s)
-            """, (branch_id, DEFAULT_DEPARTMENT, current_department(), product_ids))
-            for r in cursor.fetchall():
-                snapshots[r[0]] = {'stock': int(r[1] or 0), 'sell': r[2],
-                                   'buy': r[3], 'active': r[4], 'name': r[5]}
+            for pid in product_ids:
+                snap_dept = dept_by_product.get(pid) or default_department
+                cursor.execute("""
+                    SELECT p.id, COALESCE(ps.stock, 0), p.sell_price, p.buy_price, p.is_active, p.name
+                    FROM products p
+                    LEFT JOIN product_stock ps
+                           ON ps.product_id = p.id AND ps.branch_id = %s
+                          AND COALESCE(ps.department, %s) = %s
+                    WHERE p.id = %s
+                """, (branch_id, DEFAULT_DEPARTMENT, snap_dept, pid))
+                r = cursor.fetchone()
+                if r:
+                    snapshots[r[0]] = {'stock': int(r[1] or 0), 'sell': r[2],
+                                       'buy': r[3], 'active': r[4], 'name': r[5]}
 
             # -- The job header (same transaction as the movements it describes) --
             if column_ready:
@@ -18642,15 +18797,16 @@ def pos_upload_stock_apply():
                     qty, unit_buy, price_by_product.get(pid, 0), is_new,
                     snap.get('stock'), snap.get('sell'), snap.get('buy'),
                     None if is_new else snap.get('active'),
+                    dept_by_product.get(pid) or default_department,
                 ))
             execute_values(cursor, """
                 INSERT INTO bulk_upload_items (job_id, product_id, product_name, action, quantity,
                                                buy_price, sell_price, created_product,
                                                prev_branch_stock, prev_sell_price, prev_buy_price,
-                                               prev_is_active)
+                                               prev_is_active, department)
                 VALUES %s
             """, item_rows,
-                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
+                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
 
             if product_ids:
                 # 1) Per-branch quantity (aggregated so the upsert touches each
@@ -18661,16 +18817,31 @@ def pos_upload_stock_apply():
                     ON CONFLICT (product_id, branch_id, department) DO UPDATE
                         SET stock = product_stock.stock + EXCLUDED.stock,
                             updated_at = CURRENT_TIMESTAMP
-                """, [(pid, branch_id, DEFAULT_DEPARTMENT, qty_by_product[pid], 10) for pid in product_ids],
+                """, [(pid, branch_id, dept_by_product[pid], qty_by_product[pid], 10) for pid in product_ids],
                     template="(%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)")
 
                 # 2) FIFO cost layers at the uploaded buying price, tagged with
                 #    the job reference so a revert removes exactly these layers.
                 execute_values(cursor, """
-                    INSERT INTO stock_lots (product_id, branch_id, quantity_received, quantity_remaining,
-                                            unit_cost, source, reference, received_at)
+                    INSERT INTO stock_lots (product_id, branch_id, department, quantity_received,
+                                            quantity_remaining, unit_cost, source, reference, received_at)
                     VALUES %s
-                """, lot_rows, template="(%s, %s, %s, %s, %s, 'upload', %s, CURRENT_TIMESTAMP)")
+                """, [(pid, bid, dept_by_product[pid], q, remaining, cost, ref)
+                      for pid, bid, q, remaining, cost, ref in lot_rows],
+                    template="(%s, %s, %s, %s, %s, %s, 'upload', %s, CURRENT_TIMESTAMP)")
+
+                # 2b) Record the department for the product/branch pair, so the item
+                #     shows on that department's list for this branch afterwards.
+                #     FIRST RECORD WINS: an upload may only FILE an item this branch
+                #     has never placed. Overwriting would silently move where a later
+                #     dispatch looks for it, and the stock was already posted to the
+                #     resolved department above, which is what the shelf follows.
+                execute_values(cursor, """
+                    INSERT INTO product_departments (product_id, branch_id, department, updated_at, user_name)
+                    VALUES %s
+                    ON CONFLICT (product_id, branch_id) DO NOTHING
+                """, [(pid, branch_id, dept_by_product[pid], username[:100]) for pid in product_ids],
+                    template="(%s, %s, %s, CURRENT_TIMESTAMP, %s)")
 
                 # 3) Audit trail (shows in the stock-movements / audit report).
                 execute_values(cursor, """
@@ -18712,24 +18883,28 @@ def pos_upload_stock_apply():
 
     updated = len(product_ids) - created
     branch_label = code_branch_name or f'branch #{branch_id}'
+    dept_summary = ', '.join(sorted({department_label(d) for d in dept_by_product.values()})) or \
+        department_label(default_department)
     log_activity('stock_upload',
                  f'Bulk stock upload {reference}: {updated} existing product(s) updated, '
-                 f'{created} created, {total_qty} unit(s) into {branch_label}'
+                 f'{created} created, {total_qty} unit(s) into {branch_label} ({dept_summary})'
                  + (' - CONFIRMED REPEAT of an earlier upload' if confirm_repeat else ''),
                  'product', job_id,
                  {'reference': reference, 'job_id': job_id, 'products': len(product_ids),
                   'updated': updated, 'created': created, 'units': total_qty,
                   'cost': round(total_cost, 2), 'failed': failed, 'branch_id': branch_id,
+                  'departments': sorted(set(dept_by_product.values())),
                   'file_fingerprint': fingerprint, 'confirmed_repeat': confirm_repeat})
 
     message = (f'{updated} existing product(s) updated, {created} created - '
-               f'{total_qty} unit(s) into {branch_label}.')
+               f'{total_qty} unit(s) into {branch_label}, {dept_summary}.')
     if failed:
         message += f' {len(failed)} row(s) skipped.'
     return jsonify({'success': True, 'job_id': job_id, 'reference': reference,
                     'updated': updated, 'created': created,
                     'total_quantity': total_qty, 'total_cost': round(total_cost, 2),
                     'branch_id': branch_id, 'branch_name': code_branch_name,
+                    'departments': sorted(set(dept_by_product.values())),
                     'failed': failed, 'message': message})
 
 
@@ -18749,35 +18924,50 @@ def bulk_upload_blockers(cursor, job_id, reference, branch_id):
     Stock added later (by another upload or a purchase) is left alone by the
     revert, and stock sold from other layers is none of this job's business, so
     neither should block it.
+
+    The stock is read from THE DEPARTMENT THE UPLOAD ACTUALLY WENT INTO, not from
+    whichever department the session happens to be viewing: an upload of
+    Furniture stock must be judged against the Furniture shelf.
     """
     cursor.execute("""
-        SELECT i.product_id, i.product_name, i.quantity,
-               COALESCE(ps.stock, 0), p.name
+        SELECT i.product_id, i.product_name, i.quantity, i.department, p.name
         FROM bulk_upload_items i
-        LEFT JOIN product_stock ps
-               ON ps.product_id = i.product_id AND ps.branch_id = %s
-              AND COALESCE(ps.department, %s) = %s
         LEFT JOIN products p ON p.id = i.product_id
         WHERE i.job_id = %s
         ORDER BY i.id
-    """, (branch_id, DEFAULT_DEPARTMENT, current_department(), job_id))
+    """, (job_id,))
+    items = cursor.fetchall()
+    if not items:
+        return []
 
     blockers = []
-    for pid, stored_name, qty, current, live_name in cursor.fetchall():
+    for pid, stored_name, qty, job_dept, live_name in items:
         label = live_name or stored_name or f'product #{pid}'
+        dept = (job_dept or '').strip().lower() if job_dept else ''
+        dept = dept if dept in DEPARTMENTS else DEFAULT_DEPARTMENT
+        # Judged on the shelf THIS ROW went into. A job can hold the same product
+        # on both shelves, so the lot and quantity checks are both department-scoped.
         cursor.execute("""
             SELECT COALESCE(SUM(quantity_received - quantity_remaining), 0)
             FROM stock_lots
             WHERE product_id = %s AND branch_id = %s AND reference = %s
-        """, (pid, branch_id, reference))
+              AND COALESCE(department, %s) = %s
+        """, (pid, branch_id, reference, DEFAULT_DEPARTMENT, dept))
         consumed = int(cursor.fetchone()[0] or 0)
         if consumed > 0:
-            blockers.append(f'{label}: {consumed} of the {int(qty or 0)} uploaded unit(s) '
-                            f'have already been sold or used.')
+            blockers.append(f'{label} ({department_label(dept)}): {consumed} of the '
+                            f'{int(qty or 0)} uploaded unit(s) have already been sold or used.')
             continue
-        if int(current or 0) < int(qty or 0):
-            blockers.append(f'{label}: only {int(current or 0)} unit(s) are left in stock, which is '
-                            f'fewer than the {int(qty or 0)} this upload added.')
+        cursor.execute("""
+            SELECT COALESCE(SUM(stock), 0) FROM product_stock
+            WHERE product_id = %s AND branch_id = %s
+              AND COALESCE(department, %s) = %s
+        """, (pid, branch_id, DEFAULT_DEPARTMENT, dept))
+        current = int(cursor.fetchone()[0] or 0)
+        if current < int(qty or 0):
+            blockers.append(f'{label} ({department_label(dept)}): only {current} unit(s) are '
+                            f'left in stock, which is fewer than the {int(qty or 0)} this '
+                            f'upload added.')
     return blockers
 
 
@@ -20758,29 +20948,42 @@ def pos_stock_upload_revert(job_id):
             cursor.execute("""
                 SELECT i.product_id, i.product_name, i.quantity, i.created_product,
                        i.prev_branch_stock, i.prev_sell_price, i.prev_buy_price, i.sell_price,
-                       COALESCE(ps.stock, 0)
+                       COALESCE(ps.stock, 0), i.department
                 FROM bulk_upload_items i
                 LEFT JOIN product_stock ps
                        ON ps.product_id = i.product_id AND ps.branch_id = %s
+                      AND COALESCE(ps.department, %s) = COALESCE(NULLIF(i.department, ''), %s)
                 WHERE i.job_id = %s ORDER BY i.id
-            """, (branch_id, job_id))
+            """, (branch_id, DEFAULT_DEPARTMENT, DEFAULT_DEPARTMENT, job_id))
             items = cursor.fetchall()
 
             for (pid, name, qty, was_created, prev_stock, prev_sell,
-                 prev_buy, job_sell, current) in items:
+                 prev_buy, job_sell, current, job_dept) in items:
+                # The shelf this row's stock went INTO. Used for the layer delete,
+                # the quantity removal AND the audit row, so all three agree.
+                revert_dept = (job_dept or '').strip().lower() if job_dept else ''
+                if revert_dept not in DEPARTMENTS:
+                    revert_dept = DEFAULT_DEPARTMENT
+
                 cursor.execute("SELECT 1 FROM products WHERE id = %s", (pid,))
                 if not cursor.fetchone():
                     # The product is gone entirely; its layers are orphaned, so
                     # drop them and move on.
                     cursor.execute("""DELETE FROM stock_lots
-                                      WHERE product_id = %s AND branch_id = %s AND reference = %s""",
-                                   (pid, branch_id, reference))
+                                      WHERE product_id = %s AND branch_id = %s AND reference = %s
+                                        AND COALESCE(department, %s) = %s""",
+                                   (pid, branch_id, reference, DEFAULT_DEPARTMENT, revert_dept))
                     continue
 
-                # 1) Remove exactly this job's cost layers.
+                # 1) Remove exactly this job's cost layers - ONLY from this row's
+                #    department. The same job can hold this product twice (once per
+                #    shelf), so an unscoped delete would remove the other shelf's
+                #    layer too and leave its quantity behind, which then gets
+                #    "repaired" into an adjustment lot and restates that cost.
                 cursor.execute("""DELETE FROM stock_lots
-                                  WHERE product_id = %s AND branch_id = %s AND reference = %s""",
-                               (pid, branch_id, reference))
+                                  WHERE product_id = %s AND branch_id = %s AND reference = %s
+                                    AND COALESCE(department, %s) = %s""",
+                               (pid, branch_id, reference, DEFAULT_DEPARTMENT, revert_dept))
 
                 # 2) Take this job's quantity back OFF the shelf - do NOT reset to
                 #    the pre-upload figure. Subtracting leaves a LATER upload of
@@ -20789,7 +20992,7 @@ def pos_stock_upload_revert(job_id):
                 #    set_branch_stock also refreshes the catalogue total and
                 #    reconciles the remaining layers for us.
                 new_level = max(0, int(current or 0) - int(qty or 0))
-                set_branch_stock(cursor, pid, branch_id, new_level)
+                set_branch_stock(cursor, pid, branch_id, new_level, department=revert_dept)
 
                 # 3) Selling price: only undo what the job itself set. A later
                 #    deliberate re-price is left alone.
@@ -21343,9 +21546,14 @@ def get_products_api():
     """API endpoint to fetch products using run1()"""
     category = request.args.get('category')
     search = request.args.get('search')
+    # all_departments=1 returns the WHOLE shared catalogue, ignoring the
+    # Hardware/Furniture split. The Add-Product name hints use it so an item that
+    # already exists in the other department is still offered -- otherwise the
+    # operator invents a second spelling and one product becomes two.
+    all_departments = str(request.args.get('all_departments') or '').lower() in ('1', 'true', 'yes')
     
     # Get all products using run1
-    all_products = run1hardware()
+    all_products = run1hardware(all_departments=all_departments)
     
     # Apply filters
     filtered_products = all_products
@@ -21498,12 +21706,89 @@ def create_product():
         if dup:
             return jsonify({'error': f'Barcode {barcode} is already assigned to "{dup[1]}"'}), 400
 
+    # ---- Reuse an existing product of the same name -------------------------
+    # The catalogue has no unique name, so "Add Product" with a name that already
+    # exists used to create a SECOND row for the same thing, splitting its stock,
+    # cost and sales history between two ids. The name hints steer the operator to
+    # the existing name; this makes that choice stick by adding the stock to the
+    # product that already exists instead of inventing a twin.
+    reuse_dept = str(data.get('department') or '').strip().lower()
+    if reuse_dept not in DEPARTMENTS:
+        reuse_dept = current_department()
+    reuse_branch = current_branch_id()
+    if reuse_branch:
+        try:
+            same_name = execute_query("""
+                SELECT id, name FROM products
+                WHERE LOWER(TRIM(name)) = LOWER(TRIM(%s))
+                  AND (is_active = TRUE OR is_active IS NULL)
+                ORDER BY id
+                LIMIT 1
+            """, (data['name'],), fetch_one=True)
+        except Exception as look_err:
+            print(f"Note: duplicate-name lookup failed: {look_err}")
+            same_name = None
+        if same_name:
+            qty = int(data.get('stock', 0) or 0)
+            buy_price = float(data.get('buy_price', 0) or 0)
+            funding = str(data.get('funding_source') or 'capital')[:20]
+            with get_db() as (cursor, connection):
+                if qty:
+                    add_branch_stock(cursor, same_name[0], reuse_branch, qty,
+                                     lot_cost=buy_price, department=reuse_dept)
+                    cursor.execute("""
+                        INSERT INTO stock_additions
+                            (product_id, quantity, buy_price, total_cost, funding_source,
+                             user_id, added_at, branch_id, department)
+                        VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                    """, (same_name[0], qty, buy_price, round(buy_price * qty, 2),
+                          funding, session.get('user_id'), reuse_branch, reuse_dept))
+                else:
+                    # No stock to add: still file the item in the chosen department
+                    # so it shows on the right tab here.
+                    cursor.execute("""
+                        INSERT INTO product_stock
+                            (product_id, branch_id, department, stock, min_stock_level, updated_at)
+                        VALUES (%s, %s, %s, 0, 10, CURRENT_TIMESTAMP)
+                        ON CONFLICT (product_id, branch_id, department) DO NOTHING
+                    """, (same_name[0], reuse_branch, reuse_dept))
+                cursor.execute("""
+                    INSERT INTO product_departments
+                        (product_id, branch_id, department, updated_at, user_name)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s)
+                    ON CONFLICT (product_id, branch_id) DO UPDATE
+                        SET department = EXCLUDED.department,
+                            updated_at = CURRENT_TIMESTAMP,
+                            user_name = EXCLUDED.user_name
+                """, (same_name[0], reuse_branch, reuse_dept,
+                      (session.get('user_name') or session.get('username') or 'System')[:100]))
+                if barcode:
+                    cursor.execute(
+                        "UPDATE products SET barcode = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                        (barcode, same_name[0]))
+                connection.commit()
+            try:
+                log_activity('product_reuse',
+                             f'Added {qty} unit(s) to existing product "{same_name[1]}" '
+                             f'({department_label(reuse_dept)}) instead of creating a duplicate',
+                             'product', same_name[0],
+                             {'quantity': qty, 'department': reuse_dept,
+                              'buy_price': buy_price, 'funding_source': funding})
+            except Exception:
+                pass
+            return jsonify({
+                'success': True,
+                'product_id': same_name[0],
+                'reused': True,
+                'message': (f'"{same_name[1]}" already exists - added {qty} unit(s) '
+                            f'to it instead of creating a duplicate.')
+            }), 200
+
     query = """
         INSERT INTO products (name, category, unit_type, unit_details, buy_price, sell_price, stock, min_stock_level, description, barcode)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """
-
     params = (
         data['name'],
         data['category'],
@@ -21525,12 +21810,34 @@ def create_product():
 
     # The catalogue row is shared; the OPENING STOCK belongs to the branch that
     # created it. products.stock is then refreshed to the cross-branch total.
+    #
+    # Bound up front because the activity log below reads it even when there is no
+    # branch (a session that has not picked one), where the block that would have
+    # assigned it never runs.
+    chosen_dept = str(data.get('department') or '').strip().lower()
+    if chosen_dept not in DEPARTMENTS:
+        chosen_dept = current_department()
     try:
         branch_id = current_branch_id()
         if branch_id:
+            # Which department this item is created in. Central Dispatch picks it
+            # explicitly; a shop simply uses the department it is working in.
+            # Recording it here is what makes a later dispatch land the goods in
+            # the SAME department instead of dumping them into Hardware.
             with get_db() as (cursor, connection):
                 set_branch_stock(cursor, result[0], branch_id, data.get('stock', 0),
-                                 data.get('min_stock_level', 10))
+                                 data.get('min_stock_level', 10),
+                                 department=chosen_dept)
+                cursor.execute("""
+                    INSERT INTO product_departments
+                        (product_id, branch_id, department, updated_at, user_name)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s)
+                    ON CONFLICT (product_id, branch_id) DO UPDATE
+                        SET department = EXCLUDED.department,
+                            updated_at = CURRENT_TIMESTAMP,
+                            user_name = EXCLUDED.user_name
+                """, (result[0], branch_id, chosen_dept,
+                      (session.get('user_name') or session.get('username') or 'System')[:100]))
                 connection.commit()
     except Exception as stock_err:
         print(f"Warning: could not set opening branch stock: {stock_err}")
@@ -21545,7 +21852,8 @@ def create_product():
             {'name': data['name'], 'category': data.get('category', ''),
              'buy_price': float(data.get('buy_price', 0) or 0),
              'sell_price': float(data.get('sell_price', 0) or 0),
-             'stock': data.get('stock', 0)}
+             'stock': data.get('stock', 0),
+             'department': chosen_dept}
         )
     except Exception as log_err:
         print(f"Warning: Could not log product creation: {log_err}")
@@ -23026,7 +23334,8 @@ def revert_transaction(transaction_id):
                 SELECT ti.product_id, ti.quantity, COALESCE(ti.cost_at_time, p.buy_price),
                        COALESCE(p.name, ''),
                        COALESCE(ti.price_at_time, p.sell_price, 0),
-                       COALESCE(ti.subtotal, 0)
+                       COALESCE(ti.subtotal, 0),
+                       ti.department
                 FROM transaction_items ti
                 LEFT JOIN products p ON ti.product_id = p.id
                 WHERE ti.transaction_id = %s
@@ -23043,16 +23352,23 @@ def revert_transaction(transaction_id):
                 buy = float(it[2] or 0)
                 if not pid or qty <= 0:
                     continue
-                # Restore stock to THIS branch's inventory, priced at the cost the
-                # sale actually carried so a void cannot restate the margin.
-                add_branch_stock(cursor, pid, branch_id, qty, lot_cost=buy)
+                # Put the goods back on the SHELF THEY CAME FROM. The line recorded
+                # the department it was sold in; using the session's current
+                # department instead would credit Furniture stock for a Hardware
+                # sale (and leave the Hardware shelf short). Older lines have no
+                # value, so they fall back to the product's own department.
+                line_dept = (it[6] or '').strip().lower() if it[6] else ''
+                if line_dept not in DEPARTMENTS:
+                    line_dept = resolve_product_department(cursor, pid, branch_id)
+                add_branch_stock(cursor, pid, branch_id, qty, lot_cost=buy,
+                                 department=line_dept)
                 # Log the restoration for the audit trail (best-effort)
                 try:
                     cursor.execute("""
                         INSERT INTO stock_additions (product_id, quantity, buy_price, total_cost, funding_source, user_id, added_at, branch_id, department)
                         VALUES (%s, %s, %s, %s, 'VOID', %s, CURRENT_TIMESTAMP, %s, %s)
                     """, (pid, qty, buy, round(buy * qty, 2), user_id, branch_id,
-                          current_department()))
+                          line_dept))
                 except Exception as sa_err:
                     print(f"Warning: Could not log reverted stock addition: {sa_err}")
                 restored += 1
@@ -23060,6 +23376,7 @@ def revert_transaction(transaction_id):
                 # can itemise what the receipt held instead of only counting lines.
                 restored_items.append({'product_id': pid, 'name': it[3] or f'product #{pid}',
                                        'quantity': qty, 'sell_price': float(it[4] or 0),
+                                       'department': line_dept,
                                        'line_total': round(float(it[5] or 0), 2) or
                                                      round(float(it[4] or 0) * qty, 2)})
 

@@ -1,5 +1,5 @@
 PASS  script started
-PASS  read the POS page  -> 1091643 chars
+PASS  read the POS page  -> 1095340 chars
 PASS  read the committed POS page for comparison  -> 927498 chars via C:\Users\tzvakasikwa\AppData\Local\Programs\Git\cmd\git.EXE at 5ad907f
 PASS  the page still has its script blocks  -> new=4 old=4
 PASS  no script block gained a syntax error (vs the committed page)
@@ -22,7 +22,8 @@ PASS  the metrics can never disagree with the table (the same branch rule)
 PASS  both inventory exports export the table as it is shown  -> excel=True pdf=True
 PASS  the exports call sites are unchanged by this change  -> now=4 before=4 (2 renders + 2 exports)
 PASS  the All Branches view still reports every item as the company's
-PASS  the Add-Product name hints still read the WHOLE catalogue
+PASS  the Add-Product name hints still read the WHOLE catalogue  -> prefers the all-departments list, falling back to the loaded one
+PASS  the all-departments hint list is fetched from the server
 PASS  a name this branch has never stocked is marked as such in the hints
 PASS  and picking it still fills the form from the product it names
 PASS  the marker is the only thing this change did to the hints  -> marks a name that is only in the other branch's catalogue
@@ -45,8 +46,8 @@ PASS  the CATALOGUE is untouched (only the view narrowed)  -> catalogue=3 elsewh
 PASS  searching finds this branch's own item  -> ["Stocked Cable"]
 PASS  searching for a never-stocked item finds no row  -> []
 PASS  and the table says why, and how to start stocking it  -> 1 item(s) match this search in the shared catalogue, but this branch does not stock them. Use Upload New Stock - or Add Product with that exact name - to start 
-PASS  the Add-Product name hints still offer a never-stocked product  -> Chegutu-Only Speakeralready in the catalogue at another branch - use this exact name
-PASS  and say that the name is already the catalogue's, at another branch  -> Chegutu-Only Speakeralready in the catalogue at another branch - use this exact name
+PASS  the Add-Product name hints still offer a never-stocked product  -> Chegutu-Only Speakeralready in the catalogue - use this exact name
+PASS  and say that the name is already in the catalogue, so it is reused  -> Chegutu-Only Speakeralready in the catalogue - use this exact name
 PASS  on the read-only All Branches view every product is listed again  -> ["Stocked Speaker", "Stocked Cable", "Chegutu-Only Speaker"]
 PASS  because the server there reports every item as the company's
 PASS  no page error was raised (the page can see stockedInThisBranch)
