@@ -21085,7 +21085,11 @@ function getQuotationVatSettings() {
     const rateEl = document.getElementById('quotationVatRate');
     const modeEl = document.getElementById('quotationVatMode');
     let rate = parseFloat(rateEl ? rateEl.value : 15);
-    if (!isFinite(rate) || rate < 0) rate = 0;
+    // An empty or malformed rate means "did not set one", which is the standard
+    // 15% -- the same rule the server applies. Reading it as 0 would quote the
+    // client no VAT at all while the saved quotation kept 15%.
+    if (!isFinite(rate)) rate = 15;
+    if (rate < 0) rate = 0;
     if (rate > 100) rate = 100;
     const mode = (modeEl && modeEl.value === 'inclusive') ? 'inclusive' : 'exclusive';
     return { enabled, rate, mode };
