@@ -12283,11 +12283,26 @@ def webhook():
                                                                                         <li>Upon termination:
                                                                                             <ol>
                                                                                                 <li>The Client shall pay for all work completed and materials ordered up to the date of termination;</li>
-                                                                                                <li>Deposits shall be refundable only after deduction of costs incurred;</li>
                                                                                                 <li>The Contractor may suspend further works immediately.</li>
                                                                                             </ol>
                                                                                         </li>
                                                                                         <li>Termination shall not prejudice accrued rights, including the right to claim damages.</li>
+                                                                                    </ol>
+                                                                                </div>
+
+                                                                                <div class="section-header">REFUND POLICY AND TIMEFRAME ON TERMINATION</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li><strong>Absolute Obligation to Refund:</strong> Notwithstanding any other provision contained in this Agreement (including but not limited to Clause 2.2 under Termination), where the Client becomes entitled to or requests a refund of any portion of the Deposit or Contract Price, the Contractor shall process and pay such refund in full within sixty (60) calendar days from the date of receipt of a written refund request from the Client.</li>
+                                                                                        <li><strong>Applicability:</strong> This sixty (60) day refund timeframe shall apply unconditionally, under whatever circumstances the refund request is generated, whether arising from:
+                                                                                            <ol>
+                                                                                                <li>Termination of this Agreement by either party;</li>
+                                                                                                <li>Mutual rescission or cancellation of the project;</li>
+                                                                                                <li>Material breach, insolvency, or liquidation of either party; or</li>
+                                                                                                <li>Project delays caused by Force Majeure events or otherwise.</li>
+                                                                                            </ol>
+                                                                                        </li>
+                                                                                        <li><strong>Currency and Method of Payment:</strong> All refunds due under this clause shall be paid to the Client in United States Dollars (USD), via electronic funds transfer or direct deposit into a bank account designated in writing by the Client.</li>
                                                                                     </ol>
                                                                                 </div>
 
@@ -33051,11 +33066,26 @@ def download_contract(project_id):
                             <li>Upon termination:
                                 <ol>
                                     <li>The Client shall pay for all work completed and materials ordered up to the date of termination;</li>
-                                    <li>Deposits shall be refundable only after deduction of costs incurred;</li>
                                     <li>The Contractor may suspend further works immediately.</li>
                                 </ol>
                             </li>
                             <li>Termination shall not prejudice accrued rights, including the right to claim damages.</li>
+                        </ol>
+                    </div>
+
+                    <div class="section-header">REFUND POLICY AND TIMEFRAME ON TERMINATION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li><strong>Absolute Obligation to Refund:</strong> Notwithstanding any other provision contained in this Agreement (including but not limited to Clause 2.2 under Termination), where the Client becomes entitled to or requests a refund of any portion of the Deposit or Contract Price, the Contractor shall process and pay such refund in full within sixty (60) calendar days from the date of receipt of a written refund request from the Client.</li>
+                            <li><strong>Applicability:</strong> This sixty (60) day refund timeframe shall apply unconditionally, under whatever circumstances the refund request is generated, whether arising from:
+                                <ol>
+                                    <li>Termination of this Agreement by either party;</li>
+                                    <li>Mutual rescission or cancellation of the project;</li>
+                                    <li>Material breach, insolvency, or liquidation of either party; or</li>
+                                    <li>Project delays caused by Force Majeure events or otherwise.</li>
+                                </ol>
+                            </li>
+                            <li><strong>Currency and Method of Payment:</strong> All refunds due under this clause shall be paid to the Client in United States Dollars (USD), via electronic funds transfer or direct deposit into a bank account designated in writing by the Client.</li>
                         </ol>
                     </div>
 
