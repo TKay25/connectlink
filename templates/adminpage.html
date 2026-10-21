@@ -40659,6 +40659,10 @@ document.addEventListener('DOMContentLoaded', function(){
                 var notesVal = '';
                 try{ if(typeof quillGeneratorNotes!=='undefined' && quillGeneratorNotes && quillGeneratorNotes.root) notesVal = quillGeneratorNotes.root.innerHTML.replace(/<p><\/p>/gi,'').replace(/<p><br><\/p>/gi,'').replace(/<p><br\/?><\/p>/gi,'').trim(); }catch(e){}
                 var qData = {clientName:name,clientWhatsapp:wa,quotationDate:date,category:cat,size:sz,markup:mk,totalCost:0,items:[],notes:(notesVal&&notesVal.length>3?notesVal:'')};
+                // The Gantt step rebuilds the preview straight from this object,
+                // so the VAT choice has to travel with it or the preview and the
+                // PDF both lose it.
+                if(typeof getQuotationVatSettings==='function'){ qData.vat = getQuotationVatSettings(); }
                 var markupM = 1 + (parseFloat(mk)||0)/100;
                 var totalC = 0;
                 var orderedItems = [];
@@ -40860,9 +40864,15 @@ document.addEventListener('DOMContentLoaded', function(){
                     var psEl=document.getElementById('previewSize');
                     if(psEl) psEl.textContent = (qd.category||'').includes('construction') ? (qd.size||'0')+' sqm' : '-';
                 }
-                // Build preview items table directly from quotationData
+                // Build preview items table directly from quotationData.
+                // Use the shared renderer when it exists: it is the code the rest
+                // of the page trusts, and it is the only one that knows about VAT,
+                // custom categories and the empty state. The hand-rolled table
+                // below is the fallback for a page that has not loaded it yet.
                 var qit = document.getElementById('quotationItemsTable');
-                if(qit){
+                if(qit && qd && typeof renderPreviewItemsTable === 'function' && window.quotationData === qd){
+                    renderPreviewItemsTable(qd);
+                } else if(qit){
                     var fbItems = (qd && qd.items) || [];
                     if(fbItems.length){
                         var fh = '', fTotal = 0, fDays = 0;
@@ -40875,12 +40885,22 @@ document.addEventListener('DOMContentLoaded', function(){
                             fTotal += total; fDays += days;
                             fh += '<tr><td style="font-size:0.75rem;padding:4px 6px;text-align:left;">'+(it.item||it.name||'Item')+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;">'+qty.toFixed(2)+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;">'+(typeof formatCurrency==='function'?formatCurrency(rate):'$'+rate.toFixed(2))+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;font-weight:600;color:#2196F3;">'+days+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;font-weight:700;color:var(--primary);">'+(typeof formatCurrency==='function'?formatCurrency(total):'$'+total.toFixed(2))+'</td></tr>';
                         });
-                        fh += '<tr><td colspan="3" style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);"><strong>TOTAL</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid var(--primary);color:#2196F3;"><strong>'+fDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);color:var(--primary);"><strong>'+(typeof formatCurrency==='function'?formatCurrency(fTotal):'$'+fTotal.toFixed(2))+'</strong></td></tr>';
+                        // VAT belongs between the item rows and the TOTAL, the same
+                        // place the generated preview and the PDF put it.
+                        var fVat = (typeof computeQuotationVat==='function')
+                            ? computeQuotationVat(fTotal, qd && qd.vat)
+                            : {enabled:false, total:fTotal, net:fTotal, vat:0, rate:0, mode:'exclusive'};
+                        var money = function(v){ return (typeof formatCurrency==='function') ? formatCurrency(v) : '$'+Number(v||0).toFixed(2); };
+                        if(fVat.enabled){
+                            fh += '<tr><td colspan="4" style="text-align:right;font-size:0.75rem;padding:4px 6px;">Subtotal</td><td style="text-align:right;font-size:0.75rem;padding:4px 6px;">'+money(fVat.net)+'</td></tr>';
+                            fh += '<tr><td colspan="4" style="text-align:right;font-size:0.75rem;padding:4px 6px;">VAT @ '+fVat.rate+'%'+(fVat.mode==='inclusive'?' (included)':'')+'</td><td style="text-align:right;font-size:0.75rem;padding:4px 6px;">'+money(fVat.vat)+'</td></tr>';
+                        }
+                        fh += '<tr><td colspan="3" style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);"><strong>'+(fVat.enabled?'TOTAL':'TOTAL')+'</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid var(--primary);color:#2196F3;"><strong>'+fDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid var(--primary);color:var(--primary);"><strong>'+money(fVat.total)+'</strong></td></tr>';
                         qit.innerHTML = fh;
                         var tdd = document.getElementById('totalDurationDays');
                         if(tdd) tdd.textContent = fDays;
                         var qtc = document.getElementById('quotationTotalCost');
-                        if(qtc) qtc.textContent = fTotal.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+                        if(qtc) qtc.textContent = fVat.total.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
                     } else {
                         qit.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#999;">No items to display</td></tr>';
                     }

@@ -20,6 +20,7 @@ import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.styles import PatternFill, Font
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import HTTPException
 import io
 import base64
 import json
@@ -77,6 +78,36 @@ def numberfmt_filter(value):
         return f"{float(value):,.2f}"
     except (ValueError, TypeError):
         return "0.00"
+
+
+# ---- API errors must be JSON, never an HTML error page ----------------------
+# Flask's default handler renders an HTML page for an unhandled exception, so the
+# browser's res.json() choked on "<!doctype html>" and reported
+# "Unexpected token '<', '<!doctype ...' is not valid JSON" instead of the real
+# fault. Any /api/ request now gets a JSON body carrying the exception message,
+# which is what the caller needs to act on.
+def _wants_json():
+    return (request.path or '').startswith('/api/') or \
+        request.accept_mimetypes.best == 'application/json'
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(error):
+    if _wants_json():
+        return jsonify({'success': False,
+                        'error': error.description or error.name}), error.code
+    return error
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(error):
+    code = 500
+    detail = f'{type(error).__name__}: {error}'
+    print(f"Unhandled error on {request.method} {request.path}: {detail}")
+    if _wants_json():
+        return jsonify({'success': False, 'error': detail}), code
+    return (f'<h1>Internal Server Error</h1><pre>{detail}</pre>', code,
+            {'Content-Type': 'text/html; charset=utf-8'})
 
 
 # Prevent browser caching on all responses

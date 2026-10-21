@@ -6,17 +6,17 @@
   "purpose": "Initialize database tables",
   "entry_function": "numberfmt_filter(value)",
   "entry_flows": [
-    "ConnectLink → environ.setdefault, stdout.reconfigure, stderr.reconfigure, app.template_filter"
+    "ConnectLink → environ.setdefault, stdout.reconfigure, stderr.reconfigure, app.template_filter, res.json"
   ],
   "public_api": [
     "numberfmt_filter(value)",
+    "handle_http_exception(error)",
+    "handle_unexpected_exception(error)",
     "add_no_cache_headers(response)",
     "add_cl_ui_feedback_layer(response)",
     "log_untracked_system_change(response)",
     "initialize_database_tables()",
-    "get_table_columns(table_name)",
-    "ensure_branches_schema(cursor, connection)",
-    "ensure_layby_schema(cursor, connection)"
+    "get_table_columns(table_name)"
   ],
   "dependencies": [
     "ai_classifier",
@@ -41,19 +41,19 @@
     "pytz"
   ],
   "prompt_locations": [
-    "INSTRUCTIONS @ line 23959",
-    "# The register starts EMPTY (the user's  @ line 54583"
+    "INSTRUCTIONS @ line 23990",
+    "# The register starts EMPTY (the user's  @ line 54614"
   ],
   "token_controls": [
-    "max_length = 0 @ line 36078",
-    "max_length = len(str(cell.value)) @ line 36083",
-    "adjusted_width = min(max_length + 2, 50) @ line 36086",
-    "max_length = 0 @ line 36939",
-    "max_length = cell_length @ line 36946",
-    "adjusted_width = min(max_length + 2, 50) @ line 36949",
-    "max_length = 0 @ line 37934",
-    "max_length = cell_length @ line 37941",
-    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 37944"
+    "max_length = 0 @ line 36109",
+    "max_length = len(str(cell.value)) @ line 36114",
+    "adjusted_width = min(max_length + 2, 50) @ line 36117",
+    "max_length = 0 @ line 36970",
+    "max_length = cell_length @ line 36977",
+    "adjusted_width = min(max_length + 2, 50) @ line 36980",
+    "max_length = 0 @ line 37965",
+    "max_length = cell_length @ line 37972",
+    "adjusted_width = min(max_length + 2, 35)  # Inc @ line 37975"
   ],
   "contracts": {
     "input": "<!-- expected input -->",
@@ -70,6 +70,6 @@
   "file_mtime": 1783054242358.2612,
   "file_size": 1737290,
   "file_birthtime": 1781690980000,
-  "generated_at": "2026-10-21T14:25:20.364643Z",
+  "generated_at": "2026-10-21T15:48:42.631841Z",
   "stale": false
 }

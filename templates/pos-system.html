@@ -15802,7 +15802,26 @@ async function fetchTransactionsData() {
                     rows: collected.rows
                 })
             });
-            const data = await res.json();
+            const raw = await res.text();
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch (parseErr) {
+                // A non-JSON body means the server failed before it could answer
+                // (a proxy page, a crash page). Say that plainly and keep the
+                // first line of the body so the fault is diagnosable.
+                const snippet = (raw || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+                throw new Error(`Server returned ${res.status} ${res.statusText || ''}`.trim() +
+                                (snippet ? ` — ${snippet}` : ''));
+            }
+            if (data.session_expired || res.status === 401) {
+                // A dead session answers 401 with JSON; a proxy in front of the
+                // app answers with an HTML login page. Either way nothing was
+                // written, so say so instead of showing a parse error.
+                fail('Your session has ended. Log in again, then re-run Check File.');
+                if (typeof window.onBranchChoiceRequired === 'function') window.onBranchChoiceRequired();
+                return;
+            }
             if (!data.success) {
                 if (data.duplicate) {
                     // The server refused a repeat. Show it in the plan, where the
