@@ -15032,6 +15032,16 @@ async function fetchTransactionsData() {
     }
     window.branchIsDispatch = branchIsDispatch;
 
+    // Dispatch Analytics is a warehouse page. Hide it up front, before the auth
+    // round trip has told us which branch this is: otherwise the item is visible
+    // for the whole of that window (and stays visible if the auth call is served
+    // from cache), which is how it came to appear in a shop's sidebar.
+    (function hideDispatchMenuUntilKnown() {
+        document.querySelectorAll('.menu-item[data-page="dispatch"]').forEach(function (item) {
+            item.style.display = 'none';
+        });
+    })();
+
     // Pages a dispatch branch must never show. Inventory and Dispatch Analytics
     // are the only two it runs.
     var DISPATCH_BLOCKED_PAGES = ['pos', 'sales', 'transactions', 'analytics', 'layby'];
