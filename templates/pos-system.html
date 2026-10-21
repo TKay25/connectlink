@@ -6697,7 +6697,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                             <strong id="uploadStockConfirmDept">Hardware</strong>.
                                         </span>
                                     </div>
-                                    <label class="form-label fw-bold mb-1">Branch code for this shop</label>
+                                    <label class="form-label fw-bold mb-1" id="uploadStockBranchCodeLabel">Branch code for this shop</label>
                                     <input type="password" class="form-control form-control-sm" id="uploadStockBranchCode"
                                            autocomplete="off" placeholder="Enter the branch access code">
                                     <div id="uploadStockConfirmError" class="small text-danger mt-1" style="display:none;"></div>
@@ -15735,12 +15735,16 @@ async function fetchTransactionsData() {
         const btnEl = document.getElementById('uploadStockConfirmBtn');
         if (btnEl) btnEl.innerText = 'Yes, upload to ' + name;
         const codeEl = document.getElementById('uploadStockBranchCode');
+        const codeLabel = document.getElementById('uploadStockBranchCodeLabel');
         const needsCode = !(posBranch && posBranch.is_dispatch);
         if (codeEl) {
             codeEl.value = '';
             codeEl.style.display = needsCode ? '' : 'none';
             codeEl.placeholder = 'Branch code for ' + name;
         }
+        // The label is its own element, so hiding only the input left the prompt
+        // on screen at Central Dispatch -- asking for a code that branch does not have.
+        if (codeLabel) codeLabel.style.display = needsCode ? '' : 'none';
         const cErr = document.getElementById('uploadStockConfirmError');
         if (cErr) { cErr.style.display = 'none'; cErr.innerText = ''; }
         const box = document.getElementById('uploadStockConfirm');

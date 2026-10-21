@@ -15753,6 +15753,7 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
                     <span class="fw-bold" style="font-size: 0.95em;">Total Cost:</span>
                     <span class="fw-bold" style="color: var(--primary); font-size: 1.1em;">USD <span id="kitchenPreviewTotalCost">0.00</span></span>
                 </div>
+                <div id="kitchenPreviewVatHint" style="display:none;text-align:right;font-size:0.72em;font-weight:600;color:#5a678a;margin-top:2px;"></div>
             </div>
 
             <!-- Total Duration -->
@@ -20028,6 +20029,7 @@ body { font-family: Arial; margin: 20px; }
                                 </div>
                                 <div class="col-md-4">
                                     <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;color:#2196F3;font-weight:bold;font-size:1.1rem;"><strong style="white-space:nowrap;color:inherit;">Total:</strong> $<span id="constructionTotal">0.00</span></div>
+                                    <div id="constructionVatHint" style="display:none;text-align:right;font-size:0.7rem;font-weight:600;color:#5a678a;margin-top:2px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -25627,6 +25629,13 @@ function displayKitchenPreview() {
     data.totalCost = recalculatedTotal;
     data.totalDays = recalculatedDays;
     
+    // Kitchen runs its own preview, so it needs its own VAT resolution. The item
+    // lines stay as typed; the total the client pays is VAT-inclusive and the
+    // breakdown is appended below them.
+    const kitchenVatSettings = data.vat || getQuotationVatSettings();
+    const kitchenVat = computeQuotationVat(recalculatedTotal, kitchenVatSettings);
+    data.vat = kitchenVatSettings;
+    
     console.log('Display preview - Total cost:', data.totalCost);
     
     // Update client info
@@ -25648,8 +25657,20 @@ function displayKitchenPreview() {
     });
     
     document.getElementById('kitchenPreviewItemsTable').innerHTML = itemsHTML;
-    document.getElementById('kitchenPreviewTotalCost').textContent = data.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    document.getElementById('kitchenPreviewTotalCost').textContent = kitchenVat.total.toLocaleString('en-US', { minimumFractionDigits: 2 });
     document.getElementById('kitchenPreviewTotalDays').textContent = data.totalDays;
+    const kHint = document.getElementById('kitchenPreviewVatHint');
+    if (kHint) {
+        if (kitchenVat.enabled) {
+            kHint.style.display = '';
+            kHint.textContent = 'Net USD ' + kitchenVat.net.toLocaleString('en-US', { minimumFractionDigits: 2 }) +
+                ' + VAT ' + kitchenVat.rate + '% USD ' + kitchenVat.vat.toLocaleString('en-US', { minimumFractionDigits: 2 }) +
+                (kitchenVat.mode === 'inclusive' ? ' (already included)' : '');
+        } else {
+            kHint.style.display = 'none';
+            kHint.textContent = '';
+        }
+    }
     
     // Build schedule if exists
     if (data.schedules && data.schedules.length > 0) {
@@ -25915,7 +25936,11 @@ async function generateKitchenPDF(outputMode = 'download') {
     
     const clientName = data.clientName || 'Client';
     const quotationDate = data.quotationDate;
-    const totalCost = data.totalCost;
+    // Kitchen keeps its own PDF builder, so it resolves VAT itself. Items stay as
+    // typed; every headline figure below is VAT-inclusive.
+    const kitchenVatCfg = data.vat || getQuotationVatSettings();
+    const kitchenVatCalc = computeQuotationVat(Number(data.totalCost) || 0, kitchenVatCfg);
+    const totalCost = kitchenVatCalc.total;
     
     // Build items rows
     let itemsRows = '';
@@ -33802,7 +33827,21 @@ let quillDetailsNotes = null;
                 
                 total += clientPrice;
             });
-            $('#constructionTotal').text(total.toFixed(2));
+            // The box shows what the client pays, so VAT is applied here when it is
+            // switched on. The markup/sqm lines above stay net, which is what the
+            // rates are quoted at.
+            const vatNow = computeQuotationVat(total, getQuotationVatSettings());
+            $('#constructionTotal').text(vatNow.total.toFixed(2));
+            const vatHint = $('#constructionVatHint');
+            if (vatHint && vatHint.length) {
+                if (vatNow.enabled) {
+                    vatHint.text('Net ' + vatNow.net.toFixed(2) + ' + VAT ' + vatNow.rate + '% ' +
+                                 vatNow.vat.toFixed(2) + (vatNow.mode === 'inclusive' ? ' (already included)' : ''))
+                           .show();
+                } else {
+                    vatHint.text('').hide();
+                }
+            }
         }
 
         function normalizeConstructionItemName(name) {
