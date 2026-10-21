@@ -12338,17 +12338,6 @@ def webhook():
                                                                                     </ol>
                                                                                 </div>
 
-                                                                                <div class="section-header">DISPUTE RESOLUTION</div>
-                                                                                <div class="terms-box">
-                                                                                    <ol>
-                                                                                        <li>The parties shall first attempt amicable resolution within fourteen (14) days.</li>
-                                                                                        <li>Failing resolution, the dispute shall be referred to arbitration in Harare in terms of the Arbitration Act [Chapter 7:15].</li>
-                                                                                        <li>The arbitration shall be conducted by a single arbitrator appointed by mutual agreement, failing which the arbitrator shall be appointed by the Commercial Arbitration Centre of Zimbabwe.</li>
-                                                                                        <li>The arbitration award shall be final and binding.</li>
-                                                                                        <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
-                                                                                    </ol>
-                                                                                </div>
-
                                                                                 <div class="section-header">GOVERNING LAW</div>
                                                                                 <div class="terms-box">
                                                                                     <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
@@ -12360,6 +12349,17 @@ def webhook():
                                                                                 <!-- Page 8 -->
 
                                                                                 <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                                                                                <div class="section-header">DISPUTE RESOLUTION</div>
+                                                                                <div class="terms-box">
+                                                                                    <ol>
+                                                                                        <li>The parties shall first attempt amicable resolution within fourteen (14) days.</li>
+                                                                                        <li>Failing resolution, the dispute shall be referred to arbitration in Harare in terms of the Arbitration Act [Chapter 7:15].</li>
+                                                                                        <li>The arbitration shall be conducted by a single arbitrator appointed by mutual agreement, failing which the arbitrator shall be appointed by the Commercial Arbitration Centre of Zimbabwe.</li>
+                                                                                        <li>The arbitration award shall be final and binding.</li>
+                                                                                        <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
+                                                                                    </ol>
+                                                                                </div>
 
                                                                                 <div class="section-header">NOTICES</div>
                                                                                 <div class="terms-box">
@@ -33176,17 +33176,6 @@ def download_contract(project_id):
                         </ol>
                     </div>
 
-                    <div class="section-header">DISPUTE RESOLUTION</div>
-                    <div class="terms-box">
-                        <ol>
-                            <li>The parties shall first attempt amicable resolution within fourteen (14) days.</li>
-                            <li>Failing resolution, the dispute shall be referred to arbitration in Harare in terms of the Arbitration Act [Chapter 7:15].</li>
-                            <li>The arbitration shall be conducted by a single arbitrator appointed by mutual agreement, failing which the arbitrator shall be appointed by the Commercial Arbitration Centre of Zimbabwe.</li>
-                            <li>The arbitration award shall be final and binding.</li>
-                            <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
-                        </ol>
-                    </div>
-
                     <div class="section-header">GOVERNING LAW</div>
                     <div class="terms-box">
                         <p style="font-size:11px;">This Agreement shall be governed by and construed in accordance with the laws of Zimbabwe.</p>
@@ -33198,6 +33187,17 @@ def download_contract(project_id):
                     <!-- Page 8 -->
 
                     <h4 class="section-title">TERMS AND CONDITIONS</h4>
+
+                    <div class="section-header">DISPUTE RESOLUTION</div>
+                    <div class="terms-box">
+                        <ol>
+                            <li>The parties shall first attempt amicable resolution within fourteen (14) days.</li>
+                            <li>Failing resolution, the dispute shall be referred to arbitration in Harare in terms of the Arbitration Act [Chapter 7:15].</li>
+                            <li>The arbitration shall be conducted by a single arbitrator appointed by mutual agreement, failing which the arbitrator shall be appointed by the Commercial Arbitration Centre of Zimbabwe.</li>
+                            <li>The arbitration award shall be final and binding.</li>
+                            <li>The courts of Zimbabwe shall retain jurisdiction solely for purposes of enforcing the arbitral award.</li>
+                        </ol>
+                    </div>
 
                     <div class="section-header">NOTICES</div>
                     <div class="terms-box">

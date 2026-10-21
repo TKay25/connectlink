@@ -34793,13 +34793,18 @@ $('#generateQuotationBtn').click(function() {
         }, 300);
     }
 
-    // After building window.quotationData, add this confirmation
-    window.quotationData = {
+    // After building window.quotationData, add this confirmation.
+    // NOTE: this must not REPLACE the object built above -- doing so dropped
+    // vat, orderedConstructionItems and markupAmount, which is why an
+    // included-VAT quotation showed no VAT in the preview or the PDF.
+    const mergeVat = getQuotationVatSettings();
+    window.quotationData = Object.assign({}, window.quotationData, {
         category: category,
         clientName: clientName,
         clientWhatsapp: clientWhatsapp,
         quotationDate: quotationDate,
         size: isConstruction ? $('#quotationSize').val() : null,
+        vat: mergeVat,
         items: selectedItems.map(item => ({
             name: item.name,
             item: item.name,
@@ -34814,7 +34819,7 @@ $('#generateQuotationBtn').click(function() {
         totalCost: totalCost,
         isFullHouseMode: isFullHouseMode,
         notes: quotationNotes
-    };
+    });
 
     // ADD THIS CONFIRMATION LOG
     console.log('window.quotationData SET:', window.quotationData);
@@ -34974,7 +34979,12 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     const size = data.size || '0';
     const category = data.category || 'General';
     const quotationDate = data.quotationDate || new Date().toISOString().split('T')[0];
-    const totalCost = data.totalCost || 0;
+    // VAT is resolved ONCE here and every figure below uses the result, so the
+    // preview and the PDF can never disagree about what the client pays.
+    const vatSettings = data.vat || getQuotationVatSettings();
+    const vatCalc = computeQuotationVat(Number(data.totalCost) || 0, vatSettings);
+    const itemsTotalCost = Number(data.totalCost) || 0;
+    const totalCost = vatCalc.total;
     const items = data.items || [];
     const schedules = ganttData || [];
     const quotationNotes = data.notes || '';
@@ -35126,7 +35136,12 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                     <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
                         ${(() => {
                             const isConstruction = String(category || '').toLowerCase().includes('construction');
-                            const cols = isConstruction ? 4 : 5;
+                            const cols = (isConstruction ? 4 : 5) + (vatCalc.enabled ? 1 : 0);
+                            const vatCell = vatCalc.enabled ? `
+                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">${vatCalc.mode === 'inclusive' ? 'VAT (Included)' : 'VAT'} (${vatCalc.rate}%)</div>
+                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(vatCalc.vat)}</div>
+                            </div>` : '';
                             return `
                         <div style="display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 10px; text-align: center;">
                             <div style="padding: 0 5px;">
@@ -35141,6 +35156,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
                             </div>
+                            ${vatCell}
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over ${monthTerms} months)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
@@ -35247,6 +35263,24 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
 
                 ${constructionItemsPlacementAfter}
 
+                ${vatCalc.enabled ? `
+                <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                        <tr>
+                            <td style="border: none; text-align: right; padding: 4px 10px; color: #5a678a;">Subtotal (excl. VAT)</td>
+                            <td style="border: none; text-align: right; width: 22%; padding: 4px 10px; font-weight: 600;">${formatCurrency(vatCalc.net)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; text-align: right; padding: 4px 10px; color: #5a678a;">${vatCalc.mode === 'inclusive' ? 'VAT included' : 'VAT'} @ ${vatCalc.rate}%</td>
+                            <td style="border: none; text-align: right; padding: 4px 10px; font-weight: 600;">${formatCurrency(vatCalc.vat)}</td>
+                        </tr>
+                        <tr>
+                            <td style="border: none; text-align: right; padding: 4px 10px; font-weight: 800; color: #1E2A56;">Total payable (incl. VAT)</td>
+                            <td style="border: none; text-align: right; padding: 4px 10px; font-weight: 800; color: #1E2A56;">${formatCurrency(vatCalc.total)}</td>
+                        </tr>
+                    </table>
+                </div>` : ''}
+
                 <!-- IMPORTANT NOTE & BANKING DETAILS -->
                 <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
                     <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;">
@@ -35351,13 +35385,36 @@ function renderPreviewItemsTable(data) {
         </tr>`;
     });
     
-    // Add total row
+    // Add total row. The item lines are net (or VAT-bearing) amounts; when VAT is
+    // in play the breakdown is appended so the figure on screen matches the PDF.
     if (previewItems.length > 0) {
         tableHTML += `<tr>
             <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary);"><strong>TOTAL</strong></td>
             <td style="text-align: center; font-weight: bold; border-top: 2px solid var(--primary); color: #2196F3;"><strong>${totalDaysSum}</strong></td>
             <td style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary); color: var(--primary);"><strong>${formatCurrency(totalCostPreview)}</strong></td>
-        </table>`;
+        </tr>`;
+    }
+    const previewVat = computeQuotationVat(totalCostPreview, (data && data.vat) || getQuotationVatSettings());
+    if (previewVat.enabled) {
+        tableHTML += `
+            <tr>
+                <td colspan="4" style="text-align: right; font-size: 0.72rem; color: #5a678a;">Subtotal (excl. VAT)</td>
+                <td style="text-align: right; font-size: 0.72rem;">${formatCurrency(previewVat.net)}</td>
+            </tr>
+            <tr>
+                <td colspan="4" style="text-align: right; font-size: 0.72rem; color: #5a678a;">${previewVat.mode === 'inclusive' ? 'VAT included' : 'VAT'} @ ${previewVat.rate}%</td>
+                <td style="text-align: right; font-size: 0.72rem;">${formatCurrency(previewVat.vat)}</td>
+            </tr>
+            <tr>
+                <td colspan="4" style="text-align: right; font-weight: 800; color: var(--primary);">Total payable (incl. VAT)</td>
+                <td style="text-align: right; font-weight: 800; color: var(--primary);">${formatCurrency(previewVat.total)}</td>
+            </tr>`;
+        $('#quotationTotalCost').text(previewVat.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        $('#quotationVatBreakdown')
+            .show()
+            .html(`Net: ${formatCurrency(previewVat.net)} &nbsp;|&nbsp; VAT (${previewVat.rate}%${previewVat.mode === 'inclusive' ? ', included' : ''}): ${formatCurrency(previewVat.vat)}`);
+    } else {
+        $('#quotationVatBreakdown').hide().html('');
     }
 
     $('#quotationItemsTable').html(tableHTML);
