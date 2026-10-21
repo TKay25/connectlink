@@ -817,8 +817,9 @@ def initialize_database_tables():
             # the same thing the client was first quoted, even if the shop later
             # changes its default rate.
             cursor.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vat_enabled BOOLEAN DEFAULT FALSE")
-            cursor.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vat_rate DECIMAL(5, 2) DEFAULT 15")
+            cursor.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vat_rate DECIMAL(5, 2) DEFAULT 15.5")
             cursor.execute("ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vat_mode VARCHAR(20) DEFAULT 'exclusive'")
+            cursor.execute("ALTER TABLE quotations ALTER COLUMN vat_rate SET DEFAULT 15.5")
 
             # Create quotation_items table to store construction items
             cursor.execute("""
@@ -45994,7 +45995,7 @@ def build_quotation_pdf_document(quotation_id):
         with get_db() as (cursor, _):
             cursor.execute("""
                 SELECT id, client_name, quotation_date, category, project_size, total_cost, markup_percentage, custom_category,
-                       COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15), COALESCE(vat_mode, 'exclusive')
+                       COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15.5), COALESCE(vat_mode, 'exclusive')
                 FROM quotations
                 WHERE id = %s
             """, (quotation_id,))
@@ -46011,7 +46012,7 @@ def build_quotation_pdf_document(quotation_id):
             is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
             total_cost = float(quotation[5]) if quotation[5] else 0
             vat_enabled = bool(quotation[8]) if len(quotation) > 8 else False
-            vat_rate = float(quotation[9]) if len(quotation) > 9 and quotation[9] is not None else 15
+            vat_rate = float(quotation[9]) if len(quotation) > 9 and quotation[9] is not None else 15.5
             vat_mode = (quotation[10] or 'exclusive') if len(quotation) > 10 else 'exclusive'
             vat_net, vat_amount, vat_total, vat_rate_used, vat_on = compute_quotation_vat(
                 total_cost, vat_enabled, vat_rate, vat_mode)
@@ -46165,7 +46166,7 @@ def build_quotation_pdf_document(quotation_id):
         raise
 
 
-def compute_quotation_vat(amount, vat_enabled=False, vat_rate=15, vat_mode='exclusive'):
+def compute_quotation_vat(amount, vat_enabled=False, vat_rate=15.5, vat_mode='exclusive'):
     """Break a quoted figure into its VAT breakdown.
 
     'exclusive' => the figure is net and VAT is added on top.
@@ -46175,7 +46176,7 @@ def compute_quotation_vat(amount, vat_enabled=False, vat_rate=15, vat_mode='excl
     base = float(amount or 0)
     if not vat_enabled:
         return base, 0.0, base, 0.0, False
-    rate = float(vat_rate if vat_rate is not None else 15)
+    rate = float(vat_rate if vat_rate is not None else 15.5)
     rate = max(0.0, min(rate, 100.0))
     if (vat_mode or 'exclusive') == 'inclusive':
         net = base / (1 + rate / 100) if rate else base
@@ -46188,7 +46189,7 @@ def quotation_vat_settings(data):
     """Read the VAT fields from a save/update payload, clamped to safe values."""
     enabled = str(data.get('vatEnabled')).lower() in ('1', 'true', 'yes', 'on')
     try:
-        rate = float(data.get('vatRate') if data.get('vatRate') not in (None, '') else 15)
+        rate = float(data.get('vatRate') if data.get('vatRate') not in (None, '') else 15.5)
     except (TypeError, ValueError):
         rate = 15.0
     rate = max(0.0, min(rate, 100.0))
@@ -46396,7 +46397,7 @@ def generate_quotation_pdf_playwright(quotation_id):
         cursor.execute("""
             SELECT id, client_name, quotation_date, category, project_size,
                    total_cost, markup_percentage, notes,
-                   COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15), COALESCE(vat_mode, 'exclusive')
+                   COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15.5), COALESCE(vat_mode, 'exclusive')
             FROM quotations WHERE id = %s
         """, (quotation_id,))
         q_row = cursor.fetchone()
@@ -46413,7 +46414,7 @@ def generate_quotation_pdf_playwright(quotation_id):
             'markup': float(q_row[6]) if q_row[6] else 30,
             'notes': q_row[7] or '',
             'vat_enabled': bool(q_row[8]) if len(q_row) > 8 else False,
-            'vat_rate': float(q_row[9]) if len(q_row) > 9 and q_row[9] is not None else 15,
+            'vat_rate': float(q_row[9]) if len(q_row) > 9 and q_row[9] is not None else 15.5,
             'vat_mode': (q_row[10] or 'exclusive') if len(q_row) > 10 else 'exclusive',
         }
 
@@ -47915,7 +47916,7 @@ def get_quotations():
                     'createdBy': quotation[9] or '',
                     'customCategory': quotation[10] if len(quotation) > 10 and quotation[10] else '',
                     'vatEnabled': bool(quotation[11]) if len(quotation) > 11 else False,
-                    'vatRate': float(quotation[12]) if len(quotation) > 12 and quotation[12] is not None else 15,
+                    'vatRate': float(quotation[12]) if len(quotation) > 12 and quotation[12] is not None else 15.5,
                     'vatMode': (quotation[13] or 'exclusive') if len(quotation) > 13 else 'exclusive',
                     'items': items,
                     'schedules': schedules_by_quotation.get(quotation_id, [])

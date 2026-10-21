@@ -21086,11 +21086,11 @@ function getQuotationVatSettings() {
     const enabled = !!(enabledEl && enabledEl.value === 'yes');
     const rateEl = document.getElementById('quotationVatRate');
     const modeEl = document.getElementById('quotationVatMode');
-    let rate = parseFloat(rateEl ? rateEl.value : 15);
+    let rate = parseFloat(rateEl ? rateEl.value : 15.5);
     // An empty or malformed rate means "did not set one", which is the standard
     // 15% -- the same rule the server applies. Reading it as 0 would quote the
     // client no VAT at all while the saved quotation kept 15%.
-    if (!isFinite(rate)) rate = 15;
+    if (!isFinite(rate)) rate = 15.5;
     if (rate < 0) rate = 0;
     if (rate > 100) rate = 100;
     const mode = (modeEl && modeEl.value === 'inclusive') ? 'inclusive' : 'exclusive';
@@ -21102,7 +21102,7 @@ function getQuotationVatSettings() {
 // 'inclusive' => the figure already carries VAT, so it is extracted out of it.
 function computeQuotationVat(amount, vat) {
     const base = Number(amount) || 0;
-    const settings = vat || { enabled: false, rate: 15, mode: 'exclusive' };
+    const settings = vat || { enabled: false, rate: 15.5, mode: 'exclusive' };
     if (!settings.enabled) {
         return { enabled: false, rate: 0, mode: settings.mode, net: base, vat: 0, total: base };
     }
@@ -25737,7 +25737,7 @@ async function saveKitchenQuotation() {
         totalCost: calculatedTotal,  // This already includes 30% markup
         markup: 30,  // Explicitly set markup to 30%
         vatEnabled: !!(data.vat && data.vat.enabled),
-        vatRate: data.vat ? data.vat.rate : 15,
+        vatRate: data.vat ? data.vat.rate : 15.5,
         vatMode: data.vat ? data.vat.mode : 'exclusive',
         items: (data.items||[]).map((item, index) => ({
             name: item.name,
@@ -25848,7 +25848,7 @@ async function sendKitchenQuotation() {
             totalCost: finalTotal,
             markup: 0,
             vatEnabled: !!(data.vat && data.vat.enabled),
-            vatRate: data.vat ? data.vat.rate : 15,
+            vatRate: data.vat ? data.vat.rate : 15.5,
             vatMode: data.vat ? data.vat.mode : 'exclusive',
             items: (data.items||[]).map((item, index) => ({
                 name: item.name,
@@ -35526,7 +35526,7 @@ $('#sendQuotationBtn').click(async function() {
             totalCost: data.totalCost,
             markup: data.markup,
             vatEnabled: !!(data.vat && data.vat.enabled),
-            vatRate: data.vat ? data.vat.rate : 15,
+            vatRate: data.vat ? data.vat.rate : 15.5,
             vatMode: data.vat ? data.vat.mode : 'exclusive',
             items: (data.items || []).map((item, index) => ({
                 name: item.name || item.item || 'Item',
