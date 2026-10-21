@@ -34445,7 +34445,10 @@ $('#generateQuotationBtn').click(function() {
         if (isTvUnitsOrOther) {
             const quotationNotes = quillGeneratorNotes ? quillGeneratorNotes.root.innerHTML : '';
             // Use custom category name for "Other" - typed name becomes the category
-            var displayCategory = category;
+            // `let`, not `var`: a var here hoists to the click handler's scope and
+            // collides with the `let displayCategory` further down, which is a
+            // SyntaxError that kills the whole Generate Quotation handler.
+            let displayCategory = category;
             if (category === 'other') {
                 var customName = document.getElementById('otherCategoryName');
                 var typedName = (customName && customName.value) ? customName.value.trim() : '';
