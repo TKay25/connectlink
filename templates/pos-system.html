@@ -6732,7 +6732,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                         <strong id="uploadStockRevertBranch">this branch</strong> and deactivate any
                                         products that upload created.
                                     </div>
-                                    <label class="form-label fw-bold mb-1">Branch code for this shop</label>
+                                    <label class="form-label fw-bold mb-1" id="uploadStockRevertCodeLabel">Branch code for this shop</label>
                                     <input type="password" class="form-control form-control-sm" id="uploadStockRevertCode"
                                            autocomplete="off" placeholder="Enter the branch access code">
                                     <div id="uploadStockRevertError" class="small text-danger mt-1" style="display:none;"></div>
@@ -15964,12 +15964,21 @@ async function fetchTransactionsData() {
         set('uploadStockRevertUnits', j.total_quantity + ' unit(s)');
         set('uploadStockRevertBranch', name);
         const codeEl = document.getElementById('uploadStockRevertCode');
-        if (codeEl) { codeEl.value = ''; codeEl.placeholder = 'Branch code for ' + name; }
+        const codeLabel = document.getElementById('uploadStockRevertCodeLabel');
+        // Central Dispatch has no access code by design, so asking for one leaves
+        // a field nobody can fill in.
+        const needsCode = !(posBranch && posBranch.is_dispatch);
+        if (codeEl) {
+            codeEl.value = '';
+            codeEl.placeholder = 'Branch code for ' + name;
+            codeEl.style.display = needsCode ? '' : 'none';
+        }
+        if (codeLabel) codeLabel.style.display = needsCode ? '' : 'none';
         const errEl = document.getElementById('uploadStockRevertError');
         if (errEl) { errEl.style.display = 'none'; errEl.innerText = ''; }
         const box = document.getElementById('uploadStockRevertBox');
         if (box) box.style.display = 'block';
-        if (codeEl) codeEl.focus();
+        if (needsCode && codeEl) codeEl.focus();
     }
     window.requestRevertJob = requestRevertJob;
 
@@ -15988,7 +15997,8 @@ async function fetchTransactionsData() {
         const errEl = document.getElementById('uploadStockRevertError');
         const fail = (m) => { if (errEl) { errEl.innerText = m; errEl.style.display = 'block'; } };
         if (!jobId) return fail('Choose an upload to revert.');
-        if (!code) return fail('Enter the branch code to confirm.');
+        // Central Dispatch carries no access code (see /api/pos/upload-stock-apply).
+        if (!(posBranch && posBranch.is_dispatch) && !code) return fail('Enter the branch code to confirm.');
         if (errEl) errEl.style.display = 'none';
 
         const btn = document.getElementById('uploadStockRevertBtn');

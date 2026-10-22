@@ -4377,6 +4377,24 @@ def branch_requires_code(branch_id):
     return not bool(row[0])
 
 
+def branch_display_name(branch_id):
+    """The branch's display name, or '' when it cannot be resolved.
+
+    Used where a branch is named in output but no access code is collected --
+    Central Dispatch, which has no shared secret by design.
+    """
+    if not branch_id:
+        return ''
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("SELECT name FROM branches WHERE id = %s", (branch_id,))
+            row = cursor.fetchone()
+        return (row[0] or '') if row else ''
+    except Exception as e:
+        print(f"Note: could not resolve branch name: {e}")
+        return ''
+
+
 def branch_is_dispatch(branch_id):
     """True when the given branch is Central Dispatch (the warehouse, not a shop).
 
@@ -18643,6 +18661,10 @@ def pos_upload_stock_apply():
         return jsonify({'success': False,
                         'error': ('You are no longer working in the branch this file was '
                                   'checked for. Run Check File again.')}), 409
+    # Central Dispatch has no access code by design, so the confirmation asks for
+    # none there. Resolve its name up front anyway: it is reported back and
+    # written to the activity log on every path.
+    code_branch_name = branch_display_name(branch_id)
     if needs_code:
         code_ok, code_branch_name = verify_branch_code(branch_id, data.get('branch_code'))
         record_branch_code_attempt(username, code_ok)
@@ -45782,7 +45804,7 @@ def _serve_quotation_html_page(q):
     payment_months = 3 if is_kitchen else 6
     monthly = balance / payment_months if balance else 0
     payment_period_text = f"{payment_months} months"
-    category_display = format_quotation_category(category, is_kitchen)
+    category_display = format_quotation_category(category, is_kitchen, q.get('custom_category', ''))
     notes = q.get('notes', '')
 
     # Quotation items (fetch from DB)
@@ -46280,11 +46302,16 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                             <td style='border:none; text-align:right; padding:4px 10px; font-weight:800; color:#1E2A56;'>USD {total_cost:,.2f}</td></tr>
                     </table>"""
     summary_cols = 5 if vat_enabled else 4
-    # With VAT on, the item table sums to the net figure and vat_rows below it
-    # carries the VAT and the payable total. Calling that row TOTAL would print
-    # the net figure as the amount due, so name it what it is.
+    # With VAT on, the item table's total is the net figure (exclusive) or the
+    # VAT-bearing one (inclusive), and vat_rows below carries the breakdown and
+    # the payable total. Name the row after the figure it actually holds, or the
+    # column prints a figure that does not add up.
     if vat_enabled:
-        items_total_row = items_total_row.replace('<strong>TOTAL</strong>', '<strong>SUBTOTAL</strong>')
+        if vat.get('mode') == 'inclusive':
+            items_total_row = items_total_row.replace('<strong>TOTAL</strong>',
+                                                      '<strong>TOTAL (INCL. VAT)</strong>')
+        else:
+            items_total_row = items_total_row.replace('<strong>TOTAL</strong>', '<strong>SUBTOTAL</strong>')
     deposit = total_cost * 0.30
     balance = total_cost - deposit
 
@@ -46446,7 +46473,8 @@ def generate_quotation_pdf_playwright(quotation_id):
         cursor.execute("""
             SELECT id, client_name, quotation_date, category, project_size,
                    total_cost, markup_percentage, notes,
-                   COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15.5), COALESCE(vat_mode, 'exclusive')
+                   COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15.5), COALESCE(vat_mode, 'exclusive'),
+                   COALESCE(custom_category, '')
             FROM quotations WHERE id = %s
         """, (quotation_id,))
         q_row = cursor.fetchone()
@@ -46465,6 +46493,7 @@ def generate_quotation_pdf_playwright(quotation_id):
             'vat_enabled': bool(q_row[8]) if len(q_row) > 8 else False,
             'vat_rate': float(q_row[9]) if len(q_row) > 9 and q_row[9] is not None else 15.5,
             'vat_mode': (q_row[10] or 'exclusive') if len(q_row) > 10 else 'exclusive',
+            'custom_category': (q_row[11] or '') if len(q_row) > 11 else '',
         }
 
     client_name = q['client_name']
@@ -46483,7 +46512,7 @@ def generate_quotation_pdf_playwright(quotation_id):
     payment_months = 3 if is_kitchen else 6
     monthly = balance / payment_months if balance else 0
     payment_period_text = f"{payment_months} months"
-    category_display = format_quotation_category(category, is_kitchen)
+    category_display = format_quotation_category(category, is_kitchen, q.get('custom_category', ''))
     notes = q.get('notes', '')
 
     # Build items and schedules HTML
@@ -46684,7 +46713,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
 
     safe_name = ''.join(char for char in str(q['client_name']) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
     filename = f"Quotation_{safe_name}_{quotation_id}.pdf"
-    caption_category = format_quotation_category(category, is_kitchen)
+    caption_category = format_quotation_category(category, is_kitchen, q.get('custom_category', ''))
     caption = f"PROJECT QUOTATION\n\nClient: {client_name}\nCategory: {caption_category}\nTotal: USD {total_cost:,.2f}\n\nSend 'Hello' for more options."
 
     return pdf_bytes, filename, caption
@@ -46810,10 +46839,11 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         caption_category = ''
         try:
             with get_db() as (c, _):
-                c.execute("SELECT category, client_name FROM quotations WHERE id = %s", (quotation_id,))
+                c.execute("SELECT category, client_name, COALESCE(custom_category, '') FROM quotations WHERE id = %s", (quotation_id,))
                 r = c.fetchone()
                 if r:
-                    caption_category = format_quotation_category(r[0])
+                    caption_category = format_quotation_category(
+                        r[0], (r[0] or '') in ('kitchen', 'kitchen_cabinets'), r[2] or '')
                     client_name = r[1] or 'Client'
         except:
             client_name = 'Client'
@@ -46900,7 +46930,8 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         return False
 
 
-def send_quotation_download_template(recipient_number, share_token, client_name='', category='', project_size=0):
+def send_quotation_download_template(recipient_number, share_token, client_name='', category='', project_size=0,
+                                     custom_category=''):
     """Send approved CTA template with URL button to quotation share page.
 
     Template must be configured in Meta as:
@@ -46919,7 +46950,8 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
     }
 
     size_str = str(int(float(project_size))) if project_size else '0'
-    display_category = format_quotation_category(category)
+    display_category = format_quotation_category(
+        category, (category or '') in ('kitchen', 'kitchen_cabinets'), custom_category)
 
     payload = {
         "messaging_product": "whatsapp",
@@ -47307,15 +47339,21 @@ def send_quotation_whatsapp():
 
         safe_qid = int(quotation_id)
         snapshot_category = data.get('category') or ''
+        snapshot_custom_category = data.get('customCategory') or ''
         snapshot_project_size = data.get('projectSize') or data.get('size') or 0
         snapshot_total_cost = data.get('totalCost') or 0
         snapshot_markup = data.get('markup') or 0
         snapshot_quotation_date = data.get('quotationDate') or None
+        snapshot_vat_enabled = False
+        snapshot_vat_rate = 15.5
+        snapshot_vat_mode = 'exclusive'
 
         try:
             with get_db() as (sc, _):
                 sc.execute("""
-                    SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                    SELECT category, project_size, total_cost, markup_percentage, quotation_date,
+                           COALESCE(custom_category, ''),
+                           COALESCE(vat_enabled, FALSE), COALESCE(vat_rate, 15.5), COALESCE(vat_mode, 'exclusive')
                     FROM quotations
                     WHERE id = %s
                 """, (safe_qid,))
@@ -47326,16 +47364,27 @@ def send_quotation_whatsapp():
                     snapshot_total_cost = srow[2] if srow[2] is not None else snapshot_total_cost
                     snapshot_markup = srow[3] if srow[3] is not None else snapshot_markup
                     snapshot_quotation_date = srow[4] if srow[4] is not None else snapshot_quotation_date
+                    if len(srow) > 8:
+                        snapshot_custom_category = srow[5] or ''
+                        snapshot_vat_enabled = bool(srow[6])
+                        snapshot_vat_rate = float(srow[7]) if srow[7] is not None else 15.5
+                        snapshot_vat_mode = srow[8] or 'exclusive'
         except Exception as snapshot_err:
             logging.warning(f"Could not fetch quotation snapshot from DB: {snapshot_err}")
 
         safe_name = ''.join(char for char in str(client_name) if char.isalnum() or char == ' ').replace(' ', '_') or 'Client'
         filename = f"Quotation_{safe_name}_{safe_qid}.pdf"
-        caption_category = format_quotation_category(snapshot_category)
+        caption_category = format_quotation_category(
+            snapshot_category,
+            (snapshot_category or '') in ('kitchen', 'kitchen_cabinets'),
+            snapshot_custom_category)
+        # The stored total is net; name the figure the client is actually quoted.
+        _, _, snapshot_payable, _, _ = compute_quotation_vat(
+            float(snapshot_total_cost or 0), snapshot_vat_enabled, snapshot_vat_rate, snapshot_vat_mode)
         caption = (
             f"PROJECT QUOTATION\n\nClient: {client_name}\n"
             f"Category: {caption_category}\n"
-            f"Total: USD {float(snapshot_total_cost or 0):,.2f}\n\n"
+            f"Total: USD {float(snapshot_payable or 0):,.2f}\n\n"
             "Send 'Hello' for more options."
         )
 
@@ -47403,6 +47452,7 @@ def send_quotation_whatsapp():
             try:
                 safe_qid = int(quotation_id)
                 q_category = ''
+                q_custom_category = ''
                 q_size = 0
                 q_total = 0
                 q_markup = 0
@@ -47411,7 +47461,8 @@ def send_quotation_whatsapp():
                 try:
                     with get_db() as (qc, _):
                         qc.execute("""
-                            SELECT category, project_size, total_cost, markup_percentage, quotation_date
+                            SELECT category, project_size, total_cost, markup_percentage, quotation_date,
+                                   COALESCE(custom_category, '')
                             FROM quotations
                             WHERE id = %s
                         """, (safe_qid,))
@@ -47422,6 +47473,8 @@ def send_quotation_whatsapp():
                             q_total = float(qrow[2]) if qrow[2] else 0
                             q_markup = float(qrow[3]) if qrow[3] else 0
                             q_date = qrow[4] if qrow[4] else None
+                            if len(qrow) > 5:
+                                q_custom_category = qrow[5] or ''
                 except Exception:
                     pass
 
@@ -47433,7 +47486,8 @@ def send_quotation_whatsapp():
                     share_token,
                     client_name=client_name,
                     category=q_category,
-                    project_size=q_size
+                    project_size=q_size,
+                    custom_category=q_custom_category
                 )
 
                 template_message_id = template_response.get('messages', [{}])[0].get('id', '')

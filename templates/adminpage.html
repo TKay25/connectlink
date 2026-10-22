@@ -4558,6 +4558,13 @@ window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
                 var mm = 1 + (markup/100);
                 var bc = tc / mm;
                 var ma = tc - bc;
+                // tc is the NET figure stored on the quotation; the client pays the
+                // VAT-inclusive amount, so show that as the total.
+                var qVatCalc = computeQuotationVat(tc, quotationVatFromRecord(q));
+                var payable = qVatCalc.total;
+                var vatTile = qVatCalc.enabled
+                    ? '<div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">'+(qVatCalc.mode === 'inclusive' ? 'VAT (included)' : 'VAT')+' ('+qVatCalc.rate+'%)</div><div style="font-size:0.7rem;font-weight:700;">USD '+qVatCalc.vat.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>'
+                    : '';
                 var cat = q.category||'N/A';
                 var catMap = {'construction_single':'Single Storey','construction_double':'Double Storey','kitchen':'Kitchen','tv_units':'TV Units'};
                 cat = catMap[cat]||cat;
@@ -4575,7 +4582,7 @@ window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
                 
                 h += '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">';
                 h += '<div style="flex:3;min-width:240px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.3px;">Client Information</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:0.7rem;"><div><span style="color:var(--text-muted);">Name:</span> <strong>'+(q.clientName||'N/A')+'</strong></div><div><span style="color:var(--text-muted);">WhatsApp:</span> <strong>'+(q.clientWhatsapp||'N/A')+'</strong></div></div></div>';
-                h += '<div style="flex:2;min-width:200px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.3px;">Cost Summary</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;"><div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">Base Cost</div><div style="font-size:0.7rem;font-weight:700;">USD '+bc.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div><div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">Markup ('+markup+'%)</div><div style="font-size:0.7rem;font-weight:700;">USD '+ma.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div><div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">Total Cost</div><div style="font-size:0.75rem;font-weight:800;color:var(--crimson-bright);">USD '+tc.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div></div></div>';
+                h += '<div style="flex:2;min-width:200px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;font-weight:700;color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.3px;">Cost Summary</div><div style="display:grid;grid-template-columns:repeat('+(qVatCalc.enabled?4:3)+',1fr);gap:6px;text-align:center;"><div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">Base Cost</div><div style="font-size:0.7rem;font-weight:700;">USD '+bc.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div><div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">Markup ('+markup+'%)</div><div style="font-size:0.7rem;font-weight:700;">USD '+ma.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>'+vatTile+'<div style="background:white;border-radius:6px;padding:4px 6px;border:1px solid var(--gray-200);"><div style="font-size:0.6rem;color:var(--text-muted);">'+(qVatCalc.enabled?'Total (incl. VAT)':'Total Cost')+'</div><div style="font-size:0.75rem;font-weight:800;color:var(--crimson-bright);">USD '+payable.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div></div></div>';
                 h += '</div>';
                 
                 // Items table
@@ -4907,6 +4914,7 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
         var q=result.data.find(function(x){return x.id===qId});
         if(!q){alert('Quotation not found.');return;}
         window.editingQuotationId=qId;
+        if(typeof setQuotationVatControls==='function') setQuotationVatControls(q);
         var isKitchen = q.category === 'kitchen';
         var isTvUnitsOrOther = q.category === 'tv_units' || q.category === 'other';
         if(isKitchen){
@@ -21172,14 +21180,18 @@ function quotationVatFromRecord(quotation) {
 // editor opens on "Exclude VAT" and re-saving silently turns VAT off.
 function setQuotationVatControls(quotation) {
     const vat = quotationVatFromRecord(quotation);
+    const enabledEl = document.getElementById('quotationVatEnabled');
     const rateEl = document.getElementById('quotationVatRate');
-    $('#quotationVatEnabled').val(vat.enabled ? 'yes' : 'no');
+    const modeEl = document.getElementById('quotationVatMode');
+    if (enabledEl) enabledEl.value = vat.enabled ? 'yes' : 'no';
     if (rateEl) rateEl.value = vat.rate;
-    $('#quotationVatMode').val(vat.mode);
+    if (modeEl) modeEl.value = vat.mode;
     // Visibility only - applyQuotationVatSelection() would also recalculate from
     // whatever quotation is still sitting in window.quotationData.
-    $('#quotationVatRateContainer').toggle(vat.enabled);
-    $('#quotationVatModeContainer').toggle(vat.enabled);
+    const rateWrap = document.getElementById('quotationVatRateContainer');
+    const modeWrap = document.getElementById('quotationVatModeContainer');
+    if (rateWrap) rateWrap.style.display = vat.enabled ? '' : 'none';
+    if (modeWrap) modeWrap.style.display = vat.enabled ? '' : 'none';
 }
 
 function formatCategoryName(category, customCategory) {
@@ -22097,14 +22109,17 @@ function selectProjectQuotation(quotation) {
                 // the user typed is kept, and the quotation's schedule is offset onto
                 // it by adjustScheduleDates() (also re-run on start-date change).
                 
-                // Auto-populate total contract price from quotation
-                if (quotation.totalCost) {
+                // Auto-populate total contract price from quotation. The contract is
+                // for what the client pays, so use the VAT-inclusive figure.
+                const contractVat = computeQuotationVat(Number(quotation.totalCost) || 0, quotationVatFromRecord(quotation));
+                if (contractVat.total) {
                     const priceField = document.getElementById('total_contract_price');
-                    priceField.value = quotation.totalCost.toFixed(2);
+                    priceField.value = contractVat.total.toFixed(2);
                     priceField.readOnly = true;
                     priceField.style.backgroundColor = '#f5f5f5';
-                    priceField.title = `Auto-populated from quotation: USD ${quotation.totalCost.toFixed(2)}`;
-                    console.log('Total contract price auto-populated:', quotation.totalCost);
+                    priceField.title = `Auto-populated from quotation: USD ${contractVat.total.toFixed(2)}`
+                        + (contractVat.enabled ? ` (incl. VAT @ ${contractVat.rate}%)` : '');
+                    console.log('Total contract price auto-populated:', contractVat.total);
                 }
                 
                 // Store the schedules for later use
@@ -26019,30 +26034,28 @@ async function generateKitchenPDF(outputMode = 'download') {
             </tr>`;
     });
     
-    const itemsTotalRow = kitchenVatCalc.enabled
-        // The item lines above sum to the net figure, so the table has to finish
-        // with the net, then the VAT, then what the client actually pays. Printing
-        // the VAT-inclusive figure as "TOTAL" left a column that did not add up.
-        ? `
+    // The item lines above sum to the net figure, or to the VAT-bearing figure in
+    // inclusive mode, so the label has to name the figure the column adds up to.
+    const kitchenItemsSumLabel = !kitchenVatCalc.enabled
+        ? 'TOTAL'
+        : (kitchenVatCalc.mode === 'inclusive' ? 'TOTAL (INCL. VAT)' : 'SUBTOTAL');
+    const kitchenItemsSum = (kitchenVatCalc.enabled && kitchenVatCalc.mode !== 'inclusive')
+        ? kitchenVatCalc.net
+        : totalCost;
+    const itemsTotalRow = `
         <tr style="background:#1E2A56; color:white;">
-            <td colspan="4" style="padding:8px 10px; text-align:right;"><strong>SUBTOTAL</strong></td>
+            <td colspan="4" style="padding:8px 10px; text-align:right;"><strong>${kitchenItemsSumLabel}</strong></td>
             <td style="padding:8px 10px; text-align:center;"><strong>${maxDays}</strong></td>
-            <td style="padding:8px 10px; text-align:right;"><strong>USD ${kitchenVatCalc.net.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
-        </tr>
+            <td style="padding:8px 10px; text-align:right;"><strong>USD ${kitchenItemsSum.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
+        </tr>` + (kitchenVatCalc.enabled ? `
         <tr>
-            <td colspan="5" style="padding:6px 10px; text-align:right;">VAT @ ${kitchenVatCalc.rate}%${kitchenVatCalc.mode === 'inclusive' ? ' (included)' : ''}</td>
+            <td colspan="5" style="padding:6px 10px; text-align:right;">${kitchenVatCalc.mode === 'inclusive' ? 'VAT included' : 'VAT'} @ ${kitchenVatCalc.rate}%</td>
             <td style="padding:6px 10px; text-align:right;">USD ${kitchenVatCalc.vat.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
         </tr>
         <tr style="background:#1E2A56; color:white;">
             <td colspan="5" style="padding:8px 10px; text-align:right;"><strong>TOTAL</strong></td>
             <td style="padding:8px 10px; text-align:right;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
-        </tr>`
-        : `
-        <tr style="background:#1E2A56; color:white;">
-            <td colspan="4" style="padding:8px 10px; text-align:right;"><strong>TOTAL</strong></td>
-            <td style="padding:8px 10px; text-align:center;"><strong>${maxDays}</strong></td>
-            <td style="padding:8px 10px; text-align:right;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
-        </tr>`;
+        </tr>` : '');
     
     const depositAmount = totalCost * 0.30;
     const balanceAmount = totalCost - depositAmount;
@@ -35513,16 +35526,20 @@ function renderPreviewItemsTable(data) {
         </tr>`;
     });
     
-    // Add total row. The item lines are net (or VAT-bearing) amounts; when VAT is
-    // in play the breakdown is appended so the figure on screen matches the PDF.
+    // Add total row. The item lines sum to the net figure, or to the VAT-bearing
+    // figure in inclusive mode, so the label has to name the figure the column
+    // actually adds up to instead of always saying TOTAL.
+    const previewVat = computeQuotationVat(totalCostPreview, (data && data.vat) || getQuotationVatSettings());
+    const previewItemsSumLabel = !previewVat.enabled
+        ? 'TOTAL'
+        : (previewVat.mode === 'inclusive' ? 'TOTAL (INCL. VAT)' : 'SUBTOTAL');
     if (previewItems.length > 0) {
         tableHTML += `<tr>
-            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary);"><strong>TOTAL</strong></td>
+            <td colspan="3" style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary);"><strong>${previewItemsSumLabel}</strong></td>
             <td style="text-align: center; font-weight: bold; border-top: 2px solid var(--primary); color: #2196F3;"><strong>${totalDaysSum}</strong></td>
             <td style="text-align: right; font-weight: bold; border-top: 2px solid var(--primary); color: var(--primary);"><strong>${formatCurrency(totalCostPreview)}</strong></td>
         </tr>`;
     }
-    const previewVat = computeQuotationVat(totalCostPreview, (data && data.vat) || getQuotationVatSettings());
     if (previewVat.enabled) {
         tableHTML += `
             <tr>
@@ -35739,6 +35756,9 @@ $('#sendQuotationBtn').click(async function() {
 // Reset form when modal is closed and clean up editing context
         $('#quotationgeneratorModal').on('hidden.bs.modal', function() {
             $('#quotationGeneratorForm')[0].reset();
+            // reset() restores the VAT defaults but not the rate/mode visibility,
+            // so the hidden inputs would stay on screen for the next quotation.
+            if (typeof setQuotationVatControls === 'function') setQuotationVatControls(null);
             $('#quotationDate').val(today);
             $('#quotationCategory').change();
             
@@ -37455,6 +37475,7 @@ async function downloadKitchenQuotationPDFFromPortal(quotation) {
         clientWhatsapp: quotation.clientWhatsapp || '',
         quotationDate: quotation.quotationDate,
         category: quotation.category,
+        vat: quotationVatFromRecord(quotation),
         totalCost: quotation.totalCost,
         items: (quotation.items || []).map(item => ({
             name: item.name,
@@ -37500,6 +37521,7 @@ async function downloadConstructionQuotationPDFFromPortal(quotation) {
         clientWhatsapp: quotation.clientWhatsapp || '',
         quotationDate: quotation.quotationDate,
         category: quotation.category,
+        vat: quotationVatFromRecord(quotation),
         size: quotation.projectSize,
         totalCost: quotation.totalCost,
         markup: quotation.markup,
@@ -37696,6 +37718,7 @@ async function sendKitchenQuotationFromPortal(quotation) {
         clientWhatsapp: quotation.clientWhatsapp || '',
         quotationDate: quotation.quotationDate,
         category: quotation.category,
+        vat: quotationVatFromRecord(quotation),
         totalCost: quotation.totalCost,
         items: (quotation.items || []).map(item => ({
             name: item.name,
@@ -37767,6 +37790,7 @@ async function sendConstructionQuotationFromPortal(quotation) {
         clientWhatsapp: quotation.clientWhatsapp || '',
         quotationDate: quotation.quotationDate,
         category: quotation.category,
+        vat: quotationVatFromRecord(quotation),
         size: quotation.projectSize,
         totalCost: quotation.totalCost,
         markup: quotation.markup,
