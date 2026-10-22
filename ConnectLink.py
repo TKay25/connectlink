@@ -18792,14 +18792,19 @@ def pos_upload_stock_apply():
     # exactly what the Check step fingerprints, so the two always agree. A
     # confirm_repeat lets a deliberate re-upload through.
     confirm_repeat = bool(data.get('confirm_repeat'))
-    probe_rows = (
-        [{'product_id': pid, 'name': name, 'quantity': qty}
-         for pid, qty, _b, _s, name, _c in to_merge] +
-        [{'product_id': None, 'name': name, 'quantity': qty}
-         for name, qty, _b, _s, _c, _u, _d, _bc, _desc in to_create])
-    fingerprint = bulk_upload_fingerprint(
-        [dict(r, action='merge' if r.get('product_id') else 'create') for r in probe_rows])
+    # Assigned before the guard so a failure inside it still leaves a value for
+    # the job record below.
+    fingerprint = ''
     try:
+        # Both decision lists carry the row's department as their last element,
+        # so every unpack here has to account for it.
+        probe_rows = (
+            [{'product_id': pid, 'name': name, 'quantity': qty}
+             for pid, qty, _b, _s, name, _c, _dept in to_merge] +
+            [{'product_id': None, 'name': name, 'quantity': qty}
+             for name, qty, _b, _s, _c, _u, _d, _bc, _desc, _dept in to_create])
+        fingerprint = bulk_upload_fingerprint(
+            [dict(r, action='merge' if r.get('product_id') else 'create') for r in probe_rows])
         with get_db() as (cursor, connection):
             column_ready = bulk_upload_column_ready(cursor)
             prior = find_prior_bulk_upload(cursor, branch_id, fingerprint) if column_ready else None
@@ -46252,6 +46257,10 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
     vat_cell = (
         f"<div style='padding: 0 5px; border-left: 1px solid #d8deef;'>"
         f"<div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>"
+        f"Subtotal (excl. VAT)</div>"
+        f"<div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {vat_net:,.2f}</div></div>"
+        f"<div style='padding: 0 5px; border-left: 1px solid #d8deef;'>"
+        f"<div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>"
         f"{vat_label} ({vat_rate:g}%)</div>"
         f"<div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {vat_amount:,.2f}</div></div>"
         if vat_enabled else ''
@@ -46271,6 +46280,11 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                             <td style='border:none; text-align:right; padding:4px 10px; font-weight:800; color:#1E2A56;'>USD {total_cost:,.2f}</td></tr>
                     </table>"""
     summary_cols = 5 if vat_enabled else 4
+    # With VAT on, the item table sums to the net figure and vat_rows below it
+    # carries the VAT and the payable total. Calling that row TOTAL would print
+    # the net figure as the amount due, so name it what it is.
+    if vat_enabled:
+        items_total_row = items_total_row.replace('<strong>TOTAL</strong>', '<strong>SUBTOTAL</strong>')
     deposit = total_cost * 0.30
     balance = total_cost - deposit
 
@@ -46328,12 +46342,17 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
             <div style='page-break-inside:avoid; break-inside:avoid;'>
                 <h4 style='text-align:center; background-color:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0; font-weight:800; letter-spacing:0.5px;'>QUOTATION SUMMARY</h4>
                 <div style='border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;'>
-                    <div style='display: grid; grid-template-columns: repeat({summary_cols}, 1fr); gap: 10px; text-align: center;'>
+                    <!-- Pricing first: the amount due and how it is made up. -->
+                    <div style='display: grid; grid-template-columns: repeat({3 if vat_enabled else 1}, 1fr); gap: 10px; text-align: center; align-items: end;'>
                         <div style='padding: 0 5px;'>
                             <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Total Amount</div>
-                            <div style='font-size: 13px; font-weight: 900; color: #1E2A56;'>USD {total_cost:,.2f}</div>
+                            <div style='font-size: 15px; font-weight: 900; color: #1E2A56;'>USD {total_cost:,.2f}</div>
                         </div>
-                        <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
+                        {vat_cell}
+                    </div>
+                    <!-- Payment schedule second, split off from the pricing above. -->
+                    <div style='display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #d8deef;'>
+                        <div style='padding: 0 5px;'>
                             <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Deposit (30%)</div>
                             <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {deposit:,.2f}</div>
                         </div>
@@ -46341,7 +46360,6 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                             <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Balance</div>
                             <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {balance:,.2f}</div>
                         </div>
-                        {vat_cell}
                         <div style='padding: 0 5px; border-left: 1px solid #d8deef;'>
                             <div style='font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;'>Monthly (over {payment_period_text})</div>
                             <div style='font-size: 13px; font-weight: 700; color: #1E2A56;'>USD {monthly:,.2f}</div>

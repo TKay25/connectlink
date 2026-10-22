@@ -21156,6 +21156,32 @@ function applyQuotationVatSelection() {
     }
 }
 
+// A saved quotation keeps its VAT on the record, separate from the generator
+// form. Rebuild the {enabled, rate, mode} shape the PDF/preview helpers expect.
+function quotationVatFromRecord(quotation) {
+    const q = quotation || {};
+    const rate = (q.vatRate === 0 || q.vatRate) ? Number(q.vatRate) : 15.5;
+    return {
+        enabled: !!q.vatEnabled,
+        rate: isFinite(rate) ? rate : 15.5,
+        mode: q.vatMode === 'inclusive' ? 'inclusive' : 'exclusive'
+    };
+}
+
+// Load a saved quotation's VAT back into the generator form. Without this the
+// editor opens on "Exclude VAT" and re-saving silently turns VAT off.
+function setQuotationVatControls(quotation) {
+    const vat = quotationVatFromRecord(quotation);
+    const rateEl = document.getElementById('quotationVatRate');
+    $('#quotationVatEnabled').val(vat.enabled ? 'yes' : 'no');
+    if (rateEl) rateEl.value = vat.rate;
+    $('#quotationVatMode').val(vat.mode);
+    // Visibility only - applyQuotationVatSelection() would also recalculate from
+    // whatever quotation is still sitting in window.quotationData.
+    $('#quotationVatRateContainer').toggle(vat.enabled);
+    $('#quotationVatModeContainer').toggle(vat.enabled);
+}
+
 function formatCategoryName(category, customCategory) {
     if (customCategory && String(customCategory).trim()) {
         return String(customCategory).trim();
@@ -25993,7 +26019,25 @@ async function generateKitchenPDF(outputMode = 'download') {
             </tr>`;
     });
     
-    const itemsTotalRow = `
+    const itemsTotalRow = kitchenVatCalc.enabled
+        // The item lines above sum to the net figure, so the table has to finish
+        // with the net, then the VAT, then what the client actually pays. Printing
+        // the VAT-inclusive figure as "TOTAL" left a column that did not add up.
+        ? `
+        <tr style="background:#1E2A56; color:white;">
+            <td colspan="4" style="padding:8px 10px; text-align:right;"><strong>SUBTOTAL</strong></td>
+            <td style="padding:8px 10px; text-align:center;"><strong>${maxDays}</strong></td>
+            <td style="padding:8px 10px; text-align:right;"><strong>USD ${kitchenVatCalc.net.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
+        </tr>
+        <tr>
+            <td colspan="5" style="padding:6px 10px; text-align:right;">VAT @ ${kitchenVatCalc.rate}%${kitchenVatCalc.mode === 'inclusive' ? ' (included)' : ''}</td>
+            <td style="padding:6px 10px; text-align:right;">USD ${kitchenVatCalc.vat.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+        </tr>
+        <tr style="background:#1E2A56; color:white;">
+            <td colspan="5" style="padding:8px 10px; text-align:right;"><strong>TOTAL</strong></td>
+            <td style="padding:8px 10px; text-align:right;"><strong>USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></td>
+        </tr>`
+        : `
         <tr style="background:#1E2A56; color:white;">
             <td colspan="4" style="padding:8px 10px; text-align:right;"><strong>TOTAL</strong></td>
             <td style="padding:8px 10px; text-align:center;"><strong>${maxDays}</strong></td>
@@ -26023,8 +26067,14 @@ async function generateKitchenPDF(outputMode = 'download') {
                 </div>
                 
                 <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;">
-                    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px; text-align:center;">
-                        <div><div style="font-size:10px; color:#5a678a;">Total Amount</div><div style="font-size:13px; font-weight:900;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                    <!-- Pricing first: the amount due and, when VAT is on, how it is made up. -->
+                    <div style="display:grid; grid-template-columns:repeat(${kitchenVatCalc.enabled ? 3 : 1},1fr); gap:10px; text-align:center; align-items:end;">
+                        <div><div style="font-size:10px; color:#5a678a;">Total Amount</div><div style="font-size:15px; font-weight:900;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                        ${kitchenVatCalc.enabled ? `
+                        <div><div style="font-size:10px; color:#5a678a;">Subtotal (excl. VAT)</div><div style="font-size:13px; font-weight:700;">USD ${kitchenVatCalc.net.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+                        <div><div style="font-size:10px; color:#5a678a;">VAT @ ${kitchenVatCalc.rate}%${kitchenVatCalc.mode === 'inclusive' ? ' (included)' : ''}</div><div style="font-size:13px; font-weight:700;">USD ${kitchenVatCalc.vat.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>` : ''}
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; text-align:center; margin-top:12px; padding-top:10px; border-top:1px solid #d8deef;">
                         <div><div style="font-size:10px; color:#5a678a;">Deposit (30%)</div><div style="font-size:13px; font-weight:700;">USD ${depositAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Balance</div><div style="font-size:13px; font-weight:700;">USD ${balanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
                         <div><div style="font-size:10px; color:#5a678a;">Monthly (3 months)</div><div style="font-size:13px; font-weight:700;">USD ${monthlyInstallment.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
@@ -35206,19 +35256,28 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                     <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
                         ${(() => {
                             const isConstruction = String(category || '').toLowerCase().includes('construction');
-                            const cols = (isConstruction ? 4 : 5) + (vatCalc.enabled ? 1 : 0);
-                            const vatCell = vatCalc.enabled ? `
+                            // Pricing row first (total + its VAT make-up), payment
+                            // schedule on its own row below, matching the preview.
+                            const pricingCells = `
+                            <div style="padding: 0 5px;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
+                                <div style="font-size: 15px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
+                            </div>` + (vatCalc.enabled ? `
+                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
+                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Subtotal (excl. VAT)</div>
+                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(vatCalc.net)}</div>
+                            </div>
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">${vatCalc.mode === 'inclusive' ? 'VAT (Included)' : 'VAT'} (${vatCalc.rate}%)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(vatCalc.vat)}</div>
-                            </div>` : '';
+                            </div>` : '');
+                            const payCols = isConstruction ? 3 : 4;
                             return `
-                        <div style="display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 10px; text-align: center;">
+                        <div style="display: grid; grid-template-columns: repeat(${vatCalc.enabled ? 3 : 1}, 1fr); gap: 10px; text-align: center; align-items: end;">
+                            ${pricingCells}
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(${payCols}, 1fr); gap: 10px; text-align: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #d8deef;">
                             <div style="padding: 0 5px;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
-                                <div style="font-size: 13px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
-                            </div>
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(depositAmount)}</div>
                             </div>
@@ -35226,7 +35285,6 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
                             </div>
-                            ${vatCell}
                             <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
                                 <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over ${monthTerms} months)</div>
                                 <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
@@ -37516,6 +37574,9 @@ function editQuotationFromPortal(quotationId) {
 
             // Set editing context
             window.editingQuotationId = quotationId;
+            // Bring the quotation's VAT back into the form before anything else
+            // reads it - the save path takes VAT from these controls.
+            if (typeof setQuotationVatControls === 'function') setQuotationVatControls(quotation);
             
             const isKitchen = (quotation.category === 'kitchen');
             const isTvUnitsOrOther = (quotation.category === 'tv_units' || quotation.category === 'other');
