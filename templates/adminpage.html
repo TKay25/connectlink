@@ -4648,7 +4648,18 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         var clientName = q.clientName||'Client';
         var category = q.category||'General';
         var quotationDate = q.quotationDate||'';
-        var totalCost = Number(q.totalCost||0);
+        // q.totalCost is the NET figure that was saved. The client is quoted the
+        // VAT-inclusive amount, so resolve VAT once here and use the result for
+        // every money figure below (summary, deposit, balance, instalments, total
+        // row). Previously the PDF read q.totalCost directly, which is why the
+        // preview showed VAT but the downloaded PDF did not.
+        var vatSettings = { enabled: !!q.vatEnabled,
+                            rate: (q.vatRate === 0 || q.vatRate) ? Number(q.vatRate) : 15.5,
+                            mode: q.vatMode || 'exclusive' };
+        var vatCalc = (typeof computeQuotationVat === 'function')
+            ? computeQuotationVat(Number(q.totalCost||0), vatSettings)
+            : { enabled:false, rate:0, mode:'exclusive', net:Number(q.totalCost||0), vat:0, total:Number(q.totalCost||0) };
+        var totalCost = vatCalc.total;
         var items = q.items||[];
         var schedules = q.schedules||[];
         var quotationNotes = q.notes||'';
@@ -4692,7 +4703,11 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         });
         
         if(items.length>0){
-            itemRows += '<tr style="page-break-inside:avoid;break-inside:avoid;"><td colspan="4" style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;padding:8px 10px;"><strong>TOTAL</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid #1E2A56;color:#2196F3;padding:8px 10px;"><strong>'+totalConstructionDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;color:#1E2A56;padding:8px 10px;"><strong>$'+totalDisplayCost.toFixed(2)+'</strong></td></tr>';
+            itemRows += '<tr style="page-break-inside:avoid;break-inside:avoid;"><td colspan="4" style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;padding:8px 10px;"><strong>'+((vatCalc.enabled)?'SUBTOTAL':'TOTAL')+'</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid #1E2A56;color:#2196F3;padding:8px 10px;"><strong>'+totalConstructionDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;color:#1E2A56;padding:8px 10px;"><strong>$'+totalDisplayCost.toFixed(2)+'</strong></td></tr>';
+            if(vatCalc.enabled){
+                itemRows += '<tr><td colspan="5" style="text-align:right;padding:6px 10px;">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</td><td style="text-align:right;padding:6px 10px;">$'+vatCalc.vat.toFixed(2)+'</td></tr>';
+                itemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="5" style="text-align:right;padding:8px 10px;"><strong>TOTAL</strong></td><td style="text-align:right;padding:8px 10px;"><strong>$'+vatCalc.total.toFixed(2)+'</strong></td></tr>';
+            }
         }
         
         var scheduleRows = '';
@@ -4730,6 +4745,16 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         var cols = isCon ? 4 : 5;
         htmlContent += '<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:10px;text-align:center;">';
         htmlContent += '<div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;color:#1E2A56;">$'+totalCost.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
+        // The breakdown the client was shown in the preview has to survive into the
+        // PDF, otherwise the printed total cannot be reconciled with the items.
+        if(vatCalc.enabled){
+            var netStr = '$'+vatCalc.net.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+            var vatStr = '$'+vatCalc.vat.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+            htmlContent += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #d8deef;font-size:11px;color:#1E2A56;">';
+            htmlContent += '<span style="margin-right:16px;">Subtotal (excl. VAT): <strong>'+netStr+'</strong></span>';
+            htmlContent += '<span>VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (already included in amounts)':'')+': <strong>'+vatStr+'</strong></span>';
+            htmlContent += '</div>';
+        }
         htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
         htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+balanceAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
         htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over '+numMonths+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
@@ -4757,10 +4782,14 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
                     '<td style="padding:6px;text-align:right;font-weight:700;">$'+tot.toFixed(2)+'</td></tr>';
             });
             ncItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;">'+
-                '<td colspan="2" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td>'+
+                '<td colspan="2" style="padding:8px 10px;text-align:right;"><strong>'+((vatCalc.enabled)?'SUBTOTAL':'TOTAL')+'</strong></td>'+
                 '<td style="padding:8px 10px;text-align:right;"></td>'+
                 '<td style="padding:8px 10px;text-align:center;"><strong>'+maxItemDays+'</strong></td>'+
                 '<td style="padding:8px 10px;text-align:right;"><strong>$'+ncTotal.toFixed(2)+'</strong></td></tr>';
+            if(vatCalc.enabled){
+                ncItemRows += '<tr><td colspan="4" style="padding:6px 10px;text-align:right;">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</td><td style="padding:6px 10px;text-align:right;">$'+vatCalc.vat.toFixed(2)+'</td></tr>';
+                ncItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td><td style="padding:8px 10px;text-align:right;"><strong>$'+vatCalc.total.toFixed(2)+'</strong></td></tr>';
+            }
             htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;">'+
                 '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">ITEMS</h4>'+
                 '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;">'+
