@@ -4742,23 +4742,25 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         // Quotation Summary
         htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">QUOTATION SUMMARY</h4>';
         htmlContent += '<div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">';
-        var cols = isCon ? 4 : 5;
-        htmlContent += '<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:10px;text-align:center;">';
-        htmlContent += '<div style="padding:0 5px;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Total Amount</div><div style="font-size:13px;font-weight:900;color:#1E2A56;">$'+totalCost.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        // The breakdown the client was shown in the preview has to survive into the
-        // PDF, otherwise the printed total cannot be reconciled with the items.
+        var money2 = function(v){ return '$'+(Number(v)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+        var labelStyle = 'font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;';
+        // Top row carries what the client is being asked to pay and how it is made
+        // up, so the total and its VAT breakdown read together before the schedule.
+        var topCols = vatCalc.enabled ? 3 : 1;
+        htmlContent += '<div style="display:grid;grid-template-columns:repeat('+topCols+',1fr);gap:10px;text-align:center;align-items:end;">';
+        htmlContent += '<div style="padding:0 5px;"><div style="'+labelStyle+'">Total Amount</div><div style="font-size:15px;font-weight:900;color:#1E2A56;">'+money2(totalCost)+'</div></div>';
         if(vatCalc.enabled){
-            var netStr = '$'+vatCalc.net.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-            var vatStr = '$'+vatCalc.vat.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-            htmlContent += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #d8deef;font-size:11px;color:#1E2A56;">';
-            htmlContent += '<span style="margin-right:16px;">Subtotal (excl. VAT): <strong>'+netStr+'</strong></span>';
-            htmlContent += '<span>VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (already included in amounts)':'')+': <strong>'+vatStr+'</strong></span>';
-            htmlContent += '</div>';
+            htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">Subtotal (excl. VAT)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(vatCalc.net)+'</div></div>';
+            htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(vatCalc.vat)+'</div></div>';
         }
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+depositAmount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+balanceAmount.toLocaleString('en-US',{minimumFractionDigits:2})+'</div></div>';
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Monthly (over '+numMonths+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">$'+monthlyInstallment.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></div>';
-        if(!isCon) htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+(isNonConstruction?maxItemDays:totalConstructionDays)+' Days</div></div>';
+        htmlContent += '</div>';
+        // Second row: the payment schedule, kept separate from the pricing above.
+        var payCols = isCon ? 3 : 4;
+        htmlContent += '<div style="display:grid;grid-template-columns:repeat('+payCols+',1fr);gap:10px;text-align:center;margin-top:12px;padding-top:10px;border-top:1px solid #d8deef;">';
+        htmlContent += '<div style="padding:0 5px;"><div style="'+labelStyle+'">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(depositAmount)+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(balanceAmount)+'</div></div>';
+        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">Monthly (over '+numMonths+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(monthlyInstallment)+'</div></div>';
+        if(!isCon) htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+(isNonConstruction?maxItemDays:totalConstructionDays)+' Days</div></div>';
         htmlContent += '</div></div></div>';
         
         // Quotation Notes (if any)
