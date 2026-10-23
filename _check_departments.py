@@ -12,7 +12,10 @@ What this proves, without a database:
      directions, including an empty item and a no-op move;
   3. a move to an unknown department, or with no product/branch, is refused;
   4. the read paths that feed the tabs are department-scoped;
-  5. the session switch endpoint exists and validates its input.
+  5. the session switch endpoint exists and validates its input;
+  6. every movement that crosses a department (transfer, dispatch, receipt
+     edits, layby cancel, reconciliation, stock audit) acts on the department
+     the goods belong to, and never re-files a branch that already has one.
 
 Run:  python _check_departments.py   (writes _check_departments_out.txt)
 """
@@ -272,6 +275,77 @@ check('every tab is redrawn after a switch',
 check('an inventory row offers the OTHER department',
       'moveProductDepartment(' in tpl and 'To Furniture' in tpl and 'To Hardware' in tpl)
 check('the placement calls the server', '/api/pos/product-department' in tpl)
+
+# --------------- 7. movements must stay on the right shelf -----------------
+def body(name):
+    try:
+        return grab(name)
+    except ValueError:
+        return ''
+
+
+tr = body('pos_transfer_stock')
+check('a manual transfer resolves the item\'s OWN department',
+      'resolve_product_department(cursor, product_id, from_branch)' in tr)
+check('a manual transfer receives into the destination\'s filing',
+      'department=dest_dept' in tr
+      and re.search(r'INSERT INTO product_departments[\s\S]{0,400}DO NOTHING', tr) is not None)
+
+dp = body('dispatch_push')
+check('dispatch pulls from the department the item is filed in at Dispatch',
+      'department=from_dept' in dp)
+check('dispatch receives into the department the SHOP already files',
+      'dest_row' in dp and 'department=dept' in dp)
+check('dispatch never re-files a shop that already has the item',
+      re.search(r'INSERT INTO product_departments[\s\S]{0,400}DO NOTHING', dp) is not None)
+
+up = body('update_product')
+check('a POS stock edit reads the department pool', 'department=stock_dept' in up)
+check('a POS stock edit writes the department pool', 'department=stock_dept' in up)
+check('a POS stock edit files an item the branch has never placed',
+      re.search(r'INSERT INTO product_departments[\s\S]{0,400}DO NOTHING', up) is not None)
+
+check('editing a receipt adjusts the receipt\'s own department',
+      'department=addition_dept' in body('update_stock_addition'))
+check('deleting a receipt adjusts the receipt\'s own department',
+      'department=addition_dept' in body('delete_stock_addition'))
+
+cancel = body('pos_cancel_layby')
+check('a cancelled layby returns goods to the SALE line\'s department',
+      'department=dept' in cancel
+      and "GROUP BY product_id, COALESCE(department, '')" in cancel)
+
+recon = body('pos_reconciliation_reassign')
+check('a re-filed offline sale moves the SALE line\'s department',
+      'department=dept' in recon
+      and "GROUP BY product_id, COALESCE(department, '')" in recon)
+
+run_audit = body('pos_stock_audit_run')
+check('the stock audit counts ONE department\'s shelf',
+      'COALESCE(sl.department, %s) = %s' in run_audit
+      and 'COALESCE(sr.department, %s) = %s' in run_audit
+      and 'COALESCE(sca.department, %s) = %s' in run_audit
+      and "FROM product_departments pd" in run_audit)
+
+check('adopting a count adjusts the department being counted',
+      'VALUES (%s, %s, %s, 0, CURRENT_TIMESTAMP)'
+      in body('pos_stock_audit_adopt')
+      and 'current_department()' in body('pos_stock_audit_adopt'))
+check('a reviewed count is reconstructed per department',
+      'COALESCE(sl.department, %s) = %s' in body('pos_stock_audit_adopt_reviewed')
+      and 'COALESCE(sca.department, %s) = %s' in body('pos_stock_audit_adopt_reviewed'))
+check('an audit adjustment records its department',
+      re.search(r'INSERT INTO stock_count_adjustments'
+                r'[\s\S]{0,500}department[\s\S]{0,500}current_department\(\)',
+                body('pos_stock_audit_adopt_reviewed')) is not None
+      and re.search(r'INSERT INTO stock_count_adjustments'
+                    r'[\s\S]{0,500}department[\s\S]{0,500}current_department\(\)',
+                    body('pos_stock_audit_adopt')) is not None)
+
+create = body('create_product')
+check('reusing an existing name keeps the branch\'s own filing',
+      'SELECT department FROM product_departments' in create
+      and 'reuse_dept = str(filed[0])' in create)
 
 failures = [r for r in RESULTS if r.startswith('FAIL')]
 print('\n'.join(RESULTS))

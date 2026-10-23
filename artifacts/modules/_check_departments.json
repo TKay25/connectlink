@@ -4,12 +4,12 @@
   "module": "CheckDepartments",
   "file": "_check_departments.py",
   "purpose": "Check that the Hardware / Furniture departments are separate and total-safe.",
-  "entry_function": "class FakeCursor  # line 83 — Models just enough of product_stock / stock_lots to run a move.",
+  "entry_function": "class FakeCursor  # line 86 — Models just enough of product_stock / stock_lots to run a move.",
   "entry_flows": [
     "FakeCursor.__init__(stock, lots, dept = None) → _check_departments.py, path.dirname, path.abspath, path.join"
   ],
   "public_api": [
-    "class FakeCursor  # line 83 — Models just enough of product_stock / stock_lots to run a move.",
+    "class FakeCursor  # line 86 — Models just enough of product_stock / stock_lots to run a move.",
     "  FakeCursor.__init__(stock, lots, dept = None)",
     "  FakeCursor.execute(q, p = ())",
     "  FakeCursor.fetchone()",
@@ -17,7 +17,8 @@
     "check(name, ok, detail = '')",
     "grab(name)",
     "units(c)",
-    "cost(c)"
+    "cost(c)",
+    "body(name)"
   ],
   "dependencies": [
     "<!-- list module dependencies here -->"
@@ -39,6 +40,6 @@
   "file_mtime": 1792434086578.391,
   "file_size": 10976,
   "file_birthtime": 1792434086578.391,
-  "generated_at": "2026-10-23T06:38:31.726211Z",
+  "generated_at": "2026-10-23T12:04:21.313710Z",
   "stale": false
 }
