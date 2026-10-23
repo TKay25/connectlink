@@ -18619,7 +18619,8 @@ def pos_upload_stock_apply():
         'branch_code': 'XXXX',              # that branch's access code
         'file_name': 'stock.xlsx',          # optional, kept for the job record
         'rows': [ {name, quantity, buy_price, sell_price,
-                   action: 'merge' | 'create', product_id} ]
+                   action: 'merge' | 'create', product_id,
+                   drop_barcode: bool} ]
     }
 
     Everything happens in ONE transaction: the job header, its per-product
@@ -18695,6 +18696,12 @@ def pos_upload_stock_apply():
             failed.append(f'{name or "A row"}: prices cannot be negative.')
             continue
         action = str(d.get('action') or 'merge').strip().lower()
+        # 'create_without_barcode' is the page's combined choice for a barcode
+        # clash: create the product, but leave the clashing code off it. Reduced
+        # here as well so an older or standalone caller gets the same outcome.
+        drop_barcode = bool(d.get('drop_barcode')) or action == 'create_without_barcode'
+        if action == 'create_without_barcode':
+            action = 'create'
         row_dept = _bulk_stock_department(d.get('department')) or default_department
         if action == 'create':
             if new_name:
@@ -18724,7 +18731,7 @@ def pos_upload_stock_apply():
             # The Check step escalates a clashing barcode to the uploader. If they
             # chose "create without the barcode", honour it; otherwise the clash
             # is still a hard stop rather than a silent duplicate.
-            if barcode and not bool(d.get('drop_barcode')):
+            if barcode and not drop_barcode:
                 try:
                     with get_db() as (bc_cursor, _bc_connection):
                         bc_cursor.execute("""SELECT name FROM products
@@ -18739,7 +18746,7 @@ def pos_upload_stock_apply():
                                   f'differently named product, "{owner[0]}". Resolve it in the '
                                   f'conflicts list, or clear the barcode.')
                     continue
-            if bool(d.get('drop_barcode')):
+            if drop_barcode:
                 barcode = ''
             # A rename is offered to SEPARATE a product from a similar one, so the
             # new name must not simply become an existing product: that would put

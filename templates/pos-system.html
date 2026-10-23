@@ -15523,8 +15523,13 @@ async function fetchTransactionsData() {
                 const catOption = isCat
                     ? `<option value="merge_category">Add to it AND set its category to "${escapeHtml((c.mismatch && c.mismatch.file_category) || '')}"</option>`
                     : '';
+                // Same value, two different outcomes: a barcode owned by another
+                // product cannot be created with, so there the choice only adds
+                // the stock to that owner -- the label has to say so.
                 const dropOption = isBarcode
-                    ? `<option value="create_without_barcode">Create a new product and clear the barcode</option>`
+                    ? (c.allow_create === false
+                        ? `<option value="create_without_barcode">Add to the product that already has this barcode</option>`
+                        : `<option value="create_without_barcode">Create a new product and clear the barcode</option>`)
                     : '';
                 const createOption = c.allow_create === false
                     ? ''
@@ -15684,7 +15689,10 @@ async function fetchTransactionsData() {
                     row.product_id = parseInt(cand.value, 10);
                 } else {
                     // Create the product, but clear the clashing code so two
-                    // products never share one barcode.
+                    // products never share one barcode. The apply endpoint only
+                    // knows 'create'/'merge', so the combined choice is reduced
+                    // to a create that drops the code.
+                    row.action = 'create';
                     row.drop_barcode = true;
                 }
             }
