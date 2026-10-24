@@ -44,3 +44,26 @@ PASS  switching is wired to the server
 PASS  every tab is redrawn after a switch
 PASS  an inventory row offers the OTHER department
 PASS  the placement calls the server
+PASS  a manual transfer resolves the item's OWN department
+PASS  a manual transfer receives into the destination's filing
+PASS  dispatch pulls from the department the item is filed in at Dispatch
+PASS  dispatch receives into the department the SHOP already files
+PASS  dispatch never re-files a shop that already has the item
+PASS  a POS stock edit reads the department pool
+PASS  a POS stock edit writes the department pool
+PASS  a POS stock edit files an item the branch has never placed
+PASS  editing a receipt adjusts the receipt's own department
+PASS  deleting a receipt adjusts the receipt's own department
+PASS  a cancelled layby returns goods to the SALE line's department
+PASS  a re-filed offline sale moves the SALE line's department
+PASS  the stock audit counts ONE department's shelf
+PASS  adopting a count adjusts the department being counted
+PASS  a reviewed count is reconstructed per department
+PASS  an audit adjustment records its department
+PASS  reusing an existing name keeps the branch's own filing
+PASS  bulk upload reads the branch's filings while its cursor is open
+PASS  bulk upload resolves departments from that map, never a closed cursor
+PASS  an upload row keeps the branch's own filing
+PASS  a known item asked for the other shelf stays on its shelf
+PASS  a new row uses the department the file asked for
+PASS  a new row with no department falls back to Hardware

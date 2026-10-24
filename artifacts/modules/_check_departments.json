@@ -6,7 +6,8 @@
   "purpose": "Check that the Hardware / Furniture departments are separate and total-safe.",
   "entry_function": "class FakeCursor  # line 86 — Models just enough of product_stock / stock_lots to run a move.",
   "entry_flows": [
-    "FakeCursor.__init__(stock, lots, dept = None) → _check_departments.py, path.dirname, path.abspath, path.join"
+    "FakeCursor.__init__(stock, lots, dept = None) → _check_departments.py, path.dirname, path.abspath, path.join",
+    "_DeptCursor.__init__(rows) → _check_departments.py, path.dirname, path.abspath, path.join"
   ],
   "public_api": [
     "class FakeCursor  # line 86 — Models just enough of product_stock / stock_lots to run a move.",
@@ -40,6 +41,6 @@
   "file_mtime": 1792434086578.391,
   "file_size": 10976,
   "file_birthtime": 1792434086578.391,
-  "generated_at": "2026-10-23T12:04:21.313710Z",
+  "generated_at": "2026-10-24T09:44:57.251136Z",
   "stale": false
 }

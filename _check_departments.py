@@ -347,6 +347,47 @@ check('reusing an existing name keeps the branch\'s own filing',
       'SELECT department FROM product_departments' in create
       and 'reuse_dept = str(filed[0])' in create)
 
+# ---- bulk upload: department resolution must not outlive the cursor -------
+# The Check File step used to resolve each row's department AFTER its
+# `with get_db()` block had returned the connection to the pool, so the cursor
+# was already closed: any row matching an existing product raised
+# psycopg2.InterfaceError: cursor already closed.
+analyze = body('pos_upload_stock_analyze')
+check('bulk upload reads the branch\'s filings while its cursor is open',
+      'held_departments = _branch_product_departments(cursor, branch_id)' in analyze)
+check('bulk upload resolves departments from that map, never a closed cursor',
+      'held_departments, hit[' in analyze
+      and '_bulk_stock_department_for(\n            cursor,' not in analyze)
+
+
+class _DeptCursor:
+    def __init__(self, rows):
+        self.rows, self.closed = rows, False
+
+    def execute(self, sql, params=None):
+        if self.closed:
+            raise RuntimeError('cursor already closed')
+        self.params = params
+
+    def fetchall(self):
+        return self.rows
+
+
+ns = {'DEPARTMENTS': ('hardware', 'furniture'), 'DEFAULT_DEPARTMENT': 'hardware'}
+exec(compile(src[src.index('def _branch_product_departments('):
+                 src.index('def _bulk_stock_unit(')], 'dept_helpers', 'exec'), ns)
+cur = _DeptCursor([(7, 'Furniture'), (8, '')])
+held = ns['_branch_product_departments'](cur, 2)
+cur.closed = True                   # the connection is back in the pool from here
+check('an upload row keeps the branch\'s own filing',
+      ns['_bulk_stock_department_for'](held, 7, '') == 'furniture')
+check('a known item asked for the other shelf stays on its shelf',
+      ns['_bulk_stock_department_for'](held, 7, 'hardware') == 'furniture')
+check('a new row uses the department the file asked for',
+      ns['_bulk_stock_department_for'](held, None, 'furniture') == 'furniture')
+check('a new row with no department falls back to Hardware',
+      ns['_bulk_stock_department_for'](held, None, '') == 'hardware')
+
 failures = [r for r in RESULTS if r.startswith('FAIL')]
 print('\n'.join(RESULTS))
 print()

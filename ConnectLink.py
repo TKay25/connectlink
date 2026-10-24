@@ -17895,18 +17895,39 @@ def _bulk_stock_department(value):
     return text if text in DEPARTMENTS else ''
 
 
-def _bulk_stock_department_for(cursor, product_id, branch_id, requested):
+def _branch_product_departments(cursor, branch_id):
+    """product_id -> the department this branch files it in.
+
+    One query for the whole branch; `resolve_product_department` is the
+    single-product equivalent. A product with no row is Hardware, which is the
+    department every product belonged to before departments existed.
+    """
+    cursor.execute(
+        "SELECT product_id, department FROM product_departments WHERE branch_id = %s",
+        (branch_id,))
+    held = {}
+    for product_id, department in cursor.fetchall():
+        text = str(department or '').strip().lower()
+        held[int(product_id)] = text if text in DEPARTMENTS else DEFAULT_DEPARTMENT
+    return held
+
+
+def _bulk_stock_department_for(held_departments, product_id, requested):
     """The department an upload row lands in, honouring where the item already is.
 
     The uploaded department is the default. An EXISTING product that this branch
     already files in the other department keeps that department, so a file left
     on the template's Hardware default cannot move a Furniture item's stock into
     Hardware.
+
+    Takes the branch's department map (see _branch_product_departments) rather
+    than a cursor: the caller resolves rows after its connection has gone back
+    to the pool, and one map read beats a query per row on a 5,000-row sheet.
     """
+    current = held_departments.get(int(product_id)) if product_id else None
     if requested in DEPARTMENTS:
-        current = resolve_product_department(cursor, product_id, branch_id) if product_id else None
         return current or requested
-    return resolve_product_department(cursor, product_id, branch_id)
+    return current or DEFAULT_DEPARTMENT
 
 
 def _bulk_stock_unit(value):
@@ -18489,6 +18510,9 @@ def pos_upload_stock_analyze():
                           'sell_price': float(r[4] or 0), 'buy_price': float(r[5] or 0),
                           'barcode': r[6] or ''}
                          for r in cursor.fetchall()]
+            # Department resolution happens after this connection goes back to
+            # the pool, so the map is read now, while the cursor is still open.
+            held_departments = _branch_product_departments(cursor, branch_id)
 
             # Has this stock already been uploaded to this branch? Checked HERE,
             # in the step that writes nothing, so the uploader is told before the
@@ -18560,7 +18584,7 @@ def pos_upload_stock_analyze():
         hit = exact_by_name.get(str(item.get('name') or '').strip().lower())
         asked = item.get('department') or ''
         item['department'] = _bulk_stock_department_for(
-            cursor, hit['id'] if hit else None, branch_id, asked)
+            held_departments, hit['id'] if hit else None, asked)
         item['requested_department'] = asked
         item['department_override'] = bool(
             asked and hit and item['department'] != asked and asked in DEPARTMENTS)
