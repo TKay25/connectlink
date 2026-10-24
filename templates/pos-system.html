@@ -15633,6 +15633,32 @@ async function fetchTransactionsData() {
     }
     window.checkNewNameClash = checkNewNameClash;
 
+    // A per-row problem must point AT the row. An upload with dozens of conflicts
+    // otherwise answers "fix row X" from a banner at the top while the row itself
+    // sits far below, and pressing Apply again looks like it did nothing.
+    function focusConflictRow(index, field) {
+        if (typeof index !== 'number') return false;
+        const sel = document.querySelector(`[data-conflict="${index}"]`);
+        if (!sel) return false;
+        const target = (field === 'name' ? document.getElementById('uploadNewName' + index) : null)
+            || (field === 'candidate' ? document.getElementById('uploadCandidate' + index) : null)
+            || sel;
+        const line = (target.closest ? target.closest('tr') : null) || (sel.closest ? sel.closest('tr') : null);
+        if (line) {
+            if (window._uploadRowFlag) window._uploadRowFlag.classList.remove('table-danger');
+            line.classList.add('table-danger');
+            window._uploadRowFlag = line;
+            if (line.scrollIntoView) line.scrollIntoView({ block: 'center' });
+            setTimeout(function () { line.classList.remove('table-danger'); }, 6000);
+        }
+        if (target && typeof target.focus === 'function') {
+            target.focus();
+            if (field === 'name' && typeof target.select === 'function') target.select();
+        }
+        return true;
+    }
+    window.focusConflictRow = focusConflictRow;
+
     function collectStockUploadDecisions() {
         const plan = _bulkStockPlan || {};
         const rows = [];
@@ -15655,7 +15681,7 @@ async function fetchTransactionsData() {
             const sel = document.querySelector(`[data-conflict="${i}"]`);
             const action = sel ? sel.value : '';
             if (!action) {
-                return { error: `Choose what to do with "${c.name}".` };
+                return { error: `Choose what to do with "${c.name}".`, conflict: i, field: 'choice' };
             }
             const row = { name: c.name, quantity: c.quantity, buy_price: c.buy_price,
                           sell_price: c.sell_price, action: action,
@@ -15664,26 +15690,47 @@ async function fetchTransactionsData() {
                           description: c.description || '', department: c.department || '' };
             if (action === 'merge' || action === 'merge_category') {
                 const cand = document.getElementById('uploadCandidate' + i);
-                if (!cand || !cand.value) return { error: `Pick a product to merge "${c.name}" into.` };
+                if (!cand || !cand.value) {
+                    return { error: `Pick a product to merge "${c.name}" into.`, conflict: i, field: 'candidate' };
+                }
                 row.product_id = parseInt(cand.value, 10);
             } else if (action === 'create_renamed') {
                 const input = document.getElementById('uploadNewName' + i);
                 const typed = input ? input.value.trim() : '';
                 if (!typed) {
-                    return { error: `Type the new name for "${c.name}".` };
+                    return { error: `Type the new name for "${c.name}".`, conflict: i, field: 'name' };
                 }
-                if (typed.toLowerCase() === (c.name || '').trim().toLowerCase()) {
-                    return { error: `The new name for "${c.name}" is the same as before. Choose "Add to an existing product", or type a different name.` };
+                // Leaving the file's own name here is NOT a rename: it is the
+                // plain create under the name in the sheet, which is what the
+                // "Create a new product" choice does. Only a name that is
+                // already a catalogue product is refused, because the server
+                // refuses it too - one product must keep one name.
+                const taken = (products || []).find(function (p) {
+                    return (p.name || '').trim().toLowerCase() === typed.toLowerCase();
+                });
+                if (taken) {
+                    return {
+                        error: `"${typed}" is already a product in the catalogue. `
+                            + `Choose "Add to an existing product" for "${c.name}", `
+                            + `or type a genuinely different name.`,
+                        conflict: i, field: 'name'
+                    };
                 }
                 row.action = 'create';
-                row.new_name = typed;
+                if (typed.toLowerCase() !== (c.name || '').trim().toLowerCase()) {
+                    row.new_name = typed;
+                }
             } else if (action === 'create_without_barcode') {
                 if (c.allow_create === false) {
                     // No product can be created here, so the only way to keep the
                     // stock is to add it to the product that owns the barcode.
                     const cand = document.getElementById('uploadCandidate' + i);
                     if (!cand || !cand.value) {
-                        return { error: `Barcode ${c.barcode || ''} already belongs to another product; choose which one to add "${c.name}" to.` };
+                        return {
+                            error: `Barcode ${c.barcode || ''} already belongs to another product; `
+                                + `choose which one to add "${c.name}" to.`,
+                            conflict: i, field: 'candidate'
+                        };
                     }
                     row.action = 'merge';
                     row.product_id = parseInt(cand.value, 10);
@@ -15709,7 +15756,11 @@ async function fetchTransactionsData() {
         const errEl = document.getElementById('uploadStockError');
         if (errEl) errEl.style.display = 'none';
         const collected = collectStockUploadDecisions();
-        if (collected.error) { stockUploadError(collected.error); return; }
+        if (collected.error) {
+            stockUploadError(collected.error);
+            focusConflictRow(collected.conflict, collected.field);
+            return;
+        }
         if (!collected.rows.length) { stockUploadError('Nothing to apply.'); return; }
 
         const catEl = document.getElementById('uploadStockCategory');
@@ -15786,7 +15837,12 @@ async function fetchTransactionsData() {
         if (cErr) cErr.style.display = 'none';
 
         const collected = collectStockUploadDecisions();
-        if (collected.error) { cancelApplyStockUpload(); stockUploadError(collected.error); return; }
+        if (collected.error) {
+            cancelApplyStockUpload();
+            stockUploadError(collected.error);
+            focusConflictRow(collected.conflict, collected.field);
+            return;
+        }
         const catEl = document.getElementById('uploadStockCategory');
 
         const btn = document.getElementById('uploadStockConfirmBtn');

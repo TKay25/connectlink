@@ -18914,6 +18914,7 @@ def pos_upload_stock_apply():
     # Assigned before the guard so a failure inside it still leaves a value for
     # the job record below.
     fingerprint = ''
+    column_ready = False          # read under the guard's cursor; see bulk_upload_column_ready
     try:
         # Both decision lists carry the row's department as their last element,
         # so every unpack here has to account for it.
