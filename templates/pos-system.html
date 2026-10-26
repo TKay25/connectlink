@@ -4471,6 +4471,30 @@ body.dark-theme .section-card h6 > i { background: rgba(193,43,62,0.18); color: 
 
 /* ---------- Premium payment confirmation modal ---------- */
 .confirm-wrap { padding: 2px 0; }
+/* The day a sale belongs to. On the cart because that is the last screen
+   before the money is taken, so a late-entry sale is dated where it was rung. */
+.confirm-sale-date {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(15,27,45,0.08);
+    border-radius: 14px;
+    background: rgba(15,27,45,0.03);
+}
+.confirm-sale-date label {
+    font-size: 0.72rem !important;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #64748B;
+    margin: 0;
+}
+.confirm-sale-date input { max-width: 170px; font-size: 0.8rem; }
+.confirm-sale-date small { font-size: 0.7rem; color: #64748B; }
+.confirm-sale-date.is-backdated { border-color: #F59E0B; background: rgba(245,158,11,0.10); }
 .confirm-summary {
     background: rgba(15,27,45,0.03);
     border: 1px solid rgba(15,27,45,0.06);
@@ -4543,6 +4567,10 @@ body.dark-theme .section-card h6 > i { background: rgba(193,43,62,0.18); color: 
 
 /* Dark variants for confirmation modal */
 body.dark-theme .confirm-summary { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
+body.dark-theme .confirm-sale-date { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); }
+body.dark-theme .confirm-sale-date label,
+body.dark-theme .confirm-sale-date small { color: #94A3B8; }
+body.dark-theme .confirm-sale-date.is-backdated { border-color: rgba(245,158,11,0.55); background: rgba(245,158,11,0.12); }
 body.dark-theme .confirm-summary-title { color: #94A3B8; }
 body.dark-theme .confirm-item { border-bottom-color: rgba(255,255,255,0.08); }
 body.dark-theme .confirm-item-icon { background: rgba(193,43,62,0.18); color: #FFB4BE; }
@@ -16441,7 +16469,7 @@ async function fetchTransactionsData() {
     }
     
     
-    async function createTransactionAPI(items, paymentMethod, amountPaid, change) {
+    async function createTransactionAPI(items, paymentMethod, amountPaid, change, saleDate) {
         const subtotal = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
         const total = subtotal;
 
@@ -16463,7 +16491,10 @@ async function fetchTransactionsData() {
                 amount_paid: amountPaid,
                 change_amount: change,
                 subtotal: subtotal,
-                total: total
+                total: total,
+                // Travels with the queued sale so the server files it under the
+                // day the cashier chose, not the day the till came back online.
+                sale_date: saleDate || null
             });
         };
 
@@ -16483,7 +16514,8 @@ async function fetchTransactionsData() {
                     amount_paid: amountPaid, 
                     change_amount: change,
                     subtotal: subtotal,
-                    total: total
+                    total: total,
+                    sale_date: saleDate || null
                 })
             });
             
@@ -19074,8 +19106,16 @@ function setupAddProductFundingSelection() {
                                     selectedPaymentMethod === 'transfer' ? 'Bank/Mobile Money Transfer' : 'Layby';
         
         // Body: scrollable order summary only
+        const todayISO = toLocalISODate(new Date());
         let confirmationHTML = `
             <div class="confirm-wrap">
+                <div class="confirm-sale-date" id="saleDateRow">
+                    <label for="saleDateInput">
+                        <i class="fas fa-calendar-day me-1"></i>Sale date
+                    </label>
+                    <input type="date" id="saleDateInput" class="form-control form-control-sm" value="${todayISO}" max="${todayISO}">
+                    <small id="saleDateHint">Change this to file a sale under an earlier day. Reports, day-end and history will use it.</small>
+                </div>
                 <div class="confirm-summary">
                     <div class="confirm-summary-title"><i class="fas fa-receipt me-1"></i>Order Summary</div>
                     ${cart.map(item => `
@@ -19093,6 +19133,23 @@ function setupAddProductFundingSelection() {
             </div>
         `;
         document.getElementById('confirmationContent').innerHTML = confirmationHTML;
+
+        // An earlier day is called out in amber: the cashier must be able to see
+        // at a glance that this sale will NOT count towards today's takings.
+        const saleDateInput = document.getElementById('saleDateInput');
+        if (saleDateInput) {
+            saleDateInput.addEventListener('change', () => {
+                const row = document.getElementById('saleDateRow');
+                const hint = document.getElementById('saleDateHint');
+                const backdated = !!saleDateInput.value && saleDateInput.value !== toLocalISODate(new Date());
+                if (row) row.classList.toggle('is-backdated', backdated);
+                if (hint) {
+                    hint.textContent = backdated
+                        ? 'This sale will be filed on ' + new Date(saleDateInput.value + 'T00:00:00').toLocaleDateString() + ', not today.'
+                        : 'Change this to file a sale under an earlier day. Reports, day-end and history will use it.';
+                }
+            });
+        }
         
         // Footer: payment summary + method, arranged nicely
         const cashAmount = selectedPaymentMethod === 'cash' ? (parseFloat(document.getElementById('cashAmount').value) || 0) : total;
@@ -19125,6 +19182,12 @@ function setupAddProductFundingSelection() {
         
         const total = parseFloat(document.getElementById('total').innerText.replace('$', ''));
         console.log('2. Total:', total);
+
+        // A day the cashier left on today's date is not sent at all, so an
+        // ordinary sale keeps the full ring time on its receipt.
+        const saleDateEl = document.getElementById('saleDateInput');
+        const pickedDate = saleDateEl ? saleDateEl.value : '';
+        const saleDate = (pickedDate && pickedDate !== toLocalISODate(new Date())) ? pickedDate : '';
         
         // VALIDATE CASH AMOUNT
         if (selectedPaymentMethod === 'cash') {
@@ -19159,10 +19222,10 @@ function setupAddProductFundingSelection() {
             if (selectedPaymentMethod === 'cash') {
                 const cash = parseFloat(document.getElementById('cashAmount').value);
                 console.log('7. Calling processOrder with cash:', cash);
-                await processOrder(selectedPaymentMethod, cash, cash - total);
+                await processOrder(selectedPaymentMethod, cash, cash - total, saleDate);
             } else {
                 console.log('7. Calling processOrder with card/transfer');
-                await processOrder(selectedPaymentMethod, total, 0);
+                await processOrder(selectedPaymentMethod, total, 0, saleDate);
             }
             console.log('8. processOrder completed successfully');
         } catch (error) {
@@ -19172,17 +19235,17 @@ function setupAddProductFundingSelection() {
         }
     }
 
-    async function processOrder(method, paid, change) {
+    async function processOrder(method, paid, change, saleDate) {
         if (branchIsReadOnly()) { branchWriteBlockedToast(); return; }
         // A layby must never be rung as an ordinary paid sale: it has its own
         // path (customer, plan, instalments) and its own stock treatment.
         if (method === 'layby') { openLaybyModal(); return; }
-        console.log('processOrder started - method:', method, 'paid:', paid, 'change:', change);
+        console.log('processOrder started - method:', method, 'paid:', paid, 'change:', change, 'saleDate:', saleDate || 'today');
         
         updatePaymentLoaderMessage('Verifying payment...');
         console.log('Verifying payment...');
         
-        const success = await createTransactionAPI(cart, method, paid, change);
+        const success = await createTransactionAPI(cart, method, paid, change, saleDate);
         console.log('createTransactionAPI returned:', success);
         
         if (success) {
@@ -19195,16 +19258,20 @@ function setupAddProductFundingSelection() {
                 if (product) product.stock -= cartItem.quantity;
             });
             
-            const transactionTotal = parseFloat(document.getElementById('total').innerText.replace('$', ''));
-            transactionsData.todaySales += transactionTotal;
-            transactionsData.itemsSold += cart.reduce((sum, i) => sum + i.quantity, 0);
+            // A sale filed under an earlier day is not part of today's takings,
+            // so it must not inflate the "Today's Sales" pills.
+            if (!saleDate) {
+                const transactionTotal = parseFloat(document.getElementById('total').innerText.replace('$', ''));
+                transactionsData.todaySales += transactionTotal;
+                transactionsData.itemsSold += cart.reduce((sum, i) => sum + i.quantity, 0);
+            }
             
             updateStats();
             renderPOSHeaderStats();
             hidePaymentLoader();
             
             // After successful payment
-            const receiptHTML = generateReceiptHTML(cart, method, paid, change);
+            const receiptHTML = generateReceiptHTML(cart, method, paid, change, saleDate);
             showReceiptWithPrint(receiptHTML);
             
             cart = [];
@@ -19231,7 +19298,7 @@ function setupAddProductFundingSelection() {
     }
     
 // FIXED generateReceiptHTML - Increased font sizes for better readability
-function generateReceiptHTML(items, method, paid, change) {
+function generateReceiptHTML(items, method, paid, change, saleDate) {
     const total = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
     
     let receiptHTML = `
@@ -19241,7 +19308,7 @@ function generateReceiptHTML(items, method, paid, change) {
             <div style="font-size: 13px;">Hardware Supply</div>
             ${receiptBranchLine()}
             <hr class="my-2">
-            <div style="font-size: 13px;">${new Date().toLocaleString()}</div>
+            <div style="font-size: 13px;">${receiptDateLine(saleDate)}</div>
             <hr class="my-2">
     `;
     
@@ -20806,7 +20873,7 @@ body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 0; }
     }, 200);
 }
 
-function generateReceiptHTML(items, method, paid, change) {
+function generateReceiptHTML(items, method, paid, change, saleDate) {
     const total = items.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
     
     // Return ONLY the receipt content - no wrapper divs that might contain buttons
@@ -20817,7 +20884,7 @@ function generateReceiptHTML(items, method, paid, change) {
             <div style="font-size: 13px;">Hardware Supply</div>
             ${receiptBranchLine()}
             <hr style="margin: 10px 0; border: none; border-top: 1px dashed #000;">
-            <div style="font-size: 13px;">${new Date().toLocaleString()}</div>
+            <div style="font-size: 13px;">${receiptDateLine(saleDate)}</div>
             <hr style="margin: 10px 0; border: none; border-top: 1px dashed #000;">
     ` +
     items.map(item => {
@@ -20947,6 +21014,18 @@ function toLocalISODate(d) {
     if (!(d instanceof Date) || isNaN(d.getTime())) return '';
     const pad = n => (n < 10 ? '0' : '') + n;
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+// What the receipt prints as the sale stamp. An ordinary sale prints the full
+// ring time; a sale the cashier filed under an earlier day prints that day, so
+// the paper in the customer's hand matches the date the reports carry.
+function receiptDateLine(saleDate) {
+    if (!saleDate) return new Date().toLocaleString();
+    const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(saleDate).trim());
+    const day = parts
+        ? new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]))
+        : new Date(saleDate);
+    return (day instanceof Date && !isNaN(day.getTime()) ? day : new Date()).toLocaleDateString();
 }
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

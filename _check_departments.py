@@ -124,6 +124,13 @@ class FakeCursor:
 ns = {'DEFAULT_DEPARTMENT': 'hardware', 'DEPARTMENTS': ('hardware', 'furniture'),
       'recalc_product_total_stock': lambda c, p: None}
 
+# The move also re-files the product's PAST SALES. Record the call so the checks
+# below can prove the new department reaches it, and return a line count.
+_relabelled_calls = []
+ns['relabel_product_sales_department'] = (
+    lambda cursor, product_id, branch_id, department:
+        _relabelled_calls.append((product_id, branch_id, department)) or 2)
+
 
 def _resolve(cursor, product_id, branch_id):
     cursor.execute("SELECT department FROM product_departments WHERE product_id = %s AND branch_id = %s",
@@ -184,6 +191,28 @@ c = FakeCursor({'furniture': 5}, [{'id': 9, 'qty': 5, 'cost': 2.0, 'dept': 'furn
 r = move(c, 1, 1, 'furniture')
 check('moving to the same department changes nothing',
       r.get('unchanged') is True and c.stock['furniture'] == 5, r)
+
+# ------------------- 2b. past sales follow the product ----------------------
+check('a move hands the new department to the sale-line relabel',
+      _relabelled_calls and _relabelled_calls[-1] == (1, 1, 'furniture'),
+      _relabelled_calls)
+check('the move reports how many sale lines it re-filed',
+      r.get('sales_relabelled') == 2, r)
+
+_relabel_src = grab('relabel_product_sales_department')
+check('past sale lines are re-filed, not copied',
+      'UPDATE transaction_items ti' in _relabel_src
+      and 'SET department = %s' in _relabel_src)
+check('only THIS branch\'s sale lines move',
+      't.branch_id = %s' in _relabel_src)
+check('the sale-mirror movements follow the product too (Auto Audit rebuilds from them)',
+      'UPDATE stock_reductions' in _relabel_src
+      and "reason IN ('item_sale', 'layby_reserve')" in _relabel_src)
+check('physically moved stock is not relabelled by the sale fix',
+      'UPDATE stock_additions' not in _relabel_src
+      and 'UPDATE stock_lots' not in _relabel_src)
+check('the product department change is what triggers the re-file',
+      'relabel_product_sales_department(' in grab('move_product_department'))
 
 # ---------------------------- 3. refusals ----------------------------------
 for args, label in [((1, 1, 'cars'), 'an unknown department'),

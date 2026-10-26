@@ -3887,6 +3887,51 @@ def _branch_can_hold_stock(cursor, product_id, branch_id):
     return cursor.fetchone() is not None
 
 
+def relabel_product_sales_department(cursor, product_id, branch_id, department):
+    """File this branch's past sales of one product under `department`.
+
+    Two ledgers record a sale, and both must name the department the item is
+    filed in or the reports disagree with each other:
+
+      * `transaction_items.department` -- what files the sale under one
+        department's sales history, day-end, dashboard and stock audit;
+      * the matching `stock_reductions` rows (a sale, or a layby's reservation)
+        -- what the Auto Audit subtracts when it rebuilds a department's shelf
+        for a past date.
+
+    Called whenever a product's department is set, so history follows the
+    product instead of staying on the department it happened to be sold from.
+    Physically moved stock is NOT touched here: transfers, receipts and count
+    adjustments stay in the department whose shelf they actually changed.
+
+    Only THIS branch's sales move: the same catalogue item can be filed
+    differently in another shop. Returns the number of sale lines relabelled.
+    """
+    department = (department or '').strip().lower()
+    if department not in DEPARTMENTS or not product_id or not branch_id:
+        return 0
+    cursor.execute("""
+        UPDATE transaction_items ti
+        SET department = %s
+        FROM transactions t
+        WHERE t.id = ti.transaction_id
+          AND ti.product_id = %s
+          AND t.branch_id = %s
+          AND COALESCE(ti.department, %s) <> %s
+    """, (department, product_id, branch_id, DEFAULT_DEPARTMENT, department))
+    relabelled = cursor.rowcount or 0
+
+    cursor.execute("""
+        UPDATE stock_reductions
+        SET department = %s
+        WHERE product_id = %s
+          AND branch_id = %s
+          AND reason IN ('item_sale', 'layby_reserve')
+          AND COALESCE(department, %s) <> %s
+    """, (department, product_id, branch_id, DEFAULT_DEPARTMENT, department))
+    return relabelled
+
+
 def move_product_department(cursor, product_id, branch_id, to_department, user_id=0,
                             user_name='System', notes=''):
     """Move one product's stock from its department to another, inside one branch.
@@ -3895,6 +3940,10 @@ def move_product_department(cursor, product_id, branch_id, to_department, user_i
     the GOODS rather than relabelling them: the quantity the branch holds leaves
     the source department and arrives in the destination, and the FIFO layers
     travel at their own cost so the shop's cost of the item is unchanged.
+
+    The product's PAST SALES travel with it too (see
+    relabel_product_sales_department): an item re-filed as Furniture reports its
+    whole sales history under Furniture, not just the sales made after the move.
 
     Nothing is destroyed: the quantity before equals the quantity after, and the
     cost before equals the cost after. That invariant is what the caller (and
@@ -3910,8 +3959,13 @@ def move_product_department(cursor, product_id, branch_id, to_department, user_i
 
     from_department = resolve_product_department(cursor, product_id, branch_id)
     if from_department == to_department:
+        # No goods to move, but the sale lines are still made to agree with the
+        # department the item is filed in: a product can be sold before this
+        # branch ever files it, and history must still land on the right report.
         return {'from': from_department, 'to': to_department, 'quantity': 0,
-                'cost': 0.0, 'unchanged': True}
+                'cost': 0.0, 'unchanged': True,
+                'sales_relabelled': relabel_product_sales_department(
+                    cursor, product_id, branch_id, to_department)}
 
     # What the source department actually holds.
     cursor.execute("""
@@ -3971,13 +4025,23 @@ def move_product_department(cursor, product_id, branch_id, to_department, user_i
                 user_name = EXCLUDED.user_name
     """, (product_id, branch_id, to_department, user_name[:100]))
 
+    # Past sales of this product follow it into its new department. The
+    # department on a sale LINE is what files that sale under one department's
+    # reports, and a product sits in exactly one department per branch -- so a
+    # line left on the old name would report a Furniture item as a Hardware
+    # sale forever. Only THIS branch's sales move: the same catalogue item can
+    # be filed differently in another shop.
+    sales_relabelled = relabel_product_sales_department(
+        cursor, product_id, branch_id, to_department)
+
     # The two departments now hold different quantities, but the BRANCH total is
     # unchanged. Keep the catalogue total in step with that (unchanged) sum.
     recalc_product_total_stock(cursor, product_id)
 
     return {'from': from_department, 'to': to_department,
             'quantity': quantity, 'cost': round(moved_cost, 2),
-            'lots': len(layers), 'unchanged': False}
+            'lots': len(layers), 'sales_relabelled': sales_relabelled,
+            'unchanged': False}
 
 
 # ===================== FIFO COSTING + PER-BRANCH PRICING =====================
@@ -14701,6 +14765,48 @@ def get_zimbabwe_time():
     return datetime.now(zw_tz)
 
 
+def resolve_sale_timestamp(raw_value, now=None):
+    """Work out the moment a sale is filed under.
+
+    A sale is normally stamped the moment it is rung up, but a shop keying in
+    yesterday's takings today can name the day on the cart, and an offline till
+    replays sales carrying the day they were rung. Whatever is accepted here
+    becomes `created_at`, so the sales history, day-end and every report agree
+    the sale happened then instead of whenever it was typed in.
+
+    Returns (datetime, error). `datetime` is None when `error` explains why the
+    supplied value cannot be used.
+    """
+    harare = pytz.timezone('Africa/Harare')
+    if now is None:
+        now = get_zimbabwe_time()
+    now_local = now.astimezone(harare).replace(tzinfo=None) if now.tzinfo else now
+
+    raw = str(raw_value or '').strip()
+    if not raw:
+        return harare.localize(now_local), None
+
+    try:
+        if len(raw) == 10:
+            # A bare day only says WHICH day, so the time of day it is being
+            # keyed in is kept - the sale still sorts sensibly inside that day
+            # and its receipt is not stamped midnight.
+            day = datetime.strptime(raw, '%Y-%m-%d').date()
+            candidate = datetime(day.year, day.month, day.day,
+                                 now_local.hour, now_local.minute,
+                                 now_local.second, now_local.microsecond)
+        else:
+            candidate = datetime.fromisoformat(raw.replace('Z', '+00:00'))
+            if candidate.tzinfo is not None:
+                candidate = candidate.astimezone(harare).replace(tzinfo=None)
+    except (TypeError, ValueError):
+        return None, 'The sale date could not be read. Use a date like 2026-10-24.'
+
+    if candidate.date() > now_local.date():
+        return None, 'A sale cannot be dated in the future.'
+    return harare.localize(candidate), None
+
+
 def hash_password(password):
     """Hash password using SHA256"""
     return hashlib.sha256(password.encode()).hexdigest()
@@ -16222,6 +16328,7 @@ def pos_set_product_department():
             pass
 
         moved = result.get('quantity') or 0
+        relabelled = result.get('sales_relabelled') or 0
         return jsonify({
             'success': True,
             'product_id': product_id,
@@ -16230,8 +16337,11 @@ def pos_set_product_department():
             'to': result['to'],
             'moved_quantity': moved,
             'moved_cost': result.get('cost', 0),
+            'sales_relabelled': relabelled,
             'message': (f'"{product_name}" moved to {department_label(to_department)}'
-                        + (f' with {moved} unit(s).' if moved else '.'))
+                        + (f' with {moved} unit(s).' if moved else '.')
+                        + (f' {relabelled} past sale line(s) now report under '
+                           f'{department_label(to_department)}.' if relabelled else ''))
         })
     except ValueError as ve:
         return jsonify({'success': False, 'error': str(ve)}), 400
@@ -23025,19 +23135,13 @@ def sync_offline_transactions():
                     payment_method = (sale.get('payment_method') or 'cash')[:20]
 
                     # Keep the till's real timestamp, but never accept a future one:
-                    # a wrong device clock must not invent tomorrow's sales.
-                    created_at = server_now
-                    raw_ts = str(sale.get('created_at') or '').strip()
-                    if raw_ts:
-                        try:
-                            parsed = datetime.fromisoformat(raw_ts.replace('Z', '+00:00'))
-                            if parsed.tzinfo is not None:
-                                parsed = parsed.astimezone(
-                                    pytz.timezone('Africa/Harare')).replace(tzinfo=None)
-                            if parsed <= server_now:
-                                created_at = parsed
-                        except Exception:
-                            created_at = server_now
+                    # a wrong device clock must not invent tomorrow's sales. A day
+                    # picked on the cart (`sale_date`) wins over the ring time, so a
+                    # sale keyed in late is still filed under the day it was sold.
+                    created_at, _sync_date_error = resolve_sale_timestamp(
+                        sale.get('sale_date') or sale.get('created_at'), server_now)
+                    if _sync_date_error:
+                        created_at = server_now
 
                     transaction_number = generate_transaction_number()
                     cursor.execute("""
@@ -23182,9 +23286,13 @@ def create_transaction():
         # Get Zimbabwe time
         zimbabwe_now = get_zimbabwe_time()
 
-        print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
-
-        print(zimbabwe_now)
+        # The cart may name the day the sale belongs to (takings keyed in a day
+        # or two late). That day is what gets stored, so reports file the sale
+        # where it was sold rather than where it was entered.
+        sale_timestamp, sale_date_error = resolve_sale_timestamp(
+            data.get('sale_date'), zimbabwe_now)
+        if sale_date_error:
+            return jsonify({'success': False, 'error': sale_date_error}), 400
         
         # Insert transaction with explicit Zimbabwe time
         trans_query = """
@@ -23203,7 +23311,7 @@ def create_transaction():
             data.get('amount_paid', total),
             data.get('change_amount', 0),
             data.get('notes', ''),
-            zimbabwe_now,
+            sale_timestamp,
             sale_branch
         )
         
@@ -23259,9 +23367,9 @@ def create_transaction():
                           transaction_id, item['id']))
                     cursor.execute("""
                         INSERT INTO stock_reductions (product_id, quantity, reason, notes, user_id, reduced_at, branch_id, department)
-                        VALUES (%s, %s, 'item_sale', %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                        VALUES (%s, %s, 'item_sale', %s, %s, %s, %s, %s)
                     """, (item['id'], item['quantity'], f"Sale #{transaction_number}",
-                          session.get('user_id', 0), sale_branch, sale_department))
+                          session.get('user_id', 0), sale_timestamp, sale_branch, sale_department))
                     connection.commit()
             except Exception as log_err:
                 print(f"Warning: Could not apply sale stock movement: {str(log_err)}")
@@ -23282,7 +23390,7 @@ def create_transaction():
             'success': True,
             'transaction_id': transaction_id,
             'transaction_number': transaction_number,
-            'created_at': zimbabwe_now.isoformat(),
+            'created_at': sale_timestamp.isoformat(),
             'message': 'Transaction completed successfully'
         }), 201
         

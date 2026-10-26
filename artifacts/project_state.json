@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-10-24T09:17:54.953Z",
+  "last_sync": "2026-10-26T10:19:49.301Z",
   "module_count": 124,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 139,
+  "orphaned_count": 140,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -444,6 +444,10 @@
     {
       "artifact": "artifacts/modules/_test_sql_params.json",
       "source": "_test_sql_params.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_decisions_test.json",
+      "source": "_tmp_decisions_test.js"
     },
     {
       "artifact": "artifacts/modules/_tmp_flow_probe.json",

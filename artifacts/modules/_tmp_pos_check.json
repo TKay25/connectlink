@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "TmpPosCheck",
+  "file": "_tmp_pos_check.js",
+  "purpose": "AI-powered product name to category classifier",
+  "entry_function": "ensureAuditVoidedLoaded",
+  "entry_flows": [],
+  "public_api": [
+    "ensureAuditVoidedLoaded",
+    "if",
+    "initializeCategoryDropdowns"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Patterns: async/await",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "02d3e9bcb89c4c96",
+  "file_mtime": 1793013342258.0752,
+  "file_size": 731852,
+  "file_birthtime": 1793013342244.3591,
+  "generated_at": "2026-10-26T11:15:47.914017Z",
+  "stale": true,
+  "stale_reason": "source file deleted"
+}
