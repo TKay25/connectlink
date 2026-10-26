@@ -2999,9 +2999,12 @@ def initialize_database_tables():
 # Per-branch access codes. THESE ARE CREDENTIALS, NOT LABELS: whoever knows a
 # branch's code can open that branch's till. Set BRANCH_SHURUGWI_CODE /
 # BRANCH_CHEGUTU_CODE in the Render environment and ROTATE the defaults below
-# before Chegutu goes live -- the env value wins on every boot.
-BRANCH_SHURUGWI_CODE = os.environ.get('BRANCH_SHURUGWI_CODE', 'shurugwi01')
-BRANCH_CHEGUTU_CODE = os.environ.get('BRANCH_CHEGUTU_CODE', 'chegutu01')
+# before Chegutu goes live -- an env value that differs from the shipped default
+# is a deliberate rotation and wins on the next boot (see ensure_branches_schema).
+SHIPPED_BRANCH_SHURUGWI_CODE = 'shurugwi01'
+SHIPPED_BRANCH_CHEGUTU_CODE = 'chegutu01'
+BRANCH_SHURUGWI_CODE = os.environ.get('BRANCH_SHURUGWI_CODE', SHIPPED_BRANCH_SHURUGWI_CODE)
+BRANCH_CHEGUTU_CODE = os.environ.get('BRANCH_CHEGUTU_CODE', SHIPPED_BRANCH_CHEGUTU_CODE)
 
 # "All Branches" in the POS branch dropdown is a READ-ONLY consolidated view:
 # no sales, no stock edits, no wipes, ever. It carries its own code so it stays
@@ -3028,10 +3031,10 @@ BRANCH_FIRST_CODE = 'SHU'
 BRANCH_DISPATCH_CODE = 'CPD'
 
 BRANCH_BOOTSTRAP_SEED = (
-    # (code, name, address, phone, access_code, is_dispatch)
-    ('SHU', 'Shurugwi', '', '', BRANCH_SHURUGWI_CODE, False),
-    ('CHG', 'Chegutu', '', '', BRANCH_CHEGUTU_CODE, False),
-    ('CPD', 'Central Dispatch', '', '', '', True),
+    # (code, name, address, phone, access_code, is_dispatch, shipped_default)
+    ('SHU', 'Shurugwi', '', '', BRANCH_SHURUGWI_CODE, False, SHIPPED_BRANCH_SHURUGWI_CODE),
+    ('CHG', 'Chegutu', '', '', BRANCH_CHEGUTU_CODE, False, SHIPPED_BRANCH_CHEGUTU_CODE),
+    ('CPD', 'Central Dispatch', '', '', '', True, ''),
 )
 
 # Tables that carry branch_id. `products` is deliberately NOT in this list: the
@@ -3109,18 +3112,29 @@ def ensure_branches_schema(cursor, connection):
         """)
         connection.commit()
 
-        # Codes come from the environment and are re-asserted on every boot so a
-        # rotation can never silently fail to apply; name/address/phone are left
-        # alone so edits made in the database survive. is_dispatch is re-asserted
-        # with the code because it decides which POS pages exist at all.
-        for code, name, address, phone, access_code, is_dispatch in BRANCH_BOOTSTRAP_SEED:
+        # A code is only ever REPLACED by a deliberate rotation: an env value
+        # that differs from the code this app ships with. The shipped default is
+        # a placeholder, not a decision -- so a process that boots against this
+        # database without the deployment's env vars (a local run, a health
+        # probe, a second service) can no longer reset a working till's code to
+        # 'shurugwi01'. A blank or missing code is still filled in, and
+        # is_dispatch is re-asserted because it decides which POS pages exist.
+        for code, name, address, phone, access_code, is_dispatch, shipped_default in BRANCH_BOOTSTRAP_SEED:
             cursor.execute("""
                 INSERT INTO branches (code, name, address, phone, access_code, is_active, is_dispatch)
                 VALUES (%s, %s, %s, %s, %s, TRUE, %s)
                 ON CONFLICT (code) DO UPDATE
-                    SET access_code = EXCLUDED.access_code,
+                    SET access_code = CASE
+                            WHEN NULLIF(EXCLUDED.access_code, '') IS NULL
+                                THEN branches.access_code
+                            WHEN NULLIF(branches.access_code, '') IS NULL
+                                THEN EXCLUDED.access_code
+                            WHEN EXCLUDED.access_code = %s
+                                THEN branches.access_code
+                            ELSE EXCLUDED.access_code
+                        END,
                         is_dispatch = EXCLUDED.is_dispatch
-            """, (code, name, address, phone, access_code, is_dispatch))
+            """, (code, name, address, phone, access_code, is_dispatch, shipped_default))
         connection.commit()
 
         cursor.execute("SELECT id FROM branches WHERE code = %s", (BRANCH_FIRST_CODE,))
@@ -21520,8 +21534,8 @@ def branch_health():
         return jsonify({'success': False, 'error': 'Admin access required'}), 403
 
     shipped = {
-        'BRANCH_SHURUGWI_CODE': 'shurugwi01',
-        'BRANCH_CHEGUTU_CODE': 'chegutu01',
+        'BRANCH_SHURUGWI_CODE': SHIPPED_BRANCH_SHURUGWI_CODE,
+        'BRANCH_CHEGUTU_CODE': SHIPPED_BRANCH_CHEGUTU_CODE,
         'POS_ALL_BRANCHES_CODE': 'conlink01owner01',
     }
 

@@ -166,6 +166,25 @@ try:
 except ValueError:
     say(False, 'the boot seeder was found')
 
+# ---- 7: a boot may never reset a worked-in branch code ----------------------
+# A process that boots against the database WITHOUT the deployment's env vars
+# (a local run, a health probe, a second service) used to re-assert the SHIPPED
+# default over a shop's configured access code, locking every till out of that
+# branch. The seed may fill a missing code and apply a deliberate rotation, but
+# never replace a configured code with the placeholder this app ships with.
+_seed_m = re.search(r"for code, name, address, phone, access_code, is_dispatch, shipped_default in BRANCH_BOOTSTRAP_SEED:"
+                    r"[\s\S]{0,1400}?connection\.commit\(\)", src)
+_seed = _seed_m.group(0) if _seed_m else ''
+say(bool(_seed), 'the branch seeder was found')
+say('WHEN EXCLUDED.access_code = %s' in _seed and 'THEN branches.access_code' in _seed,
+    'the branch seeder refuses to overwrite a configured code with the shipped default')
+say("WHEN NULLIF(branches.access_code, '') IS NULL" in _seed and 'THEN EXCLUDED.access_code' in _seed,
+    'the branch seeder still fills in a missing code')
+say('is_dispatch = EXCLUDED.is_dispatch' in _seed,
+    'the branch seeder still re-asserts is_dispatch (it decides which POS pages exist)')
+say('SHIPPED_BRANCH_SHURUGWI_CODE' in src and 'SHIPPED_BRANCH_CHEGUTU_CODE' in src,
+    'the shipped defaults are named constants, not inline literals')
+
 print('\n'.join(lines))
 failures = [l for l in lines if l.startswith('FAIL')]
 print('')
