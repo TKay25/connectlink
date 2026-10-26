@@ -8134,6 +8134,35 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 
                 <!-- Charts moved to the Analytics tab so all visuals live in one place -->
                 
+                <!-- Revenue & Profit report: one row per trading day the period
+                     covers, with every row totalled ONCE at the bottom. That
+                     footer is the figure for the whole selected period (and it
+                     always equals the KPI cards above), so nobody has to add the
+                     days up by hand or mistake one day for the period. -->
+                <div class="section-card mb-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-table-list me-1"></i>Revenue & Profit Report</h6>
+                        <small class="text-muted" id="revenueProfitPeriod"></small>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0" id="revenueProfitTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th class="text-end">Transactions</th>
+                                    <th class="text-end">Items</th>
+                                    <th class="text-end">Revenue</th>
+                                    <th class="text-end">COGS</th>
+                                    <th class="text-end">Gross Profit</th>
+                                    <th class="text-end">Margin %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="revenueProfitRows"></tbody>
+                            <tfoot id="revenueProfitTotals"></tfoot>
+                        </table>
+                    </div>
+                </div>
+                
                 <!-- Category Performance Table -->
                 <div class="section-card mb-3">
                     <h6 class="fw-bold mb-2"><i class="fas fa-chart-simple me-1"></i>Category Performance Breakdown</h6>
@@ -13431,9 +13460,6 @@ async function deleteStockAddition() {
         
         logPosActivity('download', 'Exported Sales Report to ' + String(type || '').toUpperCase());
         
-        const totalRevenue = currentReportData.reduce((s, t) => s + (t.total || 0), 0);
-        const totalProfit = currentReportData.reduce((s, t) => s + (t.profit || 0), 0);
-        
         const reportData = currentReportData.map(t => ({
             'Date': t.created_at ? new Date(t.created_at).toLocaleDateString('en-ZA') : '',
             'Transaction #': t.transaction_number || '',
@@ -13454,72 +13480,16 @@ async function deleteStockAddition() {
             XLSX.writeFile(wb, filename);
             showToast('Export complete!', 'success');
         } else if (type === 'pdf') {
-            // PDF export logic
-            const pdfContent = document.createElement('div');
-            pdfContent.style.padding = '20px';
-            pdfContent.style.fontFamily = 'Arial, sans-serif';
-            
-            pdfContent.innerHTML = `
-                <div style="text-align: center; margin-bottom: 30px;">
-                    <h2 style="color: var(--dark-blue-deep);">ConnectLink Hardware</h2>
-                    <p>Sales Report</p>
-                    <p><small>Generated: ${new Date().toLocaleString()}</small></p>
-                    <hr>
-                </div>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background-color: var(--dark-blue-deep); color: white;">
-                            <th style="padding: 8px; border: 1px solid #ddd;">Date</th>
-                            <th style="padding: 8px; border: 1px solid #ddd;">Transaction #</th>
-                            <th style="padding: 8px; border: 1px solid #ddd;">Items</th>
-                            <th style="padding: 8px; border: 1px solid #ddd;">Revenue</th>
-                            <th style="padding: 8px; border: 1px solid #ddd;">Profit</th>
-                            <th style="padding: 8px; border: 1px solid #ddd;">Payment</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${reportData.map(row => `
-                            <tr>
-                                <td style="padding: 6px; border: 1px solid #ddd;">${row.Date}</td>
-                                <td style="padding: 6px; border: 1px solid #ddd;">${row['Transaction #']}</td>
-                                <td style="padding: 6px; border: 1px solid #ddd;">${row.Items}</td>
-                                <td style="padding: 6px; border: 1px solid #ddd;">$${row.Revenue.toFixed(2)}</td>
-                                <td style="padding: 6px; border: 1px solid #ddd;">$${row.Profit.toFixed(2)}</td>
-                                <td style="padding: 6px; border: 1px solid #ddd;">${row['Payment Method']}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                    <tfoot>
-                        <tr style="background-color: #f5f5f5;">
-                            <td colspan="3" style="padding: 8px; border: 1px solid #ddd;"><strong>Total:</strong></td>
-                            <td style="padding: 8px; border: 1px solid #ddd;"><strong>$${totalRevenue.toFixed(2)}</strong></td>
-                            <td style="padding: 8px; border: 1px solid #ddd;"><strong>$${totalProfit.toFixed(2)}</strong></td>
-                            <td style="padding: 8px; border: 1px solid #ddd;"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            `;
-            
-            document.body.appendChild(pdfContent);
-            
-            const opt = {
-                margin: [0.5, 0.5, 0.5, 0.5],
-                filename: `sales_report_${toLocalISODate(new Date())}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 1.5 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
-            };
-            
-            html2pdf().set(opt).from(pdfContent).save()
-                .then(() => {
-                    document.body.removeChild(pdfContent);
-                    showToast('PDF export complete!', 'success');
-                })
-                .catch(err => {
-                    console.error('PDF generation error:', err);
-                    document.body.removeChild(pdfContent);
-                    showToast('Error generating PDF', 'error');
-                });
+            // The PDF is the report itself: the period it covers, every KPI card,
+            // the day-by-day revenue & profit table with its single period total,
+            // the category breakdown, and (when the period is small enough to be
+            // readable) the sale lines behind them.
+            const html = buildSalesReportHtml(currentReportData, reportData);
+            if (!html) {
+                showToast('Open the report first, then export.', 'error');
+                return;
+            }
+            downloadSalesReportPdf(html, `sales_profit_report_${toLocalISODate(new Date())}.pdf`);
         }
     }
 
@@ -13691,6 +13661,292 @@ async function loadSalesReport(message = 'Loading sales report...') {
     }
 }
 
+// The period the figures on screen were actually filtered by. Named from the
+// APPLIED scope, never from the selector - the two can disagree while a custom
+// range is being typed, and the report must describe its own numbers.
+function salesReportScopeLabel() {
+    const scope = window.__reportScope;
+    if (!scope || !scope.start || !scope.end) return '';
+    const name = (typeof REPORT_PERIOD_NAMES !== 'undefined' && REPORT_PERIOD_NAMES[scope.period])
+        ? REPORT_PERIOD_NAMES[scope.period] : 'Selected period';
+    const from = fmtDay(scope.start);
+    const to = fmtDay(scope.end);
+    return name + ' · ' + (from === to ? from : from + ' – ' + to);
+}
+
+// Revenue & Profit report: one row per trading day, then ONE row for the whole
+// period. The footer is labelled "Period Total" precisely because it is not a
+// day's figure - it is every day above it added up for the period the report was
+// run for, and it always equals the KPI cards.
+function renderRevenueProfitReport(dailyData, totals) {
+    const rows = document.getElementById('revenueProfitRows');
+    const foot = document.getElementById('revenueProfitTotals');
+    const period = document.getElementById('revenueProfitPeriod');
+    if (!rows || !foot) return;
+
+    const money = v => '$' + Number(v || 0).toFixed(2);
+    const pct = (profit, revenue) => revenue > 0 ? (profit / revenue * 100).toFixed(1) + '%' : '0.0%';
+    const label = salesReportScopeLabel();
+    if (period) period.textContent = label;
+
+    // Stashed for the PDF export so the paper and the screen cannot drift apart.
+    window.__revenueProfitReport = { days: dailyData || {}, total: totals || {}, label: label };
+
+    const days = Object.keys(dailyData || {}).sort();
+    if (!days.length) {
+        rows.innerHTML = '<tr><td colspan="7" class="text-center text-muted small py-3">No sales were recorded in this period</td></tr>';
+    } else {
+        rows.innerHTML = days.map(day => {
+            const d = dailyData[day];
+            const profitClass = d.profit < 0 ? 'text-danger' : 'text-success';
+            return `<tr>
+                <td>${fmtDay(new Date(day + 'T00:00:00'))}</td>
+                <td class="text-end">${d.count}</td>
+                <td class="text-end">${d.items}</td>
+                <td class="text-end">${money(d.sales)}</td>
+                <td class="text-end">${money(d.cogs)}</td>
+                <td class="text-end fw-semibold ${profitClass}">${money(d.profit)}</td>
+                <td class="text-end">${pct(d.profit, d.sales)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    const t = totals || {};
+    const totalProfitClass = (t.profit || 0) < 0 ? 'text-danger' : 'text-success';
+    foot.innerHTML = `<tr class="table-light fw-bold border-top">
+        <td>Period Total</td>
+        <td class="text-end">${t.transactions || 0}</td>
+        <td class="text-end">${t.items || 0}</td>
+        <td class="text-end">${money(t.revenue)}</td>
+        <td class="text-end">${money(t.cogs)}</td>
+        <td class="text-end ${totalProfitClass}">${money(t.profit)}</td>
+        <td class="text-end">${pct(t.profit || 0, t.revenue || 0)}</td>
+    </tr>`;
+}
+
+// The printable report: the period it covers, every KPI card as it stands on
+// screen, the day-by-day table with its period total, the category breakdown and
+// the sale lines. Built from the same state the page shows, so no figure has to
+// be recalculated for the paper.
+function buildSalesReportHtml(transactions, detailRows) {
+    const rep = window.__revenueProfitReport;
+    if (!rep) return '';
+
+    const money = v => '$' + Number(v || 0).toFixed(2);
+    const pct = (profit, revenue) => revenue > 0 ? (profit / revenue * 100).toFixed(1) + '%' : '0.0%';
+    const th = 'padding:6px 8px;border:1px solid #CBD5E1;background:#0F1F3D;color:#ffffff;font-size:10px;text-transform:uppercase;letter-spacing:0.4px;';
+    const thR = th + 'text-align:right;';
+    const td = 'padding:5px 8px;border:1px solid #E2E8F0;font-size:10.5px;color:#1E293B;';
+    const tdR = td + 'text-align:right;';
+
+    const days = Object.keys(rep.days || {}).sort();
+    const dayRows = days.map(day => {
+        const d = rep.days[day];
+        return `<tr>
+            <td style="${td}">${escapeHtml(fmtDay(new Date(day + 'T00:00:00')))}</td>
+            <td style="${tdR}">${d.count}</td>
+            <td style="${tdR}">${d.items}</td>
+            <td style="${tdR}">${money(d.sales)}</td>
+            <td style="${tdR}">${money(d.cogs)}</td>
+            <td style="${tdR}${d.profit < 0 ? 'color:#B91C1C;' : 'color:#047857;'}">${money(d.profit)}</td>
+            <td style="${tdR}">${pct(d.profit, d.sales)}</td>
+        </tr>`;
+    }).join('') || `<tr><td colspan="7" style="${td}">No sales were recorded in this period.</td></tr>`;
+
+    const t = rep.total || {};
+    const totalRow = `<tr style="background:#F1F5F9;font-weight:bold;">
+        <td style="${td}">Period Total</td>
+        <td style="${tdR}">${t.transactions || 0}</td>
+        <td style="${tdR}">${t.items || 0}</td>
+        <td style="${tdR}">${money(t.revenue)}</td>
+        <td style="${tdR}">${money(t.cogs)}</td>
+        <td style="${tdR}${(t.profit || 0) < 0 ? 'color:#B91C1C;' : 'color:#047857;'}">${money(t.profit)}</td>
+        <td style="${tdR}">${pct(t.profit || 0, t.revenue || 0)}</td>
+    </tr>`;
+
+    // The KPI cards, read off the page so the paper can never disagree with it.
+    const kpis = [
+        ['reportTotalSales', 'Total Revenue', 'Orders taken'],
+        ['reportGrossProfit', 'Gross Profit', 'Revenue - COGS'],
+        ['reportGrossMargin', 'Gross Margin', 'Profitability ratio'],
+        ['reportAvgOrder', 'Average Order Value', 'Per transaction'],
+        ['reportTotalProfitEarned', 'Total Profit Earned', 'From all sales'],
+        ['reportProfitReinvested', 'Profit Reinvested', 'Used to buy stock'],
+        ['reportAvailableProfit', 'Available Profit', 'For reinvestment'],
+        ['reportReinvestmentRate', 'Reinvestment Rate', 'Profit reinvested %'],
+        ['reportTransactionCount', 'Transactions', 'Total orders'],
+        ['reportItemsSold', 'Items Sold', 'Total quantity'],
+        ['reportCOGS', 'Cost of Goods Sold', 'Cost of items sold'],
+        ['reportROS', 'Return on Sales', 'Profit per $1 sales']
+    ];
+    const kpiHtml = kpis.map(([id, label, sub]) => {
+        const el = document.getElementById(id);
+        const value = el ? String(el.innerText || el.textContent || '').trim() : '';
+        return `<div style="flex:1 1 22%;min-width:135px;border:1px solid #E2E8F0;border-radius:8px;padding:7px 10px;">
+            <div style="font-size:8.5px;text-transform:uppercase;letter-spacing:0.5px;color:#64748B;">${escapeHtml(label)}</div>
+            <div style="font-size:14px;font-weight:bold;color:#0F1F3D;">${escapeHtml(value || '—')}</div>
+            <div style="font-size:8.5px;color:#94A3B8;">${escapeHtml(sub)}</div>
+        </div>`;
+    }).join('');
+
+    // Category performance, built from the same data the on-screen table uses
+    // (stashed by renderSalesReport) rather than cloned from the DOM, whose
+    // Bootstrap classes mean nothing in a standalone printed page.
+    const catData = window.__salesReportCategoryData || {};
+    const catKeys = Object.keys(catData);
+    const catRevenue = Number((rep.total || {}).revenue || 0);
+    const categoryHtml = catKeys.length
+        ? `<h2 style="font-size:12px;margin:16px 0 6px 0;color:#0F1F3D;">Category Performance Breakdown</h2>
+           <table style="width:100%;border-collapse:collapse;">
+               <thead><tr>
+                   <th style="${th}">Category</th>
+                   <th style="${thR}">Units Sold</th>
+                   <th style="${thR}">Revenue</th>
+                   <th style="${thR}">COGS</th>
+                   <th style="${thR}">Gross Profit</th>
+                   <th style="${thR}">Margin %</th>
+                   <th style="${thR}">Contribution</th>
+               </tr></thead>
+               <tbody>
+               ${catKeys.map(cat => {
+                   const d = catData[cat];
+                   const margin = d.sales > 0 ? (d.profit / d.sales * 100) : 0;
+                   const contribution = catRevenue > 0 ? (d.sales / catRevenue * 100) : 0;
+                   return `<tr>
+                       <td style="${td}"><strong>${escapeHtml(cat)}</strong></td>
+                       <td style="${tdR}">${d.quantity}</td>
+                       <td style="${tdR}">${money(d.sales)}</td>
+                       <td style="${tdR}">${money(d.cogs)}</td>
+                       <td style="${tdR}${d.profit < 0 ? 'color:#B91C1C;' : 'color:#047857;'}">${money(d.profit)}</td>
+                       <td style="${tdR}">${margin.toFixed(1)}%</td>
+                       <td style="${tdR}">${contribution.toFixed(1)}%</td>
+                   </tr>`;
+               }).join('')}
+               </tbody>
+           </table>`
+        : '';
+
+    // A thousand-line table makes an unreadable PDF and a very slow one, so the
+    // paper carries the lines when they fit and says where the rest lives.
+    const DETAIL_LIMIT = 300;
+    let detailHtml = '';
+    if (detailRows && detailRows.length) {
+        const shown = detailRows.slice(0, DETAIL_LIMIT);
+        detailHtml = `<h2 style="font-size:12px;margin:16px 0 6px 0;color:#0F1F3D;">Sale Lines${detailRows.length > shown.length ? ` (first ${shown.length} of ${detailRows.length} - use Export Excel for the rest)` : ''}</h2>
+           <table style="width:100%;border-collapse:collapse;">
+               <thead><tr>
+                   <th style="${th}">Date</th>
+                   <th style="${th}">Transaction #</th>
+                   <th style="${thR}">Items</th>
+                   <th style="${thR}">Revenue</th>
+                   <th style="${thR}">Profit</th>
+                   <th style="${thR}">Margin %</th>
+                   <th style="${th}">Payment</th>
+                   <th style="${th}">Cashier</th>
+               </tr></thead>
+               <tbody>
+               ${shown.map(r => `<tr>
+                   <td style="${td}">${escapeHtml(String(r['Date'] || ''))}</td>
+                   <td style="${td}">${escapeHtml(String(r['Transaction #'] || ''))}</td>
+                   <td style="${tdR}">${r['Items']}</td>
+                   <td style="${tdR}">$${Number(r['Revenue'] || 0).toFixed(2)}</td>
+                   <td style="${tdR}">$${Number(r['Profit'] || 0).toFixed(2)}</td>
+                   <td style="${tdR}">${r['Profit Margin %']}%</td>
+                   <td style="${td}">${escapeHtml(String(r['Payment Method'] || ''))}</td>
+                   <td style="${td}">${escapeHtml(String(r['Cashier'] || ''))}</td>
+               </tr>`).join('')}
+               </tbody>
+           </table>`;
+    }
+
+    return `
+        <div style="font-family:Arial,Helvetica,sans-serif;color:#0F1729;background:#ffffff;">
+            <h1 style="font-size:17px;margin:0 0 2px 0;color:#0F1F3D;border-bottom:3px solid #C12B3E;padding-bottom:6px;">Sales &amp; Profit Report</h1>
+            <div style="font-size:11px;margin:4px 0 2px 0;color:#334155;"><strong>Period:</strong> ${escapeHtml(rep.label || 'Selected period')}</div>
+            <div style="font-size:9.5px;color:#64748B;margin-bottom:10px;">
+                ConnectLink Hardware${receiptBranchLine() ? ' · ' + escapeHtml(String(receiptBranchLine()).replace(/<[^>]*>/g, '').trim()) : ''}
+                · Generated ${escapeHtml(new Date().toLocaleString())}
+            </div>
+            <h2 style="font-size:12px;margin:10px 0 6px 0;color:#0F1F3D;">Headline Figures</h2>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">${kpiHtml}</div>
+            <h2 style="font-size:12px;margin:16px 0 6px 0;color:#0F1F3D;">Revenue &amp; Profit by Day</h2>
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr>
+                    <th style="${th}">Date</th>
+                    <th style="${thR}">Transactions</th>
+                    <th style="${thR}">Items</th>
+                    <th style="${thR}">Revenue</th>
+                    <th style="${thR}">COGS</th>
+                    <th style="${thR}">Gross Profit</th>
+                    <th style="${thR}">Margin %</th>
+                </tr></thead>
+                <tbody>${dayRows}</tbody>
+                <tfoot>${totalRow}</tfoot>
+            </table>
+            ${categoryHtml}
+            ${detailHtml}
+        </div>`;
+}
+
+// Save the report as a PDF. html2pdf gives a real download; when it is not
+// available (a till whose CDN copy never loaded) the same report is printed
+// through the browser, which the operator can save as a PDF - either way the
+// button produces the report instead of failing silently.
+function downloadSalesReportPdf(html, filename) {
+    const holder = document.createElement('div');
+    holder.style.position = 'fixed';
+    holder.style.left = '-10000px';
+    holder.style.top = '0';
+    holder.style.width = '1050px';
+    holder.style.background = '#ffffff';
+    holder.innerHTML = html;
+    document.body.appendChild(holder);
+
+    const cleanup = () => { if (holder.parentNode) holder.parentNode.removeChild(holder); };
+
+    if (typeof window.html2pdf === 'function') {
+        window.html2pdf().set({
+            margin: [0.25, 0.25, 0.25, 0.25],
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' },
+            pagebreak: { mode: ['css', 'legacy'] }
+        }).from(holder).save().then(() => {
+            cleanup();
+            showToast('Report downloaded.', 'success');
+        }).catch(err => {
+            console.error('PDF generation error:', err);
+            cleanup();
+            printSalesReportHtml(html);
+        });
+        return;
+    }
+
+    cleanup();
+    printSalesReportHtml(html);
+}
+
+function printSalesReportHtml(html) {
+    const w = window.open('', '_blank');
+    if (!w) {
+        showToast('Allow pop-ups to download the report.', 'error');
+        return;
+    }
+    w.document.write('<!DOCTYPE html><html><head><title>ConnectLink POS - Sales &amp; Profit Report</title>' +
+        '<style>' +
+        'body{font-family:Arial,Helvetica,sans-serif;padding:18px;color:#0F1729;margin:0;}' +
+        'h1{font-size:17px;border-bottom:3px solid #C12B3E;padding-bottom:6px;margin:0 0 4px 0;}' +
+        'h2{font-size:12px;margin:16px 0 6px 0;color:#0F1F3D;}' +
+        'table{width:100%;border-collapse:collapse;}' +
+        'td,th{font-size:10.5px;}' +
+        '@page{size:A4 landscape;margin:10mm;}' +
+        '</style></head><body>' + html + '</body></html>');
+    w.document.close();
+    w.focus();
+    setTimeout(() => { try { w.print(); } catch (e) { console.error('Print error:', e); } }, 350);
+}
+
 function renderSalesReport(transactions, reinvestmentHistory = []) {
     // Store for export
     currentReportData = transactions;
@@ -13733,20 +13989,24 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
         
         // Calculate profit for this transaction
         let transactionProfit = 0;
+        let transactionCOGS = 0;
+        let transactionItems = 0;
         if (t.items) {
             t.items.forEach(item => {
                 const buyPrice = item.buy_price || 0;
                 const sellPrice = item.price || item.price_at_time || 0;
                 const itemProfit = (sellPrice - buyPrice) * item.quantity;
                 transactionProfit += itemProfit;
-                totalCOGS += buyPrice * item.quantity;
+                transactionCOGS += buyPrice * item.quantity;
+                transactionItems += item.quantity;
             });
         }
         
         const profit = transactionProfit;
+        totalCOGS += transactionCOGS;
         totalGrossProfit += profit;
         totalProfitEarned += profit;
-        totalItemsSold += t.items ? t.items.reduce((s, i) => s + i.quantity, 0) : 0;
+        totalItemsSold += transactionItems;
         
         // Add profit to transaction object for export
         t.profit = profit;
@@ -13759,10 +14019,12 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
         // UTC key would put a sale made near midnight on the neighbouring day).
         const date = toLocalISODate(new Date(t.created_at));
         if (!dailyData[date]) {
-            dailyData[date] = { sales: 0, profit: 0, count: 0 };
+            dailyData[date] = { sales: 0, profit: 0, cogs: 0, items: 0, count: 0 };
         }
         dailyData[date].sales += t.total;
         dailyData[date].profit += profit;
+        dailyData[date].cogs += transactionCOGS;
+        dailyData[date].items += transactionItems;
         dailyData[date].count++;
         
         // Category and product aggregation
@@ -13828,6 +14090,15 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
     if (reportProfitReinvested) reportProfitReinvested.innerText = `$${profitReinvested.toFixed(2)}`;
     if (reportAvailableProfit) reportAvailableProfit.innerText = `$${availableProfit.toFixed(2)}`;
     if (reportReinvestmentRate) reportReinvestmentRate.innerText = `${reinvestmentRate.toFixed(1)}%`;
+
+    // Revenue & Profit report, day by day, totalled once for the whole period.
+    renderRevenueProfitReport(dailyData, {
+        revenue: totalRevenue,
+        cogs: totalCOGS,
+        profit: totalGrossProfit,
+        items: totalItemsSold,
+        transactions: transactions.length
+    });
     
     // Render profit utilization chart
     const profitUtilizationCtx = document.getElementById('profitUtilizationChart');
@@ -14046,6 +14317,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
     
     // Category breakdown table
     const categoryBreakdownList = document.getElementById('categoryBreakdownList');
+    window.__salesReportCategoryData = categoryData || {};
     if (categoryBreakdownList) {
         const categoryLabels = Object.keys(categoryData);
         const totalRevenueForContribution = totalRevenue;
