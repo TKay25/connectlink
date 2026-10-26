@@ -1,17 +1,17 @@
 PASS  script started
-PASS  read the POS page  -> 1091643 chars
-PASS  read the committed POS page for comparison  -> 1087713 chars
-PASS  loadSalesReport() parses  -> 3970 chars (lines 13545-13630)
-PASS  updateReportDateRange() parses  -> 717 chars (lines 13465-13480)
-PASS  renderSalesReport() parses  -> 22188 chars (lines 13630-14078)
-PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 20608-20632)
-PASS  renderAnalytics() parses  -> 37870 chars (lines 20762-21501)
-PASS  reportScopeLabel() parses  -> 681 chars (lines 20676-20689)
-PASS  syncAnalyticsScope() parses  -> 576 chars (lines 20693-20705)
-PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 20710-20721)
-PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 20723-20729)
-PASS  toLocalISODate() parses  -> 222 chars (lines 20647-20651)
-PASS  fmtDayLong() parses  -> 259 chars (lines 20664-20669)
+PASS  read the POS page  -> 1135852 chars
+PASS  read the committed POS page for comparison  -> 1133523 chars
+PASS  loadSalesReport() parses  -> 3970 chars (lines 13570-13655)
+PASS  updateReportDateRange() parses  -> 717 chars (lines 13490-13505)
+PASS  renderSalesReport() parses  -> 22819 chars (lines 14088-14552)
+PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 21384-21408)
+PASS  renderAnalytics() parses  -> 37870 chars (lines 21550-22289)
+PASS  reportScopeLabel() parses  -> 681 chars (lines 21464-21477)
+PASS  syncAnalyticsScope() parses  -> 576 chars (lines 21481-21493)
+PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 21498-21509)
+PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 21511-21517)
+PASS  toLocalISODate() parses  -> 222 chars (lines 21423-21427)
+PASS  fmtDayLong() parses  -> 259 chars (lines 21452-21457)
 PASS  the analytics page is drawn from one filtered report, not its own fetch  -> renderAnalytics() draws currentReportData (0 fetch( inside it); the report itself is fetched once, in loadSalesReport
 PASS  loadSalesReport() publishes the applied scope  -> window.__reportScope present
 PASS  the scope is published BEFORE the fetch, never after it  -> scope at 2485, fetch at 2693
@@ -39,7 +39,7 @@ PASS  applyAnalyticsPeriod() refuses a half-filled custom range  -> guards on th
 PASS  applyAnalyticsPeriod() refuses a backwards range  -> checks the ends are in order
 PASS  a custom date applies as soon as both ends are filled  -> calls applyAnalyticsPeriod()
 PASS  no UTC day key is left in the page (toISOString().split('T')[0])  -> 0 left
-PASS  the local-day key is what the page uses instead  -> 21 uses
+PASS  the local-day key is what the page uses instead  -> 26 uses
 PASS  the report daily buckets are keyed on the shop clock  -> toLocalISODate in the report daily pass
 PASS  the analytics daily buckets are keyed on the shop clock  -> toLocalISODate in the analytics daily pass
 PASS  the brief names the strongest day readably, not as a raw key  -> fmtDayLong(bestDay)
@@ -48,15 +48,13 @@ PASS  an empty period is written as empty, not left as the last period on screen
 PASS  the empty brief still names the applied period  -> uses reportScopeLabel()
 PASS  the empty page clears the previous period's figures  -> clears KPI / intel / action / mover / top-product containers
 PASS  a first visit to Analytics draws the page on the data it just loaded  -> loadSalesReport(...).then(... renderAnalytics())
-FAIL  the committed brief took its period from the analytics selector  -> the words and the figures could disagree at HEAD: the committed brief already used an applied scope
-FAIL  the committed analytics selector was pre-set to a period nobody applied  -> a hard-coded default sat on the selector at HEAD
-FAIL  the committed page keyed days by UTC in more than one place  -> 0 UTC day keys at HEAD, 0 now
+PASS  HEAD already carries the period-scope fix, so there is no before-state to compare
 PASS  the stand-in POS server is up  -> http://127.0.0.1:8798/pos-system.html
 PASS  the real page loads in a real browser  -> http://127.0.0.1:8798/pos-system.html
 PASS  the browser is on the shop's clock  -> Africa/Harare
-PASS  a first visit to Analytics draws the tab on the data it just loaded  -> display=block  MANAGEMENT BRIEF Across Today (19 Oct 2026) the shop rang up 2 sale(s) for $105.00 in revenue and $41.76 gross profit, a 39.8% margin, with an average
+PASS  a first visit to Analytics draws the tab on the data it just loaded  -> display=block  MANAGEMENT BRIEF Across Today (26 Oct 2026) the shop rang up 2 sale(s) for $105.00 in revenue and $41.76 gross profit, a 39.8% margin, with an average
 PASS  the brief's figures are the applied period's figures  -> today = $105.00 over 2 sale(s)
-PASS  the day the brief names is the shop's day, not the UTC day  -> strongest trading day: 'Monday, 19 Oct 2026' (a UTC key would say 'Sunday, 18 Oct 2026')
+PASS  the day the brief names is the shop's day, not the UTC day  -> strongest trading day: 'Monday, 26 Oct 2026' (a UTC key would say 'Sunday, 25 Oct 2026')
 PASS  the two selectors and the applied scope all read the same period  -> scope=today analytics=today sales=today
 PASS  the "holding stock but sold nothing" sentence is followed by the products themselves  -> the box reads 'Show the 10 product(s) holding stock - $1,926.00 at cost'
 PASS  and the slow-moving line is followed by the lines themselves  -> the box reads 'Show the 1 line(s) that moved under 5 units'
@@ -66,17 +64,17 @@ PASS  and it names the products the movers panel above leaves out, rather than t
 PASS  each listed product shows what it holds and what that stock is worth  -> expected a row reading "Garden Fork ... 9 in stock 126.00"; the last one reads ['Garden Fork DIY 9 in stock $126.00']
 PASS  the slow-moving box opens onto the lines that moved under 5 units  -> slow rows: ['Roof Paint 5L DIY 2 sold 6 in stock']
 PASS  both shut again, leaving the brief reading as it did  -> 2 box(es), 0 still open, 0 row(s) rendered
-PASS  picking a period on the Analytics tab applies it at once, and the brief names it  -> MANAGEMENT BRIEF Across This month (1 Oct 2026 to 19 Oct 2026) the shop rang up 3 sale(s) for $125.00 in revenue and $49.76 gross profit, a 39.8% margin, with an average 
+PASS  picking a period on the Analytics tab applies it at once, and the brief names it  -> MANAGEMENT BRIEF Across This month (1 Oct 2026 to 26 Oct 2026) the shop rang up 3 sale(s) for $125.00 in revenue and $49.76 gross profit, a 39.8% margin, with an average 
 PASS  and the month's money is the month's, not a single day's  -> month = $125.00 over 3 sale(s)
 PASS  the shorter period it came from is no longer quoted, so the words and the figures moved together  -> today $105.00 is gone from a month brief
 PASS  the Analytics choice is the same scope the Sales Report is on  -> sales selector=month applied=month
 PASS  changing the period again moves the words and the money together  -> week = $105.00 over 2 sale(s)
 PASS  the week holds nothing but today here, so its total is the day's  -> week = today = $105.00
 PASS  a half-made choice does not get named in the brief  -> selector=custom but the figures are still week
-PASS  once the dates are picked the brief follows the dates that were applied  -> MANAGEMENT BRIEF Across Custom range (1 Oct 2026 to 18 Oct 2026) the shop rang up 1 sale(s) for $20.00 in revenue and $8.00 gross profit, a 40.0% margin, with an average 
+PASS  once the dates are picked the brief follows the dates that were applied  -> MANAGEMENT BRIEF Across Custom range (1 Oct 2026 to 25 Oct 2026) the shop rang up 1 sale(s) for $20.00 in revenue and $8.00 gross profit, a 40.0% margin, with an average 
 PASS  and the custom range's money is its own  -> custom ($20.00 over 1 sale(s)) is not today ($105.00)
 PASS  a custom range moves the Sales Report onto the same dates  -> sales selector=custom applied=custom
-PASS  a period that traded nothing says so instead of leaving the last period's brief up  -> MANAGEMENT BRIEF Across Yesterday (18 Oct 2026) the shop rang up no sales.
+PASS  a period that traded nothing says so instead of leaving the last period's brief up  -> MANAGEMENT BRIEF Across Yesterday (25 Oct 2026) the shop rang up no sales.
 PASS  the previous period's figures go with it, so no stale money is left under the new period  -> kpis were 'REVENUE $20.00 new GROSS PROFIT $8.00 new MARGIN 40.0% new T', now ''
-PASS  after the period is changed on the Sales Report, coming back to the Analytics tab re-writes the brief for the period now applied  -> selector=today applied=today :: MANAGEMENT BRIEF Across Today (19 Oct 2026) the shop rang up 2 sale(s) for $105.00 in revenue and $41.76 gross profit, a 39.8% mar
+PASS  after the period is changed on the Sales Report, coming back to the Analytics tab re-writes the brief for the period now applied  -> selector=today applied=today :: MANAGEMENT BRIEF Across Today (26 Oct 2026) the shop rang up 2 sale(s) for $105.00 in revenue and $41.76 gross profit, a 39.8% mar
 PASS  no page script threw while all of that was driven  -> clean run

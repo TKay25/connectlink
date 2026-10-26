@@ -1,6 +1,6 @@
-﻿"""Capture a project through the REAL /contract_log route and check every amount.
+﻿"""Capture a project through the REAL /contract_log route and check every amount,
 
-Runs entirely in-process against a recording stand-in for the database, so no
+then check the branch/department summary the sales PDF is built from. Runs entirely\nin-process against a recording stand-in for the database, so no
 connection is ever made to the live Render Postgres: DATABASE_URL points at a
 closed local port and db_helper is replaced before ConnectLink is imported.
 
@@ -95,6 +95,19 @@ def fake_execute_query(sql, params=None, fetch_all=False, fetch_one=False, commi
     flat = ' '.join(str(sql).split()).upper()
     if 'LASTVAL' in flat:
         return (4242,)
+    if 'BUCKET_START' in flat:
+        # the trend behind the chart: two real weeks, one week missing on purpose
+        import datetime as _dt
+        return [
+            (_dt.date(2026, 8, 31), 1200.50, 800.25),
+            (_dt.date(2026, 9, 7), 2500.00, 1500.00),
+            (_dt.date(2026, 9, 21), 900.00, 400.00),
+        ]
+    if 'TRANSACTION_COUNT' in flat and 'BRANCH_NAME' in flat:
+        return [
+            ('Shurugwi', 'hardware', 10, 25, 5000.00, 3000.00),
+            ('Shurugwi', 'furniture', 2, 3, 1000.00, 900.00),
+        ]
     return [] if fetch_all else (None if fetch_one else True)
 
 
@@ -361,6 +374,49 @@ with app.test_request_context('/'):
     check('an unknown department falls back to Hardware',
           ConnectLink.current_department() == 'hardware', ConnectLink.current_department())
 
+# ---------------------------------------------------------------------------
+# 8. The branch/department summary the PDF is built from - including the trend
+#    series the chart draws (weeks here; day / month are the same query).
+# ---------------------------------------------------------------------------
+api_client = app.test_client()
+with api_client.session_transaction() as sess:
+    sess['user_id'] = 1
+    sess['userid'] = 1
+    sess['user_uuid'] = 'test-uuid'
+api_resp = api_client.get('/api/transactions/branch-department-summary'
+                          '?start=2026-09-01&end=2026-09-30&bucket=week')
+check('summary API returns 200', api_resp.status_code == 200, api_resp.status_code)
+data = api_resp.get_json() or {}
+check('summary API reports success', data.get('success') is True, data.get('error'))
+summary_rows = data.get('rows') or []
+check('summary has one row per branch+department', len(summary_rows) == 2, len(summary_rows))
+if len(summary_rows) == 2:
+    check('department labels are Hardware / Furniture',
+          [r['department_label'] for r in summary_rows] == ['Hardware', 'Furniture'],
+          [r['department_label'] for r in summary_rows])
+    check('row revenue/profit', near(summary_rows[0]['revenue'], 5000.0)
+          and near(summary_rows[0]['profit'], 2000.0),
+          f"{summary_rows[0]['revenue']} / {summary_rows[0]['profit']}")
+totals_api = data.get('totals') or {}
+check('totals revenue 6000', near(totals_api.get('revenue'), 6000.0), totals_api.get('revenue'))
+check('totals profit 2100', near(totals_api.get('profit'), 2100.0), totals_api.get('profit'))
+
+check('bucket is week', data.get('bucket') == 'week', data.get('bucket'))
+series = data.get('series') or []
+check('5 weekly buckets cover 1-30 Sep', len(series) == 5,
+      [p.get('date') for p in series])
+if len(series) == 5:
+    check('weeks start on Monday', series[0]['date'] == '2026-08-31', series[0]['date'])
+    check('first week carries its revenue', near(series[0]['revenue'], 1200.50), series[0]['revenue'])
+    check('first week profit = revenue - cogs', near(series[0]['profit'], 400.25), series[0]['profit'])
+    check('second week carries its revenue', near(series[1]['revenue'], 2500.0), series[1]['revenue'])
+    check('quiet week is filled with zero', near(series[2]['revenue'], 0.0) and near(series[2]['profit'], 0.0),
+          f"{series[2]['revenue']} / {series[2]['profit']}")
+    check('fourth week carries its revenue', near(series[3]['revenue'], 900.0), series[3]['revenue'])
+    check('last week is filled with zero', near(series[4]['revenue'], 0.0), series[4]['revenue'])
+    check('week labels read w/c', all(p['label'].startswith('w/c ') for p in series),
+          [p['label'] for p in series])
+
 fails = [r for r in RESULTS if r.startswith('FAIL')]
 print('\n' + '=' * 70)
 print(f'{len(RESULTS) - len(fails)} passed, {len(fails)} failed')
@@ -368,4 +424,6 @@ if fails:
     for f in fails:
         print(f)
 sys.exit(1 if fails else 0)
+
+
 

@@ -400,7 +400,16 @@ check('a first visit to Analytics draws the page on the data it just loaded',
 # ---------------------------------------------------------------------------
 # 5. What the committed page did, for context (skipped if HEAD already has the fix).
 # ---------------------------------------------------------------------------
-if OLD is not None and OLD != NEW:
+# These three describe the BEFORE state only. Once the fix is committed, HEAD no
+# longer carries it, and asserting it would fail for the wrong reason - the page
+# would be reported broken when it is in fact fixed.
+def _head_still_predates_the_fix(committed):
+    if not committed or 'function renderAnalytics(' not in committed:
+        return False
+    return "getElementById('anPeriod')" in committed[committed.index('function renderAnalytics('):][:40000]
+
+
+if OLD is not None and OLD != NEW and _head_still_predates_the_fix(OLD):
     try:
         old_analytics = extract(OLD, 'function renderAnalytics(')
     except ValueError:
@@ -426,7 +435,7 @@ if OLD is not None and OLD != NEW:
           '%d UTC day keys at HEAD, %d now'
           % (count(OLD, UTC_KEY), count(NEW, UTC_KEY)))
 elif OLD is not None:
-    check('baseline is identical to the working copy (this change is committed)', True)
+    check('HEAD already carries the period-scope fix, so there is no before-state to compare', True)
 
 
 # ---------------------------------------------------------------------------
