@@ -15,7 +15,7 @@ from email.mime.multipart import MIMEMultipart
 import psycopg2
 import psycopg2.extras
 from psycopg2 import sql
-from db_helper import get_db, execute_query
+from db_helper import get_db, execute_query, schema_writes_allowed
 import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.styles import PatternFill, Font
@@ -4689,6 +4689,14 @@ _db_init_lock = threading.Lock()
 def _ensure_db_initialized():
     global _db_init_done
     if _db_init_done:
+        return
+    # A process that is NOT the deployment must never run the migrations, seeds
+    # or startup repairs against the live database. This is the guard that would
+    # have stopped the local run that re-seeded the branch access codes.
+    if not schema_writes_allowed():
+        _db_init_done = True          # do not retry on every request
+        print("⛔ Schema bootstrap SKIPPED: this process is not authorised to change the "
+              "production database (set ALLOW_PROD_DB_WRITE=1 if you really mean it).")
         return
     with _db_init_lock:
         if _db_init_done:

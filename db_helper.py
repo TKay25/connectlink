@@ -36,7 +36,56 @@ _idle = []          # warm, idle psycopg2 connections ready for reuse as (conn, 
 _total = 0          # number of pool-managed connections currently created
 
 
+# ---------------------------------------------------------------------------
+# Production write guard
+# ---------------------------------------------------------------------------
+# This database is the LIVE one, shared with the deployed service. A developer
+# machine, a one-off script or a health probe that opens it by accident must not
+# be able to change it. On 2026-10-26 exactly that happened: a local run of the
+# app executed the boot-time schema bootstrap, which re-asserted the branch seed
+# and reset both shops' access codes, locking the tills out.
+#
+# A process counts as the DEPLOYMENT when its host says so (Render exports
+# RENDER / RENDER_SERVICE_ID) or when APP_ENV / FLASK_ENV is "production".
+# Any other process that points at the production database gets a READ-ONLY
+# session: diagnostics still work, every write fails loudly instead of quietly
+# succeeding. Set ALLOW_PROD_DB_WRITE=1 to authorise writes from such a process.
+PRODUCTION_DB_HOST_MARKER = os.getenv('PRODUCTION_DB_HOST_MARKER', 'render.com')
+
+
+def is_deployment_process():
+    """True when this process *is* the deployed service (not a laptop)."""
+    if os.getenv('RENDER') or os.getenv('RENDER_SERVICE_ID'):
+        return True
+    return str(os.getenv('APP_ENV', '')).strip().lower() == 'production' \
+        or str(os.getenv('FLASK_ENV', '')).strip().lower() == 'production'
+
+
+def points_at_production_database():
+    marker = (PRODUCTION_DB_HOST_MARKER or '').strip()
+    return bool(marker) and marker in external_database_url
+
+
+def production_writes_allowed():
+    """Whether THIS process may change the live database."""
+    if is_deployment_process():
+        return True
+    return str(os.getenv('ALLOW_PROD_DB_WRITE', '')).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def schema_writes_allowed():
+    """Whether THIS process may run the boot-time schema migrations and seeds."""
+    return production_writes_allowed()
+
+
 def _connect():
+    options = '-c timezone=Africa/Harare'
+    readonly = points_at_production_database() and not production_writes_allowed()
+    if readonly:
+        # Reads (branch codes, project rows, diagnostics) keep working; any
+        # INSERT/UPDATE/DELETE/DDL raises "cannot execute ... in a read-only
+        # transaction" instead of silently changing live data.
+        options += ' -c default_transaction_read_only=on'
     return psycopg2.connect(
         external_database_url,
         connect_timeout=10,
@@ -46,7 +95,7 @@ def _connect():
         keepalives_count=3,
         # Set the Zimbabwe timezone once at connect time so every request on the
         # connection sees local time without a per-request SET TIME ZONE round trip.
-        options='-c timezone=Africa/Harare',
+        options=options,
     )
 
 

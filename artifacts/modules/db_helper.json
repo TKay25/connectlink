@@ -4,11 +4,15 @@
   "module": "DbHelper",
   "file": "db_helper.py",
   "purpose": "Database Helper Module for EDSDEVV",
-  "entry_function": "get_db()",
+  "entry_function": "is_deployment_process()",
   "entry_flows": [
-    "db_helper → threading.Lock, psycopg2.connect, _idle.pop, conn.cursor"
+    "db_helper → threading.Lock"
   ],
   "public_api": [
+    "is_deployment_process()",
+    "points_at_production_database()",
+    "production_writes_allowed()",
+    "schema_writes_allowed()",
     "get_db()",
     "get_db_cursor_only()",
     "execute_query(query, params = None, fetch_one = False, fetch_all = False, commit = False)"
@@ -23,7 +27,7 @@
     "output": "<!-- returned output -->",
     "side_effects": "<!-- none -->"
   },
-  "notes": "Key constants: DB_POOL_MAX = int(os.getenv('DB_POOL_MAX', '3')), POOL_IDLE_PROBE_SECONDS = 15",
+  "notes": "Key constants: DB_POOL_MAX = int(os.getenv('DB_POOL_MAX', '3')), POOL_IDLE_PROBE_SECONDS = 15, PRODUCTION_DB_HOST_MARKER = os.getenv('PRODUCTION_DB_HOST_MARKER', 'render.com')",
   "why": {},
   "dont_touch": [],
   "known_risks": [],
@@ -33,6 +37,6 @@
   "file_mtime": 1776794366000,
   "file_size": 3555,
   "file_birthtime": 1776794366272.5293,
-  "generated_at": "2026-10-26T11:21:10.411122Z",
+  "generated_at": "2026-10-26T12:17:53.040722Z",
   "stale": false
 }
