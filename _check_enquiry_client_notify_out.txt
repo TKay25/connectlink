@@ -1,0 +1,21 @@
+PASS  logging an enquiry succeeds  -> 200 Enquiry #4242 posted — it now shows on every user screen until attended. The client has been messaged on WhatsApp.
+PASS  the enquiry row is still written  -> ['INSERT INTO connectlinkenquiries (timest', 'INSERT INTO activity_log (action_type, d', 'INSERT INTO whatsapp_messages (sender_ph']
+PASS  the client IS messaged on WhatsApp (this was the missing half)  -> 1 send(s)
+PASS  ...to the normalised number  -> +263771234567
+PASS  ...as a plain text message  -> text
+PASS  ...carrying the reference number  -> *Your enquiry has been successfully submitted to ConnectLink Properties, Tendai Moyo!* |  | *Reference ID:* #4242 | *Date:* 28
+PASS  ...the category
+PASS  ...and the 24-hour promise the form makes  -> *Your enquiry has been successfully submitted to ConnectLink Properties, Tendai Moyo!* |  | *Reference ID:* #4242 | *Date:* 28 October 2026 14:13 | *Category:* Quotation |  | Thank you for your enquiry. Our team 
+PASS  ...addressed to the client by name
+PASS  the endpoint reports that the client was reached  -> True
+PASS  ...and says so in its message  -> Enquiry #4242 posted — it now shows on every user screen until attended. The client has been messaged on WhatsApp.
+PASS  the confirmation is logged in the chat panel too
+PASS  a number typed with +263 and spaces still reaches the client  -> +263789876543
+PASS  a refused WhatsApp send does not lose the enquiry  -> 200 Enquiry #4242 posted — it now shows on every user screen until attended. The client could not be messaged on WhatsApp — check the number.
+PASS  ...but the operator is told the client was NOT reached
+PASS  ...in words the panel can show  -> Enquiry #4242 posted — it now shows on every user screen until attended. The client could not be messaged on WhatsApp — check the number.
+PASS  an enquiry with no number still posts  -> Enquiry #4242 posted — it now shows on every user screen until attended. No WhatsApp message was sent (no number on the enquiry).
+PASS  ...and nothing is sent to WhatsApp
+PASS  ...and the reply says no message went out  -> Enquiry #4242 posted — it now shows on every user screen until attended. No WhatsApp message was sent (no number on the enquiry).
+PASS  the enquiry FORM still sends its confirmation to the client
+PASS  the manual path calls the shared confirmation helper

@@ -42879,7 +42879,18 @@ body.dark-theme .enq-table td{border-color:#2b3a5a;}
     if(fi.files&&fi.files[0])fd.append('plan',fi.files[0]);
     fetch('/api/enquiries/manual',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(res){
       if(typeof hideLoader==='function')hideLoader();
-      if(res.status==='success'||res.success){closeManualEnqModal();window.loadUnattendedEnqs();if(window.refreshEnquiriesTab){window.refreshEnquiriesTab();}}
+      if(res.status==='success'||res.success){
+        closeManualEnqModal();window.loadUnattendedEnqs();if(window.refreshEnquiriesTab){window.refreshEnquiriesTab();}
+        // Say whether the client actually heard from us: the operator needs to
+        // know if they must phone instead of assuming the message landed.
+        if(res.client_notified){
+          alert('✅ Enquiry posted. The client has been messaged on WhatsApp.');
+        } else if(res.message && /no whatsapp message|could not be messaged/i.test(res.message)){
+          alert('⚠️ Enquiry posted, but the client was NOT messaged:\n\n'+res.message);
+        } else {
+          alert('✅ Enquiry posted.');
+        }
+      }
       else{alert(res.message||'Failed to post enquiry');}
     }).catch(function(){if(typeof hideLoader==='function')hideLoader();alert('Connection error');});
   };

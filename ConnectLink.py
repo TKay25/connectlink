@@ -39267,10 +39267,34 @@ def create_manual_enquiry():
             )
         except Exception as exc:
             print(f"Manual enquiry admin notification error: {exc}")
+
+        # ...and reassure the CLIENT, exactly as the enquiry form does. Logging an
+        # enquiry on someone's behalf without telling them left the client with no
+        # reference and no promise -- the form's confirmation is half the point.
+        client_notified = False
+        try:
+            client_notified = send_enquiry_confirmation_to_client(
+                enquiry_id,
+                clientwhatsapp,
+                client_name=username,
+                category=enqcategory,
+                has_attachment=plan_data is not None,
+                timestamp=datetime.now(),
+                source_label='manual'
+            )
+        except Exception as exc:
+            print(f"Manual enquiry client confirmation error: {exc}")
+
         return jsonify({
             'status': 'success',
-            'message': f'Enquiry #{enquiry_id} posted â€” it now shows on every user screen until attended.',
-            'enquiry_id': enquiry_id
+            'message': f'Enquiry #{enquiry_id} posted — it now shows on every user screen until attended.'
+                       + (' The client has been messaged on WhatsApp.'
+                          if client_notified else
+                          (' No WhatsApp message was sent (no number on the enquiry).'
+                           if not (clientwhatsapp or '').strip() else
+                           ' The client could not be messaged on WhatsApp — check the number.')),
+            'enquiry_id': enquiry_id,
+            'client_notified': client_notified
         })
     except Exception as e:
         print(f"Manual enquiry error: {e}")
@@ -58542,6 +58566,79 @@ def _enquiry_date_str(enq_ts):
         return str(enq_ts)
     except Exception:
         return ''
+
+
+def send_enquiry_confirmation_to_client(enquiry_id, client_whatsapp, client_name='',
+                                        category='', has_attachment=False,
+                                        timestamp=None, source_label=''):
+    """Tell a client their enquiry has been logged -- the same reassurance the
+    enquiry FORM sends.
+
+    When a client fills the form themselves the bot replies with a reference
+    number, the date, the category and "our team will contact you within 24
+    hours". A client whose enquiry an operator logs by hand from a chat is
+    getting the same promise made on their behalf, so they must hear it too --
+    otherwise the enquiry exists and the client has no idea.
+
+    Best-effort by design: a WhatsApp failure must never lose the enquiry, so
+    every error is printed and reported back as False. The message is written in
+    plain text (no emoji) so it reads cleanly whatever encoding the sender used.
+    """
+    try:
+        phone = _wa_normalize_phone(client_whatsapp)
+    except Exception:
+        phone = (str(client_whatsapp or '').strip() or None)
+    if not phone:
+        return False
+
+    when = timestamp or datetime.now()
+    try:
+        when_str = when.strftime('%d %B %Y %H:%M')
+    except Exception:
+        when_str = str(when)
+
+    name = str(client_name or '').strip()
+    body = (
+        "*Your enquiry has been successfully submitted to ConnectLink Properties"
+        + (f", {name}" if name else '') + "!*\n\n"
+        "*Reference ID:* #" + str(enquiry_id) + "\n"
+        "*Date:* " + when_str + "\n"
+        "*Category:* " + str(category or 'General') + "\n"
+        + ("*Attachment:* Yes\n" if has_attachment else "")
+        + "\nThank you for your enquiry. Our team will contact you within 24 hours.\n\n"
+        + "_For urgent matters, please call our office._"
+    )
+
+    try:
+        result = _enquiry_send_text(phone, body)
+    except Exception as exc:
+        print(f"Enquiry confirmation to client failed ({enquiry_id}): {exc}")
+        return False
+
+    # _enquiry_send_text() is fire-and-forget: it returns the API's reply but
+    # never inspects it. A rejected send (no open 24-hour window, bad number)
+    # must not be reported as a success, because the operator then believes the
+    # client was told and nobody rings them.
+    ok = bool(result) and '"error"' not in str(result)
+    if not ok:
+        print(f"Enquiry confirmation rejected by WhatsApp ({enquiry_id}): {str(result)[:300]}")
+        return False
+
+    # Show it in the chat panel too, so the operator sees what the client was told.
+    try:
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                INSERT INTO whatsapp_messages
+                    (sender_phone, sender_name, message_text, message_type, direction, status)
+                VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
+            """, (phone, 'ConnectLink Bot',
+                  "Enquiry #%s confirmation (%s)" % (enquiry_id, source_label or 'manual'),
+                  'text'))
+            connection.commit()
+    except Exception as exc:
+        print(f"Note: could not record the enquiry confirmation in the chat log: {exc}")
+
+    return True
 
 
 def _enquiry_send_text(to, text):
