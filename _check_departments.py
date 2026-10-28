@@ -266,15 +266,22 @@ check('the transactions tab is scoped to the department',
 # the header keep showing the whole shop while the register showed one
 # department. This is the assertion that stops that returning.
 header = grab('today_by_cashier')
+takings = grab('department_takings_sql')
 check('the cashier header totals are department-scoped',
-      'COALESCE(_d.department, %s) = ANY(%s)' in header,
+      "department_takings_sql('t')" in header
+      and re.search(r"COALESCE\(_d\.department, (?:'hardware'|'\{DEFAULT_DEPARTMENT\}')\) = ANY\(%s\)",
+                    takings),
       'a list of departments: one on Hardware/Furniture, both on All')
 check("the header's Items Sold counts only this department",
-      'AND COALESCE(department, %s) = %s' in header
-      or 'AND COALESCE(department, %s) = ANY(%s)' in header)
+      "SUM({col})" in takings and "col='quantity'" in takings
+      and re.search(r"COALESCE\(department, (?:'hardware'|'\{DEFAULT_DEPARTMENT\}')\) = ANY\(%s\)",
+                    takings))
 check('the header payment breakdown is department-scoped',
-      header.count('COALESCE(_d.department, %s) = ANY(%s)') >= 2,
-      header.count('COALESCE(_d.department, %s) = ANY(%s)'))
+      header.count('{takings_where}') >= 2,
+      header.count('{takings_where}'))
+check('the header takes its money from the sale LINES, so the shelves add up',
+      'SUM({col}), 0)' in takings,
+      'a mixed basket is split between the two departments, not charged to both')
 
 check('a sale records the department it was rung in',
       src.count("INSERT INTO transaction_items") >= 1 and 'department' in src)

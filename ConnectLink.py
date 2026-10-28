@@ -4454,6 +4454,48 @@ def department_scope_clause(parent_id_expr, child_table, child_fk, department_co
             [department_read_scope()])
 
 
+def department_takings_sql(parent_alias='transactions'):
+    """SQL for today's takings and items sold in the departments on screen.
+
+    The money and the quantities are read from the sale LINES, the same basis the
+    Sales & Profit report uses. That is what makes the shelves add up: a basket
+    holding one Hardware item and one Furniture item is split between the two
+    instead of charging its whole receipt to each, so Hardware + Furniture is
+    exactly what the shop took, and switching the till can never invent money.
+
+    A transaction whose lines are all outside the departments in view is left
+    out, which is what makes a department's figure its own shelf's. On the All
+    view a completed transaction with no lines at all (no till path writes one,
+    but a migrated row could) still counts at its receipt total, so the
+    whole-shop figure can never come out below the receipts.
+
+    Returns three (sql, params) pairs -- revenue, items, where -- so each
+    fragment carries its own parameters and a caller can never mismatch them.
+    Unpack with:
+
+        (rev_sql, rev_params), (items_sql, items_params), (where_sql, where_params) = \
+            department_takings_sql('t')
+    """
+    p = parent_alias
+    depts = [department_read_scope()]
+    scope_line = ("(SELECT COALESCE(SUM({col}), 0) FROM transaction_items "
+                  f"WHERE transaction_id = {p}.id "
+                  f"AND COALESCE(department, '{DEFAULT_DEPARTMENT}') = ANY(%s))")
+    has_lines = (f"EXISTS (SELECT 1 FROM transaction_items _any "
+                 f"WHERE _any.transaction_id = {p}.id)")
+    revenue_sql = ("CASE WHEN " + has_lines + " THEN " + scope_line.format(col='subtotal')
+                   + f" ELSE {p}.total END")
+    items_sql = scope_line.format(col='quantity')
+    in_scope = (f"EXISTS (SELECT 1 FROM transaction_items _d WHERE _d.transaction_id = {p}.id "
+                f"AND COALESCE(_d.department, '{DEFAULT_DEPARTMENT}') = ANY(%s))")
+    if current_department_view() == DEPARTMENT_ALL:
+        where_sql = (" AND (" + in_scope + " OR NOT EXISTS (SELECT 1 FROM transaction_items _x "
+                     f"WHERE _x.transaction_id = {p}.id))")
+    else:
+        where_sql = " AND " + in_scope
+    return (revenue_sql, depts), (items_sql, depts), (where_sql, depts)
+
+
 def resolve_product_department(cursor, product_id, branch_id):
     """Which department a product sits in for one branch.
 
@@ -23797,6 +23839,11 @@ def get_branch_department_summary():
         LEFT JOIN products p ON p.id = ti.product_id
         LEFT JOIN branches b ON b.id = t.branch_id
         WHERE t.voided = FALSE
+          -- A layby is money in the till but not a sale yet: it becomes
+          -- 'completed' when it is paid off, which is when it counts here. Every
+          -- "sales today" figure in the till applies the same rule, so the report
+          -- and the header can never tell two different stories.
+          AND t.status = 'completed'
           AND t.created_at::date >= %s::date
           AND t.created_at::date <= %s::date
     """
@@ -23858,6 +23905,7 @@ def get_branch_department_summary():
         "JOIN transactions t ON t.id = ti.transaction_id "
         "LEFT JOIN products p ON p.id = ti.product_id "
         "WHERE t.voided = FALSE "
+        "AND t.status = 'completed' "
         "AND t.created_at::date >= %s::date "
         "AND t.created_at::date <= %s::date"
     )
@@ -24447,32 +24495,26 @@ def get_categories():
 @login_required
 def get_dashboard_stats():
     """Get dashboard statistics"""
-    today_query = """
+    # Today's takings and items sold come from the sale LINES in the departments
+    # on screen (see department_takings_sql), so the header adds up per shelf and
+    # a mixed basket is never counted in full twice.
+    (revenue_sql, revenue_params), (items_sql, items_params), (takings_where, takings_params) = \
+        department_takings_sql('transactions')
+    today_query = f"""
         SELECT 
-            COALESCE(SUM(total), 0) as today_sales,
-            COALESCE(SUM(
-                (SELECT COALESCE(SUM(quantity), 0) 
-                 FROM transaction_items 
-                 WHERE transaction_id = transactions.id
-                   AND COALESCE(department, %s) = ANY(%s))
-            ), 0) as items_sold
+            COALESCE(SUM({revenue_sql}), 0) as today_sales,
+            COALESCE(SUM({items_sql}), 0) as items_sold
         FROM transactions
         WHERE DATE(created_at) = CURRENT_DATE
         AND status = 'completed'
         AND voided = FALSE
-        -- The dashboard follows the department the till is showing.
-        AND EXISTS (
-            SELECT 1 FROM transaction_items _d
-            WHERE _d.transaction_id = transactions.id
-              AND COALESCE(_d.department, %s) = ANY(%s)
-        )
+        {takings_where}
     """
-    _dash_depts = department_read_scope()
     branch_where, branch_params = branch_read_clause('branch_id')
     today_query = today_query + branch_where
     today_result = execute_query(
         today_query,
-        (DEFAULT_DEPARTMENT, _dash_depts, DEFAULT_DEPARTMENT, _dash_depts) + tuple(branch_params),
+        tuple(revenue_params) + tuple(items_params) + tuple(takings_params) + tuple(branch_params),
         fetch_one=True)
     
     # Low stock is a PER-BRANCH figure: the same catalogue item can be plentiful
@@ -24527,60 +24569,50 @@ def today_by_cashier():
     Mirrors get_dashboard_stats() semantics (DATE(created_at) = CURRENT_DATE, status='completed')."""
     try:
         from collections import OrderedDict
-        totals_query = """
+        (revenue_sql, revenue_params), (items_sql, items_params), (takings_where, takings_params) = \
+            department_takings_sql('t')
+        totals_query = f"""
             SELECT COALESCE(u.full_name, 'Unknown') AS cashier,
-                   COALESCE(SUM(t.total), 0) AS total,
+                   COALESCE(SUM({revenue_sql}), 0) AS total,
                    COUNT(*) AS transaction_count,
-                   COALESCE(SUM((
-                       SELECT COALESCE(SUM(quantity), 0)
-                       FROM transaction_items
-                       WHERE transaction_id = t.id
-                         AND COALESCE(department, %s) = ANY(%s)
-                   )), 0) AS items_sold
+                   COALESCE(SUM({items_sql}), 0) AS items_sold
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
             WHERE DATE(t.created_at) = CURRENT_DATE
               AND t.status = 'completed'
               AND t.voided = FALSE
-              -- A sale belongs to the department it was rung in: the header must
-              -- show the SELECTED department's takings, not the whole shop's.
-              AND EXISTS (
-                  SELECT 1 FROM transaction_items _d
-                  WHERE _d.transaction_id = t.id
-                    AND COALESCE(_d.department, %s) = ANY(%s)
-              )
+              -- A sale belongs to the department its LINES belong to: the header
+              -- must show the selected shelf's takings, not the whole shop's.
+              {takings_where}
         """
-        _dept = department_read_scope()
         tbc_where, tbc_params = branch_read_clause('t.branch_id')
         totals_query = totals_query + tbc_where + """
             GROUP BY u.full_name
             ORDER BY total DESC
         """
-        rows = execute_query(totals_query,
-                             (DEFAULT_DEPARTMENT, _dept, DEFAULT_DEPARTMENT, _dept)
-                             + tuple(tbc_params), fetch_all=True)
+        rows = execute_query(
+            totals_query,
+            tuple(revenue_params) + tuple(items_params) + tuple(takings_params) + tuple(tbc_params),
+            fetch_all=True)
 
-        pm_query = """
+        pm_query = f"""
             SELECT COALESCE(u.full_name, 'Unknown') AS cashier,
                    COALESCE(LOWER(t.payment_method), 'other') AS method,
-                   COALESCE(SUM(t.total), 0) AS total
+                   COALESCE(SUM({revenue_sql}), 0) AS total
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
             WHERE DATE(t.created_at) = CURRENT_DATE
               AND t.status = 'completed'
               AND t.voided = FALSE
-              AND EXISTS (
-                  SELECT 1 FROM transaction_items _d
-                  WHERE _d.transaction_id = t.id
-                    AND COALESCE(_d.department, %s) = ANY(%s)
-              )
+              {takings_where}
         """
         pm_where, pm_params = branch_read_clause('t.branch_id')
         pm_query = pm_query + pm_where + """
             GROUP BY u.full_name, t.payment_method
         """
-        pm_rows = execute_query(pm_query, (DEFAULT_DEPARTMENT, _dept) + tuple(pm_params),
-                                fetch_all=True)
+        pm_rows = execute_query(
+            pm_query, tuple(revenue_params) + tuple(takings_params) + tuple(pm_params),
+            fetch_all=True)
 
         cashier_map = OrderedDict()
         for r in rows:

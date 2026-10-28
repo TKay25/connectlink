@@ -1,0 +1,54 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckDashboardDepartmentTotals",
+  "file": "_check_dashboard_department_totals.py",
+  "purpose": "Prove the POS header's per-department money adds up.",
+  "entry_function": "class Cur  # line 51",
+  "entry_flows": [
+    "Cur.execute(sql, params = None) → environ.pop, path.dirname, path.abspath, path.join",
+    "Conn.commit() → environ.pop, path.dirname, path.abspath, path.join",
+    "_HTML.__init__() → environ.pop, path.dirname, path.abspath, path.join"
+  ],
+  "public_api": [
+    "class Cur  # line 51",
+    "  Cur.execute(sql, params = None)",
+    "  Cur.executemany(sql, seq)",
+    "  Cur.fetchone()",
+    "  Cur.fetchall()",
+    "class Conn  # line 74",
+    "  Conn.commit()",
+    "  Conn.rollback()",
+    "  Conn.close()",
+    "check(name, ok, detail = '')",
+    "fake_db()",
+    "fake_execute_query(sql, params = None, fetch_all = False, fetch_one = False, commit = False)",
+    "build_db()",
+    "to_sqlite(sql, params)",
+    "run_captured(path, session_dept, branch_id = 1, expect = 'stats')"
+  ],
+  "dependencies": [
+    "ConnectLink",
+    "db_helper",
+    "sqlite3"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), OUT = os.path.join(ROOT, '_check_dashboard_department_totals_out.txt'), RESULTS = [], SEEN = [], ANY_RE = re.compile(\"COALESCE\\\\(\\\\s*([\\\\w.]*department)\\\\s*,\\\\s*'hardware'\\\\s*\\\\)\\\\s*=\\\\s*ANY\\\\(\\\\?\\\\)\", re.I)",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "a3be9f94db52d437",
+  "file_mtime": 1793193074775.758,
+  "file_size": 14872,
+  "file_birthtime": 1793193074774.0151,
+  "generated_at": "2026-10-28T13:23:02.346218Z",
+  "stale": false
+}

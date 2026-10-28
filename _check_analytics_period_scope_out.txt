@@ -1,17 +1,17 @@
 PASS  script started
-PASS  read the POS page  -> 1139384 chars
+PASS  read the POS page  -> 1141729 chars
 PASS  read the committed POS page for comparison  -> 1139384 chars
-PASS  loadSalesReport() parses  -> 4292 chars (lines 13592-13681)
+PASS  loadSalesReport() parses  -> 4653 chars (lines 13592-13686)
 PASS  updateReportDateRange() parses  -> 717 chars (lines 13512-13527)
-PASS  renderSalesReport() parses  -> 22823 chars (lines 14114-14578)
-PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 21425-21449)
-PASS  renderAnalytics() parses  -> 37841 chars (lines 21591-22330)
-PASS  reportScopeLabel() parses  -> 681 chars (lines 21505-21518)
-PASS  syncAnalyticsScope() parses  -> 576 chars (lines 21522-21534)
-PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 21539-21550)
-PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 21552-21558)
-PASS  toLocalISODate() parses  -> 222 chars (lines 21464-21468)
-PASS  fmtDayLong() parses  -> 259 chars (lines 21493-21498)
+PASS  renderSalesReport() parses  -> 23677 chars (lines 14119-14596)
+PASS  applyAnalyticsPeriod() parses  -> 1074 chars (lines 21449-21473)
+PASS  renderAnalytics() parses  -> 38215 chars (lines 21615-22360)
+PASS  reportScopeLabel() parses  -> 681 chars (lines 21529-21542)
+PASS  syncAnalyticsScope() parses  -> 576 chars (lines 21546-21558)
+PASS  onAnalyticsPeriodChange() parses  -> 637 chars (lines 21563-21574)
+PASS  onAnalyticsDateChange() parses  -> 301 chars (lines 21576-21582)
+PASS  toLocalISODate() parses  -> 222 chars (lines 21488-21492)
+PASS  fmtDayLong() parses  -> 259 chars (lines 21517-21522)
 PASS  the analytics page is drawn from one filtered report, not its own fetch  -> renderAnalytics() draws currentReportData (0 fetch( inside it); the report itself is fetched once, in loadSalesReport
 PASS  loadSalesReport() publishes the applied scope  -> window.__reportScope present
 PASS  the scope is published BEFORE the fetch, never after it  -> scope at 2485, fetch at 3015

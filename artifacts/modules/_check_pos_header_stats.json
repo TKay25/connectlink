@@ -1,0 +1,44 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckPosHeaderStats",
+  "file": "_check_pos_header_stats.py",
+  "purpose": "Prove the POS header (Today's Sales / Items Sold) follows the All|Hardware|Furniture switch.",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 77",
+  "entry_flows": [
+    "Handler.log_message() → environ.pop, path.dirname, path.abspath, path.join"
+  ],
+  "public_api": [
+    "class Handler(SimpleHTTPRequestHandler)  # line 77",
+    "  Handler.log_message()",
+    "  Handler.do_GET()",
+    "  Handler.do_POST()",
+    "check(name, ok, detail = '')",
+    "pills()",
+    "click_and_read(dept)"
+  ],
+  "dependencies": [
+    "http",
+    "playwright",
+    "urllib"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), POS = os.path.join(ROOT, 'templates', 'pos-system.html'), RESULTS = [], PAGE_BYTES = open(POS, 'rb').read(), SALES = {'hardware': {'sales': 1000.0, 'items': 4, 'cashiers': [('Mrs G Admin', 1000.0, 4, 2)]}, 'furniture': {'sales': 990.75, 'items': 3, 'cashiers': [('Mrs G Admin', 990.75, 3, 1)]}}, STATE = {'dept': 'all', 'stats_calls': 0, 'seen_depts': []}",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "166c6a538b39218c",
+  "file_mtime": 1793192148222.1494,
+  "file_size": 12451,
+  "file_birthtime": 1793192148222.1494,
+  "generated_at": "2026-10-28T12:55:54.533781Z",
+  "stale": false
+}

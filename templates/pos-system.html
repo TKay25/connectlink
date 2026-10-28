@@ -13659,6 +13659,11 @@ async function loadSalesReport(message = 'Loading sales report...') {
         
         if (transactionsData.success) {
             const filtered = transactionsData.transactions.filter(t => {
+                // Only sales count here. A layby is money in the till but not a
+                // sale yet -- it becomes one when it is paid off -- and the
+                // exported PDF's summary applies the same rule, so the tab and
+                // the PDF can never report different revenue.
+                if (t.status !== 'completed') return false;
                 const transDate = new Date(t.created_at);
                 return transDate >= startDate && transDate <= endDate;
             });
@@ -14149,8 +14154,21 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
     
     // Add profit calculation for each transaction
     transactions.forEach(t => {
-        totalRevenue += t.total;
-        
+        // Revenue is the money on the LINES the server returned. On a department
+        // view those are that shelf's lines only, so a basket holding Hardware
+        // and Furniture is split between the two instead of charging its whole
+        // receipt to each -- the same basis as the header pills and the exported
+        // PDF, so the tab, the till and the report always agree. A receipt with
+        // no lines at all still counts at its own total.
+        const lineRevenue = (t.items || []).reduce((sum, item) => {
+            const amount = Number(item.subtotal);
+            if (Number.isFinite(amount)) return sum + amount;
+            return sum + (Number(item.price) || 0) * (Number(item.quantity) || 0);
+        }, 0);
+        const revenue = (t.items && t.items.length) ? lineRevenue : (Number(t.total) || 0);
+        t.revenue = revenue;
+        totalRevenue += revenue;
+
         // Calculate profit for this transaction
         let transactionProfit = 0;
         let transactionCOGS = 0;
@@ -14177,7 +14195,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
         
         // Hourly aggregation
         const hour = new Date(t.created_at).getHours();
-        hourlyData[hour] += t.total;
+        hourlyData[hour] += revenue;
         
         // Daily aggregation, keyed by the day the shop traded on its own clock (a
         // UTC key would put a sale made near midnight on the neighbouring day).
@@ -14185,7 +14203,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
         if (!dailyData[date]) {
             dailyData[date] = { sales: 0, profit: 0, cogs: 0, items: 0, count: 0 };
         }
-        dailyData[date].sales += t.total;
+        dailyData[date].sales += revenue;
         dailyData[date].profit += profit;
         dailyData[date].cogs += transactionCOGS;
         dailyData[date].items += transactionItems;
@@ -16849,13 +16867,19 @@ async function fetchTransactionsData() {
     // transactionsData. Called whenever transactionsData changes (init, refresh,
     // after a sale) so the pills never go stale or freeze at USD 0.00.
     function renderPOSHeaderStats() {
+        // Every figure on this row is a number or 0 -- never blank, never NaN --
+        // so a payload that omits a field cannot leave a pill empty.
+        const num = v => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        };
         const s = document.getElementById('todaySalesChip');
         if (s) {
-            s.textContent = 'USD ' + Number(transactionsData.todaySales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            s.textContent = 'USD ' + num(transactionsData.todaySales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         const it = document.getElementById('itemsSoldChip');
         if (it) {
-            it.textContent = Number(transactionsData.itemsSold || 0).toLocaleString();
+            it.textContent = num(transactionsData.itemsSold).toLocaleString();
         }
 
         // Mobile drawer mirrors of the same two figures
@@ -21622,12 +21646,17 @@ function renderAnalytics() {
     let totalRevenue = 0;
     
     currentReportData.forEach(transaction => {
-        totalRevenue += transaction.total || 0;
+        // renderSalesReport() marked each sale with the money on the lines it was
+        // given, which on a department view is that shelf's share of the basket.
+        const revenue = (transaction.revenue !== undefined && transaction.revenue !== null)
+            ? transaction.revenue
+            : (transaction.total || 0);
+        totalRevenue += revenue;
         
         // Hourly distribution
         if (transaction.created_at) {
             const hour = new Date(transaction.created_at).getHours();
-            hourlyData[hour] += transaction.total || 0;
+            hourlyData[hour] += revenue;
         }
         
         // Daily sales for trend, bucketed by the day the shop traded on its own
@@ -21638,7 +21667,7 @@ function renderAnalytics() {
             if (!dailySales[date]) {
                 dailySales[date] = { sales: 0, profit: 0 };
             }
-            dailySales[date].sales += transaction.total || 0;
+            dailySales[date].sales += revenue;
             dailySales[date].profit += transaction.profit || 0;
         }
         
@@ -21679,7 +21708,8 @@ function renderAnalytics() {
                 if (!t.created_at) return;
                 const d = new Date(t.created_at);
                 if (d >= pStart && d <= pEnd) {
-                    prevRev += t.total || 0;
+                    prevRev += (t.revenue !== undefined && t.revenue !== null)
+                        ? t.revenue : (t.total || 0);
                     prevProfit += t.profit || 0;
                     prevTx++;
                     (t.items || []).forEach(i => { prevItems += i.quantity || 0; });
@@ -23009,8 +23039,11 @@ async function switchDepartment(dept) {
         // header cards follow the same rule. Tabs that are not open re-read on their
         // own when navigated to, so nothing stale can survive the switch.
         redrawActiveTab();
-        if (typeof loadTodayByCashier === 'function') loadTodayByCashier();
-        if (typeof loadStats === 'function') loadStats();
+        // The two header pills and the cashier cards are today's takings for the
+        // department in view, so they have to be re-read too -- otherwise the till
+        // keeps showing the shelf it just left while the cards beside them show the
+        // new one. fetchDashboardStats() refreshes both.
+        if (typeof fetchDashboardStats === 'function') await fetchDashboardStats();
         if (typeof showToast === 'function') {
             showToast('Now viewing ' + (switchResult.label || dept), 'success');
         }
@@ -23108,6 +23141,9 @@ async function moveProductDepartment(productId) {
         if (typeof showToast === 'function') showToast(data.message || 'Product moved.', 'success');
         await fetchProductsFromAPI();
         redrawActiveTab();
+        // A move relabels the product's past sales company-wide, so today's
+        // per-shelf totals change the moment it lands. Re-read the header pills.
+        if (typeof fetchDashboardStats === 'function') await fetchDashboardStats();
     } catch (e) {
         if (typeof showToast === 'function') showToast('Connection error. Please try again.', 'error');
     } finally {

@@ -39,6 +39,7 @@ PASS  the transactions tab is scoped to the department
 PASS  the cashier header totals are department-scoped  -> a list of departments: one on Hardware/Furniture, both on All
 PASS  the header's Items Sold counts only this department
 PASS  the header payment breakdown is department-scoped  -> 2
+PASS  the header takes its money from the sale LINES, so the shelves add up  -> a mixed basket is split between the two departments, not charged to both
 PASS  a sale records the department it was rung in
 PASS  every stock receipt records its department
 PASS  every stock reduction records its department (where written by a sale path)  -> informational: 0 site(s) rely on the hardware default

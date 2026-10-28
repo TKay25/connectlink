@@ -1,0 +1,16 @@
+PASS  all: the dashboard runs one query  -> 1
+PASS  hardware: the dashboard runs one query  -> 1
+PASS  furniture: the dashboard runs one query  -> 1
+PASS  All shows what the shop took (voided/layby/other-day/other-branch excluded)  -> {'sales': 2315.75, 'items': 8}
+PASS  Hardware shows only its own lines  -> {'sales': 1100.0, 'items': 3}
+PASS  Furniture shows only its own lines  -> {'sales': 1190.75, 'items': 5}
+PASS  a mixed basket is SPLIT, not charged in full to each shelf  -> hardware={'sales': 1100.0, 'items': 3} furniture={'sales': 1190.75, 'items': 5}
+PASS  Hardware + Furniture is the shop total (the itemless receipt is All-only)  -> {'all': {'sales': 2315.75, 'items': 8}, 'hardware': {'sales': 1100.0, 'items': 3}, 'furniture': {'sales': 1190.75, 'items': 5}}
+PASS  the itemless receipt still shows on All, with no phantom items  -> {'sales': 2315.75, 'items': 8}
+PASS  all: the cashier card equals the header pill  -> {'card': (2315.75, 8), 'pill': {'sales': 2315.75, 'items': 8}}
+PASS  hardware: the cashier card equals the header pill  -> {'card': (1100.0, 3), 'pill': {'sales': 1100.0, 'items': 3}}
+PASS  furniture: the cashier card equals the header pill  -> {'card': (1190.75, 5), 'pill': {'sales': 1190.75, 'items': 5}}
+PASS  the PDF summary reports Shurugwi Hardware at the header figure  -> {'report': {'revenue': 1100.0, 'items': 3}, 'header': {'sales': 1100.0, 'items': 3}}
+PASS  the PDF summary reports Shurugwi Furniture at the header figure  -> {'report': {'revenue': 1190.75, 'items': 5}, 'header': {'sales': 1190.75, 'items': 5}}
+PASS  the report lists both shelves of the branch  -> [('Shurugwi', 'furniture'), ('Shurugwi', 'hardware')]
+PASS  All Branches is both shops, and still not double counted  -> {'sales': 2815.75, 'items': 12}

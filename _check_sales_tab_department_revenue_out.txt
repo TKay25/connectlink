@@ -1,0 +1,9 @@
+PASS  the Sales tab no longer sums the whole receipt for a department view
+PASS  the Sales tab prices each sale from its own LINES
+PASS  a receipt with no lines still counts at its total
+PASS  a stand-in POS server is up  -> http://127.0.0.1:8802/pos-system.html
+PASS  All view: the tab reports the whole shop (mixed basket once)  -> {'sales': 'USD 1,290.75', 'items': '6', 'profit': 'USD 530.75', 'tx': '2'}
+PASS  Hardware view: only the Hardware lines of the mixed basket count  -> {'sales': 'USD 100.00', 'items': '1', 'profit': 'USD 40.00', 'tx': '1'}
+PASS  Furniture view: its own lines, and the furniture-only sale  -> {'sales': 'USD 1,190.75', 'items': '5', 'profit': 'USD 490.75', 'tx': '2'}
+PASS  the layby deposit never reaches the sales report  -> USD 1,290.75
+PASS  no page script error was thrown  -> clean
