@@ -15698,6 +15698,12 @@ async function fetchTransactionsData() {
             cart = [];
             updateCartDisplay();
             if (data.branch) applyPOSBranch(data.branch);
+            // Opening a shop opens it on the whole shop, so the shelf chosen in
+            // the branch we just left does not follow us here. The server has
+            // already reset it; mirror that on the switch before anything reads.
+            if (data.department && data.department.key) {
+                applyDepartmentState(data.department.key);
+            }
             // The cached catalogue belongs to the shop we just left. Drop it so
             // no offline fallback can serve its stock while we are in this one.
             try { localStorage.removeItem('pos_api_cache_v1'); } catch (e) {}
@@ -22964,12 +22970,13 @@ function setText(id, value) {
 // Switch the whole till between All, Hardware and Furniture. Every tab (POS
 // grid, Inventory, sales, transactions, analytics) follows this; the exported
 // PDF always covers every department. All is the landing position.
+//
+// Deliberately NOT blocked on the read-only "All Branches" view: choosing what
+// you LOOK AT is a read, and an owner comparing the two shops' furniture still
+// needs to switch shelves. What that view really forbids -- ringing a sale,
+// moving stock -- is refused by the server, not by this button.
 async function switchDepartment(dept) {
     if (!dept || dept === posDepartment) return;
-    if (typeof branchIsReadOnly === 'function' && branchIsReadOnly()) {
-        if (typeof showToast === 'function') showToast('All Branches is read-only.', 'error');
-        return;
-    }
     showDepartmentLoader(true);
     try {
         // The server holds the department in the SESSION, and /api/products reads
@@ -23074,11 +23081,14 @@ async function moveProductDepartment(productId) {
     const label = target === 'hardware' ? 'Hardware' : 'Furniture';
     const prod = (products || []).find(p => String(p.id) === String(productId));
     const qty = prod ? (prod.stock || 0) : 0;
-    // Say plainly what will happen to the stock: it MOVES, it is not copied.
+    // Say plainly what will happen: the goods MOVE (not copied), and the ruling
+    // is about the ITEM, so it applies to every shop that holds it.
     const msg = `Move "${prod ? prod.name : 'this product'}" to ${label}?\n\n`
-        + `Its stock moves with it: ${qty} unit(s) will leave `
-        + `${posDepartment === 'hardware' ? 'Hardware' : 'Furniture'} and arrive in ${label}.\n`
-        + `The total held by this branch does not change.`;
+        + `This applies to ALL branches, not just this one: every shop that holds `
+        + `the item will file it under ${label}.\n`
+        + `In this branch, ${qty} unit(s) leave `
+        + `${posDepartment === 'hardware' ? 'Hardware' : 'Furniture'} and arrive in ${label}. `
+        + `No branch's total holding changes.`;
     if (!window.confirm(msg)) return;
 
     // Money-moving operation: block the screen until the server has committed.

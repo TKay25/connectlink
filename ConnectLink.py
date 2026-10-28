@@ -4064,6 +4064,84 @@ def move_product_department(cursor, product_id, branch_id, to_department, user_i
             'unchanged': False}
 
 
+def branches_holding_product(cursor, product_id, include_branch_id=None):
+    """Every branch that actually has this product: stock, filing or past sales.
+
+    A shop that has never held the item is deliberately NOT included. Moving a
+    product into Furniture across the company must not make it appear, out of
+    stock, on a shelf it never sat on -- that is how a shop ends up "carrying"
+    something it has never bought.
+    """
+    cursor.execute("""
+        SELECT DISTINCT branch_id FROM (
+            SELECT branch_id FROM product_stock WHERE product_id = %s
+            UNION
+            SELECT branch_id FROM product_departments WHERE product_id = %s
+            UNION
+            SELECT t.branch_id FROM transaction_items ti
+              JOIN transactions t ON t.id = ti.transaction_id
+             WHERE ti.product_id = %s
+        ) held
+        WHERE branch_id IS NOT NULL
+    """, (product_id, product_id, product_id))
+    branches = {int(r[0]) for r in (cursor.fetchall() or []) if r and r[0] is not None}
+    if include_branch_id:
+        branches.add(int(include_branch_id))
+    return sorted(branches)
+
+
+def move_product_department_everywhere(cursor, product_id, to_department, user_id=0,
+                                       user_name='System', notes='', include_branch_id=None):
+    """File one product in `to_department` for the WHOLE company.
+
+    The "To Furniture" button is an operator saying "this item is furniture" --
+    that is a fact about the item, not about one shop's shelf, so it is applied
+    to every branch that holds it. Each branch is moved by
+    move_product_department(), which takes the goods and their FIFO layers across
+    so every branch conserves its quantities and its cost.
+
+    `include_branch_id` is the branch the operator clicked from: it is moved even
+    if the product has no stock there yet, because the filing is what makes it
+    appear on that shelf.
+
+    Returns a per-branch report plus the company totals.
+    """
+    to_department = (to_department or '').strip().lower()
+    if to_department not in DEPARTMENTS:
+        raise ValueError('Unknown department: %s' % to_department)
+    if not product_id:
+        raise ValueError('A product is required.')
+
+    details = []
+    for branch_id in branches_holding_product(cursor, product_id, include_branch_id):
+        result = move_product_department(
+            cursor, product_id, branch_id, to_department,
+            user_id=user_id, user_name=user_name, notes=notes) or {}
+        details.append({
+            'branch_id': branch_id,
+            'from': result.get('from'),
+            'to': result.get('to', to_department),
+            'quantity': result.get('quantity', 0),
+            'cost': result.get('cost', 0),
+            'sales_relabelled': result.get('sales_relabelled', 0),
+            'unchanged': bool(result.get('unchanged')),
+        })
+
+    moved_branches = [d for d in details if not d['unchanged'] and d['from'] != to_department]
+    return {
+        'from': (moved_branches[0]['from'] if moved_branches
+                 else (details[0]['from'] if details else None)),
+        'to': to_department,
+        'quantity': sum(d['quantity'] for d in details),
+        'cost': round(sum(float(d['cost'] or 0) for d in details), 2),
+        'sales_relabelled': sum(d['sales_relabelled'] for d in details),
+        'branches': len(details),
+        'branches_moved': len(moved_branches),
+        'details': details,
+        'unchanged': not moved_branches,
+    }
+
+
 # ===================== FIFO COSTING + PER-BRANCH PRICING =====================
 # The quantity truth is product_stock (per branch). The COST truth is stock_lots
 # (per branch, per receipt). Nothing here trusts "the latest buy price": a sale
@@ -4282,9 +4360,15 @@ DEPARTMENT_VIEW_LABELS = dict(DEPARTMENT_LABELS, **{DEPARTMENT_ALL: 'All'})
 def current_department_view():
     """What the till is LOOKING at: 'all', 'hardware' or 'furniture'.
 
-    Anything unrecognised -- including a session from before this existed --
-    falls back to All, which is the whole-shop view.
+    A session that never deliberately chose a shelf opens on All, which is the
+    whole-shop view. That includes every session from before the All view
+    existed: those all carry 'hardware' because the old till wrote it on every
+    page load, so honouring it would keep the whole estate stuck in Hardware.
+    The `department_chosen` marker is what separates a real choice from that
+    forced default -- the switch, a sign-in and a branch change all set it.
     """
+    if not session.get('department_chosen'):
+        return DEPARTMENT_ALL
     dept = (session.get('department') or '').strip().lower()
     return dept if dept in DEPARTMENT_VIEWS else DEPARTMENT_ALL
 
@@ -4297,6 +4381,8 @@ def current_department():
     the last concrete shelf chosen (Hardware to begin with); the sale paths use
     resolve_view_department() to file each product on its own shelf instead.
     """
+    if not session.get('department_chosen'):
+        return DEFAULT_DEPARTMENT
     dept = (session.get('department') or '').strip().lower()
     return dept if dept in DEPARTMENTS else DEFAULT_DEPARTMENT
 
@@ -15216,12 +15302,18 @@ def run1hardware(all_departments=False):
     if all_departments or current_department_view() == DEPARTMENT_ALL:
         # Name hints only need the catalogue, and the quantity shown beside a hint
         # must be everything the branch holds -- so sum across departments.
-        rows = execute_query("""
+        # On the consolidated "All Branches" view there is no branch to pin to, so
+        # the same fragments fall away and the figure becomes the COMPANY total
+        # rather than a sum of rows whose branch_id is 0 (which would be zero).
+        stock_scope, stock_scope_params = branch_read_clause('ps.branch_id')
+        lots_scope, lots_scope_params = branch_read_clause('sl.branch_id')
+        pd_scope, pd_scope_params = branch_read_clause('pd3.branch_id')
+        rows = execute_query(f"""
             SELECT p.id, p.name, p.category, p.unit_type, p.unit_details,
                    COALESCE(p.buy_price, 0) AS buy_price,
                    COALESCE(p.sell_price, 0) AS sell_price,
                    COALESCE((SELECT SUM(ps.stock) FROM product_stock ps
-                             WHERE ps.product_id = p.id AND ps.branch_id = %s), 0) AS stock,
+                             WHERE ps.product_id = p.id{stock_scope}), 0) AS stock,
                    COALESCE(p.min_stock_level, 10) AS min_stock_level,
                    COALESCE(p.description, '') AS description,
                    COALESCE(p.barcode, '') AS barcode,
@@ -15231,14 +15323,14 @@ def run1hardware(all_departments=False):
                    COALESCE(p.sell_price, 0) AS branch_sell_price,
                    COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
                              FROM stock_lots sl
-                             WHERE sl.product_id = p.id AND sl.branch_id = %s), 0) AS stock_value,
+                             WHERE sl.product_id = p.id{lots_scope}), 0) AS stock_value,
                    -- "carries it here": a stock row in EITHER department, or a
                    -- filing by this branch (a moved-but-empty item), matching the
                    -- single-department read so the two lists cannot disagree.
                    (EXISTS (SELECT 1 FROM product_stock ps
-                            WHERE ps.product_id = p.id AND ps.branch_id = %s)
+                            WHERE ps.product_id = p.id{stock_scope})
                     OR EXISTS (SELECT 1 FROM product_departments pd3
-                               WHERE pd3.product_id = p.id AND pd3.branch_id = %s)) AS stocked_here
+                               WHERE pd3.product_id = p.id{pd_scope})) AS stocked_here
             FROM products p
             WHERE p.is_active = TRUE
               AND (%s IS NULL OR NOT EXISTS (
@@ -15246,8 +15338,9 @@ def run1hardware(all_departments=False):
                     WHERE pba.product_id = p.id AND pba.branch_id = %s
               ))
             ORDER BY p.name
-        """, (branch_id or 0, branch_id or 0, branch_id or 0, branch_id, branch_id,
-              branch_id), fetch_all=True) or []
+        """, tuple(stock_scope_params) + tuple(lots_scope_params)
+             + tuple(stock_scope_params) + tuple(pd_scope_params)
+             + (branch_id, branch_id), fetch_all=True) or []
         return _run1_rows_to_products(rows)
     if branch_id:
         query = """
@@ -16216,7 +16309,10 @@ def api_login():
             # The code was checked here, so this branch is genuinely the shop this
             # session may write to.
             session['branch_chosen'] = True
-            
+            # Signing in opens the till on the whole shop. A session that had been
+            # left on one shelf must not carry that silo into a new sign-in.
+            session['department'] = DEPARTMENT_ALL
+            session['department_chosen'] = True            
             log_activity('pos_login',
                          f'POS login via admin_users: {username} -> {branch_name}',
                          'user', userid)
@@ -16348,6 +16444,10 @@ def pos_switch_branch():
     session['branch_name'] = branch_name
     # Same code check as login, so the new branch becomes the chosen one.
     session['branch_chosen'] = True
+    # Opening a shop opens it on the whole shop: the shelf chosen in the previous
+    # branch must not follow the operator into this one.
+    session['department'] = DEPARTMENT_ALL
+    session['department_chosen'] = True
     log_activity('pos_branch_switch',
                  f'POS moved from {previous} to {branch_name}',
                  'user', session.get('user_id') or session.get('userid'))
@@ -16356,7 +16456,8 @@ def pos_switch_branch():
         'success': True,
         'branch': {'id': branch_id, 'name': branch_name,
                    'read_only': branch_id == POS_ALL_BRANCHES_ID,
-                   'is_dispatch': branch_is_dispatch(branch_id)}
+                   'is_dispatch': branch_is_dispatch(branch_id)},
+        'department': {'key': DEPARTMENT_ALL, 'label': department_view_label(DEPARTMENT_ALL)}
     })
 
 
@@ -16383,6 +16484,7 @@ def pos_switch_department():
     # with a real shelf for the write paths, so 'all' never reaches a stock
     # movement -- see resolve_view_department().
     session['department'] = dept
+    session['department_chosen'] = True
     session.modified = True
     try:
         log_activity('pos_department_switch',
@@ -16400,11 +16502,14 @@ def pos_switch_department():
 @login_required
 @block_writes_in_consolidated_view
 def pos_set_product_department():
-    """Place ONE product in Hardware or Furniture for the session's branch.
+    """File ONE product in Hardware or Furniture for the whole company.
 
-    The stock MOVES with the product (see move_product_department): the quantity
-    and its FIFO cost leave the old department and arrive in the new one, so the
-    branch's total holding never changes and no goods appear or vanish.
+    "To Furniture" is the operator saying the ITEM is furniture, which is a fact
+    about the product rather than about one shop's shelf -- so it is applied to
+    every branch that holds the item, not just the one on screen. The stock MOVES
+    with it in each branch (see move_product_department): quantity and FIFO cost
+    leave the old department and arrive in the new one, so no branch's total
+    holding changes and no goods appear or vanish.
     """
     data = request.get_json(silent=True) or {}
     branch_id = current_branch_id()
@@ -16432,25 +16537,29 @@ def pos_set_product_department():
                 return jsonify({'success': False, 'error': 'Product not found.'}), 404
             product_name = prow[0]
 
-            result = move_product_department(
-                cursor, product_id, branch_id, to_department,
-                user_id=user_id, user_name=user_name)
+            result = move_product_department_everywhere(
+                cursor, product_id, to_department,
+                user_id=user_id, user_name=user_name, include_branch_id=branch_id)
             connection.commit()
 
         try:
             log_activity('product_department',
                          f'Moved "{product_name}" from {department_label(result["from"])} '
-                         f'to {department_label(result["to"])}'
+                         f'to {department_label(result["to"])} in '
+                         f'{result.get("branches", 0)} branch(es)'
                          + (f' ({result["quantity"]} unit(s))' if result.get('quantity') else ''),
                          'product', product_id,
                          {'from': result['from'], 'to': result['to'],
                           'quantity': result.get('quantity', 0),
-                          'cost': result.get('cost', 0)})
+                          'cost': result.get('cost', 0),
+                          'branches': result.get('branches', 0),
+                          'branch_details': result.get('details', [])})
         except Exception:
             pass
 
         moved = result.get('quantity') or 0
         relabelled = result.get('sales_relabelled') or 0
+        branches = result.get('branches', 0)
         return jsonify({
             'success': True,
             'product_id': product_id,
@@ -16460,8 +16569,12 @@ def pos_set_product_department():
             'moved_quantity': moved,
             'moved_cost': result.get('cost', 0),
             'sales_relabelled': relabelled,
+            'branches': branches,
+            'branches_moved': result.get('branches_moved', 0),
+            'branches_detail': result.get('details', []),
             'message': (f'"{product_name}" moved to {department_label(to_department)}'
-                        + (f' with {moved} unit(s).' if moved else '.')
+                        + (f' in {branches} branch(es)' if branches else '')
+                        + (f', carrying {moved} unit(s).' if moved else '.')
                         + (f' {relabelled} past sale line(s) now report under '
                            f'{department_label(to_department)}.' if relabelled else ''))
         })

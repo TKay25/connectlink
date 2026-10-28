@@ -86,15 +86,18 @@ check('no product_stock upsert is missing the department key', not upserts, upse
 class FakeCursor:
     """Models just enough of product_stock / stock_lots to run a move."""
 
-    def __init__(self, stock, lots, dept=None):
+    def __init__(self, stock, lots, dept=None, branches=None):
         self.stock = dict(stock)
         self.lots = [dict(l) for l in lots]
         self.dept_row = dept
+        self.branches = branches if branches is not None else [1]
         self._last = None
 
     def execute(self, q, p=()):
         q2 = ' '.join(q.split())
-        if 'FROM product_departments WHERE product_id' in q2:
+        if 'SELECT DISTINCT branch_id FROM' in q2:
+            self._last = [(b,) for b in self.branches]
+        elif 'FROM product_departments WHERE product_id' in q2:
             self._last = (self.dept_row,) if self.dept_row else None
         elif 'SELECT COALESCE(stock, 0) FROM product_stock' in q2:
             self._last = (self.stock.get(p[3], 0),)
@@ -146,6 +149,17 @@ try:
     check('move_product_department() is loadable', True)
 except Exception as exc:                                           # noqa: BLE001
     check('move_product_department() is loadable', False, exc)
+    print('\n'.join(RESULTS))
+    sys.exit(1)
+
+
+# The company-wide move: one product, every branch that holds it.
+try:
+    exec(grab('branches_holding_product'), ns)
+    exec(grab('move_product_department_everywhere'), ns)
+    check('move_product_department_everywhere() is loadable', True)
+except Exception as exc:                                           # noqa: BLE001
+    check('move_product_department_everywhere() is loadable', False, exc)
     print('\n'.join(RESULTS))
     sys.exit(1)
 
@@ -455,9 +469,21 @@ check('...and All is offered to the switch', [o['key'] for o in opts()]
       == ['all', 'hardware', 'furniture'], opts())
 check('...even though the WRITE department is still a real shelf',
       dept() == 'hardware', dept())
+# Every session that existed before the All view carries 'hardware', because the
+# old till pushed it on every page load. Without the marker those sessions would
+# open on Hardware forever, which is exactly what an operator reported.
+sess.clear()
+sess['department'] = 'hardware'
+check('a session left on Hardware by the OLD till opens on All',
+      view() == 'all' and dept() == 'hardware',
+      'view=%s write=%s' % (view(), dept()))
+sess['department_chosen'] = True
+check('but a DELIBERATE Hardware choice is honoured',
+      view() == 'hardware' and dept() == 'hardware', view())
 
 for key in ('hardware', 'furniture', 'all', 'nonsense', ''):
     sess['department'] = key
+    sess['department_chosen'] = True
     want = key if key in ('hardware', 'furniture', 'all') else 'all'
     check('the view follows the session: %r -> %r' % (key, want), view() == want, view())
     want_dept = key if key in ('hardware', 'furniture') else 'hardware'
@@ -503,6 +529,74 @@ check('the transaction LINES are department-scoped too',
 check('a sale line is filed on the product\'s own shelf when the view is All',
       'line_department(item[\'id\'], sale_branch)' in src
       and 'def line_department(' in src)
+
+# ---------------------------------------------------------------------------
+# 8. "To Furniture" is a ruling about the ITEM, so it applies company-wide
+# ---------------------------------------------------------------------------
+class _BranchesCursor:
+    def __init__(self, branches):
+        self.branches = branches
+        self._last = None
+        self.asked = []
+
+    def execute(self, q, p=()):
+        self.asked.append((' '.join(str(q).split()), p))
+        if 'SELECT DISTINCT branch_id' in ' '.join(str(q).split()):
+            self._last = [(b,) for b in self.branches]
+
+    def fetchall(self):
+        return self._last
+
+
+cw = {'DEPARTMENTS': ('hardware', 'furniture'), 'DEFAULT_DEPARTMENT': 'hardware'}
+exec(compile(src[src.index('def branches_holding_product('):
+                 src.index('def move_product_department_everywhere(')],
+            'cw_helpers', 'exec'), cw)
+
+calls = []
+cw['move_product_department'] = lambda cursor, pid, bid, dept, **kw: (
+    calls.append((pid, bid, dept)) or
+    {'from': 'hardware', 'to': dept, 'quantity': 3, 'cost': 30.0,
+     'sales_relabelled': 1, 'unchanged': False})
+exec(compile(src[src.index('def move_product_department_everywhere('):
+                 src.index('def receive_stock_lot(')],
+            'cw_move', 'exec'), cw)
+
+cur = _BranchesCursor([1, 2, 3])
+held = cw['branches_holding_product'](cur, 55, include_branch_id=2)
+check('every branch that holds the product is found (no duplicates)',
+      held == [1, 2, 3], held)
+check('a branch that never held it is NOT swept in',
+      cw['branches_holding_product'](_BranchesCursor([1, 3]), 55, include_branch_id=1)
+      == [1, 3])
+
+calls.clear()
+res = cw['move_product_department_everywhere'](
+    _BranchesCursor([1, 2, 3]), 55, 'furniture', include_branch_id=1)
+check('the move is applied to EVERY branch that holds the item',
+      [c[1] for c in calls] == [1, 2, 3], calls)
+check('...and all of them to the selected department',
+      {c[2] for c in calls} == {'furniture'}, calls)
+check('the report totals what moved', res['branches'] == 3 and res['quantity'] == 9
+      and res['sales_relabelled'] == 3, res)
+check('...and names how many branches actually changed',
+      res['branches_moved'] == 3, res['branches_moved'])
+
+# a product already filed in the target department is a no-op everywhere
+calls.clear()
+cw['move_product_department'] = lambda cursor, pid, bid, dept, **kw: (
+    calls.append((pid, bid, dept)) or
+    {'from': dept, 'to': dept, 'quantity': 0, 'cost': 0.0,
+     'sales_relabelled': 0, 'unchanged': True})
+res = cw['move_product_department_everywhere'](
+    _BranchesCursor([1, 2]), 55, 'furniture')
+check('a product already in that department reports nothing moved',
+      res['unchanged'] is True and res['quantity'] == 0, res)
+
+check('the endpoint uses the company-wide move, not the single-branch one',
+      'move_product_department_everywhere(' in src.split('def pos_set_product_department(')[1]
+      .split('@app.route')[0],
+      'the button on a product is a ruling about the item')
 
 failures = [r for r in RESULTS if r.startswith('FAIL')]
 print('\n'.join(RESULTS))

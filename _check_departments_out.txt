@@ -5,6 +5,7 @@ PASS  the product_stock key is widened to include department
 PASS  a shop may not silently lose its department when dispatch is edited
 PASS  no product_stock upsert is missing the department key
 PASS  move_product_department() is loadable
+PASS  move_product_department_everywhere() is loadable
 PASS  a move reports what it moved  -> {'from': 'hardware', 'to': 'furniture', 'quantity': 10, 'cost': 42.0, 'lots': 2, 'sales_relabelled': 2, 'unchanged': False}
 PASS  UNITS are conserved Hardware -> Furniture  -> 10 -> 10
 PASS  COST is conserved Hardware -> Furniture  -> 42.0 -> 42.0
@@ -78,6 +79,8 @@ PASS  a new row with no department falls back to Hardware
 PASS  a session that never chose a view opens on All  -> all
 PASS  ...and All is offered to the switch  -> [{'key': 'all', 'label': 'All'}, {'key': 'hardware', 'label': 'Hardware'}, {'key': 'furniture', 'label': 'Furniture'}]
 PASS  ...even though the WRITE department is still a real shelf  -> hardware
+PASS  a session left on Hardware by the OLD till opens on All  -> view=all write=hardware
+PASS  but a DELIBERATE Hardware choice is honoured  -> hardware
 PASS  the view follows the session: 'hardware' -> 'hardware'  -> hardware
 PASS  the write department is never All ('hardware' -> 'hardware')  -> hardware
 PASS  the view follows the session: 'furniture' -> 'furniture'  -> furniture
@@ -102,3 +105,11 @@ PASS  the Sales tab follows the switch (no forced all-departments read)
 PASS  the exported PDF still reads every department
 PASS  the transaction LINES are department-scoped too  -> a sale listed under one shelf no longer shows the other shelf's goods
 PASS  a sale line is filed on the product's own shelf when the view is All
+PASS  every branch that holds the product is found (no duplicates)  -> [1, 2, 3]
+PASS  a branch that never held it is NOT swept in
+PASS  the move is applied to EVERY branch that holds the item  -> [(55, 1, 'furniture'), (55, 2, 'furniture'), (55, 3, 'furniture')]
+PASS  ...and all of them to the selected department  -> [(55, 1, 'furniture'), (55, 2, 'furniture'), (55, 3, 'furniture')]
+PASS  the report totals what moved  -> {'from': 'hardware', 'to': 'furniture', 'quantity': 9, 'cost': 90.0, 'sales_relabelled': 3, 'branches': 3, 'branches_moved': 3, 'details': [{'branch_id': 1, 'from': 'hardware', 'to': 'furniture', 'quantity': 3, 'cost': 30.0, 'sales_relabelled': 1, 'unchanged': False}, {'branch_id': 2, 'from': 'hardware', 'to': 'furniture', 'quantity': 3, 'cost': 30.0, 'sales_relabelled': 1, 'unchanged': False}, {'branch_id': 3, 'from': 'hardware', 'to': 'furniture', 'quantity': 3, 'cost': 30.0, 'sales_relabelled': 1, 'unchanged': False}], 'unchanged': False}
+PASS  ...and names how many branches actually changed  -> 3
+PASS  a product already in that department reports nothing moved  -> {'from': 'furniture', 'to': 'furniture', 'quantity': 0, 'cost': 0.0, 'sales_relabelled': 0, 'branches': 2, 'branches_moved': 0, 'details': [{'branch_id': 1, 'from': 'furniture', 'to': 'furniture', 'quantity': 0, 'cost': 0.0, 'sales_relabelled': 0, 'unchanged': True}, {'branch_id': 2, 'from': 'furniture', 'to': 'furniture', 'quantity': 0, 'cost': 0.0, 'sales_relabelled': 0, 'unchanged': True}], 'unchanged': True}
+PASS  the endpoint uses the company-wide move, not the single-branch one  -> the button on a product is a ruling about the item

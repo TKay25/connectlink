@@ -1,6 +1,6 @@
 PASS  script started
-PASS  read the POS page  -> 1138714 chars
-PASS  read the committed POS page for comparison  -> 1135852 chars
+PASS  read the POS page  -> 1139384 chars
+PASS  read the committed POS page for comparison  -> 1138714 chars
 PASS  the page still has its script blocks  -> new=4 old=4
 PASS  no script block gained a syntax error (vs the committed page)
 PASS  every declaration this change touched parses on its own

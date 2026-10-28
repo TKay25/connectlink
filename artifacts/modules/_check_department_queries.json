@@ -16,7 +16,7 @@
     "  Cur.execute(sql, params = None)",
     "  Cur.executemany(sql, seq)",
     "  Cur.fetchone()",
-    "class Conn  # line 82",
+    "class Conn  # line 85",
     "  Conn.commit()",
     "  Conn.rollback()",
     "  Conn.close()",
@@ -24,7 +24,8 @@
     "record(sql, params)",
     "fake_db()",
     "fake_execute_query(sql, params = None, fetch_all = False, fetch_one = False, commit = False)",
-    "audit_statements(where)"
+    "audit_statements(where)",
+    "session_client()"
   ],
   "dependencies": [
     "ConnectLink",
@@ -47,6 +48,6 @@
   "file_mtime": 1793176072855.5078,
   "file_size": 9200,
   "file_birthtime": 1793176072853.4905,
-  "generated_at": "2026-10-28T08:33:57.692789Z",
+  "generated_at": "2026-10-28T11:46:34.137115Z",
   "stale": false
 }

@@ -14,3 +14,13 @@ PASS  /api/dashboard/today-by-cashier really runs its 'items_sold' query, over b
 PASS  check-auth reports the All view and offers all three positions  -> {'key': 'all', 'label': 'All', 'options': [{'key': 'all', 'label': 'All'}, {'key': 'hardware', 'label': 'Hardware'}, {'key': 'furniture', 'label': 'Furniture'}]}
 PASS  check-auth echoes the hardware view  -> hardware
 PASS  check-auth echoes the furniture view  -> furniture
+PASS  the department switch works on the read-only All Branches view (hardware)  -> {'department': 'hardware', 'label': 'Hardware', 'success': True}
+PASS  the department switch works on the read-only All Branches view (furniture)  -> {'department': 'furniture', 'label': 'Furniture', 'success': True}
+PASS  the department switch works on the read-only All Branches view (all)  -> {'department': 'all', 'label': 'All', 'success': True}
+PASS  ...and the view it left behind is reported back  -> {'key': 'all', 'label': 'All', 'options': [{'key': 'all', 'label': 'All'}, {'key': 'hardware', 'label': 'Hardware'}, {'key': 'furniture', 'label': 'Furniture'}]}
+PASS  a real write is still refused on the read-only view  -> 403
+PASS  switching branch resets the view to All  -> {'key': 'all', 'label': 'All'}
+PASS  ...and the session really holds All afterwards  -> all
+PASS  the move asks WHICH branches hold the product  -> 1 statement(s)
+PASS  the move still answers successfully (no 500)  -> 200 None
+PASS  ...and reports the branches it covered  -> 1

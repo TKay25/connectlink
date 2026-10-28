@@ -368,6 +368,7 @@ with app.test_request_context('/'):
           ConnectLink.branch_read_clause('t.branch_id')[0] == ' AND t.branch_id = %s',
           ConnectLink.branch_read_clause('t.branch_id'))
     flask_session['department'] = 'furniture'
+    flask_session['department_chosen'] = True
     check('the department switch reads Furniture',
           ConnectLink.current_department() == 'furniture', ConnectLink.current_department())
     flask_session['department'] = 'nonsense'

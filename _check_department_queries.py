@@ -58,6 +58,9 @@ class Cur:
         flat = ' '.join(str(sql).split()).upper()
         if 'LASTVAL' in flat or 'RETURNING' in flat:
             self._rows = [(1,)]
+        elif flat.startswith('SELECT NAME FROM PRODUCTS'):
+            # the move endpoint looks the product up before touching anything
+            self._rows = [('Test Product',)]
         elif flat.startswith('SELECT'):
             self._rows = []
         else:
@@ -182,6 +185,7 @@ for dept in ('all', 'hardware', 'furniture'):
             sess['branch_name'] = 'Shurugwi'
             sess['branch_chosen'] = True
             sess['department'] = dept
+            sess['department_chosen'] = True
         try:
             resp = client.get(path)
             status = resp.status_code
@@ -214,6 +218,7 @@ for dept in ('all', 'hardware', 'furniture'):
         sess['branch_id'] = 1
         sess['branch_chosen'] = True
         sess['department'] = dept
+        sess['department_chosen'] = True
     client.get('/api/transactions?limit=5')
     sql = ' '.join(s for s, _ in SEEN)
     lists = [p for _, p in SEEN if isinstance(p, (list, tuple))
@@ -256,6 +261,7 @@ for path, marker in (('/api/transactions/daily-summary', 'items_sold'),
         sess['branch_id'] = 1
         sess['branch_chosen'] = True
         sess['department'] = 'all'
+    sess['department_chosen'] = True
     client.get(path)
     hits = [s for s, _ in SEEN if marker in s]
     check('%s really runs its %r query, over both departments' % (path, marker),
@@ -270,6 +276,7 @@ with client.session_transaction() as sess:
     sess['branch_id'] = 1
     sess['branch_chosen'] = True
     sess['department'] = 'all'
+    sess['department_chosen'] = True
 resp = client.get('/api/check-auth')
 body = resp.get_json() or {}
 check('check-auth reports the All view and offers all three positions',
@@ -285,8 +292,79 @@ for dept in ('hardware', 'furniture'):
         sess['branch_id'] = 1
         sess['branch_chosen'] = True
         sess['department'] = dept
+        sess['department_chosen'] = True
     body = (client.get('/api/check-auth').get_json() or {}).get('department') or {}
     check('check-auth echoes the %s view' % dept, body.get('key') == dept, body.get('key'))
+
+# ---------------------------------------------------------------------------
+# 5. The two things an operator reported
+#    a) the department switch must WORK on the read-only All Branches view --
+#       choosing what you look at is a read, not a write;
+#    b) opening a branch must land on All, not carry the previous shelf over.
+# ---------------------------------------------------------------------------
+def session_client(**seed):
+    c = app.test_client()
+    with c.session_transaction() as sess:
+        sess['user_id'] = 1
+        sess['userid'] = 1
+        sess['branch_chosen'] = True
+        for k, v in seed.items():
+            sess[k] = v
+    return c
+
+# a) All Branches (branch_id 0 = read-only consolidated view)
+ro = session_client(branch_id=0, branch_name='All Branches', department='all',
+                    department_chosen=True)
+for target in ('hardware', 'furniture', 'all'):
+    resp = ro.post('/api/pos/switch-department', json={'department': target})
+    body = resp.get_json() or {}
+    check('the department switch works on the read-only All Branches view (%s)' % target,
+          resp.status_code == 200 and body.get('success') is True
+          and body.get('department') == target, body)
+
+body = (ro.get('/api/check-auth').get_json() or {})
+check('...and the view it left behind is reported back',
+      (body.get('department') or {}).get('key') == 'all',
+      body.get('department'))
+
+# a write on that view is still refused -- the switch was the only thing opened up
+ro2 = session_client(branch_id=0, branch_name='All Branches')
+resp = ro2.post('/api/products', json={'name': 'Should not exist', 'sell_price': 1})
+check('a real write is still refused on the read-only view',
+      resp.status_code in (403, 400) or (resp.get_json() or {}).get('success') is False,
+      resp.status_code)
+
+# b) opening a branch opens on All
+# The branch-CODE gate is not what is under test here (and cannot pass without a
+# real database), so it is stubbed to "the code was right"; everything else in the
+# route -- including the department reset -- runs for real.
+ConnectLink.verify_branch_code = lambda branch_id, code: (True, 'Shurugwi')
+ConnectLink.record_branch_code_attempt = lambda username, ok: None
+br = session_client(branch_id=1, branch_name='Shurugwi', department='furniture',
+                    department_chosen=True)
+resp = br.post('/api/pos/switch-branch', json={'branch_id': 1, 'branch_code': 'x'})
+body = resp.get_json() or {}
+check('switching branch resets the view to All',
+      (body.get('department') or {}).get('key') == 'all', body.get('department'))
+body = (br.get('/api/check-auth').get_json() or {})
+check('...and the session really holds All afterwards',
+      (body.get('department') or {}).get('key') == 'all',
+      (body.get('department') or {}).get('key'))
+
+# c) "To Furniture" is applied company-wide, not just to the branch on screen
+writer = session_client(branch_id=1, branch_name='Shurugwi')
+SEEN.clear()
+resp = writer.post('/api/pos/product-department',
+                   json={'product_id': 7, 'department': 'furniture'})
+body = resp.get_json() or {}
+asked = [s for s, _ in SEEN if 'SELECT DISTINCT branch_id' in s]
+check('the move asks WHICH branches hold the product',
+      bool(asked), '%d statement(s)' % len(asked))
+check('the move still answers successfully (no 500)',
+      resp.status_code == 200 and body.get('success') is True,
+      '%s %s' % (resp.status_code, body.get('error')))
+check('...and reports the branches it covered',
+      'branches' in body and body.get('branches') is not None, body.get('branches'))
 
 fails = [r for r in RESULTS if r.startswith('FAIL')]
 print('\n' + '=' * 70)
