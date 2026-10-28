@@ -1,0 +1,37 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckTextEncoding",
+  "file": "_check_text_encoding.py",
+  "purpose": "The app must ship real characters, not UTF-8 that was read back as cp1252.",
+  "entry_function": "check(name, ok, detail = '')",
+  "entry_flows": [
+    "_check_text_encoding → name.endswith, RESULTS.append, chunk.encode, raw.decode, raw.startswith"
+  ],
+  "public_api": [
+    "check(name, ok, detail = '')",
+    "repair(chunk)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), TARGETS = [os.path.join(ROOT, 'ConnectLink.py')] + [os.path.join(ROOT, 'templates', name) for name in sorted(os.listdir(os.path.join(ROOT, 'templates'))) if name.endswith('.html')], OUT = os.path.join(ROOT, '_check_text_encoding_out.txt'), RESULTS = [], LEADERS = 'ðâÃïÂŸ', RUN = re.compile('[^\\\\x00-\\\\x7f]{1,}')",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "e8726a551c39bc51",
+  "file_mtime": 1793196263063.5632,
+  "file_size": 3372,
+  "file_birthtime": 1793196263061.5093,
+  "generated_at": "2026-10-28T14:04:26.304945Z",
+  "stale": false
+}

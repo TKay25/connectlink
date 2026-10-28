@@ -1,0 +1,34 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckTextEncodingOut",
+  "file": "_check_text_encoding_out.txt",
+  "purpose": "<!-- Describe what CheckTextEncodingOut does -->",
+  "entry_function": "<!-- main_function(param: Type) -> ReturnType -->",
+  "entry_flows": [],
+  "public_api": [
+    "<!-- list public functions/methods here -->"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "<!-- non-obvious behavior, constraints, gotchas -->",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "70df8866d37721ca",
+  "file_mtime": 1793196271981.6826,
+  "file_size": 4763,
+  "file_birthtime": 1793196271968.6824,
+  "generated_at": "2026-10-28T14:04:33.844Z",
+  "stale": false
+}

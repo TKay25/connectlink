@@ -1,0 +1,9 @@
+PASS  a delivery receipt on /webhook leaves the activity log alone  -> {'status': 200, 'activity_rows': 0}
+PASS  an inbound message on /webhook leaves the activity log alone  -> {'status': 200, 'activity_rows': 0}
+PASS  a real write still lands in the activity log (the hook is not disabled)  -> {'status': 200, 'rows': [('system_change', 'Completed POST Check Write That Logs Nothing', 'Mrs G Admin', None, None, <psycopg2._json.Json object at 0x000001AA0EB70C20>, None)]}
+PASS  ...and it is recorded as a system_change naming the endpoint  -> [('system_change', 'Completed POST Check Write That Logs Nothing', 'Mrs G Admin', None, None, <psycopg2._json.Json object at 0x000001AA0EB70C20>, None)]
+PASS  the hook deliberately skips handle_activity_log
+PASS  the hook deliberately skips pos_stock_audit_run
+PASS  the hook deliberately skips pos_stock_audit_columns
+PASS  the hook deliberately skips pos_upload_stock_analyze
+PASS  the hook deliberately skips webhook

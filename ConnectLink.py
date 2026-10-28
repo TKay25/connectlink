@@ -51,7 +51,7 @@ import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 
 
-# The Windows dev console is cp1252 and cannot encode the âœ“/âœ…/âŒ glyphs used
+# The Windows dev console is cp1252 and cannot encode the ✓/✅/❌ glyphs used
 # throughout this file. When such a print runs inside a try block, the
 # UnicodeEncodeError REPLACES the error being handled -- which has masked real
 # failures before. Never let console encoding break the application: characters
@@ -182,6 +182,13 @@ def log_untracked_system_change(response):
                 'pos_stock_audit_run',
                 'pos_stock_audit_columns',
                 'pos_upload_stock_analyze',
+                # Meta's webhook. It is called for every inbound message, every
+                # delivery/read receipt and every retry, so logging it filled the
+                # activity log with "Completed POST Webhook" rows that recorded no
+                # user action at all -- a busy minute buried everything real. The
+                # messages it carries are already recorded in whatsapp_messages,
+                # and the enquiries/sales it creates log their own activity.
+                'webhook',
             }):
         return response
 
@@ -341,9 +348,9 @@ def initialize_database_tables():
             
             try:
                 columns = get_table_columns("connectlinkdatabase")
-                print(f"âœ“ Connected to connectlinkdatabase with columns: {columns}")
+                print(f"✓ Connected to connectlinkdatabase with columns: {columns}")
             except Exception as e:
-                print(f"âš ï¸  Warning: Could not fetch connectlinkdatabase columns: {e}")
+                print(f"⚠️  Warning: Could not fetch connectlinkdatabase columns: {e}")
 
             cursor.execute("""
                 SELECT table_name
@@ -592,7 +599,7 @@ def initialize_database_tables():
                 print(f"Note: hardware_users migration: {e}")
 
             if migrated_cl + migrated_hw > 0:
-                print(f"âœ… Migrated {migrated_cl} projects + {migrated_hw} hardware users to admin_users")
+                print(f"✅ Migrated {migrated_cl} projects + {migrated_hw} hardware users to admin_users")
             connection.commit()
             
             cursor.execute("""
@@ -758,7 +765,7 @@ def initialize_database_tables():
                 """, DEFAULT_QUOTATION_RATES)
                 
                 connection.commit()
-                print(f"âœ“ Initialized quotation_rates table with {len(DEFAULT_QUOTATION_RATES)} items")
+                print(f"✓ Initialized quotation_rates table with {len(DEFAULT_QUOTATION_RATES)} items")
 
             # Check if Land Clearing is missing and add it (for databases seeded before this item existed)
             cursor.execute("SELECT COUNT(*) FROM quotation_rates WHERE quotation_item = 'Land Clearing'")
@@ -768,7 +775,7 @@ def initialize_database_tables():
                     VALUES ('Land Clearing', 0, 1)
                 """)
                 connection.commit()
-                print("âœ“ Added 'Land Clearing' to quotation_rates table")
+                print("✓ Added 'Land Clearing' to quotation_rates table")
 
             # Check if Removal is missing and add it
             cursor.execute("SELECT COUNT(*) FROM quotation_rates WHERE quotation_item = 'Removal'")
@@ -778,7 +785,7 @@ def initialize_database_tables():
                     VALUES ('Removal', 0, 1)
                 """)
                 connection.commit()
-                print("âœ“ Added 'Removal' to quotation_rates table")
+                print("✓ Added 'Removal' to quotation_rates table")
 
             # Rename 'Backfilling and compaction' to 'Backfilling and Compaction' if old name exists
             cursor.execute("""
@@ -788,7 +795,7 @@ def initialize_database_tables():
             """)
             if cursor.rowcount > 0:
                 connection.commit()
-                print(f"âœ“ Renamed '{cursor.rowcount}' item(s) from 'Backfilling and compaction' to 'Backfilling and Compaction'")
+                print(f"✓ Renamed '{cursor.rowcount}' item(s) from 'Backfilling and compaction' to 'Backfilling and Compaction'")
 
             # Check and add missing items: Screeding, Review, Beam filling, TnCs, Doors and door frames
             for new_item in ['Screeding', 'Review', 'Beam filling', 'TnCs', 'Doors and door frames']:
@@ -799,7 +806,7 @@ def initialize_database_tables():
                         VALUES (%s, 0, 1)
                     """, (new_item,))
                     connection.commit()
-                    print(f"âœ“ Added '{new_item}' to quotation_rates table")
+                    print(f"✓ Added '{new_item}' to quotation_rates table")
 
             # Create project_schedules table for Gantt charts
             cursor.execute("""
@@ -1094,7 +1101,7 @@ def initialize_database_tables():
                     cursor.execute(f"SELECT pg_get_serial_sequence('{table}', 'id');")
                     seq_name = cursor.fetchone()[0]  # fetch the first column of the first row
                     if seq_name:
-                        print(f"âœ“ Sequence for {table}: {seq_name}")
+                        print(f"✓ Sequence for {table}: {seq_name}")
                 except Exception as e:
                     connection.rollback()
                     print(f"Note: Could not check sequence for {table}: {e}")
@@ -1257,12 +1264,12 @@ def initialize_database_tables():
                 "ALTER TABLE connectlinknotes ADD COLUMN IF NOT EXISTS clientnextofkinnumber INT;",
                 "ALTER TABLE connectlinkdatabase ADD COLUMN IF NOT EXISTS project_notes TEXT;",
 
-                # "Failed to insert project: value too long for type character varying(500)" â€”
+                # "Failed to insert project: value too long for type character varying(500)" —
                 # a project's description comes from a rich-text editor, so a paragraph or
                 # three (or a little leftover markup) blows past 500 characters and the whole
                 # save fails. The description is user prose: it belongs in TEXT. CREATE TABLE
                 # IF NOT EXISTS never changes an existing column, so an EXISTING deployment
-                # needs the ALTER as well â€” and the deleted-projects archive must move with
+                # needs the ALTER as well — and the deleted-projects archive must move with
                 # it, because deleting a project copies the description across (otherwise
                 # deleting one with a long description would fail instead of saving).
                 "ALTER TABLE connectlinkdatabase ALTER COLUMN projectdescription TYPE TEXT;",
@@ -1355,7 +1362,7 @@ def initialize_database_tables():
                 updated_row = cursor.fetchone()
                 connection.commit()
                 
-                print(f"âœ“ Updated due dates for project ID 125")
+                print(f"✓ Updated due dates for project ID 125")
 
                 if before_125:
                     after_125 = read_project_fields(
@@ -1370,14 +1377,14 @@ def initialize_database_tables():
                     ]
                     if moved:
                         log_project_field_changes(
-                            125, moved, 'Startup repair (2025 â†’ 2026)',
+                            125, moved, 'Startup repair (2025 → 2026)',
                             before_125.get('projectname'), before_125.get('clientname'),
                             action_type='project_data_repaired', actor='System'
                         )
                 
             except Exception as e:
                 connection.rollback()
-                print(f"âš ï¸  Error updating dates: {e}")
+                print(f"⚠️  Error updating dates: {e}")
 
             ## hardware initialisation
 
@@ -1439,8 +1446,8 @@ def initialize_database_tables():
             #   stock_reductions.reference -> the requisition number the goods were
             #                                 issued for (an "in stock" requisition
             #                                 being AUTHORISED takes goods out of the store)
-            # NULL on rows written before this (and on POS sales) â€” the ledger prints
-            # 'â€”' for those. The reference doubles as the idempotency key: a requisition
+            # NULL on rows written before this (and on POS sales) — the ledger prints
+            # '—' for those. The reference doubles as the idempotency key: a requisition
             # is issued ONCE however many times authorisation is retried, so the ledger
             # can never double-count a movement.
             try:
@@ -1644,7 +1651,7 @@ def initialize_database_tables():
                     ALTER TABLE transactions 
                     DROP CONSTRAINT IF EXISTS transactions_user_id_fkey
                 """, commit=True)
-                print("âœ“ Removed foreign key constraint from transactions.user_id")
+                print("✓ Removed foreign key constraint from transactions.user_id")
             except Exception as e:
                 print(f"Note: {e}")
             
@@ -1685,7 +1692,7 @@ def initialize_database_tables():
                 ADD COLUMN IF NOT EXISTS change_amount DECIMAL(10,2) DEFAULT 0.00
             """, commit=True)
 
-            # Revert/void support â€” a voided sale is hidden from history and its
+            # Revert/void support — a voided sale is hidden from history and its
             # stock is returned to inventory (soft-delete, keeps the audit trail)
             execute_query("""
                 ALTER TABLE transactions 
@@ -1742,11 +1749,11 @@ def initialize_database_tables():
                         INSERT INTO hardware_users (username, password, full_name, role)
                         VALUES (%s, %s, %s, %s)
                     """, ('mrsgadmin', 'mrsgogweo1admin01', 'Mrs G Admin', 'admin'), commit=True)
-                    print("âœ“ Hardware admin user created - username: mrsgadmin")
+                    print("✓ Hardware admin user created - username: mrsgadmin")
                 else:
-                    print("âœ“ Hardware admin user already exists")
+                    print("✓ Hardware admin user already exists")
             except Exception as e:
-                print(f"âŒ Error creating hardware admin user: {e}")
+                print(f"❌ Error creating hardware admin user: {e}")
 
             # Create operator user if not exists
             try:
@@ -1757,11 +1764,11 @@ def initialize_database_tables():
                         INSERT INTO hardware_users (username, password, full_name, role)
                         VALUES (%s, %s, %s, %s)
                     """, ('shopoperatoruser', 'conlinkhardwareshopoperator2026', 'Shop Operator', 'operator'), commit=True)
-                    print("âœ“ Hardware operator user created - username: shopoperatoruser")
+                    print("✓ Hardware operator user created - username: shopoperatoruser")
                 else:
-                    print("âœ“ Hardware operator user already exists")
+                    print("✓ Hardware operator user already exists")
             except Exception as e:
-                print(f"âŒ Error creating hardware operator user: {e}")
+                print(f"❌ Error creating hardware operator user: {e}")
             
             
             # Create default categories
@@ -1840,7 +1847,7 @@ def initialize_database_tables():
                 pass
 
             connection.commit()
-            print("âœ… Database tables initialized successfully!")
+            print("✅ Database tables initialized successfully!")
 
             # Fix bad date year 72026 -> 2026 (reported by user)
             try:
@@ -1879,7 +1886,7 @@ def initialize_database_tables():
                     repaired = {row[0]: row[1] for row in cursor.fetchall()}
                     fixed_count = len(repaired)
                     if fixed_count > 0:
-                        print(f"âœ… Fixed 72026->2026 in {col} for {fixed_count} record(s)")
+                        print(f"✅ Fixed 72026->2026 in {col} for {fixed_count} record(s)")
                         connection.commit()
                         label = project_field_label(col)
                         for project_id, old_value in broken:
@@ -1888,12 +1895,12 @@ def initialize_database_tables():
                                 continue
                             log_project_field_changes(
                                 project_id, [(col, label, old_value, new_value)],
-                                'Startup repair (72026 â†’ 2026)',
+                                'Startup repair (72026 → 2026)',
                                 None, None,
                                 action_type='project_data_repaired', actor='System'
                             )
                 connection.commit()
-                print("âœ… Bad date cleanup complete!")
+                print("✅ Bad date cleanup complete!")
             except Exception as cleanup_err:
                 print(f"Note: Date cleanup error: {cleanup_err}")
 
@@ -1935,7 +1942,7 @@ def initialize_database_tables():
                     ADD COLUMN IF NOT EXISTS hr_access BOOLEAN DEFAULT FALSE
                 """)
                 connection.commit()
-                print("âœ“ Added hr_access column to user_permissions")
+                print("✓ Added hr_access column to user_permissions")
             except Exception as e:
                 print(f"Note: Could not add hr_access column: {e}")
             except Exception as e:
@@ -1974,7 +1981,7 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"Note: Could not add can_edit_project_money column: {e}")
 
-            print("âœ… User permissions table initialized!")
+            print("✅ User permissions table initialized!")
 
             # ========== PROCUREMENT & REQUISITIONS MODULE ==========
             # Permission flags that grey-out action buttons on the Procurement portal.
@@ -2112,7 +2119,7 @@ def initialize_database_tables():
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authorised_at TIMESTAMP")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS notify_approver_on_authorisation BOOLEAN DEFAULT FALSE")
                 # An existing deployment already HAS the column, and ADD COLUMN IF NOT EXISTS
-                # leaves its old DEFAULT TRUE in place â€” so move the default itself. Stored
+                # leaves its old DEFAULT TRUE in place — so move the default itself. Stored
                 # values are deliberately NOT rewritten: a logger's earlier tick stands.
                 cursor.execute("ALTER TABLE requisitions ALTER COLUMN notify_approver_on_authorisation SET DEFAULT FALSE")
                 cursor.execute("ALTER TABLE requisitions ADD COLUMN IF NOT EXISTS authoriser_user_id INTEGER")
@@ -2187,7 +2194,7 @@ def initialize_database_tables():
             """)
             connection.commit()
 
-            # Goods received note (GRN) lines â€” one per PO line
+            # Goods received note (GRN) lines — one per PO line
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS grn_lines (
                     id SERIAL PRIMARY KEY,
@@ -2202,7 +2209,7 @@ def initialize_database_tables():
             connection.commit()
 
             # ------------------------------------------------------------------
-            # WORKSHOP â€” ITS OWN STORE
+            # WORKSHOP — ITS OWN STORE
             # The workshop is a separate section of the company, so it has its OWN
             # item list and its OWN movements. Nothing here belongs to the shop's POS
             # inventory, and the shop reads nothing from here.
@@ -2251,7 +2258,7 @@ def initialize_database_tables():
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_workshop_movements_moved_at ON workshop_movements (moved_at)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_workshop_movements_item ON workshop_movements (item_id)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_workshop_movements_reference ON workshop_movements (reference)")
-                # Case-insensitive uniqueness on the name â€” the same safety net
+                # Case-insensitive uniqueness on the name — the same safety net
                 # _workshop_ensure_item() relies on when it matches a received line.
                 cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_workshop_items_name ON workshop_items (lower(name))")
                 connection.commit()
@@ -2260,7 +2267,7 @@ def initialize_database_tables():
 
             # QUANTITIES MAY NOW BE FRACTIONAL ("be able to enter half"). Whole-number
             # columns silently rounded 0.5 away, so the requisition, purchase-order and
-            # workshop quantity columns are widened to NUMERIC(12,2) â€” for existing
+            # workshop quantity columns are widened to NUMERIC(12,2) — for existing
             # databases as well as new ones. USING ...::numeric keeps the old values.
             for stmt in (
                 "ALTER TABLE requisition_items ALTER COLUMN quantity TYPE NUMERIC(12,2) USING quantity::numeric(12,2)",
@@ -2470,7 +2477,7 @@ def initialize_database_tables():
             """)
             connection.commit()
 
-            print("âœ… Procurement & requisitions tables initialized!")
+            print("✅ Procurement & requisitions tables initialized!")
 
             # ========== HR MODULE TABLES ==========
             cursor.execute("""
@@ -2597,7 +2604,7 @@ def initialize_database_tables():
 
             # Add exempt_nssa column to hr_employees if not exists.
             # When TRUE the employee is exempt from NSSA ONLY: no employee NSSA deduction
-            # and no employer NSSA contribution. NEC is NOT affected by this flag â€” it is
+            # and no employer NSSA contribution. NEC is NOT affected by this flag — it is
             # still computed normally (employee NEC only applies to Top Management).
             # Renames the legacy exempt_nssa_nec column so existing flags carry over.
             try:
@@ -2648,7 +2655,7 @@ def initialize_database_tables():
                 );
             """)
             connection.commit()
-            print("âœ… Employee leave balances table initialized")
+            print("✅ Employee leave balances table initialized")
 
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_leave_approved (
@@ -2691,7 +2698,7 @@ def initialize_database_tables():
                 );
             """)
             connection.commit()
-            print("âœ… WhatsApp HR temp table initialized")
+            print("✅ WhatsApp HR temp table initialized")
 
             # ===== PASSWORD RESET CODES TABLE =====
             cursor.execute("""
@@ -2706,7 +2713,7 @@ def initialize_database_tables():
                 );
             """)
             connection.commit()
-            print("âœ… Password reset codes table initialized")
+            print("✅ Password reset codes table initialized")
 
             # Leave accrual run log table
             cursor.execute("""
@@ -2721,7 +2728,7 @@ def initialize_database_tables():
                 );
             """)
             connection.commit()
-            print("âœ… Leave accrual log table initialized")
+            print("✅ Leave accrual log table initialized")
 
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_attendance (
@@ -2766,7 +2773,7 @@ def initialize_database_tables():
                 );
             """)
 
-            # Sales & Marketing commissions â€” logged per month-year (not on the employee form).
+            # Sales & Marketing commissions — logged per month-year (not on the employee form).
             # One record per employee per period; payroll looks these up by period and applies them.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS hr_commissions (
@@ -2790,7 +2797,7 @@ def initialize_database_tables():
             """)
 
             connection.commit()
-            print("âœ… HR module tables initialized!")
+            print("✅ HR module tables initialized!")
 
             # ========== PAYE TAX TABLES ==========
             cursor.execute("""
@@ -2838,7 +2845,7 @@ def initialize_database_tables():
                 connection.rollback()
 
             connection.commit()
-            print("âœ… PAYE tax tables initialized!")
+            print("✅ PAYE tax tables initialized!")
 
             # ========== PAYROLL DEDUCTION CONFIG ==========
             cursor.execute("""
@@ -2879,7 +2886,7 @@ def initialize_database_tables():
                         ON CONFLICT (deduction_code) DO NOTHING
                     """, dc)
                 connection.commit()
-                print("âœ… Default payroll deductions seeded!")
+                print("✅ Default payroll deductions seeded!")
 
             # Add deduction breakdown columns to hr_payroll if not present
             for col in [
@@ -2913,7 +2920,7 @@ def initialize_database_tables():
                     WHERE deduction_code = 'NSSA_EMPLOYEE' AND ceiling_amount = 0
                 """)
                 if cursor.rowcount > 0:
-                    print(f"âœ… NSSA ceiling updated to USD 700 for {cursor.rowcount} record(s)")
+                    print(f"✅ NSSA ceiling updated to USD 700 for {cursor.rowcount} record(s)")
                 connection.commit()
             except Exception:
                 connection.rollback()
@@ -2937,11 +2944,11 @@ def initialize_database_tables():
                     WHERE deduction_code IN ('MEDICAL_AID_EMPLOYEE', 'MEDICAL_AID_EMPLOYER')
                 """)
                 if cursor.rowcount > 0:
-                    print(f"âœ… Removed old medical aid configs ({cursor.rowcount})")
+                    print(f"✅ Removed old medical aid configs ({cursor.rowcount})")
                 connection.commit()
             except Exception:
                 connection.rollback()
-            print("âœ… Payroll deduction columns added!")
+            print("✅ Payroll deduction columns added!")
 
             # ========== PAYROLL ARCHIVES TABLE ==========
             cursor.execute("""
@@ -2968,7 +2975,7 @@ def initialize_database_tables():
             except Exception:
                 connection.rollback()
             connection.commit()
-            print("âœ… Payroll archives table initialized!")
+            print("✅ Payroll archives table initialized!")
 
             # Multi-branch POS bootstrap (Shurugwi + Chegutu). Additive and
             # idempotent -- see ensure_branches_schema() below for the details.
@@ -3359,7 +3366,7 @@ def ensure_branches_schema(cursor, connection):
                 # widened. Only the second case is fatal: re-check before giving
                 # up, so a lost race does not leave this worker half-migrated.
                 if not _pk_includes_department():
-                    print(f"âš ï¸ could not widen product_stock key: {pk_err}")
+                    print(f"⚠️ could not widen product_stock key: {pk_err}")
                     raise
                 print("[ok] product_stock key already widened by another worker")
         connection.commit()
@@ -4757,7 +4764,7 @@ def block_writes_in_consolidated_view(f):
 def migrate_product_categories():
     """Migrate existing products to new category structure. Returns True on success."""
     try:
-        print("ðŸ”„ Migrating product categories...")
+        print("🔄 Migrating product categories...")
         
         with get_db() as (cursor, connection):
             # Check if migration has already been done
@@ -4770,7 +4777,7 @@ def migrate_product_categories():
             migrated_count = cursor.fetchone()[0]
             
             if migrated_count > 0:
-                print("âœ… Categories already migrated, skipping...")
+                print("✅ Categories already migrated, skipping...")
                 return
             
             # Define category mappings
@@ -4877,11 +4884,11 @@ def migrate_product_categories():
                     connection.rollback()
                     print(f"Note: Could not rename category '{old}' to '{new}': {e}")
             
-            print("âœ… Product categories migrated successfully!")
+            print("✅ Product categories migrated successfully!")
             return True
             
     except Exception as e:
-        print(f"âš ï¸ Category migration error: {e}")
+        print(f"⚠️ Category migration error: {e}")
         return False
 
 # Lazy one-time DB schema init. Running this at module import made gunicorn
@@ -4901,7 +4908,7 @@ def _ensure_db_initialized():
     # have stopped the local run that re-seeded the branch access codes.
     if not schema_writes_allowed():
         _db_init_done = True          # do not retry on every request
-        print("â›” Schema bootstrap SKIPPED: this process is not authorised to change the "
+        print("⛔ Schema bootstrap SKIPPED: this process is not authorised to change the "
               "production database (set ALLOW_PROD_DB_WRITE=1 if you really mean it).")
         return
     with _db_init_lock:
@@ -4915,11 +4922,11 @@ def _ensure_db_initialized():
             migrate_product_categories()
             if schema_ok:
                 _db_init_done = True
-                print("âœ… Database schema initialized (lazy, on first request)")
+                print("✅ Database schema initialized (lazy, on first request)")
             else:
-                print("âš ï¸ DB init did not complete (will retry on next request)")
+                print("⚠️ DB init did not complete (will retry on next request)")
         except Exception as e:
-            print(f"âš ï¸ DB init failed on first request (will retry on next request): {e}")
+            print(f"⚠️ DB init failed on first request (will retry on next request): {e}")
 
 
 @app.before_request
@@ -4964,10 +4971,10 @@ def webhook():
                         """, (recipient, to_digits))
                         row = cursor.fetchone()
                         if row and row[0]:
-                            print(f"ðŸš« Human mode ON for {recipient} â€” skipping chatbot auto-reply (button image message)")
+                            print(f"🚫 Human mode ON for {recipient} — skipping chatbot auto-reply (button image message)")
                             return None
                     except Exception as e:
-                        print(f"âš ï¸ Human mode check error in button_image_message: {e}")
+                        print(f"⚠️ Human mode check error in button_image_message: {e}")
                     
                     headers = {
                         "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -5001,7 +5008,7 @@ def webhook():
                         }
 
                     response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
-                    print("ðŸ“¡ Button image message response:", response.status_code)
+                    print("📡 Button image message response:", response.status_code)
                     
                     # Save to whatsapp_messages for chat portal visibility
                     if response.status_code == 200:
@@ -5016,13 +5023,13 @@ def webhook():
                                 """, (recipient, 'ConnectLink Bot', display_text[:500]))
                                 save_conn.commit()
                         except Exception as save_err:
-                            print(f"âš ï¸ Failed to save button image message: {save_err}")
+                            print(f"⚠️ Failed to save button image message: {save_err}")
                     
                     return response
 
                 def send_whatsapp_message(to, text, buttons=None, footer_text = None):
 
-                    # Check if human mode is enabled for this recipient â€” skip auto-reply if ON
+                    # Check if human mode is enabled for this recipient — skip auto-reply if ON
                     try:
                         to_digits = re.sub(r'[^0-9]', '', str(to))
                         # Match by exact or trailing 9-12 digits (handles +263, 263, 0 prefix variations)
@@ -5033,10 +5040,10 @@ def webhook():
                         """, (to, to_digits))
                         row = cursor.fetchone()
                         if row and row[0]:
-                            print(f"ðŸš« Human mode ON for {to} â€” skipping chatbot auto-reply")
+                            print(f"🚫 Human mode ON for {to} — skipping chatbot auto-reply")
                             return
                     except Exception as e:
-                        print(f"âš ï¸ Human mode check error: {e}")
+                        print(f"⚠️ Human mode check error: {e}")
 
                     print("send mess initialised")
 
@@ -5078,27 +5085,27 @@ def webhook():
                         }
                     
                     # Debugging logs
-                    print("âœ… Sending message to:", to)
-                    print("ðŸ“© Message body:", text)
+                    print("✅ Sending message to:", to)
+                    print("📩 Message body:", text)
 
                     """try:
                         response_json = response.json()
-                        print("ðŸ“ WhatsApp API Response Data:", response_json)
+                        print("📝 WhatsApp API Response Data:", response_json)
                     except Exception as e:
-                        print("âŒ Error parsing response JSON:", e)"""
+                        print("❌ Error parsing response JSON:", e)"""
 
                     try:
                         print("trying in def")
 
                         response = requests.post(WHATSAPP_API_URL, headers=headers, json=data)
-                        print("ðŸ“¡ WhatsApp API Response Status:", response.status_code)
-                        print("ðŸ“¡ WhatsApp API Response Text:", response.text)
+                        print("📡 WhatsApp API Response Status:", response.status_code)
+                        print("📡 WhatsApp API Response Text:", response.text)
 
                         response.raise_for_status()  # will throw if not 2xx
                         resp_json = response.json()
 
-                        print("âœ… Message sent successfully.")
-                        print("ðŸ“ Response JSON:", resp_json)
+                        print("✅ Message sent successfully.")
+                        print("📝 Response JSON:", resp_json)
 
                         # Save outgoing bot message to whatsapp_messages for chat portal visibility
                         try:
@@ -5111,13 +5118,13 @@ def webhook():
                                 """, (to, sender_name, text[:500], 'text'))
                                 save_conn.commit()
                         except Exception as save_err:
-                            print(f"âš ï¸ Failed to save outgoing bot message: {save_err}")
+                            print(f"⚠️ Failed to save outgoing bot message: {save_err}")
 
                         print("done trying")
                         return resp_json
                     
                     except requests.exceptions.RequestException as e:
-                        print("âŒ WhatsApp API Error:", e)
+                        print("❌ WhatsApp API Error:", e)
                         # Save failed message to whatsapp_messages too
                         try:
                             with get_db() as (save_cursor, save_conn):
@@ -5130,7 +5137,7 @@ def webhook():
                                 """, (to, sender_name, f"{text[:300]} [FAILED: {error_detail}]", 'text'))
                                 save_conn.commit()
                         except Exception as save_err:
-                            print(f"âš ï¸ Failed to save failed bot message: {save_err}")
+                            print(f"⚠️ Failed to save failed bot message: {save_err}")
                         return {"error": str(e)}
 
                 def send_whatsapp_button_message(recipient, text, buttons, footer_text=None):
@@ -5145,10 +5152,10 @@ def webhook():
                         """, (recipient, to_digits))
                         row = cursor.fetchone()
                         if row and row[0]:
-                            print(f"ðŸš« Human mode ON for {recipient} â€” skipping chatbot auto-reply (button message)")
+                            print(f"🚫 Human mode ON for {recipient} — skipping chatbot auto-reply (button message)")
                             return None
                     except Exception as e:
-                        print(f"âš ï¸ Human mode check error in button_message: {e}")
+                        print(f"⚠️ Human mode check error in button_message: {e}")
                     
                     try:
                         headers = {
@@ -5178,13 +5185,13 @@ def webhook():
                         
                         response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
 
-                        print("âœ… Sending button message to:", recipient)
-                        print("ðŸ“© Message body:", text)
-                        print("ðŸ“Œ Footer:", footer_text)
-                        print("ðŸ“¡ WhatsApp API Response Status:", response.status_code)
+                        print("✅ Sending button message to:", recipient)
+                        print("📩 Message body:", text)
+                        print("📌 Footer:", footer_text)
+                        print("📡 WhatsApp API Response Status:", response.status_code)
                         
                         if response.status_code != 200:
-                            print("âŒ Error response:", response.json())
+                            print("❌ Error response:", response.json())
                         else:
                             # Save to whatsapp_messages for chat portal visibility
                             try:
@@ -5198,12 +5205,12 @@ def webhook():
                                     """, (recipient, 'ConnectLink Bot', display_text[:500]))
                                     save_conn.commit()
                             except Exception as save_err:
-                                print(f"âš ï¸ Failed to save button message: {save_err}")
+                                print(f"⚠️ Failed to save button message: {save_err}")
                         
                         return response
                         
                     except Exception as e:
-                        print(f"âŒ Error sending WhatsApp button message: {str(e)}")
+                        print(f"❌ Error sending WhatsApp button message: {str(e)}")
                         # Save failed attempt
                         try:
                             with get_db() as (save_cursor, save_conn):
@@ -5229,10 +5236,10 @@ def webhook():
                         """, (recipient, to_digits))
                         row = cursor.fetchone()
                         if row and row[0]:
-                            print(f"ðŸš« Human mode ON for {recipient} â€” skipping chatbot auto-reply (list message)")
+                            print(f"🚫 Human mode ON for {recipient} — skipping chatbot auto-reply (list message)")
                             return None
                     except Exception as e:
-                        print(f"âš ï¸ Human mode check error in list_message: {e}")
+                        print(f"⚠️ Human mode check error in list_message: {e}")
                     
                     try:
                         headers = {
@@ -5267,10 +5274,10 @@ def webhook():
                         
                         response = requests.post(WHATSAPP_API_URL, headers=headers, json=payload)
                         
-                        print("âœ… Sending list message to:", recipient)
-                        print("ðŸ“© Message body:", text)
-                        print("ðŸ“Œ Footer:", footer_text)
-                        print("ðŸ“¡ WhatsApp API Response Status:", response.status_code)
+                        print("✅ Sending list message to:", recipient)
+                        print("📩 Message body:", text)
+                        print("📌 Footer:", footer_text)
+                        print("📡 WhatsApp API Response Status:", response.status_code)
                         
                         if response.status_code == 200:
                             # Save to whatsapp_messages for chat portal visibility
@@ -5285,12 +5292,12 @@ def webhook():
                                     """, (recipient, 'ConnectLink Bot', display_text[:500]))
                                     save_conn.commit()
                             except Exception as save_err:
-                                print(f"âš ï¸ Failed to save list message: {save_err}")
+                                print(f"⚠️ Failed to save list message: {save_err}")
                         
                         return response
                         
                     except Exception as e:
-                        print(f"âŒ Error sending WhatsApp list message: {str(e)}")
+                        print(f"❌ Error sending WhatsApp list message: {str(e)}")
                         # Save failed attempt
                         try:
                             with get_db() as (save_cursor, save_conn):
@@ -5305,7 +5312,7 @@ def webhook():
                         return None
 
 
-                print("ðŸ“¥ Full incoming data:", json.dumps(data, indent=2))
+                print("📥 Full incoming data:", json.dumps(data, indent=2))
 
                 if data and "entry" in data:
 
@@ -5321,9 +5328,9 @@ def webhook():
                                 .get("name")
                         )
                     except Exception as e:
-                        print("âŒ Error extracting profile name:", e)
+                        print("❌ Error extracting profile name:", e)
 
-                    print("ðŸ‘¤ Contact profile name:", profile_name)
+                    print("👤 Contact profile name:", profile_name)
 
 
                     for entry in data["entry"]:
@@ -5359,10 +5366,10 @@ def webhook():
                                                     WHERE id = %s
                                                 """, (error_text, fup_row[0]))
                                                 connection.commit()
-                                                print(f"âš ï¸ Enquiry follow-up #{fup_row[1]} marked failed (async status) message_id={outbound_message_id}")
+                                                print(f"⚠️ Enquiry follow-up #{fup_row[1]} marked failed (async status) message_id={outbound_message_id}")
                                         except Exception as fup_err:
                                             connection.rollback()
-                                            print(f"âš ï¸ Error marking enquiry follow-up failed: {fup_err}")
+                                            print(f"⚠️ Error marking enquiry follow-up failed: {fup_err}")
 
                                         if not is_template_window_error(error_text):
                                             continue
@@ -5403,7 +5410,7 @@ def webhook():
                                                     q_markup = float(qrow[3]) if qrow[3] else 0
                                                     q_date = qrow[4] if qrow[4] else None
                                             except Exception as qerr:
-                                                print(f"âš ï¸ Could not fetch quotation metadata for fallback: {qerr}")
+                                                print(f"⚠️ Could not fetch quotation metadata for fallback: {qerr}")
 
                                             # Record the failure once so portal can show Failed status entries
                                             cursor.execute("""
@@ -5432,10 +5439,10 @@ def webhook():
                                                 )
 
                                             if fallback_already_sent:
-                                                print(f"â„¹ï¸ Quotation template fallback already sent for message_id={outbound_message_id}")
+                                                print(f"ℹ️ Quotation template fallback already sent for message_id={outbound_message_id}")
                                             else:
                                                 if not target_number:
-                                                    print(f"âš ï¸ Could not derive WhatsApp number for failed message_id={outbound_message_id}")
+                                                    print(f"⚠️ Could not derive WhatsApp number for failed message_id={outbound_message_id}")
                                                 else:
                                                     share_token = create_quotation_share_token(safe_qid)
                                                     template_response = send_quotation_download_template(
@@ -5470,7 +5477,7 @@ def webhook():
                                                     connection.commit()
 
                                                     print(
-                                                        f"âœ… Async fallback template sent for quotation {safe_qid} "
+                                                        f"✅ Async fallback template sent for quotation {safe_qid} "
                                                         f"to {target_number} after status failure 131047. response={template_response}"
                                                     )
 
@@ -5501,9 +5508,9 @@ def webhook():
                                             connection.commit()
 
                                             if contract_fallback_done:
-                                                print(f"â„¹ï¸ Contract template fallback already sent for message_id={outbound_message_id}")
+                                                print(f"ℹ️ Contract template fallback already sent for message_id={outbound_message_id}")
                                             elif not contract_number:
-                                                print(f"âš ï¸ Could not derive WhatsApp number for contract message_id={outbound_message_id}")
+                                                print(f"⚠️ Could not derive WhatsApp number for contract message_id={outbound_message_id}")
                                             else:
                                                 send_contract_download_template(
                                                     contract_number,
@@ -5520,13 +5527,13 @@ def webhook():
                                                     WHERE outbound_message_id = %s
                                                 """, (outbound_message_id,))
                                                 connection.commit()
-                                                print(f"âœ… Async contract template fallback sent for project {contract_project_id} to {contract_number}")
+                                                print(f"✅ Async contract template fallback sent for project {contract_project_id} to {contract_number}")
 
                                         if not handled:
-                                            print(f"â„¹ï¸ No quotation or contract outbox match for failed message_id={outbound_message_id}")
+                                            print(f"ℹ️ No quotation or contract outbox match for failed message_id={outbound_message_id}")
                                     except Exception as status_err:
                                         connection.rollback()
-                                        print(f"âŒ Error handling failed WhatsApp status fallback: {status_err}")
+                                        print(f"❌ Error handling failed WhatsApp status fallback: {status_err}")
 
                             if "messages" in change["value"]:
                                 for message in change["value"]["messages"]:
@@ -5537,7 +5544,7 @@ def webhook():
 
                                     sender_id = message["from"]
                                     sender_number = sender_id[-9:]
-                                    print(f"ðŸ“± Conversation {conversation_id}: Sender's WhatsApp number: {sender_number}")
+                                    print(f"📱 Conversation {conversation_id}: Sender's WhatsApp number: {sender_number}")
                                     session['client'] = str(sender_number)
 
                                     message_type = message.get("type")
@@ -5607,7 +5614,7 @@ def webhook():
                                             """, (sender_id, sender_name, msg_text[:500], message_type or 'unknown', media_id, file_name))
                                             save_conn.commit()
                                     except Exception as save_err:
-                                        print(f"âš ï¸ Failed to save incoming message: {save_err}")
+                                        print(f"⚠️ Failed to save incoming message: {save_err}")
 
                                     #external_database_url = "postgresql://lmsdatabase_8ag3_user:6WD9lOnHkiU7utlUUjT88m4XgEYQMTLb@dpg-ctp9h0aj1k6c739h9di0-a.oregon-postgres.render.com/lmsdatabase_8ag3"
 
@@ -5620,7 +5627,7 @@ def webhook():
                                             # used to be left undefined, and the button handlers further
                                             # down hit a NameError that a bare `except: pass` swallowed
                                             # and reported as "you do not have permission to access the
-                                            # Projects system" â€” a wrong answer for an unregistered
+                                            # Projects system" — a wrong answer for an unregistered
                                             # number. With a default, the permission check simply finds
                                             # nothing and the real message can be shown.
                                             is_from_admin_users = False
@@ -5651,7 +5658,7 @@ def webhook():
                                                 # connectlinkusers returns: id, datecreated, name, ...
                                                 #
                                                 # WHICH TABLE it came from decides which column is the user id,
-                                                # and the old test â€” "result[1] is set and is not a str" â€”
+                                                # and the old test — "result[1] is set and is not a str" —
                                                 # could not tell them apart: connectlinkusers' second column
                                                 # is datecreated, which is neither None nor a string, so a
                                                 # legacy user's DATE CREATED was handed to
@@ -5689,7 +5696,7 @@ def webhook():
                                                         kw_match = resolve_chatbot_keyword(msg_text)
                                                         if kw_match:
                                                             keyword, handler_id = kw_match
-                                                            print(f"ðŸ”‘ Admin keyword match: '{keyword}' â†’ handler: {handler_id}")
+                                                            print(f"🔑 Admin keyword match: '{keyword}' → handler: {handler_id}")
                                                             log_chatbot_interaction(sender_id, admin_name, 'keyword', keyword, handler_id)
                                                             text_keyword_handled = True
                                                             button_id = ''
@@ -5733,12 +5740,12 @@ def webhook():
 
                                                         if interactive.get("type") == "list_reply":
                                                             selected_option = interactive.get("list_reply", {}).get("id")
-                                                            print(f"ðŸ“‹ User selected: {selected_option}")
+                                                            print(f"📋 User selected: {selected_option}")
                                                             button_id = ""
 
                                                         elif interactive.get("type") == "button_reply":
                                                             button_id = interactive.get("button_reply", {}).get("id")
-                                                            print(f"ðŸ”˜ Button clicked: {button_id}")
+                                                            print(f"🔘 Button clicked: {button_id}")
                                                             selected_option = ""
 
                                                             # === HANDLE LEAVE APPROVAL BUTTONS ===
@@ -5785,10 +5792,10 @@ def webhook():
                                                                                         WHERE id = (SELECT employee_id FROM hr_leave_applications WHERE id = %s)
                                                                                     """, (leave_days, leave_id))
                                                                                     leave_conn.commit()
-                                                                                    print(f"âœ… Deducted {leave_days} day(s) from employee leave balance for #{leave_id}")
+                                                                                    print(f"✅ Deducted {leave_days} day(s) from employee leave balance for #{leave_id}")
 
-                                                                                confirm = f"âœ… Leave #{leave_id} ({emp_name} - {ltype}) has been APPROVED."
-                                                                                print(f"âœ… Leave #{leave_id} approved via WhatsApp by {sender_name}")
+                                                                                confirm = f"✅ Leave #{leave_id} ({emp_name} - {ltype}) has been APPROVED."
+                                                                                print(f"✅ Leave #{leave_id} approved via WhatsApp by {sender_name}")
 
                                                                             elif action == 'decline':
                                                                                 leave_cursor.execute("""
@@ -5797,8 +5804,8 @@ def webhook():
                                                                                     WHERE id = %s AND status = 'Pending'
                                                                                 """, (leave_id,))
                                                                                 leave_conn.commit()
-                                                                                confirm = f"âŒ Leave #{leave_id} ({emp_name} - {ltype}) has been DECLINED."
-                                                                                print(f"âŒ Leave #{leave_id} declined via WhatsApp by {sender_name}")
+                                                                                confirm = f"❌ Leave #{leave_id} ({emp_name} - {ltype}) has been DECLINED."
+                                                                                print(f"❌ Leave #{leave_id} declined via WhatsApp by {sender_name}")
 
                                                                             # Send confirmation back to the approver
                                                                             try:
@@ -5896,9 +5903,9 @@ def webhook():
                                                                                 {'action': action, 'via': 'whatsapp'}
                                                                             )
                                                                         else:
-                                                                            print(f"âš ï¸ Leave #{leave_id} not found or already processed")
+                                                                            print(f"⚠️ Leave #{leave_id} not found or already processed")
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error processing leave button: {e}")
+                                                                    print(f"❌ Error processing leave button: {e}")
                                                                 # Skip further processing for leave buttons
                                                                 continue
 
@@ -5926,15 +5933,15 @@ def webhook():
                                                                             leave_conn.commit()
 
                                                                             send_whatsapp_button_message(sender,
-                                                                                f"âœ… *Leave Application Cancelled!*\n\n"
-                                                                                f"ðŸ“‹ *Reference:* #{cancel_leave_id}\n"
-                                                                                f"ðŸ‘¤ *Employee:* {emp_name}\n"
-                                                                                f"ðŸ“… *Type:* {ltype}\n\n"
+                                                                                f"✅ *Leave Application Cancelled!*\n\n"
+                                                                                f"📋 *Reference:* #{cancel_leave_id}\n"
+                                                                                f"👤 *Employee:* {emp_name}\n"
+                                                                                f"📅 *Type:* {ltype}\n\n"
                                                                                 f"Your pending leave has been cancelled successfully.",
                                                                                 [
                                                                                     {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
-                                                                                    {"type":"reply","reply":{"id":"my_info","title":"ðŸ“Š Check Days Balance"}},
-                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"â†© Main Menu"}}
+                                                                                    {"type":"reply","reply":{"id":"my_info","title":"📊 Check Days Balance"}},
+                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
                                                                                 ],
                                                                                 footer_text="ConnectLink HR Portal"
                                                                             )
@@ -5946,11 +5953,11 @@ def webhook():
                                                                                 {'action': 'cancelled', 'via': 'whatsapp', 'by': 'employee'}
                                                                             )
 
-                                                                            print(f"âœ… Leave #{cancel_leave_id} cancelled by employee via WhatsApp")
+                                                                            print(f"✅ Leave #{cancel_leave_id} cancelled by employee via WhatsApp")
                                                                         else:
-                                                                            send_whatsapp_message(sender, f"âš ï¸ Leave #{cancel_leave_id} not found or already processed.")
+                                                                            send_whatsapp_message(sender, f"⚠️ Leave #{cancel_leave_id} not found or already processed.")
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error cancelling pending leave: {e}")
+                                                                    print(f"❌ Error cancelling pending leave: {e}")
                                                                 continue
 
                                                             # === HANDLE REMIND APPROVER ===
@@ -5983,10 +5990,10 @@ def webhook():
                                                                             approver_phone = remind_row[9] or ''
 
                                                                             if not approver_phone:
-                                                                                send_whatsapp_message(sender, "âš ï¸ No approver contact found for this leave application.")
+                                                                                send_whatsapp_message(sender, "⚠️ No approver contact found for this leave application.")
                                                                                 continue
 
-                                                                            # Gender pronoun â€” default to 'their' if blank/unknown
+                                                                            # Gender pronoun — default to 'their' if blank/unknown
                                                                             pronoun = 'their'
                                                                             try:
                                                                                 remind_cursor.execute("SELECT gender FROM hr_employees WHERE id = (SELECT employee_id FROM hr_leave_applications WHERE id = %s)", (remind_leave_id,))
@@ -6063,18 +6070,18 @@ def webhook():
                                                                                 }
                                                                             }
                                                                             resp_remind = requests.post(WHATSAPP_API_URL, json=reminder_payload, headers=wa_headers, timeout=15)
-                                                                            print(f"ðŸ“¤ Leave reminder template sent: {resp_remind.status_code}")
+                                                                            print(f"📤 Leave reminder template sent: {resp_remind.status_code}")
 
                                                                             if resp_remind.status_code == 200:
                                                                                 send_whatsapp_button_message(sender,
-                                                                                    f"âœ… *Reminder sent to {approver_name}!*\n\n"
-                                                                                    f"ðŸ“‹ *Reference:* #{remind_leave_id}\n"
-                                                                                    f"ðŸ“… *Type:* {ltype}\n"
-                                                                                    f"ðŸ“Š *Days:* {days}\n\n"
+                                                                                    f"✅ *Reminder sent to {approver_name}!*\n\n"
+                                                                                    f"📋 *Reference:* #{remind_leave_id}\n"
+                                                                                    f"📅 *Type:* {ltype}\n"
+                                                                                    f"📊 *Days:* {days}\n\n"
                                                                                     f"They have been notified to review your leave application.",
                                                                                     [
-                                                                                        {"type":"reply","reply":{"id":"my_info","title":"ðŸ“Š Check Days Balance"}},
-                                                                                        {"type":"reply","reply":{"id":"main_menu","title":"â†© Main Menu"}}
+                                                                                        {"type":"reply","reply":{"id":"my_info","title":"📊 Check Days Balance"}},
+                                                                                        {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
                                                                                     ],
                                                                                     footer_text="ConnectLink HR Portal"
                                                                                 )
@@ -6087,14 +6094,14 @@ def webhook():
                                                                                 )
                                                                             else:
                                                                                 send_whatsapp_message(sender,
-                                                                                    f"âš ï¸ *Could not send reminder to {approver_name}.*\n\n"
+                                                                                    f"⚠️ *Could not send reminder to {approver_name}.*\n\n"
                                                                                     f"The reminder template may not be set up yet in Meta.\n"
                                                                                     f"Please contact the system administrator to create the *leaveappreminder* template."
                                                                                 )
                                                                         else:
-                                                                            send_whatsapp_message(sender, f"âš ï¸ Leave #{remind_leave_id} not found or already processed.")
+                                                                            send_whatsapp_message(sender, f"⚠️ Leave #{remind_leave_id} not found or already processed.")
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error sending leave reminder: {e}")
+                                                                    print(f"❌ Error sending leave reminder: {e}")
                                                                 continue
 
                                                             # === HANDLE DOWNLOAD LEAVE SLIP ===
@@ -6157,7 +6164,7 @@ def webhook():
                                                                                     logo_b64 = base64.b64encode(f.read()).decode()
 
                                                                             # Let the user know we are working before the slow PDF step
-                                                                            send_whatsapp_message(sender, "â³ Generating your leave slip PDF, please wait...")
+                                                                            send_whatsapp_message(sender, "⏳ Generating your leave slip PDF, please wait...")
 
                                                                             # Generate PDF
                                                                             from flask import render_template
@@ -6170,28 +6177,28 @@ def webhook():
                                                                                 department=department,
                                                                                 leave_id=slip_leave_id, logo_b64=logo_b64
                                                                             )
-                                                                            # weasyprint (+ Playwright fallback) â€” leave_slip.html is A5 via its own @page rule
+                                                                            # weasyprint (+ Playwright fallback) — leave_slip.html is A5 via its own @page rule
                                                                             pdf_bytes = render_html_to_pdf_bytes(html)
 
                                                                             # Send PDF
                                                                             full_name = emp_name
                                                                             filename = f"Leave_Slip_{full_name}_{slip_leave_id}.pdf"
-                                                                            caption = f"ðŸ“‹ Leave Application Slip - {full_name} ({status})"
+                                                                            caption = f"📋 Leave Application Slip - {full_name} ({status})"
                                                                             send_pdf_document_whatsapp(sender, pdf_bytes, filename, caption)
-                                                                            print(f"âœ… Leave slip PDF sent to {sender} for {full_name} (#{slip_leave_id})")
+                                                                            print(f"✅ Leave slip PDF sent to {sender} for {full_name} (#{slip_leave_id})")
                                                                         else:
-                                                                            send_whatsapp_message(sender, f"âš ï¸ Leave #{slip_leave_id} not found or still pending.")
+                                                                            send_whatsapp_message(sender, f"⚠️ Leave #{slip_leave_id} not found or still pending.")
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error sending leave slip: {e}")
+                                                                    print(f"❌ Error sending leave slip: {e}")
                                                                     import traceback
                                                                     traceback.print_exc()
                                                                     try:
                                                                         send_whatsapp_message(
                                                                             message.get("from", ""),
-                                                                            "âŒ Sorry, we could not prepare that leave slip right now. Please try again or contact HR."
+                                                                            "❌ Sorry, we could not prepare that leave slip right now. Please try again or contact HR."
                                                                         )
                                                                     except Exception as notify_err:
-                                                                        print(f"âš ï¸ Could not send leave slip failure message: {notify_err}")
+                                                                        print(f"⚠️ Could not send leave slip failure message: {notify_err}")
                                                                 continue
 
                                                             # === HANDLE MY LEAVE HISTORY ===
@@ -6209,7 +6216,7 @@ def webhook():
                                                                         """, (hist_emp_id,))
                                                                         hem = hist_cursor.fetchone()
                                                                         if not hem:
-                                                                            send_whatsapp_message(sender, "âŒ Employee not found.")
+                                                                            send_whatsapp_message(sender, "❌ Employee not found.")
                                                                             continue
 
                                                                         emp_name = f"{hem[1]} {hem[2]}"
@@ -6226,7 +6233,7 @@ def webhook():
                                                                         leaves = hist_cursor.fetchall()
 
                                                                     if not leaves:
-                                                                        send_whatsapp_message(sender, "ðŸ“‹ *Leave History*\n\nYou have no leave records on file.")
+                                                                        send_whatsapp_message(sender, "📋 *Leave History*\n\nYou have no leave records on file.")
                                                                         continue
 
                                                                     # Build logo
@@ -6237,7 +6244,7 @@ def webhook():
                                                                             logo_b64 = base64.b64encode(f.read()).decode()
 
                                                                     # Let the user know we are working before the slow PDF step
-                                                                    send_whatsapp_message(sender, "â³ Generating your leave history report, please wait...")
+                                                                    send_whatsapp_message(sender, "⏳ Generating your leave history report, please wait...")
 
                                                                     # Generate PDF
                                                                     from flask import render_template
@@ -6246,24 +6253,24 @@ def webhook():
                                                                         leaves=leaves, logo_b64=logo_b64,
                                                                         now=datetime.now()
                                                                     )
-                                                                    # weasyprint (+ Playwright fallback) â€” leave_history.html is A4 landscape via its own @page
+                                                                    # weasyprint (+ Playwright fallback) — leave_history.html is A4 landscape via its own @page
                                                                     pdf_bytes = render_html_to_pdf_bytes(html)
 
                                                                     filename = f"Leave_History_{emp_name}.pdf"
-                                                                    caption = f"ðŸ“‹ Leave History Report - {emp_name}"
+                                                                    caption = f"📋 Leave History Report - {emp_name}"
                                                                     send_pdf_document_whatsapp(sender, pdf_bytes, filename, caption)
-                                                                    print(f"âœ… Leave history PDF sent to {sender} for {emp_name}")
+                                                                    print(f"✅ Leave history PDF sent to {sender} for {emp_name}")
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error sending leave history: {e}")
+                                                                    print(f"❌ Error sending leave history: {e}")
                                                                     import traceback
                                                                     traceback.print_exc()
                                                                     try:
                                                                         send_whatsapp_message(
                                                                             message.get("from", ""),
-                                                                            "âŒ Sorry, we could not prepare your leave history right now. Please try again later or contact HR."
+                                                                            "❌ Sorry, we could not prepare your leave history right now. Please try again later or contact HR."
                                                                         )
                                                                     except Exception as notify_err:
-                                                                        print(f"âš ï¸ Could not send leave history failure message: {notify_err}")
+                                                                        print(f"⚠️ Could not send leave history failure message: {notify_err}")
                                                                 continue
 
 
@@ -6281,12 +6288,12 @@ def webhook():
                                                             button_id = ""
                                                             
                                                             try:
-                                                                form_response = json.loads(response_str)  # convert string â†’ dict
+                                                                form_response = json.loads(response_str)  # convert string → dict
                                                             except Exception as e:
-                                                                print("âŒ Error parsing nfm_reply response_json:", e)
+                                                                print("❌ Error parsing nfm_reply response_json:", e)
                                                                 form_response = {}
 
-                                                            print("ðŸ“‹ User submitted flow response:", form_response)
+                                                            print("📋 User submitted flow response:", form_response)
 
                                                             # Check if this is a leave application flow submission
                                                             leave_type_raw = form_response.get("screen_0_Leave_Type_0", "")
@@ -6336,21 +6343,21 @@ def webhook():
                                                                         "type": "reply",
                                                                         "reply": {
                                                                             "id": "leave_submit",
-                                                                            "title": "âœ… Submit"
+                                                                            "title": "✅ Submit"
                                                                         }
                                                                     },
                                                                     {
                                                                         "type": "reply",
                                                                         "reply": {
                                                                             "id": "leave_cancel",
-                                                                            "title": "âŒ Cancel"
+                                                                            "title": "❌ Cancel"
                                                                         }
                                                                     }
                                                                 ]
 
                                                                 send_whatsapp_button_message(
                                                                     sender_id,
-                                                                    f"ðŸ“‹ *Please confirm your leave application:*\n\n"
+                                                                    f"📋 *Please confirm your leave application:*\n\n"
                                                                     f"*Leave Type:* {leave_type_display}\n"
                                                                     f"*Start Date:* {leave_start}\n"
                                                                     f"*End Date:* {leave_end}\n"
@@ -6373,7 +6380,7 @@ def webhook():
                                                             kw_match = resolve_chatbot_keyword(msg_text)
                                                             if kw_match:
                                                                 keyword, handler_id = kw_match
-                                                                print(f"ðŸ”‘ Keyword match: '{keyword}' â†’ handler: {handler_id}")
+                                                                print(f"🔑 Keyword match: '{keyword}' → handler: {handler_id}")
                                                                 log_chatbot_interaction(sender_id, admin_name, 'keyword', keyword, handler_id)
                                                                 # Map keyword handler to the corresponding action
                                                                 if handler_id == 'main_menu':
@@ -6456,21 +6463,21 @@ def webhook():
                                                                             pass
 
                                                                         send_whatsapp_message(sender_id,
-                                                                            f"âœ… *Leave Application Submitted!*\n\n"
-                                                                            f"ðŸ“‹ *Reference:* #{lid}\n"
-                                                                            f"ðŸ‘¤ *Employee:* {emp_name}\n"
-                                                                            f"ðŸ“… *Type:* {leave_type}\n"
-                                                                            f"ðŸ“† *From:* {from_date} â†’ *To:* {to_date}\n"
-                                                                            f"ðŸ“Š *Days:* {days}\n"
-                                                                            f"ðŸ“ *Reason:* {reason}\n"
-                                                                            f"â³ *Status:* Pending Approval\n\n"
+                                                                            f"✅ *Leave Application Submitted!*\n\n"
+                                                                            f"📋 *Reference:* #{lid}\n"
+                                                                            f"👤 *Employee:* {emp_name}\n"
+                                                                            f"📅 *Type:* {leave_type}\n"
+                                                                            f"📆 *From:* {from_date} → *To:* {to_date}\n"
+                                                                            f"📊 *Days:* {days}\n"
+                                                                            f"📝 *Reason:* {reason}\n"
+                                                                            f"⏳ *Status:* Pending Approval\n\n"
                                                                             f"You will be notified once your leave is approved."
                                                                         )
                                                                     else:
-                                                                        send_whatsapp_message(sender_id, "âŒ Could not find your employee record. Please contact HR.")
+                                                                        send_whatsapp_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
                                                                 except Exception as e:
-                                                                    print(f"âŒ Leave submission error: {e}")
-                                                                    send_whatsapp_message(sender_id, "âŒ Failed to submit leave. Please try again or contact HR.")
+                                                                    print(f"❌ Leave submission error: {e}")
+                                                                    send_whatsapp_message(sender_id, "❌ Failed to submit leave. Please try again or contact HR.")
                                                                 continue
 
                                                         if button_id == "portfolio":
@@ -6497,7 +6504,7 @@ def webhook():
                                                                 sender_id, 
                                                                 "Kindly select a portfolio option below.",
                                                                 buttons,
-                                                                footer_text="ConnectLink Properties â€¢ Admin Panel"
+                                                                footer_text="ConnectLink Properties • Admin Panel"
 
                                                             )
 
@@ -7284,7 +7291,7 @@ def webhook():
                                                                         {% endif %}
                                                                         
                                                                         <div class="footer">
-                                                                            <p>Generated by ConnectLink System â€¢ {{ report_date }}</p>
+                                                                            <p>Generated by ConnectLink System • {{ report_date }}</p>
                                                                             <p class="note">This portfolio report includes all installment projects with detailed payment progress and status.</p>
                                                                         </div>
                                                                     </body>
@@ -7336,25 +7343,25 @@ def webhook():
                                                                         "to": recipient_number,
                                                                         "type": "text",
                                                                         "text": {
-                                                                            "body": f"ðŸ“‹ *INSTALLMENT PROJECTS PORTFOLIO REPORT*\n\n"
-                                                                                f"ðŸ“… Report Date: {today_str}\n"
-                                                                                f"ðŸ—ï¸ Total Projects: {summary_data['total_projects']}\n"
-                                                                                f"ðŸ‘¥ Total Clients: {pdf_data['total_clients']}\n"
-                                                                                f"ðŸ’° Total Contract Value: USD {summary_data['total_contract_value']:,.2f}\n"
-                                                                                f"âœ… Amount Paid: USD {summary_data['total_paid']:,.2f}\n"
-                                                                                f"â³ Pending Amount: USD {summary_data['total_pending']:,.2f}\n"
-                                                                                f"ðŸ”´ Overdue Amount: USD {summary_data['total_overdue']:,.2f}\n\n"
-                                                                                f"ðŸ“Š *CLIENT STATUS SUMMARY:*\n"
-                                                                                f"â€¢ All Paid: {summary_data['clients_by_status']['all_paid']} clients\n"
-                                                                                f"â€¢ Partially Paid: {summary_data['clients_by_status']['partially_paid']} clients\n"
-                                                                                f"â€¢ All Pending: {summary_data['clients_by_status']['all_pending']} clients\n"
-                                                                                f"â€¢ Has Overdue: {summary_data['clients_by_status']['has_overdue']} clients\n\n"
-                                                                                f"ðŸ“‘ *REPORT INCLUDES:*\n"
-                                                                                f"â€¢ Detailed project-by-project analysis\n"
-                                                                                f"â€¢ Payment progress bars\n"
-                                                                                f"â€¢ Installment schedules\n"
-                                                                                f"â€¢ Client summary table\n"
-                                                                                f"â€¢ Status categorization\n\n"
+                                                                            "body": f"📋 *INSTALLMENT PROJECTS PORTFOLIO REPORT*\n\n"
+                                                                                f"📅 Report Date: {today_str}\n"
+                                                                                f"🏗️ Total Projects: {summary_data['total_projects']}\n"
+                                                                                f"👥 Total Clients: {pdf_data['total_clients']}\n"
+                                                                                f"💰 Total Contract Value: USD {summary_data['total_contract_value']:,.2f}\n"
+                                                                                f"✅ Amount Paid: USD {summary_data['total_paid']:,.2f}\n"
+                                                                                f"⏳ Pending Amount: USD {summary_data['total_pending']:,.2f}\n"
+                                                                                f"🔴 Overdue Amount: USD {summary_data['total_overdue']:,.2f}\n\n"
+                                                                                f"📊 *CLIENT STATUS SUMMARY:*\n"
+                                                                                f"• All Paid: {summary_data['clients_by_status']['all_paid']} clients\n"
+                                                                                f"• Partially Paid: {summary_data['clients_by_status']['partially_paid']} clients\n"
+                                                                                f"• All Pending: {summary_data['clients_by_status']['all_pending']} clients\n"
+                                                                                f"• Has Overdue: {summary_data['clients_by_status']['has_overdue']} clients\n\n"
+                                                                                f"📑 *REPORT INCLUDES:*\n"
+                                                                                f"• Detailed project-by-project analysis\n"
+                                                                                f"• Payment progress bars\n"
+                                                                                f"• Installment schedules\n"
+                                                                                f"• Client summary table\n"
+                                                                                f"• Status categorization\n\n"
                                                                                 f"Please find the complete portfolio report attached.\n"
                                                                                 f"_Generated by ConnectLink System_"
                                                                         }
@@ -7392,7 +7399,7 @@ def webhook():
                                                                             """, (recipient_number, 'ConnectLink Bot', f"[Document: {filename}]", media_id, filename))
                                                                             save_conn.commit()
                                                                     except Exception as save_err:
-                                                                        print(f"âš ï¸ Failed to save portfolio PDF message: {save_err}")
+                                                                        print(f"⚠️ Failed to save portfolio PDF message: {save_err}")
                                                                     
                                                                     return response.json()
                                                                 
@@ -7427,7 +7434,7 @@ def webhook():
                                                                     sender_id,
                                                                     "Kindly select a portfolio option below.",
                                                                     buttons,
-                                                                    footer_text="ConnectLink Properties â€¢ Admin Panel"
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
                                                                 )
 
                                                                 return jsonify({
@@ -7667,7 +7674,7 @@ def webhook():
                                                                                 <div class="report-title">PROJECT NOTES REPORT</div>
                                                                                 <div class="report-date">Generated: {datetime.now().strftime('%d %B %Y %H:%M')}</div>
                                                                                 <div style="font-size: 14px; color: #666;">
-                                                                                    Connectlink Properties â€¢ Notes Management System
+                                                                                    Connectlink Properties • Notes Management System
                                                                                 </div>
                                                                             </div>
                                                                             
@@ -7708,7 +7715,7 @@ def webhook():
                                                                                 html_content += f"""
                                                                                 <div style="margin-top: 30px;">
                                                                                     <h3 style="color: #1E2A56; border-bottom: 2px solid #1E2A56; padding-bottom: 5px;">
-                                                                                        ðŸ“‹ Project: {first_note[10] or first_note[6] or f'ID: {project_id}'}
+                                                                                        📋 Project: {first_note[10] or first_note[6] or f'ID: {project_id}'}
                                                                                     </h3>
                                                                                     <div class="client-info">
                                                                                         <strong>Client:</strong> {first_note[11] or first_note[7] or 'N/A'}<br>
@@ -7731,7 +7738,7 @@ def webhook():
                                                                                         </div>
                                                                                         
                                                                                         <div class="note-capturer">
-                                                                                            ðŸ“ Added by: {note[2] or 'Unknown'} 
+                                                                                            📝 Added by: {note[2] or 'Unknown'} 
                                                                                             {f'(ID: {note[3]})' if note[3] else ''}
                                                                                         </div>
                                                                                         
@@ -7745,8 +7752,8 @@ def webhook():
                                                                         
                                                                         html_content += """
                                                                             <div class="footer">
-                                                                                <p>Â© Connectlink Properties â€¢ Notes Management System</p>
-                                                                                <p>Generated automatically â€¢ Confidential</p>
+                                                                                <p>© Connectlink Properties • Notes Management System</p>
+                                                                                <p>Generated automatically • Confidential</p>
                                                                             </div>
                                                                         </body>
                                                                         </html>
@@ -7769,7 +7776,7 @@ def webhook():
                                                                     
                                                                     if not pdf_bytes:
                                                                         # Send error message
-                                                                        message = "ðŸ“‹ *PROJECT NOTES*\n\nNo notes found for your request."
+                                                                        message = "📋 *PROJECT NOTES*\n\nNo notes found for your request."
                                                                         send_whatsapp_text(recipient_number, message)
                                                                         return {'status': 'error', 'message': 'No notes found'}
                                                                     
@@ -7779,13 +7786,13 @@ def webhook():
                                                                     
                                                                     # Send text message first
                                                                     message = f"""
-                                                                        ðŸ“‹ *PROJECT NOTES REPORT*
+                                                                        📋 *PROJECT NOTES REPORT*
 
                                                                         Your notes report has been generated successfully!
 
-                                                                        ðŸ“„ *File:* {filename}
-                                                                        ðŸ“… *Generated:* {datetime.now().strftime('%d %B %Y %H:%M')}
-                                                                        ðŸ¢ *System:* Connectlink Properties Notes
+                                                                        📄 *File:* {filename}
+                                                                        📅 *Generated:* {datetime.now().strftime('%d %B %Y %H:%M')}
+                                                                        🏢 *System:* Connectlink Properties Notes
 
                                                                         Please find the detailed notes report attached.
 
@@ -7857,7 +7864,7 @@ def webhook():
                                                                                 """, (recipient_number, 'ConnectLink Bot', message[:500]))
                                                                                 save_conn.commit()
                                                                         except Exception as save_err:
-                                                                            print(f"âš ï¸ Failed to save text message: {save_err}")
+                                                                            print(f"⚠️ Failed to save text message: {save_err}")
                                                                 except Exception as e:
                                                                     print(f"Error sending text: {e}")
 
@@ -7906,7 +7913,7 @@ def webhook():
                                                                 sender_id,
                                                                 "Kindly select a portfolio option below.",
                                                                 buttons,
-                                                                footer_text="ConnectLink Properties â€¢ Admin Panel"
+                                                                footer_text="ConnectLink Properties • Admin Panel"
                                                             )
                                                         
                                                             return jsonify(result)
@@ -8498,7 +8505,7 @@ def webhook():
                                                                         </div>
                                                                         
                                                                         <div class="footer">
-                                                                            <p>Generated by ConnectLink System â€¢ {{ report_date }}</p>
+                                                                            <p>Generated by ConnectLink System • {{ report_date }}</p>
                                                                             <p class="note">This report shows a cross-tab summary of pending installment payments by client and month.</p>
                                                                         </div>
                                                                     </body>
@@ -8554,20 +8561,20 @@ def webhook():
                                                                         "to": recipient_number,
                                                                         "type": "text",
                                                                         "text": {
-                                                                            "body": f"ðŸ“Š *INSTALLMENT PAYMENTS SCHEDULE - CROSS TAB VIEW*\n\n"
-                                                                                f"ðŸ“… Report Date: {today_str}\n"
-                                                                                f"ðŸ—ï¸ Total Projects: {summary_data['total_projects']}\n"
-                                                                                f"ðŸ‘¥ Total Clients: {pdf_data['total_clients']}\n"
-                                                                                f"ðŸ’° Total Pending: USD {summary_data['total_pending']:,.2f}\n"
-                                                                                f"ðŸ”´ Overdue Amount: USD {summary_data['total_overdue']:,.2f}\n"
-                                                                                f"ðŸŸ¢ Future Amount: USD {summary_data['total_future']:,.2f}\n"
-                                                                                f"ðŸ“ˆ Months Covered: {len(month_columns_formatted)} ({month_list})\n\n"
-                                                                                f"ðŸ“‹ *REPORT FEATURES:*\n"
-                                                                                f"â€¢ Cross-tab view (Clients vs Months)\n"
-                                                                                f"â€¢ Monthly payment breakdown\n"
-                                                                                f"â€¢ Total pending per client\n"
-                                                                                f"â€¢ Monthly summary table\n"
-                                                                                f"â€¢ Grand total summary\n\n"
+                                                                            "body": f"📊 *INSTALLMENT PAYMENTS SCHEDULE - CROSS TAB VIEW*\n\n"
+                                                                                f"📅 Report Date: {today_str}\n"
+                                                                                f"🏗️ Total Projects: {summary_data['total_projects']}\n"
+                                                                                f"👥 Total Clients: {pdf_data['total_clients']}\n"
+                                                                                f"💰 Total Pending: USD {summary_data['total_pending']:,.2f}\n"
+                                                                                f"🔴 Overdue Amount: USD {summary_data['total_overdue']:,.2f}\n"
+                                                                                f"🟢 Future Amount: USD {summary_data['total_future']:,.2f}\n"
+                                                                                f"📈 Months Covered: {len(month_columns_formatted)} ({month_list})\n\n"
+                                                                                f"📋 *REPORT FEATURES:*\n"
+                                                                                f"• Cross-tab view (Clients vs Months)\n"
+                                                                                f"• Monthly payment breakdown\n"
+                                                                                f"• Total pending per client\n"
+                                                                                f"• Monthly summary table\n"
+                                                                                f"• Grand total summary\n\n"
                                                                                 f"Please find the cross-tab schedule attached.\n"
                                                                                 f"_Generated by ConnectLink System_"
                                                                         }
@@ -8605,7 +8612,7 @@ def webhook():
                                                                             """, (recipient_number, 'ConnectLink Bot', f"[Document: {filename}]", media_id, filename))
                                                                             save_conn.commit()
                                                                     except Exception as save_err:
-                                                                        print(f"âš ï¸ Failed to save cross-tab PDF message: {save_err}")
+                                                                        print(f"⚠️ Failed to save cross-tab PDF message: {save_err}")
                                                                     
                                                                     return response.json()
                                                                 
@@ -8640,7 +8647,7 @@ def webhook():
                                                                     sender_id,
                                                                     "Kindly select a portfolio option below.",
                                                                     buttons,
-                                                                    footer_text="ConnectLink Properties â€¢ Admin Panel"
+                                                                    footer_text="ConnectLink Properties • Admin Panel"
                                                                 )
 
                                                                 return jsonify({
@@ -8689,7 +8696,7 @@ def webhook():
                                                                 sender_id,
                                                                 "Kindly select a portfolio option below.",
                                                                 buttons,
-                                                                footer_text="ConnectLink Properties â€¢ Admin Panel"
+                                                                footer_text="ConnectLink Properties • Admin Panel"
                                                             )
 
                                                             continue
@@ -8705,7 +8712,7 @@ def webhook():
                                                             except:
                                                                 pass
                                                             if not has_projects_access:
-                                                                send_whatsapp_message(sender_id, "âŒ You do not have permission to access the Projects system.")
+                                                                send_whatsapp_message(sender_id, "❌ You do not have permission to access the Projects system.")
                                                                 continue
 
                                                             """Generate and send enquiries PDF via WhatsApp"""
@@ -8769,7 +8776,7 @@ def webhook():
                                                                                     color: #1E2A56;
                                                                                 }}
                                                                                 @bottom-center {{
-                                                                                    content: "Connectlink Properties â€¢ Page " counter(page) " of " counter(pages);
+                                                                                    content: "Connectlink Properties • Page " counter(page) " of " counter(pages);
                                                                                     font-size: 10px;
                                                                                     color: #666;
                                                                                 }}
@@ -9026,7 +9033,7 @@ def webhook():
                                                                                         <span class="{status_class}">{status_text}</span>
                                                                                     </td>
                                                                                     <td align="center">
-                                                                                        {'ðŸ“Ž Yes' if has_plan else 'No'}
+                                                                                        {'📎 Yes' if has_plan else 'No'}
                                                                                     </td>
                                                                                 </tr>
                                                                         """
@@ -9037,7 +9044,7 @@ def webhook():
                                                                         
                                                                         <div class="footer">
                                                                             <p>Connectlink Properties Enquiries Management System</p>
-                                                                            <p>Total Records: {len(enquiries)} â€¢ Generated Automatically</p>
+                                                                            <p>Total Records: {len(enquiries)} • Generated Automatically</p>
                                                                         </div>
                                                                     </body>
                                                                     </html>
@@ -9071,20 +9078,20 @@ def webhook():
                                                                     
                                                                     # Send message first
                                                                     message = f"""
-                                                                        ðŸ“‹ *ENQUIRIES MANAGEMENT REPORT*
+                                                                        📋 *ENQUIRIES MANAGEMENT REPORT*
 
                                                                         Your enquiries report has been generated!
 
-                                                                        ðŸ“„ *File:* {filename}
-                                                                        ðŸ“… *Generated:* {datetime.now().strftime('%d %B %Y %H:%M')}
-                                                                        ðŸ“Š *Statistics:*
-                                                                        â€¢ Total Enquiries: {stats[0] if stats else 0}
-                                                                        â€¢ Unique Clients: {stats[1] if stats else 0}
-                                                                        â€¢ Enquirers: {stats[6] if stats else 0}
-                                                                        â€¢ With Attachments: {stats[2] if stats else 0}
-                                                                        â€¢ Pending: {stats[3] if stats else 0}
-                                                                        â€¢ In Progress: {stats[4] if stats else 0}
-                                                                        â€¢ Completed: {stats[5] if stats else 0}
+                                                                        📄 *File:* {filename}
+                                                                        📅 *Generated:* {datetime.now().strftime('%d %B %Y %H:%M')}
+                                                                        📊 *Statistics:*
+                                                                        • Total Enquiries: {stats[0] if stats else 0}
+                                                                        • Unique Clients: {stats[1] if stats else 0}
+                                                                        • Enquirers: {stats[6] if stats else 0}
+                                                                        • With Attachments: {stats[2] if stats else 0}
+                                                                        • Pending: {stats[3] if stats else 0}
+                                                                        • In Progress: {stats[4] if stats else 0}
+                                                                        • Completed: {stats[5] if stats else 0}
 
                                                                         Please find the detailed enquiries report attached.
 
@@ -9159,9 +9166,9 @@ def webhook():
 
                                                                     send_whatsapp_button_message(
                                                                         sender_id,
-                                                                        f"ðŸ‘‹ *Hey there {admin_name}.*\n\nPlease select an option below to continue:",
+                                                                        f"👋 *Hey there {admin_name}.*\n\nPlease select an option below to continue:",
                                                                         buttons,
-                                                                        footer_text="ConnectLink Properties â€¢ Admin Panel"
+                                                                        footer_text="ConnectLink Properties • Admin Panel"
 
                                                                     )
                                                                     
@@ -9231,10 +9238,10 @@ def webhook():
 
                                                             send_whatsapp_button_image_message(
                                                                 sender_id,
-                                                                f"ðŸ‘‹ *Hey there {admin_name}.*\n\nPlease select an option below to continue:",
+                                                                f"👋 *Hey there {admin_name}.*\n\nPlease select an option below to continue:",
                                                                 "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                 buttons,
-                                                                footer_text="ConnectLink Properties â€¢ Admin Panel"
+                                                                footer_text="ConnectLink Properties • Admin Panel"
 
                                                             )
 
@@ -9261,14 +9268,14 @@ def webhook():
                                                                     "type": "reply",
                                                                     "reply": {
                                                                         "id": "main_menu",
-                                                                        "title": "â†© Main Menu"
+                                                                        "title": "↩ Main Menu"
                                                                     }
                                                                 }
                                                             ]
 
                                                             send_whatsapp_button_message(
                                                                 sender_id,
-                                                                f"ðŸ‘¤ *{admin_name} - HR Portal*\n\nPlease select an option below:",
+                                                                f"👤 *{admin_name} - HR Portal*\n\nPlease select an option below:",
                                                                 hr_buttons,
                                                                 footer_text="ConnectLink HR Portal"
                                                             )
@@ -9332,7 +9339,7 @@ def webhook():
                                                                         perms_text = 'Standard Access'
 
                                                                     info_msg = (
-                                                                        f"ðŸ“‹ *Employee Information*\n\n"
+                                                                        f"📋 *Employee Information*\n\n"
                                                                         f"*Name:* {full_name}\n"
                                                                         f"*Role:* {role}\n"
                                                                         f"*Department:* {department}\n"
@@ -9360,7 +9367,7 @@ def webhook():
                                                                             "type": "reply",
                                                                             "reply": {
                                                                                 "id": "hr_menu",
-                                                                                "title": "â†© HR Menu"
+                                                                                "title": "↩ HR Menu"
                                                                             }
                                                                         }
                                                                     ]
@@ -9372,10 +9379,10 @@ def webhook():
                                                                         footer_text="ConnectLink HR Portal"
                                                                     )
                                                                 else:
-                                                                    send_whatsapp_message(sender_id, "âŒ Could not find your employee record. Please contact HR.")
+                                                                    send_whatsapp_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
                                                             except Exception as e:
-                                                                print(f"âŒ My Info error: {e}")
-                                                                send_whatsapp_message(sender_id, "âŒ Failed to load your information. Please try again.")
+                                                                print(f"❌ My Info error: {e}")
+                                                                send_whatsapp_message(sender_id, "❌ Failed to load your information. Please try again.")
                                                             continue
 
                                                         elif button_id == "apply_leave":
@@ -9407,23 +9414,23 @@ def webhook():
                                                                     pl_from_str = pl_from.strftime('%d %B %Y') if hasattr(pl_from, 'strftime') else str(pl_from)
                                                                     pl_to_str = pl_to.strftime('%d %B %Y') if hasattr(pl_to, 'strftime') else str(pl_to)
                                                                     send_whatsapp_button_message(sender_id,
-                                                                        f"âš ï¸ *You already have a leave application that is pending {approver_name_pending}'s approval!*\n\n"
-                                                                        f"ðŸ“‹ *Reference:* #{pl_id}\n"
-                                                                        f"ðŸ“… *Type:* {pl_type}\n"
-                                                                        f"ðŸ“Š *Days:* {pl_days}\n"
-                                                                        f"ðŸ“† *From:* {pl_from_str}\n"
-                                                                        f"ðŸ“† *To:* {pl_to_str}\n\n"
+                                                                        f"⚠️ *You already have a leave application that is pending {approver_name_pending}'s approval!*\n\n"
+                                                                        f"📋 *Reference:* #{pl_id}\n"
+                                                                        f"📅 *Type:* {pl_type}\n"
+                                                                        f"📊 *Days:* {pl_days}\n"
+                                                                        f"📆 *From:* {pl_from_str}\n"
+                                                                        f"📆 *To:* {pl_to_str}\n\n"
                                                                         f"Please cancel it first before applying for new leave.",
                                                                         [
-                                                                            {"type":"reply","reply":{"id":f"cancel_pending_leave_{pl_id}","title":"âŒ Cancel Pending App"}},
-                                                                            {"type":"reply","reply":{"id":f"remind_approver_{pl_id}","title":"â° Remind Approver"}},
-                                                                            {"type":"reply","reply":{"id":"main_menu","title":"â†© Main Menu"}}
+                                                                            {"type":"reply","reply":{"id":f"cancel_pending_leave_{pl_id}","title":"❌ Cancel Pending App"}},
+                                                                            {"type":"reply","reply":{"id":f"remind_approver_{pl_id}","title":"⏰ Remind Approver"}},
+                                                                            {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
                                                                         ],
                                                                         footer_text="ConnectLink HR Portal"
                                                                     )
                                                                     continue
 
-                                                            # No pending leave â€” show the flow form
+                                                            # No pending leave — show the flow form
                                                             url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
                                                             headers = {
                                                                 "Authorization": f"Bearer {ACCESS_TOKEN}",
@@ -9460,10 +9467,10 @@ def webhook():
 
                                                             try:
                                                                 resp = requests.post(url, headers=headers, json=payload, timeout=30)
-                                                                print(f"ðŸ“¨ Leave app template response [{resp.status_code}]: {resp.text}")
+                                                                print(f"📨 Leave app template response [{resp.status_code}]: {resp.text}")
                                                             except Exception as e:
-                                                                print(f"âŒ Error sending leave app template: {e}")
-                                                                send_whatsapp_message(sender_id, "âŒ Could not open leave application form. Please contact HR.")
+                                                                print(f"❌ Error sending leave app template: {e}")
+                                                                send_whatsapp_message(sender_id, "❌ Could not open leave application form. Please contact HR.")
 
                                                             continue
 
@@ -9511,17 +9518,17 @@ def webhook():
                                                                             pl_from_str = pl_from.strftime('%d %B %Y') if hasattr(pl_from, 'strftime') else str(pl_from)
                                                                             pl_to_str = pl_to.strftime('%d %B %Y') if hasattr(pl_to, 'strftime') else str(pl_to)
                                                                             send_whatsapp_button_message(sender_id,
-                                                                                f"âš ï¸ *You already have a pending leave application!*\n\n"
-                                                                                f"ðŸ“‹ *Reference:* #{pl_id}\n"
-                                                                                f"ðŸ“… *Type:* {pl_type}\n"
-                                                                                f"ðŸ“Š *Days:* {pl_days}\n"
-                                                                                f"ðŸ“† *From:* {pl_from_str}\n"
-                                                                                f"ðŸ“† *To:* {pl_to_str}\n\n"
+                                                                                f"⚠️ *You already have a pending leave application!*\n\n"
+                                                                                f"📋 *Reference:* #{pl_id}\n"
+                                                                                f"📅 *Type:* {pl_type}\n"
+                                                                                f"📊 *Days:* {pl_days}\n"
+                                                                                f"📆 *From:* {pl_from_str}\n"
+                                                                                f"📆 *To:* {pl_to_str}\n\n"
                                                                                 f"Please wait for it to be resolved before applying for new leave.",
                                                                                 [
-                                                                                    {"type":"reply","reply":{"id":f"cancel_pending_leave_{pl_id}","title":"âŒ Cancel Pending App"}},
+                                                                                    {"type":"reply","reply":{"id":f"cancel_pending_leave_{pl_id}","title":"❌ Cancel Pending App"}},
                                                                                     {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
-                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"â†© Main Menu"}}
+                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
                                                                                 ],
                                                                                 footer_text="ConnectLink HR Portal"
                                                                             )
@@ -9536,13 +9543,13 @@ def webhook():
                                                                         # ----- CHECK 2: Sufficient leave balance (Annual Leave only) -----
                                                                         if leave_type == 'Annual Leave' and days > leave_balance:
                                                                             send_whatsapp_button_message(sender_id,
-                                                                                f"âŒ *Insufficient Leave Balance!*\n\n"
+                                                                                f"❌ *Insufficient Leave Balance!*\n\n"
                                                                                 f"You applied for *{days}* day(s) of *{leave_type}*,\n"
                                                                                 f"but your current leave balance is only *{leave_balance}* day(s).\n\n"
                                                                                 f"Please apply for fewer days or contact HR.",
                                                                                 [
                                                                                     {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
-                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"â†© Main Menu"}}
+                                                                                    {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
                                                                                 ],
                                                                                 footer_text="ConnectLink HR Portal"
                                                                             )
@@ -9554,7 +9561,7 @@ def webhook():
                                                                                 pass
                                                                             continue
 
-                                                                        # ----- ALL CHECKS PASSED â€” Insert leave -----
+                                                                        # ----- ALL CHECKS PASSED — Insert leave -----
                                                                         cursor.execute("""
                                                                             INSERT INTO hr_leave_applications
                                                                                 (employee_id, employee_name, leave_type, from_date, to_date, days, reason, status)
@@ -9585,17 +9592,17 @@ def webhook():
 
                                                                         # Confirm to applicant
                                                                         send_whatsapp_button_message(sender_id,
-                                                                            f"âœ… *Leave Application Submitted!*\n\n"
-                                                                            f"ðŸ“‹ *Reference:* #{lid}\n"
-                                                                            f"ðŸ‘¤ *Employee:* {emp_name}\n"
-                                                                            f"ðŸ“… *Type:* {leave_type}\n"
-                                                                            f"ðŸ“† *From:* {leave_start} â†’ *To:* {leave_end}\n"
-                                                                            f"ðŸ“Š *Days:* {days}\n"
-                                                                            f"â³ *Status:* Pending Approval\n\n"
+                                                                            f"✅ *Leave Application Submitted!*\n\n"
+                                                                            f"📋 *Reference:* #{lid}\n"
+                                                                            f"👤 *Employee:* {emp_name}\n"
+                                                                            f"📅 *Type:* {leave_type}\n"
+                                                                            f"📆 *From:* {leave_start} → *To:* {leave_end}\n"
+                                                                            f"📊 *Days:* {days}\n"
+                                                                            f"⏳ *Status:* Pending Approval\n\n"
                                                                             f"You will be notified once your leave is approved.",
                                                                             [
                                                                                 {"type":"reply","reply":{"id":"apply_leave","title":"Apply for Leave"}},
-                                                                                {"type":"reply","reply":{"id":"main_menu","title":"â†© Main Menu"}}
+                                                                                {"type":"reply","reply":{"id":"main_menu","title":"↩ Main Menu"}}
                                                                             ],
                                                                             footer_text="ConnectLink HR Portal"
                                                                         )
@@ -9662,7 +9669,7 @@ def webhook():
                                                                                     }
                                                                                 }
                                                                                 resp_template = requests.post(WHATSAPP_API_URL, json=template_payload, headers=wa_headers, timeout=15)
-                                                                                print(f"ðŸ“¤ Leave template sent to {phone_clean}: {resp_template.status_code}")
+                                                                                print(f"📤 Leave template sent to {phone_clean}: {resp_template.status_code}")
 
                                                                                 log_activity(
                                                                                     'leave_notification',
@@ -9671,15 +9678,15 @@ def webhook():
                                                                                     {'approver': approver_name, 'phone': phone_clean, 'source': 'whatsapp_bot'}
                                                                                 )
                                                                             except Exception as wa_err:
-                                                                                print(f"âš ï¸ Failed to send WhatsApp leave notification to approver: {wa_err}")
+                                                                                print(f"⚠️ Failed to send WhatsApp leave notification to approver: {wa_err}")
 
                                                                     else:
-                                                                        send_whatsapp_message(sender_id, "âŒ Could not find your employee record. Please contact HR.")
+                                                                        send_whatsapp_message(sender_id, "❌ Could not find your employee record. Please contact HR.")
                                                                 else:
-                                                                    send_whatsapp_message(sender_id, "âŒ No pending leave application found. Please start again.")
+                                                                    send_whatsapp_message(sender_id, "❌ No pending leave application found. Please start again.")
                                                             except Exception as e:
-                                                                print(f"âŒ Leave submit error: {e}")
-                                                                send_whatsapp_message(sender_id, "âŒ Failed to submit leave. Please try again.")
+                                                                print(f"❌ Leave submit error: {e}")
+                                                                send_whatsapp_message(sender_id, "❌ Failed to submit leave. Please try again.")
                                                             continue
 
                                                         elif button_id == "leave_cancel":
@@ -9688,7 +9695,7 @@ def webhook():
                                                                 connection.commit()
                                                             except:
                                                                 pass
-                                                            send_whatsapp_message(sender_id, "âŒ Leave application cancelled. You can start again anytime by selecting *Apply for Leave*.")
+                                                            send_whatsapp_message(sender_id, "❌ Leave application cancelled. You can start again anytime by selecting *Apply for Leave*.")
                                                             continue
 
 
@@ -9714,7 +9721,7 @@ def webhook():
                                                                 pass
 
                                                             send_whatsapp_message(sender_id,
-                                                                f"âœ… *{selected_leave_type}* selected.\n\n"
+                                                                f"✅ *{selected_leave_type}* selected.\n\n"
                                                                 f"Please reply with your leave details in this format:\n"
                                                                 f"`From: YYYY-MM-DD, To: YYYY-MM-DD, Reason: Your reason here`\n\n"
                                                                 f"Example: `From: 2026-07-10, To: 2026-07-12, Reason: Family vacation`"
@@ -9738,7 +9745,7 @@ def webhook():
                                                                             "Role", "Department", "Leave Days", "Monthly Accrual", 
                                                                             "Approver", "Approver WhatsApp", "Approver Email"]
 
-                                                                    message_text = "*ðŸ“„ Employee Details:*\n\n"
+                                                                    message_text = "*📄 Employee Details:*\n\n"
                                                                     for col, val in zip(columns, row):
                                                                         message_text += f"*{col}:* {val}\n"
 
@@ -9770,8 +9777,8 @@ def webhook():
                                                                 # Generate PDF
                                                                 pdf_bytes = generate_unified_receipt_pdf(project_id, receipt_type, config)
                                                                 if not pdf_bytes:
-                                                                    print(f"âŒ Failed to generate PDF for project {project_id}")
-                                                                    send_text_message(recipient_number, "âŒ Error generating receipt. Please contact support.")
+                                                                    print(f"❌ Failed to generate PDF for project {project_id}")
+                                                                    send_text_message(recipient_number, "❌ Error generating receipt. Please contact support.")
                                                                     return False
                                                                 
                                                                 # Get project details for filename and caption
@@ -9788,9 +9795,9 @@ def webhook():
                                                                         safe_client_name = ''.join(c for c in client_name if c.isalnum() or c == ' ').replace(' ', '_')
                                                                         filename = f"{config['filename_prefix']}_{safe_client_name}_{project_id}.pdf"
                                                                         
-                                                                        date_str = date_paid.strftime('%d %B %Y') if date_paid else 'â€”'
+                                                                        date_str = date_paid.strftime('%d %B %Y') if date_paid else '—'
                                                                         
-                                                                        caption = f"""ðŸ“„ *{config['title'].upper()} RECEIPT*
+                                                                        caption = f"""📄 *{config['title'].upper()} RECEIPT*
 
                                                         Client: {client_name}
                                                         Project: {project_name}
@@ -9800,9 +9807,9 @@ def webhook():
                                                         Send 'Hello' to view your contracts or to log enquiries."""
                                                                     else:
                                                                         filename = f"{config['filename_prefix']}_{project_id}.pdf"
-                                                                        caption = f"ðŸ“„ {config['title']} Receipt - Project {project_id}"
+                                                                        caption = f"📄 {config['title']} Receipt - Project {project_id}"
                                                                 
-                                                                print(f"ðŸ“¤ Uploading PDF to WhatsApp...")
+                                                                print(f"📤 Uploading PDF to WhatsApp...")
                                                                 
                                                                 # Upload to WhatsApp
                                                                 url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
@@ -9818,7 +9825,7 @@ def webhook():
                                                                 response.raise_for_status()
                                                                 media_id = response.json()["id"]
                                                                 
-                                                                print(f"âœ… Media uploaded, ID: {media_id}")
+                                                                print(f"✅ Media uploaded, ID: {media_id}")
                                                                 
                                                                 # Send PDF
                                                                 doc_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
@@ -9838,16 +9845,16 @@ def webhook():
                                                                     }
                                                                 }
                                                                 
-                                                                print(f"ðŸ“¤ Sending document to {recipient_number}...")
+                                                                print(f"📤 Sending document to {recipient_number}...")
                                                                 response = requests.post(doc_url, headers=doc_headers, json=doc_payload, timeout=30)
                                                                 response.raise_for_status()
                                                                 
-                                                                print(f"âœ… PDF sent successfully!")
+                                                                print(f"✅ PDF sent successfully!")
                                                                 return True
                                                                 
                                                             except Exception as e:
-                                                                print(f"âŒ Error sending PDF: {e}")
-                                                                send_text_message(recipient_number, "âŒ Failed to send receipt. Please try again or contact support.")
+                                                                print(f"❌ Error sending PDF: {e}")
+                                                                send_text_message(recipient_number, "❌ Failed to send receipt. Please try again or contact support.")
                                                                 return False
 
                                                         # Unified PDF generator
@@ -9904,16 +9911,16 @@ def webhook():
                                                                     # Format dates
                                                                     if config['has_due_date']:
                                                                         due_date = row[10]
-                                                                        due_date_str = due_date.strftime('%d %b %Y') if due_date else 'â€”'
-                                                                        due_date_long = due_date.strftime('%d %B %Y') if due_date else 'â€”'
+                                                                        due_date_str = due_date.strftime('%d %b %Y') if due_date else '—'
+                                                                        due_date_long = due_date.strftime('%d %B %Y') if due_date else '—'
                                                                         paid_date = row[11]
                                                                         paid_date_idx = 11
                                                                     else:
                                                                         paid_date = row[10]
                                                                         paid_date_idx = 10
                                                                     
-                                                                    paid_date_str = paid_date.strftime('%d %b %Y') if paid_date else 'â€”'
-                                                                    paid_date_long = paid_date.strftime('%d %B %Y') if paid_date else 'â€”'
+                                                                    paid_date_str = paid_date.strftime('%d %b %Y') if paid_date else '—'
+                                                                    paid_date_long = paid_date.strftime('%d %B %Y') if paid_date else '—'
 
                                                                     # Choose template based on receipt type
                                                                     if receipt_type == 'deposit':
@@ -9935,7 +9942,7 @@ def webhook():
                                                                     return pdf
 
                                                             except Exception as e:
-                                                                print(f"âŒ PDF generation error: {str(e)}")
+                                                                print(f"❌ PDF generation error: {str(e)}")
                                                                 return None
 
                                                         def generate_deposit_template(row, logo_base64, whole, decimal, formatted_amount, 
@@ -10198,7 +10205,7 @@ def webhook():
                                                                 response = requests.post(url, headers=headers, json=data, timeout=30)
                                                                 return response.json()
                                                             except Exception as e:
-                                                                print(f"âŒ Text message error: {str(e)}")
+                                                                print(f"❌ Text message error: {str(e)}")
                                                                 return None
                                                         
                                                         button = message.get("button", {})
@@ -10206,8 +10213,8 @@ def webhook():
                                                         button_text = button.get("text", "") or interactive_button_reply.get("title", "")
                                                         payload = button.get("payload", "") or interactive_button_reply.get("id", "")
                                                         
-                                                        print(f"ðŸ”˜ Template button clicked: {button_text}")
-                                                        print(f"ðŸ“¦ Button payload: {payload}")
+                                                        print(f"🔘 Template button clicked: {button_text}")
+                                                        print(f"📦 Button payload: {payload}")
                                                         # Procurement: requisition approve/decline from WhatsApp
                                                         if handle_procurement_button_payload(payload, sender_id, sender_number):
                                                             return jsonify({"status": "received"}), 200
@@ -10236,7 +10243,7 @@ def webhook():
                                                                 enquiry_id = None
 
                                                             if enquiry_id:
-                                                                send_text_message(sender_id, "â³ Fetching the enquiry attachment, please wait...")
+                                                                send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                 # ADD THIS: Small delay before processing
                                                                 time.sleep(1)  # Critical for mobile
                                                                 
@@ -10244,36 +10251,36 @@ def webhook():
                                                                 try:
                                                                     result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                     if not result:
-                                                                        send_whatsapp_message(sender_id, "âŒ Could not retrieve the attachment. Please contact support.")
+                                                                        send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error delivering attachment: {e}")
-                                                                    send_whatsapp_message(sender_id, "âŒ An error occurred. Please try again or contact support.")
+                                                                    print(f"❌ Error delivering attachment: {e}")
+                                                                    send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
 
                                                                 return jsonify({"status": "received"}), 200
                                                             else:
-                                                                send_text_message(sender_id, "âŒ Invalid enquiry attachment reference.")
+                                                                send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
                                                                 return jsonify({"status": "received"}), 200
 
                                                         elif normalized_button_text == 'download attachment':
                                                             enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
 
                                                             if enquiry_id:
-                                                                send_text_message(sender_id, "â³ Fetching the enquiry attachment, please wait...")
+                                                                send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                 time.sleep(1)  # Critical for mobile
                                                                 
                                                                 # Now deliver the attachment
                                                                 try:
                                                                     result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                     if not result:
-                                                                        send_whatsapp_message(sender_id, "âŒ Could not retrieve the attachment. Please contact support.")
+                                                                        send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error delivering attachment: {e}")
-                                                                    send_whatsapp_message(sender_id, "âŒ An error occurred. Please try again or contact support.")
+                                                                    print(f"❌ Error delivering attachment: {e}")
+                                                                    send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
 
                                                                 return jsonify({"status": "received"}), 200
                                                             
                                                             else:
-                                                                send_text_message(sender_id, "âŒ No enquiry attachment is available to download.")
+                                                                send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
                                                                 return jsonify({"status": "received"}), 200
 
                                                         elif payload and payload.lower().startswith('quotation_'):
@@ -10290,7 +10297,7 @@ def webhook():
                                                                 deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
                                                                 return jsonify({"status": "received"}), 200
                                                             else:
-                                                                print("âŒ Invalid quotation reference in button payload.")
+                                                                print("❌ Invalid quotation reference in button payload.")
                                                                 return jsonify({"status": "received"}), 200
 
                                                         elif payload and payload.lower().startswith('contract_'):
@@ -10303,11 +10310,11 @@ def webhook():
                                                                 contract_project_id = None
 
                                                             if contract_project_id:
-                                                                print(f"ðŸ“‹ Contract download requested for project #{contract_project_id}")
+                                                                print(f"📋 Contract download requested for project #{contract_project_id}")
                                                                 send_text_message = send_text_message or (lambda to, text: None)
                                                                 # Send initial processing message
                                                                 try:
-                                                                    send_text_message(sender_id, "â³ Generating your contract agreement, please wait...")
+                                                                    send_text_message(sender_id, "⏳ Generating your contract agreement, please wait...")
                                                                 except:
                                                                     pass
                                                                 # Generate and send contract PDF
@@ -10320,28 +10327,28 @@ def webhook():
                                                                             filename = f"Contract_{contract_project_id}.pdf"
                                                                             caption = f"CONTRACT AGREEMENT\n\nConnectLink Properties"
                                                                             send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
-                                                                            print(f"âœ… Contract {contract_project_id} sent to {sender_id}")
+                                                                            print(f"✅ Contract {contract_project_id} sent to {sender_id}")
                                                                         else:
                                                                             raise ValueError(f"Contract generation failed: HTTP {resp.status_code}")
                                                                 except Exception as ce:
-                                                                    print(f"âŒ Error sending contract {contract_project_id}: {ce}")
+                                                                    print(f"❌ Error sending contract {contract_project_id}: {ce}")
                                                                     # Fallback: send download URL
                                                                     contract_url = get_contract_download_url(contract_project_id)
                                                                     if contract_url:
-                                                                        send_text_message(sender_id, f"ðŸ“‹ Open your contract here:\n{contract_url}")
+                                                                        send_text_message(sender_id, f"📋 Open your contract here:\n{contract_url}")
                                                                     else:
-                                                                        send_text_message(sender_id, "âŒ Could not generate contract. Please contact ConnectLink.")
+                                                                        send_text_message(sender_id, "❌ Could not generate contract. Please contact ConnectLink.")
                                                             else:
-                                                                print("âŒ Invalid contract reference in button payload.")
+                                                                print("❌ Invalid contract reference in button payload.")
                                                                 try:
-                                                                    send_text_message(sender_id, "âŒ Invalid contract reference. Please contact ConnectLink.")
+                                                                    send_text_message(sender_id, "❌ Invalid contract reference. Please contact ConnectLink.")
                                                                 except:
                                                                     pass
                                                             return jsonify({"status": "received"}), 200
 
                                                         elif matched_type and project_id:
                                                             config = RECEIPT_CONFIG[matched_type]
-                                                            print(f"ðŸŽ¯ Extracted project_id: {project_id} for {config['title']}")
+                                                            print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
                                                             
                                                             # Send processing message
                                                             send_text_message(sender_id, config['processing_message'])
@@ -10366,7 +10373,7 @@ def webhook():
                                                                     """, (new_status, sender_id, app_id))
                                                                     if leave_cursor.rowcount > 0:
                                                                         leave_conn.commit()
-                                                                        print(f"âœ… Leave #{app_id} {action}d via WhatsApp template button by {sender_id}")
+                                                                        print(f"✅ Leave #{app_id} {action}d via WhatsApp template button by {sender_id}")
 
                                                                         # Fetch applicant details for rich confirmation message
                                                                         try:
@@ -10379,7 +10386,7 @@ def webhook():
                                                                             """, (app_id,))
                                                                             app_row = leave_cursor.fetchone()
                                                                         except Exception as fetch_err:
-                                                                            print(f"âš ï¸ Failed to fetch applicant details: {fetch_err}")
+                                                                            print(f"⚠️ Failed to fetch applicant details: {fetch_err}")
                                                                             app_row = None
 
                                                                         if app_row:
@@ -10403,7 +10410,7 @@ def webhook():
                                                                             # Rich confirmation to approver
                                                                             action_word = 'approved' if action == 'approve' else 'declined'
                                                                             confirm_msg = (
-                                                                                f"âœ… You have successfully {action_word} {first_name} {last_name}'s "
+                                                                                f"✅ You have successfully {action_word} {first_name} {last_name}'s "
                                                                                 f"{days} day(s) {ltype} leave application starting on {from_formatted} "
                                                                                 f"and ending on {to_formatted}. "
                                                                                 f"{first_name} has been notified of your {action_word}."
@@ -10474,25 +10481,25 @@ def webhook():
                                                                                     }
                                                                                     requests.post(WHATSAPP_API_URL, json=template_payload, headers=wa_headers, timeout=15)
                                                                             except Exception as notif_err:
-                                                                                print(f"âš ï¸ âš ï¸ Failed to send leaveapproved template: {notif_err}")
+                                                                                print(f"⚠️ ⚠️ Failed to send leaveapproved template: {notif_err}")
                                                                         else:
-                                                                            send_text_message(sender_id, f"âœ… You have successfully {action_word} leave request #{app_id}.")
+                                                                            send_text_message(sender_id, f"✅ You have successfully {action_word} leave request #{app_id}.")
                                                                     else:
-                                                                        send_text_message(sender_id, f"âš ï¸ Leave #{app_id} not found or already processed.")
+                                                                        send_text_message(sender_id, f"⚠️ Leave #{app_id} not found or already processed.")
 
                                                             return jsonify({"status": "received"}), 200
                                                         elif payload.lower().startswith('download_payslip_'):
                                                             handle_download_payslip_whatsapp(sender_id, payload, send_text_message)
                                                             return jsonify({"status": "received"}), 200
                                                         else:
-                                                            print(f"âŒ Unknown payload: {payload}")
+                                                            print(f"❌ Unknown payload: {payload}")
 
 
 
                                                     else:
 
                                                         text = message.get("text", {}).get("body", "").lower()
-                                                        print(f"ðŸ“¨ Message from {sender_id}: {text}")
+                                                        print(f"📨 Message from {sender_id}: {text}")
                                                         
                                                         print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
 
@@ -10535,10 +10542,10 @@ def webhook():
 
                                                         send_whatsapp_button_image_message(
                                                             sender_id,
-                                                            f"ðŸ‘‹ *Hey there {admin_name}*\n\nPlease select an option below to continue:",
+                                                            f"👋 *Hey there {admin_name}*\n\nPlease select an option below to continue:",
                                                             "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                             buttons,
-                                                            footer_text="ConnectLink Properties â€¢ Admin Panel"
+                                                            footer_text="ConnectLink Properties • Admin Panel"
 
                                                         )
 
@@ -10579,7 +10586,7 @@ def webhook():
                                                             kw_match = resolve_chatbot_keyword(msg_text)
                                                             if kw_match:
                                                                 keyword, handler_id = kw_match
-                                                                print(f"ðŸ”‘ Client keyword match: '{keyword}' â†’ handler: {handler_id}")
+                                                                print(f"🔑 Client keyword match: '{keyword}' → handler: {handler_id}")
                                                                 log_chatbot_interaction(sender_id, profile_name or 'Client', 'keyword', keyword, handler_id)
                                                                 text_keyword_handled = True
                                                                 button_id = ''
@@ -10623,12 +10630,12 @@ def webhook():
 
                                                             if interactive.get("type") == "list_reply":
                                                                 selected_option = interactive.get("list_reply", {}).get("id")
-                                                                print(f"ðŸ“‹ User selected: {selected_option}")
+                                                                print(f"📋 User selected: {selected_option}")
                                                                 button_id = ""
 
                                                             elif interactive.get("type") == "button_reply":
                                                                 button_id = interactive.get("button_reply", {}).get("id")
-                                                                print(f"ðŸ”˜ Button clicked: {button_id}")
+                                                                print(f"🔘 Button clicked: {button_id}")
                                                                 selected_option = ""
 
                                                             # Log button/list interaction for analytics
@@ -10642,7 +10649,7 @@ def webhook():
                                                                 kw_match = resolve_chatbot_keyword(msg_text)
                                                                 if kw_match:
                                                                     keyword, handler_id = kw_match
-                                                                    print(f"ðŸ”‘ Client keyword match: '{keyword}' â†’ handler: {handler_id}")
+                                                                    print(f"🔑 Client keyword match: '{keyword}' → handler: {handler_id}")
                                                                     log_chatbot_interaction(sender_id, profile_name or 'Client', 'keyword', keyword, handler_id)
                                                                     if handler_id in ('contracts', 'my contracts'):
                                                                         button_id = 'contracts'
@@ -10665,16 +10672,16 @@ def webhook():
                                                                 selected_option = ""
                                                                 button_id = ""
 
-                                                                print("ðŸ“‹ Raw nfm_reply response_json:", response_str)
+                                                                print("📋 Raw nfm_reply response_json:", response_str)
 
                                                                 try:
                                                                     form_response = json.loads(response_str)
-                                                                    print("âœ… Parsed form_response:", form_response)
+                                                                    print("✅ Parsed form_response:", form_response)
                                                                 except Exception as e:
-                                                                    print("âŒ Error parsing nfm_reply response_json:", e)
+                                                                    print("❌ Error parsing nfm_reply response_json:", e)
                                                                     form_response = {}
 
-                                                                print("ðŸ” Parsing form fields from form_response:")
+                                                                print("🔍 Parsing form fields from form_response:")
 
 
                                                                 query = f"""
@@ -10708,8 +10715,8 @@ def webhook():
 
                                                                 # Validate required fields
                                                                 if not enquiry_type:
-                                                                    print("âŒ No enquiry_type found in form response")
-                                                                    print("âŒ Full form_response:", json.dumps(form_response, indent=2))
+                                                                    print("❌ No enquiry_type found in form response")
+                                                                    print("❌ Full form_response:", json.dumps(form_response, indent=2))
                                                                     return jsonify({'status': 'error', 'message': 'Enquiry type is required'}), 400
 
                                                                 # Map enquiry type IDs to display names
@@ -10722,7 +10729,7 @@ def webhook():
 
                                                                 enquiry_type_display = enquiry_type_map.get(enquiry_type, enquiry_type)
 
-                                                                print(f"âœ… Enquiry type display: {enquiry_type_display}")
+                                                                print(f"✅ Enquiry type display: {enquiry_type_display}")
 
                                                                 # Process attachment if exists
                                                                 attachment_data = None
@@ -10749,7 +10756,7 @@ def webhook():
                                                                                 "Authorization": f"Bearer {ACCESS_TOKEN}"
                                                                             }
                                                                             
-                                                                            print(f"ðŸ“¥ Downloading media from: {media_url}")
+                                                                            print(f"📥 Downloading media from: {media_url}")
                                                                             response = requests.get(media_url, headers=headers)
                                                                             response.raise_for_status()
                                                                             media_info = response.json()
@@ -10760,18 +10767,18 @@ def webhook():
                                                                             download_url = media_info.get('url')
                                                                             if download_url:
                                                                                 # Download the file
-                                                                                print(f"ðŸ“¥ Downloading file from: {download_url}")
+                                                                                print(f"📥 Downloading file from: {download_url}")
                                                                                 file_response = requests.get(download_url, headers=headers)
                                                                                 file_response.raise_for_status()
                                                                                 
                                                                                 attachment_data = file_response.content
-                                                                                print(f"âœ… Attachment downloaded, size: {len(attachment_data)} bytes")
+                                                                                print(f"✅ Attachment downloaded, size: {len(attachment_data)} bytes")
                                                                             else:
-                                                                                print("âŒ No download URL found in media info")
+                                                                                print("❌ No download URL found in media info")
                                                                                 attachment_data = None
                                                                                 
                                                                         except Exception as e:
-                                                                            print(f"âŒ Error downloading attachment: {e}")
+                                                                            print(f"❌ Error downloading attachment: {e}")
                                                                             attachment_data = None
                                                                 else:
                                                                     print("No attachment found in the response")
@@ -10789,7 +10796,7 @@ def webhook():
                                                                     timestamp = datetime.now()
                                                                     client_whatsapp = int(sender_id) 
 
-                                                                    print(f"âœ… Saving to database:")
+                                                                    print(f"✅ Saving to database:")
                                                                     print(f"  - timestamp: {timestamp}")
                                                                     print(f"  - clientwhatsapp: {client_whatsapp}")
                                                                     print(f"  - enqcategory: {enquiry_type_display}")
@@ -10811,23 +10818,23 @@ def webhook():
                                                                     enquiry_id = cursor.fetchone()[0]
                                                                     connection.commit()
                                                                     
-                                                                    print(f"âœ… Enquiry saved with ID: {enquiry_id}")
+                                                                    print(f"✅ Enquiry saved with ID: {enquiry_id}")
                                                                     
                                                                     # Send confirmation message to user
                                                                     confirmation_message = f"""
-                                                                        âœ… *Your Enquiry has been successfully submitted to ConnectLink Properties Admin, {profile_name}!*
+                                                                        ✅ *Your Enquiry has been successfully submitted to ConnectLink Properties Admin, {profile_name}!*
 
-                                                                        ðŸ“‹ *Reference ID:* #{enquiry_id}
-                                                                        ðŸ“… *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
-                                                                        ðŸ·ï¸ *Category:* {enquiry_type_display}
-                                                                        {'ðŸ“Ž *Attachment:* Yes' if has_attachment else ''}
+                                                                        📋 *Reference ID:* #{enquiry_id}
+                                                                        📅 *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
+                                                                        🏷️ *Category:* {enquiry_type_display}
+                                                                        {'📎 *Attachment:* Yes' if has_attachment else ''}
 
                                                                         Thank you for your enquiry. Our team will contact you within 24 hours.
 
                                                                         _For urgent matters, please call our office._
                                                                         """
                                                                     
-                                                                    print(f"âœ… Sending confirmation to {sender_id}")
+                                                                    print(f"✅ Sending confirmation to {sender_id}")
                                                                     
                                                                     # Send WhatsApp confirmation
                                                                     buttons = [
@@ -10860,7 +10867,7 @@ def webhook():
                                                                         f"{confirmation_message} \n\n How else can we assist you today?.",
                                                                         "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                         buttons,
-                                                                        footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                        footer_text="ConnectLink Properties • Client Panel"
 
                                                                     )
 
@@ -11034,7 +11041,7 @@ def webhook():
                                                                     client_whatsapp = sender_id
 
                                                                     for admin_number in admin_numbers:
-                                                                        print(f"âœ… Notifying admin: {admin_number}")
+                                                                        print(f"✅ Notifying admin: {admin_number}")
                                                                         
                                                                         enquiry_data = {
                                                                             'enquiry_id': enquiry_id,
@@ -11055,7 +11062,7 @@ def webhook():
                                                                             _mid = str(((_rj.get('messages') or [{}])[0]).get('id') or '') if _rj.get('messages') else ''
                                                                             log_admin_notify_attempt(enquiry_id, admin_number, 'sent' if _ok else 'failed', _ed, _mid)
                                                                         except Exception as _le:
-                                                                            print(f"âš ï¸ log_admin_notify_attempt error: {_le}")
+                                                                            print(f"⚠️ log_admin_notify_attempt error: {_le}")
 
                                                                     return jsonify({
                                                                         'status': 'success',
@@ -11110,7 +11117,7 @@ def webhook():
                                                                     "Kindly select an enquiry option below.",
                                                                     "ConnectLink Enquiries",
                                                                     sections,
-                                                                    footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                    footer_text="ConnectLink Properties • Client Panel"
                                                                 )
 
                                                             elif selected_option in ["kitchen_cabinets","building","renovation","other"]:
@@ -11190,7 +11197,7 @@ def webhook():
                                                                         "We offer free 3D designs and quotations. Send your house plan or measurements via the Fill Enquiries Form below, or request a site visit.\n\n"
                                                                         "Site visits within 20km of Harare CBD cost USD 10.",
                                                                         buttons,
-                                                                        footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                        footer_text="ConnectLink Properties • Client Panel"
                                                                     )
 
                                                                 elif selected_option == "building":
@@ -11201,14 +11208,14 @@ def webhook():
                                                                         "At Connectlink Properties, we are a full-service construction company offering turnkey building solutions nationwide.\n\n"
                                                                         "Our payment terms are:\n"
                                                                         "- Minimum deposit: 30%\n"
-                                                                        "- Balance payable over 3â€“6 months\n\n"
+                                                                        "- Balance payable over 3–6 months\n\n"
                                                                         "Our project turnaround times are:\n"
                                                                         "- 90 days (standard foundation)\n"
                                                                         "- 110 days (special foundation)\n"
                                                                         "- 120 days (double storey)\n\n"
                                                                         "We deliver quality, reliability and professional project management from foundation to finish. Send your house plan or measurements via the Enquiries Form below, or request a site visit.",
                                                                         buttons,
-                                                                        footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                        footer_text="ConnectLink Properties • Client Panel"
                                                                     )
 
 
@@ -11260,7 +11267,7 @@ def webhook():
                                                                         """, (sender_id, 'ConnectLink Bot', '[Template: enquiries] Enquiry form sent', 'template'))
                                                                         save_conn.commit()
                                                                 except Exception as save_err:
-                                                                    print(f"âš ï¸ Failed to save enquiry template to messages: {save_err}")
+                                                                    print(f"⚠️ Failed to save enquiry template to messages: {save_err}")
 
                                                                 continue
 
@@ -11310,7 +11317,7 @@ def webhook():
                                                                         return True
                                                                         
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error sending PDF: {e}")
+                                                                        print(f"❌ Error sending PDF: {e}")
                                                                         return False
 
                                                                 def send_payment_history_via_whatsapp(sender_id):
@@ -11336,13 +11343,13 @@ def webhook():
                                                                             rows = cursor.fetchall()
                                                                             
                                                                             if not rows:
-                                                                                message = f"ðŸ“‹ No payment records found for your WhatsApp number."
+                                                                                message = f"📋 No payment records found for your WhatsApp number."
                                                                                 send_whatsapp_message(sender_id, message)
                                                                                 return jsonify({'status': 'success', 'message': 'No payment records found'})
                                                                             
                                                                             # Send summary message
                                                                             summary = f"""
-                                                                                ðŸ“Š *YOUR PAYMENT HISTORY - CONNECTLINK PROPERTIES*
+                                                                                📊 *YOUR PAYMENT HISTORY - CONNECTLINK PROPERTIES*
 
                                                                                 Found {len(rows)} project(s) with payment records.
 
@@ -11353,7 +11360,7 @@ def webhook():
                                                                             # Process each project's payment history
                                                                             for i, row in enumerate(rows):
                                                                                 try:
-                                                                                    print(f"ðŸ“„ Generating payment history {i+1}/{len(rows)}")
+                                                                                    print(f"📄 Generating payment history {i+1}/{len(rows)}")
                                                                                     
                                                                                     # Generate payment history PDF using your template
                                                                                     pdf_bytes = generate_payment_history_pdf(row, cursor)
@@ -11367,7 +11374,7 @@ def webhook():
                                                                                         filename = f"Payment_History_{client_name}_{project_name}_{project_id}.pdf"
                                                                                         
                                                                                         # Create caption for the PDF
-                                                                                        caption = f"""ðŸ’° *PAYMENT HISTORY*
+                                                                                        caption = f"""💰 *PAYMENT HISTORY*
 
                                                                                             Client: {client_name}
                                                                                             Project: {project_name}
@@ -11379,19 +11386,19 @@ def webhook():
                                                                                         
                                                                                         # Send progress update (optional)
                                                                                         if i < len(rows) - 1:
-                                                                                            progress = f"âœ… Sent payment history {i+1} of {len(rows)}"
+                                                                                            progress = f"✅ Sent payment history {i+1} of {len(rows)}"
                                                                                             send_whatsapp_message(sender_id, progress)
                                                                                             time.sleep(2)  # Delay between sends
                                                                                 
                                                                                 except Exception as e:
-                                                                                    print(f"âŒ Error with payment history {i+1}: {e}")
-                                                                                    error_msg = f"âš ï¸ Could not send payment history for project {i+1}. Will try next one."
+                                                                                    print(f"❌ Error with payment history {i+1}: {e}")
+                                                                                    error_msg = f"⚠️ Could not send payment history for project {i+1}. Will try next one."
                                                                                     send_whatsapp_message(sender_id, error_msg)
                                                                                     continue
                                                                             
                                                                             # Final message with buttons
                                                                             final_msg = f"""
-                                                                                âœ… *ALL PAYMENT HISTORIES SENT!*
+                                                                                ✅ *ALL PAYMENT HISTORIES SENT!*
 
                                                                                 _Keep your records safe for reference!_
                                                                                             """
@@ -11424,7 +11431,7 @@ def webhook():
                                                                                 sender_id, 
                                                                                 f"{final_msg} \n\n How else can we assist you today?",
                                                                                 buttons,
-                                                                                footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                                footer_text="ConnectLink Properties • Client Panel"
                                                                             )
                                                                             
                                                                             return jsonify({
@@ -11434,7 +11441,7 @@ def webhook():
                                                                             })
                                                                             
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error in payment history handler: {str(e)}")
+                                                                        print(f"❌ Error in payment history handler: {str(e)}")
                                                                         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
@@ -11508,7 +11515,7 @@ def webhook():
                                                                         # Format dates
                                                                         project_start_date = row[14].strftime("%d %B %Y") if row[14] else ""
                                                                         agreement_date = row[16].strftime("%d %B %Y") if row[16] else ""
-                                                                        deposit_payment_date = row[24].strftime("%d %B %Y") if len(row) > 24 and row[24] else "â€”"
+                                                                        deposit_payment_date = row[24].strftime("%d %B %Y") if len(row) > 24 and row[24] else "—"
                                                                         
                                                                         # Generate HTML using contract-style template
                                                                         html = f"""
@@ -11718,7 +11725,7 @@ def webhook():
                                                                                 .ql-indent-7 {{ padding-left: 21em; }}
                                                                                 .ql-indent-8 {{ padding-left: 24em; }}
 
-                                                                                /* .scope-box (continued) â€” split only so the column rules can sit in
+                                                                                /* .scope-box (continued) — split only so the column rules can sit in
                                                                                    between; both halves are the one .scope-box rule. */
                                                                                 .scope-box {{
                                                                                     background: #fafbff;
@@ -11774,14 +11781,14 @@ def webhook():
                                                                                 <div class="field-row"><div class="field-label">Agreement Date:</div><div class="field-value">{agreement_date}</div></div>
 
                                                                                 <div class="section-header">PROJECT SCOPE</div>
-                                                                                <div class="scope-box">{row[12] if len(row) > 12 and row[12] else 'â€”'}</div>
+                                                                                <div class="scope-box">{row[12] if len(row) > 12 and row[12] else '—'}</div>
                                                                                 
                                                                                 <h4 class="section-title">PAYMENTS BREAKDOWN</h4>
                                                                                 
                                                                                 <div class="highlight-box">
-                                                                                    <div class="field-row"><div class="field-label">Deposit / Bullet Payment:</div><div class="field-value" style="font-weight:700;">USD {row[23] if len(row) > 23 and row[23] else 'â€”'}</div></div>
+                                                                                    <div class="field-row"><div class="field-label">Deposit / Bullet Payment:</div><div class="field-value" style="font-weight:700;">USD {row[23] if len(row) > 23 and row[23] else '—'}</div></div>
                                                                                     <div class="field-row"><div class="field-label">Date Paid:</div><div class="field-value">{deposit_payment_date}</div></div>
-                                                                                    <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight:700;">USD {row[17] if len(row) > 17 else 'â€”'}</div></div>
+                                                                                    <div class="field-row"><div class="field-label">Total Contract Price:</div><div class="field-value" style="font-weight:700;">USD {row[17] if len(row) > 17 else '—'}</div></div>
                                                                                     <div class="field-row" style="margin-bottom:0;"><div class="field-label">Late Payment Interest:</div><div class="field-value">{row[45] if len(row) > 45 else 0}% per annum</div></div>
                                                                                 </div>
 
@@ -11825,7 +11832,7 @@ def webhook():
                                                                         return pdf_bytes
                                                                         
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error generating payment history PDF: {e}")
+                                                                        print(f"❌ Error generating payment history PDF: {e}")
                                                                         return None
 
 
@@ -11965,7 +11972,7 @@ def webhook():
                                                                         return pdf_bytes
                                                                         
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error generating PDF: {e}")
+                                                                        print(f"❌ Error generating PDF: {e}")
                                                                         return None
 
 
@@ -12163,7 +12170,7 @@ def webhook():
                                                                                 .ql-indent-7 {{ padding-left: 21em; }}
                                                                                 .ql-indent-8 {{ padding-left: 24em; }}
 
-                                                                                /* .scope-box (continued) â€” split only so the column rules can sit in
+                                                                                /* .scope-box (continued) — split only so the column rules can sit in
                                                                                    between; both halves are the one .scope-box rule. */
                                                                                 .scope-box {{
                                                                                     background: #fafbff;
@@ -12802,7 +12809,7 @@ def webhook():
                                                                         return True
                                                                         
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error sending PDF: {e}")
+                                                                        print(f"❌ Error sending PDF: {e}")
                                                                         return False
 
 
@@ -12818,10 +12825,10 @@ def webhook():
                                                                         """, (recipient_number, to_digits))
                                                                         row = cursor.fetchone()
                                                                         if row and row[0]:
-                                                                            print(f"ðŸš« Human mode ON for {recipient_number} â€” skipping chatbot auto-reply")
+                                                                            print(f"🚫 Human mode ON for {recipient_number} — skipping chatbot auto-reply")
                                                                             return True
                                                                     except Exception as e:
-                                                                        print(f"âš ï¸ Human mode check error: {e}")
+                                                                        print(f"⚠️ Human mode check error: {e}")
                                                                     try:
                                                                         url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
                                                                         headers = {
@@ -12849,12 +12856,12 @@ def webhook():
                                                                                     """, (recipient_number, 'ConnectLink Bot', message[:500]))
                                                                                     save_conn.commit()
                                                                             except Exception as save_err:
-                                                                                print(f"âš ï¸ Failed to save bot message: {save_err}")
+                                                                                print(f"⚠️ Failed to save bot message: {save_err}")
                                                                         
                                                                         return response.status_code == 200
                                                                         
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error sending message: {e}")
+                                                                        print(f"❌ Error sending message: {e}")
                                                                         return False
 
 
@@ -12879,13 +12886,13 @@ def webhook():
                                                                         rows = cursor.fetchall()
                                                                         
                                                                         if not rows:
-                                                                            message = f"ðŸ“‹ No contracts found for your WhatsApp number."
+                                                                            message = f"📋 No contracts found for your WhatsApp number."
                                                                             send_whatsapp_message(sender_id, message)
                                                                             return jsonify({'status': 'success', 'message': 'No contracts found'})
                                                                         
                                                                         # Send summary message
                                                                         summary = f"""
-                                                                            ðŸ“‹ *YOUR CONTRACTS - CONNECTLINK PROPERTIES*
+                                                                            📋 *YOUR CONTRACTS - CONNECTLINK PROPERTIES*
 
                                                                             Found {len(rows)} contract(s) for your WhatsApp number.
 
@@ -12896,7 +12903,7 @@ def webhook():
                                                                         # Process each contract
                                                                         for i, row in enumerate(rows):
                                                                             try:
-                                                                                print(f"ðŸ“„ Generating contract {i+1}/{len(rows)}")
+                                                                                print(f"📄 Generating contract {i+1}/{len(rows)}")
                                                                                 
                                                                                 # Generate PDF using your template
                                                                                 pdf_bytes = generate_contract_pdf(row, cursor)
@@ -12911,14 +12918,14 @@ def webhook():
                                                                                         time.sleep(2)  # Delay between sends
                                                                                 
                                                                             except Exception as e:
-                                                                                print(f"âŒ Error with contract {i+1}: {e}")
-                                                                                error_msg = f"âš ï¸ Could not send contract {i+1}. Will try next one."
+                                                                                print(f"❌ Error with contract {i+1}: {e}")
+                                                                                error_msg = f"⚠️ Could not send contract {i+1}. Will try next one."
                                                                                 send_whatsapp_message(sender_id, error_msg)
                                                                                 continue
                                                                         
                                                                         # Final message
                                                                         final_msg = f"""
-                                                                            âœ… See attached {len(rows)} contract document(s).
+                                                                            ✅ See attached {len(rows)} contract document(s).
 
                                                                             _Thank you for choosing Connectlink Properties!_
                                                                                         """
@@ -12955,7 +12962,7 @@ def webhook():
                                                                             sender_id, 
                                                                             f"{final_msg} \n\n How else can we assist you today {profile_name}?.",
                                                                             buttons,
-                                                                            footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                            footer_text="ConnectLink Properties • Client Panel"
 
                                                                         )
                                                                         
@@ -12966,7 +12973,7 @@ def webhook():
                                                                         })
                                                                         
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error in contracts handler: {str(e)}")
+                                                                    print(f"❌ Error in contracts handler: {str(e)}")
                                                                     return jsonify({'status': 'error', 'message': str(e)}), 500
 
                                                             elif button_id == "main_menu" or selected_option == "main_menu":
@@ -12998,10 +13005,10 @@ def webhook():
 
                                                                 send_whatsapp_button_image_message(
                                                                     sender_id, 
-                                                                    f"ðŸ‘‹ Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                                    f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
                                                                     "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                     buttons,
-                                                                    footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                    footer_text="ConnectLink Properties • Client Panel"
 
                                                                 )
 
@@ -13025,8 +13032,8 @@ def webhook():
                                                                     # Generate PDF
                                                                     pdf_bytes = generate_unified_receipt_pdf(project_id, receipt_type, config)
                                                                     if not pdf_bytes:
-                                                                        print(f"âŒ Failed to generate PDF for project {project_id}")
-                                                                        send_text_message(recipient_number, "âŒ Error generating receipt. Please contact support.")
+                                                                        print(f"❌ Failed to generate PDF for project {project_id}")
+                                                                        send_text_message(recipient_number, "❌ Error generating receipt. Please contact support.")
                                                                         return False
                                                                     
                                                                     # Get project details for filename and caption
@@ -13043,9 +13050,9 @@ def webhook():
                                                                             safe_client_name = ''.join(c for c in client_name if c.isalnum() or c == ' ').replace(' ', '_')
                                                                             filename = f"{config['filename_prefix']}_{safe_client_name}_{project_id}.pdf"
                                                                             
-                                                                            date_str = date_paid.strftime('%d %B %Y') if date_paid else 'â€”'
+                                                                            date_str = date_paid.strftime('%d %B %Y') if date_paid else '—'
                                                                             
-                                                                            caption = f"""ðŸ“„ *{config['title'].upper()} RECEIPT*
+                                                                            caption = f"""📄 *{config['title'].upper()} RECEIPT*
 
                                                             Client: {client_name}
                                                             Project: {project_name}
@@ -13055,9 +13062,9 @@ def webhook():
                                                             Send 'Hello' to view your contracts or to log enquiries."""
                                                                         else:
                                                                             filename = f"{config['filename_prefix']}_{project_id}.pdf"
-                                                                            caption = f"ðŸ“„ {config['title']} Receipt - Project {project_id}"
+                                                                            caption = f"📄 {config['title']} Receipt - Project {project_id}"
                                                                     
-                                                                    print(f"ðŸ“¤ Uploading PDF to WhatsApp...")
+                                                                    print(f"📤 Uploading PDF to WhatsApp...")
                                                                     
                                                                     # Upload to WhatsApp
                                                                     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/media"
@@ -13073,7 +13080,7 @@ def webhook():
                                                                     response.raise_for_status()
                                                                     media_id = response.json()["id"]
                                                                     
-                                                                    print(f"âœ… Media uploaded, ID: {media_id}")
+                                                                    print(f"✅ Media uploaded, ID: {media_id}")
                                                                     
                                                                     # Send PDF
                                                                     doc_url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
@@ -13093,16 +13100,16 @@ def webhook():
                                                                         }
                                                                     }
                                                                     
-                                                                    print(f"ðŸ“¤ Sending document to {recipient_number}...")
+                                                                    print(f"📤 Sending document to {recipient_number}...")
                                                                     response = requests.post(doc_url, headers=doc_headers, json=doc_payload, timeout=30)
                                                                     response.raise_for_status()
                                                                     
-                                                                    print(f"âœ… PDF sent successfully!")
+                                                                    print(f"✅ PDF sent successfully!")
                                                                     return True
                                                                     
                                                                 except Exception as e:
-                                                                    print(f"âŒ Error sending PDF: {e}")
-                                                                    send_text_message(recipient_number, "âŒ Failed to send receipt. Please try again or contact support.")
+                                                                    print(f"❌ Error sending PDF: {e}")
+                                                                    send_text_message(recipient_number, "❌ Failed to send receipt. Please try again or contact support.")
                                                                     return False
 
                                                             # Unified PDF generator
@@ -13159,16 +13166,16 @@ def webhook():
                                                                         # Format dates
                                                                         if config['has_due_date']:
                                                                             due_date = row[10]
-                                                                            due_date_str = due_date.strftime('%d %b %Y') if due_date else 'â€”'
-                                                                            due_date_long = due_date.strftime('%d %B %Y') if due_date else 'â€”'
+                                                                            due_date_str = due_date.strftime('%d %b %Y') if due_date else '—'
+                                                                            due_date_long = due_date.strftime('%d %B %Y') if due_date else '—'
                                                                             paid_date = row[11]
                                                                             paid_date_idx = 11
                                                                         else:
                                                                             paid_date = row[10]
                                                                             paid_date_idx = 10
                                                                         
-                                                                        paid_date_str = paid_date.strftime('%d %b %Y') if paid_date else 'â€”'
-                                                                        paid_date_long = paid_date.strftime('%d %B %Y') if paid_date else 'â€”'
+                                                                        paid_date_str = paid_date.strftime('%d %b %Y') if paid_date else '—'
+                                                                        paid_date_long = paid_date.strftime('%d %B %Y') if paid_date else '—'
 
                                                                         # Choose template based on receipt type
                                                                         if receipt_type == 'deposit':
@@ -13190,7 +13197,7 @@ def webhook():
                                                                         return pdf
 
                                                                 except Exception as e:
-                                                                    print(f"âŒ PDF generation error: {str(e)}")
+                                                                    print(f"❌ PDF generation error: {str(e)}")
                                                                     return None
 
                                                             def generate_deposit_template(row, logo_base64, whole, decimal, formatted_amount, 
@@ -13453,7 +13460,7 @@ def webhook():
                                                                     response = requests.post(url, headers=headers, json=data, timeout=30)
                                                                     return response.json()
                                                                 except Exception as e:
-                                                                    print(f"âŒ Text message error: {str(e)}")
+                                                                    print(f"❌ Text message error: {str(e)}")
                                                                     return None
 
 
@@ -13462,8 +13469,8 @@ def webhook():
                                                             button_text = button.get("text", "") or interactive_button_reply.get("title", "")
                                                             payload = button.get("payload", "") or interactive_button_reply.get("id", "")
                                                             
-                                                            print(f"ðŸ”˜ Template button clicked: {button_text}")
-                                                            print(f"ðŸ“¦ Button payload: {payload}")
+                                                            print(f"🔘 Template button clicked: {button_text}")
+                                                            print(f"📦 Button payload: {payload}")
                                                             # Procurement: requisition approve/decline from WhatsApp
                                                             if handle_procurement_button_payload(payload, sender_id, sender_number):
                                                                 continue
@@ -13492,42 +13499,42 @@ def webhook():
                                                                     enquiry_id = None
 
                                                                 if enquiry_id:
-                                                                    send_text_message(sender_id, "â³ Fetching the enquiry attachment, please wait...")
+                                                                    send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                     time.sleep(1)  # Critical for mobile
                                                                     
                                                                     # Now deliver the attachment
                                                                     try:
                                                                         result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                         if not result:
-                                                                            send_whatsapp_message(sender_id, "âŒ Could not retrieve the attachment. Please contact support.")
+                                                                            send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error delivering attachment: {e}")
-                                                                        send_whatsapp_message(sender_id, "âŒ An error occurred. Please try again or contact support.")
+                                                                        print(f"❌ Error delivering attachment: {e}")
+                                                                        send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
 
                                                                     continue
                                                                 else:
-                                                                    send_text_message(sender_id, "âŒ Invalid enquiry attachment reference.")
+                                                                    send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
                                                                     continue
 
                                                             elif normalized_button_text == 'download attachment':
                                                                 enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
 
                                                                 if enquiry_id:
-                                                                    send_text_message(sender_id, "â³ Fetching the enquiry attachment, please wait...")
+                                                                    send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                     time.sleep(1)  # Critical for mobile
                                                                     
                                                                     # Now deliver the attachment
                                                                     try:
                                                                         result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                         if not result:
-                                                                            send_whatsapp_message(sender_id, "âŒ Could not retrieve the attachment. Please contact support.")
+                                                                            send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error delivering attachment: {e}")
-                                                                        send_whatsapp_message(sender_id, "âŒ An error occurred. Please try again or contact support.")
+                                                                        print(f"❌ Error delivering attachment: {e}")
+                                                                        send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
 
                                                                     continue
                                                                 else:
-                                                                    send_text_message(sender_id, "âŒ No enquiry attachment is available to download.")
+                                                                    send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
                                                                     continue
 
                                                             elif payload and payload.lower().startswith('quotation_'):
@@ -13539,16 +13546,16 @@ def webhook():
 
                                                                 if qid:
                                                                     mark_quotation_download_clicked(payload, sender_id)
-                                                                    send_text_message(sender_id, "â³ Generating your quotation PDF, please wait...")
+                                                                    send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
                                                                     deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
                                                                     continue
                                                                 else:
-                                                                    send_text_message(sender_id, "âŒ Invalid quotation reference.")
+                                                                    send_text_message(sender_id, "❌ Invalid quotation reference.")
                                                                     continue
 
                                                             elif matched_type and project_id:
                                                                 config = RECEIPT_CONFIG[matched_type]
-                                                                print(f"ðŸŽ¯ Extracted project_id: {project_id} for {config['title']}")
+                                                                print(f"🎯 Extracted project_id: {project_id} for {config['title']}")
                                                                 
                                                                 # Send processing message
                                                                 send_text_message(sender_id, config['processing_message'])
@@ -13556,14 +13563,14 @@ def webhook():
                                                                 # Send PDF receipt
                                                                 send_receipt_via_whatsapp(sender_id, project_id, matched_type, config)
                                                             else:
-                                                                print(f"âŒ Unknown payload: {payload}")
+                                                                print(f"❌ Unknown payload: {payload}")
 
 
 
                                                         else:
 
                                                             text = message.get("text", {}).get("body", "").lower()
-                                                            print(f"ðŸ“¨ Message from {sender_id}: {text}")
+                                                            print(f"📨 Message from {sender_id}: {text}")
                                                             
                                                             print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
 
@@ -13595,10 +13602,10 @@ def webhook():
 
                                                             send_whatsapp_button_image_message(
                                                                 sender_id, 
-                                                                f"ðŸ‘‹ Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                                f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
                                                                 "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                 buttons,
-                                                                footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                footer_text="ConnectLink Properties • Client Panel"
 
                                                             )
 
@@ -13629,12 +13636,12 @@ def webhook():
 
                                                             if interactive.get("type") == "list_reply":
                                                                 selected_option = interactive.get("list_reply", {}).get("id")
-                                                                print(f"ðŸ“‹ User selected: {selected_option}")
+                                                                print(f"📋 User selected: {selected_option}")
                                                                 button_id = ""
 
                                                             elif interactive.get("type") == "button_reply":
                                                                 button_id = interactive.get("button_reply", {}).get("id")
-                                                                print(f"ðŸ”˜ Button clicked: {button_id}")
+                                                                print(f"🔘 Button clicked: {button_id}")
                                                                 selected_option = ""
 
 
@@ -13650,16 +13657,16 @@ def webhook():
                                                                 selected_option = ""
                                                                 button_id = ""
 
-                                                                print("ðŸ“‹ Raw nfm_reply response_json:", response_str)
+                                                                print("📋 Raw nfm_reply response_json:", response_str)
 
                                                                 try:
                                                                     form_response = json.loads(response_str)
-                                                                    print("âœ… Parsed form_response:", form_response)
+                                                                    print("✅ Parsed form_response:", form_response)
                                                                 except Exception as e:
-                                                                    print("âŒ Error parsing nfm_reply response_json:", e)
+                                                                    print("❌ Error parsing nfm_reply response_json:", e)
                                                                     form_response = {}
 
-                                                                print("ðŸ” Parsing form fields from form_response:")
+                                                                print("🔍 Parsing form fields from form_response:")
 
                                                                 query = f"""
                                                                     SELECT * FROM appenqtemp
@@ -13692,8 +13699,8 @@ def webhook():
 
                                                                 # Validate required fields
                                                                 if not enquiry_type:
-                                                                    print("âŒ No enquiry_type found in form response")
-                                                                    print("âŒ Full form_response:", json.dumps(form_response, indent=2))
+                                                                    print("❌ No enquiry_type found in form response")
+                                                                    print("❌ Full form_response:", json.dumps(form_response, indent=2))
                                                                     return jsonify({'status': 'error', 'message': 'Enquiry type is required'}), 400
 
                                                                 # Map enquiry type IDs to display names
@@ -13706,7 +13713,7 @@ def webhook():
 
                                                                 enquiry_type_display = enquiry_type_map.get(enquiry_type, enquiry_type)
 
-                                                                print(f"âœ… Enquiry type display: {enquiry_type_display}")
+                                                                print(f"✅ Enquiry type display: {enquiry_type_display}")
 
                                                                 # Process attachment if exists
                                                                 attachment_data = None
@@ -13733,7 +13740,7 @@ def webhook():
                                                                                 "Authorization": f"Bearer {ACCESS_TOKEN}"
                                                                             }
                                                                             
-                                                                            print(f"ðŸ“¥ Downloading media from: {media_url}")
+                                                                            print(f"📥 Downloading media from: {media_url}")
                                                                             response = requests.get(media_url, headers=headers)
                                                                             response.raise_for_status()
                                                                             media_info = response.json()
@@ -13744,18 +13751,18 @@ def webhook():
                                                                             download_url = media_info.get('url')
                                                                             if download_url:
                                                                                 # Download the file
-                                                                                print(f"ðŸ“¥ Downloading file from: {download_url}")
+                                                                                print(f"📥 Downloading file from: {download_url}")
                                                                                 file_response = requests.get(download_url, headers=headers)
                                                                                 file_response.raise_for_status()
                                                                                 
                                                                                 attachment_data = file_response.content
-                                                                                print(f"âœ… Attachment downloaded, size: {len(attachment_data)} bytes")
+                                                                                print(f"✅ Attachment downloaded, size: {len(attachment_data)} bytes")
                                                                             else:
-                                                                                print("âŒ No download URL found in media info")
+                                                                                print("❌ No download URL found in media info")
                                                                                 attachment_data = None
                                                                                 
                                                                         except Exception as e:
-                                                                            print(f"âŒ Error downloading attachment: {e}")
+                                                                            print(f"❌ Error downloading attachment: {e}")
                                                                             attachment_data = None
                                                                 else:
                                                                     print("No attachment found in the response")
@@ -13773,7 +13780,7 @@ def webhook():
                                                                     timestamp = datetime.now()
                                                                     client_whatsapp = int(sender_id)
                                                                     
-                                                                    print(f"âœ… Saving to database:")
+                                                                    print(f"✅ Saving to database:")
                                                                     print(f"  - timestamp: {timestamp}")
                                                                     print(f"  - clientwhatsapp: {client_whatsapp}")
                                                                     print(f"  - enqcategory: {enquiry_type_display}")
@@ -13795,23 +13802,23 @@ def webhook():
                                                                     enquiry_id = cursor.fetchone()[0]
                                                                     connection.commit()
                                                                     
-                                                                    print(f"âœ… Enquiry saved with ID: {enquiry_id}")
+                                                                    print(f"✅ Enquiry saved with ID: {enquiry_id}")
                                                                     
                                                                     # Send confirmation message to user
                                                                     confirmation_message = f"""
-                                                                        âœ… *Your Enquiry has been successfully submitted to ConnectLink Properties Admin, {profile_name}!*
+                                                                        ✅ *Your Enquiry has been successfully submitted to ConnectLink Properties Admin, {profile_name}!*
 
-                                                                        ðŸ“‹ *Reference ID:* #{enquiry_id}
-                                                                        ðŸ“… *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
-                                                                        ðŸ·ï¸ *Category:* {enquiry_type_display}
-                                                                        {'ðŸ“Ž *Attachment:* Yes' if has_attachment else ''}
+                                                                        📋 *Reference ID:* #{enquiry_id}
+                                                                        📅 *Date:* {timestamp.strftime('%d %B %Y %H:%M')}
+                                                                        🏷️ *Category:* {enquiry_type_display}
+                                                                        {'📎 *Attachment:* Yes' if has_attachment else ''}
 
                                                                         Thank you for your enquiry. Our team will contact you within 24 hours.
 
                                                                         _For urgent matters, please call our office._
                                                                         """
                                                                     
-                                                                    print(f"âœ… Sending confirmation to {sender_id}")
+                                                                    print(f"✅ Sending confirmation to {sender_id}")
                                                                     
                                                                     # Send WhatsApp confirmation
                                                                     buttons = [
@@ -13844,7 +13851,7 @@ def webhook():
                                                                         f"{confirmation_message} \n\n How else can we assist you today?.",
                                                                         "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                         buttons,
-                                                                        footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                        footer_text="ConnectLink Properties • Client Panel"
 
                                                                     )
 
@@ -14019,7 +14026,7 @@ def webhook():
                                                                     client_whatsapp = sender_id
 
                                                                     for admin_number in admin_numbers:
-                                                                        print(f"âœ… Notifying admin: {admin_number}")
+                                                                        print(f"✅ Notifying admin: {admin_number}")
                                                                         
                                                                         enquiry_data = {
                                                                             'enquiry_id': enquiry_id,
@@ -14040,7 +14047,7 @@ def webhook():
                                                                             _mid = str(((_rj.get('messages') or [{}])[0]).get('id') or '') if _rj.get('messages') else ''
                                                                             log_admin_notify_attempt(enquiry_id, admin_number, 'sent' if _ok else 'failed', _ed, _mid)
                                                                         except Exception as _le:
-                                                                            print(f"âš ï¸ log_admin_notify_attempt error: {_le}")
+                                                                            print(f"⚠️ log_admin_notify_attempt error: {_le}")
 
                                                                     return jsonify({
                                                                         'status': 'success',
@@ -14095,7 +14102,7 @@ def webhook():
                                                                     "Kindly select an enquiry option below.",
                                                                     "ConnectLink Enquiries",
                                                                     sections,
-                                                                    footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                    footer_text="ConnectLink Properties • Client Panel"
                                                                 )
 
                                                             elif selected_option in ["kitchen_cabinets","building","renovation","other"]:
@@ -14175,7 +14182,7 @@ def webhook():
                                                                         "We offer free 3D designs and quotations. Send your house plan or measurements via the Fill Enquiries Form below, or request a site visit.\n\n"
                                                                         "Site visits within 20km of Harare CBD cost USD 10.",
                                                                         buttons,
-                                                                        footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                        footer_text="ConnectLink Properties • Client Panel"
                                                                     )
 
                                                                 elif selected_option == "building":
@@ -14186,14 +14193,14 @@ def webhook():
                                                                         "At Connectlink Properties, we are a full-service construction company offering turnkey building solutions nationwide.\n\n"
                                                                         "Our payment terms are:\n"
                                                                         "- Minimum deposit: 30%\n"
-                                                                        "- Balance payable over 3â€“6 months\n\n"
+                                                                        "- Balance payable over 3–6 months\n\n"
                                                                         "Our project turnaround times are:\n"
                                                                         "- 90 days (standard foundation)\n"
                                                                         "- 110 days (special foundation)\n"
                                                                         "- 120 days (double storey)\n\n"
                                                                         "We deliver quality, reliability and professional project management from foundation to finish. Send your house plan or measurements via the Enquiries Form below, or request a site visit.",
                                                                         buttons,
-                                                                        footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                        footer_text="ConnectLink Properties • Client Panel"
                                                                     )
 
                                                                     
@@ -14245,7 +14252,7 @@ def webhook():
                                                                         """, (sender_id, 'ConnectLink Bot', '[Template: enquiries] Enquiry form sent', 'template'))
                                                                         save_conn.commit()
                                                                 except Exception as save_err:
-                                                                    print(f"âš ï¸ Failed to save enquiry template to messages: {save_err}")
+                                                                    print(f"⚠️ Failed to save enquiry template to messages: {save_err}")
 
                                                                 continue
 
@@ -14302,7 +14309,7 @@ def webhook():
                                                                         """, (sender_id, 'ConnectLink Bot', '[Template: enquiries] Enquiry form sent (enquirylogx)', 'template'))
                                                                         save_conn.commit()
                                                                 except Exception as save_err:
-                                                                    print(f"âš ï¸ Failed to save enquiry template to messages: {save_err}")
+                                                                    print(f"⚠️ Failed to save enquiry template to messages: {save_err}")
 
                                                                 continue
 
@@ -14324,7 +14331,7 @@ def webhook():
                                                                                     size: A4;
                                                                                     margin: 2cm;
                                                                                     @bottom-center {
-                                                                                        content: "Connectlink Properties â€¢ Page " counter(page) " of " counter(pages);
+                                                                                        content: "Connectlink Properties • Page " counter(page) " of " counter(pages);
                                                                                         font-size: 10px;
                                                                                         color: #666;
                                                                                     }
@@ -14451,14 +14458,14 @@ def webhook():
                                                                         <body>
                                                                             <div class="header">
                                                                                 <div class="company-name">CONNECTLINK PROPERTIES</div>
-                                                                                <div class="tagline">From Concept to Creation â€“ Let's Build Together!</div>
+                                                                                <div class="tagline">From Concept to Creation – Let's Build Together!</div>
                                                                             </div>
                                                                             
                                                                             <div class="contact-info">
-                                                                                <strong>ðŸ“ Address:</strong> Colonnade Building, Corner Mutare Rd & Steven Drive, Msasa, Harare<br>
-                                                                                <strong>ðŸ“ž Phone:</strong> 0773 368 558 | 0718 047 602<br>
-                                                                                <strong>ðŸ“§ Email:</strong> info@connectlinkproperties.co.zw<br>
-                                                                                <strong>ðŸŒ Website:</strong> www.connectlinkproperties.co.zw
+                                                                                <strong>📍 Address:</strong> Colonnade Building, Corner Mutare Rd & Steven Drive, Msasa, Harare<br>
+                                                                                <strong>📞 Phone:</strong> 0773 368 558 | 0718 047 602<br>
+                                                                                <strong>📧 Email:</strong> info@connectlinkproperties.co.zw<br>
+                                                                                <strong>🌐 Website:</strong> www.connectlinkproperties.co.zw
                                                                             </div>
                                                                             
                                                                             <div class="section">
@@ -14466,7 +14473,7 @@ def webhook():
                                                                                 <p>Connectlink Properties is a Zimbabwean-based real estate development company specializing in construction, property development, project management, and custom cabinetry. With over a decade of experience, we have established a commendable reputation for delivering quality services with integrity, professionalism, and client satisfaction.</p>
                                                                                 
                                                                                 <div class="mission-box">
-                                                                                    <strong>ðŸŽ¯ OUR MISSION:</strong> To empower every citizen of Zimbabwe to achieve their dream of owning a property through innovative solutions and commitment to excellence.
+                                                                                    <strong>🎯 OUR MISSION:</strong> To empower every citizen of Zimbabwe to achieve their dream of owning a property through innovative solutions and commitment to excellence.
                                                                                 </div>
                                                                             </div>
                                                                             
@@ -14474,7 +14481,7 @@ def webhook():
                                                                                 <div class="section-title">CORE SERVICES</div>
                                                                                 <div class="services-grid">
                                                                                     <div class="service-card">
-                                                                                        <div class="service-title">ðŸ—ï¸ CONSTRUCTION</div>
+                                                                                        <div class="service-title">🏗️ CONSTRUCTION</div>
                                                                                         <ul>
                                                                                             <li>Brickwork & Roofing</li>
                                                                                             <li>Tiling & Renovations</li>
@@ -14484,7 +14491,7 @@ def webhook():
                                                                                     </div>
                                                                                     
                                                                                     <div class="service-card">
-                                                                                        <div class="service-title">ðŸ  PROPERTY DEVELOPMENTS</div>
+                                                                                        <div class="service-title">🏠 PROPERTY DEVELOPMENTS</div>
                                                                                         <ul>
                                                                                             <li>Residential & Commercial</li>
                                                                                             <li>Site Selection & Planning</li>
@@ -14494,7 +14501,7 @@ def webhook():
                                                                                     </div>
                                                                                     
                                                                                     <div class="service-card">
-                                                                                        <div class="service-title">ðŸ³ KITCHENS & CABINETS</div>
+                                                                                        <div class="service-title">🍳 KITCHENS & CABINETS</div>
                                                                                         <ul>
                                                                                             <li>Custom Kitchen Units</li>
                                                                                             <li>Walk-in Closets</li>
@@ -14504,7 +14511,7 @@ def webhook():
                                                                                     </div>
                                                                                     
                                                                                     <div class="service-card">
-                                                                                        <div class="service-title">ðŸ“º TV UNITS & VANITIES</div>
+                                                                                        <div class="service-title">📺 TV UNITS & VANITIES</div>
                                                                                         <ul>
                                                                                             <li>TV Mounting & Units</li>
                                                                                             <li>Bathroom Vanities</li>
@@ -14514,7 +14521,7 @@ def webhook():
                                                                                     </div>
                                                                                     
                                                                                     <div class="service-card">
-                                                                                        <div class="service-title">ðŸ›£ï¸ CIVIL WORKS</div>
+                                                                                        <div class="service-title">🛣️ CIVIL WORKS</div>
                                                                                         <ul>
                                                                                             <li>Road Construction</li>
                                                                                             <li>Sewer Reticulation</li>
@@ -14524,7 +14531,7 @@ def webhook():
                                                                                     </div>
                                                                                     
                                                                                     <div class="service-card">
-                                                                                        <div class="service-title">ðŸ“Š PROJECT MANAGEMENT</div>
+                                                                                        <div class="service-title">📊 PROJECT MANAGEMENT</div>
                                                                                         <ul>
                                                                                             <li>Architectural Drawings</li>
                                                                                             <li>Land Survey</li>
@@ -14538,11 +14545,11 @@ def webhook():
                                                                             <div class="section">
                                                                                 <div class="section-title">WHY CHOOSE US</div>
                                                                                 <div class="highlight">
-                                                                                    <strong>âœ“ Flexible Solutions:</strong> Tailored services to meet specific client needs<br>
-                                                                                    <strong>âœ“ Professional Team:</strong> Qualified engineers and tradesmen<br>
-                                                                                    <strong>âœ“ Quality Assurance:</strong> Materials and workmanship meeting global standards<br>
-                                                                                    <strong>âœ“ Client-Centric Approach:</strong> From concept to completion with full transparency<br>
-                                                                                    <strong>âœ“ Proven Track Record:</strong> Portfolio includes residential, commercial & institutional developments
+                                                                                    <strong>✓ Flexible Solutions:</strong> Tailored services to meet specific client needs<br>
+                                                                                    <strong>✓ Professional Team:</strong> Qualified engineers and tradesmen<br>
+                                                                                    <strong>✓ Quality Assurance:</strong> Materials and workmanship meeting global standards<br>
+                                                                                    <strong>✓ Client-Centric Approach:</strong> From concept to completion with full transparency<br>
+                                                                                    <strong>✓ Proven Track Record:</strong> Portfolio includes residential, commercial & institutional developments
                                                                                 </div>
                                                                             </div>
                                                                             
@@ -14557,9 +14564,9 @@ def webhook():
                                                                             </div>
                                                                             
                                                                             <div class="footer">
-                                                                                <p>Â© 2024 Connectlink Properties. All Rights Reserved.</p>
-                                                                                <p>Follow us: ðŸ“± WhatsApp Business | ðŸ“˜ Facebook | ðŸ“¸ Instagram | ðŸ’¼ LinkedIn</p>
-                                                                                <p>Registered in Zimbabwe â€¢ VAT Registered â€¢ Professional Engineers Registration</p>
+                                                                                <p>© 2024 Connectlink Properties. All Rights Reserved.</p>
+                                                                                <p>Follow us: 📱 WhatsApp Business | 📘 Facebook | 📸 Instagram | 💼 LinkedIn</p>
+                                                                                <p>Registered in Zimbabwe • VAT Registered • Professional Engineers Registration</p>
                                                                             </div>
                                                                         </body>
                                                                         </html>
@@ -14604,29 +14611,29 @@ def webhook():
                                                                         
                                                                         # Send with WhatsApp message
                                                                         message = f"""
-                                                                            ðŸ¢ *CONNECTLINK PROPERTIES - COMPANY PROFILE*
+                                                                            🏢 *CONNECTLINK PROPERTIES - COMPANY PROFILE*
 
                                                                             Thank you for your interest in Connectlink Properties! 
 
-                                                                            ðŸ“‹ *What's included in this document:*
-                                                                            â€¢ Our Story & Mission
-                                                                            â€¢ Core Services Overview
-                                                                            â€¢ Why Choose Us
-                                                                            â€¢ Contact Information
-                                                                            â€¢ Service Specializations
+                                                                            📋 *What's included in this document:*
+                                                                            • Our Story & Mission
+                                                                            • Core Services Overview
+                                                                            • Why Choose Us
+                                                                            • Contact Information
+                                                                            • Service Specializations
 
-                                                                            ðŸ—ï¸ *Our Expertise:*
-                                                                            â€¢ Construction & Civil Works
-                                                                            â€¢ Property Development
-                                                                            â€¢ Kitchens & Cabinets
-                                                                            â€¢ Project Management
-                                                                            â€¢ TV Units & Bathroom Vanities
+                                                                            🏗️ *Our Expertise:*
+                                                                            • Construction & Civil Works
+                                                                            • Property Development
+                                                                            • Kitchens & Cabinets
+                                                                            • Project Management
+                                                                            • TV Units & Bathroom Vanities
 
-                                                                            ðŸ“ *Locations:* Msasa & Greendale, Harare
-                                                                            ðŸ“ž *Contact:* 0773 368 558 | 0718 047 602
-                                                                            ðŸ“§ *Email:* info@connectlinkproperties.co.zw
+                                                                            📍 *Locations:* Msasa & Greendale, Harare
+                                                                            📞 *Contact:* 0773 368 558 | 0718 047 602
+                                                                            📧 *Email:* info@connectlinkproperties.co.zw
 
-                                                                            _From Concept to Creation â€“ Let's Build Together!_
+                                                                            _From Concept to Creation – Let's Build Together!_
 
                                                                             Please find our detailed company profile attached.
                                                                                     """
@@ -14706,7 +14713,7 @@ def webhook():
                                                                     sender_id, 
                                                                     f"How can we assist you today, {profile_name}?.",
                                                                     buttons,
-                                                                    footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                    footer_text="ConnectLink Properties • Client Panel"
 
                                                                 )
 
@@ -14717,11 +14724,11 @@ def webhook():
                                                                 """Send simplified contact info via WhatsApp"""
                                                                     # Create message
                                                                 message = (
-                                                                    "ðŸ¢ *CONNECTLINK PROPERTIES*\n\n"
-                                                                    "ðŸ“± WhatsApp: https://wa.me/263773368558\n"
-                                                                    "ðŸ“ Offices: 38A Coronation Avenue, Greendale, Harare\n"
-                                                                    "ðŸ“§ Email: info@connectlinkproperties.co.zw\n"
-                                                                    "ðŸŒ Website: www.connectlinkproperties.co.zw"
+                                                                    "🏢 *CONNECTLINK PROPERTIES*\n\n"
+                                                                    "📱 WhatsApp: https://wa.me/263773368558\n"
+                                                                    "📍 Offices: 38A Coronation Avenue, Greendale, Harare\n"
+                                                                    "📧 Email: info@connectlinkproperties.co.zw\n"
+                                                                    "🌐 Website: www.connectlinkproperties.co.zw"
                                                                 )
                                                                     
                                                                     # Send message
@@ -14754,7 +14761,7 @@ def webhook():
                                                                     sender_id, 
                                                                     f"{message}\n\n How can we assist you today, {profile_name}?.",
                                                                     buttons,
-                                                                    footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                    footer_text="ConnectLink Properties • Client Panel"
 
                                                                 )
 
@@ -14788,10 +14795,10 @@ def webhook():
 
                                                                 send_whatsapp_button_image_message(
                                                                     sender_id, 
-                                                                    f"ðŸ‘‹ Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                                    f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
                                                                     "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                     buttons,
-                                                                    footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                    footer_text="ConnectLink Properties • Client Panel"
 
                                                                 )
 
@@ -14811,8 +14818,8 @@ def webhook():
                                                             button_text = button.get("text", "") or interactive_button_reply.get("title", "")
                                                             payload = button.get("payload", "") or interactive_button_reply.get("id", "")
 
-                                                            print(f"ðŸ”˜ Template button clicked: {button_text}")
-                                                            print(f"ðŸ“¦ Button payload: {payload}")
+                                                            print(f"🔘 Template button clicked: {button_text}")
+                                                            print(f"📦 Button payload: {payload}")
                                                             # Procurement: requisition approve/decline from WhatsApp
                                                             if handle_procurement_button_payload(payload, sender_id, sender_number):
                                                                 continue
@@ -14845,7 +14852,7 @@ def webhook():
                                                                     response = requests.post(url, headers=headers, json=data, timeout=30)
                                                                     return response.json()
                                                                 except Exception as e:
-                                                                    print(f"âŒ Text message error: {str(e)}")
+                                                                    print(f"❌ Text message error: {str(e)}")
                                                                     return None
 
                                                             normalized_button_text = (button_text or "").strip().lower()
@@ -14857,42 +14864,42 @@ def webhook():
                                                                     enquiry_id = None
 
                                                                 if enquiry_id:
-                                                                    send_text_message(sender_id, "â³ Fetching the enquiry attachment, please wait...")
+                                                                    send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                     time.sleep(1)  # Critical for mobile
                                                                     
                                                                     # Now deliver the attachment
                                                                     try:
                                                                         result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                         if not result:
-                                                                            send_whatsapp_message(sender_id, "âŒ Could not retrieve the attachment. Please contact support.")
+                                                                            send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error delivering attachment: {e}")
-                                                                        send_whatsapp_message(sender_id, "âŒ An error occurred. Please try again or contact support.")
+                                                                        print(f"❌ Error delivering attachment: {e}")
+                                                                        send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
                                                                         
                                                                     continue
                                                                 else:
-                                                                    send_text_message(sender_id, "âŒ Invalid enquiry attachment reference.")
+                                                                    send_text_message(sender_id, "❌ Invalid enquiry attachment reference.")
                                                                     continue
 
                                                             elif normalized_button_text == 'download attachment':
                                                                 enquiry_id = resolve_enquiry_attachment_id_from_click(message, sender_id)
 
                                                                 if enquiry_id:
-                                                                    send_text_message(sender_id, "â³ Fetching the enquiry attachment, please wait...")
+                                                                    send_text_message(sender_id, "⏳ Fetching the enquiry attachment, please wait...")
                                                                     time.sleep(1)  # Critical for mobile
                                                                     
                                                                     # Now deliver the attachment
                                                                     try:
                                                                         result = deliver_enquiry_attachment_pdf(enquiry_id, sender_id, send_text_message)
                                                                         if not result:
-                                                                            send_whatsapp_message(sender_id, "âŒ Could not retrieve the attachment. Please contact support.")
+                                                                            send_whatsapp_message(sender_id, "❌ Could not retrieve the attachment. Please contact support.")
                                                                     except Exception as e:
-                                                                        print(f"âŒ Error delivering attachment: {e}")
-                                                                        send_whatsapp_message(sender_id, "âŒ An error occurred. Please try again or contact support.")
+                                                                        print(f"❌ Error delivering attachment: {e}")
+                                                                        send_whatsapp_message(sender_id, "❌ An error occurred. Please try again or contact support.")
                                                                         
                                                                     continue
                                                                 else:
-                                                                    send_text_message(sender_id, "âŒ No enquiry attachment is available to download.")
+                                                                    send_text_message(sender_id, "❌ No enquiry attachment is available to download.")
                                                                     continue
 
                                                             elif payload and payload.lower().startswith('quotation_'):
@@ -14904,20 +14911,20 @@ def webhook():
 
                                                                 if qid:
                                                                     mark_quotation_download_clicked(payload, sender_id)
-                                                                    send_text_message(sender_id, "â³ Generating your quotation PDF, please wait...")
+                                                                    send_text_message(sender_id, "⏳ Generating your quotation PDF, please wait...")
                                                                     deliver_shared_quotation_pdf(payload, qid, sender_id, send_text_message)
                                                                     continue
                                                                 else:
-                                                                    send_text_message(sender_id, "âŒ Invalid quotation reference.")
+                                                                    send_text_message(sender_id, "❌ Invalid quotation reference.")
                                                                     continue
                                                             else:
-                                                                print(f"âŒ Unknown payload: {payload}")
+                                                                print(f"❌ Unknown payload: {payload}")
 
 
                                                         else:
 
                                                             text = message.get("text", {}).get("body", "").lower()
-                                                            print(f"ðŸ“¨ Message from {sender_id}: {text}")
+                                                            print(f"📨 Message from {sender_id}: {text}")
                                                             
                                                             print("yearrrrrrrrrrrrrrrrrrrrrrrrrrrssrsrsrsrsrs")
 
@@ -14949,10 +14956,10 @@ def webhook():
 
                                                             send_whatsapp_button_image_message(
                                                                 sender_id, 
-                                                                f"ðŸ‘‹ Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
+                                                                f"👋 Hey {profile_name}, Welcome to ConnectLink Properties! \n\n How can we assist you today?.",
                                                                 "https://connectlink-wbax.onrender.com/static/images/reqlogo.jpg",
                                                                 buttons,
-                                                                footer_text="ConnectLink Properties â€¢ Client Panel"
+                                                                footer_text="ConnectLink Properties • Client Panel"
 
                                                             )
 
@@ -15228,7 +15235,7 @@ def handle_activity_log():
                 end_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
                 conditions.append("created_at >= %s AND created_at < %s")
                 params.extend([start_date, end_date])
-            # 'all_time' â€” no date filter
+            # 'all_time' — no date filter
             
             if action_filter:
                 conditions.append("action_type = %s")
@@ -15297,7 +15304,7 @@ def handle_activity_log():
             
             return jsonify({'success': True, 'data': activities, 'count': len(activities)})
     except Exception as e:
-        print(f"âŒ Error fetching activity log: {e}")
+        print(f"❌ Error fetching activity log: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -16383,7 +16390,7 @@ def api_login():
             }), 200
             
     except Exception as e:
-        print(f"âš ï¸  POS login error: {e}")
+        print(f"⚠️  POS login error: {e}")
         return jsonify({'success': False, 'message': 'Invalid credentials'}), 401
 
 
@@ -17903,12 +17910,12 @@ def pos_list_laybys():
                     healed = cursor.fetchall()
                     if healed:
                         connection.commit()
-                        print(f"ðŸ§¾ Closed {len(healed)} layby(s) whose sale had been reverted")
+                        print(f"🧾 Closed {len(healed)} layby(s) whose sale had been reverted")
                         for layby_id, layby_ref in healed:
                             try:
                                 log_activity(
                                     'layby_cancelled',
-                                    (f'Layby {layby_ref} closed â€” its sale had been reverted, so '
+                                    (f'Layby {layby_ref} closed — its sale had been reverted, so '
                                      f'the goods are already back in stock'),
                                     'layby', layby_id,
                                     {'reference': layby_ref,
@@ -22562,7 +22569,7 @@ def create_product():
     try:
         log_activity(
             'product_create',
-            f'Created product "{data["name"]}" â€” buy ${float(data.get("buy_price", 0) or 0):.2f}, '
+            f'Created product "{data["name"]}" — buy ${float(data.get("buy_price", 0) or 0):.2f}, '
             f'sell ${float(data.get("sell_price", 0) or 0):.2f}, stock {data.get("stock", 0)}',
             'product', result[0],
             {'name': data['name'], 'category': data.get('category', ''),
@@ -22711,7 +22718,7 @@ def update_product(product_id):
     update_fields = []
     params = []
     
-    # NOTE: 'price' is intentionally NOT here â€” the legacy 'price' column was
+    # NOTE: 'price' is intentionally NOT here — the legacy 'price' column was
     # renamed to 'sell_price' (see migration below). If a client sends a 'price'
     # key (legacy alias), ignore it; writing it would raise UndefinedColumn.
     # 'stock'/'min_stock_level' are NOT here either: they live in product_stock
@@ -22826,7 +22833,7 @@ def update_product(product_id):
             new_stock = int(data['stock'] or 0)
             if new_stock > old_stock:
                 action_type = 'stock_add'
-                changes.append(f'Added {new_stock - old_stock} units to "{new_name or old_name}" (stock: {old_stock} â†’ {new_stock})')
+                changes.append(f'Added {new_stock - old_stock} units to "{new_name or old_name}" (stock: {old_stock} → {new_stock})')
             elif new_stock < old_stock:
                 changes.append(f'Adjusted stock of "{new_name or old_name}" from {old_stock} to {new_stock}')
         if not changes:
@@ -23135,7 +23142,7 @@ def ai_classify_product():
             return jsonify({'error': 'Product name is required'}), 400
         
         # Get AI classification
-        from ai_classifier import classify_product  # lazy import (fuzzywuzzy) â€” only loaded when classifying
+        from ai_classifier import classify_product  # lazy import (fuzzywuzzy) — only loaded when classifying
         result = classify_product(product_name, description)
         
         return jsonify({
@@ -23676,7 +23683,7 @@ def create_transaction():
         try:
             log_activity(
                 'sale',
-                f'Sale {transaction_number} â€” ${float(total):.2f}, {len(items)} item(s), paid by {data.get("payment_method", "")}',
+                f'Sale {transaction_number} — ${float(total):.2f}, {len(items)} item(s), paid by {data.get("payment_method", "")}',
                 'transaction', transaction_id,
                 {'transaction_number': transaction_number, 'total': float(total),
                  'items': len(items), 'payment_method': data.get('payment_method', '')}
@@ -24360,7 +24367,7 @@ def revert_transaction(transaction_id):
         try:
             log_activity(
                 'transaction_revert',
-                f'Reverted sale {t[1]} (USD {float(t[4] or 0):,.2f}) â€” stock restored to inventory'
+                f'Reverted sale {t[1]} (USD {float(t[4] or 0):,.2f}) — stock restored to inventory'
                 + (f'; layby {reverted_laybys[0][1]} closed with it'
                    if reverted_laybys else ''),
                 'transaction', transaction_id,
@@ -24381,7 +24388,7 @@ def revert_transaction(transaction_id):
             try:
                 log_activity(
                     'layby_cancelled',
-                    (f'Layby {layby_ref} closed â€” its sale {t[1]} was reverted and the '
+                    (f'Layby {layby_ref} closed — its sale {t[1]} was reverted and the '
                      f'goods are already back in stock; instalments already paid stay on '
                      f'the record for a manual refund'),
                     'layby', layby_id,
@@ -24394,7 +24401,7 @@ def revert_transaction(transaction_id):
 
         message = f'Sale {t[1]} reverted. Stock restored to inventory.'
         if reverted_laybys:
-            message += (f' Layby {", ".join(r[1] for r in reverted_laybys)} was closed with it â€” '
+            message += (f' Layby {", ".join(r[1] for r in reverted_laybys)} was closed with it — '
                         f'any instalments already paid stay on its record for a refund.')
         return jsonify({'success': True, 'message': message,
                         'laybys_closed': [r[1] for r in reverted_laybys]})
@@ -24752,7 +24759,7 @@ def get_all_database_data():
 def call_gemini_ai(question, database_data):
     """Call Google Gemini AI with our database data"""
     try:
-        import google.generativeai as genai  # lazy import (heavy grpcio/protobuf) â€” only loaded when AI is used
+        import google.generativeai as genai  # lazy import (heavy grpcio/protobuf) — only loaded when AI is used
         try:
             genai.configure(api_key=GEMINI_API_KEY)
         except Exception:
@@ -24857,7 +24864,7 @@ def get_direct_answer(question):
             return answer
         
         else:
-            return f"I can answer questions about:\nâ€¢ Total contract value\nâ€¢ Total deposits\nâ€¢ Number of projects and clients\nâ€¢ Payment methods\nâ€¢ Recent projects\n\nTry asking: 'What is my total contract value?' or 'How many projects do I have?'"
+            return f"I can answer questions about:\n• Total contract value\n• Total deposits\n• Number of projects and clients\n• Payment methods\n• Recent projects\n\nTry asking: 'What is my total contract value?' or 'How many projects do I have?'"
         
 
 ACCESS_TOKEN = "EAAMk5Wj6ZBLABQZAZBaIfs9V338WQbkpZB5KfVQ58fUcjrX4nZCJm9SqSWsG6ouZCl9ZAIXGZCDo7xzitOUO5AgsPwtIaUMqpHj9iZCsJI4irPjcryKpeAchBf0ASjNPazQRrwBeL3dMs3tu4jbmlg3B2fYiZCEJhQQO4ZB4WSH8oHh07CCRKR2N2ZBWKMxVbLeyO8fA3gZDZD"
@@ -24882,13 +24889,13 @@ ENQUIRY_FOLLOWUP_TEMPLATE_NAME = os.getenv('WHATSAPP_ENQUIRY_FOLLOWUP_TEMPLATE',
 #   Name: invoicedownloadmanual  (env WHATSAPP_INVOICE_DOWNLOAD_TEMPLATE)
 #   Name: receiptdownload        (env WHATSAPP_RECEIPT_DOWNLOAD_TEMPLATE)
 #   NOTE: the INVOICE template is registered in Meta as **invoicedownloadmanual** (the live
-#   name this app sends); the receipt one still defaults to 'receiptdownload' â€” override
+#   name this app sends); the receipt one still defaults to 'receiptdownload' — override
 #   either with the env vars above, which always win.
 #   Body: "Hello {{1}}, your {{2}} {{3}} for {{4}} is ready. Tap the button below to
 #          download it. Thank you for choosing ConnectLink Properties."
-#          {{1}}=client name  {{2}}=document title â€” the invoice's custom title (e.g. "TAX INVOICE"),
+#          {{1}}=client name  {{2}}=document title — the invoice's custom title (e.g. "TAX INVOICE"),
 #                or "Invoice"/"Receipt" when no title is set   {{3}}=document number
-#          {{4}}=amount **INCLUDING the currency** (e.g. "USD 4,000.00") â€” never a bare number.
+#          {{4}}=amount **INCLUDING the currency** (e.g. "USD 4,000.00") — never a bare number.
 #                (In Meta's template editor the sample you type for {{4}} is only a preview;
 #                 use e.g. "USD 4,000.00" there too. At send time the app always prepends the
 #                 invoice currency, defaulting to USD.)
@@ -24915,7 +24922,7 @@ def export_projects_portfolio():
         try:
             today_date = datetime.now().strftime('%d %B %Y %H:%M:%S')
 
-            # ========= SHEET 1 â€” PROJECTS =========
+            # ========= SHEET 1 — PROJECTS =========
             cursor.execute("SELECT * FROM connectlinkdatabase ORDER BY id DESC")
             rows_1 = cursor.fetchall()
 
@@ -24923,7 +24930,7 @@ def export_projects_portfolio():
             df_projects = pd.DataFrame(rows_1, columns=cols_1)
 
 
-            # ========= SHEET 2 â€” PORTFOLIO =========
+            # ========= SHEET 2 — PORTFOLIO =========
             cursor.execute("SELECT * FROM connectlinknotes ORDER BY id DESC")
             rows_2 = cursor.fetchall()
 
@@ -24945,7 +24952,7 @@ def export_projects_portfolio():
                 df_notes.to_excel(writer, index=False, sheet_name="Notes")
                 df_portfolio_deleted.to_excel(writer, index=False, sheet_name="Deleted Projects")
                 
-                # ========= SHEET 4 â€” PROJECT 125 WORK SCOPE (if exists) =========
+                # ========= SHEET 4 — PROJECT 125 WORK SCOPE (if exists) =========
                 project_125_exists = len(df_projects[df_projects['id'] == 125]) > 0
                 if project_125_exists:
                     work_scope_data = {
@@ -25075,7 +25082,7 @@ def remove_system_user():
                     {'removed_by': session.get('user_name', 'Unknown')}
                 )
             except Exception as log_err:
-                print(f"âš ï¸ Failed to log user removal: {log_err}")
+                print(f"⚠️ Failed to log user removal: {log_err}")
             
             return jsonify({
                 'status': 'success',
@@ -25129,7 +25136,7 @@ def update_system_user():
                     {'name': full_name, 'email': email, 'whatsapp': whatsapp, 'updated_by': session.get('user_name', 'Unknown')}
                 )
             except Exception as log_err:
-                print(f"âš ï¸ Failed to log user update: {log_err}")
+                print(f"⚠️ Failed to log user update: {log_err}")
 
             return jsonify({
                 'status': 'success',
@@ -25167,7 +25174,7 @@ def Dashboard():
 
                 # Check user permissions for Payments tab
                 perms = get_user_permissions(source_sys, source_id)
-                print(f"ðŸ” Dashboard perms for user {userid} ({source_sys},{source_id}): can_view_payments={perms.get('can_view_payments')}, is_super_admin={perms.get('is_super_admin')}")
+                print(f"🔍 Dashboard perms for user {userid} ({source_sys},{source_id}): can_view_payments={perms.get('can_view_payments')}, is_super_admin={perms.get('is_super_admin')}")
                 can_view_payments = perms.get('can_view_payments', False) or perms.get('is_super_admin', False)
                 can_download_master_file = perms.get('can_download_master_file', True) or perms.get('is_super_admin', False)
 
@@ -25494,7 +25501,7 @@ def verify_reset_code():
 
             connection.commit()
             log_activity('password_reset', f'Password reset via WhatsApp code for: {username_or_email}', 'user', 0)
-            return jsonify({'success': True, 'message': 'âœ… Password reset successfully! You can now log in with your new password.'}), 200
+            return jsonify({'success': True, 'message': '✅ Password reset successfully! You can now log in with your new password.'}), 200
 
     except Exception as e:
         print(f"Verify reset code error: {e}")
@@ -25654,7 +25661,7 @@ def login():
                     redirect_to = '/dashboard'
 
                 log_activity('user_login', f'User {email_or_username} logged in via admin_users', 'user', userid)
-                print(f"âœ… User {email_or_username} logged in â†’ {redirect_to}")
+                print(f"✅ User {email_or_username} logged in → {redirect_to}")
                 return jsonify({'success': True, 'message': 'Login successful', 'redirect': redirect_to}), 200
 
         except Exception as e:
@@ -25666,7 +25673,7 @@ def login():
 
 @app.route('/api/first-login-reset', methods=['POST'])
 def first_login_reset():
-    """First-login password reset â€” user enters current (dummy) password + new password.
+    """First-login password reset — user enters current (dummy) password + new password.
     No WhatsApp code needed. Only works when must_reset_password = TRUE."""
     try:
         data = request.get_json()
@@ -25779,7 +25786,7 @@ def hr_login():
             session['hr_employee_id'] = userid
 
             log_activity('user_login', f'HR user {user_name} logged in as {session["hr_role"]}', 'user', userid)
-            print(f"âœ… HR login: {user_name} as {session['hr_role']}")
+            print(f"✅ HR login: {user_name} as {session['hr_role']}")
             return jsonify({'success': True, 'message': 'Login successful', 'redirect': '/hr-dashboard'}), 200
 
     except Exception as e:
@@ -26088,7 +26095,7 @@ def hr_employees_api():
 
                 # COMMIT the employee data FIRST so it's safe
                 connection.commit()
-                print(f"âœ… EMPLOYEE COMMITTED: id={emp_id}")
+                print(f"✅ EMPLOYEE COMMITTED: id={emp_id}")
 
                 # Sync to admin_users (best-effort, won't affect employee data)
                 email = data.get('email', '') or ''
@@ -26143,7 +26150,7 @@ def hr_employees_api():
                         """, (clu_id, is_admin))
                         connection.commit()
                     except Exception as sync_err:
-                        print(f"âš ï¸ Admin sync error (non-fatal): {sync_err}")
+                        print(f"⚠️ Admin sync error (non-fatal): {sync_err}")
                         connection.rollback()  # Rollback only the sync part
 
                 return jsonify({
@@ -26234,7 +26241,7 @@ def hr_employee_detail(emp_id):
                 cursor.execute("UPDATE hr_employees SET id=id WHERE id=%s", (emp_id,))
                 exists = cursor.rowcount > 0
                 if not exists:
-                    # Employee not in hr_employees â€” check admin_users and auto-create
+                    # Employee not in hr_employees — check admin_users and auto-create
                     cursor.execute("SELECT id, username, full_name, email FROM admin_users WHERE id=%s", (emp_id,))
                     au = cursor.fetchone()
                     if au:
@@ -26326,7 +26333,7 @@ def hr_employee_detail(emp_id):
                 except Exception:
                     pass
 
-                # Sync role â†’ user_permissions (single row, no duplicates)
+                # Sync role → user_permissions (single row, no duplicates)
                 try:
                     new_role = data.get('role', 'Ordinary User')
                     is_admin = (new_role == 'Administrator')
@@ -26346,13 +26353,13 @@ def hr_employee_detail(emp_id):
                         """, (he_row[0],))
                         au = cursor.fetchone()
                         if au and au[0] and au[1]:
-                            # Update existing row â€” do NOT create a new one
+                            # Update existing row — do NOT create a new one
                             cursor.execute("""
                                 UPDATE user_permissions SET can_manage_hr = %s, hr_access = %s
                                 WHERE user_type = %s AND user_id = %s
                             """, (*hr_vals, au[0], au[1]))
                         else:
-                            # No existing row â€” insert ONE row only
+                            # No existing row — insert ONE row only
                             utype = (au[0] if au and au[0] else 'projects')
                             uid = au[1] if au and au[1] else he_row[0]
                             cursor.execute("""
@@ -26574,7 +26581,7 @@ def hr_employees_import():
             'bank_branch_code': 'bank_branch_code',
             'status': 'status', 'bank_status': 'status',
             'role': 'role',
-            # NSSA exemption â€” accepts the import template header, the employee Excel
+            # NSSA exemption — accepts the import template header, the employee Excel
             # export header, and the legacy "Exempt from NSSA & NEC" headers from older files.
             'exempt_nssa': 'exempt_nssa',
             'exempt_from_nssa': 'exempt_nssa',
@@ -26683,7 +26690,7 @@ def hr_employees_import():
 
                     national_id = gv('national_id') or ''
 
-                    # NSSA exemption â€” accepts Yes/Y/True/1/X (blank or anything else = No)
+                    # NSSA exemption — accepts Yes/Y/True/1/X (blank or anything else = No)
                     exempt_raw = (gv('exempt_nssa') or '').strip().lower()
                     exempt_nssa = exempt_raw in ('yes', 'y', 'true', '1', 'x')
 
@@ -26719,7 +26726,7 @@ def hr_employees_import():
 
         return jsonify({
             'success': True,
-            'message': f"âœ… {results['imported']} imported, {results['skipped']} skipped",
+            'message': f"✅ {results['imported']} imported, {results['skipped']} skipped",
             'details': results
         })
 
@@ -26756,8 +26763,8 @@ def hr_leave_balances(emp_id):
                 # Ensure employee exists in hr_employees first (FK constraint)
                 cursor.execute("SELECT id FROM hr_employees WHERE id=%s", (emp_id,))
                 if cursor.fetchone() is None:
-                    # Employee not found â€” leave balances cannot be saved
-                    print(f"âš ï¸ Leave balances: Employee {emp_id} not found in hr_employees, skipping auto-create")
+                    # Employee not found — leave balances cannot be saved
+                    print(f"⚠️ Leave balances: Employee {emp_id} not found in hr_employees, skipping auto-create")
                     return jsonify({'success': False, 'error': 'Employee not found'}), 404
                 for b in balances:
                     cursor.execute("""
@@ -26934,7 +26941,7 @@ def hr_leave_api():
                         }
                     }
                     resp_template = requests.post(WHATSAPP_API_URL, json=template_payload, headers=headers_wa, timeout=15)
-                    print(f"ðŸ“¤ Leave template sent to {phone_clean}: {resp_template.status_code}")
+                    print(f"📤 Leave template sent to {phone_clean}: {resp_template.status_code}")
 
                     # Log activity
                     log_activity(
@@ -26944,7 +26951,7 @@ def hr_leave_api():
                         {'approver': approver_name, 'phone': phone_clean}
                     )
                 except Exception as wa_err:
-                    print(f"âš ï¸ Failed to send WhatsApp leave notification: {wa_err}")
+                    print(f"⚠️ Failed to send WhatsApp leave notification: {wa_err}")
 
             return jsonify({'success': True, 'id': lid, 'message': 'Leave request submitted'})
         except Exception as e:
@@ -27216,7 +27223,7 @@ def hr_payroll_send_whatsapp():
         if not period or not employee_ids:
             return jsonify({'success': False, 'error': 'period and employee_ids required'}), 400
 
-        # Strip run version if present (e.g. "2026-07|1" â†’ "2026-07")
+        # Strip run version if present (e.g. "2026-07|1" → "2026-07")
         period_clean = period.split('|')[0]
 
         # Parse period into month name
@@ -27313,17 +27320,17 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
         try:
             send_text_message(sender_id, text)
         except Exception as send_err:
-            print(f"âš ï¸ Could not send payslip status message: {send_err}")
+            print(f"⚠️ Could not send payslip status message: {send_err}")
 
     try:
         parts = payload.split('_', 3)  # ['download', 'payslip', 'emp_id', 'period']
         if len(parts) < 4:
-            print(f"âš ï¸ Invalid payslip download payload: {payload}")
+            print(f"⚠️ Invalid payslip download payload: {payload}")
             return
         emp_id = int(parts[2])
         period_raw = parts[3]
-        period = period_raw.split('|')[0]  # Strip run version if present (e.g. "2026-07|1" â†’ "2026-07")
-        _say("â³ Generating your payslip and payroll breakdown, please wait...")
+        period = period_raw.split('|')[0]  # Strip run version if present (e.g. "2026-07|1" → "2026-07")
+        _say("⏳ Generating your payslip and payroll breakdown, please wait...")
 
         with get_db() as (cursor, connection):
             # Fetch employee details for PDF generation (same query as /api/payslip)
@@ -27355,8 +27362,8 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
             """, (period, emp_id))
             row = cursor.fetchone()
             if not row:
-                print(f"âš ï¸ Employee {emp_id} not found for payslip download")
-                _say("âŒ We could not find your employee record, so no payslip was generated. Please contact HR.")
+                print(f"⚠️ Employee {emp_id} not found for payslip download")
+                _say("❌ We could not find your employee record, so no payslip was generated. Please contact HR.")
                 return
 
             # Build emp dict (same format as payslip endpoint)
@@ -27502,7 +27509,7 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
             exch_rate=emp['exchange_rate'],
             now=datetime.now()
         )
-        # weasyprint (+ Playwright fallback) â€” payslip.html carries its own
+        # weasyprint (+ Playwright fallback) — payslip.html carries its own
         # A4-landscape @page rule, the same geometry pdfkit used to be handed.
         pdf_bytes = render_html_to_pdf_bytes(html)
 
@@ -27519,9 +27526,9 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
         except:
             period_label = period
         filename = f"Payslip_{full_name}_{period_label}.pdf"
-        caption = f"ðŸ“„ Payslip for {full_name} - {period_label}"
+        caption = f"📄 Payslip for {full_name} - {period_label}"
         send_pdf_document_whatsapp(sender_id, pdf_bytes, filename, caption)
-        print(f"âœ… Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
+        print(f"✅ Payslip PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
 
         # ---- Second document: the Payroll Calculation Breakdown ----
         # Same breakdown as the HR portal's "Breakdown" (calculator) link, built by
@@ -27537,17 +27544,17 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
                 sender_id,
                 breakdown_pdf,
                 f"Payroll_Breakdown_{full_name}_{period_label}.pdf",
-                f"ðŸ“Š Payroll calculation breakdown for {full_name} - {period_label}"
+                f"📊 Payroll calculation breakdown for {full_name} - {period_label}"
             )
-            print(f"âœ… Payroll breakdown PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
+            print(f"✅ Payroll breakdown PDF sent via WhatsApp to {sender_id} for {full_name} ({period_label})")
         except Exception as breakdown_err:
-            print(f"âš ï¸ Payroll breakdown PDF not sent for emp {emp_id} ({period}): {breakdown_err}")
+            print(f"⚠️ Payroll breakdown PDF not sent for emp {emp_id} ({period}): {breakdown_err}")
 
     except Exception as e:
-        print(f"âŒ Error handling payslip download via WhatsApp: {e}")
+        print(f"❌ Error handling payslip download via WhatsApp: {e}")
         import traceback
         traceback.print_exc()
-        _say("âŒ Sorry, we could not generate your payslip right now. Please try again later or contact HR.")
+        _say("❌ Sorry, we could not generate your payslip right now. Please try again later or contact HR.")
 
 
 @app.route('/api/hr/payroll/periods', methods=['GET'])
@@ -27646,7 +27653,7 @@ def hr_payroll_api():
                     })
 
                 def calc_paye_tax(monthly_salary, brackets):
-                    """Calculate PAYE tax: find applicable bracket, then PAYE = (salary Ã— rate%) - deduction."""
+                    """Calculate PAYE tax: find applicable bracket, then PAYE = (salary × rate%) - deduction."""
                     if not brackets:
                         return 0
                     for b in brackets:
@@ -27764,7 +27771,7 @@ def hr_payroll_api():
                     else:
                         commission = float(emp[6] or 0)
                     medical_aid_package = (emp[7] or '').strip()
-                    # HR exemption flag: no NSSA for this employee â€” neither the employee
+                    # HR exemption flag: no NSSA for this employee — neither the employee
                     # deduction nor the employer contribution is computed. NEC is unaffected.
                     exempt_nssa = bool(emp[11])
                     # Designer's cut (10%) only applies to Sales and Marketing department
@@ -27782,7 +27789,7 @@ def hr_payroll_api():
                         if pkg_cfg.get('rate_type') == 'fixed_amount':
                             medical_aid_employee = round(float(pkg_cfg.get('rate', 0) or 0) / 2, 2)
 
-                    # Step 1: Calculate NSSA on gross (deducted first) â€” skipped entirely when exempt
+                    # Step 1: Calculate NSSA on gross (deducted first) — skipped entirely when exempt
                     nssa_amount = 0 if exempt_nssa else calc_nssa(gross)
 
                     # Step 2: Taxable income = Gross - NSSA
@@ -27850,7 +27857,7 @@ def hr_payroll_api():
 
                     # Title section
                     ws.merge_cells('A1:X1')
-                    ws['A1'].value = f"ConnectLink â€” Payroll Register ({period})"
+                    ws['A1'].value = f"ConnectLink — Payroll Register ({period})"
                     ws['A1'].font = title_font
                     ws['A1'].alignment = XlAlign(horizontal='left')
 
@@ -27907,7 +27914,7 @@ def hr_payroll_api():
 
                     # Title
                     ws2.merge_cells('A1:P1')
-                    ws2['A1'].value = f"ConnectLink â€” Remittances Summary ({period})"
+                    ws2['A1'].value = f"ConnectLink — Remittances Summary ({period})"
                     ws2['A1'].font = title_font
                     ws2['A1'].alignment = XlAlign(horizontal='left')
 
@@ -28064,8 +28071,8 @@ def hr_payroll_api():
                 except Exception as excel_err:
                     import traceback
                     err_detail = traceback.format_exc()
-                    print(f"âš ï¸ Payroll archive error: {excel_err}")
-                    print(f"âš ï¸ Traceback: {err_detail}")
+                    print(f"⚠️ Payroll archive error: {excel_err}")
+                    print(f"⚠️ Traceback: {err_detail}")
                     connection.commit()
                     archive_saved = False
                     archive_filename = None
@@ -28386,8 +28393,8 @@ def hr_paye_download_pdf(table_id):
             rate = float(b[2] or 0)
             cumulative = float(b[3] or 0)
             from_str = f'USD {from_val:,.2f}'
-            to_str = 'âˆž' if to_val <= 0 else f'USD {to_val:,.2f}'
-            band = f'Up to {to_str}' if from_val == 0 else f'{from_str} â€“ {to_str}'
+            to_str = '∞' if to_val <= 0 else f'USD {to_val:,.2f}'
+            band = f'Up to {to_str}' if from_val == 0 else f'{from_str} – {to_str}'
             rows_html += f'''
                 <tr>
                     <td style="text-align:center;">{i+1}</td>
@@ -28442,7 +28449,7 @@ def hr_paye_download_pdf(table_id):
         </tbody>
     </table>
     <div class="footer">
-        Generated by ConnectLink Building Projects &amp; Hardware â€” {uploaded_at}
+        Generated by ConnectLink Building Projects &amp; Hardware — {uploaded_at}
     </div>
 </body>
 </html>'''
@@ -28550,7 +28557,7 @@ def hr_paye_calculate():
                     'rate': float(br[2] or 0), 'deduction': float(br[3] or 0)
                 })
             
-            # Calculate tax: find the bracket where salary falls, then PAYE = (salary Ã— rate%) - deduction
+            # Calculate tax: find the bracket where salary falls, then PAYE = (salary × rate%) - deduction
             tax = 0
             selected = None
             for b in brackets:
@@ -28565,7 +28572,7 @@ def hr_paye_calculate():
             if selected:
                 range_str = f"USD {selected['from']:,.2f} - $"
                 if selected['to'] <= 0:
-                    range_str += "âˆž"
+                    range_str += "∞"
                 else:
                     range_str += f"{selected['to']:,.2f}"
                 details.append({
@@ -28574,7 +28581,7 @@ def hr_paye_calculate():
                     'rate': selected['rate'],
                     'deduction': selected['deduction'],
                     'tax': tax,
-                    'formula': f"USD {salary:,.2f} Ã— {selected['rate']}% - USD {selected['deduction']:,.2f} = USD {tax:,.2f}"
+                    'formula': f"USD {salary:,.2f} × {selected['rate']}% - USD {selected['deduction']:,.2f} = USD {tax:,.2f}"
                 })
             
             return jsonify({
@@ -28699,7 +28706,7 @@ def hr_payroll_calculate_full():
                     'is_employee': bool(dc[5])
                 }
 
-        # 3. Calculate PAYE using deduction formula: PAYE = (salary Ã— rate%) - deduction
+        # 3. Calculate PAYE using deduction formula: PAYE = (salary × rate%) - deduction
         def calc_paye(salary, brackets):
             if not brackets:
                 return 0
@@ -28732,7 +28739,7 @@ def hr_payroll_calculate_full():
             'name': 'NSSA (Employee)',
             'amount': round(nssa_amount, 2),
             'rate': nssa_rate,
-            'basis': f"{'Ceiling: $' + str(nssa_ceiling) if nssa_ceiling > 0 else 'Gross'} â€” deducted first"
+            'basis': f"{'Ceiling: $' + str(nssa_ceiling) if nssa_ceiling > 0 else 'Gross'} — deducted first"
         }
 
         # AIDS Levy = 3% of PAYE
@@ -28820,7 +28827,7 @@ def render_payroll_breakdown_html(employee_id, period):
     """Build the payroll calculation breakdown HTML for one employee and period.
 
     Shared by the /payroll-breakdown page and by the WhatsApp payslip flow, which
-    sends the same breakdown as a second PDF â€” so the step-by-step statutory
+    sends the same breakdown as a second PDF — so the step-by-step statutory
     calculation exists in exactly ONE place.
 
     Carries NO auth of its own: the /payroll-breakdown route is @login_required, and
@@ -28935,10 +28942,10 @@ def render_payroll_breakdown_html(employee_id, period):
             nssa_basis = nssa_ceiling
             nssa_cap_note = f' (capped at USD {nssa_ceiling:,.2f})'
         deduction_rows.append({
-            'name': 'NSSA (Employee Pension) â€” deducted first',
-            'description': f'National Social Security Authority â€” employee portion. Calculated on gross, deducted before PAYE{nssa_cap_note}',
+            'name': 'NSSA (Employee Pension) — deducted first',
+            'description': f'National Social Security Authority — employee portion. Calculated on gross, deducted before PAYE{nssa_cap_note}',
             'rate': f'{nssa_rate:.1f}% of gross{" (capped)" if nssa_ceiling > 0 else ""}',
-            'calculation': f'USD {nssa_basis:,.2f}{" (capped)" if nssa_cap_note else ""} Ã— {nssa_rate:.1f}%',
+            'calculation': f'USD {nssa_basis:,.2f}{" (capped)" if nssa_cap_note else ""} × {nssa_rate:.1f}%',
             'amount': nssa,
             'color': '#16a34a'
         })
@@ -28949,9 +28956,9 @@ def render_payroll_breakdown_html(employee_id, period):
         # PAYE (on taxable income = gross - nssa)
         deduction_rows.append({
             'name': 'PAYE Tax (Pay As You Earn)',
-            'description': f'Progressive tax on taxable income (gross âˆ’ NSSA). Active bracket: USD {active_bracket["from"]:,.2f} - USD {active_bracket["to"]:,.2f}' if active_bracket else 'No active bracket found',
+            'description': f'Progressive tax on taxable income (gross − NSSA). Active bracket: USD {active_bracket["from"]:,.2f} - USD {active_bracket["to"]:,.2f}' if active_bracket else 'No active bracket found',
             'rate': f'{active_bracket["rate"]:.2f}%' if active_bracket else 'N/A',
-            'calculation': f'Taxable: USD {taxable_income:,.2f} (USD {{gross:,.2f}} âˆ’ USD {{nssa:,.2f}}) Ã— {active_bracket["rate"]:.2f}% âˆ’ USD {active_bracket["deduction"]:,.2f}' if active_bracket else 'N/A',
+            'calculation': f'Taxable: USD {taxable_income:,.2f} (USD {{gross:,.2f}} − USD {{nssa:,.2f}}) × {active_bracket["rate"]:.2f}% − USD {active_bracket["deduction"]:,.2f}' if active_bracket else 'N/A',
             'amount': paye,
             'color': '#dc2626'
         })
@@ -28962,7 +28969,7 @@ def render_payroll_breakdown_html(employee_id, period):
             'name': 'AIDS Levy',
             'description': f'3% of PAYE tax amount as statutory AIDS levy contribution',
             'rate': f'{aids_rate:.1f}% of PAYE',
-            'calculation': f'USD {paye:,.2f} Ã— {aids_rate:.1f}%',
+            'calculation': f'USD {paye:,.2f} × {aids_rate:.1f}%',
             'amount': aids,
             'color': '#b45309'
         })
@@ -28973,9 +28980,9 @@ def render_payroll_breakdown_html(employee_id, period):
         zimdef_amount = zimdef
         deduction_rows.append({
             'name': 'ZIMDEF Levy',
-            'description': 'Zimbabwe Manpower Development Levy â€” 1% of taxable income',
+            'description': 'Zimbabwe Manpower Development Levy — 1% of taxable income',
             'rate': f'{zimdef_rate:.1f}% of taxable income',
-            'calculation': f'USD {taxable_income:,.2f} Ã— {zimdef_rate:.1f}%',
+            'calculation': f'USD {taxable_income:,.2f} × {zimdef_rate:.1f}%',
             'amount': zimdef_amount,
             'color': '#7c3aed'
         })
@@ -28984,9 +28991,9 @@ def render_payroll_breakdown_html(employee_id, period):
         if nec and nec > 0:
             deduction_rows.append({
                 'name': 'NEC (National Employment Council)',
-                'description': 'NEC employee contribution â€” applied to Top Management classified employees only',
+                'description': 'NEC employee contribution — applied to Top Management classified employees only',
                 'rate': f'{deduction_configs.get("NEC_EMPLOYEE", {}).get("rate", 2.0):.1f}% of gross',
-                'calculation': f'USD {gross:,.2f} Ã— {deduction_configs.get("NEC_EMPLOYEE", {}).get("rate", 2.0):.1f}%',
+                'calculation': f'USD {gross:,.2f} × {deduction_configs.get("NEC_EMPLOYEE", {}).get("rate", 2.0):.1f}%',
                 'amount': nec,
                 'color': '#0891b2'
             })
@@ -28995,7 +29002,7 @@ def render_payroll_breakdown_html(employee_id, period):
         if medical_aid and medical_aid > 0:
             deduction_rows.append({
                 'name': 'Medical Aid (Employee)',
-                'description': 'Medical Aid employee contribution â€” half of the employee\'s package (Lite/Platinum)',
+                'description': 'Medical Aid employee contribution — half of the employee\'s package (Lite/Platinum)',
                 'rate': f'USD {medical_aid:,.2f} (half of package)',
                 'calculation': f'USD {medical_aid:,.2f} (employee\'s half)',
                 'amount': medical_aid,
@@ -29034,7 +29041,7 @@ def render_payroll_breakdown_html(employee_id, period):
         )
 
     except ValueError:
-        raise  # "employee not found" â€” the /payroll-breakdown route turns this into a 404
+        raise  # "employee not found" — the /payroll-breakdown route turns this into a 404
     except Exception as e:
         logging.error(f'Payroll breakdown error: {str(e)}')
         raise
@@ -29405,7 +29412,7 @@ def payroll_remittances(period):
                 money_fmt = '#,##0.00'
 
                 ws.merge_cells('A1:G1')
-                ws['A1'].value = f"ConnectLink â€” Company Remittances ({period})"
+                ws['A1'].value = f"ConnectLink — Company Remittances ({period})"
                 ws['A1'].font = title_font
                 ws.merge_cells('A2:G2')
                 ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Month Employees: {m_emp} | YTD Employees: {y_emp}"
@@ -29522,7 +29529,7 @@ def payroll_remittances(period):
   .summary-grid .item.hl .v {{ color:#fff; }}
 </style></head>
 <body>
-  <h1>ConnectLink Properties â€” Company Remittances</h1>
+  <h1>ConnectLink Properties — Company Remittances</h1>
   <div class="sub">{period} &middot; Generated {datetime.now().strftime('%d %B %Y %H:%M')} &middot; Month: {m_emp} employees &middot; YTD: {y_emp} employees</div>
 
   <div class="section-title">Month: {period}</div>
@@ -29927,7 +29934,7 @@ tr:nth-child(even) td {{ background: #F8FAFC; }}
     <div class="item">Total Value<br><strong>USD {total_val:,.2f}</strong></div>
     <div class="item">Generated<br><strong>{now_str}</strong></div>
 </div>
-<div class="footer">ConnectLink Properties &amp; Hardware â€” Asset Register â€” Generated {now_str}</div>
+<div class="footer">ConnectLink Properties &amp; Hardware — Asset Register — Generated {now_str}</div>
 </body></html>'''
 
             try:
@@ -29963,7 +29970,7 @@ tr:nth-child(even) td {{ background: #F8FAFC; }}
             # Title row
             ws.merge_cells('A1:H1')
             title_cell = ws['A1']
-            title_cell.value = f"Asset Register â€” {user_name}"
+            title_cell.value = f"Asset Register — {user_name}"
             title_cell.font = ExcelFont(bold=True, size=13, color='1E2A56')
             title_cell.alignment = ExcelAlign(horizontal='left')
 
@@ -30088,7 +30095,7 @@ def hr_export_employees():
 
         # EVERY field captured on the Add/Edit Employee form. The initial login
         # password is a credential and is deliberately never exported.
-        # (label, reader) â€” numeric readers return floats so Excel gets typed cells.
+        # (label, reader) — numeric readers return floats so Excel gets typed cells.
         FIELDS = [
             ('Employee ID', lambda e: e.get('id') if e.get('id') is not None else ''),
             ('First Name', lambda e: _txt(e, 'first_name')),
@@ -30254,7 +30261,7 @@ table.kv-lb th {{ background: #1E2A56; color: #fff; font-size: 8px; padding: 3px
     <div class="item">Departments<br><strong>{dept_count}</strong></div>
 </div>
 {blocks_html}
-<div class="footer">ConnectLink Properties &amp; Hardware â€” Employee List â€” Generated {now_str}</div>
+<div class="footer">ConnectLink Properties &amp; Hardware — Employee List — Generated {now_str}</div>
 </body></html>'''
 
             try:
@@ -30282,7 +30289,7 @@ table.kv-lb th {{ background: #1E2A56; color: #fff; font-size: 8px; padding: 3px
                 )
 
         else:
-            # Excel export â€” one row per employee, EVERY field as its own column
+            # Excel export — one row per employee, EVERY field as its own column
             wb = Workbook()
             ws = wb.active
             ws.title = "Employee List"
@@ -30297,7 +30304,7 @@ table.kv-lb th {{ background: #1E2A56; color: #fff; font-size: 8px; padding: 3px
             last_col = _col_letter(len(cols))
             ws.merge_cells(f'A1:{last_col}1')
             title_cell = ws['A1']
-            title_cell.value = f"Employee List â€” {user_name}"
+            title_cell.value = f"Employee List — {user_name}"
             title_cell.font = ExcelFont(bold=True, size=13, color='1E2A56')
             title_cell.alignment = ExcelAlign(horizontal='left')
 
@@ -30387,7 +30394,7 @@ table.kv-lb th {{ background: #1E2A56; color: #fff; font-size: 8px; padding: 3px
                 ws.column_dimensions[_col_letter(i)].width = width_map.get(lbl, 18)
             ws.freeze_panes = 'B4'
 
-            # Second sheet â€” per-type leave balances (all four values per leave type)
+            # Second sheet — per-type leave balances (all four values per leave type)
             lb_rows = []
             for e in employees:
                 full = f"{_txt(e, 'first_name')} {_txt(e, 'last_name')}".strip()
@@ -30420,7 +30427,7 @@ table.kv-lb th {{ background: #1E2A56; color: #fff; font-size: 8px; padding: 3px
                     ws2.column_dimensions[_col_letter(i)].width = w
                 ws2.freeze_panes = 'A4'
 
-                # Leave Type is a dropdown in the app â€” same dropdown in Excel
+                # Leave Type is a dropdown in the app — same dropdown in Excel
                 lv_dv = DataValidation(
                     type="list",
                     formula1='"Annual Leave,Sick Leave,Study Leave,Family Responsibility,Maternity Leave,Unpaid Leave"',
@@ -30624,7 +30631,7 @@ def hr_export_commissions():
         ws = wb.active
         ws.title = "Commission Log"
         ws.merge_cells('A1:H1')
-        ws['A1'].value = f"ConnectLink â€” Commission Log ({scope_label})"
+        ws['A1'].value = f"ConnectLink — Commission Log ({scope_label})"
         ws['A1'].font = title_font
         ws['A1'].alignment = XlAlign(horizontal='left')
 
@@ -30660,7 +30667,7 @@ def hr_export_commissions():
         # ===== Summary sheet (totals per period) =====
         ws2 = wb.create_sheet(title="Summary")
         ws2.merge_cells('A1:C1')
-        ws2['A1'].value = "ConnectLink â€” Commission Summary"
+        ws2['A1'].value = "ConnectLink — Commission Summary"
         ws2['A1'].font = title_font
         ws2['A1'].alignment = XlAlign(horizontal='left')
 
@@ -30730,7 +30737,7 @@ def hr_export_commissions():
 def hr_dashboard_data_api():
     """HR: Aggregated dashboard payload (stats + departments + assets + leave + PAYE).
 
-    Fetched in a SINGLE DB connection so the dashboard renders quickly â€” opening
+    Fetched in a SINGLE DB connection so the dashboard renders quickly — opening
     one connection per endpoint was the main cause of slow dashboard loads. The
     payload shapes mirror the individual endpoints so the frontend can use them
     interchangeably.
@@ -31309,7 +31316,7 @@ def customer_analytics():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 401
     try:
         with get_db() as (cursor, connection):
-            # 1ï¸âƒ£ Button clicks by type (quotation categories, menu items)
+            # 1️⃣ Button clicks by type (quotation categories, menu items)
             cursor.execute("""
                 SELECT 
                     COALESCE(NULLIF(interaction_key, ''), 'unknown') as key_name,
@@ -31322,7 +31329,7 @@ def customer_analytics():
             """)
             button_clicks = [{'key': r[0], 'count': r[1]} for r in cursor.fetchall()]
             
-            # 2ï¸âƒ£ Keyword usage
+            # 2️⃣ Keyword usage
             cursor.execute("""
                 SELECT 
                     COALESCE(NULLIF(interaction_key, ''), 'unknown') as keyword,
@@ -31335,7 +31342,7 @@ def customer_analytics():
             """)
             keyword_usage = [{'keyword': r[0], 'count': r[1]} for r in cursor.fetchall()]
             
-            # 3ï¸âƒ£ Interactions by category (quotation categories)
+            # 3️⃣ Interactions by category (quotation categories)
             cursor.execute("""
                 SELECT 
                     COALESCE(NULLIF(category, ''), 'uncategorized') as cat,
@@ -31346,7 +31353,7 @@ def customer_analytics():
             """)
             category_clicks = [{'category': r[0], 'count': r[1]} for r in cursor.fetchall()]
             
-            # 4ï¸âƒ£ Chats that became projects: WhatsApp senders matched to clientwanumber in projects
+            # 4️⃣ Chats that became projects: WhatsApp senders matched to clientwanumber in projects
             cursor.execute("""
                 SELECT COUNT(DISTINCT wm.sender_phone) as converted_count
                 FROM whatsapp_messages wm
@@ -31356,13 +31363,13 @@ def customer_analytics():
             """)
             chats_converted = cursor.fetchone()[0] or 0
             
-            # 5ï¸âƒ£ Total unique WhatsApp conversations
+            # 5️⃣ Total unique WhatsApp conversations
             cursor.execute("""
                 SELECT COUNT(DISTINCT sender_phone) FROM whatsapp_messages WHERE direction = 'incoming'
             """)
             total_chats = cursor.fetchone()[0] or 0
             
-            # 6ï¸âƒ£ Interactions over time (last 30 days)
+            # 6️⃣ Interactions over time (last 30 days)
             cursor.execute("""
                 SELECT DATE(created_at) as day, interaction_type, COUNT(*) as count
                 FROM chatbot_interactions
@@ -31380,11 +31387,11 @@ def customer_analytics():
                 timeline_raw[day][itype] = count
             timeline = [{'date': d, **stats} for d, stats in timeline_raw.items()]
             
-            # 7ï¸âƒ£ Total interactions count
+            # 7️⃣ Total interactions count
             cursor.execute("SELECT COUNT(*) FROM chatbot_interactions")
             total_interactions = cursor.fetchone()[0] or 0
             
-            # 8ï¸âƒ£ Conversion rate
+            # 8️⃣ Conversion rate
             conversion_rate = round((chats_converted / total_chats * 100), 1) if total_chats > 0 else 0
             
             return jsonify({'success': True, 'data': {
@@ -31493,7 +31500,7 @@ def whatsapp_messages(phone_number):
                     'is_incoming': r[4] == 'incoming',
                     'media_id': r[7] or '',
                     'file_name': r[8] or '',
-                    'read_at': ''  # Placeholder â€” webhook updates this for outgoing msgs
+                    'read_at': ''  # Placeholder — webhook updates this for outgoing msgs
                 })
             return jsonify({'success': True, 'data': messages})
     except Exception as e:
@@ -31596,7 +31603,7 @@ def whatsapp_media_download(media_id):
             except Exception:
                 err_msg = media_resp.text[:500]
                 err_code = None
-            print(f"âŒ WhatsApp media info failed [{media_resp.status_code}] for {media_id}: {err_msg}")
+            print(f"❌ WhatsApp media info failed [{media_resp.status_code}] for {media_id}: {err_msg}")
             # Meta error code 100 with a media/expired message = media no longer available
             if err_code == 100:
                 return jsonify({'success': False, 'message': 'Media expired or no longer available (WhatsApp only keeps media for 5 days). Ask the client to resend the attachment.'}), 410
@@ -31639,7 +31646,7 @@ def whatsapp_media_download(media_id):
         # Step 3: Download the actual file
         file_resp = requests.get(download_url, headers=headers, timeout=60)
         if file_resp.status_code != 200:
-            print(f"âŒ WhatsApp file download failed [{file_resp.status_code}] for {media_id}")
+            print(f"❌ WhatsApp file download failed [{file_resp.status_code}] for {media_id}")
             return jsonify({'success': False, 'message': f'Failed to download file from WhatsApp ({file_resp.status_code}).'}), 400
         
         # Step 4: Stream the file back to the browser
@@ -31726,7 +31733,7 @@ def whatsapp_send():
             status_note = 'failed_24hr_window' if requires_template else send_status
             message_to_save = message[:500]
             if requires_template:
-                message_to_save = message[:400] + ' [âš ï¸ Outside 24hr window - message not delivered]'
+                message_to_save = message[:400] + ' [⚠️ Outside 24hr window - message not delivered]'
             with get_db() as (save_cursor, save_conn):
                 replied_to = data.get('replied_to_id')
                 save_cursor.execute("""
@@ -31736,7 +31743,7 @@ def whatsapp_send():
                 """, (recipient_clean, user_name, message_to_save, 'text', status_note, replied_to))
                 save_conn.commit()
         except Exception as save_err:
-            print(f"âš ï¸ Failed to save outgoing message: {save_err}")
+            print(f"⚠️ Failed to save outgoing message: {save_err}")
         
         # Log the WhatsApp message send
         try:
@@ -31754,7 +31761,7 @@ def whatsapp_send():
                 }
             )
         except Exception as log_err:
-            print(f"âš ï¸ Failed to log WhatsApp send activity: {log_err}")
+            print(f"⚠️ Failed to log WhatsApp send activity: {log_err}")
 
         if resp.status_code == 200:
             return jsonify({'success': True, 'message': 'Message sent', 'data': resp_data})
@@ -31847,7 +31854,7 @@ def whatsapp_send_template():
                 """, (recipient_clean, user_name, display_text[:500], 'template', send_status))
                 save_conn.commit()
         except Exception as save_err:
-            print(f"âš ï¸ Failed to save template message: {save_err}")
+            print(f"⚠️ Failed to save template message: {save_err}")
         
         # Log the template send
         try:
@@ -31864,11 +31871,11 @@ def whatsapp_send_template():
                 }
             )
         except Exception as log_err:
-            print(f"âš ï¸ Failed to log template send activity: {log_err}")
+            print(f"⚠️ Failed to log template send activity: {log_err}")
 
         if resp.status_code == 200:
             # Log success
-            print(f"âœ… Template '{template_name}' sent successfully to {recipient_clean}")
+            print(f"✅ Template '{template_name}' sent successfully to {recipient_clean}")
             return jsonify({'success': True, 'message': f'Template sent', 'data': resp_data})
         else:
             error_msg = str(resp_data)
@@ -31967,7 +31974,7 @@ def whatsapp_bulk_send_template():
                         """, (recipient_clean, user_name, display_text[:500], 'template', send_status))
                         save_conn.commit()
                 except Exception as save_err:
-                    print(f"âš ï¸ Failed to save bulk template message: {save_err}")
+                    print(f"⚠️ Failed to save bulk template message: {save_err}")
                 
                 results.append({
                     'recipient': recipient,
@@ -32000,7 +32007,7 @@ def whatsapp_bulk_send_template():
                           r.get('error') if not r.get('success') else None))
                 log_conn.commit()
         except Exception as log_err:
-            print(f"âš ï¸ Failed to save bulk template logs: {log_err}")
+            print(f"⚠️ Failed to save bulk template logs: {log_err}")
         
         return jsonify({
             'success': True,
@@ -32095,7 +32102,7 @@ def whatsapp_bulk_send():
                           r.get('error') or r.get('response','') if not r.get('success') else None))
                 log_conn.commit()
         except Exception as log_err:
-            print(f"âš ï¸ Failed to save bulk send logs: {log_err}")
+            print(f"⚠️ Failed to save bulk send logs: {log_err}")
         
         return jsonify({'success': True, 'results': results, 'bulk_id': bulk_id})
     except Exception as e:
@@ -32254,7 +32261,7 @@ def whatsapp_send_file():
         }
         upload_response = requests.post(upload_url, headers=upload_headers, files=upload_files, timeout=45)
         upload_data = upload_response.json()
-        print(f"ðŸ“¤ WhatsApp media upload [{upload_response.status_code}]: {upload_data}")
+        print(f"📤 WhatsApp media upload [{upload_response.status_code}]: {upload_data}")
         
         if upload_response.status_code != 200 or 'id' not in upload_data:
             return jsonify({'success': False, 'message': f'Media upload failed: {upload_data.get("error", {}).get("message", str(upload_data))}'}), 500
@@ -32302,10 +32309,10 @@ def whatsapp_send_file():
                 }
             }
         
-        print(f"ðŸ“¨ Sending {msg_type} to {recipient_clean}")
+        print(f"📨 Sending {msg_type} to {recipient_clean}")
         send_response = requests.post(send_url, headers=send_headers, json=payload, timeout=45)
         send_data = send_response.json()
-        print(f"ðŸ“¡ Send response [{send_response.status_code}]: {send_data}")
+        print(f"📡 Send response [{send_response.status_code}]: {send_data}")
         
         if send_response.status_code != 200:
             return jsonify({'success': False, 'message': f'Failed to send: {send_data.get("error", {}).get("message", str(send_data))}'}), 500
@@ -32324,7 +32331,7 @@ def whatsapp_send_file():
                 """, (recipient_clean, user_name, display_text[:500], msg_type, media_id, filename))
                 save_conn.commit()
         except Exception as save_err:
-            print(f"âš ï¸ Failed to save sent file message: {save_err}")
+            print(f"⚠️ Failed to save sent file message: {save_err}")
         
         log_activity('whatsapp_file_sent', f'{msg_type.capitalize()} file "{filename}" sent to {recipient_clean}', 'whatsapp', None, {'recipient': recipient_clean, 'filename': filename, 'msg_type': msg_type, 'caption': caption[:100] if caption else ''})
         
@@ -32368,7 +32375,7 @@ def whatsapp_toggle_human_mode():
                 {'phone': phone_clean, 'human_mode': human_mode, 'status': status}
             )
         except Exception as log_err:
-            print(f"âš ï¸ Failed to log human mode toggle: {log_err}")
+            print(f"⚠️ Failed to log human mode toggle: {log_err}")
         
         return jsonify({'success': True, 'message': f'Human mode {status} for {phone}', 'human_mode': human_mode})
     except Exception as e:
@@ -32441,7 +32448,7 @@ def whatsapp_universal_toggle():
                 {'human_mode': human_mode, 'contacts_affected': toggled}
             )
         except Exception as log_err:
-            print(f"âš ï¸ Failed to log universal toggle: {log_err}")
+            print(f"⚠️ Failed to log universal toggle: {log_err}")
         
         return jsonify({
             'success': True,
@@ -32531,7 +32538,7 @@ def whatsapp_sync_history():
                     INSERT INTO whatsapp_messages 
                     (sender_phone, sender_name, message_text, message_type, direction, status, created_at)
                     VALUES (%s, %s, %s, 'text', 'incoming', 'received', %s)
-                """, (phone, name, '(ðŸ“œ Historical contact from interactions log)', first_seen))
+                """, (phone, name, '(📜 Historical contact from interactions log)', first_seen))
                 synced += 1
             
             # Also sync interaction labels as individual message entries
@@ -33078,7 +33085,7 @@ def download_contract(project_id):
 
             # Format agreement date
             agreement_date = row[16]
-            # agreement_date can be NULL on partially-completed projects â€” never crash the PDF
+            # agreement_date can be NULL on partially-completed projects — never crash the PDF
             formatted_agreement_date = agreement_date.strftime("%d %B %Y") if agreement_date else ""
 
             # Fetch company details
@@ -33097,7 +33104,7 @@ def download_contract(project_id):
             # Calculate days difference
             def days_between(date1, date2):
                 # A NULL start/deposit date used to raise TypeError and kill the
-                # whole download â€” treat a missing date as 0 days instead.
+                # whole download — treat a missing date as 0 days instead.
                 if date1 is None or date2 is None:
                     return 0
                 delta = date1 - date2
@@ -33549,7 +33556,7 @@ def download_contract(project_id):
                     .ql-indent-7 {{ padding-left: 21em; }}
                     .ql-indent-8 {{ padding-left: 24em; }}
 
-                    /* .scope-box (continued) â€” split only so the column rules can sit in
+                    /* .scope-box (continued) — split only so the column rules can sit in
                        between; both halves are the one .scope-box rule. */
                     .scope-box {{
                         background: #fafbff;
@@ -34178,8 +34185,8 @@ def download_contract(project_id):
                 html_obj = HTML(string=html, base_url=request.host_url)
                 pdf = html_obj.write_pdf(stylesheets=[css])
             except Exception as wp_exc:
-                print(f"âš ï¸ weasyprint failed for contract {project_id}: {wp_exc}")
-                print("ðŸ”„ Trying Playwright fallback for contract PDF...")
+                print(f"⚠️ weasyprint failed for contract {project_id}: {wp_exc}")
+                print("🔄 Trying Playwright fallback for contract PDF...")
                 # Inject @page CSS rules into HTML for Playwright rendering
                 playwright_css = '''
                 <style>
@@ -34341,7 +34348,7 @@ def send_contract_whatsapp():
                             """, (outbound_message_id, project_id, phone_clean, client_name, project_description, project_location))
                             oconn.commit()
                 except Exception as outbox_err:
-                    print(f"âš ï¸ Could not persist contract outbox record: {outbox_err}")
+                    print(f"⚠️ Could not persist contract outbox record: {outbox_err}")
 
                 log_activity(
                     'contract_sent_whatsapp',
@@ -34359,7 +34366,7 @@ def send_contract_whatsapp():
                 raise ValueError(error_msg)
         except Exception as send_exc:
             logging.exception(f"Error sending contract PDF to {phone_clean}")
-            print(f"âŒ Error sending contract {project_id}: {send_exc}")
+            print(f"❌ Error sending contract {project_id}: {send_exc}")
             # Fallback: send template with download button (works outside 24hr window)
             try:
                 send_contract_download_template(phone_clean, project_id, client_name, project_description, project_location)
@@ -34383,7 +34390,7 @@ def send_contract_whatsapp():
                         """, (f"template_fallback_{project_id}_{int(time.time())}", project_id, phone_clean, client_name, project_description, project_location))
                         oconn.commit()
                 except Exception as outbox_err2:
-                    print(f"âš ï¸ Could not persist template fallback outbox record: {outbox_err2}")
+                    print(f"⚠️ Could not persist template fallback outbox record: {outbox_err2}")
 
                 log_activity(
                     'contract_sent_whatsapp',
@@ -34392,14 +34399,14 @@ def send_contract_whatsapp():
                     project_id,
                     {'client_name': client_name, 'project_name': project_name, 'whatsapp': phone_clean, 'method': 'template_fallback'}
                 )
-                print(f"ðŸ“¨ Sent contract download template for {project_id} to {phone_clean}")
+                print(f"📨 Sent contract download template for {project_id} to {phone_clean}")
                 return jsonify({
                     'success': True,
                     'message': 'Contract generated. A download link was sent via WhatsApp.'
                 })
             except Exception as template_exc:
                 logging.exception(f"Error sending contract template to {phone_clean}")
-                print(f"âŒ Contract template also failed for {project_id}: {template_exc}")
+                print(f"❌ Contract template also failed for {project_id}: {template_exc}")
                 return jsonify({
                     'success': False,
                     'error': 'Could not send contract. Please contact ConnectLink directly.'
@@ -34474,7 +34481,7 @@ def delete_project():
                 
                 connection.commit()
                 
-                print(f"âœ… Project {project_id} deleted and archived successfully")
+                print(f"✅ Project {project_id} deleted and archived successfully")
                 
                 # Log the deletion
                 log_activity(
@@ -34492,7 +34499,7 @@ def delete_project():
                 
             except Exception as e:
                 connection.rollback()
-                print(f"âŒ Error: {str(e)}")
+                print(f"❌ Error: {str(e)}")
                 import traceback
                 traceback.print_exc()
                 return jsonify({'status': 'error', 'message': f'Database error: {str(e)}'})
@@ -34612,7 +34619,7 @@ def download_payments_history(project_id):
                 payment_rows += f"""
                     <tr>
                         <td>{p['name']}</td>
-                        <td>${p['amount'] if p['amount'] else 'â€”'}</td>
+                        <td>${p['amount'] if p['amount'] else '—'}</td>
                         <td>{p['due']}</td>
                         <td>{p['paid']}</td>
                     </tr>
@@ -34689,8 +34696,8 @@ def download_payments_history(project_id):
                 </div>
                 <div class='section-title'>Payments Breakdown</div>
                 <div class='info-box'>
-                    <p><strong>Deposit / Bullet Payment:</strong> USD {row[23] if row[23] else 'â€”'}</p>
-                    <p><strong>Date Paid:</strong> {row[24].strftime('%d %B %Y') if row[24] else 'â€”'}</p>
+                    <p><strong>Deposit / Bullet Payment:</strong> USD {row[23] if row[23] else '—'}</p>
+                    <p><strong>Date Paid:</strong> {row[24].strftime('%d %B %Y') if row[24] else '—'}</p>
                 </div>
                 <table>
                     <thead>
@@ -34775,7 +34782,7 @@ def create_system_user():
                     {'name': fullname, 'email': email, 'whatsapp': whatsapp}
                 )
             except Exception as log_err:
-                print(f"âš ï¸ Failed to log user creation: {log_err}")
+                print(f"⚠️ Failed to log user creation: {log_err}")
 
             return jsonify({"status": "success"})
 
@@ -34944,7 +34951,7 @@ def add_note():
                     }
                 )
             except Exception as log_err:
-                print(f"âš ï¸ Failed to log note addition: {log_err}")
+                print(f"⚠️ Failed to log note addition: {log_err}")
             
             return jsonify({'success': True, 'message': 'Note added successfully'})
             
@@ -35032,7 +35039,7 @@ def get_filtered_projects(month_filter):
             })
             
         except Exception as e:
-            print(f"âŒ Error in get_filtered_projects: {str(e)}")
+            print(f"❌ Error in get_filtered_projects: {str(e)}")
             import traceback
             traceback.print_exc()
             return jsonify({'status': 'error', 'message': str(e)})
@@ -35874,7 +35881,7 @@ def send_meta_template():
                     """, (clean_number, 'ConnectLink Bot', f'[Template: {template_name}] Payment reminder for {project_name} - USD {amount_due:,.2f}', 'template'))
                     save_conn.commit()
             except Exception as save_err:
-                print(f"âš ï¸ Failed to save reminder template to messages: {save_err}")
+                print(f"⚠️ Failed to save reminder template to messages: {save_err}")
             
             # INSERT INTO DATABASE ON SUCCESS
             with get_db() as (cursor, connection):
@@ -36203,7 +36210,7 @@ def run1(userid):
                     """)
                     repaired = {row[0]: row[1] for row in cursor.fetchall()}
                     if repaired:
-                        print(f"ðŸ”§ Repaired 72026->2026 in {repair_col}")
+                        print(f"🔧 Repaired 72026->2026 in {repair_col}")
                         # Opening the projects list repairs mistyped years. Nobody chose
                         # that, so it is recorded as the System's change - with the
                         # project, the field and the old -> new date.
@@ -37599,7 +37606,7 @@ def update_project_completion_status():
                         username='System'
                     )
                 except Exception as log_err:
-                    print(f"âš ï¸ Failed to log the automatic status update: {log_err}")
+                    print(f"⚠️ Failed to log the automatic status update: {log_err}")
             
             return {
                 'success': True,
@@ -39139,7 +39146,7 @@ def bulk_update_enquiries():
 
             ph = ','.join(['%s'] * len(found_ids))
             if new_status in ('pending', 'in_progress'):
-                # Reverted to open â€” clear the attendant (it only applies once completed).
+                # Reverted to open — clear the attendant (it only applies once completed).
                 cursor.execute(f"""
                     UPDATE connectlinkenquiries
                     SET status = %s,
@@ -39169,7 +39176,7 @@ def bulk_update_enquiries():
             log_activity(
                 'enquiry_bulk_status',
                 f'Bulk updated {len(updated_ids)} enquiries to "{new_status}"'
-                + (f' â€” attended by {attended_by}' if new_status not in ('pending', 'in_progress') else '')
+                + (f' — attended by {attended_by}' if new_status not in ('pending', 'in_progress') else '')
                 + f' by {user}',
                 'enquiry',
                 None,
@@ -39242,7 +39249,7 @@ def delete_main_enquiry(enquiry_id):
 # For WhatsApp chats that never filled the meta form: a staff
 # member enters the details (+ optional plan/image), it posts to
 # the system and shows on every user screen (mainindex banner)
-# until someone clicks "attended to" â€” that user is logged as the
+# until someone clicks "attended to" — that user is logged as the
 # attendant. Fully additive.
 # ============================================================
 
@@ -39337,7 +39344,7 @@ def create_manual_enquiry():
 # Auto-appearing on the banner started 15:57 (Africa/Harare) on 1 Sep 2026.
 # Stored enquiry timestamps come from Python datetime.now() (the server's local
 # clock, which is UTC on Render), so we convert 15:57 Harare into that same
-# clock (Harare = UTC+2, so 15:57 Harare = 13:57 UTC) â€” otherwise the cut-off
+# clock (Harare = UTC+2, so 15:57 Harare = 13:57 UTC) — otherwise the cut-off
 # would wrongly exclude new enquiries.
 try:
     _banner_local_tz = pytz.timezone(time.tzname[0] or 'UTC')
@@ -39360,7 +39367,7 @@ def get_unattended_enquiries():
         with get_db() as (cursor, connection):
             # New enquiries auto-appear from the banner-start cut-off onward. Enquiries
             # already on the banner (pinned banner_flagged, manual source, or "I Still
-            # Need Help") keep showing regardless of age â€” nothing previously on the
+            # Need Help") keep showing regardless of age — nothing previously on the
             # banner is removed and the "Add to Unattended" method still works.
             where = ("COALESCE(status, 'pending') = 'pending' AND ("
                      "timestamp >= %s"
@@ -39516,7 +39523,7 @@ def attend_enquiry(enquiry_id):
             """, (final_attended, user, enquiry_id))
             connection.commit()
         log_activity('enquiry_attended', f'Enquiry #{enquiry_id} attended to by {final_attended} (logged by {user})', 'enquiry', enquiry_id)
-        return jsonify({'status': 'success', 'message': 'Marked as attended â€” thank you.', 'attended_by': final_attended})
+        return jsonify({'status': 'success', 'message': 'Marked as attended — thank you.', 'attended_by': final_attended})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
@@ -39667,7 +39674,7 @@ def get_enquiry_followups():
 @app.route('/api/enquiries/send-followup', methods=['POST'])
 def send_enquiry_followups():
     """Send the 'enquiriesfollowup' template to selected enquiries.
-    Body: {enquiry_ids: [int,...]} â€” or {status: 'pending'|'completed'|'all'} to
+    Body: {enquiry_ids: [int,...]} — or {status: 'pending'|'completed'|'all'} to
     send to all enquiries matching that status. Requires login."""
     if not (session.get('user_id') or session.get('userid')):
         return jsonify({'status': 'error', 'message': 'Please log in first.'}), 401
@@ -39812,7 +39819,7 @@ def retry_admin_notify():
 @app.route('/api/enquiries/interim-not-in-main', methods=['GET'])
 def get_interim_not_in_main():
     """Interim (appenqtemp) enquiries whose contact number is NOT in the main
-    enquiries table (connectlinkenquiries) â€” so the banner dropdown lets you pick
+    enquiries table (connectlinkenquiries) — so the banner dropdown lets you pick
     an interim enquiry that isn't already in the enquiries portal. Requires login."""
     if not (session.get('user_id') or session.get('userid')):
         return jsonify({'status': 'error', 'message': 'Not logged in'}), 401
@@ -39860,7 +39867,7 @@ def flag_enquiry_banner():
 
     The caller MUST say which ids are MAIN (connectlinkenquiries) and which are
     INTERIM (appenqtemp). The two tables have independent id sequences, so a bare
-    id is ambiguous â€” probing main-first used to mislabel interim rows that happen
+    id is ambiguous — probing main-first used to mislabel interim rows that happen
     to share an id with a main enquiry (the enquiry was never promoted and never
     appeared on the banner, even though the request reported success)."""
     if not (session.get('user_id') or session.get('userid')):
@@ -39901,7 +39908,7 @@ def flag_enquiry_banner():
                 log_activity('enquiry_manual',
                              f'Interim enquiry #{i_id} promoted to main enquiry #{new_id} (Unattended banner)',
                              'enquiry', new_id, {'promoted_by': user}, username='System')
-                # The interim row is now a main enquiry â€” remove it from the interim list
+                # The interim row is now a main enquiry — remove it from the interim list
                 cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (i_id,))
 
             # ---- Main enquiries: pin (reopening as unattended) or unpin ----
@@ -40040,7 +40047,7 @@ def whatsapp_pwa_manifest():
         ]
     })
 
-# PWA: Manifest for the POS System â€” its own installable app, sized for a phone
+# PWA: Manifest for the POS System — its own installable app, sized for a phone
 @app.route('/pos-manifest.json')
 def pos_pwa_manifest():
     return jsonify({
@@ -40328,23 +40335,23 @@ def update_other_details():
         }), 500
 
 # ---- PROJECT SCOPE / DESCRIPTION: ONE SANITISER FOR BOTH PROJECT FORMS ----
-# The scope is RICH TEXT â€” the editor offers bold, italic, underline and bullet /
-# numbered lists â€” so an allow-list is the only safe place to keep it: everything the
+# The scope is RICH TEXT — the editor offers bold, italic, underline and bullet /
+# numbered lists — so an allow-list is the only safe place to keep it: everything the
 # editor can produce must survive, everything else is stripped.
 _PROJECT_SCOPE_TAGS = frozenset(bleach.sanitizer.ALLOWED_TAGS).union({
     'p', 'br', 'ul', 'ol', 'li', 'span', 'strong', 'em', 'u', 's',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'sub', 'sup', 'hr',
 })
 # Quill puts its CLASS-based formats on the element itself (ql-align-center, ql-size-large,
-# ql-indent-1, ql-syntaxâ€¦) and sends colours/sizes as inline style, so BOTH have to be
-# allowed on every tag â€” restricting class to span (as this used to) silently dropped
+# ql-indent-1, ql-syntax…) and sends colours/sizes as inline style, so BOTH have to be
+# allowed on every tag — restricting class to span (as this used to) silently dropped
 # alignment, size and indent, and the styles were emptied too.
 _PROJECT_SCOPE_ATTRS = {
     '*': ['class', 'style'],
     'a': ['href', 'target', 'rel'],
 }
 # ONLY the properties that toolbar can produce. Everything else that could appear in a
-# style attribute (position, z-index, url(â€¦)) is dropped by bleach.
+# style attribute (position, z-index, url(…)) is dropped by bleach.
 _PROJECT_SCOPE_CSS = ('color', 'background-color', 'font-size', 'font-family', 'font-weight',
                        'font-style', 'text-align', 'text-decoration', 'line-height',
                        'padding-left', 'margin-left', 'white-space')
@@ -40352,9 +40359,9 @@ try:
     from bleach.css_sanitizer import CSSSanitizer as _BleachCSSSanitizer
     _PROJECT_SCOPE_CSS_SANITIZER = _BleachCSSSanitizer(
         allowed_css_properties=list(_PROJECT_SCOPE_CSS))
-except Exception as _css_e:      # bleach's CSS support needs tinycss2 â€” see requirements.txt
+except Exception as _css_e:      # bleach's CSS support needs tinycss2 — see requirements.txt
     _PROJECT_SCOPE_CSS_SANITIZER = None
-    print(f"âš ï¸ Project scope: inline colours and sizes are OFF ({_css_e}) â€” add tinycss2 "
+    print(f"⚠️ Project scope: inline colours and sizes are OFF ({_css_e}) — add tinycss2 "
           f"(bleach[css]) to requirements.txt to switch them on.")
 
 
@@ -40365,7 +40372,7 @@ def _clean_project_scope(html):
     field cannot be safe on one page and raw on the other: the update route used to
     store whatever arrived, tags and all.
 
-    `u` and `s` are listed explicitly because bleach's defaults do NOT include them â€”
+    `u` and `s` are listed explicitly because bleach's defaults do NOT include them —
     the toolbar has an Underline button, so every underlined word was being silently
     stripped out of the saved scope. `class` is allowed on EVERY tag because that is how
     Quill stores alignment, size and indent (ql-align-center, ql-size-large, ql-indent-1);
@@ -40378,7 +40385,7 @@ def _clean_project_scope(html):
         return bleach.clean(raw, tags=_PROJECT_SCOPE_TAGS, attributes=_PROJECT_SCOPE_ATTRS,
                             strip=True, css_sanitizer=_PROJECT_SCOPE_CSS_SANITIZER)
     except Exception as e:
-        print(f"âš ï¸ Could not sanitise the project scope ({e}) â€” storing plain text instead")
+        print(f"⚠️ Could not sanitise the project scope ({e}) — storing plain text instead")
         return re.sub(r'<[^>]+>', '', raw)
 
 
@@ -40772,7 +40779,7 @@ def update_project():
             installment10_duedate = clean_date_update(request.form.get('Installment10DueDate'))
 
             # Contract amount and Deposit amount must NEVER be blank for an
-            # installment plan â€” return a clear popup error instead of silently
+            # installment plan — return a clear popup error instead of silently
             # treating them as 0 or crashing with a 500.
             if contractamount in (None, '') or depositpaid in (None, ''):
                 return jsonify({
@@ -41490,7 +41497,7 @@ def get_mom_id_for_project(project_start_date):
             return momcurrentid
             
         except Exception as e:
-            print(f"âŒ Error getting MOM ID: {str(e)}")
+            print(f"❌ Error getting MOM ID: {str(e)}")
             # Return a default value or re-raise the exception
             return 1
 
@@ -41537,7 +41544,7 @@ def contract_log():
                 months_to_completion = request.form.get('months_to_completion')
                 project_description = request.form.get('project_description') or ""
 
-                # ONE sanitiser for both project forms â€” see _clean_project_scope. It
+                # ONE sanitiser for both project forms — see _clean_project_scope. It
                 # keeps the formatting the editor offers, including <u> (Underline),
                 # which this allow-list used to drop.
                 clean_html = _clean_project_scope(request.form.get("project_description", ""))
@@ -41912,7 +41919,7 @@ def contract_log():
                     result = cursor.fetchone()
                     project_id = result[0] if result else None
                     connection.commit()
-                    print(f"âœ… Project inserted into connectlinkdatabase (ID: {project_id})")
+                    print(f"✅ Project inserted into connectlinkdatabase (ID: {project_id})")
                     
                     # STORE ADJUSTED SCHEDULES IN THE PROJECT RECORD
                     # NOTE: We store adjusted schedules in the project, NOT in the shared quotation_schedules table
@@ -41922,20 +41929,20 @@ def contract_log():
                             import json
                             adjusted_schedules = json.loads(adjusted_schedules_json_str)
                             
-                            print(f"âœ… ðŸ“… PROJECT-SPECIFIC SCHEDULES SAVED FOR PROJECT ID={project_id}:")
+                            print(f"✅ 📅 PROJECT-SPECIFIC SCHEDULES SAVED FOR PROJECT ID={project_id}:")
                             print(f"   Total schedules: {len(adjusted_schedules)}")
                             for i, schedule in enumerate(adjusted_schedules, 1):
                                 print(f"   {i}. {schedule.get('workScope')} ({schedule.get('startDate')} to {schedule.get('endDate')}, {schedule.get('days')} days)")
                         
                         except json.JSONDecodeError as e:
-                            print(f"âš ï¸ Could not parse adjusted schedules JSON: {e}")
+                            print(f"⚠️ Could not parse adjusted schedules JSON: {e}")
                         except Exception as e:
-                            print(f"âš ï¸ Error logging project schedules: {e}")
+                            print(f"⚠️ Error logging project schedules: {e}")
 
 
                 except Exception as e:
                     connection.rollback()
-                    print("âŒ Failed to insert project:", e)
+                    print("❌ Failed to insert project:", e)
                     response = {'status': 'error', 'message': 'Failed to save project.'}
                     return jsonify(response), 500
 
@@ -41951,7 +41958,7 @@ def contract_log():
 
 
             except Exception as e:
-                print("âŒ UNCAUGHT ERROR in contract_log():", str(e))  # <-- PRINT REAL ERROR
+                print("❌ UNCAUGHT ERROR in contract_log():", str(e))  # <-- PRINT REAL ERROR
                 return jsonify({'status': 'error', 'message': str(e)}), 400
 
 @app.route('/update_first_installment_date', methods=['POST'])
@@ -42031,7 +42038,7 @@ def update_first_installment_date():
         try:
             log_activity(
                 'installment_dates_updated',
-                f'Installment dates updated for project #{project_id} â€” first date: {new_date_str}, {months_to_pay} installments',
+                f'Installment dates updated for project #{project_id} — first date: {new_date_str}, {months_to_pay} installments',
                 'project',
                 project_id,
                 {
@@ -42052,7 +42059,7 @@ def update_first_installment_date():
                 log_project_field_changes(project_id, moved, 'Installment reschedule',
                                           project_name, client_name)
         except Exception as log_err:
-            print(f"âš ï¸ Failed to log installment date update: {log_err}")
+            print(f"⚠️ Failed to log installment date update: {log_err}")
 
         return jsonify({
             "success": True,
@@ -42232,7 +42239,7 @@ RECEIPT_CONFIG = {
         'title': 'Deposit',
         'watermark': 'DEPOSIT',
         'filename_prefix': 'Deposit_Receipt',
-        'processing_message': 'â³ Generating your deposit receipt...',
+        'processing_message': '⏳ Generating your deposit receipt...',
         'has_due_date': False
     },
     'installment1': {
@@ -42245,7 +42252,7 @@ RECEIPT_CONFIG = {
         'title': 'First Installment',
         'watermark': 'INSTALLMENT 1',
         'filename_prefix': 'First_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your first installment...',
+        'processing_message': '⏳ Generating receipt for your first installment...',
         'has_due_date': True
     },
     'installment2': {
@@ -42258,7 +42265,7 @@ RECEIPT_CONFIG = {
         'title': 'Second Installment',
         'watermark': 'INSTALLMENT 2',
         'filename_prefix': 'Second_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your second installment...',
+        'processing_message': '⏳ Generating receipt for your second installment...',
         'has_due_date': True
     },
     'installment3': {
@@ -42271,7 +42278,7 @@ RECEIPT_CONFIG = {
         'title': 'Third Installment',
         'watermark': 'INSTALLMENT 3',
         'filename_prefix': 'Third_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your third installment...',
+        'processing_message': '⏳ Generating receipt for your third installment...',
         'has_due_date': True
     },
     'installment4': {
@@ -42284,7 +42291,7 @@ RECEIPT_CONFIG = {
         'title': 'Fourth Installment',
         'watermark': 'INSTALLMENT 4',
         'filename_prefix': 'Fourth_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your fourth installment...',
+        'processing_message': '⏳ Generating receipt for your fourth installment...',
         'has_due_date': True
     },
     'installment5': {
@@ -42297,7 +42304,7 @@ RECEIPT_CONFIG = {
         'title': 'Fifth Installment',
         'watermark': 'INSTALLMENT 5',
         'filename_prefix': 'Fifth_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your fifth installment...',
+        'processing_message': '⏳ Generating receipt for your fifth installment...',
         'has_due_date': True
     },
     'installment6': {
@@ -42310,7 +42317,7 @@ RECEIPT_CONFIG = {
         'title': 'Sixth Installment',
         'watermark': 'INSTALLMENT 6',
         'filename_prefix': 'Sixth_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your sixth installment...',
+        'processing_message': '⏳ Generating receipt for your sixth installment...',
         'has_due_date': True
     },
     'installment7': {
@@ -42323,7 +42330,7 @@ RECEIPT_CONFIG = {
         'title': 'Seventh Installment',
         'watermark': 'INSTALLMENT 7',
         'filename_prefix': 'Seventh_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your seventh installment...',
+        'processing_message': '⏳ Generating receipt for your seventh installment...',
         'has_due_date': True
     },
     'installment8': {
@@ -42336,7 +42343,7 @@ RECEIPT_CONFIG = {
         'title': 'Eighth Installment',
         'watermark': 'INSTALLMENT 8',
         'filename_prefix': 'Eighth_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your eighth installment...',
+        'processing_message': '⏳ Generating receipt for your eighth installment...',
         'has_due_date': True
     },
     'installment9': {
@@ -42349,7 +42356,7 @@ RECEIPT_CONFIG = {
         'title': 'Ninth Installment',
         'watermark': 'INSTALLMENT 9',
         'filename_prefix': 'Ninth_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your ninth installment...',
+        'processing_message': '⏳ Generating receipt for your ninth installment...',
         'has_due_date': True
     },
     'installment10': {
@@ -42362,7 +42369,7 @@ RECEIPT_CONFIG = {
         'title': 'Tenth Installment',
         'watermark': 'INSTALLMENT 10',
         'filename_prefix': 'Tenth_Installment_Receipt',
-        'processing_message': 'â³ Generating receipt for your tenth installment...',
+        'processing_message': '⏳ Generating receipt for your tenth installment...',
         'has_due_date': True
     }
 }
@@ -42375,7 +42382,7 @@ def send_receipt_to_client():
         paid_date = request.form.get('paid_date')
         receipt_type = request.form.get('receipt_type')
         
-        print(f"ðŸ“¨ Received: project_id={project_id}, paid_date={paid_date}, receipt_type={receipt_type}")
+        print(f"📨 Received: project_id={project_id}, paid_date={paid_date}, receipt_type={receipt_type}")
         
         config = RECEIPT_CONFIG.get(receipt_type)
         if not config:
@@ -42452,7 +42459,7 @@ def send_receipt_to_client():
                 return jsonify({'success': False, 'error_message': f'Failed to send: {error_msg}'})
                 
     except Exception as e:
-        print(f"âŒ Error in send_receipt_to_client: {str(e)}")
+        print(f"❌ Error in send_receipt_to_client: {str(e)}")
         return jsonify({'success': False, 'error_message': f'System error: {str(e)}'})
     
 def send_template_with_button(to_number, project_id, receipt_type):
@@ -42488,7 +42495,7 @@ def send_template_with_button(to_number, project_id, receipt_type):
         }
     }
     
-    print(f"ðŸ“¤ Sending {receipt_type} template with payload: {config['payload_prefix']}{project_id}")
+    print(f"📤 Sending {receipt_type} template with payload: {config['payload_prefix']}{project_id}")
     
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
@@ -42505,11 +42512,11 @@ def send_template_with_button(to_number, project_id, receipt_type):
                     """, (to_number, 'ConnectLink Bot', f'[Template: {config["template_name"]}] {receipt_type.replace("_"," ")}', 'template'))
                     save_conn.commit()
             except Exception as save_err:
-                print(f"âš ï¸ Failed to save receipt template to messages: {save_err}")
+                print(f"⚠️ Failed to save receipt template to messages: {save_err}")
         
         return resp_data
     except Exception as e:
-        print(f"âŒ Error: {e}")
+        print(f"❌ Error: {e}")
         return {"error": {"message": str(e)}}
 
 
@@ -42689,12 +42696,12 @@ def generate_receipt_html(row, effective_date, logo_base64, installment_title, i
         formatted_amount = '0.00'
 
     # Format due date
-    due_date_str = due_date.strftime('%d %b %Y') if due_date else 'â€”'
-    due_date_long = due_date.strftime('%d %B %Y') if due_date else 'â€”'
+    due_date_str = due_date.strftime('%d %b %Y') if due_date else '—'
+    due_date_long = due_date.strftime('%d %B %Y') if due_date else '—'
     
     # Format paid date
-    paid_date_str = effective_date.strftime('%d %b %Y') if effective_date else 'â€”'
-    paid_date_long = effective_date.strftime('%d %B %Y') if effective_date else 'â€”'
+    paid_date_str = effective_date.strftime('%d %b %Y') if effective_date else '—'
+    paid_date_long = effective_date.strftime('%d %B %Y') if effective_date else '—'
 
     return f"""
     <!DOCTYPE html>
@@ -43091,8 +43098,8 @@ def generate_deposit_receipt_html(row, effective_date, logo_base64):
         decimal = '00'
     
     # Format paid date
-    paid_date_str = effective_date.strftime('%d %b %Y') if effective_date else 'â€”'
-    paid_date_long = effective_date.strftime('%d %B %Y') if effective_date else 'â€”'
+    paid_date_str = effective_date.strftime('%d %b %Y') if effective_date else '—'
+    paid_date_long = effective_date.strftime('%d %B %Y') if effective_date else '—'
 
     return f"""
     <!DOCTYPE html>
@@ -43467,7 +43474,7 @@ def _cl_company_branding():
                     'tin': str(row[6] or ''),
                 }
     except Exception as exc:
-        print(f"âš ï¸ _cl_company_branding: {exc}")
+        print(f"⚠️ _cl_company_branding: {exc}")
 
     logo_base64 = None
     try:
@@ -43480,10 +43487,10 @@ def _cl_company_branding():
                     logo_base64 = base64.b64encode(img.read()).decode('utf-8')
                 break
         else:
-            print("âš ï¸ _cl_company_branding: no logo file in static/images "
-                  "(looked for web-logo.png) â€” PDFs will print the company name instead.")
+            print("⚠️ _cl_company_branding: no logo file in static/images "
+                  "(looked for web-logo.png) — PDFs will print the company name instead.")
     except Exception as exc:
-        print(f"âš ï¸ Logo load: {exc}")
+        print(f"⚠️ Logo load: {exc}")
     return company, logo_base64
 
 
@@ -43535,7 +43542,7 @@ _INVOICE_CSS = """
 body { font-family:'Helvetica','Arial',sans-serif; color:#2C3E50; font-size:10px; margin:0; padding:0; line-height:1.5; background:#fff; }
 .invoice-page { border:1px solid #d0d0d0; border-radius:6px; padding:16px 18px; background:#fff; }
 
-/* Header â€” clean, matching project receipts (no filled band) */
+/* Header — clean, matching project receipts (no filled band) */
 .brand-line { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid #1E2A56; }
 .brand { display:flex; align-items:center; gap:12px; }
 .brand img { max-height:52px; }
@@ -43741,7 +43748,7 @@ def _cl_build_invoice_html(data, company, logo_base64):
             <div class="info-line">{our_address}</div>
             <div class="info-line">{our_phones}</div>
             <div class="info-line">{our_email}</div>
-            <div class="info-line"><b>TIN:</b> {our_tin if our_tin else 'â€”'}</div>
+            <div class="info-line"><b>TIN:</b> {our_tin if our_tin else '—'}</div>
         </div>
     </div>
 
@@ -43768,7 +43775,7 @@ def _cl_build_invoice_html(data, company, logo_base64):
     </div>
 
     <div class="bank-box">
-        <div class="bb-head">Payment Details â€” {our_name}</div>
+        <div class="bb-head">Payment Details — {our_name}</div>
         <div class="bank-grid">{bank_cells}</div>
     </div>
 
@@ -43906,7 +43913,7 @@ def _cl_has_view_payments():
         perms = get_user_permissions(source_sys, source_id)
         return bool(perms.get('can_view_payments', False) or perms.get('is_super_admin', False))
     except Exception as exc:
-        print(f"âš ï¸ _cl_has_view_payments: {exc}")
+        print(f"⚠️ _cl_has_view_payments: {exc}")
         return False
 
 
@@ -43944,7 +43951,7 @@ def _cl_ensure_manual_table():
             """)
             connection.commit()
     except Exception as exc:
-        print(f"âš ï¸ _cl_ensure_manual_table: {exc}")
+        print(f"⚠️ _cl_ensure_manual_table: {exc}")
 
 
 def _cl_render_invoice(data):
@@ -44079,7 +44086,7 @@ def _cl_manual_guard():
     return None
 
 
-# ==================== Manual invoice/receipt â†’ WhatsApp ====================
+# ==================== Manual invoice/receipt → WhatsApp ====================
 def _cl_manual_doc_filename(doc_type, meta):
     prefix = 'Receipt' if doc_type == 'receipt' else 'Invoice'
     return f"{prefix}_{_cl_clean_filename((meta or {}).get('client_name') or 'Client')}_{_cl_clean_filename((meta or {}).get('doc_no') or '')}.pdf"
@@ -44125,21 +44132,21 @@ def _manual_doc_share_page(title, message):
 
 
 def send_manual_doc_download_template(recipient_number, share_token, doc_type, client_name, doc_no, amount, currency, doc_title=''):
-    """Send the approved invoice/receipt download template (URL button â†’ public share
+    """Send the approved invoice/receipt download template (URL button → public share
     link) so it works outside the 24h WhatsApp session window. Raises ValueError on failure.
     {{2}} is the document title: the invoice's custom title (e.g. "TAX INVOICE"), or
     "Invoice"/"Receipt" when no title is set."""
     template_name = RECEIPT_DOWNLOAD_TEMPLATE_NAME if doc_type == 'receipt' else INVOICE_DOWNLOAD_TEMPLATE_NAME
     doc_label = str(doc_title or '').strip() or ('Receipt' if doc_type == 'receipt' else 'Invoice')
-    # The amount ALWAYS carries its currency â€” a money figure is meaningless without it.
+    # The amount ALWAYS carries its currency — a money figure is meaningless without it.
     cur = str(currency or '').upper().strip() or 'USD'
     amt = f"{float(amount or 0):,.2f}"
     amount_str = f"{cur} {amt}"
     body_params = [
         {"type": "text", "text": strip_html_tags(client_name) or 'Valued Client'},
         {"type": "text", "text": doc_label},
-        # WhatsApp rejects empty text parameters â€” never send a blank var
-        {"type": "text", "text": (str(doc_no or '').strip() or 'â€”')},
+        # WhatsApp rejects empty text parameters — never send a blank var
+        {"type": "text", "text": (str(doc_no or '').strip() or '—')},
     ]
     if MANUAL_DOC_TEMPLATE_VARS >= 5:
         body_params.append({"type": "text", "text": amt})            # {{4}} = amount only
@@ -44164,7 +44171,7 @@ def send_manual_doc_download_template(recipient_number, share_token, doc_type, c
     }
     response = requests.post(url, headers=headers, json=payload, timeout=45)
     data = response.json()
-    print(f"ðŸ“¨ Manual doc template [{template_name}] â†’ {recipient_number} [{response.status_code}]: {str(data)[:400]}")
+    print(f"📨 Manual doc template [{template_name}] → {recipient_number} [{response.status_code}]: {str(data)[:400]}")
     if response.status_code != 200 or 'error' in data or not data.get('messages'):
         raise ValueError(f"Template send failed: {data.get('error', data)}")
     try:
@@ -44176,7 +44183,7 @@ def send_manual_doc_download_template(recipient_number, share_token, doc_type, c
             """, (recipient_number, 'ConnectLink Bot', f'[Template: {template_name}] {doc_label} {doc_no}'))
             save_conn.commit()
     except Exception as save_err:
-        print(f"âš ï¸ Failed to save manual doc template message: {save_err}")
+        print(f"⚠️ Failed to save manual doc template message: {save_err}")
     return data
 
 
@@ -44253,17 +44260,17 @@ def manual_document_send_whatsapp():
             share_url = get_manual_doc_share_url(share_token)
         except Exception as se:
             share_token = ''
-            print(f"âš ï¸ manual doc share token failed: {se}")
+            print(f"⚠️ manual doc share token failed: {se}")
         if share_token and share_url:
             try:
                 send_manual_doc_download_template(recipient, share_token, doc_type, meta.get('client_name'), meta.get('doc_no'), meta.get('amount'), meta.get('currency'), wa_doc_title)
                 sent_method = 'template'
             except Exception as te:
-                print(f"âš ï¸ manual doc template unavailable, sending document instead: {te}")
+                print(f"⚠️ manual doc template unavailable, sending document instead: {te}")
 
         # 2) Direct document message (always works inside the 24h window)
         if not sent_method:
-            caption = str(data.get('caption') or '').strip() or f"{doc_label} {meta.get('doc_no') or ''} â€” {amount_str}".strip(' â€”')
+            caption = str(data.get('caption') or '').strip() or f"{doc_label} {meta.get('doc_no') or ''} — {amount_str}".strip(' —')
             send_pdf_document_whatsapp(recipient, pdf_bytes, filename, caption)
             sent_method = 'document'
 
@@ -44280,7 +44287,7 @@ def manual_document_send_whatsapp():
     except ValueError as exc:
         return jsonify({'success': False, 'error_message': str(exc)}), 400
     except Exception as exc:
-        print(f"âŒ manual_document_send_whatsapp error: {exc}")
+        print(f"❌ manual_document_send_whatsapp error: {exc}")
         traceback.print_exc()
         return jsonify({'success': False, 'error_message': f'Failed to send document: {exc}'}), 500
 
@@ -44297,7 +44304,7 @@ def generate_custom_invoice():
     except ValueError as exc:
         return jsonify({'success': False, 'error_message': str(exc)}), 400
     except Exception as exc:
-        print(f"âŒ generate_custom_invoice error: {exc}")
+        print(f"❌ generate_custom_invoice error: {exc}")
         traceback.print_exc()
         return jsonify({'success': False, 'error_message': f'Failed to generate invoice: {exc}'}), 500
 
@@ -44314,7 +44321,7 @@ def generate_custom_receipt():
     except ValueError as exc:
         return jsonify({'success': False, 'error_message': str(exc)}), 400
     except Exception as exc:
-        print(f"âŒ generate_custom_receipt error: {exc}")
+        print(f"❌ generate_custom_receipt error: {exc}")
         traceback.print_exc()
         return jsonify({'success': False, 'error_message': f'Failed to generate receipt: {exc}'}), 500
 
@@ -44348,7 +44355,7 @@ def manual_documents_list():
             })
         return jsonify({'success': True, 'documents': documents})
     except Exception as exc:
-        print(f"âŒ manual_documents_list error: {exc}")
+        print(f"❌ manual_documents_list error: {exc}")
         traceback.print_exc()
         return jsonify({'success': False, 'error_message': 'Failed to load history'}), 500
 
@@ -44378,7 +44385,7 @@ def manual_document_download(doc_id):
     except ValueError as exc:
         return jsonify({'success': False, 'error_message': str(exc)}), 400
     except Exception as exc:
-        print(f"âŒ manual_document_download error: {exc}")
+        print(f"❌ manual_document_download error: {exc}")
         traceback.print_exc()
         return jsonify({'success': False, 'error_message': 'Failed to regenerate document'}), 500
 
@@ -44395,7 +44402,7 @@ def manual_document_delete(doc_id):
             connection.commit()
         return jsonify({'success': True, 'message': 'Document deleted'})
     except Exception as exc:
-        print(f"âŒ manual_document_delete error: {exc}")
+        print(f"❌ manual_document_delete error: {exc}")
         return jsonify({'success': False, 'error_message': 'Failed to delete document'}), 500
 
 
@@ -44419,9 +44426,9 @@ def close_db(error):
 
 def get_user_permissions(user_type, user_id):
     """Get permissions for a user, creating default super admin if first user"""
-    # `user_id` is an INTEGER column. A caller that hands us anything else â€” a DATE, for
+    # `user_id` is an INTEGER column. A caller that hands us anything else — a DATE, for
     # instance, which is what the webhook's admin_users/connectlinkusers probe used to do
-    # â€” reaches Postgres as a quoted literal and comes back with the thoroughly confusing
+    # — reaches Postgres as a quoted literal and comes back with the thoroughly confusing
     # "operator does not exist: integer = date", naming neither the caller nor the table.
     # A numeric value is coerced; anything else is refused HERE, in one place, by name.
     if user_id is not None and not isinstance(user_id, int):
@@ -44430,7 +44437,7 @@ def get_user_permissions(user_type, user_id):
             user_id = int(_uid)
         else:
             print(f"Permissions error: refusing non-numeric user_id {user_id!r} "
-                  f"(user_type={user_type!r}) â€” a caller passed the wrong column")
+                  f"(user_type={user_type!r}) — a caller passed the wrong column")
             return {}
     try:
         with get_db() as (cursor, connection):
@@ -44465,7 +44472,7 @@ def get_user_permissions(user_type, user_id):
                     'can_authorise_requisitions': row[19] if len(row) > 19 else False,
                     'can_edit_project_money': row[20] if len(row) > 20 else False
                 }
-                print(f"ðŸ“Š get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}, hr_access={result['hr_access']}")
+                print(f"📊 get_user_permissions({user_type},{user_id}): can_view_payments={result['can_view_payments']}, is_super_admin={result['is_super_admin']}, can_edit_projects={result['can_edit_projects']}, hr_access={result['hr_access']}")
                 return result
             # If no permissions set, check if this is the first user - make them super admin
             cursor.execute("SELECT COUNT(*) FROM user_permissions")
@@ -44660,7 +44667,7 @@ def um_permissions_api():
             # no longer has an authorisation layer (it goes straight to the approver), so
             # the toggle is gone from User Management. Leaving the column out of this list
             # means saving somebody's permissions does NOT silently clear a flag they still
-            # hold â€” the only place it is read now is a legacy PO left in
+            # hold — the only place it is read now is a legacy PO left in
             # 'pending_authorisation' by the old flow, which a super admin can clear.
 
             with get_db() as (cursor, connection):
@@ -45386,7 +45393,7 @@ def export_quotation_rates():
 
         # Title
         ws.merge_cells('A1:C1')
-        ws['A1'].value = "ConnectLink â€” Quotation Rates"
+        ws['A1'].value = "ConnectLink — Quotation Rates"
         ws['A1'].font = title_font
 
         ws.merge_cells('A2:C2')
@@ -45483,7 +45490,7 @@ def save_quotation_rates():
                     {'rate_count': len(rates), 'updated_by': session.get('user_name', 'Unknown')}
                 )
             except Exception as log_err:
-                print(f"âš ï¸ Failed to log rate update: {log_err}")
+                print(f"⚠️ Failed to log rate update: {log_err}")
             
             return jsonify({
                 'success': True,
@@ -45544,7 +45551,7 @@ def restore_default_quotation_rates():
                     {'action': 'restore_defaults', 'rate_count': len(default_rates), 'updated_by': session.get('user_name', 'Unknown')}
                 )
             except Exception as log_err:
-                print(f"âš ï¸ Failed to log rate restore: {log_err}")
+                print(f"⚠️ Failed to log rate restore: {log_err}")
 
             return jsonify({
                 'success': True,
@@ -45569,11 +45576,11 @@ def normalize_whatsapp_number(raw_number):
     if not digits:
         return ''
 
-    # Local Zimbabwe format: 07xxxxxxxx or 08xxxxxxxx â†’ 263xxxxxxxx
+    # Local Zimbabwe format: 07xxxxxxxx or 08xxxxxxxx → 263xxxxxxxx
     if digits.startswith('0') and len(digits) >= 10:
         return '263' + digits[1:]
 
-    # Already has a country code (any country) â€” use as-is
+    # Already has a country code (any country) — use as-is
     return digits
 
 
@@ -45594,7 +45601,7 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
 
     upload_response = requests.post(upload_url, headers=upload_headers, files=files, timeout=45)
     upload_data = upload_response.json()
-    print(f"ðŸ“¤ WhatsApp media upload response [{upload_response.status_code}]: {upload_data}")
+    print(f"📤 WhatsApp media upload response [{upload_response.status_code}]: {upload_data}")
 
     if upload_response.status_code != 200 or 'id' not in upload_data:
         raise ValueError(f"Media upload failed: {upload_data.get('error', upload_data)}")
@@ -45617,10 +45624,10 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
         }
     }
 
-    print(f"ðŸ“¨ Sending WhatsApp document to {recipient_number} (media_id={media_id})")
+    print(f"📨 Sending WhatsApp document to {recipient_number} (media_id={media_id})")
     send_response = requests.post(send_url, headers=send_headers, json=payload, timeout=45)
     send_data = send_response.json()
-    print(f"ðŸ“¨ WhatsApp send response [{send_response.status_code}]: {send_data}")
+    print(f"📨 WhatsApp send response [{send_response.status_code}]: {send_data}")
 
     if send_response.status_code != 200 or 'error' in send_data:
         error_payload = send_data.get('error', send_data)
@@ -45651,7 +45658,7 @@ def send_pdf_document_whatsapp(recipient_number, pdf_bytes, filename, caption):
             """, (recipient_number, 'ConnectLink Bot', display_text[:500], media_id, filename))
             save_conn.commit()
     except Exception as save_err:
-        print(f"âš ï¸ Failed to save sent document message: {save_err}")
+        print(f"⚠️ Failed to save sent document message: {save_err}")
 
     return send_data
 
@@ -45850,10 +45857,10 @@ def log_admin_notify_attempt(enquiry_id, admin_number, send_status, send_error='
                   str(message_id or '')[:100]))
             connection.commit()
     except Exception as exc:
-        print(f"âš ï¸ Could not log admin notify attempt: {exc}")
+        print(f"⚠️ Could not log admin notify attempt: {exc}")
     # Mirror into the once-only ledger. Raw attachment-file deliveries
     # (message_id 'attachment_fallback_*') are not enqauto2 alerts, so they are
-    # skipped â€” otherwise a failed alert would look delivered and never retry.
+    # skipped — otherwise a failed alert would look delivered and never retry.
     try:
         _is_attachment_fallback = (
             str(send_error or '') == 'attachment_fallback'
@@ -45864,12 +45871,12 @@ def log_admin_notify_attempt(enquiry_id, admin_number, send_status, send_error='
                              str(send_status or 'sent'), admin_number, 'enqauto2',
                              message_id, send_error)
     except Exception as exc:
-        print(f"âš ï¸ Could not mirror admin alert into notify ledger: {exc}")
+        print(f"⚠️ Could not mirror admin alert into notify ledger: {exc}")
 
 
 def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_display,
                                     user_message, has_attachment=False, timestamp=None):
-    """Send the 'enqauto2' admin WhatsApp alert for a new enquiry â€” the same
+    """Send the 'enqauto2' admin WhatsApp alert for a new enquiry — the same
     notification a WhatsApp enquiry triggers. Used by the manual enquiry route so
     staff get alerted there too. Best-effort; never raises."""
     try:
@@ -45915,7 +45922,7 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
             except Exception:
                 _recent_window_fail = False
             if _recent_window_fail:
-                print(f"â­ Skipping repeated admin alert for enquiry {enquiry_id} to {admin_number} (outside 24h window, recently failed)")
+                print(f"⏭ Skipping repeated admin alert for enquiry {enquiry_id} to {admin_number} (outside 24h window, recently failed)")
                 continue
             # Permanent once-only guard: this alert is never delivered twice for the
             # same enquiry + admin, however many times the flow is triggered. A
@@ -46021,7 +46028,7 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
                         try:
                             log_enquiry_attachment_button_message(message_id, enquiry_id, admin_number)
                         except Exception as exc:
-                            print(f"âŒ Mapping log failed: {exc}")
+                            print(f"❌ Mapping log failed: {exc}")
 
                 # Log this admin alert attempt (drives the failed-alerts indicator + retry)
                 try:
@@ -46032,11 +46039,11 @@ def send_admin_enquiry_notification(enquiry_id, client_whatsapp, enquiry_type_di
                     _mid = str(((_rj.get('messages') or [{}])[0]).get('id') or '') if _rj.get('messages') else ''
                     log_admin_notify_attempt(enquiry_id, admin_number, 'sent' if _ok else 'failed', _ed, _mid)
                 except Exception as exc:
-                    print(f"âŒ Admin notify log failed: {exc}")
+                    print(f"❌ Admin notify log failed: {exc}")
             except Exception as exc:
-                print(f"âŒ Admin notification failed for {admin_number}: {exc}")
+                print(f"❌ Admin notification failed for {admin_number}: {exc}")
     except Exception as exc:
-        print(f"âŒ Admin enquiry notification error: {exc}")
+        print(f"❌ Admin enquiry notification error: {exc}")
 
 
 def _sniff_media_mime(data):
@@ -46089,7 +46096,7 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
     """Fetch enquiry attachment from DB and send over WhatsApp honouring its stored
     MIME type (images go as image messages, PDFs/docs as documents)."""
 
-    print(f"ðŸ” Starting attachment delivery for enquiry {enquiry_id} to {recipient_number}")
+    print(f"🔍 Starting attachment delivery for enquiry {enquiry_id} to {recipient_number}")
     
     try:
         with get_db() as (cursor, _):
@@ -46102,18 +46109,18 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
                 (enquiry_id,)
             )
             row = cursor.fetchone()
-            print(f"ðŸ” Database query completed, row exists: {row is not None}")
+            print(f"🔍 Database query completed, row exists: {row is not None}")
     except Exception as exc:
         logging.exception("Error loading enquiry attachment %s", enquiry_id)
-        print(f"âŒ Database error: {exc}")
+        print(f"❌ Database error: {exc}")
         if send_text_message:
-            send_text_message(recipient_number, "âŒ Failed to load the enquiry attachment.")
+            send_text_message(recipient_number, "❌ Failed to load the enquiry attachment.")
         return False
 
     if not row or row[0] is None:
-        print(f"âŒ No attachment found for enquiry {enquiry_id}")
+        print(f"❌ No attachment found for enquiry {enquiry_id}")
         if send_text_message:
-            send_text_message(recipient_number, "âŒ No attachment found for this enquiry.")
+            send_text_message(recipient_number, "❌ No attachment found for this enquiry.")
         return False
 
     plan_data = row[0]
@@ -46123,12 +46130,12 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
 
     if isinstance(plan_data, memoryview):
         plan_data = plan_data.tobytes()
-        print(f"ðŸ” Converted memoryview to bytes, size: {len(plan_data)} bytes")
+        print(f"🔍 Converted memoryview to bytes, size: {len(plan_data)} bytes")
 
     if not plan_data:
-        print(f"âŒ Empty plan data for enquiry {enquiry_id}")
+        print(f"❌ Empty plan data for enquiry {enquiry_id}")
         if send_text_message:
-            send_text_message(recipient_number, "âŒ The attachment file is empty.")
+            send_text_message(recipient_number, "❌ The attachment file is empty.")
         return False
 
     # ADMIN-NOTIFY GUARD: stop ghost re-deliveries of old enquiry plans to staff
@@ -46151,27 +46158,27 @@ def deliver_enquiry_attachment_pdf(enquiry_id, recipient_number, send_text_messa
                 """, (int(enquiry_id), recipient_number_str))
                 _already = cursor.fetchone()[0] > 0
         except Exception as _grd_err:
-            print(f"âš ï¸ Admin attachment guard check failed: {_grd_err}")
+            print(f"⚠️ Admin attachment guard check failed: {_grd_err}")
         if _too_old or _already:
             _reason = 'old enquiry (outside WhatsApp window)' if _too_old else 'already delivered recently'
-            print(f"â­ Skipping admin attachment delivery for enquiry {enquiry_id} to {recipient_number_str} ({_reason})")
+            print(f"⏭ Skipping admin attachment delivery for enquiry {enquiry_id} to {recipient_number_str} ({_reason})")
             return True
 
     file_size_mb = len(plan_data) / (1024 * 1024)
-    print(f"ðŸ“Š Attachment size: {file_size_mb:.2f} MB")
+    print(f"📊 Attachment size: {file_size_mb:.2f} MB")
     
     # MOBILE FIX: If file > 2MB, send as link instead of PDF
     if file_size_mb > 2:
-        print(f"âš ï¸ File too large ({file_size_mb:.2f}MB) for mobile, sending link instead")
+        print(f"⚠️ File too large ({file_size_mb:.2f}MB) for mobile, sending link instead")
         download_link = f"https://connectlink-wbax.onrender.com/api/enquiries/{enquiry_id}/plan"
-        link_message = f"""ðŸ“Ž *Enquiry Attachment Available*
+        link_message = f"""📎 *Enquiry Attachment Available*
 
 Reference: #{enquiry_id}
 File size: {file_size_mb:.1f} MB
 
-âš ï¸ For better mobile experience, please click the link below to download:
+⚠️ For better mobile experience, please click the link below to download:
 
-ðŸ”— {download_link}"""
+🔗 {download_link}"""
         
         if send_text_message:
             send_text_message(recipient_number, link_message)
@@ -46191,13 +46198,13 @@ File size: {file_size_mb:.1f} MB
     filename = f"Enquiry_Attachment_{enquiry_id}_{client_whatsapp}_{date_part}{ext}"
     caption = f"Enquiry Attachment\nReference: #{enquiry_id}"
     
-    print(f"ðŸ“¤ Attempting to send {msg_type} ({file_size_mb:.2f}MB) to {recipient_number}")
+    print(f"📤 Attempting to send {msg_type} ({file_size_mb:.2f}MB) to {recipient_number}")
     
     try:
         # MOBILE FIX: Use lower timeout and simpler payload
         result = send_pdf_mobile_optimized(recipient_number, plan_data, filename, caption,
                                            mime_type=mime, msg_type=msg_type)
-        print(f"âœ… {msg_type} sent successfully to mobile: {result}")
+        print(f"✅ {msg_type} sent successfully to mobile: {result}")
         if recipient_number_str in ENQUIRY_ADMIN_NOTIFY_NUMBERS:
             try:
                 log_admin_notify_attempt(int(enquiry_id), recipient_number_str, 'sent', 'attachment_fallback', f'attachment_fallback_{enquiry_id}')
@@ -46205,12 +46212,12 @@ File size: {file_size_mb:.1f} MB
                 pass
         return True
     except Exception as exc:
-        print(f"âŒ Failed to send {msg_type} to mobile: {exc}")
+        print(f"❌ Failed to send {msg_type} to mobile: {exc}")
         logging.exception(f"Mobile {msg_type} send failed: {exc}")
         
         # Fallback: Send download link
         download_link = f"https://connectlink-wbax.onrender.com/api/enquiries/{enquiry_id}/plan"
-        link_message = f"ðŸ“Ž *Enquiry Attachment*\n\nClick this link to download:\n{download_link}\n\nReference: #{enquiry_id}"
+        link_message = f"📎 *Enquiry Attachment*\n\nClick this link to download:\n{download_link}\n\nReference: #{enquiry_id}"
         
         if send_text_message:
             send_text_message(recipient_number, link_message)
@@ -46253,10 +46260,10 @@ def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption, mi
     timeout = 30 if is_mobile else 60
     
     try:
-        print(f"ðŸ“¤ Uploading to WhatsApp API (timeout: {timeout}s)...")
+        print(f"📤 Uploading to WhatsApp API (timeout: {timeout}s)...")
         upload_response = requests.post(upload_url, headers=upload_headers, 
                                        files=files, timeout=timeout)
-        print(f"ðŸ“¤ Upload status: {upload_response.status_code}")
+        print(f"📤 Upload status: {upload_response.status_code}")
         
         upload_data = upload_response.json()
         
@@ -46265,7 +46272,7 @@ def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption, mi
             raise ValueError(f"Upload failed: {error_msg}")
         
         media_id = upload_data['id']
-        print(f"ðŸ“¤ Upload successful, media_id: {media_id}")
+        print(f"📤 Upload successful, media_id: {media_id}")
         
         # CRITICAL: Wait for mobile to process the upload
         if is_mobile:
@@ -46279,7 +46286,7 @@ def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption, mi
             'Content-Type': 'application/json'
         }
         
-        # Simpler payload for mobile â€” images as image messages, everything else as a document
+        # Simpler payload for mobile — images as image messages, everything else as a document
         if msg_type == 'image':
             payload = {
                 'messaging_product': 'whatsapp',
@@ -46302,10 +46309,10 @@ def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption, mi
                 }
             }
         
-        print(f"ðŸ“¨ Sending document message...")
+        print(f"📨 Sending document message...")
         send_response = requests.post(send_url, headers=send_headers, 
                                      json=payload, timeout=timeout)
-        print(f"ðŸ“¨ Send status: {send_response.status_code}")
+        print(f"📨 Send status: {send_response.status_code}")
         
         send_data = send_response.json()
         
@@ -46313,14 +46320,14 @@ def send_pdf_mobile_optimized(recipient_number, pdf_bytes, filename, caption, mi
             error_msg = send_data.get('error', {}).get('message', 'Unknown error')
             raise ValueError(f"Send failed: {error_msg}")
         
-        print(f"âœ… Document sent successfully")
+        print(f"✅ Document sent successfully")
         return send_data
         
     except requests.Timeout:
-        print(f"âŒ Timeout on mobile")
+        print(f"❌ Timeout on mobile")
         raise Exception("Mobile timeout - file may be too large")
     except Exception as e:
-        print(f"âŒ Error: {e}")
+        print(f"❌ Error: {e}")
         raise
 
 def log_enquiry_attachment_button_message(template_message_id, enquiry_id, recipient_number):
@@ -46341,7 +46348,7 @@ def log_enquiry_attachment_button_message(template_message_id, enquiry_id, recip
             connection.commit()
     except Exception as exc:
         logging.exception("Failed to log enquiry attachment button message mapping")
-        print(f"âŒ Mapping log failed: {exc}")
+        print(f"❌ Mapping log failed: {exc}")
 
 
 def resolve_enquiry_attachment_id_from_click(message, sender_id):
@@ -46390,7 +46397,7 @@ def resolve_enquiry_attachment_id_from_click(message, sender_id):
                 return int(row[0])
     except Exception as exc:
         logging.exception("Failed to resolve enquiry attachment from click")
-        print(f"âŒ Attachment click resolution failed: {exc}")
+        print(f"❌ Attachment click resolution failed: {exc}")
 
     return None
 
@@ -46427,7 +46434,7 @@ def log_chatbot_interaction(sender_phone, sender_name, interaction_type, interac
             ))
             conn.commit()
     except Exception as e:
-        print(f"âš ï¸ Failed to log chatbot interaction: {e}")
+        print(f"⚠️ Failed to log chatbot interaction: {e}")
 
 
 # Keyword map for chatbot menu navigation
@@ -46517,7 +46524,7 @@ def create_quotation_share_token(quotation_id, pdf_bytes=None, pdf_filename=''):
     Token format: quotation_{id}_{random_hex} so webhook can extract quotation_id directly.
 
     If pdf_bytes is provided (e.g. from frontend-generated PDF), it's stored directly.
-    Otherwise tries to generate server-side â€” if that fails, token is still created
+    Otherwise tries to generate server-side — if that fails, token is still created
     and the share page will show a friendly error."""
     token = f"quotation_{quotation_id}_{uuid.uuid4().hex[:12]}"
     expiry = datetime.now() + timedelta(hours=QUOTATION_SHARE_TOKEN_HOURS)
@@ -46530,7 +46537,7 @@ def create_quotation_share_token(quotation_id, pdf_bytes=None, pdf_filename=''):
                 pdf_bytes = result[0]
                 pdf_filename = result[1]
         except Exception as e:
-            print(f"âš ï¸ Could not pre-generate PDF for share token: {e}")
+            print(f"⚠️ Could not pre-generate PDF for share token: {e}")
 
     with get_db() as (cursor, connection):
         cursor.execute("""
@@ -46586,7 +46593,7 @@ def quotation_share_view(share_token):
     """Serve a quotation PDF via share link.
     Uses pre-stored PDF if available. Otherwise serves a self-contained HTML page
     that renders the quotation and generates the PDF client-side via html2pdf.js
-    â€” no server-side PDF generation needed."""
+    — no server-side PDF generation needed."""
     try:
         # 1) Validate the token and get quotation data
         quotation_data = _get_quotation_data_for_token(share_token)
@@ -46610,7 +46617,7 @@ def quotation_share_view(share_token):
             response.headers['Content-Disposition'] = f'attachment; filename="{stored_filename or f"Quotation_{q["client_name"]}_{q["id"]}.pdf"}"'
             return response
 
-        # 3) No stored PDF â€” serve an HTML page that generates the PDF in the browser
+        # 3) No stored PDF — serve an HTML page that generates the PDF in the browser
         #    using html2pdf.js (same library the frontend uses).
         #    This always works because no server-side PDF generation is needed.
         return _serve_quotation_html_page(q)
@@ -46786,8 +46793,8 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
 </head>
 <body>
 <div class="controls">
-  <button onclick="downloadPDF()">ðŸ“„ Download PDF</button>
-  <span class="loading" id="loadingMsg">â³ Generating PDF...</span>
+  <button onclick="downloadPDF()">📄 Download PDF</button>
+  <span class="loading" id="loadingMsg">⏳ Generating PDF...</span>
 </div>
 
 <div id="quotation">
@@ -46844,7 +46851,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
       {('' if not is_construction else f'''<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes), Gutters and Alububble (Alucushion Sheeting) for Roof.</div>
       <div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>BOQ:</strong> If you require a detailed Bill of Quantities (BOQ), it costs <strong>USD 200</strong>.</div>
       <div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;">
-        <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">â±ï¸ Our Turnaround Times for Residential Projects</strong>
+        <strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">
           <div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div>
           <div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div>
@@ -47067,7 +47074,7 @@ def build_quotation_pdf_document(quotation_id):
                         <td style="padding:6px; text-align:center; font-weight:bold; color:#2196F3;">{days}</td>
                     </tr>"""
 
-            # Logo (optional â€” skip if file doesn't exist)
+            # Logo (optional — skip if file doesn't exist)
             logo_b64 = ''
             logo_path = os.path.join(os.path.dirname(__file__), 'static', 'images', 'web-logo.png')
             if os.path.exists(logo_path):
@@ -47595,7 +47602,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
 def generate_pdf_via_playwright(html_content, format='A4', margin=None,
                                 landscape=False, prefer_css_page_size=False):
     """Render HTML to PDF using Playwright (headless Chromium).
-    Generic helper â€” works with any HTML string (quotation, contract, etc.).
+    Generic helper — works with any HTML string (quotation, contract, etc.).
     Falls back from weasyprint when GTK libraries are unavailable.
 
     Args:
@@ -47630,7 +47637,7 @@ def generate_pdf_via_playwright(html_content, format='A4', margin=None,
 def render_html_to_pdf_bytes(html_content):
     """Render an HTML document to PDF bytes for WhatsApp / download delivery.
 
-    Uses weasyprint first â€” the same engine as every other PDF in ConnectLink â€”
+    Uses weasyprint first — the same engine as every other PDF in ConnectLink —
     and falls back to Playwright (headless Chromium) when weasyprint's native
     libraries are unavailable.
 
@@ -47653,7 +47660,7 @@ def render_html_to_pdf_bytes(html_content):
         return _WeasyHTML(string=html_content).write_pdf()
     except Exception as weasy_err:
         weasy_error = f'weasyprint: {weasy_err}'
-        print(f"âš ï¸ weasyprint render failed, falling back to Playwright: {weasy_err}")
+        print(f"⚠️ weasyprint render failed, falling back to Playwright: {weasy_err}")
 
     try:
         # prefer_css_page_size so the template's own @page size/orientation wins
@@ -47671,7 +47678,7 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
 
     Falls back to Playwright (headless Chromium) when weasyprint is unavailable.
     """
-    # 1) Retrieve the stored PDF from DB â€” use ANY token for this quotation
+    # 1) Retrieve the stored PDF from DB — use ANY token for this quotation
     stored_pdf_bytes = None
     stored_filename = ''
     db_share_token = share_token
@@ -47700,14 +47707,14 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
                     stored_filename = row2[2] or ''
                     db_share_token = row2[0]
                 else:
-                    # No stored PDF anywhere â€” create a fresh token (will have no PDF
+                    # No stored PDF anywhere — create a fresh token (will have no PDF
                     # since weasyprint is unavailable, but share URL fallback still works)
                     db_share_token = create_quotation_share_token(quotation_id)
     except Exception as e:
         print(f"Error retrieving stored PDF: {e}")
         db_share_token = create_quotation_share_token(quotation_id)
 
-    # 2) If we have a stored PDF, use it directly â€” no weasyprint needed
+    # 2) If we have a stored PDF, use it directly — no weasyprint needed
     if stored_pdf_bytes:
         caption_category = ''
         try:
@@ -47731,7 +47738,7 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
                 f'Quotation #{quotation_id} downloaded via WhatsApp by {recipient_number}',
                 'quotation', quotation_id,
                 {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token})
-            print(f"âœ… Quotation PDF {quotation_id} sent to {recipient_number}")
+            print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
             return True
         except Exception as exc:
             logging.exception("Error sending quotation PDF %s", quotation_id)
@@ -47739,13 +47746,13 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
             share_url = get_quotation_share_url(db_share_token)
             if send_text_message and share_url:
                 send_text_message(recipient_number,
-                    f"âš ï¸ Could not send PDF directly. Open & download your quotation here:\n{share_url}")
+                    f"⚠️ Could not send PDF directly. Open & download your quotation here:\n{share_url}")
             elif send_text_message:
-                send_text_message(recipient_number, "âŒ Failed to send your quotation. Please contact us directly.")
-            print(f"âŒ Error sending quotation PDF {quotation_id}: {exc}")
+                send_text_message(recipient_number, "❌ Failed to send your quotation. Please contact us directly.")
+            print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
             return False
 
-    # 3) No stored PDF â€” try weasyprint, then Playwright fallback, then share URL
+    # 3) No stored PDF — try weasyprint, then Playwright fallback, then share URL
     pdf_bytes = None
     filename = ''
     caption = ''
@@ -47754,31 +47761,31 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         pdf_bytes, filename, caption = build_quotation_pdf_document(quotation_id)
     except LookupError:
         if send_text_message:
-            send_text_message(recipient_number, "âŒ Quotation not found.")
+            send_text_message(recipient_number, "❌ Quotation not found.")
         return False
     except Exception as exc:
-        print(f"âš ï¸ weasyprint failed for quotation {quotation_id}: {exc}")
-        print("ðŸ”„ Trying Playwright fallback...")
+        print(f"⚠️ weasyprint failed for quotation {quotation_id}: {exc}")
+        print("🔄 Trying Playwright fallback...")
         try:
             pdf_bytes, filename, caption = generate_quotation_pdf_playwright(quotation_id)
             from_playwright = True
-            print(f"âœ… Playwright generated PDF for quotation {quotation_id}")
+            print(f"✅ Playwright generated PDF for quotation {quotation_id}")
             # Store in DB for future sends
             try:
                 create_quotation_share_token(quotation_id, pdf_bytes=pdf_bytes, pdf_filename=filename)
-                print(f"ðŸ’¾ Stored Playwright-generated PDF in DB for quotation {quotation_id}")
+                print(f"💾 Stored Playwright-generated PDF in DB for quotation {quotation_id}")
             except Exception as store_exc:
-                print(f"âš ï¸ Could not store PDF in DB: {store_exc}")
+                print(f"⚠️ Could not store PDF in DB: {store_exc}")
         except Exception as pw_exc:
             logging.exception("Error generating quotation PDF %s", quotation_id)
             mark_quotation_download_send_result(share_token, False, recipient_number)
             share_url = get_quotation_share_url(db_share_token)
             if send_text_message and share_url:
                 send_text_message(recipient_number,
-                    f"âš ï¸ Could not generate PDF. Open & download your quotation here:\n{share_url}")
+                    f"⚠️ Could not generate PDF. Open & download your quotation here:\n{share_url}")
             elif send_text_message:
-                send_text_message(recipient_number, "âŒ Failed to generate your quotation. Please contact us directly.")
-            print(f"âŒ Error generating quotation PDF {quotation_id}: {pw_exc}")
+                send_text_message(recipient_number, "❌ Failed to generate your quotation. Please contact us directly.")
+            print(f"❌ Error generating quotation PDF {quotation_id}: {pw_exc}")
             return False
 
     try:
@@ -47788,7 +47795,7 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
             f'Quotation #{quotation_id} downloaded via WhatsApp by {recipient_number}',
             'quotation', quotation_id,
             {'recipient': recipient_number, 'method': 'whatsapp_download', 'share_token': share_token})
-        print(f"âœ… Quotation PDF {quotation_id} sent to {recipient_number}")
+        print(f"✅ Quotation PDF {quotation_id} sent to {recipient_number}")
         return True
     except Exception as exc:
         logging.exception("Error sending quotation PDF %s", quotation_id)
@@ -47796,10 +47803,10 @@ def deliver_shared_quotation_pdf(share_token, quotation_id, recipient_number, se
         share_url = get_quotation_share_url(db_share_token)
         if send_text_message and share_url:
             send_text_message(recipient_number,
-                f"âš ï¸ Could not send PDF directly. Open & download your quotation here:\n{share_url}")
+                f"⚠️ Could not send PDF directly. Open & download your quotation here:\n{share_url}")
         elif send_text_message:
-            send_text_message(recipient_number, "âŒ Failed to send your quotation. Please contact us directly.")
-        print(f"âŒ Error sending quotation PDF {quotation_id}: {exc}")
+            send_text_message(recipient_number, "❌ Failed to send your quotation. Please contact us directly.")
+        print(f"❌ Error sending quotation PDF {quotation_id}: {exc}")
         return False
 
 
@@ -47810,7 +47817,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
     Template must be configured in Meta as:
     - Body: Hello {{1}}, your requested quotation for a *{{2}}* project ({{3}} sqm) is ready for download.
             Kindly click *Download Quotation* below to view your detailed cost breakdown.
-    - Button (URL, CTA): Download Quotation â†’ https://<your-public-domain>/quotation/share/{{1}}
+    - Button (URL, CTA): Download Quotation → https://<your-public-domain>/quotation/share/{{1}}
     """
     # Strip HTML tags from text parameters
     client_name = strip_html_tags(client_name)
@@ -47859,7 +47866,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
 
     response = requests.post(url, headers=headers, json=payload, timeout=45)
     response_data = response.json()
-    print(f"ðŸ“¨ Quotation template response [{response.status_code}]: {str(response_data)[:500]}")
+    print(f"📨 Quotation template response [{response.status_code}]: {str(response_data)[:500]}")
 
     if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
         error_payload = response_data.get('error', response_data)
@@ -47875,7 +47882,7 @@ def send_quotation_download_template(recipient_number, share_token, client_name=
             """, (recipient_number, 'ConnectLink Bot', f'[Template: {QUOTATION_DOWNLOAD_TEMPLATE_NAME}] {client_name}', 'template'))
             save_conn.commit()
     except Exception as save_err:
-        print(f"âš ï¸ Failed to save quotation template to messages: {save_err}")
+        print(f"⚠️ Failed to save quotation template to messages: {save_err}")
 
     return response_data
 
@@ -47969,7 +47976,7 @@ def send_contract_download_template(recipient_number, project_id, client_name=''
 
     response = requests.post(url, headers=headers, json=payload, timeout=45)
     response_data = response.json()
-    print(f"ðŸ“¨ Contract template [{CONTRACT_DOWNLOAD_TEMPLATE_NAME}] response [{response.status_code}]: {json.dumps(response_data, indent=2)[:2000]}")
+    print(f"📨 Contract template [{CONTRACT_DOWNLOAD_TEMPLATE_NAME}] response [{response.status_code}]: {json.dumps(response_data, indent=2)[:2000]}")
 
     if response.status_code != 200 or 'error' in response_data or not response_data.get('messages'):
         error_payload = response_data.get('error', response_data)
@@ -47995,7 +48002,7 @@ def send_contract_download_template(recipient_number, project_id, client_name=''
                   f'[Template: {CONTRACT_DOWNLOAD_TEMPLATE_NAME}] {client_name}', 'template'))
             save_conn.commit()
     except Exception as save_err:
-        print(f"âš ï¸ Failed to save contract template to messages: {save_err}")
+        print(f"⚠️ Failed to save contract template to messages: {save_err}")
 
     return response_data
 
@@ -48305,7 +48312,7 @@ def send_quotation_whatsapp():
             {'client_name': client_name, 'whatsapp_number': whatsapp_number, 'method': 'document'}
         )
 
-        print(f"âœ… Quotation PDF accepted by WhatsApp API for {whatsapp_number}: {whatsapp_response}")
+        print(f"✅ Quotation PDF accepted by WhatsApp API for {whatsapp_number}: {whatsapp_response}")
         return jsonify({
             'success': True,
             'message': f'Quotation accepted by WhatsApp API for {whatsapp_number} (delivery pending recipient status)',
@@ -48480,7 +48487,7 @@ def update_quotation(quotation_id):
             cursor.execute("DELETE FROM quotation_items WHERE quotation_id = %s", (quotation_id,))
             for idx, item in enumerate(items):
                 item_name = item.get('name') or item.get('item', 'Item')
-                # FIX: Frontend sends 'quantity', 'unitRate', 'totalPrice' â€” match save_quotation
+                # FIX: Frontend sends 'quantity', 'unitRate', 'totalPrice' — match save_quotation
                 quantity = float(item.get('quantity', 0)) if item.get('quantity') else 0
                 unit_rate = float(item.get('unitRate', 0)) if item.get('unitRate') else 0
                 total_price = float(item.get('totalPrice', 0)) if item.get('totalPrice') else 0
@@ -48496,7 +48503,7 @@ def update_quotation(quotation_id):
             # Replace schedules
             cursor.execute("DELETE FROM quotation_schedules WHERE quotation_id = %s", (quotation_id,))
             for idx, schedule in enumerate(schedules):
-                # FIX: Frontend sends 'workScope' not 'item' â€” match save_quotation
+                # FIX: Frontend sends 'workScope' not 'item' — match save_quotation
                 work_scope = schedule.get('workScope', schedule.get('item', 'Task'))
                 start_date = schedule.get('startDate')
                 end_date = schedule.get('endDate')
@@ -48526,7 +48533,7 @@ def update_quotation(quotation_id):
                 }
             )
         except Exception as log_err:
-            print(f"âš ï¸ Failed to log quotation update: {log_err}")
+            print(f"⚠️ Failed to log quotation update: {log_err}")
 
         return jsonify({
             'success': True,
@@ -48718,7 +48725,7 @@ def save_quotation():
                 """, (quotation_id, work_scope, start_date, end_date, days, idx + 1))
             
             connection.commit()
-            print(f"âœ… Quotation {quotation_id} saved successfully with total cost: {total_cost}")
+            print(f"✅ Quotation {quotation_id} saved successfully with total cost: {total_cost}")
             
         # Log the activity
         try:
@@ -48736,7 +48743,7 @@ def save_quotation():
                 }
             )
         except Exception as log_err:
-            print(f"âš ï¸ Failed to log quotation activity: {log_err}")
+            print(f"⚠️ Failed to log quotation activity: {log_err}")
             
         return jsonify({
             'success': True,
@@ -48866,7 +48873,7 @@ def get_quotations():
                     } for row in ensured]
                     derived_tasks += len(ensured)
             if derived_tasks:
-                print(f"ðŸ“… Rebuilt {derived_tasks} work-schedule task(s) for quotations missing their Gantt schedule")
+                print(f"📅 Rebuilt {derived_tasks} work-schedule task(s) for quotations missing their Gantt schedule")
 
             result = []
             for quotation in quotations:
@@ -49425,7 +49432,7 @@ def get_project_schedule(project_id):
                 try:
                     import json
                     schedule_list = json.loads(adjusted_schedules_json_str)
-                    print(f"âœ… Returning {len(schedule_list)} project-specific adjusted schedules for project {project_id}")
+                    print(f"✅ Returning {len(schedule_list)} project-specific adjusted schedules for project {project_id}")
                     return jsonify({
                         'success': True,
                         'schedules': schedule_list,
@@ -49433,7 +49440,7 @@ def get_project_schedule(project_id):
                         'quotationId': quotation_id
                     })
                 except json.JSONDecodeError as e:
-                    print(f"âš ï¸ Could not parse project adjusted schedules: {e}")
+                    print(f"⚠️ Could not parse project adjusted schedules: {e}")
                     # Fall through to use quotation schedules as fallback
             
             # PRIORITY 2: If no project-specific schedules, get schedules from the linked quotation
@@ -49458,7 +49465,7 @@ def get_project_schedule(project_id):
                 for schedule in schedules
             ]
             
-            print(f"âœ… Returning {len(schedule_list)} quotation schedules for project {project_id} (from quotation {quotation_id})")
+            print(f"✅ Returning {len(schedule_list)} quotation schedules for project {project_id} (from quotation {quotation_id})")
             
             return jsonify({
                 'success': True,
@@ -49534,7 +49541,7 @@ def update_project_schedule(project_id):
             project_name, client_name = result[1], result[2]
             old_start_date, old_schedules_json = result[3], result[4]
             
-            # 1ï¸âƒ£ Update quotation_schedules (affects all projects using this quotation)
+            # 1️⃣ Update quotation_schedules (affects all projects using this quotation)
             for idx, schedule in enumerate(schedules):
                 cursor.execute("""
                     UPDATE quotation_schedules
@@ -49548,11 +49555,11 @@ def update_project_schedule(project_id):
                     idx + 1
                 ))
             
-            # 2ï¸âƒ£ Also save as project-specific adjusted_schedules_json so GET always returns latest
+            # 2️⃣ Also save as project-specific adjusted_schedules_json so GET always returns latest
             import json as json_module
             adjusted_schedules_json = json_module.dumps(schedules)
             
-            # 3ï¸âƒ£ Sync project start date with first schedule's start date
+            # 3️⃣ Sync project start date with first schedule's start date
             first_start_date = schedules[0].get('startDate') if schedules else None
             
             if first_start_date:
@@ -50032,7 +50039,7 @@ def inhouse_pdf():
         if period not in ranges:
             period = 'this_week'
         ws, we, label = ranges[period]
-        date_span = f"{ws.strftime('%d %B %Y')} â€” {we.strftime('%d %B %Y')}"
+        date_span = f"{ws.strftime('%d %B %Y')} — {we.strftime('%d %B %Y')}"
 
         rows = []
         total = 0.0
@@ -50092,7 +50099,7 @@ tfoot td {{ border-top:2px solid #1E2A56; font-weight:800; color:#1E2A56; font-s
   <div class="head">
     <div>
       <h1>Budgeted In-House Cost</h1>
-      <div class="sub">Running projects â€” {label} ({rows and f'{len(rows)} project(s)' or 'no spend'})</div>
+      <div class="sub">Running projects — {label} ({rows and f'{len(rows)} project(s)' or 'no spend'})</div>
     </div>
     <div class="meta"><b>Period:</b> {date_span}<br><b>Generated:</b> {datetime.now().strftime('%d %B %Y at %H:%M')}</div>
   </div>
@@ -50101,7 +50108,7 @@ tfoot td {{ border-top:2px solid #1E2A56; font-weight:800; color:#1E2A56; font-s
     <tbody>{rows_html}</tbody>
     <tfoot><tr><td class="c" colspan="1"></td><td colspan="2">TOTAL IN-HOUSE FOR PERIOD</td><td class="num">USD {_money(total)}</td><td class="num"></td></tr></tfoot>
   </table>
-  <div class="footer">ConnectLink Properties Â· Budgeted in-house cost = quotation base (client price Ã· markup) Â· Spend is spread across each project's work-plan dates</div>
+  <div class="footer">ConnectLink Properties · Budgeted in-house cost = quotation base (client price ÷ markup) · Spend is spread across each project's work-plan dates</div>
 </div>
 </body></html>"""
 
@@ -50436,7 +50443,7 @@ def save_contractor_details():
 
 
 # ----------------------------------------------------------------------
-# Quick View Stats API â€“ aggregated project activity for the dashboard modal
+# Quick View Stats API – aggregated project activity for the dashboard modal
 # ----------------------------------------------------------------------
 @app.route('/api/quick-view-stats', methods=['GET'])
 def quick_view_stats():
@@ -50594,7 +50601,7 @@ def today_stats():
             projects_captured_today = cursor.fetchone()[0]
 
             # Projects completed today = those whose end date (project start date + duration)
-            # lands on today. No new column needed â€” computed from existing fields each day.
+            # lands on today. No new column needed — computed from existing fields each day.
             cursor.execute("""
                 SELECT COUNT(*) FROM connectlinkdatabase 
                 WHERE projectstartdate IS NOT NULL
@@ -51217,9 +51224,9 @@ def monthly_leave_accrual(triggered_by='scheduler'):
                     if resp.status_code == 200:
                         sent_count += 1
                     else:
-                        print(f"âš ï¸ Failed to send balance update to {emp_name}: {resp.status_code}")
+                        print(f"⚠️ Failed to send balance update to {emp_name}: {resp.status_code}")
                 except Exception as wa_err:
-                    print(f"âš ï¸ Error sending to {emp_name}: {wa_err}")
+                    print(f"⚠️ Error sending to {emp_name}: {wa_err}")
 
             # Log successful run
             cursor.execute("""
@@ -51227,10 +51234,10 @@ def monthly_leave_accrual(triggered_by='scheduler'):
                 VALUES ('success', %s, %s, %s)
             """, (updated, updated_types, triggered_by))
             connection.commit()
-            print(f"âœ… Monthly leave accrual applied: {updated} employees, {updated_types} leave-type balances ({triggered_by})")
-            print(f"ðŸ“¤ Leave balance update notifications sent to {sent_count}/{len(employees)} employees")
+            print(f"✅ Monthly leave accrual applied: {updated} employees, {updated_types} leave-type balances ({triggered_by})")
+            print(f"📤 Leave balance update notifications sent to {sent_count}/{len(employees)} employees")
     except Exception as e:
-        print(f"âŒ Monthly leave accrual error: {e}")
+        print(f"❌ Monthly leave accrual error: {e}")
         try:
             with get_db() as (log_cursor, log_conn):
                 log_cursor.execute("""
@@ -51247,7 +51254,7 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(func=monthly_leave_accrual, trigger='cron', day='1', hour='0', minute='5', id='monthly_leave_accrual')
 try:
     scheduler.start()
-    print("âœ… Monthly leave accrual scheduler started (runs 1st of each month at 00:05)")
+    print("✅ Monthly leave accrual scheduler started (runs 1st of each month at 00:05)")
 except Exception as e:
     print(f"Note: Scheduler may already be running: {e}")
 
@@ -51264,7 +51271,7 @@ PROC_PERM_COLUMNS = ('can_create_requisitions', 'can_approve_requisitions',
                      'can_authorise_purchase_orders', 'can_authorise_requisitions')
 
 # Every permission that means "this person runs procurement", and therefore "they may do
-# the FIRST requisition sign-off". Any ONE of them is enough â€” see
+# the FIRST requisition sign-off". Any ONE of them is enough — see
 # _procurement_can_authorise_req below.
 PROC_REQ_SIGNOFF_PERMS = ('can_authorise_requisitions', 'can_approve_requisitions',
                           'can_manage_purchase_orders', 'can_authorise_purchase_orders',
@@ -51276,14 +51283,14 @@ def _procurement_flags_for(source_system=None, source_id=None, admin_user_id=Non
     """A person's PROCUREMENT permission flags, found WHEREVER they were granted.
 
     User Management lists and edits the PROJECTS permission row (`user_type='projects'`)
-    for anybody who has one â€” that is the row an administrator actually ticks. An
+    for anybody who has one — that is the row an administrator actually ticks. An
     admin_users record, however, may declare a different `source_system`, or a NULL
     `source_id` in which case the code falls back to the admin_users id. Reading ONLY the
     declared pair therefore missed grants that are plainly visible in the UI, and the
     workaround was to hand out "Projects access" as well, just to make a procurement
     permission take effect.
 
-    This looks at both rows â€” the declared one AND the projects row for the same id â€” and
+    This looks at both rows — the declared one AND the projects row for the same id — and
     ORs the flags together. ONLY these procurement flags are merged: `is_super_admin` and
     every portal-wide flag keep coming from the declared row, so this can widen a
     person's procurement sign-off rights and nothing else.
@@ -51336,13 +51343,13 @@ def _procurement_perms():
             # ...then WIDEN with the procurement flags wherever they were granted, so a
             # tick in User Management counts even when this account's source_system /
             # source_id point at a different permission row (see _procurement_flags_for
-            # â€” this is what stopped a procurement-only user needing "Projects access").
+            # — this is what stopped a procurement-only user needing "Projects access").
             for _flag, _on in _procurement_flags_for(source_sys, session.get('source_id'),
                                                      userid).items():
                 if _on:
                     perms[_flag] = True
             # A CAPABILITY view, not the raw row: the sign-off gates accept ANY of the
-            # procurement permissions, so the buttons must agree with the server â€”
+            # procurement permissions, so the buttons must agree with the server —
             # otherwise a Manage-POs user sees Authorise greyed out while the server
             # would have allowed it.
             if _procurement_can_authorise_req(perms):
@@ -51373,7 +51380,7 @@ def _procurement_perm_required(perm):
 
 @app.route('/procurement-login', methods=['POST'])
 def procurement_login():
-    """Procurement portal login â€” ANY valid admin_users account can access.
+    """Procurement portal login — ANY valid admin_users account can access.
     Individual actions are gated by perms (buttons grey out on the page)."""
     try:
         email_or_username = request.form.get('emaillogin', '').strip()
@@ -51644,7 +51651,7 @@ def procurement_api_categories():
 
 REQ_STOCK_STATUSES = ('in_stock', 'partial', 'not_in_stock')
 REQ_FUNDS_STATUSES = ('yes', 'partial', 'no')
-# Passcode required to DELETE a requisition â€” same admin-passcode convention used by
+# Passcode required to DELETE a requisition — same admin-passcode convention used by
 # the rest of the app, overridable via the PROCUREMENT_DELETE_PASSCODE env var.
 PROC_REQ_DELETE_PASSCODE = os.environ.get('PROCUREMENT_DELETE_PASSCODE', 'conlink01admin01')
 
@@ -51652,7 +51659,7 @@ PROC_REQ_DELETE_PASSCODE = os.environ.get('PROCUREMENT_DELETE_PASSCODE', 'conlin
 # convention as the delete passcode above, overridable via the env var.
 # THE DESIGNATED ROUTE THAT NEEDS NO PASSCODE is receiving a purchase order: marking
 # its items as received on the Purchase Orders tab brings those goods into the
-# workshop register automatically. That is the whole point of the gate â€” items are
+# workshop register automatically. That is the whole point of the gate — items are
 # meant to arrive through a document, and adding one by hand is the exception.
 PROC_WORKSHOP_ITEM_PASSCODE = os.environ.get('PROCUREMENT_WORKSHOP_PASSCODE',
                                              'conlink01admin01')
@@ -51662,7 +51669,7 @@ PROC_WORKSHOP_ITEM_PASSCODE = os.environ.get('PROCUREMENT_WORKSHOP_PASSCODE',
 # requisition that is already committed to a purchase order is refused.
 REQ_DELETABLE_STATUSES = ('draft', 'submitted', 'authorised', 'approved', 'cancelled', 'rejected')
 # Statuses a requisition may be EDITED from. A `rejected` (declined) requisition used
-# to be a dead end â€” it could not be edited and could not be submitted again, so the
+# to be a dead end — it could not be edited and could not be submitted again, so the
 # only ways out were Cancel or Delete. Editing keeps it `rejected` (so the decline
 # reason stays visible while the requester fixes it); submitting it then RESUBMITS it
 # back to `submitted` and re-notifies the authorisers. Editing a `rejected`
@@ -51685,15 +51692,15 @@ def _req_stock_label(status):
     the PDF and on their phone. KEEP the phrasing in sync with the `stock_map` in
     _render_req_pdf()."""
     labels = {
-        'in_stock': 'Fully in stock â€” already in the company and already bought',
-        'partial': 'Partly in stock â€” the shortfall must be purchased',
-        'not_in_stock': 'Not in stock â€” must all be purchased from a supplier',
+        'in_stock': 'Fully in stock — already in the company and already bought',
+        'partial': 'Partly in stock — the shortfall must be purchased',
+        'not_in_stock': 'Not in stock — must all be purchased from a supplier',
     }
     return labels.get(str(status or '').strip().lower(), labels['not_in_stock'])
 
 
 def _req_projects_line(project_ref):
-    """Project NAME(s) for a WhatsApp message â€” short form only.
+    """Project NAME(s) for a WhatsApp message — short form only.
 
     `requisitions.project_ref` holds labels like '<id>--<name>--<location>--<client>'
     joined with ' | ' (see _req_sync_projects). Only the NAME is kept: these ride
@@ -51733,7 +51740,7 @@ def _proc_received_on(raw, now=None):
     Accepts what a date input posts ('YYYY-MM-DD') and what a datetime input posts
     ('YYYY-MM-DDTHH:MM', also with a space, also with seconds). Only the DATE is taken
     from the input; it is combined with the CURRENT time of day so the stamp reads like
-    every other sign-off ('23 August 2026 at 14:33') instead of a suspicious 00:00 â€” and
+    every other sign-off ('23 August 2026 at 14:33') instead of a suspicious 00:00 — and
     so a receipt recorded late still lands in the right reporting period in the
     workshop ledger. An unparseable or empty value returns None = "now" (the previous
     behaviour), so a bad payload can never lose the receipt.
@@ -51741,7 +51748,7 @@ def _proc_received_on(raw, now=None):
     `now` is the clock the time of day is read from, and the caller MUST pass the
     DATABASE clock. This app container runs UTC while the database session runs
     Africa/Harare, so `datetime.now()` here stamped a dated receipt two hours before the
-    database stamped the very same transaction â€” the movement read 21:23 while the item's
+    database stamped the very same transaction — the movement read 21:23 while the item's
     `updated_at` said 23:23, and a receipt recorded just after midnight could be filed a
     day early. None keeps the old behaviour for a caller with no cursor (there is none)."""
     s = str(raw or '').strip().replace('T', ' ')
@@ -51754,12 +51761,12 @@ def _proc_received_on(raw, now=None):
             return datetime.combine(d.date(), now.time()).replace(microsecond=0)
         except ValueError:
             continue
-    print(f"Receipt date not understood ({raw!r}) â€” using the server clock")
+    print(f"Receipt date not understood ({raw!r}) — using the server clock")
     return None
 
 
 def _req_nos_for_ids(cursor, ids_csv):
-    """'4,5' -> 'REQ-0001, REQ-0005' â€” the requisition NUMBERS behind a purchase order.
+    """'4,5' -> 'REQ-0001, REQ-0005' — the requisition NUMBERS behind a purchase order.
 
     The PO list, the View PO modal and the PO PDF all printed the raw
     `purchase_orders.requisition_ids` ('4'), which tells a reader nothing: 4 is a row id,
@@ -51778,25 +51785,25 @@ def _req_nos_for_ids(cursor, ids_csv):
 def _req_item_line(name, qty, project_ref):
     """One line item for a WhatsApp item list, WITH the project it is needed for.
 
-    e.g. 'Cement 50kg (x40 â€” Rainham Park)'. The project is folded into the ITEM text
+    e.g. 'Cement 50kg (x40 — Rainham Park)'. The project is folded into the ITEM text
     instead of taking a template variable of its own, because the whole listing is a
-    single variable â€” so per-item projects cost NO extra placeholder in Meta. An item
+    single variable — so per-item projects cost NO extra placeholder in Meta. An item
     with no project still reads 'Cement 50kg (x40)'."""
     label = (name or '').strip()
     proj = _req_projects_line(project_ref)
     if qty:
-        label += f" (x{_proc_qty_str(qty)}{' â€” ' + proj if proj else ''})"
+        label += f" (x{_proc_qty_str(qty)}{' — ' + proj if proj else ''})"
     elif proj:
-        label += f" â€” {proj}"
+        label += f" — {proj}"
     return label
 
 
 def _req_items_summary(items, limit=3, with_projects=True):
-    """'Cement 50kg (x40 â€” Rainham Park); Boards (x6) +2 more' for a requisition.
+    """'Cement 50kg (x40 — Rainham Park); Boards (x6) +2 more' for a requisition.
 
     SHARED by the two WhatsApp messages so they always read the same way:
-      â€¢ the AUTHORISATION request ({{10}}) folds each item's project into the item text,
-      â€¢ the requester's STATUS update ({{5}}) has a projects variable of its OWN, so it
+      • the AUTHORISATION request ({{10}}) folds each item's project into the item text,
+      • the requester's STATUS update ({{5}}) has a projects variable of its OWN, so it
         passes with_projects=False and the project is not repeated in every line.
     Capped at `limit` items plus a '+N more' tail: a WhatsApp body has to stay short.
     Blank item names are skipped, exactly as the authorisation summary always did.
@@ -51814,7 +51821,7 @@ def _req_items_summary(items, limit=3, with_projects=True):
     count = len(items)
     if count > len(parts):
         parts.append(f"+{count - len(parts)} more")
-    return '; '.join(parts) if parts else 'â€”'
+    return '; '.join(parts) if parts else '—'
 
 
 def _req_funds_status(value):
@@ -51879,8 +51886,8 @@ def _item_project_id(it):
 
 
 def _archive_requisition(cursor, rid, user, reason=''):
-    """Snapshot a requisition â€” header, line items, their supplier quotes and the
-    quote attachments â€” into `deleted_requisitions` BEFORE it is removed.
+    """Snapshot a requisition — header, line items, their supplier quotes and the
+    quote attachments — into `deleted_requisitions` BEFORE it is removed.
     Returns the archived req_no (or None when the requisition does not exist).
     Everything is JSON-serialised, so date/Decimal values are stringified."""
     cursor.execute("SELECT * FROM requisitions WHERE id = %s", (rid,))
@@ -51970,7 +51977,7 @@ def _procurement_resolve_assignee(cursor, raw_id, checker):
     """Validate a picked sign-off user id: must exist, be active, and STILL hold the
     matching permission. Returns (user_id, name) or (None, '') when invalid, in
     which case the caller falls back to notifying everyone eligible.
-    A posted name is never trusted â€” the name is always resolved from the DB."""
+    A posted name is never trusted — the name is always resolved from the DB."""
     try:
         uid = int(raw_id)
     except (TypeError, ValueError):
@@ -52213,8 +52220,8 @@ def procurement_api_requisition_detail(rid):
 def procurement_api_update_requisition(rid):
     """Edit a draft OR a DECLINED requisition (requester/creator or super admin).
 
-    A declined requisition stays declined after the edit â€” the decline reason keeps
-    showing so the requester can see what to fix â€” and is then resubmitted with the
+    A declined requisition stays declined after the edit — the decline reason keeps
+    showing so the requester can see what to fix — and is then resubmitted with the
     normal submit route."""
     data = request.get_json() or {}
     title = (data.get('title') or '').strip()
@@ -52230,7 +52237,7 @@ def procurement_api_update_requisition(rid):
                 return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
             if row[2] not in REQ_EDITABLE_STATUSES:
                 return jsonify({'success': False,
-                                'error': 'Only a draft or a declined requisition can be edited â€” '
+                                'error': 'Only a draft or a declined requisition can be edited — '
                                          f'this requisition is {str(row[2] or "").replace("_", " ")}. '}), 400
             perms = _procurement_perms()
             is_owner = (row[3] == user['id'])
@@ -52315,16 +52322,16 @@ def procurement_api_update_requisition(rid):
 def procurement_api_submit_requisition(rid):
     """Submit a requisition for authorisation. THREE cases, distinguished by status:
 
-    * `draft`     â€” the normal path: becomes `submitted`.
-    * `submitted` â€” only RE-SENDS the authorisation request and leaves the status
+    * `draft`     — the normal path: becomes `submitted`.
+    * `submitted` — only RE-SENDS the authorisation request and leaves the status
                     alone. That is what the Send button on a submitted row means, and
                     it is how you retry after a WhatsApp delivery failure (the button
                     was always offered for submitted rows, but the route used to reject
                     them with 'Only drafts can be submitted').
-    * `rejected`  â€” RESUBMITS a declined requisition: back to `submitted`, the decline
+    * `rejected`  — RESUBMITS a declined requisition: back to `submitted`, the decline
                     reason is cleared (it was already recorded in the activity log)
                     and the authorisers are notified again. This is the other half of
-                    letting a declined requisition be edited â€” without it the fix would
+                    letting a declined requisition be edited — without it the fix would
                     go nowhere.
     """
     perms = _procurement_perms()
@@ -52338,7 +52345,7 @@ def procurement_api_submit_requisition(rid):
             status = row[2]
             if status not in ('draft', 'submitted', 'rejected'):
                 return jsonify({'success': False,
-                                'error': f'Only a draft or a declined requisition can be submitted â€” '
+                                'error': f'Only a draft or a declined requisition can be submitted — '
                                          f'this requisition is {str(status or "").replace("_", " ")}.'}), 400
             is_owner = (row[3] == user['id'])
             if not perms.get('is_super_admin', False) and not perms.get('can_create_requisitions', False) and not is_owner:
@@ -52364,7 +52371,7 @@ def procurement_api_submit_requisition(rid):
         if resend:
             log_activity('requisition_resend', f'Re-sent the authorisation request for {row[1]}', 'requisition', rid)
             return jsonify({'success': True,
-                            'message': f'{row[1]} is already awaiting authorisation â€” the request was re-sent.'})
+                            'message': f'{row[1]} is already awaiting authorisation — the request was re-sent.'})
         if resubmit:
             return jsonify({'success': True,
                             'message': f'{row[1]} resubmitted for authorisation.',
@@ -52375,7 +52382,7 @@ def procurement_api_submit_requisition(rid):
 
 
 # ============================================================================
-# WORKSHOP STORE â€” GOODS ISSUED WHEN AN "IN STOCK" REQUISITION IS AUTHORISED
+# WORKSHOP STORE — GOODS ISSUED WHEN AN "IN STOCK" REQUISITION IS AUTHORISED
 # ============================================================================
 
 def _procurement_issue_req_stock(cursor, rid, user_id=None, user_name=None, when=None):
@@ -52384,7 +52391,7 @@ def _procurement_issue_req_stock(cursor, rid, user_id=None, user_name=None, when
     Called the moment a requisition is AUTHORISED (the in-app route and a WhatsApp
     reqappr_ tap both come through here). A requisition whose availability is
     'in_stock' describes goods that are already in the company and already bought, so
-    authorising it is what RELEASES them â€” the reduction side of the workshop ledger.
+    authorising it is what RELEASES them — the reduction side of the workshop ledger.
 
     Writes into the WORKSHOP's OWN tables only. The workshop is a separate section of
     the company, so this must never touch the shop's inventory. Goods are matched into
@@ -52419,7 +52426,7 @@ def _procurement_issue_req_stock(cursor, rid, user_id=None, user_name=None, when
         WHERE reason = 'requisition_in_stock' AND reference = %s LIMIT 1
     """, (req_no,))
     if cursor.fetchone():
-        return 0, []                    # already issued â€” never move the same goods twice
+        return 0, []                    # already issued — never move the same goods twice
 
     cursor.execute("""
         SELECT id, product_name, quantity
@@ -52460,7 +52467,7 @@ def procurement_api_authorise_requisition(rid):
     """FIRST layer of the requisition workflow: AUTHORISE a submitted requisition.
 
     submitted -> authorised. Only then may the logger raise a purchase order for
-goods that are NOT already in stock â€” and that PO goes STRAIGHT to the approver
+goods that are NOT already in stock — and that PO goes STRAIGHT to the approver
 (its attached requisition is already authorised, so no second authorisation).
     When the logger ticked "notify the approver" on the form, the approvers get an
     INFO-ONLY WhatsApp notice: there is nothing for them to approve at this stage.
@@ -52489,7 +52496,7 @@ goods that are NOT already in stock â€” and that PO goes STRAIGHT to the ap
                 WHERE id=%s
             """, (user['name'], rid))
             # Authorising an "in stock" requisition IS the issue: the goods leave the
-            # WORKSHOP store here. Best-effort â€” a stock hiccup must never block the
+            # WORKSHOP store here. Best-effort — a stock hiccup must never block the
             # authorisation itself.
             try:
                 _procurement_issue_req_stock(cursor, rid, user['id'], user.get('name'))
@@ -52524,7 +52531,7 @@ goods that are NOT already in stock â€” and that PO goes STRAIGHT to the ap
 @_procurement_perm_required('can_approve_requisitions')
 def procurement_api_approve_requisition(rid):
     data = request.get_json() or {}
-    choices = data.get('choices') or {}   # {item_id: chosen supplier_quote_id} â€” approver may override preferred
+    choices = data.get('choices') or {}   # {item_id: chosen supplier_quote_id} — approver may override preferred
     user = _procurement_user()
     perms = _procurement_perms()
     ws_warning = None
@@ -52583,7 +52590,7 @@ def procurement_api_approve_requisition(rid):
             no_funds = (req_funds == 'no')
             return jsonify({
                 'success': True,
-                'message': 'Requisition approved.' + (' âš  NOTE: this requisition is marked NO FUNDS to buy.' if no_funds else ''),
+                'message': 'Requisition approved.' + (' ⚠ NOTE: this requisition is marked NO FUNDS to buy.' if no_funds else ''),
                 'funds_warning': no_funds,
                 'workshop_warning': ws_warning,
             })
@@ -52599,8 +52606,8 @@ def procurement_api_requisition_funds(rid):
 
     The requester declares on the form whether the goods are already in the company
     AND already bought (`stock_status`). When they are not, the person doing the
-    sign-off records whether the money to buy them is available â€” 'yes' / 'partial' /
-    'no' plus an optional note â€” and that is what the approver then sees.
+    sign-off records whether the money to buy them is available — 'yes' / 'partial' /
+    'no' plus an optional note — and that is what the approver then sees.
     Body: {status: 'yes'|'partial'|'no'|'' (blank clears it), note: '...'}
     """
     data = request.get_json() or {}
@@ -52632,10 +52639,10 @@ def procurement_api_requisition_funds(rid):
                         funds_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=%s
                 """, (status, note or None, user['name'], rid))
                 message = {'yes': 'Funds confirmed available.', 'partial': 'Funds recorded as PARTIAL.',
-                           'no': 'Recorded as NO FUNDS â€” the approver will be warned.'}[status]
+                           'no': 'Recorded as NO FUNDS — the approver will be warned.'}[status]
             connection.commit()
             log_activity('requisition_funds',
-                         f'Funds check on {row[1]}: {status or "cleared"} by {user["name"]}{" â€” " + note if note else ""}',
+                         f'Funds check on {row[1]}: {status or "cleared"} by {user["name"]}{" — " + note if note else ""}',
                          'requisition', rid)
         return jsonify({'success': True, 'message': message, 'funds_status': status or None})
     except Exception as e:
@@ -52715,7 +52722,7 @@ def procurement_api_delete_requisition(rid):
             row = cursor.fetchone()
             if not row:
                 return jsonify({'success': False, 'error': 'Requisition not found.'}), 404
-            # A requisition on a purchase order must keep existing â€” the PO stores
+            # A requisition on a purchase order must keep existing — the PO stores
             # its ids, so deleting it would leave the PO pointing at nothing.
             cursor.execute("""
                 SELECT po_no FROM purchase_orders
@@ -52726,19 +52733,19 @@ def procurement_api_delete_requisition(rid):
             po_ref = cursor.fetchone()
             if po_ref:
                 return jsonify({'success': False,
-                                'error': f'{row[1]} is on purchase order {po_ref[0]} â€” '
+                                'error': f'{row[1]} is on purchase order {po_ref[0]} — '
                                          f'remove it from that order first.'}), 400
             if row[2] not in REQ_DELETABLE_STATUSES:
                 return jsonify({'success': False, 'error': f'A {str(row[2]).replace("_", " ")} requisition is already committed and cannot be deleted.'}), 400
             is_owner = (row[3] == user['id'])
             if not perms.get('is_super_admin', False) and not perms.get('can_manage_purchase_orders', False) and not is_owner:
                 return jsonify({'success': False, 'error': 'Access denied.'}), 403
-            # Snapshot FIRST â€” the FK cascade wipes requisition_items on delete.
+            # Snapshot FIRST — the FK cascade wipes requisition_items on delete.
             _archive_requisition(cursor, rid, user, reason)
             cursor.execute("DELETE FROM requisitions WHERE id = %s", (rid,))
             connection.commit()
             log_activity('requisition_delete',
-                         f'Deleted requisition {row[1]} (passcode verified) â€” archived'
+                         f'Deleted requisition {row[1]} (passcode verified) — archived'
                          + (f': {reason}' if reason else ''), 'requisition', rid)
             return jsonify({'success': True,
                             'message': f'{row[1]} deleted and archived to the Deleted Requisitions log.'})
@@ -52838,7 +52845,7 @@ def _po_overcost_data(cursor):
             po_proj[po_id] = pid
             proj_total[pid] = proj_total.get(pid, 0.0) + float(total or 0)
     except Exception as e:
-        print(f"âš ï¸ _po_overcost_data PO linkage failed: {e}")
+        print(f"⚠️ _po_overcost_data PO linkage failed: {e}")
         return {}, {}
     if not proj_total:
         return {}, {}
@@ -52863,7 +52870,7 @@ def _po_overcost_data(cursor):
                 'over': po_total > base
             }
     except Exception as e:
-        print(f"âš ï¸ _po_overcost_data base calc failed: {e}")
+        print(f"⚠️ _po_overcost_data base calc failed: {e}")
     return project_map, po_proj
 
 
@@ -52922,7 +52929,7 @@ def procurement_api_purchase_orders():
                     'authorised_at': str(r[21]) if r[21] else None,
                     'approved_by': r[22] or '',
                     'approved_at': str(r[23]) if r[23] else None,
-                    # APPENDED last on purpose â€” this SELECT is unpacked positionally.
+                    # APPENDED last on purpose — this SELECT is unpacked positionally.
                     'funds_received_at': str(r[24]) if r[24] else None
                 })
             # The Requisitions column used to print the raw ids ('4'). Resolve them to the
@@ -52999,7 +53006,7 @@ def procurement_api_po_assignees():
 @login_required
 def procurement_api_requesters():
     """Slim list of people who can appear as the PO 'Requested By' (HR employees +
-    active admin_users), merged by name. Deliberately tiny â€” the New PO form used to
+    active admin_users), merged by name. Deliberately tiny — the New PO form used to
     pull the whole /api/hr/employees payload (24 columns per employee) just to fill
     this dropdown."""
     try:
@@ -53055,7 +53062,7 @@ def procurement_api_create_purchase_order():
     # NO AUTHORISER. The user's rule: a requisition must be AUTHORISED before it can be
     # attached to a purchase order, so the PO has nothing left to authorise at PO level
     # and goes STRAIGHT to the approver. `authoriser_id` is no longer read (an older
-    # cached page may still post it â€” it is ignored rather than rejected).
+    # cached page may still post it — it is ignored rather than rejected).
     approver_id = data.get('approver_id')
     user = _procurement_user()
     if not req_ids or not isinstance(req_ids, list):
@@ -53104,7 +53111,7 @@ def procurement_api_create_purchase_order():
                   -- THE RULE: a requisition must have been AUTHORISED before it can be
                   -- attached to a purchase order. `authorised_at` is stamped by BOTH
                   -- authorisation paths (the in-app button and the WhatsApp tap), so it
-                  -- is the reliable marker â€” status alone is not, because the requisition
+                  -- is the reliable marker — status alone is not, because the requisition
                   -- approve route also accepts 'submitted'/'draft'.
                   AND r.authorised_at IS NOT NULL
             """
@@ -53117,7 +53124,7 @@ def procurement_api_create_purchase_order():
             if not items:
                 if excluded_item_ids:
                     return jsonify({'success': False,
-                                    'error': 'Every line of the selected requisition(s) was deselected â€” '
+                                    'error': 'Every line of the selected requisition(s) was deselected — '
                                              'nothing left to order. Re-tick the lines you need.'}), 400
                 # Say WHICH rule failed rather than a blanket 'no refused requisitions'.
                 cursor.execute(f"""
@@ -53129,7 +53136,7 @@ def procurement_api_create_purchase_order():
                 _unauth = cursor.fetchone()
                 if _unauth:
                     return jsonify({'success': False,
-                                    'error': f'{_unauth[0]} has not been authorised yet â€” a purchase order can '
+                                    'error': f'{_unauth[0]} has not been authorised yet — a purchase order can '
                                              f'only be raised from an authorised requisition.'}), 400
                 return jsonify({'success': False, 'error': 'No authorised requisitions with items were selected.'}), 400
 
@@ -53172,13 +53179,13 @@ def procurement_api_create_purchase_order():
             connection.commit()
             log_activity('po_create', f'Created {po_no} ({supplier_name or "No supplier"}) from {len(req_ids)} requisition(s)', 'purchase_order', po_id)
             # Every attached requisition is already authorised, so the PO goes STRAIGHT
-            # to the APPROVER â€” there is no PO-level authorisation step.
+            # to the APPROVER — there is no PO-level authorisation step.
             try:
                 _procurement_notify_po_approvers(po_id, approver_uid)
             except Exception as nfe:
                 print(f"PO notify error: {nfe}")
             return jsonify({'success': True,
-                            'message': f'{po_no} created â€” sent to the approver '
+                            'message': f'{po_no} created — sent to the approver '
                                        f'(attached requisition already authorised). Total: USD {total:,.2f}'})
     except Exception as e:
         print(f"Create PO error: {e}")
@@ -53226,7 +53233,7 @@ def procurement_api_po_funds_received(po_id):
                          'purchase_order', po_id)
         if when:
             return jsonify({'success': True,
-                            'message': f'Funds received recorded on {po[0]} â€” {_proc_short_date(when)} at {when.strftime("%H:%M")}.'})
+                            'message': f'Funds received recorded on {po[0]} — {_proc_short_date(when)} at {when.strftime("%H:%M")}.'})
         return jsonify({'success': True, 'message': f'Funds-received date cleared on {po[0]}.'})
     except Exception as e:
         print(f"PO funds-received error: {e}")
@@ -53269,12 +53276,12 @@ def procurement_api_authorise_po(po_id):
         # so they can only be reached with a template)
         try:
             _procurement_notify_po_status(
-                po_id, 'Authorised â€“ awaiting final approval',
+                po_id, 'Authorised – awaiting final approval',
                 f'Authorised by {_procurement_actor_name(user)} on {datetime.now().strftime("%d %B %Y")}',
                 exclude=[_procurement_actor_name(user)])
         except Exception as nse:
             print(f"PO status notify error: {nse}")
-        return jsonify({'success': True, 'message': f'{po[1]} authorised â€” now awaiting approval.'})
+        return jsonify({'success': True, 'message': f'{po[1]} authorised — now awaiting approval.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -53326,7 +53333,7 @@ def procurement_api_resend_po(po_id):
                                (the AUTHORISATION template, Authorise/Decline)
       pending_approval      -> _procurement_notify_po_approvers()
                                (the final APPROVAL template, Approve/Decline)
-    This is the RETRY path for a WhatsApp notification that never arrived â€” the PO
+    This is the RETRY path for a WhatsApp notification that never arrived — the PO
     itself is not modified. Allowed for whoever can sign at that stage, plus anyone
     who can manage purchase orders (normally the person who raised it)."""
     perms = _procurement_perms()
@@ -53349,12 +53356,12 @@ def procurement_api_resend_po(po_id):
             stage, who, target = 'approval', 'approver', po[4]
         else:
             return jsonify({'success': False,
-                            'error': f'Nothing is awaiting a signature â€” {po[1]} is '
+                            'error': f'Nothing is awaiting a signature — {po[1]} is '
                                      f'{str(status or "").replace("_", " ")}.'}), 400
         if not allowed:
             return jsonify({'success': False,
                             'error': f'Access denied: you cannot act on the PO {stage} stage.'}), 403
-        # Send OUTSIDE the connection â€” each notification is an HTTP call to Meta and
+        # Send OUTSIDE the connection — each notification is an HTTP call to Meta and
         # the pool only holds 3 (same reason the requisition re-send does this).
         try:
             if status == 'pending_authorisation':
@@ -53413,7 +53420,7 @@ def procurement_api_reject_po(po_id):
             _procurement_notify_po_status(
                 po_id, 'Declined',
                 f'Declined by {_procurement_actor_name(user)} at the {stage} stage on {datetime.now().strftime("%d %B %Y")}'
-                + (f' â€” reason: {reason}' if reason else ''),
+                + (f' — reason: {reason}' if reason else ''),
                 exclude=[_procurement_actor_name(user)])
         except Exception as nse:
             print(f"PO status notify error: {nse}")
@@ -53463,7 +53470,7 @@ def procurement_api_po_detail(po_id):
                 'mime_type': a[4], 'file_size': a[5], 'uploaded_by': a[6],
                 'uploaded_at': str(a[7]) if a[7] else None
             } for a in atts]
-            # The modal showed the raw ids ('4') â€” hand it the requisition NUMBERS.
+            # The modal showed the raw ids ('4') — hand it the requisition NUMBERS.
             po['requisition_nos'] = _req_nos_for_ids(cursor, po.get('requisition_ids'))
             project_map, po_proj = _po_overcost_data(cursor)
             pid = po_proj.get(po['id'])
@@ -53505,7 +53512,7 @@ def procurement_api_receive_po(po_id):
             db_now = cursor.fetchone()[0]
             received_on = _proc_received_on(data.get('received_at') or data.get('received_on'),
                                             db_now)
-            # A receipt cannot be dated in the future â€” that would put stock into a
+            # A receipt cannot be dated in the future — that would put stock into a
             # period that has not happened yet.
             if received_on and received_on > db_now:
                 return jsonify({'success': False,
@@ -53513,9 +53520,9 @@ def procurement_api_receive_po(po_id):
             if po[2] == 'received':
                 return jsonify({'success': False, 'error': 'PO already fully received.'}), 400
             if po[2] == 'pending_authorisation':
-                return jsonify({'success': False, 'error': 'PO is awaiting authorisation â€” it must be authorised then approved before goods can be received.'}), 400
+                return jsonify({'success': False, 'error': 'PO is awaiting authorisation — it must be authorised then approved before goods can be received.'}), 400
             if po[2] == 'pending_approval':
-                return jsonify({'success': False, 'error': 'PO is awaiting approval â€” it must be approved before goods can be received.'}), 400
+                return jsonify({'success': False, 'error': 'PO is awaiting approval — it must be approved before goods can be received.'}), 400
 
             cursor.execute("""
                 SELECT id, product_id, product_name, quantity_ordered, quantity_received, unit_cost
@@ -53530,7 +53537,7 @@ def procurement_api_receive_po(po_id):
                 # EVERY numeric read from the row is normalised to float FIRST.
                 # psycopg2 hands back Decimal for NUMERIC columns while _proc_qty_of()
                 # returns a float, and `Decimal + float` raises "unsupported operand
-                # type(s) for +: 'decimal.Decimal' and 'float'" â€” which is what made
+                # type(s) for +: 'decimal.Decimal' and 'float'" — which is what made
                 # Record receipt fail once quantities became NUMERIC(12,2).
                 qty_ordered = _proc_qty_of(ln[3])
                 qty_done = _proc_qty_of(ln[4])
@@ -53542,7 +53549,7 @@ def procurement_api_receive_po(po_id):
                 any_received = True
                 add = qty_rec
                 new_received = qty_done + add
-                # Received goods belong to the WORKSHOP â€” the two are separate sections
+                # Received goods belong to the WORKSHOP — the two are separate sections
                 # of the company (the user: "workshop only"). The line lands in the
                 # workshop's OWN register, matched on its name, so the workshop and the
                 # shop keep independent catalogues and independent stock. This no longer
@@ -53801,7 +53808,7 @@ def procurement_api_payables():
         with get_db() as (cursor, connection):
             cursor.execute("""
                 SELECT COALESCE(s.id, 0) AS supplier_id,
-                       COALESCE(s.name, po.supplier_name, 'â€”') AS supplier_name,
+                       COALESCE(s.name, po.supplier_name, '—') AS supplier_name,
                        COALESCE(SUM(po.total_amount), 0) AS total_po,
                        COALESCE(SUM(CASE WHEN po.status IN ('received','partial') THEN po.total_amount ELSE 0 END), 0) AS received_value,
                        COALESCE((SELECT SUM(p.amount) FROM supplier_payments p WHERE p.supplier_id = s.id), 0) AS paid
@@ -53899,13 +53906,13 @@ def procurement_api_analytics():
             total_paid = float(cursor.fetchone()[0] or 0)
 
             cursor.execute("""
-                SELECT COALESCE(supplier_name, 'â€”') AS name, COALESCE(SUM(total_amount),0) AS total
+                SELECT COALESCE(supplier_name, '—') AS name, COALESCE(SUM(total_amount),0) AS total
                 FROM purchase_orders GROUP BY supplier_name ORDER BY total DESC LIMIT 8
             """)
             by_supplier = [{'name': r[0], 'total': float(r[1] or 0)} for r in cursor.fetchall()]
 
             cursor.execute("""
-                SELECT COALESCE(r.department, 'â€”') AS name, COALESCE(SUM(ri.quantity * ri.unit_cost),0) AS total
+                SELECT COALESCE(r.department, '—') AS name, COALESCE(SUM(ri.quantity * ri.unit_cost),0) AS total
                 FROM requisition_items ri
                 JOIN requisitions r ON r.id = ri.requisition_id
                 WHERE r.status IN ('approved','po_created')
@@ -53914,7 +53921,7 @@ def procurement_api_analytics():
             by_department = [{'name': r[0], 'total': float(r[1] or 0)} for r in cursor.fetchall()]
 
             cursor.execute("""
-                SELECT COALESCE(ri.category, 'â€”') AS name, COALESCE(SUM(ri.quantity * ri.unit_cost),0) AS total
+                SELECT COALESCE(ri.category, '—') AS name, COALESCE(SUM(ri.quantity * ri.unit_cost),0) AS total
                 FROM requisition_items ri
                 JOIN requisitions r ON r.id = ri.requisition_id
                 WHERE r.status IN ('approved','po_created')
@@ -53932,7 +53939,7 @@ def procurement_api_analytics():
 
             cursor.execute("""
                 SELECT COALESCE(s.id, 0) AS sid,
-                       COALESCE(s.name, po.supplier_name, 'â€”') AS sname,
+                       COALESCE(s.name, po.supplier_name, '—') AS sname,
                        COALESCE(s.rating, 0) AS rating,
                        COUNT(po.id) AS po_count,
                        COALESCE(SUM(CASE WHEN po.status IN ('received','partial') THEN 1 ELSE 0 END), 0) AS received_count,
@@ -53999,7 +54006,7 @@ def _proc_esc(v):
 def _proc_short_date(v):
     """Document date format: '2 Feb 2026' (no leading zero, short month)."""
     if not v:
-        return 'â€”'
+        return '—'
     d = v
     if not hasattr(d, 'strftime'):
         s = str(v).replace('T', ' ')
@@ -54011,7 +54018,7 @@ def _proc_short_date(v):
             except Exception:
                 d = None
         if d is None:
-            return (s[:10] or 'â€”')
+            return (s[:10] or '—')
     try:
         return f"{d.day} {d.strftime('%b %Y')}"
     except Exception:
@@ -54023,11 +54030,11 @@ def _proc_long_date(v, with_time=False):
 
     The requisition PDF kept printing the short form ('23 Aug 2026') while the portal
     printed '23 August 2026' (`fmtDocDate` in the procurement UI): the SAME date read
-    differently on screen and on the printed form. The long month name is deliberate â€”
-    an abbreviated one is too easy to misread â€” so the document now matches the screen.
+    differently on screen and on the printed form. The long month name is deliberate —
+    an abbreviated one is too easy to misread — so the document now matches the screen.
     Anything unparseable falls back to `_proc_short_date`, i.e. never to a blank."""
     if not v:
-        return 'â€”'
+        return '—'
     d = v
     if not hasattr(d, 'strftime'):
         s = str(v).replace('T', ' ')
@@ -54087,7 +54094,7 @@ def _proc_pdf_kit():
         'base': ParagraphStyle('base', fontName='Helvetica', fontSize=9, leading=12.4, textColor=C['text']),
         'small': ParagraphStyle('small', fontName='Helvetica', fontSize=7.5, leading=10, textColor=C['muted']),
         'tiny': ParagraphStyle('tiny', fontName='Helvetica-Bold', fontSize=6.2, leading=8.6, textColor=C['faint']),
-        # Small PLAIN type for the second line of a table cell â€” the document or project
+        # Small PLAIN type for the second line of a table cell — the document or project
         # a quantity belongs to. ("tiny" is bold, which is too heavy stacked under a
         # figure.) Used by the workshop ledger; the other documents do not need it.
         'sub': ParagraphStyle('sub', fontName='Helvetica', fontSize=6.6, leading=7.8, textColor=C['faint']),
@@ -54166,7 +54173,7 @@ def _proc_pdf_header(company, logo_b64, badge, subtitle, meta_rows, S, C):
     badge, subtitle and a key/value meta table on the right, closed by a navy rule
     (receipt look).
 
-    The company NAME is deliberately NOT printed next to the logo â€” the logo already
+    The company NAME is deliberately NOT printed next to the logo — the logo already
     carries it, so repeating it just clutters the header. It is only printed when no
     logo file is available, so the document still identifies the company."""
     import base64 as _b64
@@ -54194,7 +54201,7 @@ def _proc_pdf_header(company, logo_b64, badge, subtitle, meta_rows, S, C):
             # LOUD on purpose. reportlab needs Pillow to read a PNG (it only handles JPEG
             # natively), and the old silent `except: logo = None` is exactly why the live
             # server printed the company NAME instead of the logo on every PDF.
-            print(f"âš ï¸ PDF header: logo not usable ({type(e).__name__}: {e}) â€” "
+            print(f"⚠️ PDF header: logo not usable ({type(e).__name__}: {e}) — "
                   f"printing the company name instead. Is Pillow installed?")
             logo = None
 
@@ -54215,7 +54222,7 @@ def _proc_pdf_header(company, logo_b64, badge, subtitle, meta_rows, S, C):
             ('BOTTOMPADDING', (0, 1), (0, 1), 0),
         ]))
     else:
-        # No logo available â€” fall back to the company name so the document still says
+        # No logo available — fall back to the company name so the document still says
         # who issued it.
         left = Table([[Paragraph(
             f'{name}<br/><font size="6.5" color="{_PROC_MUTED}">{TAGLINE}</font>',
@@ -54336,7 +54343,7 @@ def _proc_pdf_summary(pill_label, pill_bg, meta_label, meta_value, amount_label,
 
 
 def _proc_pdf_kpi_band(tiles, S, C):
-    """ONE band of number tiles across the page â€” the dashboard's KPI cards on paper.
+    """ONE band of number tiles across the page — the dashboard's KPI cards on paper.
 
     `tiles` is [(label, value, sub, bg)]. A tile carrying a `bg` colour is the HERO: it
     gets that background with white type, so a single figure leads the document instead
@@ -54389,7 +54396,7 @@ def _proc_pdf_kpi_band(tiles, S, C):
 
 def _proc_pdf_section_label(title, right_text, S, C):
     """A small navy caps section heading with a rule beneath it, plus optional
-    right-hand context (a period, a count) â€” what gives a longer report its shape on
+    right-hand context (a period, a count) — what gives a longer report its shape on
     the page instead of one undifferentiated run of tables."""
     from reportlab.lib.units import mm
     from reportlab.platypus import Table, TableStyle, Paragraph
@@ -54539,7 +54546,7 @@ def _proc_pdf_signatures(cells, S, C, caption=True):
 
     A cell is `(label, who)` or `(label, who, when)`. The WHEN gets its own line: it is
     long ('20 September 2026 at 14:31') and inline it wrapped mid-date, printing
-    'Â· 19 / September 2026 at 21:05', which reads like two dates on a signed form.
+    '· 19 / September 2026 at 21:05', which reads like two dates on a signed form.
 
     `caption=False` drops the 'Name & signature' hint (the workshop stock report asks
     for it off); the money documents keep it.
@@ -54641,14 +54648,14 @@ def _render_po_pdf(po_id):
         'cancelled': ('Cancelled', C['red']),
     }
     status_label, status_color = status_map.get(
-        status, (str(status or 'â€”').replace('_', ' ').title(), C['muted']))
+        status, (str(status or '—').replace('_', ' ').title(), C['muted']))
 
     company, logo_b64 = _cl_company_branding()
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
                             topMargin=14 * mm, bottomMargin=13 * mm,
-                            title=f'{po_no} â€” Purchase Order',
+                            title=f'{po_no} — Purchase Order',
                             author=company.get('name') or 'ConnectLink')
     story = []
     story.append(_proc_pdf_header(
@@ -54662,23 +54669,23 @@ def _render_po_pdf(po_id):
 
     story.append(_proc_pdf_summary(
         status_label, status_color, 'Supplier',
-        _proc_esc(supplier_name) or 'â€” not set â€”',
+        _proc_esc(supplier_name) or '— not set —',
         'Total (USD)', _proc_money(total_amount), S, C))
     story.append(Spacer(1, 4 * mm))
 
-    sup_rows = [('Contact', _proc_esc(contact_person) or 'â€”'),
-                ('Phone', _proc_esc(supplier_phone) or 'â€”'),
-                ('Email', _proc_esc(email) or 'â€”'),
-                ('Address', _proc_esc(address) or 'â€”')]
+    sup_rows = [('Contact', _proc_esc(contact_person) or '—'),
+                ('Phone', _proc_esc(supplier_phone) or '—'),
+                ('Email', _proc_esc(email) or '—'),
+                ('Address', _proc_esc(address) or '—')]
     funding_label = 'Capital injection' if (funding_source or '') == 'injection' else 'From business cash flows'
     if funds_received_at:
         funds_txt = _proc_long_date(funds_received_at, with_time=True)
         if funds_received_by:
-            funds_txt += f' â€” {_proc_esc(funds_received_by)}'
+            funds_txt += f' — {_proc_esc(funds_received_by)}'
     else:
         funds_txt = 'Not yet recorded'
-    order_rows = [('Logged by', _proc_esc(created_by) or 'â€”'),
-                  ('Requisitions', _proc_esc(req_nos) or 'â€”'),
+    order_rows = [('Logged by', _proc_esc(created_by) or '—'),
+                  ('Requisitions', _proc_esc(req_nos) or '—'),
                   ('Funding', funding_label),
                   ('Funds received', funds_txt),
                   ('Received', _proc_long_date(received_at))]
@@ -54696,14 +54703,14 @@ def _render_po_pdf(po_id):
         computed += amount
         rows.append([
             Paragraph(str(i), S['cellc']),
-            Paragraph(_proc_esc(nm) or 'â€”', S['name']),
+            Paragraph(_proc_esc(nm) or '—', S['name']),
             Paragraph(_proc_qty_str(qty_o), S['cellc']),
             Paragraph(_proc_qty_str(qty_r), S['cellc']),
             Paragraph(_proc_money(unit), S['cellr']),
             Paragraph(_proc_money(amount), S['cellr']),
         ])
     if not rows:
-        rows.append([Paragraph('â€”', S['cellc']),
+        rows.append([Paragraph('—', S['cellc']),
                      Paragraph('No items recorded', S['base'])] +
                     [Paragraph('', S['base'])] * 4)
     story.append(_proc_pdf_table(
@@ -54713,7 +54720,7 @@ def _render_po_pdf(po_id):
     story.append(_proc_pdf_grand_total('GRAND TOTAL (USD)', _proc_money(grand), widths, S, C))
     def _stamp(at):
         """When that layer acted, in the long document format ('20 September 2026 at
-        14:31') or None â€” None drops the line instead of printing a dash on a signature."""
+        14:31') or None — None drops the line instead of printing a dash on a signature."""
         return _proc_long_date(at, with_time=True) if at else None
 
     story.append(Spacer(1, 14 * mm))
@@ -54725,7 +54732,7 @@ def _render_po_pdf(po_id):
     story.append(Spacer(1, 7 * mm))
     story.append(_proc_pdf_footer([
         f'This purchase order was generated by {company.get("name") or "ConnectLink"}.',
-        f'Requisitions: {_proc_esc(req_nos) or "â€”"}  |  Supplier: {_proc_esc(supplier_name) or "â€”"}',
+        f'Requisitions: {_proc_esc(req_nos) or "—"}  |  Supplier: {_proc_esc(supplier_name) or "—"}',
         f'Generated {_proc_long_date(datetime.now(), with_time=True)}',
     ], S, C))
 
@@ -54766,7 +54773,7 @@ def procurement_api_po_pdf(po_id):
 def _render_req_pdf(rid):
     """Render a Purchase Requisition PDF (reportlab) -> (pdf_bytes, req_no).
     Same house style as the PO / payment receipt, carrying the stock & funds
-    declaration and both sign-off layers â€” what an approver or an auditor needs
+    declaration and both sign-off layers — what an approver or an auditor needs
     on the printed form."""
     S, C = _proc_pdf_kit()
     if S is None:
@@ -54823,15 +54830,15 @@ def _render_req_pdf(rid):
         status, (status.replace('_', ' ').title(), C['muted']))
 
     stock_map = {
-        'in_stock': ('In stock', 'Already in the company and already bought â€” no purchase needed.', C['green']),
+        'in_stock': ('In stock', 'Already in the company and already bought — no purchase needed.', C['green']),
         'partial': ('Partly in stock', 'The shortfall must be purchased.', C['amber']),
         'not_in_stock': ('Not in stock', 'The goods must be purchased.', C['red']),
     }
     stock_head, stock_note, stock_color = stock_map.get(
         req.get('stock_status') or 'not_in_stock', stock_map['not_in_stock'])
-    # An "in stock â€” already bought (no purchase needed)" requisition buys NOTHING, so
+    # An "in stock — already bought (no purchase needed)" requisition buys NOTHING, so
     # every money figure on this form is meaningless. Same rule the New Requisition form
-    # applies by hiding the Unit Cost / Total / Quotes columns â€” tracked ONCE here and
+    # applies by hiding the Unit Cost / Total / Quotes columns — tracked ONCE here and
     # used for the summary box, the items table, the grand total, the quotes annexe and
     # the footer, so the printed form and the screen agree.
     in_stock = (req.get('stock_status') or 'not_in_stock') == 'in_stock'
@@ -54844,7 +54851,7 @@ def _render_req_pdf(rid):
     }
     if fs in funds_map:
         funds_head, funds_color = funds_map[fs]
-        funds_note = 'Checked by %s on %s' % (_proc_esc(req.get('funds_by') or 'â€”'),
+        funds_note = 'Checked by %s on %s' % (_proc_esc(req.get('funds_by') or '—'),
                                              _proc_long_date(req.get('funds_at')))
     elif (req.get('stock_status') or '') == 'in_stock':
         funds_head, funds_color = ('Not applicable', C['muted'])
@@ -54858,7 +54865,7 @@ def _render_req_pdf(rid):
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
                             topMargin=14 * mm, bottomMargin=13 * mm,
-                            title=f'{req_no} â€” Purchase Requisition',
+                            title=f'{req_no} — Purchase Requisition',
                             author=company.get('name') or 'ConnectLink')
     story = []
     story.append(_proc_pdf_header(
@@ -54872,15 +54879,15 @@ def _render_req_pdf(rid):
 
     story.append(_proc_pdf_summary(
         status_label, status_color, 'Requested by',
-        _proc_esc(req.get('requested_by')) or 'â€”',
+        _proc_esc(req.get('requested_by')) or '—',
         'Purchase' if in_stock else 'Total (USD)',
         'Not required (in stock)' if in_stock else _proc_money(total), S, C))
     story.append(Spacer(1, 4 * mm))
 
     projects = [p for p in (req.get('project_ref') or '').split(' | ') if p.strip()]
-    proj_txt = '<br/>'.join(_proc_esc(p) for p in projects) if projects else 'â€”'
-    req_rows = [('Department', _proc_esc(req.get('department')) or 'â€”'),
-                ('Logged by', _proc_esc(req.get('created_by')) or 'â€”'),
+    proj_txt = '<br/>'.join(_proc_esc(p) for p in projects) if projects else '—'
+    req_rows = [('Department', _proc_esc(req.get('department')) or '—'),
+                ('Logged by', _proc_esc(req.get('created_by')) or '—'),
                 ('Submitted', _proc_long_date(req.get('submitted_at'))),
                 ('Items', str(len(items)))]
     story.append(_proc_pdf_two_boxes(
@@ -54903,7 +54910,7 @@ def _render_req_pdf(rid):
     if fs == 'no':
         story.append(Spacer(1, 2.5 * mm))
         from reportlab.platypus import Table, TableStyle
-        ban = Table([[Paragraph('<b>NO FUNDS to buy the goods â€” do not raise a purchase order '
+        ban = Table([[Paragraph('<b>NO FUNDS to buy the goods — do not raise a purchase order '
                                 'until the money is confirmed.</b>', S['ban'])]],
                     colWidths=[_PROC_PAGE_W * mm])
         ban.setStyle(TableStyle([
@@ -54917,20 +54924,20 @@ def _render_req_pdf(rid):
     story.append(Spacer(1, 4.5 * mm))
 
     if in_stock:
-        # No cost / amount columns and no grand total â€” nothing is being bought.
+        # No cost / amount columns and no grand total — nothing is being bought.
         # Widths must still sum to _PROC_PAGE_W (182mm).
         widths = [9, 58, 33, 62, 20]
         rows = []
         for i, it in enumerate(items, 1):
             rows.append([
                 Paragraph(str(i), S['cellc']),
-                Paragraph(_proc_esc(it['name']) or 'â€”', S['name']),
-                Paragraph(_proc_esc(it['category']) or 'â€”', S['small']),
-                Paragraph(_proc_esc(it['project_ref']) or 'â€”', S['small']),
+                Paragraph(_proc_esc(it['name']) or '—', S['name']),
+                Paragraph(_proc_esc(it['category']) or '—', S['small']),
+                Paragraph(_proc_esc(it['project_ref']) or '—', S['small']),
                 Paragraph(_proc_qty_str(it['quantity']), S['cellc']),
             ])
         if not rows:
-            rows.append([Paragraph('â€”', S['cellc']),
+            rows.append([Paragraph('—', S['cellc']),
                          Paragraph('No items recorded', S['base'])] +
                         [Paragraph('', S['base'])] * 3)
         story.append(_proc_pdf_table(
@@ -54941,15 +54948,15 @@ def _render_req_pdf(rid):
         for i, it in enumerate(items, 1):
             rows.append([
                 Paragraph(str(i), S['cellc']),
-                Paragraph(_proc_esc(it['name']) or 'â€”', S['name']),
-                Paragraph(_proc_esc(it['category']) or 'â€”', S['small']),
-                Paragraph(_proc_esc(it['project_ref']) or 'â€”', S['small']),
+                Paragraph(_proc_esc(it['name']) or '—', S['name']),
+                Paragraph(_proc_esc(it['category']) or '—', S['small']),
+                Paragraph(_proc_esc(it['project_ref']) or '—', S['small']),
                 Paragraph(_proc_qty_str(it['quantity']), S['cellc']),
                 Paragraph(_proc_money(it['unit_cost']), S['cellr']),
                 Paragraph(_proc_money(it['total_cost']), S['cellr']),
             ])
         if not rows:
-            rows.append([Paragraph('â€”', S['cellc']),
+            rows.append([Paragraph('—', S['cellc']),
                          Paragraph('No items recorded', S['base'])] +
                         [Paragraph('', S['base'])] * 5)
         story.append(_proc_pdf_table(
@@ -54965,17 +54972,17 @@ def _render_req_pdf(rid):
         qrows = []
         for i, it in enumerate(items, 1):
             for q in it['quotes']:
-                chosen = 'âœ” Approved' if q['approved'] else ('â˜… Preferred' if q['is_preferred'] else 'â€”')
+                chosen = '✔ Approved' if q['approved'] else ('★ Preferred' if q['is_preferred'] else '—')
                 qrows.append([
-                    Paragraph(_proc_esc(it['name']) or 'â€”', S['small']),
+                    Paragraph(_proc_esc(it['name']) or '—', S['small']),
                     Paragraph(str(i), S['cellc']),
-                    Paragraph(_proc_esc(q['name']) or 'â€”', S['small']),
-                    Paragraph(_proc_esc(q['phone']) or 'â€”', S['small']),
+                    Paragraph(_proc_esc(q['name']) or '—', S['small']),
+                    Paragraph(_proc_esc(q['phone']) or '—', S['small']),
                     Paragraph(_proc_money(q['unit_cost']), S['cellr']),
-                    Paragraph(str(q['delivery_days']) if q['delivery_days'] else 'â€”', S['cellc']),
+                    Paragraph(str(q['delivery_days']) if q['delivery_days'] else '—', S['cellc']),
                     Paragraph(chosen, S['small']),
                     Paragraph(justification.get(q['justification'],
-                                                _proc_esc(q['justification']) or 'â€”'), S['small']),
+                                                _proc_esc(q['justification']) or '—'), S['small']),
                 ])
         story.append(_proc_pdf_table(
             ['Item', '#', 'Supplier', 'Phone', 'Unit Cost', 'Days', 'Chosen', 'Why'],
@@ -54983,7 +54990,7 @@ def _render_req_pdf(rid):
 
     def _stamp(at):
         """When that layer acted, in the long document format ('20 September 2026 at
-        14:31') or None â€” None drops the line instead of printing a dash on a signature."""
+        14:31') or None — None drops the line instead of printing a dash on a signature."""
         return _proc_long_date(at, with_time=True) if at else None
 
     story.append(Spacer(1, 10 * mm))
@@ -55065,7 +55072,7 @@ _PO_PRINT_CSS = """
 @app.route('/api/procurement/purchase-orders/<int:po_id>/print', methods=['GET'])
 @login_required
 def procurement_api_po_print(po_id):
-    """Printable A4 purchase order â€” opens the browser print dialog on load.
+    """Printable A4 purchase order — opens the browser print dialog on load.
     Add ?auto=0 to open it without auto-printing."""
     import html as _html
     try:
@@ -55119,7 +55126,7 @@ def procurement_api_po_print(po_id):
         'pending_authorisation': 'Awaiting Authorisation', 'pending_approval': 'Pending Approval',
         'ordered': 'Ordered', 'partial': 'Partially Received', 'received': 'Received', 'cancelled': 'Cancelled',
     }
-    status_label = status_labels.get(status, str(status or 'â€”').replace('_', ' ').title())
+    status_label = status_labels.get(status, str(status or '—').replace('_', ' ').title())
     funding_label = 'Capital injection into business' if (funding_source or 'business') == 'injection' else 'From business cash flows'
 
     supplier_lines = [f'<p><b>{esc(supplier_name or "No supplier")}</b></p>']
@@ -55150,7 +55157,7 @@ def procurement_api_po_print(po_id):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{esc(po_no)} â€” Purchase Order</title>
+<title>{esc(po_no)} — Purchase Order</title>
 <style>{_PO_PRINT_CSS}</style>
 </head>
 <body>
@@ -55160,7 +55167,7 @@ def procurement_api_po_print(po_id):
 </div>
 <div class="sheet">
     <div class="head">
-        <div class="brand">CONNECTLINK<small>Hardware &amp; Building Projects â€¢ Procurement Suite</small></div>
+        <div class="brand">CONNECTLINK<small>Hardware &amp; Building Projects • Procurement Suite</small></div>
         <div class="doc">
             <div class="t">PURCHASE ORDER</div>
             <div class="n">{esc(po_no)}</div>
@@ -55175,26 +55182,26 @@ def procurement_api_po_print(po_id):
         </div>
         <div class="box">
             <h4>Order Details</h4>
-            <div class="kv"><span>Requisitions</span><span>{esc(requisition_ids or 'â€”')}</span></div>
+            <div class="kv"><span>Requisitions</span><span>{esc(requisition_ids or '—')}</span></div>
             <div class="kv"><span>Funding</span><span>{esc(funding_label)}</span></div>
-            <div class="kv"><span>Logged by</span><span>{esc(created_by or 'â€”')}</span></div>
-            <div class="kv"><span>Logged on</span><span>{esc(dstr(created_at) or 'â€”')}</span></div>
-            <div class="kv"><span>Expected delivery</span><span>{esc(expected_delivery or 'â€”')}</span></div>
-            <div class="kv"><span>Received</span><span>{esc(dstr(received_at) or 'â€”')}</span></div>
+            <div class="kv"><span>Logged by</span><span>{esc(created_by or '—')}</span></div>
+            <div class="kv"><span>Logged on</span><span>{esc(dstr(created_at) or '—')}</span></div>
+            <div class="kv"><span>Expected delivery</span><span>{esc(expected_delivery or '—')}</span></div>
+            <div class="kv"><span>Received</span><span>{esc(dstr(received_at) or '—')}</span></div>
         </div>
     </div>
 
     <div class="meta" style="grid-template-columns:1fr 1fr;">
         <div class="box">
             <h4>Requested By (department)</h4>
-            <p>{esc(requested_by or 'â€”')}{(' â€¢ ' + esc(requested_by_phone)) if requested_by_phone else ''}</p>
+            <p>{esc(requested_by or '—')}{(' • ' + esc(requested_by_phone)) if requested_by_phone else ''}</p>
         </div>
         <div class="box">
             <h4>Sign-off</h4>
             <div class="kv"><span>Authoriser</span><span>{esc(authoriser_name or 'Any eligible')}</span></div>
             <div class="kv"><span>Approver</span><span>{esc(approver_name or 'Any eligible')}</span></div>
-            <div class="kv"><span>Authorised</span><span>{esc((authorised_by + ' â€¢ ' if authorised_by else '') + dstr(authorised_at)) or 'â€”'}</span></div>
-            <div class="kv"><span>Approved</span><span>{esc((approved_by + ' â€¢ ' if approved_by else '') + dstr(approved_at)) or 'â€”'}</span></div>
+            <div class="kv"><span>Authorised</span><span>{esc((authorised_by + ' • ' if authorised_by else '') + dstr(authorised_at)) or '—'}</span></div>
+            <div class="kv"><span>Approved</span><span>{esc((approved_by + ' • ' if approved_by else '') + dstr(approved_at)) or '—'}</span></div>
         </div>
     </div>
 
@@ -55216,7 +55223,7 @@ def procurement_api_po_print(po_id):
         <div class="sign"><b>Received by:</b>Name / Signature / Date</div>
     </div>
 
-    <div class="foot">Generated by ConnectLink Procurement on {datetime.now().strftime('%d %b %Y, %H:%M')} â€¢ {esc(po_no)}</div>
+    <div class="foot">Generated by ConnectLink Procurement on {datetime.now().strftime('%d %b %Y, %H:%M')} • {esc(po_no)}</div>
 </div>
 <script>
     window.addEventListener('load', function () {{
@@ -55275,7 +55282,7 @@ def _render_grn_pdf(po_id, prepared_by=None):
     with stock movement pdf doc". So: logo header + company line, ONE kpi band led by
     the figure that matters, an amber strip naming anything still outstanding, a
     section label, ONE table with its own totals row, and a footer that names the person
-    who generated it. It deliberately does NOT carry a signature strip â€” the previous
+    who generated it. It deliberately does NOT carry a signature strip — the previous
     GRN had none either, and a goods-received note is a record of what arrived, not a
     sign-off form; `_proc_pdf_signatures` is in the kit if that changes."""
     S, C = _proc_pdf_kit()
@@ -55322,26 +55329,26 @@ def _render_grn_pdf(po_id, prepared_by=None):
             total_received += unit * q_r
             received_rows.append((name, q_o, q_r, unit, q_r * unit))
         if q_o > q_r:
-            outstanding.append((name or 'â€”', q_o - q_r))
+            outstanding.append((name or '—', q_o - q_r))
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
         topMargin=14 * mm, bottomMargin=13 * mm,
-        title=f'{po_no} â€” Goods Received Note',
+        title=f'{po_no} — Goods Received Note',
         author=company.get('name') or 'ConnectLink')
 
     story = []
     story.append(_proc_pdf_header(
         company, logo_b64, 'GOODS RECEIVED', _proc_esc(po_no),
-        [('Supplier', _proc_esc(supplier_name) or 'â€”'),
+        [('Supplier', _proc_esc(supplier_name) or '—'),
          ('Received', _proc_long_date(received_at)),
-         ('Requisitions', _proc_esc(requisition_ids) or 'â€”'),
-         ('Received By', _proc_esc(created_by) or 'â€”')], S, C))
+         ('Requisitions', _proc_esc(requisition_ids) or '—'),
+         ('Received By', _proc_esc(created_by) or '—')], S, C))
     story.append(_proc_pdf_company_line(company, S, C))
     # The supplier's own contact details belong on the note (they were in the old meta
-    # grid), but they are too long for a key/value pair â€” one small line keeps them.
-    contact = ' Â· '.join([str(x).strip() for x in (supplier_phone, email, address) if x])
+    # grid), but they are too long for a key/value pair — one small line keeps them.
+    contact = ' · '.join([str(x).strip() for x in (supplier_phone, email, address) if x])
     if contact:
         story.append(Spacer(1, 1.6 * mm))
         story.append(Paragraph(_proc_esc(contact), S['small']))
@@ -55356,7 +55363,7 @@ def _render_grn_pdf(po_id, prepared_by=None):
         ('Units ordered', _proc_qty_str(ordered_u), 'On the whole order', None),
         ('Outstanding', _proc_qty_str(ordered_u - received_u),
          'Nothing outstanding' if ordered_u - received_u <= 0 else 'Still to arrive', None),
-        ('Status', str(status or 'â€”').replace('_', ' ').title(),
+        ('Status', str(status or '—').replace('_', ' ').title(),
          f'As at {_proc_long_date(received_at)}' if received_at else 'Not yet received', None),
     ], S, C))
 
@@ -55367,8 +55374,8 @@ def _render_grn_pdf(po_id, prepared_by=None):
         extra = f' and {len(outstanding) - 6} more' if len(outstanding) > 6 else ''
         strip = Table([[Paragraph(
             f'<b>Still outstanding on {_proc_esc(po_no)}:</b> {names}{extra}'
-            + (' â€” not yet received.' if received_rows
-               else ' â€” none of this order has arrived yet.'), S['bans'])]],
+            + (' — not yet received.' if received_rows
+               else ' — none of this order has arrived yet.'), S['bans'])]],
             colWidths=[_PROC_PAGE_W * mm])
         strip.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), C['amber']),
@@ -55382,7 +55389,7 @@ def _render_grn_pdf(po_id, prepared_by=None):
 
     story.append(Spacer(1, 5 * mm))
     story.append(_proc_pdf_section_label(
-        'Goods received', f'{_proc_esc(po_no)} Â· {_proc_long_date(received_at)}', S, C))
+        'Goods received', f'{_proc_esc(po_no)} · {_proc_long_date(received_at)}', S, C))
     story.append(Spacer(1, 2.5 * mm))
 
     rows = []
@@ -55393,14 +55400,14 @@ def _render_grn_pdf(po_id, prepared_by=None):
                 f'{_proc_qty_str(q_o - q_r)} still outstanding', S['sub']))
         rows.append([
             Paragraph(str(i), S['cellc_d']),
-            Paragraph(_proc_esc(name) or 'â€”', S['name_d']),
+            Paragraph(_proc_esc(name) or '—', S['name_d']),
             Paragraph(_proc_qty_str(q_o), S['cellr_d']),
             received_cell,
             Paragraph(_proc_money(unit), S['cellr_d']),
             Paragraph(f'{_proc_money(line_total)}', S['cellr_d']),
         ])
     if not rows:
-        rows.append([Paragraph('â€”', S['cellc_d']),
+        rows.append([Paragraph('—', S['cellc_d']),
                      Paragraph('Nothing has been received against this order yet', S['base'])] +
                     [Paragraph('', S['base'])] * 4)
     widths = [7, 61, 22, 22, 35, 35]                   # = 182mm
@@ -55539,10 +55546,10 @@ def procurement_api_export():
 
 
 # ============================================================================
-# WORKSHOP â€” ITS OWN STORE
+# WORKSHOP — ITS OWN STORE
 #
 # The WORKSHOP IS ITS OWN SECTION OF THE COMPANY. It keeps its own item list and its
-# own stock, completely independently of the shop's POS inventory â€” nothing in this
+# own stock, completely independently of the shop's POS inventory — nothing in this
 # section reads or writes anything belonging to the shop.
 #
 #   workshop_items     -> the workshop's own items (the materials it holds and the
@@ -55557,8 +55564,8 @@ def procurement_api_export():
 # and every window.
 #
 # The register starts EMPTY (the user's instruction: "start from scratch"). It fills
-# from real events â€” goods received on a purchase order, goods issued when an
-# "in stock" requisition is authorised â€” and from anything entered by hand.
+# from real events — goods received on a purchase order, goods issued when an
+# "in stock" requisition is authorised — and from anything entered by hand.
 # ============================================================================
 
 # Why stock moved. Defined once so the screen, the PDF and the Excel export all word
@@ -55585,14 +55592,14 @@ def _workshop_movement_label(direction, reason):
     value. Anything unrecognised is title-cased rather than hidden."""
     reason = (reason or '').strip()
     table = _WS_IN_REASONS if direction == 'in' else _WS_OUT_REASONS
-    return table.get(reason) or reason.replace('_', ' ').strip().title() or 'â€”'
+    return table.get(reason) or reason.replace('_', ' ').strip().title() or '—'
 
 
 def _workshop_ensure_item(cursor, name, category=None, unit=None, min_level=None,
                           user_name=None):
     """Return the workshop item id for `name`, creating it when it is new.
 
-    This is how a purchase-order line â€” which names a PROCUREMENT product â€” lands in
+    This is how a purchase-order line — which names a PROCUREMENT product — lands in
     the workshop's OWN register without the two sections sharing a catalogue.
     Matching is case-insensitive and whitespace-trimmed, so receiving the same goods
     twice cannot create a duplicate. Returns None when there is no usable name."""
@@ -55627,7 +55634,7 @@ def _workshop_record_movement(cursor, item_id, direction, quantity, reason,
     `clamp=True` is for AUTOMATED movements (a purchase-order receipt, an issue
     against a requisition): it takes only what is on hand instead of pushing the
     balance negative, and reports the reduced quantity back so the caller can say what
-    was short. Manual entries leave it False â€” the route refuses an issue larger than
+    was short. Manual entries leave it False — the route refuses an issue larger than
     the stock on hand rather than silently trimming it to something the user did not
     ask for.
     """
@@ -55659,7 +55666,7 @@ def _workshop_record_movement(cursor, item_id, direction, quantity, reason,
     # `when` is always sent, and the SQL falls back to the database clock only when it
     # is NULL. Building the timestamp into the statement itself (rather than gluing a
     # value into the SQL text) keeps the placeholder count fixed and means a caller can
-    # never end up with a statement that does not match its parameters â€” which is what
+    # never end up with a statement that does not match its parameters — which is what
     # an undefined `stamp` name did here, silently, for every movement ever written.
     params = [item_id, direction, applied, reason, reference, notes, user_id, user_name,
               when, item_id]
@@ -55676,7 +55683,7 @@ def _workshop_record_movement(cursor, item_id, direction, quantity, reason,
 def _procurement_workshop_warning(where, error):
     """Turn a failed workshop stock movement into something the user will actually SEE.
 
-    A stock hiccup must never block the document that caused it â€” the receipt, the
+    A stock hiccup must never block the document that caused it — the receipt, the
     authorisation, the approval all stand on their own. But it must never be invisible
     either. Every one of these callers used to swallow the error into a `print`, and on
     a hosted deployment a print is a message nobody ever reads: that is exactly how a
@@ -55685,7 +55692,7 @@ def _procurement_workshop_warning(where, error):
     back to the caller to put in front of the person.
     """
     msg = (f'The workshop register was NOT updated ({where}): {error}. '
-           f'The document itself is saved â€” record the movement by hand on the '
+           f'The document itself is saved — record the movement by hand on the '
            f'Workshop tab.')
     try:
         log_activity('workshop_sync_failed', msg, 'workshop', None)
@@ -55748,7 +55755,7 @@ def _workshop_period(period, ref=None, start=None, end=None):
 
 
 def _procurement_reconcile_in_stock_issues():
-    """DELIBERATELY NOT USED â€” returns empty and writes nothing.
+    """DELIBERATELY NOT USED — returns empty and writes nothing.
 
     Its original job was to pull in requisitions authorised before this feature
     existed. The user has since asked for the workshop register to "start from
@@ -55839,7 +55846,7 @@ def _workshop_ledger(start_dt, end_dt):
         direction = 'in' if (m[5] or '') == 'in' else 'out'
         movements.append({
             'id': m[0],
-            'date': m[1], 'reference': m[2] or 'â€”', 'item': m[3] or '',
+            'date': m[1], 'reference': m[2] or '—', 'item': m[3] or '',
             'category': m[4] or '', 'type': direction,
             'label': _workshop_movement_label(direction, m[7]),
             'reason': m[7] or '',
@@ -55883,7 +55890,7 @@ def _workshop_user_name():
 
 
 def _workshop_movement_targets(movements):
-    """For every item, WHAT its stock moved against â€” the half of the story the ledger
+    """For every item, WHAT its stock moved against — the half of the story the ledger
     totals cannot tell: which project the boards were issued to, which order the sheets
     came in on.
 
@@ -55951,7 +55958,7 @@ def _workshop_movement_targets(movements):
 # ---- Workshop: the register and its movements (the ONLY writers) ----
 
 def _ws_int(value, default=0):
-    """Lenient int for form input â€” a blank or nonsense value becomes `default`
+    """Lenient int for form input — a blank or nonsense value becomes `default`
     instead of raising a 500."""
     try:
         return int(str(value).strip())
@@ -56026,7 +56033,7 @@ def procurement_api_workshop_item_add():
 @login_required
 @_procurement_perm_required('can_manage_purchase_orders')
 def procurement_api_workshop_item_update(item_id):
-    """Edit a workshop item's details, INCLUDING its name and its stock â€” this is how an
+    """Edit a workshop item's details, INCLUDING its name and its stock — this is how an
     item in stock is renamed, and how a wrong balance is corrected.
 
     THE BALANCE IS STILL NOT A FREE-TEXT FIELD. Passing `stock` does not overwrite
@@ -56082,7 +56089,7 @@ def procurement_api_workshop_item_update(item_id):
                   _ws_clean(data.get('notes')),
                   bool(data.get('is_active', True)), item_id))
             # A RENAME CARRIES INTO THE MOVEMENT HISTORY. Each movement stores the item
-            # name as it was, so that renaming could never rewrite the past â€” but in a
+            # name as it was, so that renaming could never rewrite the past — but in a
             # register that is still being set up a rename is nearly always a
             # correction, and leaving the old name on the movements would make the
             # ledger and the movement list disagree about the same item. The item_id
@@ -56107,8 +56114,8 @@ def procurement_api_workshop_item_update(item_id):
                         notes=(f'Stock corrected from {_proc_qty_str(current_stock)} to '
                                f'{_proc_qty_str(target)}'),
                         user_id=user.get('id'), user_name=user.get('name'))
-                    stock_msg = (f' Stock adjusted by {_proc_qty_str(abs(delta))} â€” from '
-                                 f'{_proc_qty_str(current_stock)} to {_proc_qty_str(target)} â€” and '
+                    stock_msg = (f' Stock adjusted by {_proc_qty_str(abs(delta))} — from '
+                                 f'{_proc_qty_str(current_stock)} to {_proc_qty_str(target)} — and '
                                  f'recorded as a movement.')
             connection.commit()
         log_activity('workshop_item_edit',
@@ -56116,7 +56123,7 @@ def procurement_api_workshop_item_update(item_id):
                      + (stock_msg or ''),
                      'workshop_item', item_id)
         return jsonify({'success': True,
-                        'message': ((f'Saved â€” this item is now called "{name}", including on its '
+                        'message': ((f'Saved — this item is now called "{name}", including on its '
                                      f'past movements.' if name else 'Workshop item saved.')
                                     + stock_msg)})
     except Exception as e:
@@ -56156,7 +56163,7 @@ def procurement_api_workshop_item_delete(item_id):
             if used:
                 return jsonify({'success': False,
                                 'error': f'"{name}" has {used} movement(s) against it, so it cannot be '
-                                         f'deleted â€” deactivate it instead and its history stays intact.'}), 400
+                                         f'deleted — deactivate it instead and its history stays intact.'}), 400
             cursor.execute("DELETE FROM workshop_items WHERE id = %s", (item_id,))
             connection.commit()
         log_activity('workshop_item_delete', f'Deleted workshop item "{name}"',
@@ -56175,7 +56182,7 @@ def procurement_api_workshop_movement_add():
     issue, damage, or a correction.
 
     This is how the register fills for anything that did not arrive through a purchase
-    order. A movement may name an item that is not in the register yet â€” it joins."""
+    order. A movement may name an item that is not in the register yet — it joins."""
     data = request.get_json() or {}
     direction = 'in' if str(data.get('direction') or '').lower().startswith('i') else 'out'
     allowed = _WS_IN_REASONS if direction == 'in' else _WS_OUT_REASONS
@@ -56221,7 +56228,7 @@ def procurement_api_workshop_movement_add():
             # there has made a mistake worth being told about.
             if direction == 'out' and qty > available:
                 return jsonify({'success': False,
-                                'error': f'Only {available} of "{item_name}" are in the workshop â€” '
+                                'error': f'Only {available} of "{item_name}" are in the workshop — '
                                          f'{qty} cannot be taken out.'}), 400
             applied, balance = _workshop_record_movement(
                 cursor, item_id, direction, qty, reason,
@@ -56233,7 +56240,7 @@ def procurement_api_workshop_movement_add():
                      f'{_workshop_movement_label(direction, reason)}: {qty} x {item_name}',
                      'workshop_item', item_id)
         return jsonify({'success': True, 'applied': applied, 'balance': balance,
-                        'message': f'{_workshop_movement_label(direction, reason)} â€” {qty} x {item_name}. '
+                        'message': f'{_workshop_movement_label(direction, reason)} — {qty} x {item_name}. '
                                    f'{item_name} now stands at {balance}.'})
     except Exception as e:
         print(f"Workshop movement error: {e}")
@@ -56247,7 +56254,7 @@ def procurement_api_workshop_movement_delete(mv_id):
     """Undo a movement entered by mistake: reverses the balance and drops the row.
 
     Refused for a movement that came from a DOCUMENT (a purchase-order receipt or a
-    requisition issue) â€” that belongs to that document's own history, and a correcting
+    requisition issue) — that belongs to that document's own history, and a correcting
     adjustment is the honest way to fix it.
 
     PASSCODE-GATED, like every other hand-written change to the register: undoing moves
@@ -56287,7 +56294,7 @@ def procurement_api_workshop_movement_delete(mv_id):
             connection.commit()
         log_activity('workshop_movement_undo', f'Undid workshop movement #{mv_id}',
                      'workshop_item', item_id)
-        return jsonify({'success': True, 'message': f'Movement undone â€” {item_name} put back to where it was.'})
+        return jsonify({'success': True, 'message': f'Movement undone — {item_name} put back to where it was.'})
     except Exception as e:
         print(f"Workshop movement undo error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -56325,13 +56332,13 @@ def procurement_api_workshop_stock():
 @app.route('/api/procurement/workshop/catalogue', methods=['GET'])
 @login_required
 def procurement_api_workshop_catalogue():
-    """The workshop register as a plain PICK LIST â€” id, name, category, unit, stock.
+    """The workshop register as a plain PICK LIST — id, name, category, unit, stock.
 
-    The requisition form offers this when "Stock Availability" is answered "In stock â€”
+    The requisition form offers this when "Stock Availability" is answered "In stock —
     already bought (no purchase needed)": the goods then come OUT of the workshop store
     instead of being bought, so the picker must offer the workshop's OWN items, with
     their on-hand figures, rather than the shop's product catalogue. Deliberately NOT
-    `_workshop_ledger()` â€” a dropdown needs the item list, not a period's arithmetic
+    `_workshop_ledger()` — a dropdown needs the item list, not a period's arithmetic
     plus the reconciliation pass.
     """
     try:
@@ -56381,7 +56388,7 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm,
         topMargin=14 * mm, bottomMargin=13 * mm,
-        title=f'Workshop Stock Report â€” {period_label}',
+        title=f'Workshop Stock Report — {period_label}',
         author=company.get('name') or 'ConnectLink')
 
     story = []
@@ -56390,7 +56397,7 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
         [('Period From', _proc_short_date(start_dt)),
          ('Period To', _proc_short_date(end_dt)),
          ('Items', str(t['items'])),
-         ('Prepared By', _proc_esc(prepared_by) or 'â€”')], S, C))
+         ('Prepared By', _proc_esc(prepared_by) or '—')], S, C))
     story.append(_proc_pdf_company_line(company, S, C))
     story.append(Spacer(1, 4 * mm))
 
@@ -56414,12 +56421,12 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
          'Needs reordering' if t['low_stock'] else 'All above minimum', None),
     ], S, C))
 
-    # Anything under its minimum level gets said out loud, by name â€” a count in a box
+    # Anything under its minimum level gets said out loud, by name — a count in a box
     # makes somebody hunt through the table to find out WHICH item is short.
     low_names = [s['name'] for s in (data.get('stock') or []) if s.get('low')]
     if low_names:
         note = ('<b>Below minimum:</b> ' + _proc_esc('; '.join(low_names))
-                + ' â€” reorder before the next job.')
+                + ' — reorder before the next job.')
         strip = Table([[Paragraph(note, S['bans'])]], colWidths=[_PROC_PAGE_W * mm])
         strip.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), C['amber']),
@@ -56436,7 +56443,7 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
         'Stock ledger', f'{_proc_short_date(start_dt)} to {_proc_short_date(end_dt)}', S, C))
     story.append(Spacer(1, 2.5 * mm))
 
-    # ---- ledger table â€” the ONLY table in the report ----
+    # ---- ledger table — the ONLY table in the report ----
     # The per-movement detail lives INSIDE the Received and Issued columns (which order
     # the goods came in on, which project they went out to), so the second table that
     # repeated what this one already said is gone.
@@ -56451,7 +56458,7 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
         """The figure, with the documents behind it underneath in small type."""
         cell = [Paragraph(qty(total), S['cellr_d'])]
         for label, q in detail or []:
-            cell.append(Paragraph(f'{_proc_esc(label)} â€” {_proc_qty_str(q)}', S['sub']))
+            cell.append(Paragraph(f'{_proc_esc(label)} — {_proc_qty_str(q)}', S['sub']))
         return cell
 
     widths = [7, 58, 21, 34, 34, 28]                   # = 182mm
@@ -56460,14 +56467,14 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
         tgt = targets.get(x['name']) or {}
         rows.append([
             Paragraph(str(i), S['cellc_d']),
-            Paragraph(_proc_esc(x['name']) or 'â€”', S['name_d']),
+            Paragraph(_proc_esc(x['name']) or '—', S['name_d']),
             Paragraph(qty(x['opening']), S['cellr_d']),
             amount_cell(x['received'], tgt.get('in')),
             amount_cell(x['issued'], tgt.get('out')),
             Paragraph(f"<b>{qty(x['closing'])}</b>", S['cellrb_d']),
         ])
     if not rows:
-        rows.append([Paragraph('â€”', S['cellc_d']),
+        rows.append([Paragraph('—', S['cellc_d']),
                      Paragraph('No stock recorded for this period', S['base'])] +
                     [Paragraph('', S['base'])] * 4)
     story.append(_proc_pdf_table(
@@ -56477,7 +56484,7 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     # label spans the first two columns and the figures follow; this ledger needs its
     # own column widths, so it is built here with the label spanning '# and Item'
     # (two columns) and the four figures landing under their own headings.
-    tot = [Paragraph('TOTAL â€” ALL ITEMS', S['bold']) if i == 0 else
+    tot = [Paragraph('TOTAL — ALL ITEMS', S['bold']) if i == 0 else
            Paragraph(f"<b>{qty(v)}</b>", S['cellrb_d']) if 2 <= i <= 5 else
            Paragraph('', S['base'])
            for i, v in enumerate([None, None, t['opening'], t['received'],
@@ -56514,7 +56521,7 @@ def _render_workshop_pdf(start_dt, end_dt, period_label, prepared_by):
     story.append(Spacer(1, 10 * mm))
     story.append(_proc_pdf_footer([
         # The name on this line is the PERSON who prepared it, matching "Prepared By" in
-        # the header â€” the document is named at the top, so repeating the company here
+        # the header — the document is named at the top, so repeating the company here
         # made the same report look like it had two different authors.
         f'This workshop stock report was generated by '
         f'{_proc_esc(prepared_by) or (company.get("name") or "ConnectLink")}',
@@ -56552,14 +56559,14 @@ def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
 
     data = _workshop_ledger(start_dt, end_dt)
     t = data['totals']
-    # What each received/issued figure belongs to â€” the same detail the PDF puts inside
+    # What each received/issued figure belongs to — the same detail the PDF puts inside
     # its columns. In Excel it gets its own columns, because a cell holding both a number
     # and a document name stops being a number you can sum.
     targets = _workshop_movement_targets(data['movements'])
 
     def detail_text(detail):
         # _proc_qty_str, not the int() below: a 4.5 must read as 4.5.
-        return ' Â· '.join(f'{lab} â€” {_proc_qty_str(q)}' for lab, q in (detail or []))
+        return ' · '.join(f'{lab} — {_proc_qty_str(q)}' for lab, q in (detail or []))
 
     hfill = PatternFill(start_color='1E2A56', end_color='1E2A56', fill_type='solid')
     sfill = PatternFill(start_color='EEF1F6', end_color='EEF1F6', fill_type='solid')
@@ -56584,7 +56591,7 @@ def _workshop_excel_bytes(start_dt, end_dt, period_label, generated_by):
     r += 1
     ws.cell(row=r, column=1,
             value=f'Generated: {datetime.now().strftime("%d %b %Y %H:%M")}   |   '
-                  f'By: {generated_by or "â€”"}').font = mfont
+                  f'By: {generated_by or "—"}').font = mfont
     r += 2
 
     cols = ['Item', 'Category', 'Opening', 'Received (In)', 'Issued (Out)', 'Closing',
@@ -56674,15 +56681,15 @@ def procurement_api_workshop_excel():
 # ============================================================================
 # PROCUREMENT AUDIT TRAIL
 # ----------------------------------------------------------------------------
-# A VIEW over the shared `activity_log` table â€” never a second store. Every action in
+# A VIEW over the shared `activity_log` table — never a second store. Every action in
 # this portal already writes there through log_activity(), so there is nothing to
 # duplicate and no way for the trail to drift from the actions it describes.
 #
 # SCOPE. Rows are matched by REFERENCE TYPE rather than by a hand-written list of
 # action types, so a new procurement action is picked up the moment it passes one of
-# these â€” there is no list to remember to update. Checked against every log_activity()
+# these — there is no list to remember to update. Checked against every log_activity()
 # call in the app: NO other module uses any of these seven, so the trail cannot pick
-# up someone else's rows. `download_payments_history` is deliberately NOT included â€”
+# up someone else's rows. `download_payments_history` is deliberately NOT included —
 # it carries reference_type='project' and is the PROJECTS payments export, not this
 # module's.
 PROC_AUDIT_REF_TYPES = ('requisition', 'purchase_order', 'supplier', 'workshop',
@@ -56693,7 +56700,7 @@ PROC_AUDIT_REF_TYPES = ('requisition', 'purchase_order', 'supplier', 'workshop',
 # description prefix procurement_login() itself writes.
 PROC_AUDIT_LOGIN_PREFIX = 'Procurement:%'
 
-# Which area of the portal a row belongs to â€” as SQL, so the same expression can be
+# Which area of the portal a row belongs to — as SQL, so the same expression can be
 # selected, grouped AND filtered by. One definition means the filter and the column
 # can never disagree.
 PROC_AUDIT_AREA_SQL = """
@@ -56751,7 +56758,7 @@ def _proc_audit_date(v):
 def _procurement_audit_args(args):
     """Read and validate the trail's filters from a query string.
 
-    Shared by the screen and the download so a filter means the same thing in both â€”
+    Shared by the screen and the download so a filter means the same thing in both —
     the date handling in particular is exactly where the two would otherwise drift.
     Returns the parameters for _procurement_audit_filters() plus what was understood,
     so the page can show the filters back to the user.
@@ -56780,7 +56787,7 @@ def _procurement_audit_filters(start=None, end=None, area=None, action=None,
 
     ONE builder, used by the screen, the tiles and the download, so no two of them can
     disagree about what the trail contains. Each condition appends its own parameters
-    in the same order as its placeholders â€” the only way to keep the two in step.
+    in the same order as its placeholders — the only way to keep the two in step.
     """
     conds = [_procurement_audit_scope_sql()]
     params = list(PROC_AUDIT_REF_TYPES) + [PROC_AUDIT_LOGIN_PREFIX]
@@ -56810,7 +56817,7 @@ def _procurement_audit_row(r):
 
     `r` arrives in the order of PROC_AUDIT_COLUMNS plus the computed area, which is
     id, created_at, user_name, action_type, description, reference_type, reference_id,
-    area â€” the unpacking below is that order and must stay that order.
+    area — the unpacking below is that order and must stay that order.
 
     Only JSON-safe values live in here: no raw datetime, so the payload can be
     serialised without a special encoder (the workbook parses `at_iso` back when it
@@ -56861,7 +56868,7 @@ def _procurement_audit_fetch(where_sql, params, limit=None):
 
 
 def _procurement_audit_counts(where_sql, params):
-    """Counts over the WHOLE filtered set, not just the page on screen â€” so the tiles
+    """Counts over the WHOLE filtered set, not just the page on screen — so the tiles
     and the workbook summary stay true even when the table is truncated."""
     out = {'area': {}, 'user': {}, 'action': {}}
     with get_db() as (cursor, connection):
@@ -56882,7 +56889,7 @@ def _procurement_audit_counts(where_sql, params):
 
 def _procurement_audit_facets():
     """The values the filters can be set to, taken from the WHOLE trail rather than
-    from the current filter â€” otherwise narrowing would make a wider choice
+    from the current filter — otherwise narrowing would make a wider choice
     unreachable, which is the trap this exists to avoid."""
     scope_sql, scope_params = _procurement_audit_filters()
     users, actions = [], []
@@ -56918,7 +56925,7 @@ def _procurement_audit_filter_text(echo):
 
 
 def _procurement_audit_excel_bytes(rows, total, echo, counts, generated_by):
-    """The trail as a workbook â€” the same rows the screen is showing.
+    """The trail as a workbook — the same rows the screen is showing.
 
     Sheet 1 is the trail with a header stating the filters used, so a downloaded file
     still explains itself months later; sheet 2 is the summary an audit actually gets
@@ -57021,7 +57028,7 @@ def _procurement_audit_excel_bytes(rows, total, echo, counts, generated_by):
 def procurement_api_audit():
     """The procurement audit trail: what changed, who changed it, and when.
 
-    READ-ONLY by design â€” nothing here writes to the trail (an export is not logged;
+    READ-ONLY by design — nothing here writes to the trail (an export is not logged;
     see the note in the UI). It is a view of activity_log scoped to this module."""
     try:
         parsed = _procurement_audit_args(request.args)
@@ -57050,7 +57057,7 @@ def procurement_api_audit():
 @login_required
 @_procurement_perm_required('can_view_audit')
 def procurement_api_audit_excel():
-    """Download the audit trail as an Excel workbook â€” same filters as the screen."""
+    """Download the audit trail as an Excel workbook — same filters as the screen."""
     try:
         parsed = _procurement_audit_args(request.args)
         where_sql, params = _procurement_audit_filters(**parsed['filters'])
@@ -57068,13 +57075,13 @@ def procurement_api_audit_excel():
 
 
 # ============================================================================
-# PROCUREMENT WHATSAPP NOTIFICATIONS (additive â€” never blocks the in-app flow)
+# PROCUREMENT WHATSAPP NOTIFICATIONS (additive — never blocks the in-app flow)
 # Uses Meta-approved templates to bypass the 24-hour customer-service window.
 # Templates to create in Meta Business Manager (Utility category, en):
 #   - requisition AUTHORISATION notice: REUSES purchase_order_approval_request.
 #       There is no requisition-specific authorisation template. The user confirmed
 #       (Sep 2026) that the template for the authorisation stage IS
-#       'purchase_order_approval_request', which is already approved in Meta â€” so the
+#       'purchase_order_approval_request', which is already approved in Meta — so the
 #       requisition authorisation notice sends that template with all 12 body
 #       variables filled from the requisition (see _procurement_req_details) and its
 #       button payloads overridden to reqappr_<id> / reqdecl_<id> so a tap is routed
@@ -57101,7 +57108,7 @@ def procurement_api_audit_excel():
 #                  {{14}}=authorised by (layer 1 signer), {{15}}=authorised date
 #       Buttons: quick_reply "Approve" payload poappr_{{3}},
 #                quick_reply "Decline" payload podecl_{{3}}  ({{3}} = PO id)
-#   - purchase_order_approval_request  (the AUTHORISATION template â€” serves BOTH
+#   - purchase_order_approval_request  (the AUTHORISATION template — serves BOTH
 #       the requisition authorisation step AND the purchase-order authorisation step,
 #       because they are the same decision for the same authoriser)
 #       NOTE: this name is the user's; the template is editable in Meta and its body
@@ -57128,9 +57135,9 @@ def procurement_api_audit_excel():
 #                  {{6}}=total USD, {{7}}=items required before,
 #                  {{8}}=STOCK availability (full sentence, from _req_stock_label),
 #                  {{9}}=item count, {{10}}=item summary WITH each item's PROJECT in the
-#                  item text ("Cement 50kg (x40 â€” Rainham Park)", no extra placeholder),
+#                  item text ("Cement 50kg (x40 — Rainham Park)", no extra placeholder),
 #                  {{11}}=logged by, {{12}}=logged date
-#       Buttons: quick_reply "Authorise" / "Decline" â€” the PAYLOAD is replaced on
+#       Buttons: quick_reply "Authorise" / "Decline" — the PAYLOAD is replaced on
 #                every send, so the tap carries reqappr_<id>/reqdecl_<id> for a
 #                requisition and poauth_<id>/podeclauth_<id> for a purchase order.
 #                NEVER send the template's own default payloads for a requisition:
@@ -57155,7 +57162,7 @@ def procurement_api_audit_excel():
 #                  {{8}}=detail line (who did it + when, or the decline reason)
 #       No buttons.
 # All sends are best-effort: missing numbers / unapproved templates / API
-# errors only print a warning â€” the in-app action always succeeds.
+# errors only print a warning — the in-app action always succeeds.
 #
 # !!! THE NAMES BELOW ARE ONLY DEFAULTS -- THEY ARE NOT CONFIRMED AGAINST META !!!
 # `purchase_order_approval_request` (authorisation, shared by requisitions and POs)
@@ -57176,11 +57183,11 @@ def _wa_tpl_name(env_key, default):
 
 # Requisition AUTHORISATION notice. Deliberately the SAME Meta template as the PO
 # authorisation notice (the user's name for the authorisation stage), so it must send
-# the same 12 body variables in the same order â€” see the template block above.
+# the same 12 body variables in the same order — see the template block above.
 PROC_REQ_APPROVAL_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_AUTHORISE', 'purchase_order_approval_request')
 # A DIFFERENT authorisation template for requisitions whose goods are ALREADY IN STOCK.
 # Those buy nothing, so the normal body's "totalling around *USD {{6}}*" would read
-# "USD 0" and its Stock line is redundant â€” this one drops both and says so plainly.
+# "USD 0" and its Stock line is redundant — this one drops both and says so plainly.
 # It therefore has 10 body variables instead of 12 (the 12 minus {{6}} total and {{8}}
 # stock), in the SAME relative order:
 #   {{1}} authoriser name {{2}} department {{3}} requisition no {{4}} requested by
@@ -57195,9 +57202,9 @@ PROC_REQ_STATUS_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_STATUS', 'requisition_status
 # Sent through a TEMPLATE because the approver has not messaged us, so no 24h
 # customer-service window is open for a free-form text.
 PROC_REQ_AUTHORISED_TEMPLATE = _wa_tpl_name('WA_TPL_REQ_AUTHORISED', 'requisition_authorised_notice')
-# 2nd layer, final APPROVAL (15 vars, Approve/Decline) â€” name given by the user
+# 2nd layer, final APPROVAL (15 vars, Approve/Decline) — name given by the user
 PROC_PO_APPROVAL_TEMPLATE = _wa_tpl_name('WA_TPL_PO_APPROVE', 'purchase_order_final_approval_request')
-# 1st layer, AUTHORISATION â€” shared by requisitions AND purchase orders, 12 vars,
+# 1st layer, AUTHORISATION — shared by requisitions AND purchase orders, 12 vars,
 # body re-specified by the user (requisition wording). See the block above.
 PROC_PO_AUTHORISATION_TEMPLATE = _wa_tpl_name('WA_TPL_PO_AUTHORISE', 'purchase_order_approval_request')
 # Status update to the requester / logger / authoriser (8 vars, no buttons)
@@ -57248,7 +57255,7 @@ def _wa_template_lang_candidates(template_name):
     """Language codes to try for this template, best guess first.
 
     Meta replies 132001 'Template name does not exist in the translation' when the
-    requested language code does not match how the template was created â€” and the Meta
+    requested language code does not match how the template was created — and the Meta
     UI offers BOTH "English" (en) and "English (US)" (en_US), so this is easy to get
     wrong. A template that is still PENDING review returns the SAME error, which makes
     it doubly confusing. So the code is probed once and then remembered.
@@ -57292,7 +57299,7 @@ def _procurement_send_template(to_phone, template_name, body_params, button_payl
             params = []
             for p in body_params:
                 txt = '' if p is None else str(p).strip()
-                params.append({"type": "text", "text": txt or 'â€”'})
+                params.append({"type": "text", "text": txt or '—'})
             components.append({"type": "body", "parameters": params})
         if button_payloads:
             for idx, pld in enumerate(button_payloads):
@@ -57361,7 +57368,7 @@ def _procurement_hr_whatsapp_map(cursor):
 
     The HR portal is where staff WhatsApp numbers are actually maintained; the
     admin_users mirror is frequently blank, which left sign-off people showing
-    'No WhatsApp number saved â€” they cannot be notified' even though HR holds the
+    'No WhatsApp number saved — they cannot be notified' even though HR holds the
     number. Resolved in Python from ONE query rather than an OR-join on the tables,
     because a multi-condition join can match two employees and duplicate the row.
 
@@ -57397,13 +57404,13 @@ def _procurement_sender_account(cursor, sender_number):
 
     Returns (full_name, source_system, source_id, admin_user_id) or None.
 
-    WHY: `admin_users.whatsapp` is tried first â€” that is the number the webhook has
+    WHY: `admin_users.whatsapp` is tried first — that is the number the webhook has
     always matched a tap against. But the NOTIFY side falls back to the number held in
     the HR portal whenever admin_users.whatsapp is blank (see
     `_procurement_hr_whatsapp_map`), so a person can receive the authorisation request
     on their HR number and then be told "you don't have permission" the moment they
     tap it: nobody was identified, so the permission check ran against an EMPTY
-    permission set. That number is therefore resolvable here as well â€” the HR employee
+    permission set. That number is therefore resolvable here as well — the HR employee
     is mapped back to their account by NAME first (that is how the outbound side pairs
     them) and by source_id second.
     """
@@ -57423,7 +57430,7 @@ def _procurement_sender_account(cursor, sender_number):
     except Exception as e:
         print(f"Sender number lookup error: {e}")
         return None
-    # Not in admin_users â€” the number may be the one the HR portal holds.
+    # Not in admin_users — the number may be the one the HR portal holds.
     try:
         cursor.execute("""
             SELECT COALESCE(user_id, 0),
@@ -57463,7 +57470,7 @@ def _procurement_user_whatsapp(userid):
     """WhatsApp number for an admin_users id.
 
     admin_users.whatsapp wins when it is set, because the WhatsApp webhook matches
-    inbound button taps / replies against THAT column â€” sending to a different number
+    inbound button taps / replies against THAT column — sending to a different number
     would leave the person unable to be identified when they respond. When it is
     blank (the common case) the number comes from the HR portal instead of giving up."""
     if not userid:
@@ -57498,13 +57505,13 @@ def _procurement_signoff_people(cursor=None):
        can_authorise_requisitions, source_id)
 
     `whatsapp` (index 3) is admin_users.whatsapp when set, otherwise the number from the
-    HR portal â€” see `_procurement_hr_whatsapp_map`. The HR portal is where staff numbers
+    HR portal — see `_procurement_hr_whatsapp_map`. The HR portal is where staff numbers
     are actually maintained and admin_users is often blank, so without that fallback the
-    Authoriser/Approver pickers reported 'No WhatsApp number saved â€” they cannot be
+    Authoriser/Approver pickers reported 'No WhatsApp number saved — they cannot be
     notified' for people HR has a number for, AND `_procurement_authorisers` /
     `_procurement_approvers` / `_procurement_req_authorisers` silently dropped those
     people from the notify lists (they each skip rows with no number).
-    `source_id` (index 9) is APPENDED â€” it is only used internally to link to the HR
+    `source_id` (index 9) is APPENDED — it is only used internally to link to the HR
     record, so existing callers indexing r[0..8] are unaffected.
     """
     sql = """
@@ -57583,10 +57590,10 @@ def _procurement_approvers():
 def _procurement_notify_requester(req_id, new_status):
     """Notify the requester/logger that their requisition changed status.
 
-    The Meta template is `requisition_status_update` and it has FOUR placeholders â€” the
-    user's own submitted body â€” so this payload sends exactly FOUR, in its order:
+    The Meta template is `requisition_status_update` and it has FOUR placeholders — the
+    user's own submitted body — so this payload sends exactly FOUR, in its order:
 
-        Hello {{1}} ðŸ‘‹
+        Hello {{1}} 👋
         Your {{2}} Requisition has been {{3}}.
         Items requested:
         {{4}}
@@ -57596,12 +57603,12 @@ def _procurement_notify_requester(req_id, new_status):
     The requisition NUMBER is deliberately NOT sent: their body has no placeholder for it
     ("i dropped req number not the req title"), and the title identifies it. It is still
     read for the LOG line, so a failed send names the right requisition.
-    Send one variable too many or too few and Meta answers 132000 â€” the count here must
+    Send one variable too many or too few and Meta answers 132000 — the count here must
     always equal the number of placeholders in the template.
-    Every item carries its OWN project (one project per requisition item â€” see
+    Every item carries its OWN project (one project per requisition item — see
     _req_sync_projects), so the projects ride INSIDE the item list:
-        'Cement 50kg (x40 â€” Rainham Park); Boards (x6 â€” Chisipite House)'
-    Blank values become 'â€”' inside _procurement_send_template, so a requisition with no
+        'Cement 50kg (x40 — Rainham Park); Boards (x6 — Chisipite House)'
+    Blank values become '—' inside _procurement_send_template, so a requisition with no
     title or no items cannot fail the send.
     """
     try:
@@ -57645,7 +57652,7 @@ def _procurement_can_authorise_req(perms):
     (submitted -> authorised -> the logger may raise a purchase order).
 
     It used to insist on `can_authorise_requisitions` specifically, which locked out
-    perfectly trusted procurement users â€” somebody granted Approve Requisitions, Manage
+    perfectly trusted procurement users — somebody granted Approve Requisitions, Manage
     Purchase Orders or Manage Suppliers could not do the first sign-off, and the
     "fix" was to hand them Projects access as well. Any one of
     PROC_REQ_SIGNOFF_PERMS is now enough.
@@ -57681,7 +57688,7 @@ def _procurement_req_details(req_id):
     """Fields used to fill the AUTHORISATION WhatsApp notification for a requisition.
 
     The requisition authorisation notice REUSES the Meta-approved PO authorisation
-    template (`purchase_order_approval_request`, 12 body variables â€” the user
+    template (`purchase_order_approval_request`, 12 body variables — the user
     specified it as the template for the authorisation stage), so the variable ORDER
     here must match _procurement_po_details() exactly:
       name, department, number, requested by, their phone, total USD, required by,
@@ -57747,7 +57754,7 @@ def _procurement_notify_req_authorisers(req_id, target_user_id=None):
     """Notify the requisition AUTHORISER(s) that a requisition needs their authorisation.
 
     Sends the SAME Meta-approved template as the PO authorisation notice
-    (`purchase_order_approval_request` â€” the user confirmed that is the template for
+    (`purchase_order_approval_request` — the user confirmed that is the template for
     the authorisation stage). That template is already approved in Meta; a
     requisition-specific one never was, which is exactly what produced
     132001 "template name (requisition_approval_request) does not exist in en".
@@ -57778,17 +57785,17 @@ def _procurement_notify_req_authorisers(req_id, target_user_id=None):
                 targets = picked
             else:
                 print(f"Requisition {req_no}: picked authoriser (user id {target_user_id}) is not an eligible "
-                      f"requisition authoriser with a saved WhatsApp number â€” falling back to all authorisers")
+                      f"requisition authoriser with a saved WhatsApp number — falling back to all authorisers")
         if not targets:
-            print(f"Requisition {req_no}: NO authoriser could be notified â€” none of them has a WhatsApp number saved")
+            print(f"Requisition {req_no}: NO authoriser could be notified — none of them has a WhatsApp number saved")
 
         def fmt_date(v):
             try:
                 if hasattr(v, 'strftime'):
                     return f"{v.day} {v.strftime('%B %Y')}"
-                return str(v)[:10] if v else 'â€”'
+                return str(v)[:10] if v else '—'
             except Exception:
-                return 'â€”'
+                return '—'
 
         def fmt_amount(v):
             try:
@@ -57800,33 +57807,33 @@ def _procurement_notify_req_authorisers(req_id, target_user_id=None):
         for au in targets:
             try:
                 # An IN-STOCK requisition buys nothing, so it uses the 10-variable
-                # template (no "totalling around USD {{6}}", no Stock line) â€” see
+                # template (no "totalling around USD {{6}}", no Stock line) — see
                 # PROC_REQ_INSTOCK_TEMPLATE. Everything else uses the 12-variable one.
                 if (d.get('stock_status') or '') == 'in_stock':
                     tpl = PROC_REQ_INSTOCK_TEMPLATE
                     params = [au['name'],
-                              d['department'] or 'â€”',
+                              d['department'] or '—',
                               d['req_no'],
-                              d['requested_by'] or 'â€”',
+                              d['requested_by'] or '—',
                               d['requested_by_phone'] or '',
                               fmt_date(d['required_by']),
                               d['item_count'],
                               d['item_summary'],
-                              d['requested_by'] or 'â€”',
+                              d['requested_by'] or '—',
                               fmt_date(d['created_at'])]
                 else:
                     tpl = PROC_REQ_APPROVAL_TEMPLATE
                     params = [au['name'],
-                              d['department'] or 'â€”',
+                              d['department'] or '—',
                               d['req_no'],
-                              d['requested_by'] or 'â€”',
+                              d['requested_by'] or '—',
                               d['requested_by_phone'] or '',
                               fmt_amount(d['total']),
                               fmt_date(d['required_by']),
                               d['stock_label'],           # sits beside the required-before line in the body
                               d['item_count'],
                               d['item_summary'],
-                              d['requested_by'] or 'â€”',   # no created_by column: the logger IS the requester
+                              d['requested_by'] or '—',   # no created_by column: the logger IS the requester
                               fmt_date(d['created_at'])]
                 ok, txt = _procurement_send_template(
                     au['whatsapp'], tpl, params,
@@ -57860,9 +57867,9 @@ def _procurement_notify_req_authorised(req_id, authoriser_name, target_user_id=N
                 targets = picked
             else:
                 print(f"Requisition {req_no}: picked approver (user id {target_user_id}) is not an eligible "
-                      f"approver with a saved WhatsApp number â€” falling back to all approvers")
+                      f"approver with a saved WhatsApp number — falling back to all approvers")
         if not targets:
-            print(f"Requisition {req_no}: NO approver could be notified â€” none of them has a WhatsApp number saved")
+            print(f"Requisition {req_no}: NO approver could be notified — none of them has a WhatsApp number saved")
         for ap in targets:
             try:
                 ok, txt = _procurement_send_template(
@@ -57944,10 +57951,10 @@ def _procurement_po_item_summary(po_id):
                 break
         if count > len(parts):
             parts.append(f"+{count - len(parts)} more")
-        return count, ('; '.join(parts) if parts else 'â€”')
+        return count, ('; '.join(parts) if parts else '—')
     except Exception as e:
         print(f"PO item summary error: {e}")
-        return 0, 'â€”'
+        return 0, '—'
 
 
 def _procurement_po_details(po_id):
@@ -58013,7 +58020,7 @@ def _procurement_po_details(po_id):
                     if fr:
                         requested_by_phone = str(fr[0] or '').strip()
                         if not requested_by_phone:
-                            # admin_users has no number â€” fall back to the HR portal,
+                            # admin_users has no number — fall back to the HR portal,
                             # which is where staff numbers are actually maintained.
                             by_name, by_id = _procurement_hr_whatsapp_map(cursor)
                             nm = re.sub(r'\s+', ' ', str(fr[1] or fr[2] or '').strip().lower())
@@ -58053,7 +58060,7 @@ def _procurement_notify_po_authorisers(po_id, target_user_id=None):
     NOTE this path is RARE: a PO raised from requisitions that are already authorised
     SKIPS authorisation and goes straight to the approver, so this only fires for a
     PO whose requisitions are not all authorised. It shares the template with the
-    requisition authorisation notice, whose body is requisition-worded â€” so the
+    requisition authorisation notice, whose body is requisition-worded — so the
     message for a PO reads "Requisition (PO-0004)". Acceptable because the path is
     the exception; if it ever becomes common, give POs their own template name.
     `target_user_id` = the specific admin_users.id picked on the New PO form;
@@ -58070,17 +58077,17 @@ def _procurement_notify_po_authorisers(po_id, target_user_id=None):
                 targets = picked
             else:
                 print(f"PO {d['po_no']}: picked authoriser (user id {target_user_id}) is not an eligible "
-                      f"authoriser with a saved WhatsApp number â€” falling back to all authorisers")
+                      f"authoriser with a saved WhatsApp number — falling back to all authorisers")
         if not targets:
-            print(f"PO {d['po_no']}: NO authoriser could be notified â€” none of them has a WhatsApp number saved")
+            print(f"PO {d['po_no']}: NO authoriser could be notified — none of them has a WhatsApp number saved")
 
         def fmt_date(v):
             try:
                 if hasattr(v, 'strftime'):
                     return f"{v.day} {v.strftime('%B %Y')}"
-                return str(v)[:10] if v else 'â€”'
+                return str(v)[:10] if v else '—'
             except Exception:
-                return 'â€”'
+                return '—'
 
         def fmt_amount(v):
             try:
@@ -58094,16 +58101,16 @@ def _procurement_notify_po_authorisers(po_id, target_user_id=None):
                 ok, txt = _procurement_send_template(
                     au['whatsapp'], PROC_PO_AUTHORISATION_TEMPLATE,
                     [au['name'],
-                     d['department'] or 'â€”',
+                     d['department'] or '—',
                      d['po_no'],
-                     d['requested_by'] or 'â€”',
+                     d['requested_by'] or '—',
                      d['requested_by_phone'] or '',
                      fmt_amount(d['total']),
                      fmt_date(d['required_by']),
                      d['stock_label'],           # sits beside the required-before line in the body
                      count,
                      summary,
-                     d['created_by'] or 'â€”',
+                     d['created_by'] or '—',
                      fmt_date(d['created_at'])],
                     button_payloads=[f"poauth_{po_id}", f"podeclauth_{po_id}"])
                 _procurement_log_send(f"PO authorisation request -> {au['name']}", ok, txt)
@@ -58131,17 +58138,17 @@ def _procurement_notify_po_approvers(po_id, target_user_id=None):
                 targets = picked
             else:
                 print(f"PO {d['po_no']}: picked approver (user id {target_user_id}) is not an eligible "
-                      f"approver with a saved WhatsApp number â€” falling back to all approvers")
+                      f"approver with a saved WhatsApp number — falling back to all approvers")
         if not targets:
-            print(f"PO {d['po_no']}: NO approver could be notified â€” none of them has a WhatsApp number saved")
+            print(f"PO {d['po_no']}: NO approver could be notified — none of them has a WhatsApp number saved")
 
         def fmt_date(v):
             try:
                 if hasattr(v, 'strftime'):
                     return f"{v.day} {v.strftime('%B %Y')}"
-                return str(v)[:10] if v else 'â€”'
+                return str(v)[:10] if v else '—'
             except Exception:
-                return 'â€”'
+                return '—'
 
         def fmt_amount(v):
             try:
@@ -58154,7 +58161,7 @@ def _procurement_notify_po_approvers(po_id, target_user_id=None):
         # own authorisation layer, so purchase_orders.authorised_by/at are NULL and the
         # approver's "Authorised by {{14}} on {{15}}" line arrived BLANK. The
         # authorisation that actually cleared this PO is the one on the requisitions
-        # behind it â€” which is exactly WHY it skipped â€” so fall back to that and label
+        # behind it — which is exactly WHY it skipped — so fall back to that and label
         # it, instead of sending an empty field.
         auth_by = (d['authorised_by'] or '').strip()
         auth_at = d['authorised_at']
@@ -58167,19 +58174,19 @@ def _procurement_notify_po_approvers(po_id, target_user_id=None):
                 ok, txt = _procurement_send_template(
                     ap['whatsapp'], PROC_PO_APPROVAL_TEMPLATE,
                     [ap['name'],
-                     d['department'] or 'â€”',
+                     d['department'] or '—',
                      d['po_no'],
-                     d['requested_by'] or 'â€”',
+                     d['requested_by'] or '—',
                      d['requested_by_phone'] or '',
                      fmt_amount(d['total']),
                      fmt_date(d['required_by']),
                      count,
                      summary,
-                     d['supplier_name'] or 'â€”',
+                     d['supplier_name'] or '—',
                      d['supplier_phone'] or '',
-                     d['created_by'] or 'â€”',
+                     d['created_by'] or '—',
                      fmt_date(d['created_at']),
-                     auth_by or 'â€”',
+                     auth_by or '—',
                      fmt_date(auth_at)],
                     button_payloads=[f"poappr_{po_id}", f"podecl_{po_id}"])
                 _procurement_log_send(f"PO approval request -> {ap['name']}", ok, txt)
@@ -58216,9 +58223,9 @@ def _procurement_whatsapp_by_name(name):
 
 
 def _procurement_notify_po_status(po_id, status_label, detail='', exclude=None):
-    """Status update to the people AROUND a PO â€” the department requester
+    """Status update to the people AROUND a PO — the department requester
     (requested_by / requested_by_phone), the logger (created_by) and the
-    authoriser (authorised_by) â€” via the purchase_order_status_update template
+    authoriser (authorised_by) — via the purchase_order_status_update template
     (which lists the items still to be purchased).
     A TEMPLATE is used because these people never messaged the business number,
     so no 24h customer-service window is open for them (free text would fail).
@@ -58253,7 +58260,7 @@ def _procurement_notify_po_status(po_id, status_label, detail='', exclude=None):
             try:
                 ok, txt = _procurement_send_template(
                     phone, PROC_PO_STATUS_TEMPLATE,
-                    [name, d['po_no'], d['department'] or 'â€”', amount, status_label,
+                    [name, d['po_no'], d['department'] or '—', amount, status_label,
                      count, summary, detail or ''])
                 _procurement_log_send(f"PO status update ({status_label}) -> {name}", ok, txt)
             except Exception as e:
@@ -58285,7 +58292,7 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
         if not payload:
             return False
         low = payload.lower()
-        # NOTE: test the 'declauth' prefix BEFORE 'decl' â€” they are different layers.
+        # NOTE: test the 'declauth' prefix BEFORE 'decl' — they are different layers.
         if low.startswith('poauth_'):
             action = 'authorise'
         elif low.startswith('podeclauth_'):
@@ -58328,7 +58335,7 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
             perms = {}
             sender_row = None
             try:
-                # admin_users.whatsapp FIRST, then the HR portal number â€” the notify side
+                # admin_users.whatsapp FIRST, then the HR portal number — the notify side
                 # sends to the HR number when admin_users is blank, so that number has to
                 # be identifiable here too (see _procurement_sender_account).
                 sender_row = _procurement_sender_account(cursor, sender_number)
@@ -58398,12 +58405,12 @@ def _handle_procurement_po_payload(payload, sender_id, sender_number):
             except Exception as nfe:
                 print(f"PO approver notify error: {nfe}")
         # Status update to the requester / logger / authoriser. The person who tapped
-        # the button is EXCLUDED â€” they are inside the 24h window, so they get the
+        # the button is EXCLUDED — they are inside the 24h window, so they get the
         # free-text reply below instead (no template needed for them).
         try:
             if action == 'authorise':
                 _procurement_notify_po_status(
-                    po_id, 'Authorised â€“ awaiting final approval',
+                    po_id, 'Authorised – awaiting final approval',
                     f'Authorised by {sender_name} on {datetime.now().strftime("%d %B %Y")}',
                     exclude=[sender_name])
             elif action == 'approve':
@@ -58482,7 +58489,7 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
             perms = {}
             sender_row = None
             try:
-                # admin_users.whatsapp FIRST, then the HR portal number â€” the notify side
+                # admin_users.whatsapp FIRST, then the HR portal number — the notify side
                 # sends to the HR number when admin_users is blank, so that number has to
                 # be identifiable here too (see _procurement_sender_account). Without it a
                 # person receives the request and is then refused, because nobody could be
@@ -58531,7 +58538,7 @@ def handle_procurement_button_payload(payload, sender_id, sender_number):
                         WHERE id=%s
                     """, (sender_name, req_id))
                     new_status = 'authorised'
-                    # Authorising an "in stock" requisition IS the issue â€” the goods
+                    # Authorising an "in stock" requisition IS the issue — the goods
                     # leave the WORKSHOP store here, exactly as on the in-app route.
                     try:
                         _procurement_issue_req_stock(cursor, req_id, sender_uid, sender_name)
@@ -58743,7 +58750,7 @@ def send_enquiry_followup(enquiry_id, sent_by='System'):
         }
         resp = requests.post(WHATSAPP_API_URL, json=payload, headers=headers_wa, timeout=20)
         # Meta returns HTTP 200 with an "error" object in the JSON body for many
-        # template failures (e.g. billing issue 131042) â€” check BOTH the HTTP status
+        # template failures (e.g. billing issue 131042) — check BOTH the HTTP status
         # and the JSON body so a failed send is never recorded as sent.
         send_error = ''
         try:
@@ -58763,7 +58770,7 @@ def send_enquiry_followup(enquiry_id, sent_by='System'):
         # Persist the follow-up to whatsapp_messages so it shows in the chat portal
         # under the client's conversation (same pattern as quotation/contract templates).
         try:
-            display_text = (f"[Template: {ENQUIRY_FOLLOWUP_TEMPLATE_NAME}] {name} â€” {category} ({date_str}): "
+            display_text = (f"[Template: {ENQUIRY_FOLLOWUP_TEMPLATE_NAME}] {name} — {category} ({date_str}): "
                             + (enq_body or 'No message'))[:500]
             with get_db() as (cursor, connection):
                 cursor.execute("""
@@ -58779,7 +58786,7 @@ def send_enquiry_followup(enquiry_id, sent_by='System'):
                       'sent' if sent_ok else 'failed', send_error or None, message_id or None))
                 connection.commit()
         except Exception as le:
-            print(f"âš ï¸ Could not log enquiry follow-up: {le}")
+            print(f"⚠️ Could not log enquiry follow-up: {le}")
         return {'ok': sent_ok, 'id': e_id, 'phone': phone_e164,
                 'detail': send_error or (resp.text[:200] if not sent_ok else 'sent')}
     except Exception as e:
@@ -58822,7 +58829,7 @@ def send_interim_followup(interim_id, sent_by='System'):
         name = 'Valued Client'
         category = _map_enquiry_category(etype)
         date_str = _enquiry_date_str(enq_ts)
-        enq_body = f"Interim enquiry #{interim_id} â€” {etype or 'General'}"
+        enq_body = f"Interim enquiry #{interim_id} — {etype or 'General'}"
 
         headers_wa = {'Authorization': f'Bearer {ACCESS_TOKEN}', 'Content-Type': 'application/json'}
         payload = {
@@ -58864,7 +58871,7 @@ def send_interim_followup(interim_id, sent_by='System'):
             except Exception:
                 message_id = ''
         try:
-            display_text = (f"[Template: {ENQUIRY_FOLLOWUP_TEMPLATE_NAME}] Interim #{interim_id} â€” {category} ({date_str})")[:500]
+            display_text = (f"[Template: {ENQUIRY_FOLLOWUP_TEMPLATE_NAME}] Interim #{interim_id} — {category} ({date_str})")[:500]
             with get_db() as (cursor, connection):
                 cursor.execute("""
                     INSERT INTO whatsapp_messages
@@ -58878,7 +58885,7 @@ def send_interim_followup(interim_id, sent_by='System'):
                       'sent' if sent_ok else 'failed', send_error or None, message_id or None))
                 connection.commit()
         except Exception as le:
-            print(f"âš ï¸ Could not log interim follow-up: {le}")
+            print(f"⚠️ Could not log interim follow-up: {le}")
         return {'ok': sent_ok, 'id': interim_id, 'phone': phone_e164,
                 'detail': send_error or (resp.text[:200] if not sent_ok else 'sent')}
     except Exception as e:
@@ -58935,7 +58942,7 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
                 if action == 'help':
                     promo_category = _map_enquiry_category(enqtype)
                     promo_phone = str(wanumber or '').strip()
-                    # If this number already has a pending MAIN enquiry, don't duplicate it â€”
+                    # If this number already has a pending MAIN enquiry, don't duplicate it —
                     # just raise the flag on that one so it surfaces on the banner.
                     cursor.execute("""
                         SELECT id FROM connectlinkenquiries
@@ -58963,17 +58970,17 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
                             RETURNING id
                         """, (datetime.now(), promo_phone, promo_category))
                         promoted_id = cursor.fetchone()[0]
-                    # This interim enquiry is now represented on the main enquiries table â€”
+                    # This interim enquiry is now represented on the main enquiries table —
                     # drop it from the interim list so it isn't followed up twice.
                     cursor.execute("DELETE FROM appenqtemp WHERE id = %s", (i_id,))
                     log_activity('enquiry_manual',
-                                 f'Interim enquiry #{i_id} promoted to main enquiry #{promoted_id} â€” client responded "I Still Need Help"',
+                                 f'Interim enquiry #{i_id} promoted to main enquiry #{promoted_id} — client responded "I Still Need Help"',
                                  'enquiry', promoted_id,
                                  username='System')
                 connection.commit()
             else:
                 client_name = row[0]
-                # Record the response on the enquiry (idempotent â€” keep the first response)
+                # Record the response on the enquiry (idempotent — keep the first response)
                 if action == 'done':
                     cursor.execute("""
                         UPDATE connectlinkenquiries
@@ -59010,7 +59017,7 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
         button_label = 'I Was Assisted, Thank You' if action == 'done' else 'I Still Need Help'
         confirm_msg = ("That's great to hear! Thank you for choosing ConnectLink Properties. Feel free to reach out anytime."
                        if action == 'done'
-                       else "Thanks for letting us know â€” a member of our team will attend to your enquiry shortly. Please bear with us.")
+                       else "Thanks for letting us know — a member of our team will attend to your enquiry shortly. Please bear with us.")
         try:
             with get_db() as (cursor, connection):
                 cursor.execute("""
@@ -59025,7 +59032,7 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
                 """, (str(sender_id), 'ConnectLink Bot', confirm_msg))
                 connection.commit()
         except Exception as ce:
-            print(f"âš ï¸ Could not save enquiry follow-up reply to chat: {ce}")
+            print(f"⚠️ Could not save enquiry follow-up reply to chat: {ce}")
 
         if action == 'done':
             log_activity('enquiry_followup_response',
@@ -59048,7 +59055,7 @@ def handle_enquiry_followup_button_payload(payload, sender_id, sender_number):
 
 
 # ============================================================
-# LOGISTICS & EXPENSES â€” fuel / maintenance / service / freight
+# LOGISTICS & EXPENSES — fuel / maintenance / service / freight
 # Operational expenses enter through a requisition-like approval
 # cycle and feed the Finance statements (income, cash flow, BS).
 # Fully additive: existing requisition/PO/payment flow untouched.
@@ -59069,7 +59076,7 @@ def _expense_notify_approvers(exp_id):
         for ap in _procurement_approvers():
             try:
                 _procurement_send_text(ap['whatsapp'],
-                    f"ConnectLink: {req_by} submitted expense {exp_no} ({exp_title}) â€” awaiting your approval.")
+                    f"ConnectLink: {req_by} submitted expense {exp_no} ({exp_title}) — awaiting your approval.")
                 print(f"Expense approval request -> {ap['name']}")
             except Exception as e:
                 print(f"Expense approver notify error: {e}")
@@ -59528,7 +59535,7 @@ def procurement_api_expense_attachment_delete(att_id):
 
 
 # ============================================================
-# FINANCE PORTAL â€” Income Statement (P&L) & Cash Flow
+# FINANCE PORTAL — Income Statement (P&L) & Cash Flow
 # Fully additive: reads from existing tables only, changes nothing.
 # ============================================================
 

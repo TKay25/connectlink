@@ -1,0 +1,80 @@
+PASS  ConnectLink.py is valid UTF-8
+PASS  ConnectLink.py carries no byte-order mark
+PASS  ConnectLink.py has no re-decodable mojibake
+PASS  ConnectLink.py shows no cp1252 lead characters
+PASS  templates\adminpage.html is valid UTF-8
+PASS  templates\adminpage.html has no re-decodable mojibake
+PASS  templates\adminpage.html shows no cp1252 lead characters
+PASS  templates\base_modern.html is valid UTF-8
+PASS  templates\base_modern.html has no re-decodable mojibake
+PASS  templates\base_modern.html shows no cp1252 lead characters
+PASS  templates\branch_stock_repair.html is valid UTF-8
+PASS  templates\branch_stock_repair.html has no re-decodable mojibake
+PASS  templates\branch_stock_repair.html shows no cp1252 lead characters
+PASS  templates\contracttemplate.html is valid UTF-8
+PASS  templates\contracttemplate.html has no re-decodable mojibake
+PASS  templates\contracttemplate.html shows no cp1252 lead characters
+PASS  templates\dashboard_modern.html is valid UTF-8
+PASS  templates\dashboard_modern.html has no re-decodable mojibake
+PASS  templates\dashboard_modern.html shows no cp1252 lead characters
+PASS  templates\finance.html is valid UTF-8
+PASS  templates\finance.html has no re-decodable mojibake
+PASS  templates\finance.html shows no cp1252 lead characters
+PASS  templates\hr_dashboard.html is valid UTF-8
+PASS  templates\hr_dashboard.html has no re-decodable mojibake
+PASS  templates\hr_dashboard.html shows no cp1252 lead characters
+PASS  templates\leave_history.html is valid UTF-8
+PASS  templates\leave_history.html has no re-decodable mojibake
+PASS  templates\leave_history.html shows no cp1252 lead characters
+PASS  templates\leave_slip.html is valid UTF-8
+PASS  templates\leave_slip.html has no re-decodable mojibake
+PASS  templates\leave_slip.html shows no cp1252 lead characters
+PASS  templates\mainindex.html is valid UTF-8
+PASS  templates\mainindex.html has no re-decodable mojibake
+PASS  templates\mainindex.html shows no cp1252 lead characters
+PASS  templates\payroll_breakdown.html is valid UTF-8
+PASS  templates\payroll_breakdown.html has no re-decodable mojibake
+PASS  templates\payroll_breakdown.html shows no cp1252 lead characters
+PASS  templates\payslip.html is valid UTF-8
+PASS  templates\payslip.html has no re-decodable mojibake
+PASS  templates\payslip.html shows no cp1252 lead characters
+PASS  templates\points.html is valid UTF-8
+PASS  templates\points.html has no re-decodable mojibake
+PASS  templates\points.html shows no cp1252 lead characters
+PASS  templates\pos-system.html is valid UTF-8
+PASS  templates\pos-system.html has no re-decodable mojibake
+PASS  templates\pos-system.html shows no cp1252 lead characters
+PASS  templates\pos_reconciliation.html is valid UTF-8
+PASS  templates\pos_reconciliation.html has no re-decodable mojibake
+PASS  templates\pos_reconciliation.html shows no cp1252 lead characters
+PASS  templates\privacy_policy.html is valid UTF-8
+PASS  templates\privacy_policy.html has no re-decodable mojibake
+PASS  templates\privacy_policy.html shows no cp1252 lead characters
+PASS  templates\procurement.html is valid UTF-8
+PASS  templates\procurement.html has no re-decodable mojibake
+PASS  templates\procurement.html shows no cp1252 lead characters
+PASS  templates\profile.html is valid UTF-8
+PASS  templates\profile.html has no re-decodable mojibake
+PASS  templates\profile.html shows no cp1252 lead characters
+PASS  templates\projects_modern.html is valid UTF-8
+PASS  templates\projects_modern.html has no re-decodable mojibake
+PASS  templates\projects_modern.html shows no cp1252 lead characters
+PASS  templates\receipt-print-demo.html is valid UTF-8
+PASS  templates\receipt-print-demo.html has no re-decodable mojibake
+PASS  templates\receipt-print-demo.html shows no cp1252 lead characters
+PASS  templates\test1.html is valid UTF-8
+PASS  templates\test1.html has no re-decodable mojibake
+PASS  templates\test1.html shows no cp1252 lead characters
+PASS  templates\users_dashboard.html is valid UTF-8
+PASS  templates\users_dashboard.html has no re-decodable mojibake
+PASS  templates\users_dashboard.html shows no cp1252 lead characters
+PASS  templates\whatsapp_app.html is valid UTF-8
+PASS  templates\whatsapp_app.html has no re-decodable mojibake
+PASS  templates\whatsapp_app.html shows no cp1252 lead characters
+PASS  templates\whatsapp_app_guide.html is valid UTF-8
+PASS  templates\whatsapp_app_guide.html has no re-decodable mojibake
+PASS  templates\whatsapp_app_guide.html shows no cp1252 lead characters
+PASS  the WhatsApp greeting carries a real waving hand
+PASS  the greeting footer carries a real bullet
+PASS  no replacement glyph (U+FFFD) was left behind
+PASS  no private-use code point was left behind

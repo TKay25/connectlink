@@ -1,0 +1,39 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "RepairWhatsappMojibake",
+  "file": "_repair_whatsapp_mojibake.py",
+  "purpose": "Repair mojibake already stored in the WhatsApp chat history.",
+  "entry_function": "repair_text(text)",
+  "entry_flows": [
+    "_repair_whatsapp_mojibake → stdout.reconfigure, stderr.reconfigure, m.group, chunk.encode, ch.encode"
+  ],
+  "public_api": [
+    "repair_text(text)",
+    "fix_run(m)",
+    "connect()",
+    "main(argv = None)"
+  ],
+  "dependencies": [
+    "psycopg2"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: LEADERS = 'ðâÃïÂŸ', RUN = re.compile('[^\\\\x00-\\\\x7f]{1,}'), TARGETS = [('whatsapp_messages', 'message_text', 'id'), ('whatsapp_messages', 'sender_name', 'id'), ('activity_log', 'description', 'id')]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "ea481fb9df91d756",
+  "file_mtime": 1793196284395.0796,
+  "file_size": 5240,
+  "file_birthtime": 1793196284394.5264,
+  "generated_at": "2026-10-28T14:10:13.836110Z",
+  "stale": false
+}

@@ -1,6 +1,6 @@
 PASS  script started
 PASS  read the POS page  -> 1141729 chars
-PASS  read the committed POS page for comparison  -> 1139384 chars
+PASS  read the committed POS page for comparison  -> 1141729 chars
 PASS  loadSalesReport() parses  -> 4653 chars (lines 13592-13686)
 PASS  updateReportDateRange() parses  -> 717 chars (lines 13512-13527)
 PASS  renderSalesReport() parses  -> 23677 chars (lines 14119-14596)

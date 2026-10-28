@@ -1,0 +1,52 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckActivityLogNoise",
+  "file": "_check_activity_log_noise.py",
+  "purpose": "The audit log must record USER actions, not Meta's webhook traffic.",
+  "entry_function": "class Cur  # line 42",
+  "entry_flows": [
+    "Cur.execute(sql, params = None) → environ.pop, path.dirname, path.abspath, path.join",
+    "Conn.commit() → environ.pop, path.dirname, path.abspath, path.join",
+    "_HTML.__init__() → environ.pop, path.dirname, path.abspath, path.join"
+  ],
+  "public_api": [
+    "class Cur  # line 42",
+    "  Cur.execute(sql, params = None)",
+    "  Cur.executemany(sql, seq)",
+    "  Cur.fetchone()",
+    "  Cur.fetchall()",
+    "class Conn  # line 65",
+    "  Conn.commit()",
+    "  Conn.rollback()",
+    "  Conn.close()",
+    "check(name, ok, detail = '')",
+    "fake_db()",
+    "fake_execute_query(sql, params = None, fetch_all = False, fetch_one = False, commit = False)",
+    "activity_rows()",
+    "post(path, payload)"
+  ],
+  "dependencies": [
+    "ConnectLink",
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), APP = os.path.join(ROOT, 'ConnectLink.py'), OUT = os.path.join(ROOT, '_check_activity_log_noise_out.txt'), RESULTS = [], SEEN = [], ORIGIN = {'display_phone_number': '263771234567', 'phone_number_id': '1234567890'}",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "fe7e2b697bb4e6e1",
+  "file_mtime": 1793196173028.6235,
+  "file_size": 6041,
+  "file_birthtime": 1793196173027.4253,
+  "generated_at": "2026-10-28T14:02:56.541947Z",
+  "stale": false
+}
