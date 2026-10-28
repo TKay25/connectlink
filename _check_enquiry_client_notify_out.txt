@@ -5,7 +5,7 @@ PASS  ...to the normalised number  -> +263771234567
 PASS  ...as a plain text message  -> text
 PASS  ...carrying the reference number  -> *Your enquiry has been successfully submitted to ConnectLink Properties, Tendai Moyo!* |  | *Reference ID:* #4242 | *Date:* 28
 PASS  ...the category
-PASS  ...and the 24-hour promise the form makes  -> *Your enquiry has been successfully submitted to ConnectLink Properties, Tendai Moyo!* |  | *Reference ID:* #4242 | *Date:* 28 October 2026 14:13 | *Category:* Quotation |  | Thank you for your enquiry. Our team 
+PASS  ...and the 24-hour promise the form makes  -> *Your enquiry has been successfully submitted to ConnectLink Properties, Tendai Moyo!* |  | *Reference ID:* #4242 | *Date:* 28 October 2026 14:22 | *Category:* Quotation |  | Thank you for your enquiry. Our team 
 PASS  ...addressed to the client by name
 PASS  the endpoint reports that the client was reached  -> True
 PASS  ...and says so in its message  -> Enquiry #4242 posted — it now shows on every user screen until attended. The client has been messaged on WhatsApp.
