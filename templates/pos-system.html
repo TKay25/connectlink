@@ -5001,6 +5001,9 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
 #posPage .cashier-bar { height: 2px; }
 #posPage .pos-refresh-btn { width: 34px; height: 34px; border-radius: 9px; }
 #posPage .pos-refresh-btn i { font-size: 0.78rem !important; }
+/* Three positions now sit in the switch (All / Hardware / Furniture), so the
+   buttons tighten on a phone rather than pushing the refresh button off-screen. */
+#posPage .pos-dept-btn { padding: 6px 9px; font-size: 0.62rem !important; gap: 5px; }
 
 /* ---- Top bar (outside #posPage — global strip) ---- */
 .top-bar { min-height: 36px !important; padding: 4px 12px !important; margin-bottom: 8px !important; }
@@ -6345,7 +6348,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                     </div>
                 </div>
                 <div class="sms-stats">
-                    <div class="sms-stat"><small>Today's Sales</small><strong id="posDrawerSales">$0.00</strong></div>
+                    <div class="sms-stat"><small>Today's Sales</small><strong id="posDrawerSales">USD 0.00</strong></div>
                     <div class="sms-stat"><small>Items Sold</small><strong id="posDrawerItems">0</strong></div>
                 </div>
                 <button type="button" class="sms-row" id="posDrawerSyncRow" onclick="posSyncNow()">
@@ -6798,7 +6801,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <i class="fas fa-info-circle me-1"></i> 
                                 <strong>Product:</strong> <span id="editStockProductName">Loading...</span><br>
                                 <strong>Current Stock:</strong> <span id="currentStockValue">0</span><br>
-                                <strong>Current Profit Available:</strong> <span id="currentAvailableProfit" class="text-success">$0.00</span>
+                                <strong>Current Profit Available:</strong> <span id="currentAvailableProfit" class="text-success">USD 0.00</span>
                                 <!-- Shown when that stock figure is a SAVED copy: adding on
                                      top of a number the server has not confirmed would
                                      write a wrong total into the branch's stock. -->
@@ -6810,7 +6813,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             <label class="form-label" for="newStockQuantity">Quantity to ADD *</label>
                             <input type="number" class="form-control mb-2" id="newStockQuantity" placeholder="Enter quantity to add" min="1" value="">
                             
-                            <label class="form-label" for="stockBuyPrice">Cost per Unit for THIS Batch ($) *</label>
+                            <label class="form-label" for="stockBuyPrice">Cost per Unit for THIS Batch (USD) *</label>
                             <input type="number" step="0.01" class="form-control mb-1" id="stockBuyPrice" placeholder="Cost per unit" required>
                             <div class="form-text mb-2" style="font-size:0.68rem;">
                                 Each addition is its own cost layer. Stock is issued oldest-first (FIFO), so this price applies to the units you are adding now — it does not re-cost the stock already on the shelf.
@@ -6838,11 +6841,11 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             
                             <div id="profitWarning" class="alert alert-warning small" style="display: none;">
                                 <i class="fas fa-exclamation-triangle me-1"></i>
-                                <strong>Insufficient Profit!</strong> Current available profit: <span id="warningProfitAmount">$0.00</span><br>
-                                This purchase will use <span id="warningCostAmount">$0.00</span> from profit, but only <span id="warningAvailableAmount">$0.00</span> is available.
+                                <strong>Insufficient Profit!</strong> Current available profit: <span id="warningProfitAmount">USD 0.00</span><br>
+                                This purchase will use <span id="warningCostAmount">USD 0.00</span> from profit, but only <span id="warningAvailableAmount">USD 0.00</span> is available.
                             </div>
                             
-                            <small class="text-muted">Total cost: <span id="totalCostPreview">$0.00</span></small>
+                            <small class="text-muted">Total cost: <span id="totalCostPreview">USD 0.00</span></small>
                         </div>
                         <div class="modal-footer">
                             <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
@@ -6952,8 +6955,8 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 </div>
                 <div id="laybyPlanRows"></div>
                 <div class="d-flex justify-content-between mt-2 flex-wrap gap-2">
-                    <span class="small">Still to pay: <strong id="laybyDueAmount">$0.00</strong></span>
-                    <span class="small">Instalments add up to: <strong id="laybyPlanTotal">$0.00</strong>
+                    <span class="small">Still to pay: <strong id="laybyDueAmount">USD 0.00</strong></span>
+                    <span class="small">Instalments add up to: <strong id="laybyPlanTotal">USD 0.00</strong>
                         <span id="laybyPlanDiff" class="ms-1"></span></span>
                 </div>
                 <div class="mt-3">
@@ -7363,10 +7366,16 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 <div id="posPage">
     <!-- POS Page Header -->
     <div class="pos-page-header">
-        <!-- Department switch: the till shows ONE department at a time. Every tab
-             below (POS grid, Inventory, sales, reports) follows this choice. -->
+        <!-- Department switch: the till shows one department at a time, or all of
+             them at once. Every tab below (POS grid, Inventory, sales, reports)
+             follows this choice; All is the default so the first thing an operator
+             sees is the whole shop. -->
         <div class="pos-department-switch" id="posDepartmentSwitch" role="group" aria-label="Department">
-            <button type="button" class="pos-dept-btn is-active" data-dept="hardware"
+            <button type="button" class="pos-dept-btn is-active" data-dept="all"
+                    onclick="switchDepartment('all')">
+                <i class="fas fa-layer-group"></i><span>All</span>
+            </button>
+            <button type="button" class="pos-dept-btn" data-dept="hardware"
                     onclick="switchDepartment('hardware')">
                 <i class="fas fa-screwdriver-wrench"></i><span>Hardware</span>
             </button>
@@ -7382,7 +7391,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
             </div>
             <div class="pos-stat-pill pill-sales">
                 <i class="fas fa-dollar-sign"></i>
-                <div><small>Today's Sales</small><strong id="todaySalesChip">$0.00</strong></div>
+                <div><small>Today's Sales</small><strong id="todaySalesChip">USD 0.00</strong></div>
             </div>
             <div class="pos-stat-pill pill-items">
                 <i class="fas fa-box-open"></i>
@@ -7513,7 +7522,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <div class="border-top pt-3 mt-2">
                     <div class="cart-total-row d-flex justify-content-between align-items-center mb-3">
                         <span class="fw-bold"><i class="fas fa-receipt me-1"></i>Total Due</span>
-                        <span class="fw-bold cart-total-amount" id="total">$0.00</span>
+                        <span class="fw-bold cart-total-amount" id="total">USD 0.00</span>
                     </div>
                     <div class="mb-2">
                         <div class="small fw-bold mb-1">Payment Method</div>
@@ -7571,7 +7580,11 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                      Furniture stock. Shops keep using the till's switch. -->
                                 <div class="pos-department-switch" id="inventoryDeptSwitch"
                                      role="group" aria-label="Department" style="display:none;">
-                                    <button type="button" class="pos-dept-btn is-active" data-dept="hardware"
+                                    <button type="button" class="pos-dept-btn is-active" data-dept="all"
+                                            onclick="switchDepartment('all')">
+                                        <i class="fas fa-layer-group"></i><span>All</span>
+                                    </button>
+                                    <button type="button" class="pos-dept-btn" data-dept="hardware"
                                             onclick="switchDepartment('hardware')">
                                         <i class="fas fa-screwdriver-wrench"></i><span>Hardware</span>
                                     </button>
@@ -7632,7 +7645,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Total Stock Purchase Value</small>
-                                        <h5 class="mb-1 fw-bold text-danger" id="totalPurchaseValue">$0.00</h5>
+                                        <h5 class="mb-1 fw-bold text-danger" id="totalPurchaseValue">USD 0.00</h5>
                                         <small class="text-muted">All items in stock</small>
                                     </div>
                                     <i class="fas fa-shopping-cart fa-2x text-muted opacity-50"></i>
@@ -7644,7 +7657,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Expected Total Sales Value</small>
-                                        <h5 class="mb-1 fw-bold text-success" id="totalSalesValue">$0.00</h5>
+                                        <h5 class="mb-1 fw-bold text-success" id="totalSalesValue">USD 0.00</h5>
                                         <small class="text-muted">Potential revenue</small>
                                     </div>
                                     <i class="fas fa-dollar-sign fa-2x text-muted opacity-50"></i>
@@ -7656,7 +7669,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Expected Margin/Profit</small>
-                                        <h5 class="mb-1 fw-bold text-info" id="marginProfit">$0.00</h5>
+                                        <h5 class="mb-1 fw-bold text-info" id="marginProfit">USD 0.00</h5>
                                         <small class="text-muted" id="marginPercent">0%</small>
                                     </div>
                                     <i class="fas fa-chart-line fa-2x text-muted opacity-50"></i>
@@ -7765,7 +7778,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <small class="text-muted">Addition Cost</small>
-                                    <h5 class="mb-0 fw-bold" id="auditAdditionCost">$0.00</h5>
+                                    <h5 class="mb-0 fw-bold" id="auditAdditionCost">USD 0.00</h5>
                                 </div>
                                 <i class="fas fa-dollar-sign fa-2x text-muted opacity-50"></i>
                             </div>
@@ -8124,7 +8137,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <div>
                                     <small class="text-muted">Return on Sales</small>
                                     <h3 class="mb-0 fw-bold" id="reportROS">0%</h3>
-                                    <small class="text-muted">Profit per $1 sales</small>
+                                    <small class="text-muted">Profit per USD 1 of sales</small>
                                 </div>
                                 <i class="fas fa-chart-simple fa-2x text-muted opacity-50"></i>
                             </div>
@@ -8256,7 +8269,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Still to collect</small>
-                                        <h5 class="fw-bold text-danger" id="laybyStatOutstanding">$0.00</h5>
+                                        <h5 class="fw-bold text-danger" id="laybyStatOutstanding">USD 0.00</h5>
                                     </div>
                                     <i class="fas fa-hand-holding-dollar text-muted opacity-50"></i>
                                 </div>
@@ -8267,7 +8280,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">Collected to date</small>
-                                        <h5 class="fw-bold text-success" id="laybyStatCollected">$0.00</h5>
+                                        <h5 class="fw-bold text-success" id="laybyStatCollected">USD 0.00</h5>
                                     </div>
                                     <i class="fas fa-coins text-muted opacity-50"></i>
                                 </div>
@@ -8419,7 +8432,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <div class="small text-muted">Value Dispatched</div>
-                                        <h5 class="mb-0 fw-bold" id="dispatchTotalValue">$0.00</h5>
+                                        <h5 class="mb-0 fw-bold" id="dispatchTotalValue">USD 0.00</h5>
                                     </div>
                                     <i class="fas fa-dollar-sign fa-2x text-muted"></i>
                                 </div>
@@ -8598,7 +8611,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <label class="form-label">Quantity *</label>
                 <input type="number" class="form-control mb-2" id="editAdditionQuantity" placeholder="Quantity" min="1" required>
                 
-                <label class="form-label">Cost per Unit ($) *</label>
+                <label class="form-label">Cost per Unit (USD) *</label>
                 <input type="number" step="0.01" class="form-control mb-2" id="editAdditionCost" placeholder="Cost per unit" required>
                 
                 <div class="mb-2">
@@ -8623,10 +8636,10 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 
                 <div id="editAdditionProfitWarning" class="alert alert-warning small" style="display: none;">
                     <i class="fas fa-exclamation-triangle me-1"></i>
-                    <strong>Profit Impact:</strong> Changing from capital to profit will reduce available profit by <span id="editAdditionProfitImpact">$0.00</span>
+                    <strong>Profit Impact:</strong> Changing from capital to profit will reduce available profit by <span id="editAdditionProfitImpact">USD 0.00</span>
                 </div>
                 
-                <small class="text-muted">Total cost: <span id="editAdditionTotalCost">$0.00</span></small>
+                <small class="text-muted">Total cost: <span id="editAdditionTotalCost">USD 0.00</span></small>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
@@ -8698,7 +8711,7 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                 <!-- Selling price. The catalogue is shared between the shops but the
                      PRICE need not be, so this can be pinned to one branch only. -->
                 <div class="mb-3">
-                    <label class="form-label">Selling Price ($) *</label>
+                    <label class="form-label">Selling Price (USD) *</label>
                     <input type="number" step="0.01" min="0" class="form-control" id="editProductSellPrice" placeholder="Retail price">
                     <div id="editProductPriceHint" class="form-text" style="font-size:0.7rem;"></div>
                 </div>
@@ -8762,15 +8775,15 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <div class="pay-summary-grid">
                             <div class="pay-summary-col">
                                 <span class="pay-label"><i class="fas fa-calculator me-1"></i>Total Due</span>
-                                <span class="pay-value" id="cfTotalDue">$0.00</span>
+                                <span class="pay-value" id="cfTotalDue">USD 0.00</span>
                             </div>
                             <div class="pay-summary-col">
                                 <span class="pay-label">Tendered</span>
-                                <span class="pay-value" id="cfTendered">$0.00</span>
+                                <span class="pay-value" id="cfTendered">USD 0.00</span>
                             </div>
                             <div class="pay-summary-col">
                                 <span class="pay-label">Change</span>
-                                <span class="pay-value text-success" id="cfChange">$0.00</span>
+                                <span class="pay-value text-success" id="cfChange">USD 0.00</span>
                             </div>
                         </div>
                         <div class="pay-method-badge" id="cfPayMethod">
@@ -8857,11 +8870,11 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                             <input type="number" class="form-control" id="productStock" required min="0">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="buyPrice">Buying Price ($) *</label>
+                            <label class="form-label" for="buyPrice">Buying Price (USD) *</label>
                             <input type="number" step="0.01" class="form-control" id="buyPrice" placeholder="Cost price" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label" for="sellPrice">Selling Price ($) *</label>
+                            <label class="form-label" for="sellPrice">Selling Price (USD) *</label>
                             <input type="number" step="0.01" class="form-control" id="sellPrice" placeholder="Retail price" required>
                         </div>
                         
@@ -8889,14 +8902,14 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <!-- Profit Warning for Add Product -->
                         <div id="addProductProfitWarning" class="alert alert-warning small" style="display: none;">
                             <i class="fas fa-exclamation-triangle me-1"></i>
-                            <strong>Insufficient Profit!</strong> Current available profit: <span id="addProductWarningProfitAmount">$0.00</span><br>
-                            This purchase will use <span id="addProductWarningCostAmount">$0.00</span> from profit, but only <span id="addProductWarningAvailableAmount">$0.00</span> is available.
+                            <strong>Insufficient Profit!</strong> Current available profit: <span id="addProductWarningProfitAmount">USD 0.00</span><br>
+                            This purchase will use <span id="addProductWarningCostAmount">USD 0.00</span> from profit, but only <span id="addProductWarningAvailableAmount">USD 0.00</span> is available.
                         </div>
                         
                         <div class="col-12">
                             <div class="alert alert-info small py-2 mb-0">
                                 <i class="fas fa-chart-line me-1"></i> 
-                                <strong>Profit Margin:</strong> <span id="profitPreview">$0.00</span> per unit
+                                <strong>Profit Margin:</strong> <span id="profitPreview">USD 0.00</span> per unit
                             </div>
                         </div>
                         <div class="col-md-12">
@@ -9118,6 +9131,15 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+// One money format for the whole app: USD 1,234.56 - accounting separators,
+// always two decimals, a loss shown as USD -12.50.
+window.usdMoney = function (value) {
+    const n = Number(value || 0);
+    return 'USD ' + (n < 0 ? '-' : '') + Math.abs(n).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+};
     // ---------------------------------------------------------------------
     // COST for THIS branch. Cost layers (stock_lots) are per branch, so what
     // the goods on this shop's shelf cost is the shop's OWN weighted average
@@ -9337,11 +9359,11 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <td style="padding: 5px; border: 1px solid #ddd;">${escapeHtml(p.category || 'N/A')}</td>
                         <td style="padding: 5px; border: 1px solid #ddd;">${escapeHtml(p.unit_type || 'N/A')}</td>
                         <td style="padding: 5px; border: 1px solid #ddd;">${escapeHtml(p.unit_details || 'N/A')}</td>
-                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">$${buyPrice.toFixed(2)}</td>
-                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">$${sellPrice.toFixed(2)}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">${usdMoney(buyPrice)}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">${usdMoney(sellPrice)}</td>
                         <td style="padding: 5px; border: 1px solid #ddd; text-align: center;">${stock}</td>
-                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">$${(buyPrice * stock).toFixed(2)}</td>
-                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">$${(sellPrice * stock).toFixed(2)}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">${usdMoney((buyPrice * stock))}</td>
+                        <td style="padding: 5px; border: 1px solid #ddd; text-align: right;">${usdMoney((sellPrice * stock))}</td>
                         <td style="padding: 5px; border: 1px solid #ddd; text-align: center; color: ${statusColor}; font-weight: bold;">${status}</td>
                     </tr>`;
             }).join('');
@@ -9379,8 +9401,8 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         <tr style="background-color: #FFF9C4; font-weight: bold;">
                             <td colspan="7" style="padding: 6px; border: 1px solid #ddd; text-align: right;">TOTALS:</td>
                             <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">${totalStock}</td>
-                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">$${totalBuy.toFixed(2)}</td>
-                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">$${totalSell.toFixed(2)}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${usdMoney(totalBuy)}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${usdMoney(totalSell)}</td>
                             <td style="padding: 6px; border: 1px solid #ddd; text-align: center;"></td>
                         </tr>
                     </tbody>
@@ -11094,8 +11116,8 @@ function renderAllProductsList(data) {
                 <small class="text-muted d-block">${p.category} | Stock: ${p.stock} | ${p.unit_type}: ${p.unit_details || 'N/A'}</small>
             </div>
             <div class="text-end">
-                <span class="fw-bold text-success">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}</span>
-                <div><small class="text-muted">Buy: $${branchBuyPriceOf(p).toFixed(2)}</small></div>
+                <span class="fw-bold text-success">${usdMoney((p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)))}</span>
+                <div><small class="text-muted">Buy: ${usdMoney(branchBuyPriceOf(p))}</small></div>
             </div>
         </div>
     `).join('');
@@ -11298,7 +11320,7 @@ async function exportModalData(type, format) {
                             <td style="padding: 6px; border: 1px solid #ddd;">${escapeHtml(row['Product Name'])}</td>
                             <td style="padding: 6px; border: 1px solid #ddd;">${row.Category}</td>
                             <td style="padding: 6px; border: 1px solid #ddd;">${row.Stock}</td>
-                            <td style="padding: 6px; border: 1px solid #ddd;">$${row['Sell Price'].toFixed(2)}</td>
+                            <td style="padding: 6px; border: 1px solid #ddd;">${usdMoney(row['Sell Price'])}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -11390,10 +11412,10 @@ function updateInventoryMetrics() {
     const marginPercentEl = document.getElementById('marginPercent');
     const stockItemsEl = document.getElementById('totalStockItems');
     
-    if (purchaseEl) purchaseEl.textContent = '$' + totalPurchaseValue.toFixed(2);
-    if (salesEl) salesEl.textContent = '$' + totalSalesValue.toFixed(2);
+    if (purchaseEl) purchaseEl.textContent = usdMoney(totalPurchaseValue);
+    if (salesEl) salesEl.textContent = usdMoney(totalSalesValue);
     if (marginEl) {
-        marginEl.textContent = '$' + margin.toFixed(2);
+        marginEl.textContent = usdMoney(margin);
         marginEl.className = margin >= 0 ? 'mb-1 fw-bold text-success' : 'mb-1 fw-bold text-danger';
     }
     if (marginPercentEl) marginPercentEl.textContent = marginPercent + '%';
@@ -11914,7 +11936,7 @@ async function loadStockAuditReport() {
         document.getElementById('auditProductCount').textContent = summary.total_products || 0;
         document.getElementById('auditTotalAdditions').textContent = summary.total_additions || 0;
         document.getElementById('auditTotalReductions').textContent = summary.total_reductions || 0;
-        document.getElementById('auditAdditionCost').textContent = '$' + (summary.total_addition_cost || 0).toFixed(2);
+        document.getElementById('auditAdditionCost').textContent = 'USD ' + (summary.total_addition_cost || 0).toFixed(2);
         document.getElementById('auditTotalRemoved').textContent = summary.total_removed || 0;
         
         // Render movements table
@@ -12066,7 +12088,7 @@ function renderAuditVoided(voided) {
                 <td style="white-space:nowrap;">${formatDateShort(v.voided_at)}</td>
                 <td><strong>${escapeHtml(v.transaction_number || 'N/A')}</strong></td>
                 <td><small>${itemsPreview}</small></td>
-                <td class="fw-bold text-danger">$${(v.total || 0).toFixed(2)}</td>
+                <td class="fw-bold text-danger">${usdMoney((v.total || 0))}</td>
                 <td><span class="badge ${pmClass}">${escapeHtml(pm)}</span></td>
                 <td><small>${escapeHtml(v.cashier || 'Admin')}</small></td>
                 <td><small>${escapeHtml(v.voided_by || 'System')}</small></td>
@@ -12108,8 +12130,8 @@ function renderAuditProductSummary(products) {
                 <td class="fw-bold text-danger">-${p.inventory_edit_reductions || 0}</td>
                 <td class="fw-bold text-danger">-${p.total_reductions}</td>
                 <td class="fw-bold">${p.final_stock} <i class="fas ${changeIcon} ms-1" style="font-size:0.6rem;"></i></td>
-                <td>$${branchBuyPriceOf(p).toFixed(2)}</td>
-                <td>$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}</td>
+                <td>${usdMoney(branchBuyPriceOf(p))}</td>
+                <td>${usdMoney((p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)))}</td>
             </tr>
         `;
     }).join('');
@@ -12431,7 +12453,7 @@ async function exportStockAuditPDF() {
         ['Products Tracked', productCount.toLocaleString(), NAVY],
         ['Total Additions', totalAdditions.toLocaleString(), GREEN],
         ['Total Reductions', totalReductions.toLocaleString(), RED],
-        ['Addition Cost', '$' + additionCost.toFixed(2), BLUE],
+        ['Addition Cost', usdMoney(additionCost), BLUE],
         ['Removed Items', removedCount.toLocaleString(), PURPLE],
         ['Voided Transactions', voidedCount.toLocaleString(), DARKRED]
     ];
@@ -12504,8 +12526,8 @@ async function exportStockAuditPDF() {
                 { content: '-' + (p.inventory_edit_reductions || 0), styles: { textColor: RED } },
                 { content: '-' + (p.total_reductions || 0), styles: { textColor: RED } },
                 { content: String(p.final_stock == null ? 0 : p.final_stock), styles: { fontStyle: 'bold' } },
-                '$' + branchBuyPriceOf(p).toFixed(2),
-                '$' + (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)
+                usdMoney(branchBuyPriceOf(p)),
+                'USD ' + (p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)
             ];
         });
         addTable(
@@ -12581,7 +12603,7 @@ async function exportStockAuditPDF() {
                 formatDateShort(v.voided_at),
                 { content: String(v.transaction_number || 'N/A'), styles: { fontStyle: 'bold' } },
                 itemsPreview,
-                { content: '$' + (Number(v.total) || 0).toFixed(2), styles: { textColor: DARKRED, fontStyle: 'bold' } },
+                { content: 'USD ' + (Number(v.total) || 0).toFixed(2), styles: { textColor: DARKRED, fontStyle: 'bold' } },
                 String((v.payment_method || 'N/A').toUpperCase()),
                 String(v.cashier || 'Admin'),
                 String(v.voided_by || 'System'),
@@ -12957,7 +12979,7 @@ function describeEditPriceScope() {
     const price = Number(priceEl ? priceEl.value : 0);
     const base = editProductBaseline || { sharedPrice: 0, branchPrice: 0 };
     const shared = Number(base.sharedPrice || 0);
-    const money = (v) => '$' + Number(v || 0).toFixed(2);
+    const money = (v) => usdMoney(Number(v || 0));
     const here = escapeHtml(branchLabelForEdit());
 
     if (scope === 'all') {
@@ -12981,7 +13003,7 @@ function describeEditPriceScope() {
 function editScopeSummaryHtml(p) {
     const esc = (v) => String(v == null ? '' : v)
         .replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-    const money = (v) => '$' + Number(v || 0).toFixed(2);
+    const money = (v) => usdMoney(Number(v || 0));
     const everyBranch = [];
     const thisBranch = [];
 
@@ -13252,7 +13274,7 @@ function updateEditTotalCost() {
     const quantity = parseInt(document.getElementById('editAdditionQuantity').value) || 0;
     const cost = parseFloat(document.getElementById('editAdditionCost').value) || 0;
     const totalCost = quantity * cost;
-    document.getElementById('editAdditionTotalCost').innerText = `$${totalCost.toFixed(2)}`;
+    document.getElementById('editAdditionTotalCost').innerText = `${usdMoney(totalCost)}`;
     
     // Show warning if changing funding source to profit
     const profitWarning = document.getElementById('editAdditionProfitWarning');
@@ -13262,7 +13284,7 @@ function updateEditTotalCost() {
         
         if (costDifference > 0 && currentTotalProfit < costDifference) {
             profitWarning.style.display = 'block';
-            document.getElementById('editAdditionProfitImpact').innerText = `$${costDifference.toFixed(2)}`;
+            document.getElementById('editAdditionProfitImpact').innerText = `${usdMoney(costDifference)}`;
         } else {
             profitWarning.style.display = 'none';
         }
@@ -13327,7 +13349,7 @@ async function updateStockAddition() {
     
     // Check profit sufficiency if changing to profit funding
     if (editFundingSource === 'profit' && costDifference > 0 && currentTotalProfit < costDifference) {
-        showToast(`Insufficient profit! Available: $${currentTotalProfit.toFixed(2)}, Additional needed: $${costDifference.toFixed(2)}`, 'error');
+        showToast(`Insufficient profit! Available: ${usdMoney(currentTotalProfit)}, Additional needed: ${usdMoney(costDifference)}`, 'error');
         return;
     }
     
@@ -13621,6 +13643,10 @@ async function loadSalesReport(message = 'Loading sales report...') {
         window.__reportScope = { period: period, start: startDate, end: endDate };
         syncAnalyticsScope();
         
+        // The report follows the department switch, like the till, the stock and
+        // the transaction list beside it. "All" is one of the switch positions, so
+        // a whole-shop statement is still one click away -- and the exported PDF
+        // always reads every department, whichever position is selected.
         const [transactionsRes, reinvestmentRes] = await Promise.all([
             fetch(`${API_BASE}/api/transactions?limit=2000`, { credentials: 'include' }),
             fetch(`${API_BASE}/api/stock-additions`, { credentials: 'include' })
@@ -13653,7 +13679,7 @@ async function loadSalesReport(message = 'Loading sales report...') {
 }
 
 // Every money figure on the Sales & Profit report reads the same way: USD first,
-// thousands separated and always two decimals - USD 1,234.56, never $1234.6 or
+// thousands separated and always two decimals - USD 1,234.56, never 1234.6 or
 // 1234.56. Accounting style, so an amount cannot be misread at a glance.
 function salesReportMoney(value) {
     const amount = Number(value || 0);
@@ -14288,7 +14314,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
             type: 'bar',
             data: {
                 labels: topProducts.map(p => p[0].length > 20 ? p[0].substring(0, 20) + '...' : p[0]),
-                datasets: [{ label: 'Revenue ($)', data: topProducts.map(p => p[1].sales), backgroundColor: '#1E293B', borderRadius: 4 }]
+                datasets: [{ label: 'Revenue (USD)', data: topProducts.map(p => p[1].sales), backgroundColor: '#1E293B', borderRadius: 4 }]
             },
             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
         });
@@ -14326,8 +14352,8 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
             data: {
                 labels: sortedDates,
                 datasets: [
-                    { label: 'Revenue ($)', data: sortedDates.map(d => dailyData[d].sales), borderColor: '#1E293B', backgroundColor: 'rgba(30,41,59,0.1)', tension: 0.3, fill: true },
-                    { label: 'Profit ($)', data: sortedDates.map(d => dailyData[d].profit), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', tension: 0.3, fill: true }
+                    { label: 'Revenue (USD)', data: sortedDates.map(d => dailyData[d].sales), borderColor: '#1E293B', backgroundColor: 'rgba(30,41,59,0.1)', tension: 0.3, fill: true },
+                    { label: 'Profit (USD)', data: sortedDates.map(d => dailyData[d].profit), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', tension: 0.3, fill: true }
                 ]
             },
             options: { responsive: true, maintainAspectRatio: true }
@@ -14345,7 +14371,7 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
             type: 'bar',
             data: { 
                 labels: Array.from({ length: 24 }, (_, i) => `${i}:00`), 
-                datasets: [{ label: 'Sales ($)', data: hourlyData, backgroundColor: '#1E293B', borderRadius: 4 }] 
+                datasets: [{ label: 'Sales (USD)', data: hourlyData, backgroundColor: '#1E293B', borderRadius: 4 }] 
             },
             options: { responsive: true }
         });
@@ -14522,8 +14548,8 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
                             </button>
                         </td>
                         <td>
-                            <strong id="cost-${h.id}">$${h.total_cost.toFixed(2)}</strong>
-                            <small class="text-muted">($${(h.total_cost / h.quantity).toFixed(2)}/unit)</small>
+                            <strong id="cost-${h.id}">${usdMoney(h.total_cost)}</strong>
+                            <small class="text-muted">(${usdMoney((h.total_cost / h.quantity))}/unit)</small>
                             <button class="btn btn-sm btn-link p-0 ms-1" onclick="openEditStockAddition(${h.id})" title="Edit Cost">
                                 <i class="fas fa-edit"></i>
                             </button>
@@ -14649,10 +14675,10 @@ function viewReceipt(transactionId) {
                         ${item.unit_type && item.unit_details ? `<div><small class="text-muted">${item.unit_type}: ${item.unit_details}</small></div>` : ''}
                     </div>
                     <div class="text-center" style="width: 30%;">
-                        <small>$${itemPrice.toFixed(2)} x ${item.quantity}</small>
+                        <small>${usdMoney(itemPrice)} x ${item.quantity}</small>
                     </div>
                     <div class="text-end" style="width: 20%;">
-                        <strong>$${itemTotal.toFixed(2)}</strong>
+                        <strong>${usdMoney(itemTotal)}</strong>
                     </div>
                 </div>
             `;
@@ -14662,7 +14688,7 @@ function viewReceipt(transactionId) {
                 <hr class="my-2">
                 <div class="d-flex justify-content-between small">
                     <strong>Total:</strong>
-                    <strong>$${total.toFixed(2)}</strong>
+                    <strong>${usdMoney(total)}</strong>
                 </div>
         `;
         
@@ -14671,11 +14697,11 @@ function viewReceipt(transactionId) {
                 <hr class="my-1">
                 <div class="d-flex justify-content-between small">
                     <span>Amount Tendered:</span>
-                    <span>$${paid.toFixed(2)}</span>
+                    <span>${usdMoney(paid)}</span>
                 </div>
                 <div class="d-flex justify-content-between small">
                     <span>Change:</span>
-                    <span class="text-success">$${change.toFixed(2)}</span>
+                    <span class="text-success">${usdMoney(change)}</span>
                 </div>
             `;
         }
@@ -14798,8 +14824,8 @@ function viewReceipt(transactionId) {
             <li>
                 <span class="item-name">${escapeHtml(item.product_name || item.name)}</span>
                 <span class="item-qty"> x${item.quantity}</span>
-                <span class="item-price"> @ $${(item.price || item.price_at_time || 0).toFixed(2)}</span>
-                <span class="float-end">$${((item.price || item.price_at_time || 0) * item.quantity).toFixed(2)}</span>
+                <span class="item-price"> @ ${usdMoney((item.price || item.price_at_time || 0))}</span>
+                <span class="float-end">${usdMoney(((item.price || item.price_at_time || 0) * item.quantity))}</span>
             </li>
         `).join('');
         
@@ -14921,10 +14947,10 @@ function renderFilteredTransactions() {
                                 unitInfo +
                             '</div>' +
                             '<div class="text-center" style="flex: 1;">' +
-                                '<small>$' + itemPrice.toFixed(2) + ' x ' + item.quantity + '</small>' +
+                                '<small>USD ' + itemPrice.toFixed(2) + ' x ' + item.quantity + '</small>' +
                             '</div>' +
                             '<div class="text-end" style="flex: 1;">' +
-                                '<strong>$' + itemTotal.toFixed(2) + '</strong>' +
+                                '<strong>USD ' + itemTotal.toFixed(2) + '</strong>' +
                             '</div>' +
                         '</div>' +
                     '</li>';
@@ -14966,7 +14992,7 @@ function renderFilteredTransactions() {
             '<td><small>' + dateStr + '</small></td>' +
             '<td><small class="text-muted">' + escapeHtml(transNum) + '</small></td>' +
             '<td>' + itemsHtml + '</td>' +
-            '<td class="fw-bold text-success">$' + (t.total || 0).toFixed(2) + '</td>' +
+            '<td class="fw-bold text-success">USD ' + (t.total || 0).toFixed(2) + '</td>' +
             '<td><span class="badge ' + paymentBadgeClass + '">' + paymentDisplay + '</span></td>' +
             '<td><small>' + escapeHtml(t.cashier || 'Admin') + '</small></td>' +
             '<td><small class="text-muted">' + escapeHtml(t.branch_name || '\u2014') + '</small></td>' +
@@ -15075,13 +15101,13 @@ function renderFilteredTransactions() {
                     <span class="text-muted">${cashiers.length} cashier group(s)</span>
                 </div>
             </div>
-            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Total Sales</div><div class="fw-bold">$${data.grand_total.toFixed(2)}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Total Sales</div><div class="fw-bold">${usdMoney(data.grand_total)}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transactions</div><div class="fw-bold">${data.transaction_count || 0}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cashiers</div><div class="fw-bold">${cashiers.length}</div></div></div>
-            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cash</div><div class="fw-bold">$${(pm.cash || 0).toFixed(2)}</div></div></div>
-            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Card</div><div class="fw-bold">$${(pm.card || 0).toFixed(2)}</div></div></div>
-            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transfer</div><div class="fw-bold">$${(pm.transfer || 0).toFixed(2)}</div></div></div>
-            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Layby kept</div><div class="fw-bold text-success">$${(data.layby_total || 0).toFixed(2)}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cash</div><div class="fw-bold">${usdMoney((pm.cash || 0))}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Card</div><div class="fw-bold">${usdMoney((pm.card || 0))}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transfer</div><div class="fw-bold">${usdMoney((pm.transfer || 0))}</div></div></div>
+            <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Layby kept</div><div class="fw-bold text-success">${usdMoney((data.layby_total || 0))}</div></div></div>
         `;
 
         // When the day spans more than one shop, show each shop's own total so the
@@ -15090,7 +15116,7 @@ function renderFilteredTransactions() {
             document.getElementById('dayEndSummary').innerHTML += branchList.map(b => `
                 <div class="col-md-3 col-sm-6"><div class="stat-card">
                     <div class="small text-muted">${escapeHtml(b.branch_name || '')}</div>
-                    <div class="fw-bold">$${(b.total || 0).toFixed(2)}</div>
+                    <div class="fw-bold">${usdMoney((b.total || 0))}</div>
                     <div class="small text-muted">${b.transaction_count || 0} sale(s)</div>
                 </div></div>`).join('');
         }
@@ -15104,13 +15130,13 @@ function renderFilteredTransactions() {
                 <div class="col-12">
                     <div class="alert alert-success py-2 small mb-1">
                         <i class="fas fa-hand-holding-dollar me-1"></i>
-                        <strong>Layby money kept: $${(data.layby_total || 0).toFixed(2)}</strong>
+                        <strong>Layby money kept: ${usdMoney((data.layby_total || 0))}</strong>
                         ${laybyRefunded > 0
-                            ? `<span class="text-danger ms-2">refunds paid out today: $${laybyRefunded.toFixed(2)}</span>`
+                            ? `<span class="text-danger ms-2">refunds paid out today: ${usdMoney(laybyRefunded)}</span>`
                             : ''}
                         ${(data.layby_collections || []).map(c =>
-                            `<span class="ms-2">${escapeHtml(c.cashier)}: $${(c.net || 0).toFixed(2)}` +
-                            (c.refunded ? ` <span class="text-danger">(-$${c.refunded.toFixed(2)} refunded)</span>` : '') +
+                            `<span class="ms-2">${escapeHtml(c.cashier)}: ${usdMoney((c.net || 0))}` +
+                            (c.refunded ? ` <span class="text-danger">(-${usdMoney(c.refunded)} refunded)</span>` : '') +
                             `</span>`
                         ).join('')}
                         <div class="text-muted">Money taken or paid out at the counter today, net of refunds. The layby sale itself is not in Total Sales above until it is paid off.</div>
@@ -15133,7 +15159,7 @@ function renderFilteredTransactions() {
             tabs.innerHTML += `
                 <li class="nav-item">
                     <button class="nav-link ${idx === 0 ? 'active' : ''}" data-bs-toggle="tab" data-bs-target="#${tabId}" type="button" role="tab">
-                        ${escapeHtml(c.cashier)}${c.branch_name ? ` <span class="badge bg-primary">${escapeHtml(c.branch_name)}</span>` : ''} <span class="badge bg-secondary">$${c.total.toFixed(2)}</span>
+                        ${escapeHtml(c.cashier)}${c.branch_name ? ` <span class="badge bg-primary">${escapeHtml(c.branch_name)}</span>` : ''} <span class="badge bg-secondary">${usdMoney(c.total)}</span>
                     </button>
                 </li>`;
             const txRows = (c.transactions || []).map(t => `
@@ -15141,15 +15167,15 @@ function renderFilteredTransactions() {
                     <td>${t.created_at ? new Date(t.created_at).toLocaleString('en-GB') : ''}</td>
                     <td>${escapeHtml(t.transaction_number || '')}</td>
                     <td>${t.items ? t.items.map(i => `${escapeHtml(i.product_name || '')} x${i.quantity}`).join(', ') : ''}</td>
-                    <td>$${(t.total || 0).toFixed(2)}</td>
+                    <td>${usdMoney((t.total || 0))}</td>
                     <td>${pmLabel(t.payment_method)}</td>
                 </tr>`).join('');
             content.innerHTML += `
                 <div class="tab-pane fade ${idx === 0 ? 'show active' : ''}" id="${tabId}" role="tabpanel">
                     <div class="row g-2 mb-3">
-                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Cash</div><strong>$${(cpm.cash || 0).toFixed(2)}</strong></div></div>
-                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Card</div><strong>$${(cpm.card || 0).toFixed(2)}</strong></div></div>
-                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Transfer</div><strong>$${(cpm.transfer || 0).toFixed(2)}</strong></div></div>
+                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Cash</div><strong>${usdMoney((cpm.cash || 0))}</strong></div></div>
+                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Card</div><strong>${usdMoney((cpm.card || 0))}</strong></div></div>
+                        <div class="col-4"><div class="alert alert-light border small mb-0"><div class="small text-muted">Transfer</div><strong>${usdMoney((cpm.transfer || 0))}</strong></div></div>
                     </div>
                     <table class="table table-sm table-striped mb-0">
                         <thead><tr><th>Date</th><th>Receipt #</th><th>Items</th><th>Total</th><th>Payment</th></tr></thead>
@@ -15232,7 +15258,7 @@ function renderFilteredTransactions() {
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.date || t.created_at || ''}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.transaction_number || 'N/A'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.items ? t.items.map(i => `${i.product_name || i.name} x${i.quantity}`).join(', ') : ''}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">$${(t.total || 0).toFixed(2)}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${usdMoney((t.total || 0))}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.payment_method || 'N/A'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.cashier || 'Admin'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.branch_name || '\u2014'}</td>
@@ -15246,7 +15272,7 @@ function renderFilteredTransactions() {
                     </tr>
                     <tr style="background-color: #f5f5f5;">
                         <td colspan="3" style="padding: 10px; border: 1px solid #ddd;"><strong>Total Sales:</strong></td>
-                        <td colspan="3" style="padding: 10px; border: 1px solid #ddd;"><strong>$${transactionsToExport.reduce((sum, t) => sum + (t.total || 0), 0).toFixed(2)}</strong></td>
+                        <td colspan="3" style="padding: 10px; border: 1px solid #ddd;"><strong>${usdMoney(transactionsToExport.reduce((sum, t) => sum + (t.total || 0), 0))}</strong></td>
                     </tr>
                 </tfoot>
             </table>
@@ -15388,10 +15414,11 @@ async function fetchTransactionsData() {
     // Payment loader modal instance
     let paymentLoaderModal = null;
 
-    // Which department the till is showing: 'hardware' or 'furniture'. The
-    // server session is authoritative; applyDepartmentState() mirrors it here.
-    // Declared once, early, because the catalogue and every renderer read it.
-    let posDepartment = 'hardware';
+    // Which department view the till is showing: 'all', 'hardware' or
+    // 'furniture'. The server session is authoritative; applyDepartmentState()
+    // mirrors it here. Declared once, early, because the catalogue and every
+    // renderer read it.
+    let posDepartment = 'all';
     
     // ==================== AUTHENTICATION ====================
     
@@ -15403,24 +15430,12 @@ async function fetchTransactionsData() {
                 localStorage.setItem('isLoggedIn', 'true');
                 if (authData.user) localStorage.setItem('user', JSON.stringify(authData.user));
                 applyPOSBranch(authData.branch);
-                // Landing/refresh always opens on Hardware, whatever was in use
-                // before. The server session may still hold the other department,
-                // so this is pushed back to the server as well -- otherwise the
-                // catalogue would arrive filtered to a department the switch is
-                // not showing.
-                applyDepartmentState('hardware');
-                if (authData.department && authData.department.key !== 'hardware') {
-                    // AWAITED: the catalogue is fetched straight after this, and it
-                    // must be filtered by the department the switch now shows.
-                    try {
-                        await fetch(`${API_BASE}/api/pos/switch-department`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({ department: 'hardware' })
-                        });
-                    } catch (e) { /* the catalogue read will simply use the old one */ }
-                }
+                // The server session decides which department view this till is
+                // on, and that is what the catalogue is filtered by. Mirror it on
+                // the switch; the server's answer is the only one that can be
+                // right, because the catalogue read that follows uses it.
+                applyDepartmentState(
+                    (authData.department && authData.department.key) || 'all');
                 // Signed in with no shop: the general portal login also drops a
                 // hardware user here. The session is not this till's to use until a
                 // branch with its access code is chosen, because reads would fall
@@ -15854,8 +15869,13 @@ async function fetchTransactionsData() {
     }
     window.onRepeatConfirmChange = onRepeatConfirmChange;
 
-    function money(v) { return '$' + Number(v || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
-    function deptLabel(d) { return String(d || '').toLowerCase() === 'furniture' ? 'Furniture' : 'Hardware'; }
+    function money(v) { return 'USD ' + Number(v || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+    function deptLabel(d) {
+        const key = String(d || '').toLowerCase();
+        if (key === 'furniture') return 'Furniture';
+        if (key === 'all') return 'All';
+        return 'Hardware';
+    }
     window.deptLabel = deptLabel;
 
     function renderStockUploadPlan(plan) {
@@ -15921,7 +15941,7 @@ async function fetchTransactionsData() {
                                      : '<em>uses the category picked below</em>');
                 bits.push(r.department
                           ? `<span class="badge bg-secondary">${escapeHtml(deptLabel(r.department))}</span>`
-                          : `<em>uses the ${escapeHtml(deptLabel(posDepartment || 'hardware'))} department</em>`);
+                          : `<em>uses the ${escapeHtml(deptLabel(posDepartment === 'hardware' || posDepartment === 'furniture' ? posDepartment : 'hardware'))} department</em>`);
                 return `<li>${escapeHtml(r.name)} — ${bits.join(' · ')}</li>`;
             }).join('');
         }
@@ -16294,7 +16314,9 @@ async function fetchTransactionsData() {
                 credentials: 'include',
                 body: JSON.stringify({
                     default_category: catEl ? catEl.value : '',
-                    default_department: posDepartment || 'hardware',
+                    // A real shelf: on the All view the upload still has to name
+                    // one, and each row may name its own in the file.
+                    default_department: (posDepartment === 'hardware' || posDepartment === 'furniture') ? posDepartment : 'hardware',
                     branch_id: (_bulkStockPlan && _bulkStockPlan.branch_id) || (posBranch ? posBranch.id : null),
                     branch_code: code,
                     file_fingerprint: (_bulkStockPlan && _bulkStockPlan.file_fingerprint) || '',
@@ -16819,11 +16841,11 @@ async function fetchTransactionsData() {
 
     // Render the POS header "Today's Sales" / "Items Sold" pills from the global
     // transactionsData. Called whenever transactionsData changes (init, refresh,
-    // after a sale) so the pills never go stale or freeze at $0.00.
+    // after a sale) so the pills never go stale or freeze at USD 0.00.
     function renderPOSHeaderStats() {
         const s = document.getElementById('todaySalesChip');
         if (s) {
-            s.textContent = '$' + Number(transactionsData.todaySales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            s.textContent = 'USD ' + Number(transactionsData.todaySales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
         const it = document.getElementById('itemsSoldChip');
         if (it) {
@@ -16861,7 +16883,7 @@ async function fetchTransactionsData() {
                     <div class="cashier-avatar">${initials}</div>
                     <div class="cashier-body">
                         <div class="cashier-name">${escapeHtml(c.cashier)}</div>
-                        <div class="cashier-amount">$${Number(c.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div class="cashier-amount">USD ${Number(c.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     </div>
                     <div class="cashier-bar"><span style="width:${share}%;"></span></div>
                 </div>`;
@@ -17373,7 +17395,7 @@ function renderProductsWithFilter(filteredProducts = null) {
                     </div>
                 </div>
                 <div class="price-add-wrapper">
-                    <div class="price-above">$${(product.branch_sell_price != null ? product.branch_sell_price : (product.sell_price || product.price || 0)).toFixed(2)}${(product.branch_sell_price != null && Math.abs(Number(product.branch_sell_price) - Number(product.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</div>
+                    <div class="price-above">${usdMoney((product.branch_sell_price != null ? product.branch_sell_price : (product.sell_price || product.price || 0)))}${(product.branch_sell_price != null && Math.abs(Number(product.branch_sell_price) - Number(product.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</div>
                     <button class="add-btn-compact" onclick="event.stopPropagation(); addToCart(${product.id})">
                         <i class="fas fa-plus"></i> Add
                     </button>
@@ -17448,7 +17470,7 @@ function selectCategory(category) {
                 freshEl.style.display = 'block';
             }
         }
-        document.getElementById('currentAvailableProfit').innerText = `$${currentTotalProfit.toFixed(2)}`;
+        document.getElementById('currentAvailableProfit').innerText = `${usdMoney(currentTotalProfit)}`;
         document.getElementById('newStockQuantity').value = 1;
         // Prefill with what THIS branch's stock cost, not the blended figure.
         document.getElementById('stockBuyPrice').value = branchBuyPriceOf(product).toFixed(2);
@@ -17471,15 +17493,15 @@ function selectCategory(category) {
             const quantity = parseInt(quantityInput.value) || 0;
             const price = parseFloat(priceInput.value) || 0;
             const totalCost = quantity * price;
-            document.getElementById('totalCostPreview').innerText = `$${totalCost.toFixed(2)}`;
+            document.getElementById('totalCostPreview').innerText = `${usdMoney(totalCost)}`;
 
             // Check if profit is sufficient if using profit funding
             if (selectedFundingSource === "profit" && totalCost > currentTotalProfit) {
                 const warningDiv = document.getElementById('profitWarning');
                 warningDiv.style.display = 'block';
-                document.getElementById('warningProfitAmount').innerText = `$${currentTotalProfit.toFixed(2)}`;
-                document.getElementById('warningCostAmount').innerText = `$${totalCost.toFixed(2)}`;
-                document.getElementById('warningAvailableAmount').innerText = `$${currentTotalProfit.toFixed(2)}`;
+                document.getElementById('warningProfitAmount').innerText = `${usdMoney(currentTotalProfit)}`;
+                document.getElementById('warningCostAmount').innerText = `${usdMoney(totalCost)}`;
+                document.getElementById('warningAvailableAmount').innerText = `${usdMoney(currentTotalProfit)}`;
             } else {
                 document.getElementById('profitWarning').style.display = 'none';
             }
@@ -17536,9 +17558,9 @@ function setupFundingSelection() {
                 const warningProfitAmount = document.getElementById('warningProfitAmount');
                 const warningCostAmount = document.getElementById('warningCostAmount');
                 const warningAvailableAmount = document.getElementById('warningAvailableAmount');
-                if (warningProfitAmount) warningProfitAmount.innerText = `$${currentTotalProfit.toFixed(2)}`;
-                if (warningCostAmount) warningCostAmount.innerText = `$${totalCost.toFixed(2)}`;
-                if (warningAvailableAmount) warningAvailableAmount.innerText = `$${currentTotalProfit.toFixed(2)}`;
+                if (warningProfitAmount) warningProfitAmount.innerText = `${usdMoney(currentTotalProfit)}`;
+                if (warningCostAmount) warningCostAmount.innerText = `${usdMoney(totalCost)}`;
+                if (warningAvailableAmount) warningAvailableAmount.innerText = `${usdMoney(currentTotalProfit)}`;
             } else {
                 profitWarning.style.display = 'none';
             }
@@ -17591,7 +17613,7 @@ function setupFundingSelection() {
         
         // Check if using profit and have sufficient profit
         if (selectedFundingSource === "profit" && totalCost > currentTotalProfit) {
-            showToast(`Insufficient profit! Available: $${currentTotalProfit.toFixed(2)}, Required: $${totalCost.toFixed(2)}`, 'error');
+            showToast(`Insufficient profit! Available: ${usdMoney(currentTotalProfit)}, Required: ${usdMoney(totalCost)}`, 'error');
             return;
         }
         
@@ -17629,9 +17651,9 @@ function setupFundingSelection() {
                 // Update local profit tracking
                 if (selectedFundingSource === "profit") {
                     currentTotalProfit -= totalCost;
-                    showToast(`Added ${quantityToAdd} units using $${totalCost.toFixed(2)} from profits. Remaining profit: $${currentTotalProfit.toFixed(2)}`, 'success');
+                    showToast(`Added ${quantityToAdd} units using ${usdMoney(totalCost)} from profits. Remaining profit: ${usdMoney(currentTotalProfit)}`, 'success');
                 } else {
-                    showToast(`Added ${quantityToAdd} units using $${totalCost.toFixed(2)} new capital investment`, 'success');
+                    showToast(`Added ${quantityToAdd} units using ${usdMoney(totalCost)} new capital investment`, 'success');
                 }
                 
                 await fetchProductsFromAPI();
@@ -17873,7 +17895,7 @@ function setupFundingSelection() {
         const profit = sellPrice - buyPrice;
         const profitPreview = document.getElementById('profitPreview');
         if (profitPreview) {
-            profitPreview.innerHTML = `$${profit.toFixed(2)}`;
+            profitPreview.innerHTML = `${usdMoney(profit)}`;
             profitPreview.style.color = profit >= 0 ? '#198754' : '#dc2626';
         }
     }
@@ -17895,17 +17917,21 @@ function setupFundingSelection() {
         document.getElementById('sellPrice').value = '';
         document.getElementById('productDescription').value = '';
         document.getElementById('productNameSuggestions').innerHTML = '';
-        document.getElementById('profitPreview').innerHTML = '$0.00';
+        document.getElementById('profitPreview').innerHTML = 'USD 0.00';
 
-        // Department: only Central Dispatch picks one, because the item it is
-        // creating is what it will later dispatch. A shop simply uses the
-        // department it is already working in.
+        // Department: Central Dispatch picks one because the item it is creating
+        // is what it will later dispatch. A shop normally works in one shelf, so
+        // the field stays hidden -- but on the All view there IS no shelf to
+        // infer, so the operator must say where the new item goes rather than
+        // have it quietly filed as Hardware.
         const deptGroup = document.getElementById('productDepartmentGroup');
         const deptSel = document.getElementById('productDepartment');
         if (deptGroup && deptSel) {
             const isDispatch = (typeof branchIsDispatch === 'function') && branchIsDispatch();
-            deptGroup.style.display = isDispatch ? '' : 'none';
-            deptSel.value = posDepartment || 'hardware';
+            const mustChoose = isDispatch || (posDepartment !== 'hardware' && posDepartment !== 'furniture');
+            deptGroup.style.display = mustChoose ? '' : 'none';
+            deptSel.value = (posDepartment === 'hardware' || posDepartment === 'furniture')
+                ? posDepartment : 'hardware';
         }
 
         // Load the WHOLE catalogue for the name hints (every department), so an
@@ -18030,7 +18056,7 @@ function setupAddProductFundingSelection() {
         
         // Check if using profit and have sufficient profit
         if (selectedProductFundingSource === "profit" && totalCost > currentTotalProfit) {
-            showToast(`Insufficient profit! Available: $${currentTotalProfit.toFixed(2)}, Required: $${totalCost.toFixed(2)}`, 'error');
+            showToast(`Insufficient profit! Available: ${usdMoney(currentTotalProfit)}, Required: ${usdMoney(totalCost)}`, 'error');
             return;
         }
         
@@ -18052,11 +18078,13 @@ function setupAddProductFundingSelection() {
                     stock: stock,
                     description: description,
                     // Central Dispatch files the new item in the department it
-                    // picked; a shop sends the one it is working in. Either way
-                    // the server records it, so a later dispatch follows the item.
+                    // picked; a shop sends the one it is working in, and on the
+                    // All view the picker above is shown so there is a real
+                    // answer. Either way the server records it, so a later
+                    // dispatch follows the item.
                     department: ((document.getElementById('productDepartmentGroup') || {}).style || {}).display === 'none'
-                        ? (posDepartment || 'hardware')
-                        : ((document.getElementById('productDepartment') || {}).value || posDepartment || 'hardware'),
+                        ? ((posDepartment === 'hardware' || posDepartment === 'furniture') ? posDepartment : 'hardware')
+                        : ((document.getElementById('productDepartment') || {}).value || 'hardware'),
                     // Which pot paid for the stock; recorded on the movement so the
                     // funding report stays accurate when an existing product is reused.
                     funding_source: selectedProductFundingSource || 'capital'
@@ -18310,6 +18338,13 @@ function setupAddProductFundingSelection() {
 
         if (!fileEl || !fileEl.files.length) return show('Choose the count sheet first.');
         if (!dateEl || !dateEl.value) return show('Choose the date to compare against.');
+        // A stock take counts ONE shelf against one count sheet. On the All view
+        // there is no single shelf to compare against, and guessing Hardware
+        // would quietly leave half the shop uncounted -- so say so.
+        if (posDepartment !== 'hardware' && posDepartment !== 'furniture') {
+            return show('A stock take counts one shelf at a time. Switch the department '
+                        + 'to Hardware or Furniture, then run the audit.');
+        }
 
         const orig = btn.innerHTML;
         btn.disabled = true;
@@ -19055,7 +19090,7 @@ function setupAddProductFundingSelection() {
             items: t && t.items ? t.items.length : 0
         };
         const info = document.getElementById('revertTxInfo');
-        if (info) info.innerHTML = 'Receipt <strong>' + escapeHtml(pendingRevertTx.number) + '</strong> — <strong>$' + Number(pendingRevertTx.total).toFixed(2) + '</strong> · ' + pendingRevertTx.items + ' item(s).';
+        if (info) info.innerHTML = 'Receipt <strong>' + escapeHtml(pendingRevertTx.number) + '</strong> — <strong>USD ' + Number(pendingRevertTx.total).toFixed(2) + '</strong> · ' + pendingRevertTx.items + ' item(s).';
         const pin = document.getElementById('revertTxPin');
         if (pin) pin.value = '';
         const err = document.getElementById('revertTxError');
@@ -19252,7 +19287,7 @@ function setupAddProductFundingSelection() {
                         <div class="mt-1"><div class="qty-control"><button class="qty-btn" onclick="updateQuantity(${idx}, -1)">−</button><span class="fw-bold small">${item.quantity}</span><button class="qty-btn" onclick="updateQuantity(${idx}, 1)">+</button></div></div>
                     </div>
                     <div class="text-end">
-                        <div class="fw-bold cart-item-total">$${((item.sell_price || item.price || 0) * item.quantity).toFixed(2)}</div>
+                        <div class="fw-bold cart-item-total">${usdMoney(((item.sell_price || item.price || 0) * item.quantity))}</div>
                     </div>
                 </div>
             `).join('');
@@ -19274,7 +19309,7 @@ function setupAddProductFundingSelection() {
     function calculateTotals() {
         const total = cart.reduce((sum, item) => sum + ((item.sell_price || item.price || 0) * item.quantity), 0);
         // Only show total, remove subtotal line
-        document.getElementById('total').innerText = `$${total.toFixed(2)}`;
+        document.getElementById('total').innerText = `${usdMoney(total)}`;
     }
     
     // ==================== BARCODE SCANNING ====================
@@ -19501,12 +19536,12 @@ function setupAddProductFundingSelection() {
             return;
         }
         
-        const total = parseFloat(document.getElementById('total').innerText.replace('$', ''));
+        const total = parseFloat(document.getElementById('total').innerText.replace(/[^0-9.\-]/g, ''));
         
         if (selectedPaymentMethod === 'cash') {
             const cashAmount = parseFloat(document.getElementById('cashAmount').value);
             if (isNaN(cashAmount) || cashAmount < total) {
-                showToast(`Insufficient cash! Amount tendered: $${cashAmount || 0} is less than total: $${total.toFixed(2)}`, 'error');
+                showToast(`Insufficient cash! Amount tendered: ${usdMoney(cashAmount || 0)} is less than total: ${usdMoney(total)}`, 'error');
                 return;
             }
         }
@@ -19534,9 +19569,9 @@ function setupAddProductFundingSelection() {
                             <div class="flex-grow-1 confirm-item-body">
                                 <strong class="d-block">${escapeHtml(item.name)}</strong>
                                 ${item.unit_type && item.unit_details ? `<small class="text-muted d-block">${item.unit_type}: ${item.unit_details}</small>` : ''}
-                                <span class="text-muted small">$${(item.sell_price || item.price || 0).toFixed(2)} x ${item.quantity}</span>
+                                <span class="text-muted small">${usdMoney((item.sell_price || item.price || 0))} x ${item.quantity}</span>
                             </div>
-                            <span class="fw-bold confirm-item-total">$${((item.sell_price || item.price || 0) * item.quantity).toFixed(2)}</span>
+                            <span class="fw-bold confirm-item-total">${usdMoney(((item.sell_price || item.price || 0) * item.quantity))}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -19566,9 +19601,9 @@ function setupAddProductFundingSelection() {
         const change = selectedPaymentMethod === 'cash' ? Math.max(0, cashAmount - total) : 0;
         const payIcon = selectedPaymentMethod === 'cash' ? 'fa-money-bill-wave' : selectedPaymentMethod === 'card' ? 'fa-credit-card' : 'fa-university';
         
-        document.getElementById('cfTotalDue').textContent = `$${total.toFixed(2)}`;
-        document.getElementById('cfTendered').textContent = `$${cashAmount.toFixed(2)}`;
-        document.getElementById('cfChange').textContent = `$${change.toFixed(2)}`;
+        document.getElementById('cfTotalDue').textContent = `${usdMoney(total)}`;
+        document.getElementById('cfTendered').textContent = `${usdMoney(cashAmount)}`;
+        document.getElementById('cfChange').textContent = `${usdMoney(change)}`;
         document.getElementById('cfPayMethod').innerHTML = `<i class="fas ${payIcon} me-1"></i>Payment via ${paymentMethodDisplay}`;
         // Last screen before the money is taken: say whether the stock behind this
         // order is the server's own figure or one this till cannot confirm.
@@ -19590,7 +19625,7 @@ function setupAddProductFundingSelection() {
             return;
         }
         
-        const total = parseFloat(document.getElementById('total').innerText.replace('$', ''));
+        const total = parseFloat(document.getElementById('total').innerText.replace(/[^0-9.\-]/g, ''));
         console.log('2. Total:', total);
 
         // A day the cashier left on today's date is not sent at all, so an
@@ -19604,7 +19639,7 @@ function setupAddProductFundingSelection() {
             const cash = parseFloat(document.getElementById('cashAmount').value);
             console.log('3. Cash amount:', cash);
             if (isNaN(cash) || cash < total) {
-                showToast(`Insufficient cash! Amount tendered: $${cash || 0} is less than total: $${total.toFixed(2)}`, 'error');
+                showToast(`Insufficient cash! Amount tendered: ${usdMoney(cash || 0)} is less than total: ${usdMoney(total)}`, 'error');
                 return;
             }
         }
@@ -19671,7 +19706,7 @@ function setupAddProductFundingSelection() {
             // A sale filed under an earlier day is not part of today's takings,
             // so it must not inflate the "Today's Sales" pills.
             if (!saleDate) {
-                const transactionTotal = parseFloat(document.getElementById('total').innerText.replace('$', ''));
+                const transactionTotal = parseFloat(document.getElementById('total').innerText.replace(/[^0-9.\-]/g, ''));
                 transactionsData.todaySales += transactionTotal;
                 transactionsData.itemsSold += cart.reduce((sum, i) => sum + i.quantity, 0);
             }
@@ -19746,10 +19781,10 @@ function generateReceiptHTML(items, method, paid, change, saleDate) {
                     ${unitInfo}
                 </div>
                 <div class="text-center" style="width: 30%;">
-                    <span style="font-size: 13px;">$${itemPrice.toFixed(2)} x ${item.quantity}</span>
+                    <span style="font-size: 13px;">${usdMoney(itemPrice)} x ${item.quantity}</span>
                 </div>
                 <div class="text-end" style="width: 20%;">
-                    <strong style="font-size: 14px;">$${itemTotal.toFixed(2)}</strong>
+                    <strong style="font-size: 14px;">${usdMoney(itemTotal)}</strong>
                 </div>
             </div>
         `;
@@ -19759,7 +19794,7 @@ function generateReceiptHTML(items, method, paid, change, saleDate) {
             <hr class="my-2">
             <div class="d-flex justify-content-between" style="font-size: 16px; font-weight: bold; margin: 12px 0;">
                 <span>TOTAL:</span>
-                <span>$${total.toFixed(2)}</span>
+                <span>${usdMoney(total)}</span>
             </div>
     `;
     
@@ -19768,11 +19803,11 @@ function generateReceiptHTML(items, method, paid, change, saleDate) {
             <hr class="my-1">
             <div class="d-flex justify-content-between" style="font-size: 13px; margin: 5px 0;">
                 <span>Amount Tendered:</span>
-                <span>$${paid.toFixed(2)}</span>
+                <span>${usdMoney(paid)}</span>
             </div>
             <div class="d-flex justify-content-between" style="font-size: 13px; margin: 5px 0;">
                 <span>Change:</span>
-                <span class="text-success" style="font-weight: bold;">$${change.toFixed(2)}</span>
+                <span class="text-success" style="font-weight: bold;">${usdMoney(change)}</span>
             </div>
         `;
     }
@@ -21320,10 +21355,10 @@ function generateReceiptHTML(items, method, paid, change, saleDate) {
                     ${unitInfo}
                 </div>
                 <div style="width: 30%; text-align: center;">
-                    <span style="font-size: 13px;">$${itemPrice.toFixed(2)} x ${item.quantity}</span>
+                    <span style="font-size: 13px;">${usdMoney(itemPrice)} x ${item.quantity}</span>
                 </div>
                 <div style="width: 20%; text-align: right;">
-                    <strong style="font-size: 14px;">$${itemTotal.toFixed(2)}</strong>
+                    <strong style="font-size: 14px;">${usdMoney(itemTotal)}</strong>
                 </div>
             </div>
         `;
@@ -21332,18 +21367,18 @@ function generateReceiptHTML(items, method, paid, change, saleDate) {
             <hr style="margin: 10px 0; border: none; border-top: 1px dashed #000;">
             <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin: 10px 0;">
                 <span>TOTAL:</span>
-                <span>$${total.toFixed(2)}</span>
+                <span>${usdMoney(total)}</span>
             </div>
     ` +
     (method === 'cash' ? `
             <hr style="margin: 5px 0; border: none; border-top: 1px dashed #000;">
             <div style="display: flex; justify-content: space-between; font-size: 13px; margin: 5px 0;">
                 <span>Amount Tendered:</span>
-                <span>$${paid.toFixed(2)}</span>
+                <span>${usdMoney(paid)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 13px; margin: 5px 0;">
                 <span>Change:</span>
-                <span style="color: #198754; font-weight: bold;">$${change.toFixed(2)}</span>
+                <span style="color: #198754; font-weight: bold;">${usdMoney(change)}</span>
             </div>
     ` : '') +
     `
@@ -21365,7 +21400,7 @@ function generateReceiptHTML(items, method, paid, change, saleDate) {
             data: { 
                 labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 
                 datasets: [{ 
-                    label: 'Sales ($)', 
+                    label: 'Sales (USD)', 
                     data: [1250, 1450, 1320, 1680, 1890, 2100, 1750], 
                     borderColor: '#1E293B', 
                     backgroundColor: 'rgba(30,41,59,0.1)', 
@@ -21654,12 +21689,12 @@ function renderAnalytics() {
         const prevMargin = prevRev > 0 ? prevProfit / prevRev * 100 : 0;
         const prevAvg = prevTx > 0 ? prevRev / prevTx : 0;
         const kpis = [
-            { label: 'Revenue',      value: '$' + totalRevenue.toFixed(2), icon: 'fa-dollar-sign',    cls: 'green',  d: mkDelta(totalRevenue, prevRev) },
-            { label: 'Gross Profit', value: '$' + totalProfit.toFixed(2),  icon: 'fa-arrow-trend-up', cls: 'green',  d: mkDelta(totalProfit, prevProfit) },
+            { label: 'Revenue',      value: usdMoney(totalRevenue), icon: 'fa-dollar-sign',    cls: 'green',  d: mkDelta(totalRevenue, prevRev) },
+            { label: 'Gross Profit', value: usdMoney(totalProfit),  icon: 'fa-arrow-trend-up', cls: 'green',  d: mkDelta(totalProfit, prevProfit) },
             { label: 'Margin',       value: marginPct.toFixed(1) + '%',    icon: 'fa-percent',        cls: 'purple', d: mkDelta(marginPct, prevMargin) },
             { label: 'Transactions', value: txCount.toLocaleString(),      icon: 'fa-receipt',        cls: 'blue',   d: mkDelta(txCount, prevTx) },
             { label: 'Items Sold',   value: itemsSold.toLocaleString(),    icon: 'fa-box-open',       cls: 'blue',   d: mkDelta(itemsSold, prevItems) },
-            { label: 'Average Sale', value: '$' + avgSale.toFixed(2),      icon: 'fa-scale-balanced', cls: 'amber',  d: mkDelta(avgSale, prevAvg) }
+            { label: 'Average Sale', value: usdMoney(avgSale),      icon: 'fa-scale-balanced', cls: 'amber',  d: mkDelta(avgSale, prevAvg) }
         ];
         kpiEl.innerHTML = kpis.map(k =>
             '<div class="an-kpi ' + k.cls + '">' +
@@ -21741,13 +21776,13 @@ function renderAnalytics() {
         const slowCount = ranked.filter(r => r.qty < 5).length;
 
         const s = [];
-        s.push('Across ' + periodLabel + ' the shop rang up ' + txCount.toLocaleString() + ' sale(s) for $' + totalRevenue.toFixed(2) +
-               ' in revenue and $' + totalProfit.toFixed(2) + ' gross profit, a ' + marginPct.toFixed(1) + '% margin, with an average sale of $' + avgSale.toFixed(2) + '.');
+        s.push('Across ' + periodLabel + ' the shop rang up ' + txCount.toLocaleString() + ' sale(s) for USD ' + totalRevenue.toFixed(2) +
+               ' in revenue and USD ' + totalProfit.toFixed(2) + ' gross profit, a ' + marginPct.toFixed(1) + '% margin, with an average sale of USD ' + avgSale.toFixed(2) + '.');
         if (topCat) {
             s.push(topCat + ' leads the categories at ' + topCatShare.toFixed(0) + '% of revenue' +
                    (fastMovers[0] ? ', driven by ' + fastMovers[0].name + ' (' + fastMovers[0].qty + ' sold)' : '') + '.');
         }
-        if (bestDay) s.push('The strongest trading day was ' + fmtDayLong(bestDay) + ' ($' + dailySales[bestDay].sales.toFixed(2) + ').');
+        if (bestDay) s.push('The strongest trading day was ' + fmtDayLong(bestDay) + ' (USD ' + dailySales[bestDay].sales.toFixed(2) + ').');
         if (deadStock.length) {
             s.push(deadStock.length + ' product(s) are holding stock but sold nothing this period - review their pricing, shelf position or run a promotion before reordering.');
         }
@@ -21789,7 +21824,7 @@ function renderAnalytics() {
         const deadRows = deadStock.map(p => {
             const held = (p.stock || 0) * (p.buy_price || 0);
             return briefRow(p.name, p.category || '', (p.stock || 0) + ' in stock',
-                            held > 0 ? '$' + held.toFixed(2) : '');
+                            held > 0 ? usdMoney(held) : '');
         });
         const slowRows = ranked.filter(r => r.qty < 5)
             .sort((a, b) => (a.qty - b.qty) || (b.stock - a.stock))
@@ -21797,7 +21832,7 @@ function renderAnalytics() {
                                r.qty + ' sold', r.stock + ' in stock'));
         const briefBoxes = (deadRows.length
                 ? briefBox('dead', 'Show the ' + deadRows.length + ' product(s) holding stock' +
-                           (deadCash > 0 ? ' - $' + deadCash.toFixed(2) + ' at cost' : ''), deadRows)
+                           (deadCash > 0 ? ' - USD ' + deadCash.toFixed(2) + ' at cost' : ''), deadRows)
                 : '') +
             (slowRows.length
                 ? briefBox('slow', 'Show the ' + slowRows.length +
@@ -21873,9 +21908,9 @@ function renderAnalytics() {
             '<div class="an-intel-grid">' +
                 card('Pareto (ABC)', aCount + ' of ' + revRanked.length, 'lines make 80% of revenue', 'green') +
                 card('Concentration risk', top3Share.toFixed(0) + '%', 'of revenue from the top 3', top3Share > 60 ? 'red' : 'blue') +
-                card('Cash in dead stock', '$' + deadCapital.toFixed(2), deadStock.length + ' line(s) not moving', deadCapital > 0 ? 'amber' : 'green') +
-                card('Peak trading hour', fmtHour(peakHour), peakVal > 0 ? '$' + peakVal.toFixed(2) + ' that hour' : 'no sales', 'purple') +
-                card('Best day of week', dow[bestDow] > 0 ? dowNames[bestDow] : 'n/a', dow[bestDow] > 0 ? '$' + dow[bestDow].toFixed(2) : 'no sales', 'blue') +
+                card('Cash in dead stock', usdMoney(deadCapital), deadStock.length + ' line(s) not moving', deadCapital > 0 ? 'amber' : 'green') +
+                card('Peak trading hour', fmtHour(peakHour), peakVal > 0 ? usdMoney(peakVal) + ' that hour' : 'no sales', 'purple') +
+                card('Best day of week', dow[bestDow] > 0 ? dowNames[bestDow] : 'n/a', dow[bestDow] > 0 ? usdMoney(dow[bestDow]) : 'no sales', 'blue') +
                 card('Items per basket', avgBasket.toFixed(1), basketCount + ' basket(s)', 'green') +
             '</div>' +
             (aNames.length
@@ -21955,8 +21990,8 @@ function renderAnalytics() {
                     (leakNames.length
                         ? leakNames.slice(0, 8).map(n => '<div class="an-mover dead">' +
                             '<span class="an-mover-name" title="' + escName(n) + '">' + escName(n) + '</span>' +
-                            '<span class="an-mover-qty">$' + leaks[n].toFixed(2) + '</span></div>').join('') +
-                          '<div class="an-intel-note">Total leaked: <strong>$' + leakTotal.toFixed(2) + '</strong>. Check the buying price, or stop discounting these lines.</div>'
+                            '<span class="an-mover-qty">USD ' + leaks[n].toFixed(2) + '</span></div>').join('') +
+                          '<div class="an-intel-note">Total leaked: <strong>USD ' + leakTotal.toFixed(2) + '</strong>. Check the buying price, or stop discounting these lines.</div>'
                         : '<div class="an-mover-empty">No line sold at or below cost. Excellent.</div>') +
                 '</div>' +
                 '<div>' +
@@ -22003,7 +22038,7 @@ function renderAnalytics() {
                                     const value = context.raw || 0;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
-                                    return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                                    return `${label}: ${usdMoney(value)} (${percentage}%)`;
                                 }
                             }
                         }
@@ -22042,7 +22077,7 @@ function renderAnalytics() {
                                     label: function(context) {
                                         const label = context.label || '';
                                         const value = context.raw || 0;
-                                        return `${label}: $${value.toFixed(2)} (Inventory Value)`;
+                                        return `${label}: ${usdMoney(value)} (Inventory Value)`;
                                     }
                                 }
                             }
@@ -22082,7 +22117,7 @@ function renderAnalytics() {
                     labels: sortedDates,
                     datasets: [
                         {
-                            label: 'Revenue ($)',
+                            label: 'Revenue (USD)',
                             data: revenueData,
                             borderColor: '#1E293B',
                             backgroundColor: 'rgba(30,41,59,0.1)',
@@ -22090,7 +22125,7 @@ function renderAnalytics() {
                             fill: true
                         },
                         {
-                            label: 'Profit ($)',
+                            label: 'Profit (USD)',
                             data: profitData,
                             borderColor: '#10b981',
                             backgroundColor: 'rgba(16,185,129,0.1)',
@@ -22106,7 +22141,7 @@ function renderAnalytics() {
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return `${context.dataset.label}: $${context.raw.toFixed(2)}`;
+                                    return `${context.dataset.label}: ${usdMoney(context.raw)}`;
                                 }
                             }
                         }
@@ -22119,8 +22154,8 @@ function renderAnalytics() {
                 data: {
                     labels: ['No Data'],
                     datasets: [
-                        { label: 'Revenue ($)', data: [0], borderColor: '#1E293B', backgroundColor: 'rgba(30,41,59,0.1)' },
-                        { label: 'Profit ($)', data: [0], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)' }
+                        { label: 'Revenue (USD)', data: [0], borderColor: '#1E293B', backgroundColor: 'rgba(30,41,59,0.1)' },
+                        { label: 'Profit (USD)', data: [0], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)' }
                     ]
                 },
                 options: { responsive: true, plugins: { tooltip: { callbacks: { label: () => 'No data available' } } } }
@@ -22139,7 +22174,7 @@ function renderAnalytics() {
             data: {
                 labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
                 datasets: [{
-                    label: 'Sales ($)',
+                    label: 'Sales (USD)',
                     data: hourlyData,
                     backgroundColor: '#1E293B',
                     borderRadius: 4
@@ -22153,7 +22188,7 @@ function renderAnalytics() {
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
-                                return '$' + value;
+                                return 'USD ' + value;
                             }
                         }
                     }
@@ -22162,7 +22197,7 @@ function renderAnalytics() {
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return `Sales: $${context.raw.toFixed(2)}`;
+                                return `Sales: ${usdMoney(context.raw)}`;
                             }
                         }
                     }
@@ -22203,7 +22238,7 @@ function renderAnalytics() {
                                     const value = context.raw || 0;
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
-                                    return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                                    return `${label}: ${usdMoney(value)} (${percentage}%)`;
                                 }
                             }
                         }
@@ -22244,7 +22279,7 @@ function renderAnalytics() {
             topSellingProducts.innerHTML = topSelling.map((p, idx) => 
                 `<div class="d-flex justify-content-between align-items-center p-2 border-bottom">
                     <div><span class="fw-bold">${idx + 1}.</span> ${escapeHtml(p[0])}<small class="text-muted ms-2">(${p[1].quantity} units)</small></div>
-                    <div class="text-end"><div class="fw-bold">$${p[1].sales.toFixed(2)}</div><small class="text-muted">revenue</small></div>
+                    <div class="text-end"><div class="fw-bold">${usdMoney(p[1].sales)}</div><small class="text-muted">revenue</small></div>
                 </div>`
             ).join('');
         } else {
@@ -22279,7 +22314,7 @@ function renderAnalytics() {
                 const margin = (p[1].profit / p[1].revenue * 100).toFixed(0);
                 return `<div class="d-flex justify-content-between align-items-center p-2 border-bottom">
                             <div><span class="fw-bold">${idx + 1}.</span> ${escapeHtml(p[0])}<small class="text-muted ms-2">(${p[1].quantity} units)</small></div>
-                            <div class="text-end"><div class="fw-bold text-success">$${p[1].profit.toFixed(2)}</div><small class="text-muted">${margin}% margin</small></div>
+                            <div class="text-end"><div class="fw-bold text-success">${usdMoney(p[1].profit)}</div><small class="text-muted">${margin}% margin</small></div>
                         </div>`;
             }).join('');
         } else {
@@ -22295,7 +22330,7 @@ function renderAnalytics() {
         const lowStockCountEl = document.getElementById('lowStockCount');
         const totalProductsEl = document.getElementById('totalProducts');
         
-        if (todaySalesEl) todaySalesEl.innerText = `$${transactionsData.todaySales.toFixed(2)}`;
+        if (todaySalesEl) todaySalesEl.innerText = `${usdMoney(transactionsData.todaySales)}`;
         if (itemsSoldEl) itemsSoldEl.innerText = transactionsData.itemsSold;
         if (lowStockCountEl) lowStockCountEl.innerText = products.filter(p => p.stock < (p.min_stock_level || 10)).length;
         if (totalProductsEl) totalProductsEl.innerText = products.length;
@@ -22385,10 +22420,10 @@ function renderInventory() {
             </td>
             <td class="text-muted">${p.unit_type || 'N/A'}</td>
             <td class="text-muted">${p.unit_details || 'N/A'}</td>
-            <td class="text-danger">$${branchBuyPriceOf(p).toFixed(2)}</td>
+            <td class="text-danger">${usdMoney(branchBuyPriceOf(p))}</td>
             <td class="fw-bold text-success">
                 <div class="d-flex align-items-center gap-1">
-                    <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
+                    <span id="price-display-${p.id}">${usdMoney((p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)))}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
                     <button class="btn btn-sm btn-link p-0" onclick="editSellingPrice(${p.id}, '${escapeHtml(p.name)}', ${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))})" title="Edit Selling Price">
                         <i class="fas fa-pen" style="color: var(--crimson-bright);"></i>
                     </button>
@@ -22436,12 +22471,12 @@ function editSellingPrice(productId, productName, currentPrice) {
                         <div class="alert alert-info mb-3" style="font-size: 0.75rem;">
                             <i class="fas fa-info-circle me-1"></i> 
                             <strong>Product:</strong> ${escapeHtml(productName)}<br>
-                            <strong>Buying Price:</strong> $${currentBuyPrice.toFixed(2)}<br>
-                            <strong>Current Selling Price:</strong> <span id="currentPriceDisplay">$${currentPrice.toFixed(2)}</span><br>
-                            <strong>Shared catalogue price:</strong> $${sharedPrice.toFixed(2)}
+                            <strong>Buying Price:</strong> ${usdMoney(currentBuyPrice)}<br>
+                            <strong>Current Selling Price:</strong> <span id="currentPriceDisplay">${usdMoney(currentPrice)}</span><br>
+                            <strong>Shared catalogue price:</strong> ${usdMoney(sharedPrice)}
                         </div>
                         
-                        <label class="form-label" for="newSellingPrice">New Selling Price ($) *</label>
+                        <label class="form-label" for="newSellingPrice">New Selling Price (USD) *</label>
                         <input type="number" step="0.01" class="form-control mb-2" id="newSellingPrice" placeholder="Enter new price" value="${currentPrice.toFixed(2)}">
 
                         <label class="form-label" for="newPriceScope">Apply this price to</label>
@@ -22461,7 +22496,7 @@ function editSellingPrice(productId, productName, currentPrice) {
                         
                         <div id="priceWarning" class="alert alert-warning small" style="display: none;">
                             <i class="fas fa-exclamation-triangle me-1"></i>
-                            <strong>Warning:</strong> New price is lower than buying price ($${currentBuyPrice.toFixed(2)})! This will result in a loss per unit.
+                            <strong>Warning:</strong> New price is lower than buying price (${usdMoney(currentBuyPrice)})! This will result in a loss per unit.
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -22532,7 +22567,7 @@ async function confirmPriceUpdate(productId) {
     
     // Show warning if price is too low
     if (newPrice < buyPrice) {
-        const confirmLow = confirm(`WARNING: New price $${newPrice.toFixed(2)} is lower than buying price $${buyPrice.toFixed(2)}. This will result in a loss of $${(buyPrice - newPrice).toFixed(2)} per unit sold.\n\nDo you want to continue?`);
+        const confirmLow = confirm(`WARNING: New price ${usdMoney(newPrice)} is lower than buying price ${usdMoney(buyPrice)}. This will result in a loss of ${usdMoney((buyPrice - newPrice))} per unit sold.\n\nDo you want to continue?`);
         if (!confirmLow) return;
     }
     
@@ -22554,7 +22589,7 @@ async function confirmPriceUpdate(productId) {
         const data = await response.json();
         
         if (data.success) {
-            showToast(`Price updated: $${oldPrice.toFixed(2)} → $${newPrice.toFixed(2)}`, 'success');
+            showToast(`Price updated: ${usdMoney(oldPrice)} → ${usdMoney(newPrice)}`, 'success');
             
             // Update local products array
             const productIndex = products.findIndex(p => p.id === productId);
@@ -22621,10 +22656,10 @@ function renderInventory() {
             </td>
             <td class="text-muted">${p.unit_type || 'N/A'}</td>
             <td class="text-muted">${p.unit_details || 'N/A'}</td>
-            <td class="text-danger">$${branchBuyPriceOf(p).toFixed(2)}</td>
+            <td class="text-danger">${usdMoney(branchBuyPriceOf(p))}</td>
             <td class="fw-bold text-success">
                 <div class="d-flex align-items-center gap-1">
-                    <span id="price-display-${p.id}">$${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)).toFixed(2)}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
+                    <span id="price-display-${p.id}">${usdMoney((p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0)))}${(p.branch_sell_price != null && Math.abs(Number(p.branch_sell_price) - Number(p.sell_price || 0)) > 0.004) ? '<span title="This branch has its own price" style="font-size:0.6em;opacity:.8;margin-left:2px;">&#9679;</span>' : ''}</span>
                     <button class="btn btn-sm btn-link p-0" onclick="editSellingPrice(${p.id}, '${escapeHtml(p.name)}', ${(p.branch_sell_price != null ? p.branch_sell_price : (p.sell_price || p.price || 0))})" title="Edit Selling Price">
                         <i class="fas fa-pen" style="color: var(--crimson-bright);"></i>
                     </button>
@@ -22642,11 +22677,12 @@ function renderInventory() {
                 <button class="btn btn-sm btn-outline-primary me-1" onclick="openTransferStockModal(${p.id})" title="Transfer this product to another branch">
                     <i class="fas fa-truck"></i> Transfer
                 </button>
+                ${posDepartment === 'hardware' || posDepartment === 'furniture' ? `
                 <button class="btn btn-sm btn-outline-dark me-1" onclick="moveProductDepartment(${p.id})"
                         title="Move this product to ${posDepartment === 'hardware' ? 'Furniture' : 'Hardware'}, taking its stock with it">
                     <i class="fas ${posDepartment === 'hardware' ? 'fa-couch' : 'fa-screwdriver-wrench'}"></i>
                     ${posDepartment === 'hardware' ? 'To Furniture' : 'To Hardware'}
-                </button>
+                </button>` : ''}
                 <button class="btn btn-sm btn-outline-danger" onclick="showDeleteConfirmation(${p.id})" title="Delete Product">
                     <i class="fas fa-trash"></i> Remove
                 </button>
@@ -22679,9 +22715,9 @@ function calculateInventoryMetrics() {
     const marginPercent = totalPurchaseValue > 0 ? ((margin / totalPurchaseValue) * 100).toFixed(1) : 0;
     
     // Update the UI
-    document.getElementById('totalPurchaseValue').textContent = '$' + totalPurchaseValue.toFixed(2);
-    document.getElementById('totalSalesValue').textContent = '$' + totalSalesValue.toFixed(2);
-    document.getElementById('marginProfit').textContent = '$' + margin.toFixed(2);
+    document.getElementById('totalPurchaseValue').textContent = usdMoney(totalPurchaseValue);
+    document.getElementById('totalSalesValue').textContent = usdMoney(totalSalesValue);
+    document.getElementById('marginProfit').textContent = usdMoney(margin);
     document.getElementById('marginProfit').className = margin >= 0 ? 'mb-1 fw-bold text-success' : 'mb-1 fw-bold text-danger';
     document.getElementById('marginPercent').textContent = marginPercent + '%';
     document.getElementById('totalStockItems').textContent = fmtCount(totalStockItems);
@@ -22717,7 +22753,7 @@ async function loadDispatchAnalytics() {
         const totals = data.totals || {};
         setText('dispatchTotalUnits', fmtCount(totals.units));
         setText('dispatchTotalCount', fmtCount(totals.dispatches));
-        setText('dispatchTotalValue', '$' + (Number(totals.value) || 0).toFixed(2));
+        setText('dispatchTotalValue', 'USD ' + (Number(totals.value) || 0).toFixed(2));
 
         if (byBranchBody) {
             byBranchBody.innerHTML = (data.by_branch || []).map(r => `
@@ -22725,7 +22761,7 @@ async function loadDispatchAnalytics() {
                     <td>${escapeHtml(r.branch_name)}</td>
                     <td class="text-end fw-bold">${fmtCount(r.units)}</td>
                     <td class="text-end">${fmtCount(r.dispatches)}</td>
-                    <td class="text-end">$${(r.value || 0).toFixed(2)}</td>
+                    <td class="text-end">${usdMoney((r.value || 0))}</td>
                 </tr>`).join('') ||
                 '<tr><td colspan="4" class="text-center text-muted">Nothing dispatched in this period</td></tr>';
         }
@@ -22925,10 +22961,9 @@ function setText(id, value) {
 }
 
 // ==================== DEPARTMENT SWITCH ====================
-// Switch the whole till between Hardware and Furniture. Every tab (POS grid,
-// Inventory, sales, reports) follows this.
-// Hardware is always the landing department: the saved choice is deliberately
-// NOT restored on load, so a refresh never opens on the other department.
+// Switch the whole till between All, Hardware and Furniture. Every tab (POS
+// grid, Inventory, sales, transactions, analytics) follows this; the exported
+// PDF always covers every department. All is the landing position.
 async function switchDepartment(dept) {
     if (!dept || dept === posDepartment) return;
     if (typeof branchIsReadOnly === 'function' && branchIsReadOnly()) {
@@ -22955,13 +22990,18 @@ async function switchDepartment(dept) {
             showDepartmentLoader(false);
             return;
         }
-        await fetchProductsFromAPI();
+        // Mark the switch first: the catalogue read below names the department
+        // in its URL (a cache-buster), and that name must be the one just chosen.
         applyDepartmentState(switchResult.department);
+        await fetchProductsFromAPI();
         try { localStorage.removeItem('pos_api_cache_v1'); } catch (e) {}
         // Redraw the open tab from the catalogue already in hand.
         redrawActiveTab();
-        // The header cards are a separate server aggregate; refresh them in
-        // the background so the switch itself stays instant.
+        // Whatever tab is open, its data belongs to the departments now in view, so
+        // re-read it rather than leave the old department's figures on screen. The
+        // header cards follow the same rule. Tabs that are not open re-read on their
+        // own when navigated to, so nothing stale can survive the switch.
+        redrawActiveTab();
         if (typeof loadTodayByCashier === 'function') loadTodayByCashier();
         if (typeof loadStats === 'function') loadStats();
         if (typeof showToast === 'function') {
@@ -22996,7 +23036,7 @@ function showDepartmentLoader(show, message) {
 window.showDepartmentLoader = showDepartmentLoader;
 
 function applyDepartmentState(deptKey) {
-    posDepartment = deptKey || 'hardware';
+    posDepartment = deptKey || 'all';
     document.querySelectorAll('.pos-dept-btn').forEach(function (btn) {
         const on = btn.getAttribute('data-dept') === posDepartment;
         btn.classList.toggle('is-active', on);
@@ -23022,6 +23062,12 @@ window.redrawActiveTab = redrawActiveTab;
 async function moveProductDepartment(productId) {
     if (typeof branchIsReadOnly === 'function' && branchIsReadOnly()) {
         if (typeof showToast === 'function') showToast('All Branches is read-only. Pick a branch first.', 'error');
+        return;
+    }
+    if (posDepartment !== 'hardware' && posDepartment !== 'furniture') {
+        if (typeof showToast === 'function') {
+            showToast('Switch to Hardware or Furniture first - moving an item needs a shelf to read from.', 'error');
+        }
         return;
     }
     const target = posDepartment === 'hardware' ? 'furniture' : 'hardware';
@@ -23157,11 +23203,11 @@ function setupEventListeners() {
     const cashAmount = document.getElementById('cashAmount');
     if (cashAmount) {
         cashAmount.addEventListener('input', () => { 
-            const total = parseFloat(document.getElementById('total').innerText.replace('$', '')); 
+            const total = parseFloat(document.getElementById('total').innerText.replace(/[^0-9.\-]/g, '')); 
             const cash = parseFloat(cashAmount.value); 
             const changeDue = document.getElementById('changeDue'); 
             if (!isNaN(cash) && cash >= total) { 
-                if (changeDue) changeDue.innerHTML = `Change: $${(cash - total).toFixed(2)}`; 
+                if (changeDue) changeDue.innerHTML = `Change: ${usdMoney((cash - total))}`; 
                 
                 // Also update the confirmation modal if it's open
                 const confirmationModal = document.getElementById('confirmationModal');
@@ -23528,7 +23574,7 @@ function setupEventListeners() {
     // from the global transactionsData. fetchDashboardStats() and processOrder()
     // call renderPOSHeaderStats() directly, so the pills always reflect fresh
     // data. This interval is only a safety fallback (it no longer self-clears
-    // early, which previously froze the pills at $0.00 before the first fetch
+    // early, which previously froze the pills at USD 0.00 before the first fetch
     // had returned).
     setInterval(function () {
         if (typeof renderPOSHeaderStats === 'function') renderPOSHeaderStats();
@@ -23550,7 +23596,7 @@ function setupEventListeners() {
     var laybyById = {};            // id -> layby, for the modals
 
     function money(v) {
-        return '$' + Number(v || 0).toLocaleString('en-US', {
+        return 'USD ' + Number(v || 0).toLocaleString('en-US', {
             minimumFractionDigits: 2, maximumFractionDigits: 2
         });
     }

@@ -1,0 +1,16 @@
+PASS  no query is given the wrong number of parameters (all views, every read)  -> every statement matched
+PASS  the literal 'all' never reaches a department comparison  -> the view is translated to a department list before SQL
+PASS  the all view hands the query ['hardware', 'furniture']  -> [['hardware', 'furniture'], ['hardware', 'furniture']]
+PASS  the hardware view hands the query ['hardware']  -> [['hardware'], ['hardware']]
+PASS  the furniture view hands the query ['furniture']  -> [['furniture'], ['furniture']]
+PASS  the switch accepts 'all'  -> {'department': 'all', 'label': 'All', 'success': True}
+PASS  the switch accepts 'hardware'  -> {'department': 'hardware', 'label': 'Hardware', 'success': True}
+PASS  the switch accepts 'furniture'  -> {'department': 'furniture', 'label': 'Furniture', 'success': True}
+PASS  the switch refuses 'everything'  -> {'message': 'Choose All, Hardware or Furniture.', 'success': False}
+PASS  the switch refuses ''  -> {'message': 'Choose All, Hardware or Furniture.', 'success': False}
+PASS  /api/transactions/daily-summary really runs its 'items_sold' query, over both departments  -> 1 statement(s); ANY used: True
+PASS  /api/dashboard/stats really runs its 'items_sold' query, over both departments  -> 1 statement(s); ANY used: True
+PASS  /api/dashboard/today-by-cashier really runs its 'items_sold' query, over both departments  -> 1 statement(s); ANY used: True
+PASS  check-auth reports the All view and offers all three positions  -> {'key': 'all', 'label': 'All', 'options': [{'key': 'all', 'label': 'All'}, {'key': 'hardware', 'label': 'Hardware'}, {'key': 'furniture', 'label': 'Furniture'}]}
+PASS  check-auth echoes the hardware view  -> hardware
+PASS  check-auth echoes the furniture view  -> furniture

@@ -1,0 +1,52 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckDepartmentQueries",
+  "file": "_check_department_queries.py",
+  "purpose": "Pre-deployment guard: every query the POS builds must fit its parameters.",
+  "entry_function": "class Cur  # line 49",
+  "entry_flows": [
+    "Cur.__init__() → environ.pop, path.dirname, path.abspath, path.join",
+    "Conn.commit() → environ.pop, path.dirname, path.abspath, path.join",
+    "_HTML.__init__() → environ.pop, path.dirname, path.abspath, path.join"
+  ],
+  "public_api": [
+    "class Cur  # line 49",
+    "  Cur.__init__()",
+    "  Cur.execute(sql, params = None)",
+    "  Cur.executemany(sql, seq)",
+    "  Cur.fetchone()",
+    "class Conn  # line 82",
+    "  Conn.commit()",
+    "  Conn.rollback()",
+    "  Conn.close()",
+    "check(name, ok, detail = '')",
+    "record(sql, params)",
+    "fake_db()",
+    "fake_execute_query(sql, params = None, fetch_all = False, fetch_one = False, commit = False)",
+    "audit_statements(where)"
+  ],
+  "dependencies": [
+    "ConnectLink",
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), OUT = os.path.join(ROOT, '_check_department_queries_out.txt'), RESULTS = [], SEEN = [], CALLS = [('/api/products', 'the catalogue'), ('/api/products/1', 'one product'), ('/api/transactions?limit=10', 'the transactions tab'), ('/api/transactions/voided', 'voided sales'), ('/api/transactions/daily-summary', 'the day summary'), ('/api/transactions/day-end?date=2026-10-26', 'the day-end report'), ('/api/dashboard/stats', 'the dashboard header'), ('/api/dashboard/today-by-cashier', 'the cashier header'), ('/api/stock-additions', 'reinvestment'), ('/api/categories', 'categories'), ('/api/pos/reconciliation', 'the reconciliation report')]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "4a3dea8964505964",
+  "file_mtime": 1793176072855.5078,
+  "file_size": 9200,
+  "file_birthtime": 1793176072853.4905,
+  "generated_at": "2026-10-28T08:33:57.692789Z",
+  "stale": false
+}

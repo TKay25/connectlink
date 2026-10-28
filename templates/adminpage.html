@@ -71,6 +71,15 @@
     }
     </style>
     <script>
+// One money format for the whole app: USD 1,234.56 - accounting separators,
+// always two decimals, a loss shown as USD -12.50.
+window.usdMoney = function (value) {
+    const n = Number(value || 0);
+    return 'USD ' + (n < 0 ? '-' : '') + Math.abs(n).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+};
     // ===== PROJECT MONEY LOCK =====
     // Users without `can_edit_project_money` (User Management -> "Edit Project Money
     // Fields") may still update a project, but must not change any money field.
@@ -4177,8 +4186,8 @@ window.renderConstructionItemsList = window.renderConstructionItemsList || funct
         html += '<div style="display:flex;align-items:flex-start;gap:10px;">';
         html += '<input type="checkbox" class="construction-item-checkbox me-2" '+disabled+' style="margin-top:3px;flex-shrink:0;">';
         html += '<div style="flex:1;"><div class="fw-bold" style="font-size:0.95rem;margin-bottom:4px;">'+(rate.item||'')+(isExcluded?' <span class="badge bg-secondary ms-2" style="font-size:0.7rem;">Not for Single Storey</span>':'')+'</div>';
-        html += '<small class="text-muted" style="display:block;line-height:1.5;">Client Rate: <strong>$'+clientRatePerSqm.toFixed(2)+'</strong>/sqm × <strong>'+sqm+'</strong> sqm = <strong style="color:#2196F3;">$'+clientPrice.toFixed(2)+'</strong>';
-        html += '<br><span style="color:#6c757d;">Inhouse (at '+markup+'% markup): <strong>$'+basePrice.toFixed(2)+'</strong></span></small></div></div></div>';
+        html += '<small class="text-muted" style="display:block;line-height:1.5;">Client Rate: <strong>USD '+clientRatePerSqm.toFixed(2)+'</strong>/sqm × <strong>'+sqm+'</strong> sqm = <strong style="color:#2196F3;">USD '+clientPrice.toFixed(2)+'</strong>';
+        html += '<br><span style="color:#6c757d;">Inhouse (at '+markup+'% markup): <strong>USD '+basePrice.toFixed(2)+'</strong></span></small></div></div></div>';
     });
     
     listEl.innerHTML = html;
@@ -4205,7 +4214,7 @@ window.updateSelectedItemsList = window.updateSelectedItemsList || function() {
             var nameEl = row.querySelector('.fw-bold');
             var name = nameEl ? nameEl.textContent.replace('Not for Single Storey','').trim() : 'Item';
             var priceText = row.querySelector('[style*="color:#2196F3"]');
-            var price = priceText ? parseFloat(priceText.textContent.replace('$','').replace(',','')) || 0 : 0;
+            var price = priceText ? parseFloat(priceText.textContent.replace(/[^0-9.\-]/g, '')) || 0 : 0;
             var smallText = row.querySelector('small.text-muted');
             var sqm = 0;
             if(smallText){
@@ -4226,7 +4235,7 @@ window.updateSelectedItemsList = window.updateSelectedItemsList || function() {
         html += '<div class="selected-item-drag" draggable="true" data-index="'+idx+'" style="display:flex;align-items:center;padding:6px 8px;margin-bottom:4px;background:white;border:1px solid #2196F3;border-radius:6px;cursor:grab;font-size:0.75rem;">';
         html += '<span style="cursor:grab;margin-right:8px;color:#999;"><i class="bi bi-grip-vertical"></i></span>';
         html += '<div style="flex:1;"><strong>'+item.name+'</strong><br><small style="color:#999;">'+item.sqm+' sqm</small></div>';
-        html += '<div style="text-align:right;font-weight:700;color:#2196F3;">$'+item.price.toFixed(2)+'</div>';
+        html += '<div style="text-align:right;font-weight:700;color:#2196F3;">USD '+item.price.toFixed(2)+'</div>';
         html += '<button class="btn btn-sm btn-danger ms-2" style="padding:1px 4px;font-size:0.65rem;" onclick="removeSelectedItem('+idx+')"><i class="bi bi-x"></i></button>';
         html += '</div>';
     });
@@ -4253,7 +4262,7 @@ window.calculateConstructionTotal = window.calculateConstructionTotal || functio
     var total = 0;
     document.querySelectorAll('.selected-item-drag').forEach(function(item){
         var priceEl = item.querySelector('[style*="color:#2196F3"]');
-        if(priceEl) total += parseFloat(priceEl.textContent.replace('$','').replace(',','')) || 0;
+        if(priceEl) total += parseFloat(priceEl.textContent.replace(/[^0-9.\-]/g, '')) || 0;
     });
     var totalEl = document.getElementById('constructionTotal');
     if(totalEl) totalEl.textContent = total.toFixed(2);
@@ -4285,7 +4294,7 @@ window.renderGanttItemsList = window.renderGanttItemsList || function() {
         var ed = typeof window.parseDateGantt==='function' ? window.parseDateGantt(item.endDate) : new Date(item.endDate);
         var fs = sd.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'});
         var fe = ed.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'});
-        var cost = typeof formatCurrency==='function' ? formatCurrency(item.price) : '$'+Number(item.price||0).toFixed(2);
+        var cost = typeof formatCurrency==='function' ? formatCurrency(item.price) : 'USD ' +Number(item.price||0).toFixed(2);
         h += '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#fff':'#f9f9f9')+';">'+
             '<td style="padding:2px 3px;text-align:left;font-weight:bold;">'+(idx+1)+'</td>'+
             '<td style="padding:2px 3px;text-align:left;">'+item.item+'</td>'+
@@ -4476,7 +4485,7 @@ window.clInitLinkQuotationDropdown = function (options) {
                 var label;
                 try {
                     label = q.clientName + ' - ' + formatCategoryName(q.category, q.customCategory)
-                        + ' (' + Number(q.projectSize || 0) + ' Sq.M) - $' + Number(q.totalCost || 0).toFixed(2);
+                        + ' (' + Number(q.projectSize || 0) + ' Sq.M) - USD ' + Number(q.totalCost || 0).toFixed(2);
                 } catch (e) {
                     label = 'Quotation #' + q.id;
                 }
@@ -4706,14 +4715,14 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
             var itmTotal = Number(item.totalPrice||item.total||item.clientPrice||0);
             totalDisplayCost += itmTotal;
             var sDays = (schedules[idx]&&schedules[idx].days)||item.days||0;
-            itemRows += '<tr style="border-bottom:1px solid #ddd;"><td style="padding:6px;text-align:center;">'+(idx+1)+'</td><td style="padding:6px;text-align:left;">'+nm+'</td><td style="padding:6px;text-align:center;">'+qty.toFixed(2)+'</td><td style="padding:6px;text-align:right;">$'+rate.toFixed(2)+'</td><td style="padding:6px;text-align:center;font-weight:600;color:#2196F3;">'+sDays+'</td><td style="padding:6px;text-align:right;font-weight:700;color:#1E2A56;">$'+itmTotal.toFixed(2)+'</td></tr>';
+            itemRows += '<tr style="border-bottom:1px solid #ddd;"><td style="padding:6px;text-align:center;">'+(idx+1)+'</td><td style="padding:6px;text-align:left;">'+nm+'</td><td style="padding:6px;text-align:center;">'+qty.toFixed(2)+'</td><td style="padding:6px;text-align:right;">USD '+rate.toFixed(2)+'</td><td style="padding:6px;text-align:center;font-weight:600;color:#2196F3;">'+sDays+'</td><td style="padding:6px;text-align:right;font-weight:700;color:#1E2A56;">USD '+itmTotal.toFixed(2)+'</td></tr>';
         });
         
         if(items.length>0){
-            itemRows += '<tr style="page-break-inside:avoid;break-inside:avoid;"><td colspan="4" style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;padding:8px 10px;"><strong>'+((vatCalc.enabled)?'SUBTOTAL':'TOTAL')+'</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid #1E2A56;color:#2196F3;padding:8px 10px;"><strong>'+totalConstructionDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;color:#1E2A56;padding:8px 10px;"><strong>$'+totalDisplayCost.toFixed(2)+'</strong></td></tr>';
+            itemRows += '<tr style="page-break-inside:avoid;break-inside:avoid;"><td colspan="4" style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;padding:8px 10px;"><strong>'+((vatCalc.enabled)?'SUBTOTAL':'TOTAL')+'</strong></td><td style="text-align:center;font-weight:bold;border-top:2px solid #1E2A56;color:#2196F3;padding:8px 10px;"><strong>'+totalConstructionDays+'</strong></td><td style="text-align:right;font-weight:bold;border-top:2px solid #1E2A56;color:#1E2A56;padding:8px 10px;"><strong>USD '+totalDisplayCost.toFixed(2)+'</strong></td></tr>';
             if(vatCalc.enabled){
-                itemRows += '<tr><td colspan="5" style="text-align:right;padding:6px 10px;">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</td><td style="text-align:right;padding:6px 10px;">$'+vatCalc.vat.toFixed(2)+'</td></tr>';
-                itemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="5" style="text-align:right;padding:8px 10px;"><strong>TOTAL</strong></td><td style="text-align:right;padding:8px 10px;"><strong>$'+vatCalc.total.toFixed(2)+'</strong></td></tr>';
+                itemRows += '<tr><td colspan="5" style="text-align:right;padding:6px 10px;">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</td><td style="text-align:right;padding:6px 10px;">USD '+vatCalc.vat.toFixed(2)+'</td></tr>';
+                itemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="5" style="text-align:right;padding:8px 10px;"><strong>TOTAL</strong></td><td style="text-align:right;padding:8px 10px;"><strong>USD '+vatCalc.total.toFixed(2)+'</strong></td></tr>';
             }
         }
         
@@ -4749,7 +4758,7 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         // Quotation Summary
         htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">QUOTATION SUMMARY</h4>';
         htmlContent += '<div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">';
-        var money2 = function(v){ return '$'+(Number(v)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+        var money2 = function(v){ return 'USD ' +(Number(v)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); };
         var labelStyle = 'font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;';
         // Top row carries what the client is being asked to pay and how it is made
         // up, so the total and its VAT breakdown read together before the schedule.
@@ -4786,18 +4795,18 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
                 ncItemRows += '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#f9f9f9':'#ffffff')+';">'+
                     '<td style="padding:6px;text-align:center;">'+(idx+1)+'</td>'+
                     '<td style="padding:6px;text-align:left;">'+escapeHtml(it.name||it.item||'Item')+'</td>'+
-                    '<td style="padding:6px;text-align:right;">$'+amt.toFixed(2)+'</td>'+
+                    '<td style="padding:6px;text-align:right;">USD '+amt.toFixed(2)+'</td>'+
                     '<td style="padding:6px;text-align:center;color:#2196F3;">'+(it.days||0)+'</td>'+
-                    '<td style="padding:6px;text-align:right;font-weight:700;">$'+tot.toFixed(2)+'</td></tr>';
+                    '<td style="padding:6px;text-align:right;font-weight:700;">USD '+tot.toFixed(2)+'</td></tr>';
             });
             ncItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;">'+
                 '<td colspan="2" style="padding:8px 10px;text-align:right;"><strong>'+((vatCalc.enabled)?'SUBTOTAL':'TOTAL')+'</strong></td>'+
                 '<td style="padding:8px 10px;text-align:right;"></td>'+
                 '<td style="padding:8px 10px;text-align:center;"><strong>'+maxItemDays+'</strong></td>'+
-                '<td style="padding:8px 10px;text-align:right;"><strong>$'+ncTotal.toFixed(2)+'</strong></td></tr>';
+                '<td style="padding:8px 10px;text-align:right;"><strong>USD '+ncTotal.toFixed(2)+'</strong></td></tr>';
             if(vatCalc.enabled){
-                ncItemRows += '<tr><td colspan="4" style="padding:6px 10px;text-align:right;">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</td><td style="padding:6px 10px;text-align:right;">$'+vatCalc.vat.toFixed(2)+'</td></tr>';
-                ncItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td><td style="padding:8px 10px;text-align:right;"><strong>$'+vatCalc.total.toFixed(2)+'</strong></td></tr>';
+                ncItemRows += '<tr><td colspan="4" style="padding:6px 10px;text-align:right;">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</td><td style="padding:6px 10px;text-align:right;">USD '+vatCalc.vat.toFixed(2)+'</td></tr>';
+                ncItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td><td style="padding:8px 10px;text-align:right;"><strong>USD '+vatCalc.total.toFixed(2)+'</strong></td></tr>';
             }
             htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;">'+
                 '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">ITEMS</h4>'+
@@ -14894,7 +14903,7 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
                 </div>
                 <div style="flex:1; min-width:140px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:8px 12px;">
                     <div style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.3px;">Total Variance</div>
-                    <div style="font-size:0.7rem; font-weight:800; color:var(--crimson-bright);" id="totalVarianceAmount">$0.00</div>
+                    <div style="font-size:0.7rem; font-weight:800; color:var(--crimson-bright);" id="totalVarianceAmount">USD 0.00</div>
                 </div>
             </div>
             
@@ -15276,7 +15285,7 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
                     </div>
                     <div class="details">
                         <h5>Total Amount</h5>
-                        <p id="totalAmount" class="text-info">$0</p>
+                        <p id="totalAmount" class="text-info">USD 0</p>
                     </div>
                 </div>
                 <div class="summary-card">
@@ -20067,7 +20076,7 @@ body { font-family: Arial; margin: 20px; }
                                     <div style="display:flex;align-items:center;gap:4px;"><strong style="white-space:nowrap;">Markup:</strong> <span id="displayMarkup" style="font-weight:700;">30%</span></div>
                                 </div>
                                 <div class="col-md-4">
-                                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;color:#2196F3;font-weight:bold;font-size:1.1rem;"><strong style="white-space:nowrap;color:inherit;">Total:</strong> $<span id="constructionTotal">0.00</span></div>
+                                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px;color:#2196F3;font-weight:bold;font-size:1.1rem;"><strong style="white-space:nowrap;color:inherit;">Total:</strong> USD <span id="constructionTotal">0.00</span></div>
                                     <div id="constructionVatHint" style="display:none;text-align:right;font-size:0.7rem;font-weight:600;color:#5a678a;margin-top:2px;"></div>
                                 </div>
                             </div>
@@ -20126,7 +20135,7 @@ body { font-family: Arial; margin: 20px; }
                                 </div>
                                 <div class="col-4 d-flex align-items-center justify-content-end gap-1">
                                     <strong>Total:</strong>
-                                    <span style="color: #2196F3; font-weight: bold;">$<span id="kitchenTotalCost">0.00</span></span>
+                                    <span style="color: #2196F3; font-weight: bold;">USD <span id="kitchenTotalCost">0.00</span></span>
                                 </div>
                             </div>
                         </div>
@@ -20187,7 +20196,7 @@ body { font-family: Arial; margin: 20px; }
                                 </div>
                                 <div class="col-4 d-flex align-items-center justify-content-end gap-1">
                                     <strong>Total:</strong>
-                                    <span style="color: #2196F3; font-weight: bold;">$<span id="tvUnitTotalCost">0.00</span></span>
+                                    <span style="color: #2196F3; font-weight: bold;">USD <span id="tvUnitTotalCost">0.00</span></span>
                                 </div>
                             </div>
                         </div>
@@ -20711,7 +20720,7 @@ function renderTvUnitsTable() {
             '<td><input type="number" class="form-control form-control-sm" value="' + (item.quantity || 1) + '" min="1" onchange="updateTvUnitItem(' + index + ', \'quantity\', this.value)"></td>' +
             '<td><input type="number" class="form-control form-control-sm" value="' + (item.amount || 0) + '" min="0" step="100" onchange="updateTvUnitItem(' + index + ', \'amount\', this.value)"></td>' +
             '<td><input type="number" class="form-control form-control-sm" value="' + (item.days || 1) + '" min="1" onchange="updateTvUnitItem(' + index + ', \'days\', this.value)"></td>' +
-            '<td><strong>$' + itemTotal.toLocaleString() + '</strong></td>' +
+            '<td><strong>USD ' + itemTotal.toLocaleString() + '</strong></td>' +
             '<td><button class="btn btn-sm btn-danger" onclick="removeTvUnitItem(' + index + ')"><i class="bi bi-trash"></i></button></td>' +
             '</tr>';
     });
@@ -20750,7 +20759,7 @@ function renderKitchenItemsTable() {
                 <td><input type="number" class="form-control form-control-sm" value="${item.quantity || 1}" min="1" onchange="updateKitchenItem(${index}, 'quantity', this.value)"></td>
                 <td><input type="number" class="form-control form-control-sm" value="${item.amount || 0}" min="0" step="100" onchange="updateKitchenItem(${index}, 'amount', this.value)"></td>
                 <td><input type="number" class="form-control form-control-sm" value="${item.days || 1}" min="1" onchange="updateKitchenItem(${index}, 'days', this.value)"></td>
-                <td><strong>$${itemTotal.toLocaleString()}</strong></td>
+                <td><strong>USD ${itemTotal.toLocaleString()}</strong></td>
                 <td><button class="btn btn-sm btn-danger" onclick="removeKitchenItem(${index})"><i class="bi bi-trash"></i></button></td>
             </tr>
         `;
@@ -21993,7 +22002,7 @@ function initializeProjectQuotationsDropdown() {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(quotation);
                     const formattedCategory = formatCategoryName(quotation.category, quotation.customCategory);
-                    option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
+                    option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - ${usdMoney(quotation.totalCost)}`;
                     selectElement.appendChild(option);
                 });
                 
@@ -22227,7 +22236,7 @@ function initializeOtherDetailsQuotationDropdown(currentQuotationRef) {
                     const option = document.createElement('option');
                     option.value = JSON.stringify(quotation);
                     const formattedCategory = formatCategoryName(quotation.category, quotation.customCategory);
-                    option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - $${quotation.totalCost.toFixed(2)}`;
+                    option.textContent = `${quotation.clientName} - ${formattedCategory} (${quotation.projectSize} Sq.M) - ${usdMoney(quotation.totalCost)}`;
                     selectElement.appendChild(option);
                     
                     // If this quotation matches the current one, select it
@@ -22886,10 +22895,10 @@ function displayWorkPlans(workPlans) {
     
     // Update summary
     document.getElementById('totalProjects').textContent = projectsSet.size;
-    document.getElementById('totalFullPeriodCost').textContent = 'USD ' + totalFullPeriodCost.toFixed(2);
-    document.getElementById('totalBudgetForPeriod').textContent = 'USD ' + totalBudgetForPeriod.toFixed(2);
-    document.getElementById('totalPastCost').textContent = 'USD ' + totalPastCost.toFixed(2);
-    document.getElementById('totalFutureCost').textContent = 'USD ' + totalFutureCost.toFixed(2);
+    document.getElementById('totalFullPeriodCost').textContent = usdMoney(totalFullPeriodCost);
+    document.getElementById('totalBudgetForPeriod').textContent = usdMoney(totalBudgetForPeriod);
+    document.getElementById('totalPastCost').textContent = usdMoney(totalPastCost);
+    document.getElementById('totalFutureCost').textContent = usdMoney(totalFutureCost);
     summaryDiv.style.display = 'block';
     
     // Show export buttons
@@ -23010,10 +23019,10 @@ function filterWorkPlansByTask() {
     });
     
     document.getElementById('totalProjects').textContent = projectsSet.size;
-    document.getElementById('totalFullPeriodCost').textContent = 'USD ' + totalFullPeriodCost.toFixed(2);
-    document.getElementById('totalBudgetForPeriod').textContent = 'USD ' + totalBudgetForPeriod.toFixed(2);
-    document.getElementById('totalPastCost').textContent = 'USD ' + totalPastCost.toFixed(2);
-    document.getElementById('totalFutureCost').textContent = 'USD ' + totalFutureCost.toFixed(2);
+    document.getElementById('totalFullPeriodCost').textContent = usdMoney(totalFullPeriodCost);
+    document.getElementById('totalBudgetForPeriod').textContent = usdMoney(totalBudgetForPeriod);
+    document.getElementById('totalPastCost').textContent = usdMoney(totalPastCost);
+    document.getElementById('totalFutureCost').textContent = usdMoney(totalFutureCost);
     summaryDiv.style.display = 'block';
 }
 
@@ -23208,7 +23217,7 @@ function displayAuditResults(auditData, stats) {
     document.getElementById('auditTotalProjects').textContent = stats.total;
     document.getElementById('auditVarianceCount').textContent = stats.variance_count;
     document.getElementById('auditBalancedCount').textContent = stats.balanced_count;
-    document.getElementById('totalVarianceAmount').textContent = '$' + stats.total_variance.toFixed(2);
+    document.getElementById('totalVarianceAmount').textContent = usdMoney(stats.total_variance);
     
     // Check if there are any projects with variance AND outstanding payments
     const hasOutstandingWithVariance = auditData.some(item => item.has_variance && item.is_outstanding);
@@ -23230,12 +23239,12 @@ function displayAuditResults(auditData, stats) {
             <td style="font-size:0.7rem;font-weight:700;">${item.project_id}</td>
             <td style="font-size:0.7rem;">${item.client_name}</td>
             <td style="font-size:0.7rem;">${item.project_name}</td>
-            <td style="font-size:0.7rem;text-align:right;">$${item.total_contract.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-            <td style="font-size:0.7rem;text-align:right;">$${item.deposit.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-            <td style="font-size:0.7rem;text-align:right;">$${item.balance_due.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
-            <td style="font-size:0.7rem;text-align:right;">$${item.sum_installments.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+            <td style="font-size:0.7rem;text-align:right;">USD ${item.total_contract.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+            <td style="font-size:0.7rem;text-align:right;">USD ${item.deposit.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+            <td style="font-size:0.7rem;text-align:right;">USD ${item.balance_due.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+            <td style="font-size:0.7rem;text-align:right;">USD ${item.sum_installments.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
             <td style="font-size:0.7rem;text-align:right;${item.has_variance ? 'color:#dc3545;font-weight:700;' : 'color:#198754;font-weight:600;'}">
-                $${item.variance.toLocaleString('en-US', {minimumFractionDigits:2})}
+                USD ${item.variance.toLocaleString('en-US', {minimumFractionDigits:2})}
             </td>
             <td style="text-align:center;">
                 <span style="font-size:0.7rem;padding:2px 8px;border-radius:4px;font-weight:600;display:inline-block;${item.is_outstanding ? 'background:#0dcaf0;color:#000;' : item.has_variance ? 'background:#ffc107;color:#000;' : 'background:#198754;color:#fff;'}">
@@ -23357,11 +23366,11 @@ document.getElementById('downloadAuditReportBtn')?.addEventListener('click', fun
                 'project_id': cells[0].textContent,
                 'client_name': cells[1].textContent,
                 'project_name': cells[2].textContent,
-                'total_contract': parseFloat(cells[3].textContent.replace('$', '')),
-                'deposit': parseFloat(cells[4].textContent.replace('$', '')),
-                'balance_due': parseFloat(cells[5].textContent.replace('$', '')),
-                'sum_installments': parseFloat(cells[6].textContent.replace('$', '')),
-                'variance': parseFloat(cells[7].textContent.replace('$', '')),
+                'total_contract': parseFloat(cells[3].textContent.replace(/[^0-9.\-]/g, '')),
+                'deposit': parseFloat(cells[4].textContent.replace(/[^0-9.\-]/g, '')),
+                'balance_due': parseFloat(cells[5].textContent.replace(/[^0-9.\-]/g, '')),
+                'sum_installments': parseFloat(cells[6].textContent.replace(/[^0-9.\-]/g, '')),
+                'variance': parseFloat(cells[7].textContent.replace(/[^0-9.\-]/g, '')),
                 'status': cells[8].querySelector('.badge').textContent.trim()
             });
         }
@@ -23484,7 +23493,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // Format AI response with better readability
             let formattedText = text.replace(/\n/g, '<br>');
-            formattedText = formattedText.replace(/\$(?:\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g, 
+            formattedText = formattedText.replace(/(?:USD\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?|\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g, 
                 match => `<span style="color: #0d6efd; font-weight: bold;">${match}</span>`);
             
             messageDiv.innerHTML = `<strong><i class="fas fa-robot"></i> AI Analyst:</strong><br>${formattedText}`;
@@ -24062,7 +24071,7 @@ function displayPaymentReminders(data) {
         const totalAmount = summary.total_amount || 
                            allPayments.reduce((sum, p) => sum + (p.amount_due || 0), 0) +
                            outstanding.reduce((sum, p) => sum + (p.balance_due || 0), 0);
-        totalAmountEl.textContent = '$' + totalAmount.toFixed(2);
+        totalAmountEl.textContent = usdMoney(totalAmount);
     }
     
     // Fill tables
@@ -24592,7 +24601,7 @@ function safeFormatCurrency(value) {
             minimumFractionDigits: 2
         });
     } catch(e) {
-        return '$0.00';
+        return 'USD 0.00';
     }
 }
 
@@ -25857,7 +25866,7 @@ async function saveKitchenQuotation() {
             throw new Error(result.error || 'Failed to save quotation');
         }
         
-        alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id}) with total: $${finalTotal.toFixed(2)}`);
+        alert(`✅ Quotation saved successfully! (ID: ${result.quotation_id}) with total: ${usdMoney(finalTotal)}`);
         
         // Generate PDF
         saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating PDF...';
@@ -33810,11 +33819,11 @@ let quillDetailsNotes = null;
                             <div style="flex: 1;">
                                 <div class="fw-bold" style="font-size: 0.95rem; margin-bottom: 4px;">${rate.item} ${isExcludedForSingleStorey ? '<span class="badge bg-secondary ms-2" style="font-size:0.7rem;">Not for Single Storey</span>' : ''}</div>
                                 <small class="text-muted" style="display: block; line-height: 1.5;">
-                                    Client Rate: <strong>$${clientRatePerSqm.toFixed(2)}</strong>/sqm 
+                                    Client Rate: <strong>${usdMoney(clientRatePerSqm)}</strong>/sqm 
                                     × <strong>${sqm}</strong> sqm 
-                                    = <strong style="color: #2196F3;">$${clientPrice.toFixed(2)}</strong>
+                                    = <strong style="color: #2196F3;">${usdMoney(clientPrice)}</strong>
                                     <br>
-                                    <span style="color: #6c757d;">Inhouse (at ${markup}% markup): <strong>$${basePrice.toFixed(2)}</strong></span>
+                                    <span style="color: #6c757d;">Inhouse (at ${markup}% markup): <strong>${usdMoney(basePrice)}</strong></span>
                                 </small>
                             </div>
                         </div>
@@ -34172,7 +34181,7 @@ let quillDetailsNotes = null;
                             <span style="color: #999; font-weight: bold; min-width: 25px;">${index + 1}</span>
                             <div style="flex: 1;">
                                 <div style="font-weight: bold; font-size: 0.75rem; color: #333;">${item.name}</div>
-                                <small style="color: #999;">$${item.price.toFixed(2)}</small>
+                                <small style="color: #999;">${usdMoney(item.price)}</small>
                             </div>
                             <button class="btn btn-sm btn-outline-danger remove-selected-item" data-item-id="${item.id}" style="padding: 2px 6px;">×</button>
                         </div>
@@ -36049,7 +36058,7 @@ $('#sendQuotationBtn').click(async function() {
             unusedItems.forEach(item => {
                 html += `<div style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; hover: background #f5f5f5;" onclick="addItemToGantt('${item.item.replace(/'/g, "\\'")}')">
                     <strong>${item.item}</strong>
-                    <small style="color: #999; display: block;">${item.daysPerSqMeter} days/sqm - $${item.inhouseRate}/sqm</small>
+                    <small style="color: #999; display: block;">${item.daysPerSqMeter} days/sqm - USD ${item.inhouseRate}/sqm</small>
                 </div>`;
             });
             html += '</div>';
@@ -38055,10 +38064,11 @@ async function sendConstructionQuotationFromPortal(quotation) {
             const value = Math.floor(target * progress);
             
             const prefix = isNegative ? '-' : '';
-            const symbol = text.includes('$') ? '$' : '';
             const original = text;
+            const hasCurrency = original.includes('$') || original.includes('USD');
+            const symbol = /USD/.test(original) ? 'USD ' : (original.includes('$') ? '$' : '');
             
-            if (original.includes('$')) {
+            if (hasCurrency) {
                 element.textContent = prefix + symbol + value.toLocaleString();
             } else {
                 element.textContent = prefix + value.toLocaleString();
@@ -38538,7 +38548,7 @@ function markOvercostProjects(){
                 b.className = 'oc-flag';
                 b.setAttribute('data-pid', o.id);
                 b.textContent = '⚠ OVER BUDGET';
-                b.title = 'Purchase orders: $' + Number(o.poTotal || 0).toLocaleString('en-US') + ' exceed in-house budget: $' + Number(o.base || 0).toLocaleString('en-US');
+                b.title = 'Purchase orders: USD ' + Number(o.poTotal || 0).toLocaleString('en-US') + ' exceed in-house budget: USD ' + Number(o.base || 0).toLocaleString('en-US');
                 b.style.cssText = 'color:#b91c1c;background:#fee2e2;border:1px solid #fca5a5;border-radius:4px;font-size:0.58rem;font-weight:800;padding:1px 5px;margin-left:4px;white-space:nowrap;';
                 host.appendChild(b);
             });
@@ -38579,8 +38589,8 @@ function loadMoreProjects() {
                     <td>${escapeHtml(p.location || '')}</td>
                     <td>${escapeHtml(p.admin || '')}</td>
                     <td>${p.start_date || ''}</td>
-                    <td>$${p.amount.toLocaleString()}</td>
-                    <td>$${p.deposit.toLocaleString()}</td>
+                    <td>USD ${p.amount.toLocaleString()}</td>
+                    <td>USD ${p.deposit.toLocaleString()}</td>
                     <td><span class="badge ${p.status === 'Completed' ? 'bg-success' : p.status === 'Ongoing' ? 'bg-warning' : 'bg-secondary'}">${p.status}</span></td>
                 `;
                 tbody.appendChild(tr);
@@ -39205,7 +39215,7 @@ function viewProjectFromActivity(projectId) {
                 const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).trim();
                 let val = String(data[key]);
                 if (key.toLowerCase().includes('amount') || key.toLowerCase().includes('installment') && !key.toLowerCase().includes('date') && !key.toLowerCase().includes('duedate')) {
-                    if (!isNaN(parseFloat(val))) val = '$' + parseFloat(val).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    if (!isNaN(parseFloat(val))) val = 'USD ' + parseFloat(val).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 }
                 row.innerHTML = `<th style="width:30%;text-transform:capitalize;">${displayKey}</th><td>${val}</td>`;
                 tbody.appendChild(row);
@@ -40999,14 +41009,14 @@ document.addEventListener('DOMContentLoaded', function(){
                             var days = (gantt[idx] && gantt[idx].days) || it.days || 0;
                             var total = Number(it.clientPrice || it.total || it.totalPrice || 0);
                             fTotal += total; fDays += days;
-                            fh += '<tr><td style="font-size:0.75rem;padding:4px 6px;text-align:left;">'+(it.item||it.name||'Item')+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;">'+qty.toFixed(2)+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;">'+(typeof formatCurrency==='function'?formatCurrency(rate):'$'+rate.toFixed(2))+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;font-weight:600;color:#2196F3;">'+days+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;font-weight:700;color:var(--primary);">'+(typeof formatCurrency==='function'?formatCurrency(total):'$'+total.toFixed(2))+'</td></tr>';
+                            fh += '<tr><td style="font-size:0.75rem;padding:4px 6px;text-align:left;">'+(it.item||it.name||'Item')+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;">'+qty.toFixed(2)+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;">'+(typeof formatCurrency==='function'?formatCurrency(rate):'USD ' +rate.toFixed(2))+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:center;font-weight:600;color:#2196F3;">'+days+'</td><td style="font-size:0.75rem;padding:4px 6px;text-align:right;font-weight:700;color:var(--primary);">'+(typeof formatCurrency==='function'?formatCurrency(total):'USD ' +total.toFixed(2))+'</td></tr>';
                         });
                         // VAT belongs between the item rows and the TOTAL, the same
                         // place the generated preview and the PDF put it.
                         var fVat = (typeof computeQuotationVat==='function')
                             ? computeQuotationVat(fTotal, qd && qd.vat)
                             : {enabled:false, total:fTotal, net:fTotal, vat:0, rate:0, mode:'exclusive'};
-                        var money = function(v){ return (typeof formatCurrency==='function') ? formatCurrency(v) : '$'+Number(v||0).toFixed(2); };
+                        var money = function(v){ return (typeof formatCurrency==='function') ? formatCurrency(v) : 'USD ' +Number(v||0).toFixed(2); };
                         if(fVat.enabled){
                             fh += '<tr><td colspan="4" style="text-align:right;font-size:0.75rem;padding:4px 6px;">Subtotal</td><td style="text-align:right;font-size:0.75rem;padding:4px 6px;">'+money(fVat.net)+'</td></tr>';
                             fh += '<tr><td colspan="4" style="text-align:right;font-size:0.75rem;padding:4px 6px;">VAT @ '+fVat.rate+'%'+(fVat.mode==='inclusive'?' (included)':'')+'</td><td style="text-align:right;font-size:0.75rem;padding:4px 6px;">'+money(fVat.vat)+'</td></tr>';
@@ -41051,7 +41061,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var h = '<div style="max-height:400px;overflow-y:auto;">';
         unused.forEach(function(item){
             h += '<div style="padding:10px;border-bottom:1px solid #eee;cursor:pointer;" onclick="window.pickGanttItem(\''+item.item.replace(/'/g,"\\'")+'\')">'+
-                '<strong>'+item.item+'</strong><small style="color:#999;display:block;">'+item.daysPerSqMeter+' days/sqm - $'+item.inhouseRate+'/sqm</small></div>';
+                '<strong>'+item.item+'</strong><small style="color:#999;display:block;">'+item.daysPerSqMeter+' days/sqm - USD '+item.inhouseRate+'/sqm</small></div>';
         });
         h += '</div>';
         var dlg = document.createElement('div');
@@ -43206,7 +43216,6 @@ body.dark-theme #docTypeSelect:hover, body.dark-theme #docTypeSelect:focus { bor
                     <select class="form-select form-select-sm" id="docCurrency">
                         <option value="USD" selected>USD</option>
                         <option value="ZWL">ZWL</option>
-                        <option value="US$">US$</option>
                         <option value="ZAR">ZAR</option>
                         <option value="GBP">GBP</option>
                     </select>

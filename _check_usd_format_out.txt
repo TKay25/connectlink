@@ -1,0 +1,24 @@
+PASS  pos-system.html: no innerText/textContent is un-currency-ed by stripping a literal $  -> replace(/[^0-9.\-]/g, "") is the shape that survives any currency
+PASS  pos-system.html: nothing branches on the "$" symbol  -> includes('USD') / a regex is used instead
+PASS  pos-system.html: no money string is still built from a bare $
+PASS  adminpage.html: no innerText/textContent is un-currency-ed by stripping a literal $  -> replace(/[^0-9.\-]/g, "") is the shape that survives any currency
+PASS  adminpage.html: nothing branches on the "$" symbol  -> includes('USD') / a regex is used instead
+PASS  adminpage.html: no money string is still built from a bare $
+PASS  the AI-chat highlighter still highlights amounts in the new wording  -> it highlights USD 1,234.56 as well as a legacy $1,234.56
+PASS  pos-system defines exactly one money formatter  -> 1
+PASS  adminpage defines exactly one money formatter  -> 1
+PASS  the Sales & Profit report uses the shared formatter
+PASS  amounts are never printed as a bare number beside a $ sign
+PASS  no Python money f-string still uses the $ symbol  -> all converted to USD {x:,.2f}
+PASS  no Jinja money field still uses the $ symbol
+PASS  Excel absolute references are untouched  -> a blind $ sweep would have destroyed these
+PASS  JS template literals in the backend are untouched  -> the sweep never touched interpolation
+PASS  the formatter prints accounting separators, USD and negatives correctly  -> []
+PASS  pos-system.html: every inline script still parses  -> 4 blocks
+PASS  adminpage.html: every inline script still parses  -> 46 blocks
+PASS  a stand-in POS server is up  -> http://127.0.0.1:8799/pos-system.html
+PASS  the POS page loads with no script error  -> clean
+PASS  the page exposes the formatter and it prints USD  -> ['USD 1,234.50', 'USD -1,225.00', 'USD 0.00']
+PASS  every KPI card reads USD, and none is missing  -> ['USD 0.00', 'USD 0.00', 'USD 0.00', 'USD 0.00', 'USD 0.00', 'USD 0.00', 'USD 0.00']
+PASS  a displayed amount can still be parsed back to a number  -> 58699.2
+PASS  the cart total shows USD and still reads back as 1234.5  -> {'shown': 'USD 1,234.50', 'read': 1234.5}

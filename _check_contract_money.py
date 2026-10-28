@@ -417,6 +417,39 @@ if len(series) == 5:
     check('week labels read w/c', all(p['label'].startswith('w/c ') for p in series),
           [p['label'] for p in series])
 
+# ---------------------------------------------------------------------------
+# 9. The Sales & Profit report reads EVERY department, whichever shelf is on
+#    screen; the transactions tab and the day-end stay scoped to one.
+# ---------------------------------------------------------------------------
+def read_with_session(path):
+    RECORDED.clear()
+    c = app.test_client()
+    with c.session_transaction() as sess:
+        sess['user_id'] = 1
+        sess['userid'] = 1
+        sess['user_uuid'] = 'test-uuid'
+        sess['branch_id'] = 1
+        sess['department'] = 'hardware'      # the till is switched to Hardware
+    resp = c.get(path)
+    return resp, ' '.join(sql for sql, _ in RECORDED)
+
+
+resp, sql = read_with_session('/api/transactions?limit=10')
+check('the transactions tab stays scoped to the department on screen',
+      resp.status_code == 200 and 'transaction_items _d' in sql, resp.status_code)
+
+resp, sql = read_with_session('/api/transactions?limit=10&all_departments=1')
+check('the sales report asks for every department, even on Hardware',
+      resp.status_code == 200 and 'transaction_items _d' not in sql, resp.status_code)
+
+resp, sql = read_with_session('/api/stock-additions')
+check('reinvestment stays department-scoped for the till',
+      resp.status_code == 200 and 'sa.department' in sql, resp.status_code)
+
+resp, sql = read_with_session('/api/stock-additions?all_departments=1')
+check('the sales report counts reinvestment in every department',
+      resp.status_code == 200 and 'sa.department' not in sql, resp.status_code)
+
 fails = [r for r in RESULTS if r.startswith('FAIL')]
 print('\n' + '=' * 70)
 print(f'{len(RESULTS) - len(fails)} passed, {len(fails)} failed')

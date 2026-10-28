@@ -3,7 +3,7 @@ from (templates/pos-system.html).
 
 What was on the screen:
 
-    Across This month the shop rang up 1 sale(s) for $105.00 in revenue and $38.76
+    Across This month the shop rang up 1 sale(s) for USD 105.00 in revenue and USD 38.76
     gross profit ... The strongest trading day was 2026-10-07 ...
 
 -- a sentence that named a MONTH over one day's takings, and named the day in UTC.
@@ -268,7 +268,7 @@ check('the brief lists EVERY line, not the handful the movers panel caps at',
 dead_rows_fn = between(brief, 'const deadRows = deadStock.map(', 'const slowRows =')
 check('a listed product carries what it holds and what that stock is worth',
       "' in stock'" in dead_rows_fn and 'buy_price' in dead_rows_fn
-      and '.toFixed(2)' in dead_rows_fn,
+      and ('usdMoney(' in dead_rows_fn or '.toFixed(2)' in dead_rows_fn),
       'stock on hand plus cash tied up at cost')
 slow_rows_fn = between(brief, 'const slowRows = ranked.filter', 'const briefBoxes =')
 check('a listed slow line carries what it sold and what is left',
@@ -372,7 +372,7 @@ check('the analytics daily buckets are keyed on the shop clock',
 check('the brief names the strongest day readably, not as a raw key',
       'fmtDayLong(bestDay)' in brief, 'fmtDayLong(bestDay)')
 check('the brief says which period its figures cover',
-      "'Across ' + periodLabel" in brief and 'sale(s) for $' in brief,
+      "'Across ' + periodLabel" in brief and 'sale(s) for USD' in brief,
       'the sentence opens with the applied period')
 
 check('an empty period is written as empty, not left as the last period on screen',
@@ -820,9 +820,9 @@ try:
               and 'Across ' + TODAY_LABEL + ' the shop rang up' in today['brief'],
               'display=%s  %s' % (today['onScreen'], today['brief'][:150]))
         check("the brief's figures are the applied period's figures",
-              '$%.2f in revenue' % TODAY_REV in today['brief']
+              'USD %.2f in revenue' % TODAY_REV in today['brief']
               and '%d sale(s)' % count_on(DAY, DAY) in today['brief'],
-              'today = $%.2f over %d sale(s)' % (TODAY_REV, count_on(DAY, DAY)))
+              'today = USD %.2f over %d sale(s)' % (TODAY_REV, count_on(DAY, DAY)))
         # The 00:30 sale is the trap: a UTC day key files it under yesterday, and
         # the brief would then name a day the shop never traded on.
         check("the day the brief names is the shop's day, not the UTC day",
@@ -928,15 +928,15 @@ try:
               'Across ' + MONTH_LABEL + ' the shop rang up' in month['brief'],
               month['brief'][:170])
         check("and the month's money is the month's, not a single day's",
-              '$%.2f in revenue' % MONTH_REV in month['brief']
+              'USD %.2f in revenue' % MONTH_REV in month['brief']
               and '%d sale(s)' % count_on(MONTH_START, DAY) in month['brief'],
-              'month = $%.2f over %d sale(s)'
+              'month = USD %.2f over %d sale(s)'
               % (MONTH_REV, count_on(MONTH_START, DAY)))
         if EARLIER_SALES:
             check('the shorter period it came from is no longer quoted, so the words '
                   'and the figures moved together',
-                  '$%.2f in revenue' % TODAY_REV not in month['brief'],
-                  'today $%.2f is gone from a month brief' % TODAY_REV)
+                  'USD %.2f in revenue' % TODAY_REV not in month['brief'],
+                  'today USD %.2f is gone from a month brief' % TODAY_REV)
         check('the Analytics choice is the same scope the Sales Report is on',
               month['reportPeriod'] == 'month' and month['applied'] == 'month',
               'sales selector=%s applied=%s' % (month['reportPeriod'], month['applied']))
@@ -947,17 +947,17 @@ try:
         week = read_analytics(page)
         check('changing the period again moves the words and the money together',
               'Across ' + WEEK_LABEL + ' the shop rang up' in week['brief']
-              and '$%.2f in revenue' % WEEK_REV in week['brief'],
-              'week = $%.2f over %d sale(s)'
+              and 'USD %.2f in revenue' % WEEK_REV in week['brief'],
+              'week = USD %.2f over %d sale(s)'
               % (WEEK_REV, count_on(WEEK_START, DAY)))
         earlier_in_week = any(WEEK_START <= d < DAY for d in STUB_DATES)
         if earlier_in_week:
             check("the week's own total is not simply today's",
-                  '$%.2f in revenue' % TODAY_REV not in week['brief'],
-                  "today's $%.2f dropped from the week's total" % TODAY_REV)
+                  'USD %.2f in revenue' % TODAY_REV not in week['brief'],
+                  "today's USD %.2f dropped from the week's total" % TODAY_REV)
         else:
             check('the week holds nothing but today here, so its total is the day\'s',
-                  WEEK_REV == TODAY_REV, 'week = today = $%.2f' % WEEK_REV)
+                  WEEK_REV == TODAY_REV, 'week = today = USD %.2f' % WEEK_REV)
 
         # ---- Custom range: the half-chosen state, then the dates ----
         page.select_option('#anPeriod', 'custom')
@@ -988,7 +988,7 @@ try:
                     " return !!b && b.innerText.indexOf(label) >= 0"
                     " && b.innerText.indexOf(amount) >= 0; }",
                     arg=['Across ' + CUSTOM_LABEL + ' the shop rang up',
-                         '$%.2f in revenue' % CUSTOM_REV], timeout=20000)
+                         'USD %.2f in revenue' % CUSTOM_REV], timeout=20000)
             except Exception as exc:                                      # noqa: BLE001
                 check('the custom range redrew its figures, not just its words', False,
                       '%s: the brief still reads %r'
@@ -998,8 +998,8 @@ try:
                   'Across ' + CUSTOM_LABEL + ' the shop rang up' in custom['brief'],
                   custom['brief'][:170])
             check("and the custom range's money is its own",
-                  '$%.2f in revenue' % CUSTOM_REV in custom['brief'],
-                  'custom ($%.2f over %d sale(s)) is not today ($%.2f)'
+                  'USD %.2f in revenue' % CUSTOM_REV in custom['brief'],
+                  'custom (USD %.2f over %d sale(s)) is not today (USD %.2f)'
                   % (CUSTOM_REV, count_on(MONTH_START, YESTERDAY), TODAY_REV))
             check('a custom range moves the Sales Report onto the same dates',
                   custom['reportPeriod'] == 'custom' and custom['applied'] == 'custom',
@@ -1022,7 +1022,7 @@ try:
         check("the previous period's figures go with it, so no stale money is left "
               'under the new period',
               before_empty['kpis'].strip() != '' and empty['kpis'].strip() == ''
-              and '$' not in empty['brief'],
+              and 'USD' not in empty['brief'],
               'kpis were %r, now %r' % (before_empty['kpis'][:60], empty['kpis'][:60]))
 
         # ---- Changed on the Sales Report, then read back here ----
@@ -1040,7 +1040,7 @@ try:
         check('after the period is changed on the Sales Report, coming back to the '
               'Analytics tab re-writes the brief for the period now applied',
               'Across ' + TODAY_LABEL + ' the shop rang up' in back['brief']
-              and '$%.2f in revenue' % TODAY_REV in back['brief']
+              and 'USD %.2f in revenue' % TODAY_REV in back['brief']
               and back['analyticsPeriod'] == 'today',
               'selector=%s applied=%s :: %s'
               % (back['analyticsPeriod'], back['applied'], back['brief'][:130]))

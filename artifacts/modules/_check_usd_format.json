@@ -1,0 +1,42 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckUsdFormat",
+  "file": "_check_usd_format.py",
+  "purpose": "Prove the '$' -> 'USD' change broke nothing that READS a money figure.",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 200",
+  "entry_flows": [
+    "Handler.log_message() → environ.pop, path.dirname, path.abspath, path.join"
+  ],
+  "public_api": [
+    "class Handler(SimpleHTTPRequestHandler)  # line 200",
+    "  Handler.log_message()",
+    "  Handler.do_GET()",
+    "  Handler.do_POST()",
+    "check(name, ok, detail = '')"
+  ],
+  "dependencies": [
+    "http",
+    "playwright",
+    "urllib"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), POS = os.path.join(ROOT, 'templates', 'pos-system.html'), ADMIN = os.path.join(ROOT, 'templates', 'adminpage.html'), OUT = os.path.join(ROOT, '_check_usd_format_out.txt'), RESULTS = [], PAGE_BYTES = open(POS, 'rb').read()",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "f810d6c0148ae144",
+  "file_mtime": 1793038725046.274,
+  "file_size": 12910,
+  "file_birthtime": 1793038725044.2573,
+  "generated_at": "2026-10-28T08:16:03.997828Z",
+  "stale": false
+}

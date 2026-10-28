@@ -184,6 +184,10 @@ c = FakeCursor({}, [])
 r = move(c, 3, 1, 'furniture')
 check('an item with no stock is still moved (relabelled)', c.dept_row == 'furniture'
       and r.get('quantity') == 0, r)
+# The catalogue hides a product with NO stock row in the department on screen, so
+# an empty move that only relabelled it made the item vanish from BOTH lists.
+check('an item with no stock still files a zero row in the destination department',
+      'furniture' in c.stock and c.stock.get('furniture') == 0, c.stock)
 
 # no-op move
 c = FakeCursor({'furniture': 5}, [{'id': 9, 'qty': 5, 'cost': 2.0, 'dept': 'furniture'}],
@@ -249,11 +253,14 @@ check('the transactions tab is scoped to the department',
 # department. This is the assertion that stops that returning.
 header = grab('today_by_cashier')
 check('the cashier header totals are department-scoped',
-      'COALESCE(_d.department, %s) = %s' in header)
+      'COALESCE(_d.department, %s) = ANY(%s)' in header,
+      'a list of departments: one on Hardware/Furniture, both on All')
 check("the header's Items Sold counts only this department",
-      'AND COALESCE(department, %s) = %s' in header)
+      'AND COALESCE(department, %s) = %s' in header
+      or 'AND COALESCE(department, %s) = ANY(%s)' in header)
 check('the header payment breakdown is department-scoped',
-      header.count('COALESCE(_d.department, %s) = %s') >= 2)
+      header.count('COALESCE(_d.department, %s) = ANY(%s)') >= 2,
+      header.count('COALESCE(_d.department, %s) = ANY(%s)'))
 
 check('a sale records the department it was rung in',
       src.count("INSERT INTO transaction_items") >= 1 and 'department' in src)
@@ -416,6 +423,86 @@ check('a new row uses the department the file asked for',
       ns['_bulk_stock_department_for'](held, None, 'furniture') == 'furniture')
 check('a new row with no department falls back to Hardware',
       ns['_bulk_stock_department_for'](held, None, '') == 'hardware')
+
+# ---------------------------------------------------------------------------
+# 7. The three-way VIEW: All / Hardware / Furniture
+#    The switch decides what every tab reads, but a sale line must still land on
+#    a real shelf. These assertions run the real helpers against a fake session.
+# ---------------------------------------------------------------------------
+view_ns = {'DEPARTMENTS': ('hardware', 'furniture'),
+           'DEFAULT_DEPARTMENT': 'hardware',
+           'DEPARTMENT_ALL': 'all',
+           'DEPARTMENT_VIEWS': ('all', 'hardware', 'furniture'),
+           'DEPARTMENT_LABELS': {'hardware': 'Hardware', 'furniture': 'Furniture'},
+           'DEPARTMENT_VIEW_LABELS': {'all': 'All', 'hardware': 'Hardware',
+                                      'furniture': 'Furniture'},
+           'session': {}}
+start = src.index('def current_department_view(')
+end = src.index('def resolve_product_department(')
+exec(compile(src[start:end], 'dept_view', 'exec'), view_ns)
+
+sess = view_ns['session']
+view = view_ns['current_department_view']
+dept = view_ns['current_department']
+scope = view_ns['department_read_scope']
+flt = view_ns['department_filter']
+clause = view_ns['department_scope_clause']
+opts = view_ns['department_view_options']
+
+sess.clear()
+check('a session that never chose a view opens on All', view() == 'all', view())
+check('...and All is offered to the switch', [o['key'] for o in opts()]
+      == ['all', 'hardware', 'furniture'], opts())
+check('...even though the WRITE department is still a real shelf',
+      dept() == 'hardware', dept())
+
+for key in ('hardware', 'furniture', 'all', 'nonsense', ''):
+    sess['department'] = key
+    want = key if key in ('hardware', 'furniture', 'all') else 'all'
+    check('the view follows the session: %r -> %r' % (key, want), view() == want, view())
+    want_dept = key if key in ('hardware', 'furniture') else 'hardware'
+    check('the write department is never All (%r -> %r)' % (key, want_dept),
+          dept() == want_dept, dept())
+
+sess['department'] = 'all'
+check('the All view reads BOTH departments', sorted(scope()) == ['furniture', 'hardware'],
+      scope())
+check('the All view applies no department filter at all',
+      flt('ps.department')[0] == " AND COALESCE(ps.department, 'hardware') = ANY(%s)"
+      and sorted(flt('ps.department')[1][0]) == ['furniture', 'hardware'],
+      flt('ps.department'))
+check('the All view keeps a sale when ANY of its lines is in view',
+      '= ANY(%s)' in clause('t.id', 'transaction_items', 'transaction_id')[0]
+      and sorted(clause('t.id', 'transaction_items', 'transaction_id')[1][0])
+      == ['furniture', 'hardware'],
+      clause('t.id', 'transaction_items', 'transaction_id'))
+
+sess['department'] = 'furniture'
+check('the Furniture view reads only Furniture', scope() == ['furniture'], scope())
+check('the Furniture view filters one department',
+      flt('ps.department')[1] == [['furniture']], flt('ps.department'))
+check('the Furniture view scopes a sale to Furniture lines',
+      clause('t.id', 'transaction_items', 'transaction_id')[1] == [['furniture']])
+
+sess['department'] = 'hardware'
+check('the Hardware view reads only Hardware', scope() == ['hardware'], scope())
+
+# The till's own code reads the server's view, so it cannot disagree with it.
+check('the till mirrors the server view on load',
+      "applyDepartmentState(\n                    (authData.department && authData.department.key) || 'all')"
+      in tpl, 'checkAuthentication() applies the server value')
+check('the switch offers three positions', tpl.count("switchDepartment('all')") >= 2, 'POS + Inventory')
+check('the till defaults to the All view', "let posDepartment = 'all';" in tpl)
+check('the Sales tab follows the switch (no forced all-departments read)',
+      'all_departments=1`' not in tpl.split('async function loadSalesReport')[1].split('async function ')[0])
+check('the exported PDF still reads every department',
+      'branch-department-summary' in tpl)
+check('the transaction LINES are department-scoped too',
+      'items_dept_where' in src and 'AND COALESCE(ti.department, %s) = ANY(%s)' in src,
+      'a sale listed under one shelf no longer shows the other shelf\'s goods')
+check('a sale line is filed on the product\'s own shelf when the view is All',
+      'line_department(item[\'id\'], sale_branch)' in src
+      and 'def line_department(' in src)
 
 failures = [r for r in RESULTS if r.startswith('FAIL')]
 print('\n'.join(RESULTS))

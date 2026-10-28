@@ -1,5 +1,5 @@
 PASS  script started
-PASS  read the POS page  -> 1095340 chars
+PASS  read the POS page  -> 1138714 chars
 PASS  read the committed POS page for comparison  -> 927498 chars via C:\Users\tzvakasikwa\AppData\Local\Programs\Git\cmd\git.EXE at 5ad907f
 PASS  the page still has its script blocks  -> new=4 old=4
 PASS  no script block gained a syntax error (vs the committed page)
@@ -21,7 +21,7 @@ PASS  the note covers both real cases (nothing stocked here / no such search hit
 PASS  the metrics can never disagree with the table (the same branch rule)
 PASS  both inventory exports export the table as it is shown  -> excel=True pdf=True
 PASS  the exports call sites are unchanged by this change  -> now=4 before=4 (2 renders + 2 exports)
-PASS  the All Branches view still reports every item as the company's
+PASS  the All Branches view still reports every item as the company's  -> the consolidated read marks every row stocked, and the branch read keeps the product_stock test (a filed-but-unstocked item now also counts)
 PASS  the Add-Product name hints still read the WHOLE catalogue  -> prefers the all-departments list, falling back to the loaded one
 PASS  the all-departments hint list is fetched from the server
 PASS  a name this branch has never stocked is marked as such in the hints
@@ -30,9 +30,9 @@ PASS  the marker is the only thing this change did to the hints  -> marks a name
 PASS  the hints element is still on the Add-Product form
 PASS  the till's own empty search points at the two ways in
 PASS  the Upload New Stock steps point at the pick-list
-PASS  read the stock-upload template route out of ConnectLink.py  -> 5716 chars
-PASS  the Product Names sheet is still built from the whole products table
-PASS  the template still lists EVERY active product name (no branch filter)
+PASS  read the stock-upload template route out of ConnectLink.py  -> 7761 chars
+PASS  the Product Names sheet is still built from the whole products table  -> the header row is the pick-list contract; it may carry extra columns (Department) beside the four original ones
+PASS  the template still lists EVERY active product name (no branch filter)  -> products are read unfiltered; a LEFT JOIN may decorate a row with its branch department but must not remove any name
 PASS  that sheet is still the pick-list behind the Product Name column
 PASS  and the Product Name cell now carries the one-name rule as an input hint
 PASS  the throw-away POS server is up  -> http://127.0.0.1:8796
@@ -40,7 +40,7 @@ PASS  the page loads with this change installed
 PASS  the Inventory tab opens (the page is really shown)
 PASS  the table lists exactly what this branch carries  -> ["Stocked Speaker", "Stocked Cable"]
 PASS  the item this branch has NEVER stocked is not listed
-PASS  no row reads "Not stocked here" any more  -> 7 Stocked Speaker Audio piece N/A $10.00 $15.00 8 In stock Add Stock Subtract Transfer To Furniture Remove 8 Stocked Cable Audio piece N/A $10.00 $15.00 3 Low A
+PASS  no row reads "Not stocked here" any more  -> 7 Stocked Speaker Audio piece N/A USD 10.00 USD 15.00 8 In stock Add Stock Subtract Transfer Remove 8 Stocked Cable Audio piece N/A USD 10.00 USD 15.00 3 Low Ad
 PASS  and there is no switch left to bring such a row back
 PASS  the CATALOGUE is untouched (only the view narrowed)  -> catalogue=3 elsewhere=1
 PASS  searching finds this branch's own item  -> ["Stocked Cable"]

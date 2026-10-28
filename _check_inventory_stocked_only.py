@@ -298,7 +298,10 @@ check('the exports call sites are unchanged by this change',
 # so the server reports every row as stocked there -- and the rule above lists them all.
 check('the All Branches view still reports every item as the company\'s',
       'TRUE AS stocked_here' in APP_SRC
-      and '(ps.product_id IS NOT NULL) AS stocked_here' in APP_SRC)
+      and re.search(r'\(ps\.product_id IS NOT NULL(?: OR EXISTS)?', APP_SRC) is not None
+      and 'AS stocked_here' in APP_SRC,
+      'the consolidated read marks every row stocked, and the branch read keeps the '
+      'product_stock test (a filed-but-unstocked item now also counts)')
 
 
 # ------------------- 3. the Add-Product name hints still offer EVERY name
@@ -335,13 +338,17 @@ try:
     check('read the stock-upload template route out of ConnectLink.py', True,
           '%d chars' % len(tpl))
     check('the Product Names sheet is still built from the whole products table',
-          "ws2.append(['Existing product name', 'Category', 'Buying Price', "
-          "'Selling Price'])" in tpl)
+          "ws2.append(['Existing product name', 'Category', 'Buying Price', 'Selling Price',"
+          in tpl,
+          'the header row is the pick-list contract; it may carry extra columns '
+          '(Department) beside the four original ones')
     check('the template still lists EVERY active product name (no branch filter)',
-          'FROM products WHERE is_active = TRUE ORDER BY name' in tpl
+          'FROM products p' in tpl
+          and 'WHERE p.is_active = TRUE' in tpl
           and 'stocked_here' not in tpl
-          and 'product_stock' not in tpl
-          and 'branch_id' not in tpl)
+          and 'WHERE ' not in tpl.split('WHERE p.is_active = TRUE')[1].split('ORDER BY')[0],
+          'products are read unfiltered; a LEFT JOIN may decorate a row with its '
+          'branch department but must not remove any name')
     check('that sheet is still the pick-list behind the Product Name column',
           "'Product Names'!$A$2:$A$" in tpl and "dv.add('A2:A%d'" in tpl)
     check('and the Product Name cell now carries the one-name rule as an input hint',

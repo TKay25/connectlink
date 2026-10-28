@@ -2913,7 +2913,7 @@ def initialize_database_tables():
                     WHERE deduction_code = 'NSSA_EMPLOYEE' AND ceiling_amount = 0
                 """)
                 if cursor.rowcount > 0:
-                    print(f"âœ… NSSA ceiling updated to $700 for {cursor.rowcount} record(s)")
+                    print(f"âœ… NSSA ceiling updated to USD 700 for {cursor.rowcount} record(s)")
                 connection.commit()
             except Exception:
                 connection.rollback()
@@ -4002,9 +4002,15 @@ def move_product_department(cursor, product_id, branch_id, to_department, user_i
     moved_cost = sum(float(l[1] or 0) * float(l[2] or 0) for l in layers)
 
     if quantity <= 0 and not layers:
-        # Nothing held: the move is a pure relabelling of an empty line. Still
-        # record the department so the item appears on the other side's list.
-        pass
+        # Nothing held: the move is a pure relabelling of an empty line. A zero
+        # row is still filed in the destination, because the catalogue treats 0
+        # as "we carry it, out today" and NO row as "never stocked here" -- so
+        # without this row the item vanished from BOTH departments' lists.
+        cursor.execute("""
+            INSERT INTO product_stock (product_id, branch_id, department, stock, min_stock_level, updated_at)
+            VALUES (%s, %s, %s, %s, 10, CURRENT_TIMESTAMP)
+            ON CONFLICT (product_id, branch_id, department) DO NOTHING
+        """, (product_id, branch_id, to_department, 0))
     else:
         # Take the goods out of the source department...
         cursor.execute("""
@@ -4255,23 +4261,53 @@ BRANCH_WRITE_BLOCKED_MESSAGE = (
 )
 
 # ===================== DEPARTMENTS (HARDWARE / FURNITURE) =====================
-# A branch may run both departments, but the till works in ONE at a time. Which
-# one is held in the session and is a VIEW switch, never a permission: the same
-# user sees either. Defaults to Hardware so every existing session keeps exactly
-# the behaviour it had before departments existed.
+# A branch may run both departments. The till can LOOK at one of them or at all
+# of them at once; which is held in the session and is a VIEW switch, never a
+# permission: the same user sees any of them.
+#
+# `all` is a VIEW only. A sale or a stock movement is always filed in a REAL
+# department -- with the till on All the product itself says which shelf it
+# lives on (see resolve_view_department), so nothing is ever written to 'all'.
+# All is the default because a shop's first question is "how are we doing",
+# and that answer must not silently exclude half the business.
 DEPARTMENTS = ('hardware', 'furniture')
 DEFAULT_DEPARTMENT = 'hardware'
 DEPARTMENT_LABELS = {'hardware': 'Hardware', 'furniture': 'Furniture'}
 
+DEPARTMENT_ALL = 'all'
+DEPARTMENT_VIEWS = (DEPARTMENT_ALL,) + DEPARTMENTS
+DEPARTMENT_VIEW_LABELS = dict(DEPARTMENT_LABELS, **{DEPARTMENT_ALL: 'All'})
+
+
+def current_department_view():
+    """What the till is LOOKING at: 'all', 'hardware' or 'furniture'.
+
+    Anything unrecognised -- including a session from before this existed --
+    falls back to All, which is the whole-shop view.
+    """
+    dept = (session.get('department') or '').strip().lower()
+    return dept if dept in DEPARTMENT_VIEWS else DEPARTMENT_ALL
+
 
 def current_department():
-    """The department this session is looking at: 'hardware' or 'furniture'.
+    """The REAL department this session writes to: 'hardware' or 'furniture'.
 
-    Anything unrecognised -- including a session from before departments existed
-    -- falls back to Hardware, which is what that session was already seeing.
+    Never 'all'. Every stock movement, sale line and FIFO layer needs one shelf,
+    so a write path must ask this, not the view. On the All view it answers with
+    the last concrete shelf chosen (Hardware to begin with); the sale paths use
+    resolve_view_department() to file each product on its own shelf instead.
     """
     dept = (session.get('department') or '').strip().lower()
     return dept if dept in DEPARTMENTS else DEFAULT_DEPARTMENT
+
+
+def department_view_label(dept=None):
+    return DEPARTMENT_VIEW_LABELS.get(dept or current_department_view(), 'All')
+
+
+def department_view_options():
+    """The three buttons the till offers, in one place for every payload."""
+    return [{'key': d, 'label': DEPARTMENT_VIEW_LABELS[d]} for d in DEPARTMENT_VIEWS]
 
 
 def department_label(dept=None):
@@ -4283,32 +4319,53 @@ def other_department(dept=None):
     return 'furniture' if d == 'hardware' else 'hardware'
 
 
+def resolve_view_department(cursor, product_id, branch_id):
+    """Which REAL department a stock action belongs to, given the current view.
+
+    On Hardware or Furniture the answer is that shelf: the product on screen is
+    that shelf's. On All the product itself decides, so a Furniture item rung
+    while looking at everything is still filed as Furniture -- the one thing
+    that must never happen is a sale silently landing in the wrong department.
+    """
+    view = current_department_view()
+    if view in DEPARTMENTS:
+        return view
+    return resolve_product_department(cursor, product_id, branch_id)
+
+
+def department_read_scope():
+    """The departments a READ should cover: both of them on the All view."""
+    view = current_department_view()
+    return list(DEPARTMENTS) if view == DEPARTMENT_ALL else [view]
+
+
 def department_filter(column, dept=None):
-    """SQL fragment + params limiting a stock query to one department.
+    """SQL fragment + params limiting a stock query to the departments in view.
 
     Mirrors branch_read_clause: every department-aware read appends this. It is
     applied to the stock tables (product_stock / stock_lots), never to
     `products`, because the catalogue row is shared by both departments.
+
+    A list of departments is passed (`= ANY(%s)`), so the All view covers both
+    shelves with the same fragment -- there is no second code path to forget.
     """
-    return f" AND COALESCE({column}, '{DEFAULT_DEPARTMENT}') = %s", [dept or current_department()]
+    return (f" AND COALESCE({column}, '{DEFAULT_DEPARTMENT}') = ANY(%s)",
+            [dept if isinstance(dept, list) else
+             ([dept] if dept else department_read_scope())])
 
 
 def department_scope_clause(parent_id_expr, child_table, child_fk, department_col='department'):
-    """SQL fragment + params limiting a parent row to the current department.
+    """SQL fragment + params limiting a parent row to the departments in view.
 
     Used by the report endpoints, where a sale/movement is a PARENT row and the
     department lives on its LINES. The parent is kept when at least one of its
-    lines belongs to the department being viewed, so a mixed sale still appears
-    on both departments' tabs instead of vanishing from each.
-
-    Returns ('', []) when the child table has no department column (an older
-    deployment mid-migration), so a missing column degrades to "show everything"
-    rather than breaking every report.
+    lines belongs to a department being viewed, so a mixed sale still appears on
+    both departments' tabs instead of vanishing from each.
     """
     return (f" AND EXISTS (SELECT 1 FROM {child_table} _d "
             f"WHERE _d.{child_fk} = {parent_id_expr} "
-            f"AND COALESCE(_d.{department_col}, '{DEFAULT_DEPARTMENT}') = %s)",
-            [current_department()])
+            f"AND COALESCE(_d.{department_col}, '{DEFAULT_DEPARTMENT}') = ANY(%s))",
+            [department_read_scope()])
 
 
 def resolve_product_department(cursor, product_id, branch_id):
@@ -4328,6 +4385,27 @@ def resolve_product_department(cursor, product_id, branch_id):
         return DEFAULT_DEPARTMENT
     dept = str(row[0]).strip().lower()
     return dept if dept in DEPARTMENTS else DEFAULT_DEPARTMENT
+
+
+def line_department(product_id, branch_id):
+    """The shelf a sale line belongs to, resolved on its own connection.
+
+    The sale loop inserts each line with plain execute_query() calls, so there is
+    no cursor in hand; this opens one just for the lookup. On Hardware/Furniture
+    it answers immediately without touching the database.
+    """
+    view = current_department_view()
+    if view in DEPARTMENTS:
+        return view
+    try:
+        with get_db() as (cursor, connection):
+            return resolve_product_department(cursor, product_id, branch_id)
+    except Exception as e:
+        # A sale must never fail because a label could not be read: the line is
+        # filed on the shelf the operator was working in, which is the old
+        # behaviour and still a real department.
+        print(f"Note: could not resolve the department for product {product_id}: {e}")
+        return current_department()
 
 
 # Brute-force guard for the branch codes. A branch code is shared by everyone in
@@ -6883,19 +6961,19 @@ def webhook():
                                                                                 </div>
                                                                                 <div class="summary-item">
                                                                                     <div class="summary-label">Contract Value</div>
-                                                                                    <div class="summary-value">${{ "%.2f"|format(summary.total_contract_value) }}</div>
+                                                                                    <div class="summary-value">USD {{ "%.2f"|format(summary.total_contract_value) }}</div>
                                                                                 </div>
                                                                                 <div class="summary-item">
                                                                                     <div class="summary-label">Amount Paid</div>
-                                                                                    <div class="summary-value green">${{ "%.2f"|format(summary.total_paid) }}</div>
+                                                                                    <div class="summary-value green">USD {{ "%.2f"|format(summary.total_paid) }}</div>
                                                                                 </div>
                                                                                 <div class="summary-item">
                                                                                     <div class="summary-label">Pending Amount</div>
-                                                                                    <div class="summary-value orange">${{ "%.2f"|format(summary.total_pending) }}</div>
+                                                                                    <div class="summary-value orange">USD {{ "%.2f"|format(summary.total_pending) }}</div>
                                                                                 </div>
                                                                                 <div class="summary-item">
                                                                                     <div class="summary-label">Overdue Amount</div>
-                                                                                    <div class="summary-value red">${{ "%.2f"|format(summary.total_overdue) }}</div>
+                                                                                    <div class="summary-value red">USD {{ "%.2f"|format(summary.total_overdue) }}</div>
                                                                                 </div>
                                                                             </div>
                                                                             
@@ -6955,11 +7033,11 @@ def webhook():
                                                                                     <div>
                                                                                         <div class="project-field">
                                                                                             <div class="field-label">Total Contract</div>
-                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.total_contract) }}</div>
+                                                                                            <div class="field-value amount">USD {{ "%.2f"|format(project.total_contract) }}</div>
                                                                                         </div>
                                                                                         <div class="project-field">
                                                                                             <div class="field-label">Deposit Paid</div>
-                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.deposit_paid) }}</div>
+                                                                                            <div class="field-value amount">USD {{ "%.2f"|format(project.deposit_paid) }}</div>
                                                                                         </div>
                                                                                         <div class="project-field">
                                                                                             <div class="field-label">Months to Pay</div>
@@ -6969,15 +7047,15 @@ def webhook():
                                                                                     <div>
                                                                                         <div class="project-field">
                                                                                             <div class="field-label">Total Paid</div>
-                                                                                            <div class="field-value amount green">${{ "%.2f"|format(project.total_paid) }}</div>
+                                                                                            <div class="field-value amount green">USD {{ "%.2f"|format(project.total_paid) }}</div>
                                                                                         </div>
                                                                                         <div class="project-field">
                                                                                             <div class="field-label">Balance Due</div>
-                                                                                            <div class="field-value amount">${{ "%.2f"|format(project.balance_due) }}</div>
+                                                                                            <div class="field-value amount">USD {{ "%.2f"|format(project.balance_due) }}</div>
                                                                                         </div>
                                                                                         <div class="project-field">
                                                                                             <div class="field-label">Pending Amount</div>
-                                                                                            <div class="field-value amount orange">${{ "%.2f"|format(project.total_pending) }}</div>
+                                                                                            <div class="field-value amount orange">USD {{ "%.2f"|format(project.total_pending) }}</div>
                                                                                         </div>
                                                                                     </div>
                                                                                 </div>
@@ -6990,7 +7068,7 @@ def webhook():
                                                                                     </div>
                                                                                     <div class="progress-text">
                                                                                         {{ "%.1f"|format(project.completion_percentage) }}% Complete
-                                                                                        (${{ "%.2f"|format(project.total_paid) }} of ${{ "%.2f"|format(project.total_contract) }})
+                                                                                        (USD {{ "%.2f"|format(project.total_paid) }} of USD {{ "%.2f"|format(project.total_contract) }})
                                                                                     </div>
                                                                                 </div>
                                                                                 
@@ -7010,7 +7088,7 @@ def webhook():
                                                                                         <tr>
                                                                                             <td>{{ installment.number }}</td>
                                                                                             <td>{{ installment.due_date }}</td>
-                                                                                            <td class="amount">${{ "%.2f"|format(installment.amount) }}</td>
+                                                                                            <td class="amount">USD {{ "%.2f"|format(installment.amount) }}</td>
                                                                                             <td>
                                                                                                 <span class="status-badge status-{{ installment.status|lower }}">
                                                                                                     {{ installment.status }}
@@ -7025,7 +7103,7 @@ def webhook():
                                                                                 <div class="project-grid" style="margin-top: 20px;">
                                                                                     <div class="summary-item" style="padding: 10px;">
                                                                                         <div class="summary-label">Overdue Amount</div>
-                                                                                        <div class="summary-value red">${{ "%.2f"|format(project.overdue_amount) }}</div>
+                                                                                        <div class="summary-value red">USD {{ "%.2f"|format(project.overdue_amount) }}</div>
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -7064,7 +7142,7 @@ def webhook():
                                                                                                 {% set client_total = client_total + project.total_contract %}
                                                                                             {% endif %}
                                                                                         {% endfor %}
-                                                                                        ${{ "%.2f"|format(client_total) }}
+                                                                                        USD {{ "%.2f"|format(client_total) }}
                                                                                     </td>
                                                                                 </tr>
                                                                                 {% endfor %}
@@ -7134,10 +7212,10 @@ def webhook():
                                                                                 f"ðŸ“… Report Date: {today_str}\n"
                                                                                 f"ðŸ—ï¸ Total Projects: {summary_data['total_projects']}\n"
                                                                                 f"ðŸ‘¥ Total Clients: {pdf_data['total_clients']}\n"
-                                                                                f"ðŸ’° Total Contract Value: ${summary_data['total_contract_value']:,.2f}\n"
-                                                                                f"âœ… Amount Paid: ${summary_data['total_paid']:,.2f}\n"
-                                                                                f"â³ Pending Amount: ${summary_data['total_pending']:,.2f}\n"
-                                                                                f"ðŸ”´ Overdue Amount: ${summary_data['total_overdue']:,.2f}\n\n"
+                                                                                f"ðŸ’° Total Contract Value: USD {summary_data['total_contract_value']:,.2f}\n"
+                                                                                f"âœ… Amount Paid: USD {summary_data['total_paid']:,.2f}\n"
+                                                                                f"â³ Pending Amount: USD {summary_data['total_pending']:,.2f}\n"
+                                                                                f"ðŸ”´ Overdue Amount: USD {summary_data['total_overdue']:,.2f}\n\n"
                                                                                 f"ðŸ“Š *CLIENT STATUS SUMMARY:*\n"
                                                                                 f"â€¢ All Paid: {summary_data['clients_by_status']['all_paid']} clients\n"
                                                                                 f"â€¢ Partially Paid: {summary_data['clients_by_status']['partially_paid']} clients\n"
@@ -7169,7 +7247,7 @@ def webhook():
                                                                             "caption": f"Installment Projects Portfolio - {today_str}\n"
                                                                                     f"Projects: {summary_data['total_projects']} | "
                                                                                     f"Clients: {pdf_data['total_clients']} | "
-                                                                                    f"Value: ${summary_data['total_contract_value']:,.2f}"
+                                                                                    f"Value: USD {summary_data['total_contract_value']:,.2f}"
                                                                         }
                                                                     }
                                                                     
@@ -7231,10 +7309,10 @@ def webhook():
                                                                     'summary': {
                                                                         'total_projects': summary_data['total_projects'],
                                                                         'total_clients': pdf_data['total_clients'],
-                                                                        'total_contract_value': f"${summary_data['total_contract_value']:,.2f}",
-                                                                        'total_paid': f"${summary_data['total_paid']:,.2f}",
-                                                                        'total_pending': f"${summary_data['total_pending']:,.2f}",
-                                                                        'total_overdue': f"${summary_data['total_overdue']:,.2f}"
+                                                                        'total_contract_value': f"USD {summary_data['total_contract_value']:,.2f}",
+                                                                        'total_paid': f"USD {summary_data['total_paid']:,.2f}",
+                                                                        'total_pending': f"USD {summary_data['total_pending']:,.2f}",
+                                                                        'total_overdue': f"USD {summary_data['total_overdue']:,.2f}"
                                                                     }
                                                                 })
                                                                 
@@ -7896,7 +7974,7 @@ def webhook():
                                                                                 if value == 0:
                                                                                     row_data[col] = ""
                                                                                 else:
-                                                                                    row_data[col] = f"${value:,.2f}"
+                                                                                    row_data[col] = f"USD {value:,.2f}"
                                                                             else:
                                                                                 row_data[col] = value
                                                                         else:
@@ -7918,17 +7996,17 @@ def webhook():
                                                                 for month_key, month_data in sorted_months:
                                                                     monthly_summary_rows.append({
                                                                         'month': month_data['month_display'],
-                                                                        'total': f"${month_data['total']:,.2f}",
-                                                                        'overdue': f"${month_data['overdue']:,.2f}",
-                                                                        'future': f"${month_data['future']:,.2f}"
+                                                                        'total': f"USD {month_data['total']:,.2f}",
+                                                                        'overdue': f"USD {month_data['overdue']:,.2f}",
+                                                                        'future': f"USD {month_data['future']:,.2f}"
                                                                     })
                                                                 
                                                                 # Add total row to monthly summary
                                                                 monthly_summary_rows.append({
                                                                     'month': 'TOTAL',
-                                                                    'total': f"${summary_data['total_pending']:,.2f}",
-                                                                    'overdue': f"${summary_data['total_overdue']:,.2f}",
-                                                                    'future': f"${summary_data['total_future']:,.2f}"
+                                                                    'total': f"USD {summary_data['total_pending']:,.2f}",
+                                                                    'overdue': f"USD {summary_data['total_overdue']:,.2f}",
+                                                                    'future': f"USD {summary_data['total_future']:,.2f}"
                                                                 })
                                                                 
                                                                 # Prepare final PDF data
@@ -8225,15 +8303,15 @@ def webhook():
                                                                                 </div>
                                                                                 <div class="summary-item">
                                                                                     <div class="summary-label">Total Pending</div>
-                                                                                    <div class="summary-value">${{ "%.2f"|format(summary.total_pending) }}</div>
+                                                                                    <div class="summary-value">USD {{ "%.2f"|format(summary.total_pending) }}</div>
                                                                                 </div>
                                                                                 <div class="summary-item">
                                                                                     <div class="summary-label">Overdue Amount</div>
-                                                                                    <div class="summary-value red">${{ "%.2f"|format(summary.total_overdue) }}</div>
+                                                                                    <div class="summary-value red">USD {{ "%.2f"|format(summary.total_overdue) }}</div>
                                                                                 </div>
                                                                                 <div class="summary-item">
                                                                                     <div class="summary-label">Future Amount</div>
-                                                                                    <div class="summary-value green">${{ "%.2f"|format(summary.total_future) }}</div>
+                                                                                    <div class="summary-value green">USD {{ "%.2f"|format(summary.total_future) }}</div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -8352,9 +8430,9 @@ def webhook():
                                                                                 f"ðŸ“… Report Date: {today_str}\n"
                                                                                 f"ðŸ—ï¸ Total Projects: {summary_data['total_projects']}\n"
                                                                                 f"ðŸ‘¥ Total Clients: {pdf_data['total_clients']}\n"
-                                                                                f"ðŸ’° Total Pending: ${summary_data['total_pending']:,.2f}\n"
-                                                                                f"ðŸ”´ Overdue Amount: ${summary_data['total_overdue']:,.2f}\n"
-                                                                                f"ðŸŸ¢ Future Amount: ${summary_data['total_future']:,.2f}\n"
+                                                                                f"ðŸ’° Total Pending: USD {summary_data['total_pending']:,.2f}\n"
+                                                                                f"ðŸ”´ Overdue Amount: USD {summary_data['total_overdue']:,.2f}\n"
+                                                                                f"ðŸŸ¢ Future Amount: USD {summary_data['total_future']:,.2f}\n"
                                                                                 f"ðŸ“ˆ Months Covered: {len(month_columns_formatted)} ({month_list})\n\n"
                                                                                 f"ðŸ“‹ *REPORT FEATURES:*\n"
                                                                                 f"â€¢ Cross-tab view (Clients vs Months)\n"
@@ -8381,7 +8459,7 @@ def webhook():
                                                                             "filename": filename,
                                                                             "caption": f"Cross-Tab Installment Schedule - {today_str}\n"
                                                                                     f"Clients: {pdf_data['total_clients']} | "
-                                                                                    f"Total: ${summary_data['total_pending']:,.2f} | "
+                                                                                    f"Total: USD {summary_data['total_pending']:,.2f} | "
                                                                                     f"Months: {len(month_columns_formatted)}"
                                                                         }
                                                                     }
@@ -8444,9 +8522,9 @@ def webhook():
                                                                     'summary': {
                                                                         'total_projects': summary_data['total_projects'],
                                                                         'total_clients': pdf_data['total_clients'],
-                                                                        'total_pending': f"${summary_data['total_pending']:,.2f}",
-                                                                        'total_overdue': f"${summary_data['total_overdue']:,.2f}",
-                                                                        'total_future': f"${summary_data['total_future']:,.2f}",
+                                                                        'total_pending': f"USD {summary_data['total_pending']:,.2f}",
+                                                                        'total_overdue': f"USD {summary_data['total_overdue']:,.2f}",
+                                                                        'total_future': f"USD {summary_data['total_future']:,.2f}",
                                                                         'months_covered': month_columns_formatted
                                                                     }
                                                                 })
@@ -10982,7 +11060,7 @@ def webhook():
                                                                         "- Installation within 10 working days\n"
                                                                         "- Balance payable over 3 months\n\n"
                                                                         "We offer free 3D designs and quotations. Send your house plan or measurements via the Fill Enquiries Form below, or request a site visit.\n\n"
-                                                                        "Site visits within 20km of Harare CBD cost USD $10.",
+                                                                        "Site visits within 20km of Harare CBD cost USD 10.",
                                                                         buttons,
                                                                         footer_text="ConnectLink Properties â€¢ Client Panel"
                                                                     )
@@ -13967,7 +14045,7 @@ def webhook():
                                                                         "- Installation within 10 working days\n"
                                                                         "- Balance payable over 3 months\n\n"
                                                                         "We offer free 3D designs and quotations. Send your house plan or measurements via the Fill Enquiries Form below, or request a site visit.\n\n"
-                                                                        "Site visits within 20km of Harare CBD cost USD $10.",
+                                                                        "Site visits within 20km of Harare CBD cost USD 10.",
                                                                         buttons,
                                                                         footer_text="ConnectLink Properties â€¢ Client Panel"
                                                                     )
@@ -15118,21 +15196,24 @@ def run1hardware(all_departments=False):
     quantity comes from `product_stock` for the session's branch. On the
     consolidated view every branch is summed so the figure still means something.
 
-    DEPARTMENT: only the products sitting in the session's current department are
-    returned, and the quantity is that DEPARTMENT's quantity -- the Hardware and
-    Furniture pools are separate, so a product sold as Furniture must not report
-    (or be sellable from) the Hardware figure. A product with no
-    product_departments row is Hardware, which is where every product lived
-    before departments existed.
+    DEPARTMENT: on Hardware or Furniture only the products sitting in that
+    department are returned, and the quantity is that DEPARTMENT's quantity --
+    the pools are separate, so a product sold as Furniture must not report (or be
+    sellable from) the Hardware figure. A product with no product_departments row
+    is Hardware, which is where every product lived before departments existed.
 
-    `all_departments=True` ignores the department split and returns the WHOLE
-    shared catalogue. The till's product-NAME hints use this, because a name that
-    already exists in the other department must still be offered: typing it
-    instead of inventing a spelling is what keeps one product one product.
+    On the ALL view the whole catalogue is returned with the branch's total
+    across departments, which is what "All" has to mean: one list, one stock
+    figure per item.
+
+    `all_departments=True` forces that same whole-catalogue read regardless of
+    the view. The till's product-NAME hints use it, because a name that already
+    exists in the other department must still be offered: typing it instead of
+    inventing a spelling is what keeps one product one product.
     """
     branch_id = current_branch_id()
     dept = current_department()
-    if all_departments:
+    if all_departments or current_department_view() == DEPARTMENT_ALL:
         # Name hints only need the catalogue, and the quantity shown beside a hint
         # must be everything the branch holds -- so sum across departments.
         rows = execute_query("""
@@ -15151,10 +15232,13 @@ def run1hardware(all_departments=False):
                    COALESCE((SELECT SUM(sl.quantity_remaining * sl.unit_cost)
                              FROM stock_lots sl
                              WHERE sl.product_id = p.id AND sl.branch_id = %s), 0) AS stock_value,
-                   -- "carries it here" (a 0-stock row still counts), matching the
-                   -- department-scoped read, so the hint wording is accurate.
-                   EXISTS (SELECT 1 FROM product_stock ps
-                           WHERE ps.product_id = p.id AND ps.branch_id = %s) AS stocked_here
+                   -- "carries it here": a stock row in EITHER department, or a
+                   -- filing by this branch (a moved-but-empty item), matching the
+                   -- single-department read so the two lists cannot disagree.
+                   (EXISTS (SELECT 1 FROM product_stock ps
+                            WHERE ps.product_id = p.id AND ps.branch_id = %s)
+                    OR EXISTS (SELECT 1 FROM product_departments pd3
+                               WHERE pd3.product_id = p.id AND pd3.branch_id = %s)) AS stocked_here
             FROM products p
             WHERE p.is_active = TRUE
               AND (%s IS NULL OR NOT EXISTS (
@@ -15162,8 +15246,8 @@ def run1hardware(all_departments=False):
                     WHERE pba.product_id = p.id AND pba.branch_id = %s
               ))
             ORDER BY p.name
-        """, (branch_id or 0, branch_id or 0, branch_id or 0, branch_id, branch_id),
-            fetch_all=True) or []
+        """, (branch_id or 0, branch_id or 0, branch_id or 0, branch_id, branch_id,
+              branch_id), fetch_all=True) or []
         return _run1_rows_to_products(rows)
     if branch_id:
         query = """
@@ -15178,10 +15262,16 @@ def run1hardware(all_departments=False):
                              FROM stock_lots sl
                              WHERE sl.product_id = p.id AND sl.branch_id = %s
                                AND COALESCE(sl.department, %s) = %s), 0) AS stock_value,
-                   -- Whether THIS department has ever stocked the item. A row with
-                   -- 0 means "we carry it but it is out today"; NO row means the
-                   -- department has never had it, and the till hides those.
-                   (ps.product_id IS NOT NULL) AS stocked_here
+                   -- Whether this branch carries the item. A stock row with 0 means
+                   -- "we carry it but it is out today"; NO stock row means it has
+                   -- never been stocked here and the till hides it. Being FILED in a
+                   -- department by this branch also counts: a move files the item and
+                   -- writes a zero row, but a product moved by an older build has only
+                   -- the filing, and hiding it made it disappear from both lists.
+                   (ps.product_id IS NOT NULL OR EXISTS (
+                        SELECT 1 FROM product_departments pd2
+                        WHERE pd2.product_id = p.id AND pd2.branch_id = %s
+                   )) AS stocked_here
             FROM products p
             LEFT JOIN product_stock ps
                    ON ps.product_id = p.id AND ps.branch_id = %s
@@ -15202,6 +15292,7 @@ def run1hardware(all_departments=False):
         """
         result = execute_query(query, (
             branch_id, DEFAULT_DEPARTMENT, dept,
+            branch_id,
             branch_id, DEFAULT_DEPARTMENT, dept,
             branch_id,
             branch_id,
@@ -15468,7 +15559,13 @@ def get_stock_additions():
     spend_branch_where, spend_params = branch_read_clause('sa.branch_id')
     # Department scope: goods received into THIS department only. A receipt is a
     # single row with its own department, so no EXISTS is needed here.
-    spend_dept_where, spend_dept_params = department_filter('sa.department')
+    # `all_departments=1` mirrors /api/transactions: the Sales & Profit report
+    # counts every reinvestment in the shop, whichever shelf is on screen.
+    all_departments = str(request.args.get('all_departments') or '').lower() in ('1', 'true', 'yes')
+    if all_departments:
+        spend_dept_where, spend_dept_params = '', []
+    else:
+        spend_dept_where, spend_dept_params = department_filter('sa.department')
     query = query + spend_branch_where + spend_dept_where + """
         ORDER BY sa.added_at DESC
         LIMIT 100
@@ -16139,9 +16236,9 @@ def api_login():
                     'is_dispatch': branch_is_dispatch(branch_id)
                 },
                 'department': {
-                    'key': current_department(),
-                    'label': department_label(),
-                    'options': [{'key': d, 'label': DEPARTMENT_LABELS[d]} for d in DEPARTMENTS]
+                    'key': current_department_view(),
+                    'label': department_view_label(),
+                    'options': department_view_options()
                 },
                 'message': 'Login successful',
                 'redirect': '/pos-system.html'
@@ -16177,9 +16274,9 @@ def check_auth():
         'is_dispatch': branch_is_dispatch(session.get('branch_id')) if chosen else False
     }
     department = {
-        'key': current_department(),
-        'label': department_label(),
-        'options': [{'key': d, 'label': DEPARTMENT_LABELS[d]} for d in DEPARTMENTS]
+        'key': current_department_view(),
+        'label': department_view_label(),
+        'options': department_view_options()
     }
     if 'user_id' in session:
         return jsonify({
@@ -16277,23 +16374,26 @@ def pos_switch_department():
 
     data = request.get_json(silent=True) or {}
     dept = str(data.get('department') or '').strip().lower()
-    if dept not in DEPARTMENTS:
+    if dept not in DEPARTMENT_VIEWS:
         return jsonify({'success': False,
-                        'message': 'Choose Hardware or Furniture.'}), 400
+                        'message': 'Choose All, Hardware or Furniture.'}), 400
 
-    previous = current_department()
+    previous = current_department_view()
+    # The session keeps ONE value: the view. current_department() still answers
+    # with a real shelf for the write paths, so 'all' never reaches a stock
+    # movement -- see resolve_view_department().
     session['department'] = dept
     session.modified = True
     try:
         log_activity('pos_department_switch',
-                     f'POS department changed from {department_label(previous)} '
-                     f'to {department_label(dept)}',
+                     f'POS department view changed from {department_view_label(previous)} '
+                     f'to {department_view_label(dept)}',
                      'user', session.get('user_id') or session.get('userid'))
     except Exception:
         pass
     return jsonify({'success': True,
                     'department': dept,
-                    'label': department_label(dept)})
+                    'label': department_view_label(dept)})
 
 
 @app.route('/api/pos/product-department', methods=['POST'])
@@ -16531,29 +16631,31 @@ def dispatch_stock():
         return jsonify({'success': False,
                         'error': 'This is not the Central Dispatch branch.'}), 403
     try:
-        _disp_dept = current_department()
+        _disp_depts = department_read_scope()
         rows = execute_query("""
             SELECT p.id, p.name, p.category, p.barcode, p.unit_type, p.unit_details,
-                   COALESCE(ps.stock, 0) AS stock,
+                   COALESCE(SUM(ps.stock), 0) AS stock,
                    COALESCE(p.buy_price, 0) AS buy_price,
                    COALESCE(p.sell_price, 0) AS sell_price
             FROM products p
             LEFT JOIN product_stock ps
                    ON ps.product_id = p.id AND ps.branch_id = %s
-                  AND COALESCE(ps.department, %s) = %s
+                  AND COALESCE(ps.department, %s) = ANY(%s)
             WHERE (p.is_active = TRUE OR p.is_active IS NULL)
               AND NOT EXISTS (
                   SELECT 1 FROM product_branch_archives pba
                   WHERE pba.product_id = p.id AND pba.branch_id = %s
               )
-              -- Dispatch dispatches the department it is showing.
+              -- Dispatch shows the departments in view: one shelf, or both on All.
               AND COALESCE((
                     SELECT pd.department FROM product_departments pd
                     WHERE pd.product_id = p.id AND pd.branch_id = %s
-                  ), %s) = %s
+                  ), %s) = ANY(%s)
+            GROUP BY p.id, p.name, p.category, p.barcode, p.unit_type, p.unit_details,
+                     p.buy_price, p.sell_price
             ORDER BY p.name
-        """, (dispatch_branch, DEFAULT_DEPARTMENT, _disp_dept,
-              dispatch_branch, dispatch_branch, DEFAULT_DEPARTMENT, _disp_dept),
+        """, (dispatch_branch, DEFAULT_DEPARTMENT, _disp_depts,
+              dispatch_branch, dispatch_branch, DEFAULT_DEPARTMENT, _disp_depts),
             fetch_all=True) or []
         items = [{
             'id': r[0], 'name': r[1], 'category': r[2], 'barcode': r[3],
@@ -16883,9 +16985,9 @@ def pos_reconciliation_report():
                     FROM transaction_items ti
                     LEFT JOIN products p ON p.id = ti.product_id
                     WHERE ti.transaction_id = ANY(%s)
-                      AND COALESCE(ti.department, %s) = %s
+                      AND COALESCE(ti.department, %s) = ANY(%s)
                     ORDER BY ti.id
-                """, (txn_ids, DEFAULT_DEPARTMENT, current_department()))
+                """, (txn_ids, DEFAULT_DEPARTMENT, department_read_scope()))
                 for tid, pid, pname, qty in cursor.fetchall():
                     items_by_txn.setdefault(tid, []).append(
                         {'product_id': pid, 'name': pname or 'Unknown',
@@ -17435,8 +17537,8 @@ def pos_create_layby():
         if abs(plan_total - due) > 0.005:
             return jsonify({
                 'success': False,
-                'error': (f'The instalments add up to ${plan_total:,.2f} but '
-                          f'${due:,.2f} is still to pay. They must match.')
+                'error': (f'The instalments add up to USD {plan_total:,.2f} but '
+                          f'USD {due:,.2f} is still to pay. They must match.')
             }), 400
 
     user_id = session.get('user_id') or session.get('userid') or 0
@@ -17498,6 +17600,10 @@ def pos_create_layby():
                     (f'Product #{pid}', pid))
                 prow = cursor.fetchone() or (f'Product #{pid}', '', '')
 
+                # A layby reserves goods from a shelf, so it is filed there. On the
+                # All view the product says which shelf that is.
+                _layby_dept = resolve_view_department(cursor, pid, branch_id)
+
                 cursor.execute("""
                     INSERT INTO transaction_items (transaction_id, product_id, quantity,
                                                    price_at_time, subtotal, unit_type, unit_details,
@@ -17506,14 +17612,14 @@ def pos_create_layby():
                     RETURNING id
                 """, (transaction_id, pid, qty, line['price'],
                       round(line['price'] * qty, 2), prow[1] or '', prow[2] or '',
-                      current_department()))
+                      _layby_dept))
                 line_id = cursor.fetchone()[0]
 
                 # The goods are spoken for, so they leave THIS branch's shelf now
                 # and the cost is frozen from the layers that actually covered it.
                 fifo_cost, _layby_layers = consume_stock_lots_fifo(
-                    cursor, pid, branch_id, qty, department=current_department())
-                add_branch_stock(cursor, pid, branch_id, -qty, department=current_department())
+                    cursor, pid, branch_id, qty, department=_layby_dept)
+                add_branch_stock(cursor, pid, branch_id, -qty, department=_layby_dept)
                 cursor.execute('UPDATE transaction_items SET cost_at_time = %s WHERE id = %s',
                                (round(fifo_cost / max(1, qty), 4), line_id))
                 cursor.execute("""
@@ -17521,7 +17627,7 @@ def pos_create_layby():
                                                   user_id, reduced_at, branch_id, department)
                     VALUES (%s, %s, 'layby_reserve', %s, %s, %s, %s, %s)
                 """, (pid, qty, f'Layby {reference}', user_id, zimbabwe_now, branch_id,
-                      current_department()))
+                      _layby_dept))
 
                 cursor.execute("""
                     INSERT INTO layby_items (layby_id, product_id, product_name, quantity,
@@ -17563,7 +17669,7 @@ def pos_create_layby():
             log_activity(
                 'layby_create',
                 (f'Opened layby {reference} for {customer_name} '
-                 f'(${total:,.2f}, ${deposit:,.2f} deposit, ${due:,.2f} to pay)'),
+                 f'(USD {total:,.2f}, USD {deposit:,.2f} deposit, USD {due:,.2f} to pay)'),
                 'layby', layby_id,
                 {'reference': reference, 'total': total, 'deposit': deposit,
                  'balance': due, 'items': len(lines)}
@@ -17575,7 +17681,7 @@ def pos_create_layby():
             'success': True,
             'layby': created,
             'message': (f'Layby {reference} opened for {customer_name}. '
-                        f'${due:,.2f} still to pay.' if due > 0 else
+                        f'USD {due:,.2f} still to pay.' if due > 0 else
                         f'Layby {reference} paid in full.')
         }), 201
     except Exception as e:
@@ -17778,7 +17884,7 @@ def pos_layby_payment(layby_id):
             if amount > balance + 0.005:
                 return jsonify({'success': False,
                                 'error': (f'That is more than the balance. '
-                                          f'${balance:,.2f} is still outstanding.')}), 400
+                                          f'USD {balance:,.2f} is still outstanding.')}), 400
 
             cursor.execute("""
                 INSERT INTO layby_payments (layby_id, seq, amount, method, notes,
@@ -17813,8 +17919,8 @@ def pos_layby_payment(layby_id):
         try:
             log_activity(
                 'layby_payment',
-                (f'Layby {updated["reference"]}: ${amount:,.2f} received '
-                 f'({method}) - ${updated["balance"]:,.2f} still to pay'),
+                (f'Layby {updated["reference"]}: USD {amount:,.2f} received '
+                 f'({method}) - USD {updated["balance"]:,.2f} still to pay'),
                 'layby', layby_id,
                 {'amount': amount, 'method': method, 'balance': updated['balance'],
                  'settled': settled}
@@ -17828,7 +17934,7 @@ def pos_layby_payment(layby_id):
             'settled': settled,
             'layby': updated,
             'message': (f'Layby {updated["reference"]} is paid in full.' if settled else
-                        f'${amount:,.2f} received - ${updated["balance"]:,.2f} still to pay.')
+                        f'USD {amount:,.2f} received - USD {updated["balance"]:,.2f} still to pay.')
         })
     except Exception as e:
         print(f"Layby payment error: {e}")
@@ -17967,8 +18073,8 @@ def pos_cancel_layby(layby_id):
             log_activity(
                 'layby_cancel',
                 (f'Cancelled layby {updated["reference"]} '
-                 f'(${updated["refunded_amount"]:,.2f} refunded of '
-                 f'${updated["paid_amount"]:,.2f} collected)'
+                 f'(USD {updated["refunded_amount"]:,.2f} refunded of '
+                 f'USD {updated["paid_amount"]:,.2f} collected)'
                  + (f' - {reason}' if reason else '')),
                 'layby', layby_id,
                 {'reference': updated['reference'], 'paid': updated['paid_amount'],
@@ -17984,8 +18090,8 @@ def pos_cancel_layby(layby_id):
             'refunded': updated['refunded_amount'],
             'retained': updated['net_collected'],
             'message': (f'Layby {updated["reference"]} cancelled and the stock returned. '
-                        f'${updated["refunded_amount"]:,.2f} refunded to the customer'
-                        + (f', ${updated["net_collected"]:,.2f} kept.'
+                        f'USD {updated["refunded_amount"]:,.2f} refunded to the customer'
+                        + (f', USD {updated["net_collected"]:,.2f} kept.'
                            if updated['net_collected'] > 0.005 else '.'))
         })
     except Exception as e:
@@ -22025,13 +22131,18 @@ def get_product(product_id):
     total_stock = product[7] or 0
     try:
         with get_db() as (cursor, connection):
+            depts_in_view = department_read_scope()
             cursor.execute(
                 "SELECT COALESCE(SUM(stock), 0) FROM product_stock "
-                "WHERE product_id = %s AND COALESCE(department, %s) = %s",
-                (product_id, DEFAULT_DEPARTMENT, current_department()))
+                "WHERE product_id = %s AND COALESCE(department, %s) = ANY(%s)",
+                (product_id, DEFAULT_DEPARTMENT, depts_in_view))
             total_stock = int(cursor.fetchone()[0] or 0)
-            branch_stock = (get_branch_stock(cursor, product_id, branch_id,
-                                             department=current_department())
+            # On the All view the figure the till may sell is both pools together;
+            # get_branch_stock() sums across departments when given no department.
+            branch_stock = (get_branch_stock(
+                                cursor, product_id, branch_id,
+                                department=None if current_department_view() == DEPARTMENT_ALL
+                                else current_department())
                             if branch_id else total_stock)
     except Exception as stock_err:
         print(f"Warning: could not read branch stock: {stock_err}")
@@ -23188,6 +23299,11 @@ def sync_offline_transactions():
                         cursor.execute(
                             'SELECT unit_type, unit_details FROM products WHERE id = %s', (pid,))
                         product_info = cursor.fetchone() or ('', '')
+                        # Which shelf this line belongs to. A sale synced from an
+                        # offline till carries no department of its own, so the
+                        # product decides when the view is All -- exactly as it
+                        # does for a sale rung live.
+                        _line_dept = resolve_view_department(cursor, pid, branch_id)
                         cursor.execute("""
                             INSERT INTO transaction_items (transaction_id, product_id, quantity,
                                                            price_at_time, subtotal, unit_type, unit_details,
@@ -23195,13 +23311,13 @@ def sync_offline_transactions():
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                             RETURNING id
                         """, (transaction_id, pid, qty, price, price * qty,
-                              product_info[0], product_info[1], current_department()))
+                              product_info[0], product_info[1], _line_dept))
                         line_id = cursor.fetchone()[0]
 
                         fifo_cost, _fifo_layers = consume_stock_lots_fifo(
-                            cursor, pid, branch_id, qty, department=current_department())
+                            cursor, pid, branch_id, qty, department=_line_dept)
                         add_branch_stock(cursor, pid, branch_id, -qty,
-                                         department=current_department())
+                                         department=_line_dept)
                         cursor.execute(
                             'UPDATE transaction_items SET cost_at_time = %s WHERE id = %s',
                             (round(fifo_cost / max(1, qty), 4), line_id))
@@ -23210,7 +23326,7 @@ def sync_offline_transactions():
                                                           user_id, reduced_at, branch_id, department)
                             VALUES (%s, %s, 'item_sale', %s, %s, %s, %s, %s)
                         """, (pid, qty, 'Sale #%s (offline sync)' % transaction_number,
-                              user_id, created_at, branch_id, current_department()))
+                              user_id, created_at, branch_id, _line_dept))
 
                         # The till rung this sale on a figure it could not confirm
                         # (no connection), so it may have taken more than the shelf
@@ -23218,7 +23334,7 @@ def sync_offline_transactions():
                         # the minus sign: name the line rather than let the shop
                         # discover a negative quantity it cannot explain.
                         _held_now = get_branch_stock(cursor, pid, branch_id,
-                                                     department=current_department())
+                                                     department=_line_dept)
                         if _held_now < 0:
                             cursor.execute('SELECT name FROM products WHERE id = %s', (pid,))
                             _prow = cursor.fetchone()
@@ -23360,7 +23476,12 @@ def create_transaction():
                 item['price'] * item['quantity'],
                 unit_type,
                 unit_details,
-                current_department()
+                # The shelf this line belongs to. On the All view the till shows
+                # both shelves at once, so the product itself says where it lives
+                # -- a Furniture item rung while looking at everything must not be
+                # filed as Hardware (it would then report on the wrong tab and
+                # come out of the wrong stock pool).
+                line_department(item['id'], sale_branch)
             )
             execute_query(item_query, item_params, commit=True)
             
@@ -23373,7 +23494,7 @@ def create_transaction():
             try:
                 with get_db() as (cursor, connection):
                     sale_branch = current_branch_id()
-                    sale_department = current_department()
+                    sale_department = resolve_view_department(cursor, item['id'], sale_branch)
                     fifo_cost, _fifo_layers = consume_stock_lots_fifo(
                         cursor, item['id'], sale_branch, int(item['quantity']),
                         department=sale_department)
@@ -23453,6 +23574,7 @@ def get_transactions():
                    FROM transaction_items ti
                    LEFT JOIN products p ON ti.product_id = p.id
                    WHERE ti.transaction_id = t.id
+                     {items_dept_where}
                ), '[]'::json) as items,
                b.name as branch_name
         FROM transactions t
@@ -23464,13 +23586,31 @@ def get_transactions():
     # Department scope: a sale belongs to the department it was rung in. Kept as
     # an EXISTS on the sale's own lines, so a sale that contains only the other
     # department's goods never appears on this tab.
-    dept_where, dept_params = department_scope_clause('t.id', 'transaction_items', 'transaction_id')
+    #
+    # The LINES inside each sale are scoped the same way (`items_dept_where`):
+    # without it a sale listed under Hardware still showed the Furniture goods
+    # that were rung with it, and a total that did not match the lines shown.
+    #
+    # `all_departments=1` drops both scopes for a whole-shop statement. It stays
+    # supported, but the Sales & Profit PDF takes that from its own summary
+    # endpoint, so the tabs simply follow the department switch.
+    all_departments = str(request.args.get('all_departments') or '').lower() in ('1', 'true', 'yes')
+    if all_departments:
+        dept_where, dept_params = '', []
+        items_dept_where, items_dept_params = '', []
+    else:
+        dept_where, dept_params = department_scope_clause('t.id', 'transaction_items', 'transaction_id')
+        items_dept_where = "AND COALESCE(ti.department, %s) = ANY(%s)"
+        items_dept_params = [DEFAULT_DEPARTMENT, department_read_scope()]
+    query = query.format(items_dept_where=items_dept_where)
     query = query + branch_where + dept_where + """
         ORDER BY t.created_at DESC
         LIMIT %s
     """
     
-    transactions = execute_query(query, tuple(branch_params) + tuple(dept_params) + (limit,),
+    transactions = execute_query(query,
+                                 tuple(items_dept_params) + tuple(branch_params)
+                                 + tuple(dept_params) + (limit,),
                                  fetch_all=True)
     
     transaction_list = []
@@ -23693,7 +23833,7 @@ def day_end_report():
                        FROM transaction_items ti
                        LEFT JOIN products p ON ti.product_id = p.id
                        WHERE ti.transaction_id = t.id
-                         AND COALESCE(ti.department, %s) = %s
+                         AND COALESCE(ti.department, %s) = ANY(%s)
                    ), '[]'::json) as items,
                    t.branch_id,
                    b.name as branch_name
@@ -23706,22 +23846,22 @@ def day_end_report():
               -- those are collected separately below; counting the whole layby
               -- here would claim takings the shop has not received yet.
               AND COALESCE(t.status, 'completed') <> 'layby'
-              -- Day-end is reported per department: the totals and the itemised
-              -- lines beside them must both describe the department on screen.
+              -- Day-end describes the departments in view: on All, the whole
+              -- shop's day, which is what the totals beside it must mean.
               AND EXISTS (
                   SELECT 1 FROM transaction_items _d
                   WHERE _d.transaction_id = t.id
-                    AND COALESCE(_d.department, %s) = %s
+                    AND COALESCE(_d.department, %s) = ANY(%s)
               )
         """
-        _dend_dept = current_department()
+        _dend_depts = department_read_scope()
         branch_where, branch_params = branch_read_clause('t.branch_id')
         query = query + branch_where + """
             ORDER BY t.created_at ASC
         """
         rows = execute_query(
             query,
-            (DEFAULT_DEPARTMENT, _dend_dept, day, DEFAULT_DEPARTMENT, _dend_dept)
+            (DEFAULT_DEPARTMENT, _dend_depts, day, DEFAULT_DEPARTMENT, _dend_depts)
             + tuple(branch_params), fetch_all=True)
 
         from collections import OrderedDict
@@ -23869,25 +24009,26 @@ def get_daily_summary():
                 (SELECT COALESCE(SUM(quantity), 0) 
                  FROM transaction_items 
                  WHERE transaction_id = transactions.id
-                   AND COALESCE(department, %s) = %s)
+                   AND COALESCE(department, %s) = ANY(%s))
             ), 0) as items_sold
         FROM transactions
         WHERE DATE(created_at) = CURRENT_DATE
         AND status = 'completed'
         AND voided = FALSE
-        -- Department scope, matching the header and the dashboard.
+        -- Department scope, matching the header and the dashboard: the
+        -- departments in view (both of them on All).
         AND EXISTS (
             SELECT 1 FROM transaction_items _d
             WHERE _d.transaction_id = transactions.id
-              AND COALESCE(_d.department, %s) = %s
+              AND COALESCE(_d.department, %s) = ANY(%s)
         )
     """
-    _sum_dept = current_department()
+    _sum_depts = department_read_scope()
     sum_branch_where, sum_branch_params = branch_read_clause('branch_id')
     query = query + sum_branch_where
     
     result = execute_query(query,
-                           (DEFAULT_DEPARTMENT, _sum_dept, DEFAULT_DEPARTMENT, _sum_dept)
+                           (DEFAULT_DEPARTMENT, _sum_depts, DEFAULT_DEPARTMENT, _sum_depts)
                            + tuple(sum_branch_params), fetch_one=True)
     
     return jsonify({
@@ -24058,7 +24199,7 @@ def revert_transaction(transaction_id):
         try:
             log_activity(
                 'transaction_revert',
-                f'Reverted sale {t[1]} (${float(t[4] or 0):,.2f}) â€” stock restored to inventory'
+                f'Reverted sale {t[1]} (USD {float(t[4] or 0):,.2f}) â€” stock restored to inventory'
                 + (f'; layby {reverted_laybys[0][1]} closed with it'
                    if reverted_laybys else ''),
                 'transaction', transaction_id,
@@ -24119,11 +24260,11 @@ def get_voided_transactions():
         if start and end:
             where += " AND t.voided_at::date BETWEEN %s AND %s"
             params += [start, end]
-        # Department scope, so the voided list matches the department on screen.
+        # Department scope, so the voided list matches the departments in view.
         where += (" AND EXISTS (SELECT 1 FROM transaction_items _d "
                   "WHERE _d.transaction_id = t.id "
-                  "AND COALESCE(_d.department, %s) = %s)")
-        params += [DEFAULT_DEPARTMENT, current_department()]
+                  "AND COALESCE(_d.department, %s) = ANY(%s))")
+        params += [DEFAULT_DEPARTMENT, department_read_scope()]
 
         query = f"""
             SELECT t.id, t.transaction_number, t.user_id, u.full_name as cashier,
@@ -24137,7 +24278,7 @@ def get_voided_transactions():
                        FROM transaction_items ti
                        LEFT JOIN products p ON ti.product_id = p.id
                        WHERE ti.transaction_id = t.id
-                         AND COALESCE(ti.department, %s) = %s
+                         AND COALESCE(ti.department, %s) = ANY(%s)
                    ), '[]'::json) as items
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
@@ -24147,7 +24288,7 @@ def get_voided_transactions():
         # The two item-level placeholders sit inside the SELECT, so they come
         # BEFORE the WHERE-clause params in the final parameter order.
         rows = execute_query(query,
-                             (DEFAULT_DEPARTMENT, current_department()) + tuple(params),
+                             (DEFAULT_DEPARTMENT, department_read_scope()) + tuple(params),
                              fetch_all=True)
         voided = []
         for r in rows:
@@ -24200,7 +24341,7 @@ def get_dashboard_stats():
                 (SELECT COALESCE(SUM(quantity), 0) 
                  FROM transaction_items 
                  WHERE transaction_id = transactions.id
-                   AND COALESCE(department, %s) = %s)
+                   AND COALESCE(department, %s) = ANY(%s))
             ), 0) as items_sold
         FROM transactions
         WHERE DATE(created_at) = CURRENT_DATE
@@ -24210,15 +24351,15 @@ def get_dashboard_stats():
         AND EXISTS (
             SELECT 1 FROM transaction_items _d
             WHERE _d.transaction_id = transactions.id
-              AND COALESCE(_d.department, %s) = %s
+              AND COALESCE(_d.department, %s) = ANY(%s)
         )
     """
-    _dash_dept = current_department()
+    _dash_depts = department_read_scope()
     branch_where, branch_params = branch_read_clause('branch_id')
     today_query = today_query + branch_where
     today_result = execute_query(
         today_query,
-        (DEFAULT_DEPARTMENT, _dash_dept, DEFAULT_DEPARTMENT, _dash_dept) + tuple(branch_params),
+        (DEFAULT_DEPARTMENT, _dash_depts, DEFAULT_DEPARTMENT, _dash_depts) + tuple(branch_params),
         fetch_one=True)
     
     # Low stock is a PER-BRANCH figure: the same catalogue item can be plentiful
@@ -24281,7 +24422,7 @@ def today_by_cashier():
                        SELECT COALESCE(SUM(quantity), 0)
                        FROM transaction_items
                        WHERE transaction_id = t.id
-                         AND COALESCE(department, %s) = %s
+                         AND COALESCE(department, %s) = ANY(%s)
                    )), 0) AS items_sold
             FROM transactions t
             LEFT JOIN admin_users u ON t.user_id = u.id
@@ -24293,10 +24434,10 @@ def today_by_cashier():
               AND EXISTS (
                   SELECT 1 FROM transaction_items _d
                   WHERE _d.transaction_id = t.id
-                    AND COALESCE(_d.department, %s) = %s
+                    AND COALESCE(_d.department, %s) = ANY(%s)
               )
         """
-        _dept = current_department()
+        _dept = department_read_scope()
         tbc_where, tbc_params = branch_read_clause('t.branch_id')
         totals_query = totals_query + tbc_where + """
             GROUP BY u.full_name
@@ -24318,7 +24459,7 @@ def today_by_cashier():
               AND EXISTS (
                   SELECT 1 FROM transaction_items _d
                   WHERE _d.transaction_id = t.id
-                    AND COALESCE(_d.department, %s) = %s
+                    AND COALESCE(_d.department, %s) = ANY(%s)
               )
         """
         pm_where, pm_params = branch_read_clause('t.branch_id')
@@ -24422,8 +24563,8 @@ def get_all_database_data():
         data_summary = []
         data_summary.append("=== DATABASE STATISTICS ===")
         data_summary.append(f"Total Projects: {stats[0]}")
-        data_summary.append(f"Total Contract Value: ${float(stats[1]):,.2f}")
-        data_summary.append(f"Total Deposit Collected: ${float(stats[2]):,.2f}")
+        data_summary.append(f"Total Contract Value: USD {float(stats[1]):,.2f}")
+        data_summary.append(f"Total Deposit Collected: USD {float(stats[2]):,.2f}")
         data_summary.append(f"Unique Clients: {stats[3]}")
         
         # Get payment methods
@@ -24441,7 +24582,7 @@ def get_all_database_data():
         
         data_summary.append("\n=== PAYMENT METHODS ===")
         for method, count, total in payment_methods:
-            data_summary.append(f"{method}: {count} projects, Total: ${float(total):,.2f}")
+            data_summary.append(f"{method}: {count} projects, Total: USD {float(total):,.2f}")
         
         # Get recent projects
         cursor.execute("""
@@ -24459,7 +24600,7 @@ def get_all_database_data():
         data_summary.append("\n=== RECENT PROJECTS ===")
         for client, project, total, deposit, method in recent_projects:
             data_summary.append(f"{client}: {project}")
-            data_summary.append(f"  Amount: ${float(total):,.2f}, Deposit: ${float(deposit):,.2f}, Method: {method}")
+            data_summary.append(f"  Amount: USD {float(total):,.2f}, Deposit: USD {float(deposit):,.2f}, Method: {method}")
         
         return "\n".join(data_summary)
 
@@ -24529,12 +24670,12 @@ def get_direct_answer(question):
         if any(word in question_lower for word in ['total contract', 'total value', 'overall', 'sum']):
             cursor.execute("SELECT COALESCE(SUM(totalcontractamount), 0) FROM connectlinkdatabase")
             total = cursor.fetchone()[0]
-            return f"Total Contract Value: **${float(total):,.2f}**"
+            return f"Total Contract Value: **USD {float(total):,.2f}**"
         
         elif 'deposit' in question_lower:
             cursor.execute("SELECT COALESCE(SUM(depositorbullet), 0) FROM connectlinkdatabase")
             deposit = cursor.fetchone()[0]
-            return f"Total Deposits Collected: **${float(deposit):,.2f}**"
+            return f"Total Deposits Collected: **USD {float(deposit):,.2f}**"
         
         elif 'how many' in question_lower or 'count' in question_lower:
             cursor.execute("SELECT COUNT(*) FROM connectlinkdatabase")
@@ -24554,7 +24695,7 @@ def get_direct_answer(question):
             answer = "**Payment Methods:**\n"
             for method, count, total in methods:
                 method_name = method if method else "Not specified"
-                answer += f"- {method_name}: {count} projects, ${float(total):,.2f}\n"
+                answer += f"- {method_name}: {count} projects, USD {float(total):,.2f}\n"
             return answer
         
         elif 'recent' in question_lower or 'latest' in question_lower:
@@ -24567,7 +24708,7 @@ def get_direct_answer(question):
             recent = cursor.fetchall()
             answer = "**Recent Projects:**\n"
             for client, project, amount in recent:
-                answer += f"- {client}: {project} (${float(amount or 0):,.2f})\n"
+                answer += f"- {client}: {project} (USD {float(amount or 0):,.2f})\n"
             return answer
         
         else:
@@ -27116,7 +27257,7 @@ def handle_download_payslip_whatsapp(sender_id, payload, send_text_message=None)
             nssa_cap = ''
             if nssa_ceiling > 0 and nssa_basis > nssa_ceiling:
                 nssa_basis = nssa_ceiling
-                nssa_cap = f' (capped at ${nssa_ceiling:,.2f})'
+                nssa_cap = f' (capped at USD {nssa_ceiling:,.2f})'
             employer_nssa = nssa_basis * (nssa_rate / 100)
 
             # Fetch employer contribution configs (NEC, WCIF, SDF)
@@ -27569,7 +27710,7 @@ def hr_payroll_api():
                     ws['A1'].alignment = XlAlign(horizontal='left')
 
                     ws.merge_cells('A2:X2')
-                    ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {emp_count} | Total Gross: ${total_gross:,.2f} | Total Net: ${total_net:,.2f}"
+                    ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {emp_count} | Total Gross: USD {total_gross:,.2f} | Total Net: USD {total_net:,.2f}"
                     ws['A2'].font = subtitle_font
 
                     # Headers (row 4)
@@ -28099,15 +28240,15 @@ def hr_paye_download_pdf(table_id):
             to_val = float(b[1] or 0)
             rate = float(b[2] or 0)
             cumulative = float(b[3] or 0)
-            from_str = f'${from_val:,.2f}'
-            to_str = 'âˆž' if to_val <= 0 else f'${to_val:,.2f}'
+            from_str = f'USD {from_val:,.2f}'
+            to_str = 'âˆž' if to_val <= 0 else f'USD {to_val:,.2f}'
             band = f'Up to {to_str}' if from_val == 0 else f'{from_str} â€“ {to_str}'
             rows_html += f'''
                 <tr>
                     <td style="text-align:center;">{i+1}</td>
                     <td>{band}</td>
                     <td style="text-align:center;">{rate:.2f}%</td>
-                    <td style="text-align:right;">${cumulative:,.2f}</td>
+                    <td style="text-align:right;">USD {cumulative:,.2f}</td>
                 </tr>'''
 
         html = f'''<!DOCTYPE html>
@@ -28277,7 +28418,7 @@ def hr_paye_calculate():
             
             details = []
             if selected:
-                range_str = f"${selected['from']:,.2f} - $"
+                range_str = f"USD {selected['from']:,.2f} - $"
                 if selected['to'] <= 0:
                     range_str += "âˆž"
                 else:
@@ -28288,7 +28429,7 @@ def hr_paye_calculate():
                     'rate': selected['rate'],
                     'deduction': selected['deduction'],
                     'tax': tax,
-                    'formula': f"${salary:,.2f} Ã— {selected['rate']}% - ${selected['deduction']:,.2f} = ${tax:,.2f}"
+                    'formula': f"USD {salary:,.2f} Ã— {selected['rate']}% - USD {selected['deduction']:,.2f} = USD {tax:,.2f}"
                 })
             
             return jsonify({
@@ -28647,12 +28788,12 @@ def render_payroll_breakdown_html(employee_id, period):
         nssa_cap_note = ''
         if nssa_ceiling > 0 and nssa_basis > nssa_ceiling:
             nssa_basis = nssa_ceiling
-            nssa_cap_note = f' (capped at ${nssa_ceiling:,.2f})'
+            nssa_cap_note = f' (capped at USD {nssa_ceiling:,.2f})'
         deduction_rows.append({
             'name': 'NSSA (Employee Pension) â€” deducted first',
             'description': f'National Social Security Authority â€” employee portion. Calculated on gross, deducted before PAYE{nssa_cap_note}',
             'rate': f'{nssa_rate:.1f}% of gross{" (capped)" if nssa_ceiling > 0 else ""}',
-            'calculation': f'${nssa_basis:,.2f}{" (capped)" if nssa_cap_note else ""} Ã— {nssa_rate:.1f}%',
+            'calculation': f'USD {nssa_basis:,.2f}{" (capped)" if nssa_cap_note else ""} Ã— {nssa_rate:.1f}%',
             'amount': nssa,
             'color': '#16a34a'
         })
@@ -28663,9 +28804,9 @@ def render_payroll_breakdown_html(employee_id, period):
         # PAYE (on taxable income = gross - nssa)
         deduction_rows.append({
             'name': 'PAYE Tax (Pay As You Earn)',
-            'description': f'Progressive tax on taxable income (gross âˆ’ NSSA). Active bracket: ${active_bracket["from"]:,.2f} - ${active_bracket["to"]:,.2f}' if active_bracket else 'No active bracket found',
+            'description': f'Progressive tax on taxable income (gross âˆ’ NSSA). Active bracket: USD {active_bracket["from"]:,.2f} - USD {active_bracket["to"]:,.2f}' if active_bracket else 'No active bracket found',
             'rate': f'{active_bracket["rate"]:.2f}%' if active_bracket else 'N/A',
-            'calculation': f'Taxable: ${taxable_income:,.2f} (${{gross:,.2f}} âˆ’ ${{nssa:,.2f}}) Ã— {active_bracket["rate"]:.2f}% âˆ’ ${active_bracket["deduction"]:,.2f}' if active_bracket else 'N/A',
+            'calculation': f'Taxable: USD {taxable_income:,.2f} (USD {{gross:,.2f}} âˆ’ USD {{nssa:,.2f}}) Ã— {active_bracket["rate"]:.2f}% âˆ’ USD {active_bracket["deduction"]:,.2f}' if active_bracket else 'N/A',
             'amount': paye,
             'color': '#dc2626'
         })
@@ -28676,7 +28817,7 @@ def render_payroll_breakdown_html(employee_id, period):
             'name': 'AIDS Levy',
             'description': f'3% of PAYE tax amount as statutory AIDS levy contribution',
             'rate': f'{aids_rate:.1f}% of PAYE',
-            'calculation': f'${paye:,.2f} Ã— {aids_rate:.1f}%',
+            'calculation': f'USD {paye:,.2f} Ã— {aids_rate:.1f}%',
             'amount': aids,
             'color': '#b45309'
         })
@@ -28689,7 +28830,7 @@ def render_payroll_breakdown_html(employee_id, period):
             'name': 'ZIMDEF Levy',
             'description': 'Zimbabwe Manpower Development Levy â€” 1% of taxable income',
             'rate': f'{zimdef_rate:.1f}% of taxable income',
-            'calculation': f'${taxable_income:,.2f} Ã— {zimdef_rate:.1f}%',
+            'calculation': f'USD {taxable_income:,.2f} Ã— {zimdef_rate:.1f}%',
             'amount': zimdef_amount,
             'color': '#7c3aed'
         })
@@ -28700,7 +28841,7 @@ def render_payroll_breakdown_html(employee_id, period):
                 'name': 'NEC (National Employment Council)',
                 'description': 'NEC employee contribution â€” applied to Top Management classified employees only',
                 'rate': f'{deduction_configs.get("NEC_EMPLOYEE", {}).get("rate", 2.0):.1f}% of gross',
-                'calculation': f'${gross:,.2f} Ã— {deduction_configs.get("NEC_EMPLOYEE", {}).get("rate", 2.0):.1f}%',
+                'calculation': f'USD {gross:,.2f} Ã— {deduction_configs.get("NEC_EMPLOYEE", {}).get("rate", 2.0):.1f}%',
                 'amount': nec,
                 'color': '#0891b2'
             })
@@ -28710,8 +28851,8 @@ def render_payroll_breakdown_html(employee_id, period):
             deduction_rows.append({
                 'name': 'Medical Aid (Employee)',
                 'description': 'Medical Aid employee contribution â€” half of the employee\'s package (Lite/Platinum)',
-                'rate': f'${medical_aid:,.2f} (half of package)',
-                'calculation': f'${medical_aid:,.2f} (employee\'s half)',
+                'rate': f'USD {medical_aid:,.2f} (half of package)',
+                'calculation': f'USD {medical_aid:,.2f} (employee\'s half)',
                 'amount': medical_aid,
                 'color': '#0d9488'
             })
@@ -28862,7 +29003,7 @@ def generate_payslip_pdf(employee_id):
             nssa_cap = ''
             if nssa_ceiling > 0 and nssa_basis > nssa_ceiling:
                 nssa_basis = nssa_ceiling
-                nssa_cap = f' (capped at ${nssa_ceiling:,.2f})'
+                nssa_cap = f' (capped at USD {nssa_ceiling:,.2f})'
             employer_nssa = nssa_basis * (nssa_rate / 100)
 
             # Fetch employer contribution configs (NEC, WCIF, SDF)
@@ -29192,22 +29333,22 @@ def payroll_remittances(period):
             # ========== PDF OUTPUT ==========
             else:
                 m_remit_rows = ''.join(
-                    f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${me:,.2f}</td><td style="text-align:right;">${mer:,.2f}</td><td style="text-align:right;">${me+mer:,.2f}</td></tr>'
+                    f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">USD {me:,.2f}</td><td style="text-align:right;">USD {mer:,.2f}</td><td style="text-align:right;">USD {me+mer:,.2f}</td></tr>'
                     for c, d, me, mer, ye, yer in remittances
                 )
 
                 sm_emp = m_paye + m_aids + m_nssa_emp + m_zimdef + m_nec_emp + m_med_emp
                 sm_er = m_er_nssa + m_nec_er + m_med_emp
-                m_total_row = f'<tr class="gt"><td></td><td><strong>MONTH TOTAL</strong></td><td style="text-align:right;"><strong>${sm_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_er:,.2f}</strong></td><td style="text-align:right;"><strong>${sm_emp+sm_er:,.2f}</strong></td></tr>'
+                m_total_row = f'<tr class="gt"><td></td><td><strong>MONTH TOTAL</strong></td><td style="text-align:right;"><strong>USD {sm_emp:,.2f}</strong></td><td style="text-align:right;"><strong>USD {sm_er:,.2f}</strong></td><td style="text-align:right;"><strong>USD {sm_emp+sm_er:,.2f}</strong></td></tr>'
 
                 y_remit_rows = ''.join(
-                    f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">${ye:,.2f}</td><td style="text-align:right;">${yer:,.2f}</td><td style="text-align:right;">${ye+yer:,.2f}</td></tr>'
+                    f'<tr><td>{c}</td><td>{d}</td><td style="text-align:right;">USD {ye:,.2f}</td><td style="text-align:right;">USD {yer:,.2f}</td><td style="text-align:right;">USD {ye+yer:,.2f}</td></tr>'
                     for c, d, me, mer, ye, yer in remittances
                 )
 
                 ys_emp = y_paye + y_aids + y_nssa_emp + y_zimdef + y_nec_emp + y_med_emp
                 ys_er = y_er_nssa + y_nec_er + y_med_emp
-                y_total_row = f'<tr class="gt"><td></td><td><strong>YTD TOTAL</strong></td><td style="text-align:right;"><strong>${ys_emp:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_er:,.2f}</strong></td><td style="text-align:right;"><strong>${ys_emp+ys_er:,.2f}</strong></td></tr>'
+                y_total_row = f'<tr class="gt"><td></td><td><strong>YTD TOTAL</strong></td><td style="text-align:right;"><strong>USD {ys_emp:,.2f}</strong></td><td style="text-align:right;"><strong>USD {ys_er:,.2f}</strong></td><td style="text-align:right;"><strong>USD {ys_emp+ys_er:,.2f}</strong></td></tr>'
 
                 html = f"""<!DOCTYPE html>
 
@@ -29247,10 +29388,10 @@ def payroll_remittances(period):
 
   <div class="summary-box">
     <div class="summary-grid">
-      <div class="item"><div class="l">Month Total Remittance</div><div class="v">${sm_emp+sm_er:,.2f}</div></div>
-      <div class="item"><div class="l">YTD Total Remittance</div><div class="v">${ys_emp+ys_er:,.2f}</div></div>
-      <div class="item hl"><div class="l">Month Net Pay</div><div class="v">${m_net:,.2f}</div></div>
-      <div class="item hl"><div class="l">YTD Net Pay</div><div class="v">${y_net:,.2f}</div></div>
+      <div class="item"><div class="l">Month Total Remittance</div><div class="v">USD {sm_emp+sm_er:,.2f}</div></div>
+      <div class="item"><div class="l">YTD Total Remittance</div><div class="v">USD {ys_emp+ys_er:,.2f}</div></div>
+      <div class="item hl"><div class="l">Month Net Pay</div><div class="v">USD {m_net:,.2f}</div></div>
+      <div class="item hl"><div class="l">YTD Net Pay</div><div class="v">USD {y_net:,.2f}</div></div>
     </div>
   </div>
 
@@ -29594,7 +29735,7 @@ def hr_export_assets():
                     <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[0] or 'N/A'}</td>
                     <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;font-weight:600;">{r[1]}</td>
                     <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[2] or 'N/A'}</td>
-                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;text-align:right;">${float(r[3] or 0):,.2f}</td>
+                    <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;text-align:right;">USD {float(r[3] or 0):,.2f}</td>
                     <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{str(r[4] or '')[:10]}</td>
                     <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;color:{status_color};font-weight:600;">{r[5] or 'N/A'}</td>
                     <td style="padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;">{r[6]}</td>
@@ -29638,7 +29779,7 @@ tr:nth-child(even) td {{ background: #F8FAFC; }}
 </table>
 <div class="summary">
     <div class="item">Total Assets<br><strong>{len(rows)}</strong></div>
-    <div class="item">Total Value<br><strong>${total_val:,.2f}</strong></div>
+    <div class="item">Total Value<br><strong>USD {total_val:,.2f}</strong></div>
     <div class="item">Generated<br><strong>{now_str}</strong></div>
 </div>
 <div class="footer">ConnectLink Properties &amp; Hardware â€” Asset Register â€” Generated {now_str}</div>
@@ -30343,7 +30484,7 @@ def hr_export_commissions():
         ws['A1'].alignment = XlAlign(horizontal='left')
 
         ws.merge_cells('A2:H2')
-        ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {len(rows)} | Total: ${total_amount:,.2f} | Prepared by: {user_name}"
+        ws['A2'].value = f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')} | Employees: {len(rows)} | Total: USD {total_amount:,.2f} | Prepared by: {user_name}"
         ws['A2'].font = subtitle_font
 
         headers = ['First Name', 'Last Name', 'Department', 'Period', 'Amount (USD)', 'Notes', 'Logged By', 'Logged At']
@@ -34373,19 +34514,19 @@ def download_payments_history(project_id):
                 <div class='summary-section'>
                     <div class='summary-card'>
                         <div class='summary-label'>Total Contract Price</div>
-                        <div class='summary-value blue'>${total_contract:,.2f}</div>
+                        <div class='summary-value blue'>USD {total_contract:,.2f}</div>
                     </div>
                     <div class='summary-card'>
                         <div class='summary-label'>Deposit Paid</div>
-                        <div class='summary-value green'>${deposit_paid:,.2f}</div>
+                        <div class='summary-value green'>USD {deposit_paid:,.2f}</div>
                     </div>
                     <div class='summary-card'>
                         <div class='summary-label'>Installment Balance</div>
-                        <div class='summary-value orange'>${balance_installments:,.2f}</div>
+                        <div class='summary-value orange'>USD {balance_installments:,.2f}</div>
                     </div>
                     <div class='summary-card'>
                         <div class='summary-label'>Outstanding Balance</div>
-                        <div class='summary-value red'>${outstanding_balance:,.2f}</div>
+                        <div class='summary-value red'>USD {outstanding_balance:,.2f}</div>
                     </div>
                 </div>
                 <div class='section-title'>Client Information</div>
@@ -35529,7 +35670,7 @@ def send_meta_template():
         print(f"Client: {client_name}")
         print(f"Project: {project_name}")
         print(f"Installment: #{installment_number}")
-        print(f"Amount: ${amount_due:,.2f}")
+        print(f"Amount: USD {amount_due:,.2f}")
         print(f"Days Info: {days_info} days")
         print(f"Status: {status}")
         print(f"{'='*50}\n")
@@ -35559,7 +35700,7 @@ def send_meta_template():
                             {"type": "text", "text": client_name},
                             {"type": "text", "text": project_name},
                             {"type": "text", "text": f"#{installment_number}"},
-                            {"type": "text", "text": f"${amount_due:,.2f}"},
+                            {"type": "text", "text": f"USD {amount_due:,.2f}"},
                             {"type": "text", "text": str(days_info)}
                         ]
                     }
@@ -35585,7 +35726,7 @@ def send_meta_template():
                         INSERT INTO whatsapp_messages 
                         (sender_phone, sender_name, message_text, message_type, direction, status)
                         VALUES (%s, %s, %s, %s, 'outgoing', 'sent')
-                    """, (clean_number, 'ConnectLink Bot', f'[Template: {template_name}] Payment reminder for {project_name} - ${amount_due:,.2f}', 'template'))
+                    """, (clean_number, 'ConnectLink Bot', f'[Template: {template_name}] Payment reminder for {project_name} - USD {amount_due:,.2f}', 'template'))
                     save_conn.commit()
             except Exception as save_err:
                 print(f"âš ï¸ Failed to save reminder template to messages: {save_err}")
@@ -35631,7 +35772,7 @@ def send_meta_template():
             # Log the reminder send
             log_activity(
                 'payment_reminder_sent',
-                f'{status.title()} reminder sent to {client_name} for {project_name} (Installment #{installment_number}, ${amount_due:,.2f})',
+                f'{status.title()} reminder sent to {client_name} for {project_name} (Installment #{installment_number}, USD {amount_due:,.2f})',
                 'project',
                 None,
                 {'client_name': client_name, 'project_name': project_name, 'installment': installment_number, 'amount': amount_due, 'status': status}
@@ -36167,7 +36308,7 @@ def run1(userid):
             status_html = ""
             
             if row['is_overdue']:
-                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span></div>"""
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">USD {row['overdue_amount']:,.2f}</span></div>"""
             else:
                 status_html = '<span class="badge bg-success">PAID UP</span>'
             
@@ -36213,9 +36354,9 @@ def run1(userid):
             status_html = ""
             
             if row['is_overdue']:
-                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">${row['overdue_amount']:,.2f}</span></div>"""
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-danger me-2">OVERDUE</span><span class="text-danger fw-bold">USD {row['overdue_amount']:,.2f}</span></div>"""
             elif row['is_outstanding']:
-                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-info me-2">OUTSTANDING</span><span class="text-info fw-bold">${row['outstanding_balance']:,.2f}</span></div>"""
+                status_html = f"""<div class="d-flex align-items-center"><span class="badge bg-info me-2">OUTSTANDING</span><span class="text-info fw-bold">USD {row['outstanding_balance']:,.2f}</span></div>"""
             else:
                 status_html = '<span class="badge bg-success">PAID UP</span>'
             
@@ -48203,7 +48344,7 @@ def update_quotation(quotation_id):
         try:
             log_activity(
                 'quotation_edited',
-                f'Quotation #{quotation_id} for {client_name} ({category}) updated - Total: ${total_cost:,.2f}',
+                f'Quotation #{quotation_id} for {client_name} ({category}) updated - Total: USD {total_cost:,.2f}',
                 'quotation',
                 quotation_id,
                 {
@@ -48266,7 +48407,7 @@ def save_quotation():
                     amount = float(item.get('amount', 0))
                     item_total = quantity * amount
                 total_cost += item_total
-                print(f"  Kitchen item: {item.get('name')} = ${item_total:,.2f}")
+                print(f"  Kitchen item: {item.get('name')} = USD {item_total:,.2f}")
             
             # Calculate base cost (before 30% markup)
             # Since total_cost = base_cost * 1.30, then base_cost = total_cost / 1.30
@@ -48361,9 +48502,9 @@ def save_quotation():
                     base_unit_rate = amount / 1.30
                     
                     print(f"Inserting kitchen item {idx+1}: {item_name}")
-                    print(f"  Quantity: {quantity}, Amount (with markup): ${amount:,.2f}")
-                    print(f"  Base unit rate (without markup): ${base_unit_rate:,.2f}")
-                    print(f"  Total price (with markup): ${total_price:,.2f}")
+                    print(f"  Quantity: {quantity}, Amount (with markup): USD {amount:,.2f}")
+                    print(f"  Base unit rate (without markup): USD {base_unit_rate:,.2f}")
+                    print(f"  Total price (with markup): USD {total_price:,.2f}")
                     
                     cursor.execute("""
                         INSERT INTO quotation_kitchen_items
@@ -48414,7 +48555,7 @@ def save_quotation():
         try:
             log_activity(
                 'quotation_created',
-                f"Quotation #{quotation_id} for {client_name} ({category}) created - Total: ${total_cost:,.2f}",
+                f"Quotation #{quotation_id} for {client_name} ({category}) created - Total: USD {total_cost:,.2f}",
                 reference_type='quotation',
                 reference_id=quotation_id,
                 details={
@@ -48862,7 +49003,7 @@ def load_quotations():
             for q in quotations:
                 q_id, client_name, q_date, category, total_cost, created_at = q
                 q_date_str = q_date.strftime('%Y-%m-%d') if q_date else 'N/A'
-                cost_display = f"${total_cost:,.2f}" if total_cost else "N/A"
+                cost_display = f"USD {total_cost:,.2f}" if total_cost else "N/A"
                 html += f'''<tr>
                     <td>{q_id}</td>
                     <td>{client_name or 'N/A'}</td>
@@ -52869,7 +53010,7 @@ def procurement_api_create_purchase_order():
                 print(f"PO notify error: {nfe}")
             return jsonify({'success': True,
                             'message': f'{po_no} created â€” sent to the approver '
-                                       f'(attached requisition already authorised). Total: ${total:,.2f}'})
+                                       f'(attached requisition already authorised). Total: USD {total:,.2f}'})
     except Exception as e:
         print(f"Create PO error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -53547,8 +53688,8 @@ def procurement_api_add_payment():
             """, (supplier_id, supplier_name, round(amount, 2), data.get('payment_date') or None,
                   data.get('payment_method'), data.get('reference'), data.get('notes'), user['name'], funding_source))
             connection.commit()
-            log_activity('supplier_payment', f'Recorded payment ${amount:,.2f} to {supplier_name}', 'supplier', supplier_id)
-            return jsonify({'success': True, 'message': f'Payment of ${amount:,.2f} recorded.'})
+            log_activity('supplier_payment', f'Recorded payment USD {amount:,.2f} to {supplier_name}', 'supplier', supplier_id)
+            return jsonify({'success': True, 'message': f'Payment of USD {amount:,.2f} recorded.'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

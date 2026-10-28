@@ -16,6 +16,7 @@ PASS  the department was recorded for the product/branch  -> furniture
 PASS  a round trip restores units exactly  -> 10 -> 10
 PASS  a round trip restores cost exactly
 PASS  an item with no stock is still moved (relabelled)  -> {'from': 'hardware', 'to': 'furniture', 'quantity': 0, 'cost': 0, 'lots': 0, 'sales_relabelled': 2, 'unchanged': False}
+PASS  an item with no stock still files a zero row in the destination department  -> {'furniture': 0}
 PASS  moving to the same department changes nothing  -> {'from': 'furniture', 'to': 'furniture', 'quantity': 0, 'cost': 0.0, 'unchanged': True, 'sales_relabelled': 2}
 PASS  a move hands the new department to the sale-line relabel  -> [(7, 1, 'furniture'), (7, 1, 'hardware'), (3, 1, 'furniture'), (1, 1, 'furniture')]
 PASS  the move reports how many sale lines it re-filed  -> {'from': 'furniture', 'to': 'furniture', 'quantity': 0, 'cost': 0.0, 'unchanged': True, 'sales_relabelled': 2}
@@ -34,9 +35,9 @@ PASS  additions are scoped to the department
 PASS  reductions are scoped to the department
 PASS  sale lines are scoped to the department
 PASS  the transactions tab is scoped to the department
-PASS  the cashier header totals are department-scoped
+PASS  the cashier header totals are department-scoped  -> a list of departments: one on Hardware/Furniture, both on All
 PASS  the header's Items Sold counts only this department
-PASS  the header payment breakdown is department-scoped
+PASS  the header payment breakdown is department-scoped  -> 2
 PASS  a sale records the department it was rung in
 PASS  every stock receipt records its department
 PASS  every stock reduction records its department (where written by a sale path)  -> informational: 0 site(s) rely on the hardware default
@@ -74,3 +75,30 @@ PASS  an upload row keeps the branch's own filing
 PASS  a known item asked for the other shelf stays on its shelf
 PASS  a new row uses the department the file asked for
 PASS  a new row with no department falls back to Hardware
+PASS  a session that never chose a view opens on All  -> all
+PASS  ...and All is offered to the switch  -> [{'key': 'all', 'label': 'All'}, {'key': 'hardware', 'label': 'Hardware'}, {'key': 'furniture', 'label': 'Furniture'}]
+PASS  ...even though the WRITE department is still a real shelf  -> hardware
+PASS  the view follows the session: 'hardware' -> 'hardware'  -> hardware
+PASS  the write department is never All ('hardware' -> 'hardware')  -> hardware
+PASS  the view follows the session: 'furniture' -> 'furniture'  -> furniture
+PASS  the write department is never All ('furniture' -> 'furniture')  -> furniture
+PASS  the view follows the session: 'all' -> 'all'  -> all
+PASS  the write department is never All ('all' -> 'hardware')  -> hardware
+PASS  the view follows the session: 'nonsense' -> 'all'  -> all
+PASS  the write department is never All ('nonsense' -> 'hardware')  -> hardware
+PASS  the view follows the session: '' -> 'all'  -> all
+PASS  the write department is never All ('' -> 'hardware')  -> hardware
+PASS  the All view reads BOTH departments  -> ['hardware', 'furniture']
+PASS  the All view applies no department filter at all  -> (" AND COALESCE(ps.department, 'hardware') = ANY(%s)", [['hardware', 'furniture']])
+PASS  the All view keeps a sale when ANY of its lines is in view  -> (" AND EXISTS (SELECT 1 FROM transaction_items _d WHERE _d.transaction_id = t.id AND COALESCE(_d.department, 'hardware') = ANY(%s))", [['hardware', 'furniture']])
+PASS  the Furniture view reads only Furniture  -> ['furniture']
+PASS  the Furniture view filters one department  -> (" AND COALESCE(ps.department, 'hardware') = ANY(%s)", [['furniture']])
+PASS  the Furniture view scopes a sale to Furniture lines
+PASS  the Hardware view reads only Hardware  -> ['hardware']
+PASS  the till mirrors the server view on load  -> checkAuthentication() applies the server value
+PASS  the switch offers three positions  -> POS + Inventory
+PASS  the till defaults to the All view
+PASS  the Sales tab follows the switch (no forced all-departments read)
+PASS  the exported PDF still reads every department
+PASS  the transaction LINES are department-scoped too  -> a sale listed under one shelf no longer shows the other shelf's goods
+PASS  a sale line is filed on the product's own shelf when the view is All
