@@ -4,12 +4,12 @@
   "module": "PortalOfflineBrowser",
   "file": "_portal_offline_browser.py",
   "purpose": "Real-browser proof of the portal's READ-ONLY offline copy.",
-  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 143",
+  "entry_function": "class Handler(SimpleHTTPRequestHandler)  # line 147",
   "entry_flows": [
-    "Handler.__init__() → _portal_offline_browser.py, pathlib.Path, environ.get, RESULTS.append"
+    "Handler.__init__() → _portal_offline_browser.py, pathlib.Path, environ.get, re.search"
   ],
   "public_api": [
-    "class Handler(SimpleHTTPRequestHandler)  # line 143",
+    "class Handler(SimpleHTTPRequestHandler)  # line 147",
     "  Handler.__init__()",
     "  Handler.log_message()",
     "  Handler.do_GET()",
@@ -40,6 +40,6 @@
   "file_mtime": 1791298853332.665,
   "file_size": 3737,
   "file_birthtime": 1791298853331.6653,
-  "generated_at": "2026-10-28T13:29:20.529234Z",
+  "generated_at": "2026-10-30T14:37:26.708639Z",
   "stale": false
 }
