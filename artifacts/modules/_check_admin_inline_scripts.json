@@ -1,0 +1,38 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckAdminInlineScripts",
+  "file": "_check_admin_inline_scripts.py",
+  "purpose": "Every inline <script> block in adminpage.html must survive parsing.",
+  "entry_function": "check(name, ok, detail = '')",
+  "entry_flows": [
+    "_check_admin_inline_scripts → RESULTS.append, fh.write, subprocess.run, line.strip, shutil.which"
+  ],
+  "public_api": [
+    "check(name, ok, detail = '')",
+    "strip_comments(code)",
+    "syntax_error(code, workdir, tag)"
+  ],
+  "dependencies": [
+    "<!-- list module dependencies here -->"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), TEMPLATE = os.path.join(ROOT, 'templates', 'adminpage.html'), OUT = os.path.join(ROOT, '_check_admin_inline_scripts_out.txt'), RESULTS = [], SRC = open(TEMPLATE, encoding='utf-8').read(), BLOCKS = re.findall('<script(?![^>]*\\\\bsrc=)[^>]*>(.*?)</script>', SRC, re.S)",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "d51bd718dc128d00",
+  "file_mtime": 1793369364824.4307,
+  "file_size": 3395,
+  "file_birthtime": 1793369364822.3572,
+  "generated_at": "2026-10-30T14:09:27.948596Z",
+  "stale": false
+}

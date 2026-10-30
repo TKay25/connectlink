@@ -54,6 +54,10 @@ BASE = 'http://127.0.0.1:%d' % PORT
 
 RESULTS = []
 LOG = []              # every request the stub server saw, in order
+# The worker names its buckets after its own cache version; read it from the file
+# under test instead of pinning a version that the next deploy will move on from.
+CACHE_VER = re.search(r"const CACHE_VERSION = '(\w+)'",
+                      SW_FILE.read_text(encoding='utf-8')).group(1)
 
 
 def check(name, ok, detail=''):
@@ -336,8 +340,8 @@ try:
         check('a contract that has been through once is kept on the device',
               audit['doc'] == 1 and len(audit['contracts']) == 1, str(audit['contracts']))
         check('the buckets are the POS shell, the runtime one, the read one and the contract one',
-              all(n in ('connectlink-v3', 'connectlink-runtime-v3',
-                        'connectlink-read-v3', 'connectlink-docs-v1')
+              all(n in ('connectlink-' + CACHE_VER, 'connectlink-runtime-' + CACHE_VER,
+                        'connectlink-read-' + CACHE_VER, 'connectlink-docs-v1')
                   for n in audit['names']), str(audit['names']))
 
         page.evaluate(FETCH_JS, {'url': '/api/project-overcosts', 'as': 'json'})

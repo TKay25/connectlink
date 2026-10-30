@@ -3841,9 +3841,12 @@ body { font-family: Arial; margin: 20px; }
     <i class="bi bi-cloud-slash me-1"></i><span id="clOfflineBannerText"></span>
 </div>
 <script>
-// Global fallbacks for variables defined in later scripts
-var quillGeneratorNotes = null;
-var quillDetailsNotes = null;
+// Global fallbacks for variables defined in later scripts.
+// These deliberately do NOT declare anything: the real editors are `let`
+// bindings in the quotation block below, and a `var` of the same name here made
+// that whole block fail to parse ("Identifier ... has already been declared"),
+// which removed every function it defines -- including the quotation PDF
+// generator the portal and WhatsApp paths call.
 
 // Early stubs for functions defined in later scripts - prevents "not defined" errors
 // Real implementations in later scripts override these
@@ -4131,12 +4134,16 @@ window.loadActivityLog = window.loadActivityLog || function() { console.log('loa
         }
     }
 
-// Early construction items loader (standalone, no jQuery)
-var quotationRatesCache = window.quotationRatesCache || [];
+// Early construction items loader (standalone, no jQuery).
+// NOTE: this assigns the property, it does not declare a global. A `var
+// quotationRatesCache` here and the `let quotationRatesCache` in the main POS
+// block are the same global scope, and the clash made that entire block fail to
+// parse -- which silently removed every function defined in it (the quotation
+// PDF generator among them).
+window.quotationRatesCache = window.quotationRatesCache || [];
 window.loadConstructionItemsFromDatabase = window.loadConstructionItemsFromDatabase || function() {
     fetch('/api/get-quotation-rates').then(function(r){return r.json()}).then(function(data){
-        quotationRatesCache = data.success ? data.data : [];
-        window.quotationRatesCache = quotationRatesCache;
+        window.quotationRatesCache = data.success ? data.data : [];
         if(typeof window.renderConstructionItemsList==='function') window.renderConstructionItemsList();
     }).catch(function(err){
         var el=document.getElementById('constructionItemsList');
@@ -4159,7 +4166,8 @@ window.renderConstructionItemsList = window.renderConstructionItemsList || funct
     var totalEl = document.getElementById('constructionTotal');
     if(!listEl) return;
     
-    if(quotationRatesCache.length === 0){
+    var ratesEarly = window.quotationRatesCache || [];
+    if(ratesEarly.length === 0){
         listEl.innerHTML = '<p class="text-muted p-3">No items available</p>';
         if(totalEl) totalEl.textContent='0.00';
         return;
@@ -4173,7 +4181,7 @@ window.renderConstructionItemsList = window.renderConstructionItemsList || funct
     var html = '';
     var markupMultiplier = 1 + (markup / 100);
     
-    quotationRatesCache.forEach(function(rate, idx){
+    ratesEarly.forEach(function(rate, idx){
         var clientRatePerSqm = Number(rate.inhouseRate) || 0;
         var clientPrice = clientRatePerSqm * sqm;
         var basePrice = clientPrice / markupMultiplier;
@@ -4645,6 +4653,206 @@ window.deleteQuotationEarly = window.deleteQuotationEarly || function(qId, cName
     });
 };
 
+// ===================== QUOTATION PDF DESIGN KIT =====================
+// One look for every quotation PDF, taken from the CONTRACT PDF so the two
+// documents a client receives read as the same stationery: Roboto, the navy
+// #1E2A56 / #2A3A78 pair, gradient section bars, gradient info cards and the
+// contract's table style. There is deliberately NO rule under the title.
+//
+// The markup is emitted as a string because html2pdf rasterises whatever it is
+// given; a <style> block inside the document keeps it self-contained, so the
+// preview in a popup window looks the same as the PDF.
+window.CLQPdf = (function () {
+    var CSS = [
+        '.clq-doc{font-family:\'Roboto\',\'Inter\',Arial,Helvetica,sans-serif;color:#1E2A56;background:#fff;font-size:11px;line-height:1.45;}',
+        // The admin page styles bare elements (h1 carries a blue rule, tables carry
+        // their own borders). Zero-specificity reset so only the classes below decide
+        // what the printed document looks like.
+        ':where(.clq-doc) :where(h1,h2,h3,h4,h5,p,table,thead,tbody,tr,th,td,div){margin:0;padding:0;border:0;background:transparent;}',
+        '.clq-head{text-align:center;}',
+        '.clq-logo{display:block;margin:0 auto 12px auto;width:180px;height:auto;}',
+        '.clq-title{margin:0;padding:0;border:0;font-size:21px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase;color:#1E2A56;line-height:1.2;}',
+        '.clq-sub{margin:7px 0 0 0;font-size:10px;font-weight:600;letter-spacing:1.1px;text-transform:uppercase;color:#5a678a;}',
+        '.clq-intro{margin:12px 0 16px 0;font-size:11.5px;line-height:1.55;color:#3d4a6d;text-align:center;}',
+        // padding-top keeps the page-break boundary inside white space, so the slice
+        // never blends a dark block edge into a stray line at the bottom of a page.
+        '.clq-block{margin-bottom:9px;padding-top:4px;page-break-inside:avoid;break-inside:avoid;}',
+        '.clq-section{margin:0 0 10px 0;padding:6px 8px;text-align:center;border-radius:8px;',
+        'background:linear-gradient(90deg,#1E2A56,#2A3A78);color:#fff;font-size:12px;font-weight:700;',
+        // tight, downward-only shadow: a blurrier one bleeds a grey line above the bar,
+        // which shows up as a stray rule at the bottom of the previous PDF page.
+        'letter-spacing:0.8px;text-transform:uppercase;box-shadow:0 3px 4px -3px rgba(0,0,0,0.3);}',
+        '.clq-card{margin-bottom:12px;padding:16px 20px;border:1.5px solid #1E2A56;border-radius:12px;',
+        'background:linear-gradient(135deg,#f8faff 0%,#f0f5ff 100%);box-shadow:0 4px 12px rgba(26,42,86,0.08);}',
+        '.clq-fields{display:grid;grid-template-columns:1fr 1fr;column-gap:26px;row-gap:9px;}',
+        '.clq-field{display:flex;align-items:flex-end;gap:8px;}',
+        '.clq-field span{font-size:9.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#2A3A78;white-space:nowrap;}',
+        '.clq-field b{flex:1;padding-bottom:3px;border-bottom:1px solid #d1d9f0;font-size:11px;font-weight:600;color:#1E2A56;}',
+        '.clq-grid{display:grid;gap:10px;}',
+        '.clq-kpi{text-align:center;padding:0 6px;}',
+        '.clq-kpi + .clq-kpi{border-left:1px solid #d1d9f0;}',
+        '.clq-kpi small{display:block;margin-bottom:5px;font-size:9px;font-weight:600;letter-spacing:0.6px;text-transform:uppercase;color:#5a678a;}',
+        '.clq-kpi b{font-size:13px;font-weight:700;color:#1E2A56;}',
+        '.clq-kpi.is-hero b{font-size:19px;font-weight:900;}',
+        '.clq-kpi.is-accent b{color:#3A4B8C;}',
+        '.clq-rule{height:1px;margin:14px 0;background:#d1d9f0;}',
+        '.clq-table{width:100%;border-collapse:collapse;font-size:10.5px;border:1.5px solid #1E2A56;',
+        'box-shadow:0 3px 8px rgba(0,0,0,0.05);}',
+        '.clq-table thead th{padding:9px 10px;border:1px solid #2a3a78;background:linear-gradient(90deg,#1E2A56,#2A3A78);',
+        'color:#fff;font-size:9.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;}',
+        '.clq-table tbody td{padding:8px 10px;border:1px solid #d1d9f0;font-size:10.5px;color:#1E2A56;}',
+        '.clq-table tbody tr:nth-child(even){background:#f9faff;}',
+        '.clq-table tbody tr.clq-total td{background:linear-gradient(90deg,#1E2A56,#2A3A78);color:#fff;font-weight:800;border-color:#2a3a78;}',
+        '.clq-table tbody tr.clq-sub td{background:#eef2fc;color:#2A3A78;font-weight:700;}',
+        '.clq-note{margin-bottom:13px;padding:12px 16px;border-left:4px solid #1E2A56;border-radius:0 10px 10px 0;',
+        'background:#f8faff;font-size:10.5px;line-height:1.6;color:#31406b;}',
+        '.clq-note p{margin:0 0 6px 0;}',
+        '.clq-cols{display:flex;gap:16px;break-inside:avoid;page-break-inside:avoid;}',
+        '.clq-col{flex:1;padding:14px 16px;border:1.5px solid #1E2A56;border-radius:12px;font-size:10.5px;line-height:1.65;',
+        'background:linear-gradient(135deg,#f8faff 0%,#f0f5ff 100%);box-shadow:0 4px 12px rgba(26,42,86,0.08);}',
+        '.clq-col h5{margin:0 0 8px 0;font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:#1E2A56;}',
+        '.clq-kv{display:flex;justify-content:space-between;gap:10px;padding:1px 0;}',
+        '.clq-kv span{color:#5a678a;}',
+        '.clq-kv b{font-weight:700;}',
+        '.clq-callout{display:inline-block;margin:0 0 12px 0;padding:8px 16px;border:1px solid #ffe58f;border-radius:8px;',
+        'background:#fffbe6;color:#a86800;font-size:10.5px;font-weight:600;}',
+        '.clq-sign{display:flex;gap:30px;margin:26px 0 0 0;}',
+        '.clq-sign div{flex:1;padding-top:6px;border-top:1px solid #1E2A56;font-size:9px;letter-spacing:0.6px;text-transform:uppercase;color:#5a678a;}',
+        '.clq-foot{display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #d1d9f0;',
+        'font-size:9px;letter-spacing:0.4px;color:#8a95b3;}'
+    ].join('');
+
+    function money(v) {
+        return 'USD ' + (Number(v) || 0).toLocaleString('en-US',
+            { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function doc(inner) {
+        return '<div class="clq-doc"><style>' + CSS + '</style>' + inner + '</div>';
+    }
+
+    function head(title, subtitle) {
+        return '<div class="clq-head">'
+            + '<img class="clq-logo" src="/static/images/web-logo.png" alt="ConnectLink">'
+            + '<h1 class="clq-title">' + title + '</h1>'
+            + (subtitle ? '<p class="clq-sub">' + subtitle + '</p>' : '')
+            + '</div>';
+    }
+
+    function intro(text) {
+        return '<p class="clq-intro">' + text + '</p>';
+    }
+
+    function section(text) {
+        return '<h4 class="clq-section">' + text + '</h4>';
+    }
+
+    function block(inner) {
+        return '<div class="clq-block">' + inner + '</div>';
+    }
+
+    function card(inner) {
+        return '<div class="clq-card">' + inner + '</div>';
+    }
+
+    function fields(pairs) {
+        return '<div class="clq-fields">' + pairs.map(function (p) {
+            return '<div class="clq-field"><span>' + p[0] + '</span><b>' + p[1] + '</b></div>';
+        }).join('') + '</div>';
+    }
+
+    function row(items) {
+        return '<div class="clq-grid" style="grid-template-columns:repeat(' + items.length + ',1fr);align-items:end;">'
+            + items.map(function (k) {
+                var cls = 'clq-kpi' + (k.hero ? ' is-hero' : '') + (k.accent ? ' is-accent' : '');
+                return '<div class="' + cls + '"><small>' + k.label + '</small><b>' + k.value + '</b></div>';
+            }).join('') + '</div>';
+    }
+
+    function rule() {
+        return '<div class="clq-rule"></div>';
+    }
+
+    // cols:  [{label, a:'left'|'center'|'right', w:'12%'}]
+    // body:  [[{h:'1', a:'center'}, ...], ...]
+    // foot:  [{cls:'clq-total', cells:[{h:'TOTAL', span:4, a:'right'}, ...]}, ...]
+    function table(cols, body, foot) {
+        var head = '<tr>' + cols.map(function (c) {
+            return '<th style="text-align:' + (c.a || 'left') + ';' + (c.w ? 'width:' + c.w + ';' : '') + '">'
+                + c.label + '</th>';
+        }).join('') + '</tr>';
+        var rows = body.map(function (cells) {
+            return '<tr>' + cells.map(function (c) {
+                return '<td' + (c.span ? ' colspan="' + c.span + '"' : '')
+                    + ' style="text-align:' + (c.a || 'left') + ';">' + c.h + '</td>';
+            }).join('') + '</tr>';
+        }).join('');
+        var footRows = (foot || []).map(function (r) {
+            return '<tr class="' + (r.cls || '') + '">' + r.cells.map(function (c) {
+                return '<td' + (c.span ? ' colspan="' + c.span + '"' : '')
+                    + ' style="text-align:' + (c.a || 'left') + ';">' + c.h + '</td>';
+            }).join('') + '</tr>';
+        }).join('');
+        return '<table class="clq-table"><thead>' + head + '</thead><tbody>' + rows + footRows + '</tbody></table>';
+    }
+
+    function twoCols(left, right) {
+        return '<div class="clq-cols"><div class="clq-col">' + left + '</div>'
+            + '<div class="clq-col">' + right + '</div></div>';
+    }
+
+    function kv(label, value) {
+        return '<div class="clq-kv"><span>' + label + '</span><b>' + value + '</b></div>';
+    }
+
+    function note(inner) {
+        return '<div class="clq-note">' + inner + '</div>';
+    }
+
+    function foot(left, right) {
+        return '<div class="clq-foot"><span>' + left + '</span><span>' + right + '</span></div>';
+    }
+
+    // Hand a finished document to html2pdf.
+    //
+    // The logo and the webfonts are warmed BEFORE the generator measures anything.
+    // html2pdf sizes the capture from a measurement taken ahead of the render, so an
+    // image or font that landed afterwards pushed the last block (the footer) below
+    // the captured height and it silently vanished from the PDF.
+    function render(htmlContent, options, mode) {
+        const timeout = function (ms) {
+            return new Promise(function (resolve) { setTimeout(resolve, ms); });
+        };
+        const warm = Promise.all([
+            Promise.race([
+                new Promise(function (resolve) {
+                    const probe = new Image();
+                    probe.onload = probe.onerror = resolve;
+                    probe.src = '/static/images/web-logo.png';
+                }),
+                timeout(3000)
+            ]),
+            Promise.race([
+                (document.fonts && document.fonts.ready) ? document.fonts.ready.catch(function () {}) : Promise.resolve(),
+                timeout(3000)
+            ])
+        ]).then(function () { return null; }).catch(function () { return null; });
+        return warm.then(function () {
+            // CSS page-break mode: html2pdf moves a `break-inside: avoid` block whole
+            // to the next page instead of slicing it at the page edge (a table row used
+            // to be cut in half). Every block in this document carries that rule, so the
+            // walk stays cheap - measured under a second for both quotations.
+            const opts = Object.assign({}, options || {}, { pagebreak: { mode: ['css'] } });            const worker = window.html2pdf().set(opts).from(htmlContent);
+            if (mode === 'datauri') { return worker.outputPdf('datauristring'); }
+            return worker.save().then(function () { return null; });
+        });
+    }
+
+    return { money: money, doc: doc, head: head, intro: intro, section: section, block: block,
+             card: card, fields: fields, row: row, rule: rule, table: table, twoCols: twoCols,
+             kv: kv, note: note, foot: foot, render: render };
+})();
+
 // Early implementations for download/send/edit quotation (standalone, no jQuery/ready dependency)
 window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal || async function(qId) {
     if(typeof window.__realDownloadQuotationPDFFromPortal==='function') return window.__realDownloadQuotationPDFFromPortal(qId);
@@ -4741,134 +4949,214 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
         var catMap = {'construction_single':'Single Storey Construction','construction_double':'Double Storey Construction','kitchen':'Kitchen and Cabinets','tv_units':'TV Units','doors':'Doors','windows':'Windows','flooring':'Flooring','other':'Other'};
         var displayCat = catMap[(category||'').toLowerCase()]||category;
         
-        var htmlContent = '<div style="font-family:Roboto,Arial,sans-serif;background:#ffffff;color:#1E2A56;padding:0;margin:0;">';
-        htmlContent += '<div style="background:#ffffff;width:100%;padding:14px 16px;border:2px solid #1E2A56;border-radius:10px;box-sizing:border-box;">';
-        htmlContent += '<img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display:block;margin:0 auto 10px auto;width:130px;max-width:100%;">';
-        htmlContent += '<h1 style="margin:0 0 6px 0;text-align:center;font-size:16px;font-weight:900;color:#1E2A56;text-transform:uppercase;letter-spacing:1px;">Project Quotation</h1>';
-        htmlContent += '<div style="width:100px;height:2px;background:#1E2A56;margin:0 auto 14px auto;border-radius:10px;"></div>';
-        htmlContent += '<p style="font-size:12px;margin:0 0 12px 0;line-height:1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>'+clientName+'</strong>.</p>';
-        
-        // Project Details
-        htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">PROJECT DETAILS</h4>';
-        htmlContent += '<div style="display:table;width:100%;table-layout:fixed;margin-bottom:20px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:12px 16px;box-sizing:border-box;">';
-        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-right:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Client Name:</strong> <span>'+clientName+'</span></div>'+(isCon?'<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Project Size:</strong> <span>'+size+' Sq. Meters</span></div>':'')+'</div>';
-        htmlContent += '<div style="display:table-cell;width:50%;vertical-align:top;padding-left:10px;"><div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Category:</strong> <span>'+displayCat+'</span></div>';
-        htmlContent += '<div style="margin-bottom:8px;font-size:12px;"><strong style="display:inline-block;width:110px;">Date:</strong> <span>'+fmtDate(quotationDate)+'</span></div></div></div></div>';
-        
-        // Quotation Summary
-        htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">QUOTATION SUMMARY</h4>';
-        htmlContent += '<div style="border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;margin-bottom:20px;">';
-        var money2 = function(v){ return 'USD ' +(Number(v)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); };
-        var labelStyle = 'font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;';
-        // Top row carries what the client is being asked to pay and how it is made
-        // up, so the total and its VAT breakdown read together before the schedule.
-        var topCols = vatCalc.enabled ? 3 : 1;
-        htmlContent += '<div style="display:grid;grid-template-columns:repeat('+topCols+',1fr);gap:10px;text-align:center;align-items:end;">';
-        htmlContent += '<div style="padding:0 5px;"><div style="'+labelStyle+'">Total Amount</div><div style="font-size:15px;font-weight:900;color:#1E2A56;">'+money2(totalCost)+'</div></div>';
-        if(vatCalc.enabled){
-            htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">Subtotal (excl. VAT)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(vatCalc.net)+'</div></div>';
-            htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(vatCalc.vat)+'</div></div>';
+        // ---- document body, built with the shared contract-aligned kit ----
+        var Q = window.CLQPdf;
+        var money2 = function (v) {
+            return Q.money(v);
+        };
+        var esc = function (v) { return escapeHtml ? escapeHtml(v) : String(v == null ? '' : v); };
+        var displayCatSafe = esc(displayCat || 'Quotation');
+        var headBits = [displayCatSafe];
+        if (fmtDate(quotationDate)) { headBits.push('Issued ' + fmtDate(quotationDate)); }
+
+        var parts = [];
+        parts.push(Q.head('Project Quotation', headBits.join(' &middot; ')));
+        parts.push(Q.intro('This quotation sets out the proposed scope, costing and payment schedule prepared for <strong>'
+            + esc(clientName) + '</strong>. All prices are quoted in <strong>USD</strong>.'));
+
+        // ---- project details ----
+        var detailPairs = [['Client', esc(clientName)], ['Category', displayCatSafe]];
+        if (String(category || '').toLowerCase().indexOf('construction') !== -1) {
+            detailPairs.push(['Project Size', (size || '0') + ' m&sup2;']);
         }
-        htmlContent += '</div>';
-        // Second row: the payment schedule, kept separate from the pricing above.
-        var payCols = isCon ? 3 : 4;
-        htmlContent += '<div style="display:grid;grid-template-columns:repeat('+payCols+',1fr);gap:10px;text-align:center;margin-top:12px;padding-top:10px;border-top:1px solid #d8deef;">';
-        htmlContent += '<div style="padding:0 5px;"><div style="'+labelStyle+'">Deposit (30%)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(depositAmount)+'</div></div>';
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">Balance</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(balanceAmount)+'</div></div>';
-        htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">Monthly (over '+numMonths+' months)</div><div style="font-size:13px;font-weight:700;color:#1E2A56;">'+money2(monthlyInstallment)+'</div></div>';
-        if(!isCon) htmlContent += '<div style="padding:0 5px;border-left:1px solid #d8deef;"><div style="'+labelStyle+'">Duration</div><div style="font-size:13px;font-weight:700;color:#2196F3;">'+(isNonConstruction?maxItemDays:totalConstructionDays)+' Days</div></div>';
-        htmlContent += '</div></div></div>';
-        
-        // Quotation Notes (if any)
-        if(quotationNotes && quotationNotes.replace(/<[^>]*>/g,'').trim()){
-            htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;"><div style="border:1.5px solid #1E2A56;border-radius:10px;overflow:hidden;"><div style="background:#1E2A56;color:white;padding:6px 14px;font-size:11px;font-weight:800;letter-spacing:0.5px;text-align:center;text-transform:uppercase;">Quotation Notes</div><div style="padding:12px 16px;font-size:12px;line-height:1.6;color:#1E2A56;background:#fafbff;min-height:40px;">'+quotationNotes+'</div></div></div>';
-        }
-        
-        // Items Table (non-construction only)
-        if(isNonConstruction && items.length>0){
-            var ncItemRows = '';
-            var ncTotal = 0;
-            items.forEach(function(it, idx){
-                var amt = Number(it.amount||it.unitRate||it.inhouseRate||0);
-                var tot = Number(it.totalPrice||it.total||it.clientPrice||(amt*(it.quantity||1)));
-                ncTotal += tot;
-                ncItemRows += '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#f9f9f9':'#ffffff')+';">'+
-                    '<td style="padding:6px;text-align:center;">'+(idx+1)+'</td>'+
-                    '<td style="padding:6px;text-align:left;">'+escapeHtml(it.name||it.item||'Item')+'</td>'+
-                    '<td style="padding:6px;text-align:right;">USD '+amt.toFixed(2)+'</td>'+
-                    '<td style="padding:6px;text-align:center;color:#2196F3;">'+(it.days||0)+'</td>'+
-                    '<td style="padding:6px;text-align:right;font-weight:700;">USD '+tot.toFixed(2)+'</td></tr>';
+        detailPairs.push(['Quotation Date', fmtDate(quotationDate) || '&mdash;']);
+        parts.push(Q.block(Q.section('Project Details') + Q.card(Q.fields(detailPairs))));
+
+        // ---- money summary: what is due, then how it is paid ----
+        var pricing = [{ label: 'Total Amount', value: money2(totalCost), hero: true }];
+        if (vatCalc.enabled) {
+            pricing.push({ label: 'Subtotal (excl. VAT)', value: money2(vatCalc.net) });
+            pricing.push({
+                label: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (incl.)' : ''),
+                value: money2(vatCalc.vat)
             });
-            ncItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;">'+
-                '<td colspan="2" style="padding:8px 10px;text-align:right;"><strong>'+((vatCalc.enabled)?'SUBTOTAL':'TOTAL')+'</strong></td>'+
-                '<td style="padding:8px 10px;text-align:right;"></td>'+
-                '<td style="padding:8px 10px;text-align:center;"><strong>'+maxItemDays+'</strong></td>'+
-                '<td style="padding:8px 10px;text-align:right;"><strong>USD '+ncTotal.toFixed(2)+'</strong></td></tr>';
-            if(vatCalc.enabled){
-                ncItemRows += '<tr><td colspan="4" style="padding:6px 10px;text-align:right;">VAT @ '+vatCalc.rate+'%'+(vatCalc.mode==='inclusive'?' (included)':'')+'</td><td style="padding:6px 10px;text-align:right;">USD '+vatCalc.vat.toFixed(2)+'</td></tr>';
-                ncItemRows += '<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td><td style="padding:8px 10px;text-align:right;"><strong>USD '+vatCalc.total.toFixed(2)+'</strong></td></tr>';
+        }
+        var payable = [
+            { label: 'Deposit (30%)', value: money2(depositAmount) },
+            { label: 'Balance', value: money2(balanceAmount) },
+            { label: 'Monthly (' + numMonths + ' months)', value: money2(monthlyInstallment) }
+        ];
+        if (!isCon) {
+            payable.push({
+                label: 'Duration',
+                value: (isNonConstruction ? maxItemDays : totalConstructionDays) + ' Days',
+                accent: true
+            });
+        }
+        parts.push(Q.block(Q.section('Quotation Summary')
+            + Q.card(Q.row(pricing) + Q.rule() + Q.row(payable))));
+
+        // ---- notes ----
+        if (quotationNotes && quotationNotes.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()) {
+            parts.push(Q.block(Q.section('Quotation Notes') + Q.note(quotationNotes)));
+        }
+
+        // ---- itemised quotation: non-construction goods ----
+        if (isNonConstruction && items.length > 0) {
+            var ncRows = [];
+            var ncTotal = 0;
+            items.forEach(function (it, idx) {
+                var amt = Number(it.amount || it.unitRate || it.inhouseRate || 0);
+                var tot = Number(it.totalPrice || it.total || it.clientPrice || (amt * (it.quantity || 1)));
+                ncTotal += tot;
+                ncRows.push([
+                    { h: idx + 1, a: 'center' },
+                    { h: esc(it.name || it.item || 'Item') },
+                    { h: money2(amt), a: 'right' },
+                    { h: (it.days || 0), a: 'center' },
+                    { h: money2(tot), a: 'right' }
+                ]);
+            });
+            var ncFoot = [{
+                cls: 'clq-total',
+                cells: [
+                    { h: (vatCalc.enabled ? 'SUBTOTAL' : 'TOTAL'), a: 'right', span: 2 },
+                    { h: '', a: 'right' },
+                    { h: maxItemDays, a: 'center' },
+                    { h: money2(ncTotal), a: 'right' }
+                ]
+            }];
+            if (vatCalc.enabled) {
+                ncFoot.push({
+                    cls: 'clq-sub',
+                    cells: [
+                        { h: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 4 },
+                        { h: money2(vatCalc.vat), a: 'right' }
+                    ]
+                });
+                ncFoot.push({
+                    cls: 'clq-total',
+                    cells: [{ h: 'TOTAL', a: 'right', span: 4 }, { h: money2(vatCalc.total), a: 'right' }]
+                });
             }
-            htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:20px;">'+
-                '<h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">ITEMS</h4>'+
-                '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;">'+
-                '<thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th>'+
-                '<th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:46%;">Item</th>'+
-                '<th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:20%;">Price</th>'+
-                '<th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:12%;">Days</th>'+
-                '<th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:16%;">Total</th></tr></thead>'+
-                '<tbody>'+ncItemRows+'</tbody></table></div>';
+            parts.push(Q.block(Q.section('Items')
+                + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item', w: '46%' },
+                           { label: 'Price', a: 'right', w: '20%' }, { label: 'Days', a: 'center', w: '12%' },
+                           { label: 'Total', a: 'right', w: '16%' }], ncRows, ncFoot)));
         }
 
-        htmlContent += '</div></div>';
-
-        // Construction Items Table (construction only, after summary, before banking details)
-        if(showItemsTable && isCon){
-            htmlContent += '<div style="margin-bottom:22px;text-align:center;"><span style="display:inline-block;background:#fffbe6;color:#d48806;border:1px solid #ffe58f;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;"><i class="bi bi-info-circle-fill" style="margin-right:6px;"></i> For a full breakdown of your quotation, <span style="color:#C12B3E;">see the detailed quotation table below</span>.</span></div>';
-            htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;padding-bottom:20px;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">CONSTRUCTION ITEMS</h4>';
-            htmlContent += '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:30px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:5%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:36%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:15%;">Sq. Meters Size</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:15%;">Unit Rate</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:12%;">Days</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:right;width:17%;">Total (USD)</th></tr></thead><tbody>'+itemRows+'</tbody></table></div>';
-            if(tablePlacement === 'after_schedule' && schedules.length > 0){
-                htmlContent += '<div style="page-break-inside:avoid;break-inside:avoid;"><h4 style="text-align:center;background-color:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px 0;font-weight:800;letter-spacing:0.5px;">WORK SCHEDULE</h4><table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px;"><thead><tr><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:6%;">#</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:left;width:46%;">Item Description</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:24%;">Start Date</th><th style="padding:8px 10px;border:1px solid #2a3a78;text-align:center;width:24%;">End Date</th></tr></thead><tbody>'+scheduleRows+'</tbody></table></div>';
+        // ---- itemised quotation: construction works ----
+        if (showItemsTable && isCon) {
+            var conRows = [];
+            (items || []).forEach(function (item, idx) {
+                var nm = item.name || item.item || 'Item';
+                var qty = Number(item.quantity || item.sqm || 0);
+                var rate = Number(item.amount || item.unitRate || item.inhouseRate || 0);
+                var itmTotal = Number(item.totalPrice || item.total || item.clientPrice || 0);
+                var sDays = (schedules[idx] && schedules[idx].days) || item.days || 0;
+                conRows.push([
+                    { h: idx + 1, a: 'center' },
+                    { h: esc(nm) },
+                    { h: qty.toFixed(2), a: 'center' },
+                    { h: money2(rate), a: 'right' },
+                    { h: sDays, a: 'center' },
+                    { h: money2(itmTotal), a: 'right' }
+                ]);
+            });
+            var conFoot = [{
+                cls: 'clq-total',
+                cells: [
+                    { h: (vatCalc.enabled ? 'SUBTOTAL' : 'TOTAL'), a: 'right', span: 4 },
+                    { h: totalConstructionDays, a: 'center' },
+                    { h: money2(totalDisplayCost), a: 'right' }
+                ]
+            }];
+            if (vatCalc.enabled) {
+                conFoot.push({
+                    cls: 'clq-sub',
+                    cells: [
+                        { h: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 5 },
+                        { h: money2(vatCalc.vat), a: 'right' }
+                    ]
+                });
+                conFoot.push({
+                    cls: 'clq-total',
+                    cells: [{ h: 'TOTAL', a: 'right', span: 5 }, { h: money2(vatCalc.total), a: 'right' }]
+                });
             }
+            parts.push(Q.block('<div style="text-align:center;margin-bottom:12px;">'
+                + '<span class="clq-callout">For a full breakdown of your quotation, see the items below.</span></div>'
+                + Q.section('Construction Items')
+                + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '34%' },
+                           { label: 'Sq. Meters', a: 'center', w: '14%' }, { label: 'Unit Rate', a: 'right', w: '16%' },
+                           { label: 'Days', a: 'center', w: '12%' }, { label: 'Total (USD)', a: 'right', w: '18%' }],
+                          conRows, conFoot)));
         }
 
-        // Important Note & Banking Details
-        htmlContent += '<div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">';
-        htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">';
-        htmlContent += '<strong style="color:#C12B3E;">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.';
-        if(isKitchen){
-            htmlContent += '<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Important:</strong> Kitchen sink, stove, and other appliances are not included in this quotation.</div>';
+        // ---- work schedule ----
+        if (showItemsTable && schedules.length > 0) {
+            var schRows = schedules.map(function (s, idx) {
+                return [
+                    { h: idx + 1, a: 'center' },
+                    { h: esc(s.workScope || s.item || 'Task') },
+                    { h: s.startDate ? new Date(s.startDate).toLocaleDateString('en-GB') : '', a: 'center' },
+                    { h: s.endDate ? new Date(s.endDate).toLocaleDateString('en-GB') : '', a: 'center' }
+                ];
+            });
+            parts.push(Q.block(Q.section('Work Schedule')
+                + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '46%' },
+                           { label: 'Start Date', a: 'center', w: '24%' }, { label: 'End Date', a: 'center', w: '24%' }],
+                          schRows, [])));
         }
-        if(isCon){
-            htmlContent += '<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes), Gutters and Alububble (Alucushion Sheeting) for Roof.</div>';
-            htmlContent += '<div style="margin-top:8px;font-size:12px;line-height:1.5;"><strong>BOQ:</strong> If you require a detailed Bill of Quantities (BOQ), it costs <strong>USD 200</strong>.</div>';
-            htmlContent += '<div style="margin-top:15px;padding-top:12px;border-top:1px solid #d8deef;"><strong style="display:block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.3px;color:#1E2A56;font-size:12px;">⏱️ Our Turnaround Times for Residential Projects</strong>';
-            htmlContent += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;">';
-            htmlContent += '<div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div>';
-            htmlContent += '<div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div>';
-            htmlContent += '<div>Double Storey:</div><div><strong>120-180 days</strong></div>';
-            htmlContent += '<div>Perimeter Wall:</div><div><strong>30-40 days</strong></div>';
-            htmlContent += '<div>Roofing:</div><div><strong>10-14 days</strong></div>';
-            htmlContent += '<div>Finishings:</div><div><strong>30 days</strong></div>';
-            htmlContent += '</div></div>';
+
+        // ---- terms beside the banking details ----
+        var termsHtml = '<h5>Important Note</h5>'
+            + '<div>This quotation is valid for <strong>30 days</strong> from the date of issue. All prices are in '
+            + '<strong>USD</strong>; payment terms are confirmed in the formal agreement.</div>';
+        if (isKitchen) {
+            termsHtml += '<div style="margin-top:8px;"><strong>Important:</strong> kitchen sink, stove and other '
+                + 'appliances are not included in this quotation.</div>';
         }
-        htmlContent += '</div>';
-        htmlContent += '<div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.7;">';
-        htmlContent += '<strong style="display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.3px;color:#0A1A3A;">Banking Details</strong>';
-        htmlContent += '<div><strong>Bank:</strong> ZB BANK</div><div><strong>Branch:</strong> Msasa</div><div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div><div><strong>Account No:</strong> 450600586638405</div><div><strong>Account Type:</strong> USD Account</div>';
-        htmlContent += '</div></div>';
+        if (isCon) {
+            termsHtml += '<div style="margin-top:8px;"><strong>Quotation note:</strong> quote includes all finishings '
+                + 'except burglar bars, kitchen and BICs (wardrobes), gutters and Alububble (Alucushion sheeting) for roof.</div>';
+            termsHtml += '<div style="margin-top:8px;"><strong>BOQ:</strong> a detailed Bill of Quantities costs '
+                + '<strong>USD 200</strong>.</div>';
+            termsHtml += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #d1d9f0;">'
+                + '<strong style="display:block;margin-bottom:6px;">Turnaround times &mdash; residential</strong>'
+                + Q.kv('Single storey, standard foundation', '90&ndash;120 days')
+                + Q.kv('Single storey, special foundation', '110&ndash;140 days')
+                + Q.kv('Double storey', '120&ndash;180 days')
+                + Q.kv('Perimeter wall', '30&ndash;40 days')
+                + Q.kv('Roofing', '10&ndash;14 days')
+                + Q.kv('Finishings', '30 days')
+                + '</div>';
+        }
+        var bankHtml = '<h5>Banking Details</h5>'
+            + Q.kv('Bank', 'ZB BANK')
+            + Q.kv('Branch', 'Msasa')
+            + Q.kv('Account name', 'Connectlink Agency (Pvt) Ltd')
+            + Q.kv('Account number', '450600586638405')
+            + Q.kv('Account type', 'USD Account');
+        parts.push(Q.block(Q.twoCols(termsHtml, bankHtml)
+            + Q.foot('ConnectLink Properties', 'Quotation valid for 30 days from the date of issue')));
+        var htmlContent = Q.doc(parts.join(''));
+
         if(typeof html2pdf !== 'undefined' && typeof html2pdf === 'function'){
             var pdfOptions = {
                 margin: [6,6,6,6],
                 filename: 'Quotation_'+clientName.replace(/\s+/g,'_')+'_'+Date.now()+'.pdf',
                 image: {type:'jpeg',quality:0.98},
-                html2canvas: {scale:1.5,useCORS:true,scrollY:0},
-                pagebreak: {mode:['css','legacy']},
+                // No scrollY here on purpose. Forcing scrollY:0 made html2canvas cut
+                // the last block off the bottom of the document (the footer never
+                // reached the page) whenever the portal was scrolled; its default,
+                // which follows the element's own position, captures all of it.
+                html2canvas: {scale:1.5,useCORS:true},
                 jsPDF: {orientation:'portrait',unit:'mm',format:'a4'}
             };
             // Clear saved placement so it asks every time
             window.quotationPdfTablePlacement = null;
-            var worker = html2pdf().set(pdfOptions).from(htmlContent);
-            await worker.save();
+            await Q.render(htmlContent, pdfOptions, 'save');
         } else {
             // Fallback: open in new window
             window.quotationPdfTablePlacement = null;
@@ -26071,85 +26359,105 @@ async function generateKitchenPDF(outputMode = 'download') {
     const monthlyInstallment = balanceAmount / 3;  // Kitchen: 3 months
     const kitchenNotes = data.notes || '';
     
-    const htmlContent = `
-        <div style="font-family: 'Roboto', Arial, sans-serif; background:#ffffff; color:#1E2A56; padding:14px 16px;">
-            <div style="background:#ffffff; width:100%; max-width:100%;">
-                <img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display:block; margin:0 auto 10px auto; width:130px;">
-                <h1 style="margin:0 0 6px 0; text-align:center; font-size:16px; font-weight:900; color:#1E2A56;">Kitchen & Cabinets Quotation</h1>
-                <div style="width:100px; height:2px; background:#1E2A56; margin:0 auto 14px auto;"></div>
-                
-                <p style="font-size:12px; margin:0 0 12px 0;">This quotation outlines the proposed kitchen/cabinet items for <strong>${escapeHtml(clientName)}</strong>.</p>
-                
-                <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:12px 16px; margin-bottom:20px;">
-                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
-                        <div><strong>Client:</strong> ${escapeHtml(clientName)}</div>
-                        <div><strong>Category:</strong> Kitchen & Cabinets</div>
-                        <div><strong>Date:</strong> ${new Date(quotationDate).toLocaleDateString('en-GB')}</div>
-                    </div>
-                </div>
-                
-                <div style="border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; margin-bottom:20px;">
-                    <!-- Pricing first: the amount due and, when VAT is on, how it is made up. -->
-                    <div style="display:grid; grid-template-columns:repeat(${kitchenVatCalc.enabled ? 3 : 1},1fr); gap:10px; text-align:center; align-items:end;">
-                        <div><div style="font-size:10px; color:#5a678a;">Total Amount</div><div style="font-size:15px; font-weight:900;">USD ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
-                        ${kitchenVatCalc.enabled ? `
-                        <div><div style="font-size:10px; color:#5a678a;">Subtotal (excl. VAT)</div><div style="font-size:13px; font-weight:700;">USD ${kitchenVatCalc.net.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
-                        <div><div style="font-size:10px; color:#5a678a;">VAT @ ${kitchenVatCalc.rate}%${kitchenVatCalc.mode === 'inclusive' ? ' (included)' : ''}</div><div style="font-size:13px; font-weight:700;">USD ${kitchenVatCalc.vat.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>` : ''}
-                    </div>
-                    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; text-align:center; margin-top:12px; padding-top:10px; border-top:1px solid #d8deef;">
-                        <div><div style="font-size:10px; color:#5a678a;">Deposit (30%)</div><div style="font-size:13px; font-weight:700;">USD ${depositAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
-                        <div><div style="font-size:10px; color:#5a678a;">Balance</div><div style="font-size:13px; font-weight:700;">USD ${balanceAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
-                        <div><div style="font-size:10px; color:#5a678a;">Monthly (3 months)</div><div style="font-size:13px; font-weight:700;">USD ${monthlyInstallment.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
-                        <div><div style="font-size:10px; color:#5a678a;">Duration</div><div style="font-size:13px; font-weight:700; color:#2196F3;">${maxDays} Days</div></div>
-                    </div>
-                </div>
-                
-                ${kitchenNotes && kitchenNotes.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() ? `
-                <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
-                    <div style="border:1.5px solid #1E2A56; border-radius:10px; overflow:hidden;">
-                        <div style="background:#1E2A56; color:white; padding:6px 14px; font-size:11px; font-weight:800; letter-spacing:0.5px; text-align:center; text-transform:uppercase;">
-                            <i class="bi bi-sticky-fill"></i> Quotation Notes
-                        </div>
-                        <div style="padding:12px 16px; font-size:12px; line-height:1.6; color:#1E2A56; background:#fafbff; min-height:40px;">
-                            ${kitchenNotes}
-                        </div>
-                    </div>
-                </div>` : ''}
-                
-                <h4 style="background:#1E2A56; color:white; padding:5px 8px; border-radius:6px; font-size:11px; margin:0 0 12px 0;">KITCHEN & CABINET ITEMS</h4>
-                <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:20px;">
-                    <thead>
-                        <tr><th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">#</th>
-                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Item</th>
-                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Qty</th>
-                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Unit Price</th>
-                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Days</th>
-                            <th style="padding:8px; border:1px solid #2a3a78; background:#1E2A56; color:white;">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${itemsRows}
-                        ${itemsTotalRow}
-                    </tbody>
-                </table>
-                
-                <div style="display:flex; flex-wrap:wrap; gap:16px; margin-bottom:0; page-break-inside:avoid; break-inside:avoid;">
-                    <div style="flex:1 1 320px; min-width:260px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:11px; line-height:1.6; overflow:hidden;">
-                        <strong style="color:#d32f2f;">Important Note:</strong> This quotation is valid for <strong>30 days</strong>. All prices are in <strong>USD</strong>.
-                        <div style="margin-top:8px;"><strong>Terms:</strong> 30% deposit required before work commences.</div>
-                    </div>
-                    <div style="flex:1 1 320px; min-width:260px; border:1.5px solid #1E2A56; border-radius:10px; background:#fafbff; padding:14px 16px; font-size:11px; line-height:1.6; overflow:hidden;">
-                        <strong style="display:block; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px; color:#0A1A3A; font-size:12px;">Banking Details</strong>
-                        <div><strong>Bank:</strong> ZB BANK</div>
-                        <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
-                        <div><strong>Account No:</strong> 450600586638405</div>
-                        <div><strong>Account Type:</strong> USD Account</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
+    // ---- document body, built with the shared contract-aligned kit ----
+    const Q = window.CLQPdf;
+    const money2 = function (v) { return Q.money(v); };
+    const esc = function (v) { return typeof escapeHtml === 'function' ? escapeHtml(v) : String(v == null ? '' : v); };
+    const issued = quotationDate
+        ? new Date(quotationDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+        : '';
+
+    const parts = [];
+    parts.push(Q.head('Kitchen &amp; Cabinets Quotation', 'Issued ' + issued));
+    parts.push(Q.intro('This quotation sets out the kitchen and cabinet items prepared for <strong>'
+        + esc(clientName) + '</strong>. All prices are quoted in <strong>USD</strong>.'));
+
+    parts.push(Q.block(Q.section('Quotation Details') + Q.card(Q.fields([
+        ['Client', esc(clientName)],
+        ['Category', 'Kitchen &amp; Cabinets'],
+        ['Quotation Date', issued || '&mdash;']
+    ]))));
+
+    // ---- money summary: what is due, then how it is paid ----
+    var pricing = [{ label: 'Total Amount', value: money2(totalCost), hero: true }];
+    if (kitchenVatCalc.enabled) {
+        pricing.push({ label: 'Subtotal (excl. VAT)', value: money2(kitchenVatCalc.net) });
+        pricing.push({
+            label: 'VAT @ ' + kitchenVatCalc.rate + '%' + (kitchenVatCalc.mode === 'inclusive' ? ' (incl.)' : ''),
+            value: money2(kitchenVatCalc.vat)
+        });
+    }
+    var payable = [
+        { label: 'Deposit (30%)', value: money2(depositAmount) },
+        { label: 'Balance', value: money2(balanceAmount) },
+        { label: 'Monthly (3 months)', value: money2(monthlyInstallment) },
+        { label: 'Duration', value: maxDays + ' Days', accent: true }
+    ];
+    parts.push(Q.block(Q.section('Quotation Summary')
+        + Q.card(Q.row(pricing) + Q.rule() + Q.row(payable))));
+
+    // ---- notes ----
+    if (kitchenNotes && kitchenNotes.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()) {
+        parts.push(Q.block(Q.section('Quotation Notes') + Q.note(kitchenNotes)));
+    }
+
+    // ---- itemised quotation ----
+    var rows = [];
+    data.items.forEach(function (item, index) {
+        var amt = Number(item.amount || 0);
+        var tot = Number(item.totalPrice || item.total || (item.quantity || 1) * amt);
+        rows.push([
+            { h: index + 1, a: 'center' },
+            { h: esc(item.name || 'Item') },
+            { h: (item.quantity || 0), a: 'center' },
+            { h: money2(amt), a: 'right' },
+            { h: (item.days || 0), a: 'center' },
+            { h: money2(tot), a: 'right' }
+        ]);
+    });
+    var foot = [{
+        cls: 'clq-total',
+        cells: [
+            { h: kitchenItemsSumLabel, a: 'right', span: 4 },
+            { h: maxDays, a: 'center' },
+            { h: money2(kitchenItemsSum), a: 'right' }
+        ]
+    }];
+    if (kitchenVatCalc.enabled) {
+        foot.push({
+            cls: 'clq-sub',
+            cells: [
+                { h: 'VAT @ ' + kitchenVatCalc.rate + '%' + (kitchenVatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 5 },
+                { h: money2(kitchenVatCalc.vat), a: 'right' }
+            ]
+        });
+        foot.push({
+            cls: 'clq-total',
+            cells: [{ h: 'TOTAL', a: 'right', span: 5 }, { h: money2(totalCost), a: 'right' }]
+        });
+    }
+    parts.push(Q.block(Q.section('Kitchen &amp; Cabinet Items')
+        + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item', w: '40%' },
+                   { label: 'Qty', a: 'center', w: '10%' }, { label: 'Unit Price', a: 'right', w: '16%' },
+                   { label: 'Days', a: 'center', w: '10%' }, { label: 'Total', a: 'right', w: '18%' }],
+                  rows, foot)));
+
+    // ---- terms beside the banking details ----
+    var terms = '<h5>Important Note</h5>'
+        + '<div>This quotation is valid for <strong>30 days</strong> from the date of issue. All prices are in '
+        + '<strong>USD</strong>. A <strong>30% deposit</strong> is required before work commences.</div>'
+        + '<div style="margin-top:8px;"><strong>Not included:</strong> kitchen sink, stove and other appliances.</div>';
+    var bank = '<h5>Banking Details</h5>'
+        + Q.kv('Bank', 'ZB BANK')
+        + Q.kv('Branch', 'Msasa')
+        + Q.kv('Account name', 'Connectlink Agency (Pvt) Ltd')
+        + Q.kv('Account number', '450600586638405')
+        + Q.kv('Account type', 'USD Account');
+    parts.push(Q.block(Q.twoCols(terms, bank)
+        + Q.foot('ConnectLink Properties', 'Quotation valid for 30 days from the date of issue')));
+
+    const htmlContent = Q.doc(parts.join(''));
+
     const options = {
         margin: [6, 6, 6, 6],
         filename: `Kitchen_Quotation_${clientName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`,
@@ -26158,14 +26466,7 @@ async function generateKitchenPDF(outputMode = 'download') {
         jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
     };
     
-    const worker = html2pdf().set(options).from(htmlContent);
-    
-    if (outputMode === 'datauri') {
-        return worker.outputPdf('datauristring');
-    }
-    
-    await worker.save();
-    return null;
+    return window.CLQPdf.render(htmlContent, options, outputMode === 'datauri' ? 'datauri' : 'save');
 }
 
 // Expose kitchen functions globally
@@ -33705,6 +34006,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let quotationRatesCache = [];
     let ganttItems = [];
 
+    // Publish the generators the moment this block starts. They are function
+    // declarations, so they already exist; registering them here means a later
+    // error inside this very large block can never again leave the portal and the
+    // WhatsApp "send quotation" button without a PDF generator.
+    try {
+        window.generateQuotationPDF = generateQuotationPDF;
+        window.generateKitchenPDF = generateKitchenPDF;
+        window.downloadQuotationPDFFromPortal = downloadQuotationPDFFromPortal;
+    } catch (e) { /* non-fatal */ }
+
     $(document).ready(function () {
         // DataTables for placeholder tables removed - actual tables are rendered server-side
         // Only initialize DataTables on visible tables that contain actual data
@@ -35247,225 +35558,195 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     const constructionItemsPlacementAfter = normalizedPlacement === 'after_schedule' ? constructionItemsTableHtml : '';
     const excludeTableMessageHtml = '';
 
-    // HTML template for PDF - FULL HTML CONTENT
-    const htmlContent = `
-        <div style="font-family: 'Roboto', Arial, sans-serif; background: #ffffff; color: #1E2A56; padding: 0; margin: 0;">
-            <div style="background: #ffffff; width: 100%; padding: 14px 16px; border: 2px solid #1E2A56; border-radius: 10px; box-sizing: border-box;">
-                <img src="/static/images/web-logo.png" alt="ConnectLink Logo" style="display: block; margin: 0 auto 10px auto; width: 130px; max-width: 100%;">
-                <h1 style="margin: 0 0 6px 0; text-align: center; font-size: 16px; font-weight: 900; color: #1E2A56; text-transform: uppercase; letter-spacing: 1px;">Project Quotation</h1>
-                <div style="width: 100px; height: 2px; background: #1E2A56; margin: 0 auto 14px auto; border-radius: 10px;"></div>
+    // ---- document body, built with the shared contract-aligned kit ----
+    const Q = window.CLQPdf;
+    const money2 = function (v) { return Q.money(v); };
+    const esc = function (v) { return typeof escapeHtml === 'function' ? escapeHtml(v) : String(v == null ? '' : v); };
+    const isCon = isConstructionCat;
+    const displayCatSafe = esc(typeof formatCategoryName === 'function' ? formatCategoryName(category) : (category || 'Quotation'));
+    const headBits = [displayCatSafe];
+    if (formatPdfDate(quotationDate)) { headBits.push('Issued ' + formatPdfDate(quotationDate)); }
 
-                <p style="font-size: 12px; margin: 0 0 12px 0; line-height: 1.5;">This quotation outlines the proposed project scope, costing, and schedule prepared for <strong>${escapeHtml(clientName)}</strong>.</p>
+    const parts = [];
+    parts.push(Q.head('Project Quotation', headBits.join(' &middot; ')));
+    parts.push(Q.intro('This quotation sets out the proposed scope, costing and payment schedule prepared for <strong>'
+        + esc(clientName) + '</strong>. All prices are quoted in <strong>USD</strong>.'));
 
-                <!-- PROJECT DETAILS -->
-                <div style="page-break-inside: avoid; break-inside: avoid;">
-                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">PROJECT DETAILS</h4>
-                    <div style="display: table; width: 100%; table-layout: fixed; margin-bottom: 20px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 12px 16px; box-sizing: border-box;">
-                        <div style="display: table-cell; width: 50%; vertical-align: top; padding-right: 10px; box-sizing: border-box;">
-                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Client Name:</strong> <span>${escapeHtml(clientName)}</span></div>
-                            ${String(category || '').toLowerCase().includes('construction') ? `<div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Project Size:</strong> <span>${size} Sq. Meters</span></div>` : ''}
-                        </div>
-                        <div style="display: table-cell; width: 50%; vertical-align: top; padding-left: 10px; box-sizing: border-box;">
-                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Category:</strong> <span>${escapeHtml(formatCategoryName(category))}</span></div>
-                            <div style="margin-bottom: 8px; font-size: 12px;"><strong style="display: inline-block; width: 110px;">Date:</strong> <span>${formatPdfDate(quotationDate)}</span></div>
-                        </div>
-                    </div>
-                </div>
+    // ---- project details ----
+    var detailPairs = [['Client', esc(clientName)], ['Category', displayCatSafe]];
+    if (isCon) { detailPairs.push(['Project Size', (size || '0') + ' m&sup2;']); }
+    detailPairs.push(['Quotation Date', formatPdfDate(quotationDate) || '&mdash;']);
+    parts.push(Q.block(Q.section('Project Details') + Q.card(Q.fields(detailPairs))));
 
-                <!-- QUOTATION SUMMARY -->
-                <div style="page-break-inside: avoid; break-inside: avoid;">
-                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">QUOTATION SUMMARY</h4>
-                    <div style="border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; margin-bottom: 20px;">
-                        ${(() => {
-                            const isConstruction = String(category || '').toLowerCase().includes('construction');
-                            // Pricing row first (total + its VAT make-up), payment
-                            // schedule on its own row below, matching the preview.
-                            const pricingCells = `
-                            <div style="padding: 0 5px;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Total Amount</div>
-                                <div style="font-size: 15px; font-weight: 900; color: #1E2A56;">${formatCurrency(totalCost)}</div>
-                            </div>` + (vatCalc.enabled ? `
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Subtotal (excl. VAT)</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(vatCalc.net)}</div>
-                            </div>
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">${vatCalc.mode === 'inclusive' ? 'VAT (Included)' : 'VAT'} (${vatCalc.rate}%)</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(vatCalc.vat)}</div>
-                            </div>` : '');
-                            const payCols = isConstruction ? 3 : 4;
-                            return `
-                        <div style="display: grid; grid-template-columns: repeat(${vatCalc.enabled ? 3 : 1}, 1fr); gap: 10px; text-align: center; align-items: end;">
-                            ${pricingCells}
-                        </div>
-                        <div style="display: grid; grid-template-columns: repeat(${payCols}, 1fr); gap: 10px; text-align: center; margin-top: 12px; padding-top: 10px; border-top: 1px solid #d8deef;">
-                            <div style="padding: 0 5px;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Deposit (30%)</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(depositAmount)}</div>
-                            </div>
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(balanceAmount)}</div>
-                            </div>
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Monthly (over ${monthTerms} months)</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #1E2A56;">${formatCurrency(monthlyInstallment)}</div>
-                            </div>
-                            ${!isConstruction ? `
-                            <div style="padding: 0 5px; border-left: 1px solid #d8deef;">
-                                <div style="font-size: 10px; color: #5a678a; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;">Duration</div>
-                                <div style="font-size: 13px; font-weight: 700; color: #2196F3;">${isNonConstruction ? maxItemDays : totalConstructionDays} Days</div>
-                            </div>` : ''}
-                        </div>`;
-                        })()}
-                    </div>
-                </div>
+    // ---- money summary: what is due, then how it is paid ----
+    var pricing = [{ label: 'Total Amount', value: money2(totalCost), hero: true }];
+    if (vatCalc.enabled) {
+        pricing.push({ label: 'Subtotal (excl. VAT)', value: money2(vatCalc.net) });
+        pricing.push({
+            label: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (incl.)' : ''),
+            value: money2(vatCalc.vat)
+        });
+    }
+    var payable = [
+        { label: 'Deposit (30%)', value: money2(depositAmount) },
+        { label: 'Balance', value: money2(balanceAmount) },
+        { label: 'Monthly (' + monthTerms + ' months)', value: money2(monthlyInstallment) }
+    ];
+    if (!isCon) {
+        payable.push({
+            label: 'Duration',
+            value: (isNonConstruction ? maxItemDays : totalConstructionDays) + ' Days',
+            accent: true
+        });
+    }
+    parts.push(Q.block(Q.section('Quotation Summary')
+        + Q.card(Q.row(pricing) + Q.rule() + Q.row(payable))));
 
-                ${quotationNotes && quotationNotes.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() ? `
-                <!-- QUOTATION NOTES -->
-                <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
-                    <div style="border: 1.5px solid #1E2A56; border-radius: 10px; overflow: hidden;">
-                        <div style="background: #1E2A56; color: white; padding: 6px 14px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-align: center; text-transform: uppercase;">
-                            <i class="bi bi-sticky-fill"></i> Quotation Notes
-                        </div>
-                        <div style="padding: 12px 16px; font-size: 12px; line-height: 1.6; color: #1E2A56; background: #fafbff; min-height: 40px;">
-                            ${quotationNotes}
-                        </div>
-                    </div>
-                </div>` : ''}
+    // ---- notes ----
+    if (quotationNotes && quotationNotes.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()) {
+        parts.push(Q.block(Q.section('Quotation Notes') + Q.note(quotationNotes)));
+    }
 
-                ${isNonConstruction ? `
-                <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
-                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">ITEMS</h4>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
-                        <thead>
-                            <tr>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 46%;">Item</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 20%;">Price</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 12%;">Days</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: right; width: 16%;">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${items.map(function(it, idx){
-                                var nm = it.item || it.name || 'Item';
-                                var amt = Number(it.amount || it.inhouseRate || it.unitRate || 0);
-                                var dy = it.days || 0;
-                                var tot = Number(it.clientPrice || it.total || it.totalPrice || (amt * (it.quantity||1)));
-                                return '<tr style="border-bottom:1px solid #ddd;background:'+(idx%2===0?'#f9f9f9':'#ffffff')+';">'+
-                                    '<td style="padding:6px;text-align:center;">'+(idx+1)+'</td>'+
-                                    '<td style="padding:6px;text-align:left;">'+escapeHtml(nm)+'</td>'+
-                                    '<td style="padding:6px;text-align:right;">'+formatCurrency(amt)+'</td>'+
-                                    '<td style="padding:6px;text-align:center;color:#2196F3;">'+dy+'</td>'+
-                                    '<td style="padding:6px;text-align:right;font-weight:700;">'+formatCurrency(tot)+'</td></tr>';
-                            }).join('')}
-                            <tr style="background:#1E2A56;color:white;font-weight:bold;">
-                                <td colspan="2" style="padding:8px 10px;text-align:right;"><strong>TOTAL</strong></td>
-                                <td style="padding:8px 10px;text-align:right;"></td>
-                                <td style="padding:8px 10px;text-align:center;"><strong>${maxItemDays}</strong></td>
-                                <td style="padding:8px 10px;text-align:right;"><strong>${formatCurrency(totalDisplayCost)}</strong></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>` : ''}
+    // ---- itemised quotation: non-construction goods ----
+    if (isNonConstruction && items.length > 0) {
+        var ncRows = [];
+        var ncTotal = 0;
+        items.forEach(function (it, idx) {
+            var amt = Number(it.amount || it.unitRate || it.inhouseRate || 0);
+            var tot = Number(it.totalPrice || it.total || it.clientPrice || (amt * (it.quantity || 1)));
+            ncTotal += tot;
+            ncRows.push([
+                { h: idx + 1, a: 'center' },
+                { h: esc(it.name || it.item || 'Item') },
+                { h: money2(amt), a: 'right' },
+                { h: (it.days || 0), a: 'center' },
+                { h: money2(tot), a: 'right' }
+            ]);
+        });
+        var ncFoot = [{
+            cls: 'clq-total',
+            cells: [
+                { h: (vatCalc.enabled ? 'SUBTOTAL' : 'TOTAL'), a: 'right', span: 2 },
+                { h: '', a: 'right' },
+                { h: maxItemDays, a: 'center' },
+                { h: money2(ncTotal), a: 'right' }
+            ]
+        }];
+        if (vatCalc.enabled) {
+            ncFoot.push({
+                cls: 'clq-sub',
+                cells: [
+                    { h: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 4 },
+                    { h: money2(vatCalc.vat), a: 'right' }
+                ]
+            });
+            ncFoot.push({
+                cls: 'clq-total',
+                cells: [{ h: 'TOTAL', a: 'right', span: 4 }, { h: money2(vatCalc.total), a: 'right' }]
+            });
+        }
+        parts.push(Q.block(Q.section('Items')
+            + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item', w: '46%' },
+                       { label: 'Price', a: 'right', w: '20%' }, { label: 'Days', a: 'center', w: '12%' },
+                       { label: 'Total', a: 'right', w: '16%' }], ncRows, ncFoot)));
+    }
 
-                ${showConstructionItemsTable && /construction/.test(String(category||'').toLowerCase()) ? `
-                <!-- INFO MESSAGE -->
-                <div style="margin-bottom: 22px; text-align: center;">
-                    <span style="display: inline-block; background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;">
-                        <i class="bi bi-info-circle-fill" style="margin-right: 6px;"></i>
-                        For a full breakdown of your quotation, <span style="color: var(--primary);">see the detailed quotation table below</span>.
-                    </span>
-                </div>` : ''}
+    // ---- itemised quotation: construction works ----
+    if (showConstructionItemsTable && isCon) {
+        var conRows = [];
+        items.forEach(function (it, idx) {
+            var qty = Number(it.sqm) || 0;
+            var rate = Number(it.inhouseRate || it.unitRate) || 0;
+            var tot = Number(it.clientPrice || it.total || it.totalPrice || (qty * rate));
+            var dayCount = daysByIndex[idx] !== undefined ? daysByIndex[idx] : (Number(it.days) || 0);
+            conRows.push([
+                { h: idx + 1, a: 'center' },
+                { h: esc(it.item || it.name || 'Item') },
+                { h: qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), a: 'center' },
+                { h: money2(rate), a: 'right' },
+                { h: dayCount, a: 'center' },
+                { h: money2(tot), a: 'right' }
+            ]);
+        });
+        var conFoot = [{
+            cls: 'clq-total',
+            cells: [
+                { h: (vatCalc.enabled ? 'SUBTOTAL' : 'TOTAL'), a: 'right', span: 4 },
+                { h: totalDaysSum, a: 'center' },
+                { h: money2(totalDisplayCost), a: 'right' }
+            ]
+        }];
+        if (vatCalc.enabled) {
+            conFoot.push({
+                cls: 'clq-sub',
+                cells: [
+                    { h: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 5 },
+                    { h: money2(vatCalc.vat), a: 'right' }
+                ]
+            });
+            conFoot.push({
+                cls: 'clq-total',
+                cells: [{ h: 'TOTAL', a: 'right', span: 5 }, { h: money2(vatCalc.total), a: 'right' }]
+            });
+        }
+        parts.push(Q.block('<div style="text-align:center;margin-bottom:12px;">'
+            + '<span class="clq-callout">For a full breakdown of your quotation, see the items below.</span></div>'
+            + Q.section('Construction Items')
+            + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '34%' },
+                       { label: 'Sq. Meters', a: 'center', w: '14%' }, { label: 'Unit Rate', a: 'right', w: '16%' },
+                       { label: 'Days', a: 'center', w: '12%' }, { label: 'Total (USD)', a: 'right', w: '18%' }],
+                      conRows, conFoot)));
+    }
 
-                ${constructionItemsPlacementBefore}
-                ${normalizedPlacement === 'after_schedule' && schedules.length > 0 ? `
-                <!-- WORK SCHEDULE -->
-                <div style="page-break-inside:avoid; break-inside:avoid;">
-                    <h4 style="text-align: center; background-color: #1E2A56; color: white; padding: 5px 8px; border-radius: 6px; font-size: 11px; margin: 0 0 12px 0; font-weight: 800; letter-spacing: 0.5px;">WORK SCHEDULE</h4>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px;">
-                        <thead>
-                            <tr>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 6%;">#</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: left; width: 46%;">Item Description</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 24%;">Start Date</th>
-                                <th style="padding: 8px 10px; border: 1px solid #2a3a78; text-align: center; width: 24%;">End Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${schedules.map((schedule, index) => {
-                                const workScope = schedule.workScope || schedule.item || 'Task';
-                                const startDate = schedule.startDate ? new Date(schedule.startDate).toLocaleDateString('en-GB') : '';
-                                const endDate = schedule.endDate ? new Date(schedule.endDate).toLocaleDateString('en-GB') : '';
-                                const bg = index % 2 === 0 ? '#f9f9f9' : '#ffffff';
-                                return `
-                                    <tr style="border-bottom:1px solid #ddd; background-color:${bg};">
-                                        <td style="padding:6px; text-align:center;">${index + 1}</td>
-                                        <td style="padding:6px; text-align:left;">${escapeHtml(workScope)}</td>
-                                        <td style="padding:6px; text-align:center;">${startDate}</td>
-                                        <td style="padding:6px; text-align:center;">${endDate}</td>
-                                    </tr>`;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>` : ''}
+    // ---- work schedule ----
+    if (schedules.length > 0) {
+        var schRows = schedules.map(function (s, idx) {
+            return [
+                { h: idx + 1, a: 'center' },
+                { h: esc(s.workScope || s.item || 'Task') },
+                { h: s.startDate ? new Date(s.startDate).toLocaleDateString('en-GB') : '', a: 'center' },
+                { h: s.endDate ? new Date(s.endDate).toLocaleDateString('en-GB') : '', a: 'center' }
+            ];
+        });
+        parts.push(Q.block(Q.section('Work Schedule')
+            + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '46%' },
+                       { label: 'Start Date', a: 'center', w: '24%' }, { label: 'End Date', a: 'center', w: '24%' }],
+                      schRows, [])));
+    }
 
-                ${constructionItemsPlacementAfter}
+    // ---- terms beside the banking details ----
+    var termsHtml = '<h5>Important Note</h5>'
+        + '<div>This quotation is valid for <strong>30 days</strong> from the date of issue. All prices are in '
+        + '<strong>USD</strong>; payment terms are confirmed in the formal agreement.</div>';
+    if (isKitchenCat) {
+        termsHtml += '<div style="margin-top:8px;"><strong>Important:</strong> kitchen sink, stove and other '
+            + 'appliances are not included in this quotation.</div>';
+    }
+    if (isCon) {
+        termsHtml += '<div style="margin-top:8px;"><strong>Quotation note:</strong> quote includes all finishings '
+            + 'except burglar bars, kitchen and BICs (wardrobes), gutters and Alububble (Alucushion sheeting) for roof.</div>';
+        termsHtml += '<div style="margin-top:8px;"><strong>BOQ:</strong> a detailed Bill of Quantities costs '
+            + '<strong>USD 200</strong>.</div>';
+        termsHtml += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #d1d9f0;">'
+            + '<strong style="display:block;margin-bottom:6px;">Turnaround times &mdash; residential</strong>'
+            + Q.kv('Single storey, standard foundation', '90&ndash;120 days')
+            + Q.kv('Single storey, special foundation', '110&ndash;140 days')
+            + Q.kv('Double storey', '120&ndash;180 days')
+            + Q.kv('Perimeter wall', '30&ndash;40 days')
+            + Q.kv('Roofing', '10&ndash;14 days')
+            + Q.kv('Finishings', '30 days')
+            + '</div>';
+    }
+    var bankHtml = '<h5>Banking Details</h5>'
+        + Q.kv('Bank', 'ZB BANK')
+        + Q.kv('Branch', 'Msasa')
+        + Q.kv('Account name', 'Connectlink Agency (Pvt) Ltd')
+        + Q.kv('Account number', '450600586638405')
+        + Q.kv('Account type', 'USD Account');
+    parts.push(Q.block(Q.twoCols(termsHtml, bankHtml)
+        + Q.foot('ConnectLink Properties', 'Quotation valid for 30 days from the date of issue')));
 
-                ${vatCalc.enabled ? `
-                <div style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 20px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
-                        <tr>
-                            <td style="border: none; text-align: right; padding: 4px 10px; color: #5a678a;">Subtotal (excl. VAT)</td>
-                            <td style="border: none; text-align: right; width: 22%; padding: 4px 10px; font-weight: 600;">${formatCurrency(vatCalc.net)}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: none; text-align: right; padding: 4px 10px; color: #5a678a;">${vatCalc.mode === 'inclusive' ? 'VAT included' : 'VAT'} @ ${vatCalc.rate}%</td>
-                            <td style="border: none; text-align: right; padding: 4px 10px; font-weight: 600;">${formatCurrency(vatCalc.vat)}</td>
-                        </tr>
-                        <tr>
-                            <td style="border: none; text-align: right; padding: 4px 10px; font-weight: 800; color: #1E2A56;">Total payable (incl. VAT)</td>
-                            <td style="border: none; text-align: right; padding: 4px 10px; font-weight: 800; color: #1E2A56;">${formatCurrency(vatCalc.total)}</td>
-                        </tr>
-                    </table>
-                </div>` : ''}
-
-                <!-- IMPORTANT NOTE & BANKING DETAILS -->
-                <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
-                    <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.6;">
-                        <strong style="color: var(--primary);">Important Note:</strong> This quotation is valid for <strong>30 days</strong> from the date of issue. Please confirm your requirement before expiry. All prices are in <strong>USD</strong> and payment terms will be finalized in the formal agreement.
-                        <div style="margin-top: 8px;"><strong>Notes:</strong> BOQ available on engagement.</div>
-                        ${(() => {
-                            const isConst = String(category || '').toLowerCase().includes('construction');
-                            if (!isConst) return '';
-                            return `
-                        <div style="margin-top: 8px; font-size: 12px; line-height: 1.5;"><strong>Quotation Note:</strong> Quote includes all finishings except for Burglar Bars, Kitchen and BICs (Wardrobes), Gutters and Alububble (Alucushion Sheeting) for Roof.</div>
-                        <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid #d8deef;">
-                            <strong style="display: block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #1E2A56; font-size: 12px;">⏱️ Our Turnaround Times for Residential Projects</strong>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px;">
-                                <div>Single Storey - no special foundation:</div><div><strong>90-120 days</strong></div>
-                                <div>Single Storey with special foundation:</div><div><strong>110-140 days</strong></div>
-                                <div>Double Storey:</div><div><strong>120-180 days</strong></div>
-                                <div>Perimeter Wall:</div><div><strong>30-40 days</strong></div>
-                                <div>Roofing:</div><div><strong>10-14 days</strong></div>
-                                <div>Finishings:</div><div><strong>30 days</strong></div>
-                            </div>
-                        </div>`;
-                        })()}
-                    </div>
-                    <div style="flex: 1 1 320px; min-width: 260px; border: 1.5px solid #1E2A56; border-radius: 10px; background: #fafbff; padding: 14px 16px; font-size: 12px; line-height: 1.7;">
-                        <strong style="display: block; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px; color: #0A1A3A;">Banking Details</strong>
-                        <div><strong>Bank:</strong> ZB BANK</div>
-                        <div><strong>Branch:</strong> Msasa</div>
-                        <div><strong>Account Name:</strong> Connectlink Agency (Pvt) Ltd</div>
-                        <div><strong>Account No:</strong> 450600586638405</div>
-                        <div><strong>Account Type:</strong> USD Account</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+    const htmlContent = Q.doc(parts.join(''));
 
     // Generate PDF
     const options = {
@@ -35480,14 +35761,7 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
     // Clear saved placement so it asks every time
     window.quotationPdfTablePlacement = null;
     
-    const worker = html2pdf().set(options).from(htmlContent);
-    
-    if (outputMode === 'datauri') {
-        return worker.outputPdf('datauristring');
-    }
-
-    await worker.save();
-    return null;
+    return window.CLQPdf.render(htmlContent, options, outputMode === 'datauri' ? 'datauri' : 'save');
 }
 // Assign to window immediately after function definition
 window.generateQuotationPDF = generateQuotationPDF;

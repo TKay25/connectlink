@@ -1,0 +1,6 @@
+PASS  the page still has its inline script blocks  -> 46 blocks
+PASS  every inline block parses on its own  -> 46 blocks
+PASS  no block is killed by a global redeclaration in an earlier block
+PASS  the page still defines generateQuotationPDF
+PASS  the page still defines generateKitchenPDF
+PASS  the page still defines downloadQuotationPDFFromPortal

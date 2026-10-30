@@ -1,0 +1,45 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckQuotationPdfDesign",
+  "file": "_check_quotation_pdf_design.py",
+  "purpose": "The quotation PDFs must look like the contract, and must not carry the blue rule.",
+  "entry_function": "class QuietHandler(http.server.SimpleHTTPRequestHandler)  # line 256",
+  "entry_flows": [
+    "QuietHandler.log_message() → path.dirname, path.abspath, path.join, RESULTS.append"
+  ],
+  "public_api": [
+    "class QuietHandler(http.server.SimpleHTTPRequestHandler)  # line 256",
+    "  QuietHandler.log_message()",
+    "check(name, ok, detail = '')",
+    "extract_function(text, header)",
+    "slice_between(text, start, end)",
+    "render_and_inspect(page)"
+  ],
+  "dependencies": [
+    "fitz",
+    "http",
+    "playwright",
+    "pymupdf",
+    "socketserver"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), TEMPLATE = os.path.join(ROOT, 'templates', 'adminpage.html'), OUT = os.path.join(ROOT, '_check_quotation_pdf_design_out.txt'), RESULTS = [], SRC = open(TEMPLATE, encoding='utf-8').read(), CDN = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "d129bc7a0671bc0b",
+  "file_mtime": 1793362803249.005,
+  "file_size": 11345,
+  "file_birthtime": 1793362803249.005,
+  "generated_at": "2026-10-30T14:11:17.415733Z",
+  "stale": false
+}

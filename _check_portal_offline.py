@@ -162,7 +162,6 @@ except Exception as exc:                                           # noqa: BLE00
     print('\nFAILURES: %d' % sum(1 for r in RESULTS if r.startswith('FAIL')))
     sys.exit(1)
 
-OLD_SW = committed(SW)
 OLD_PAGE = committed(PAGE)
 
 
@@ -192,11 +191,45 @@ check('no script block gained a syntax error (vs the committed page)',
 
 
 # ---------- 2. the read-only whitelist ----------
-_old_ver = re.search(r"const CACHE_VERSION = '(\w+)'", OLD_SW) if OLD_SW else None
-check('the cache version was bumped, so a stale worker cannot survive the deploy',
-      "const CACHE_VERSION = 'v3';" in SW_SRC
-      and (not _old_ver or _old_ver.group(1) != 'v3'),
-      'was: ' + (_old_ver.group(1) if _old_ver else '?'))
+def git(*args):
+    """stdout of a git command, or '' when git cannot answer."""
+    try:
+        proc = subprocess.run(['git'] + list(args), capture_output=True)
+    except Exception:                                              # noqa: BLE001
+        return ''
+    if proc.returncode != 0:
+        return ''
+    return proc.stdout.decode('utf-8', 'replace')
+
+
+def cache_version(src):
+    m = re.search(r"const CACHE_VERSION = '(\w+)'", src)
+    return m.group(1) if m else None
+
+
+# The pages the worker can hand back offline. Whatever the last released commit
+# did to one of them, the cache version has to move with it: a device that still
+# holds the previous worker would otherwise serve the previous shell for good.
+# (The old assertion only allowed the single v2 -> v3 transition, so the gate
+# could never pass again once v3 was committed.)
+CACHED_PAGES = ['templates/adminpage.html', 'templates/pos-system.html']
+_new_ver = cache_version(SW_SRC)
+_last_release = git('log', '-1', '--format=%H', '--', *CACHED_PAGES).strip()
+if not _new_ver or not _last_release:
+    check('the cache version was bumped, so a stale worker cannot survive the deploy',
+          False, 'no cache version or no release to compare against')
+else:
+    _prev_ver = cache_version(git('show', _last_release + '^:' + SW))
+    check('the last change to a cached page came with a cache-version bump',
+          _prev_ver != _new_ver or _prev_ver is None,
+          'release %s: %s -> %s' % (_last_release[:8], _prev_ver, _new_ver))
+    # A version that was already used cannot be reused: an old worker swept the
+    # bucket under that name for a reason.
+    _uses = [c for c in git('log', '--format=%H', '-S',
+                            "const CACHE_VERSION = '" + _new_ver + "'",
+                            '--', SW).split() if c]
+    check('that version has not been used before', len(_uses) <= 1,
+          '%s appears in %d commit(s)' % (_new_ver, len(_uses)))
 
 READS = quoted(list_literal(SW_SRC, 'READ_ENDPOINTS'))
 EXPECTED = ['/get_project_count', '/get_project_months',

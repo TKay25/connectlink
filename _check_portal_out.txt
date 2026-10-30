@@ -1,10 +1,11 @@
 PASS  script started
 PASS  read the service worker  -> 13243 chars
-PASS  read the portal page  -> 1937216 chars
+PASS  read the portal page  -> 1958215 chars
 PASS  the service worker is syntactically valid  -> None
 PASS  the page still has its script blocks  -> new=46 old=46
 PASS  no script block gained a syntax error (vs the committed page)
-PASS  the cache version was bumped, so a stale worker cannot survive the deploy  -> was: v2
+PASS  the last change to a cached page came with a cache-version bump  -> release 0ed93ced: v3 -> v4
+PASS  that version has not been used before  -> v4 appears in 0 commit(s)
 PASS  exactly the named project endpoints may be replayed offline  -> ['/get_project_count', '/get_project_months', '/get_project_start_months', '/api/projects-page']
 PASS  the named endpoints are matched exactly, never as a substring
 PASS  the id-carrying read endpoints are anchored on the whole path  -> ['^/get_project/\\d+$', '^/api/project/\\d+/has-gantt$', '^/download_contract/\\d+$']
