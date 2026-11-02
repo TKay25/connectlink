@@ -1,0 +1,32 @@
+PASS  summary=1 answers  -> 200
+PASS  summary returns every header row  -> 3
+PASS  summary carries the two counts  -> [(3, 2, 1), (2, 2, 2), (1, 0, 0)]
+PASS  a kitchen quotation counts its kitchen items  -> {'category': 'kitchen', 'clientName': 'Nyasha Moyo', 'clientWhatsapp': '263771000001', 'createdBy': 'Admin', 'customCategory': '', 'id': 3, 'itemCount': 2, 'markup': 20.0, 'notes': 'Please confirm tiles', 'projectSize': 12.5, 'quotationDate': '2026-11-01', 'taskCount': 1, 'totalCost': 1500.0, 'vatEnabled': True, 'vatMode': 'exclusive', 'vatRate': 15.5}
+PASS  a construction quotation counts its line items  -> {'category': 'construction_single', 'clientName': 'Tendai Chirwa', 'clientWhatsapp': '', 'createdBy': 'Admin', 'customCategory': '', 'id': 2, 'itemCount': 2, 'markup': 15.0, 'notes': '', 'projectSize': 80.0, 'quotationDate': '2026-10-20', 'taskCount': 2, 'totalCost': 45000.0, 'vatEnabled': False, 'vatMode': 'exclusive', 'vatRate': 15.5}
+PASS  task counts come from the Gantt schedule  -> (2, 1)
+PASS  summary sends NO item arrays (that is the payload that grew)
+PASS  summary sends NO schedule arrays
+PASS  summary states the size of the history it drew from  -> (3, 3, 3)
+PASS  summary did not read the item tables for filtering  -> ['SELECT id, client_name, client_whatsapp, quotation_date, cat', 'SELECT COUNT(*) FROM quotations', 'SELECT quotation_id, COUNT(*) FROM quotation_items WHERE quo', 'SELECT quotation_id, COUNT(*) FROM quotation_kitchen_items W']
+PASS  limit caps the summary  -> 2
+PASS  the real total is still reported beside the window  -> 3
+PASS  search finds a quotation that the window would not draw  -> [(1, 'Rudo Banda')]
+PASS  search reports how many matched  -> 1
+PASS  search matches the custom (Other) category name  -> [1]
+PASS  search matches a quotation id  -> [3]
+PASS  ?id= answers  -> 200
+PASS  ?id= returns exactly that quotation  -> [2]
+PASS  ?id= returns it in FULL (items and schedules, for the PDF)  -> (2, 2)
+PASS  ?id= reads only that quotation's lines  -> ['SELECT quotation_id, item_name, quantity, unit_rate, total_price, item', 'SELECT quotation_id, work_scope, start_date, end_date, days, task_orde']
+PASS  ?id= carries the money fields the modal formats  -> {'totalCost': 45000.0, 'markup': 15.0, 'vatRate': 15.5}
+PASS  ?id= for a quotation that does not exist is an empty list, not an error  -> (200, {'count': 0, 'data': [], 'success': True})
+PASS  ?id= refuses a non-numeric id  -> (400, {'count': 0, 'data': [], 'error': 'id must be a number', 'success': False})
+PASS  the no-argument form still returns every quotation  -> 3
+PASS  the no-argument form still carries items and schedules
+PASS  the no-argument form keeps the money fields the callers .find() on
+PASS  the save endpoint still exists
+PASS  the quotation PDF generator is still defined client-side
+PASS  the download path still reads one quotation fully
+PASS  the editor still loads the full record (items + schedules)
+PASS  the tab asks for the summary, not the history
+PASS  the endpoint exposes the health line the log prints

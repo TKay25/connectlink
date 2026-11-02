@@ -1,0 +1,50 @@
+{
+  "_readonly": true,
+  "_managed_by": "artifacto-plugin",
+  "module": "CheckQuotationListPerformance",
+  "file": "_check_quotation_list_performance.py",
+  "purpose": "Prove the Quotations tab no longer drags the whole history to the browser.",
+  "entry_function": "class Cur  # line 101",
+  "entry_flows": [
+    "Cur.__init__() → environ.pop, path.dirname, path.abspath, path.join",
+    "Conn.commit() → environ.pop, path.dirname, path.abspath, path.join"
+  ],
+  "public_api": [
+    "class Cur  # line 101",
+    "  Cur.__init__()",
+    "  Cur.execute(sql, params = None)",
+    "  Cur.executemany(sql, seq)",
+    "  Cur.fetchone()",
+    "class Conn  # line 168",
+    "  Conn.commit()",
+    "  Conn.rollback()",
+    "  Conn.close()",
+    "check(name, ok, detail = '')",
+    "fake_db()",
+    "fake_execute_query(sql, params = None, fetch_all = False, fetch_one = False, commit = False)",
+    "get(path)"
+  ],
+  "dependencies": [
+    "ConnectLink",
+    "db_helper"
+  ],
+  "prompt_locations": [],
+  "token_controls": [],
+  "contracts": {
+    "input": "<!-- expected input -->",
+    "output": "<!-- returned output -->",
+    "side_effects": "<!-- none -->"
+  },
+  "notes": "Key constants: ROOT = os.path.dirname(os.path.abspath(__file__)), OUT = os.path.join(ROOT, '_check_quotation_list_performance_out.txt'), RESULTS = [], STATEMENTS = [], QUOTATIONS = [(3, 'Nyasha Moyo', '263771000001', date(2026, 11, 1), 'kitchen', 12.5, 1500.0, 20, 'Please confirm tiles', 'Admin', '', True, 15.5, 'exclusive'), (2, 'Tendai Chirwa', '', date(2026, 10, 20), 'construction_single', 80.0, 45000.0, 15, '', 'Admin', '', False, 15.5, 'exclusive'), (1, 'Rudo Banda', '263771000002', date(2026, 9, 5), 'other', 0.0, 900.0, 30, '', 'Admin', 'Carport', False, 15.5, 'exclusive')], KITCHEN_ITEMS = [(3, 'Base cabinets', 6, 100.0, 10, 1), (3, 'Wall units', 4, 80.0, 6, 2)]",
+  "why": {},
+  "dont_touch": [],
+  "known_risks": [],
+  "changelog": [],
+  "generated_from_commit": "",
+  "file_hash": "2eeff4da28ab2100",
+  "file_mtime": 1793644913188.75,
+  "file_size": 14761,
+  "file_birthtime": 1793644913187.8362,
+  "generated_at": "2026-11-02T18:48:40.487900Z",
+  "stale": false
+}

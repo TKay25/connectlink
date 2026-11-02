@@ -3855,13 +3855,13 @@ window.loadQuotations = window.loadQuotations || function() {
     var c = document.getElementById('quotationsContainer');
     if (!c) return;
     c.innerHTML = '<p class="text-muted text-center" style="padding:40px;">Loading quotations...</p>';
-    fetch('/api/get-quotations').then(function(r){return r.json()}).then(function(result){
+    fetch('/api/get-quotations?summary=1&limit=' + window.QUOTATION_TABLE_LIMIT).then(function(r){return r.json()}).then(function(result){
         if(result.success && result.data && result.data.length>0){
             var h='<div style="margin-bottom:10px;"><input type="text" id="quotationsSearch" class="form-control form-control-sm" placeholder="🔍 Search quotations..." style="max-width:250px;font-size:0.7rem;padding:3px 6px;"></div><div style="overflow-x:auto;overflow-y:auto;max-height:500px;border:1px solid #dee2e6;border-radius:6px;background:white;"><table style="width:100%;font-size:0.7rem;margin-bottom:0;border-collapse:collapse;"><thead style="position:sticky;top:0;background:#0A1A3A;z-index:10;"><tr style="color:white;"><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">ID</th><th style="padding:5px 4px;text-align:left;width:180px;border:1px solid #1E2A56;">Client Name</th><th style="padding:5px 4px;text-align:left;width:80px;border:1px solid #1E2A56;">Category</th><th style="padding:5px 4px;text-align:center;width:65px;border:1px solid #1E2A56;">Size</th><th style="padding:5px 4px;text-align:center;width:60px;border:1px solid #1E2A56;">Markup</th><th style="padding:5px 4px;text-align:right;width:100px;border:1px solid #1E2A56;">Total Cost</th><th style="padding:5px 4px;text-align:center;width:75px;border:1px solid #1E2A56;">Date</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Items</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Tasks</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Notes</th><th style="padding:5px 4px;text-align:center;width:140px;border:1px solid #1E2A56;">Actions</th></tr></thead><tbody>';
             var sorted = result.data.slice().sort(function(a,b){return b.id-a.id});
             sorted.forEach(function(q){
-                var itemCount = (q.items||[]).length;
-                var taskCount = (q.schedules||[]).length;
+                var itemCount = (q.itemCount != null) ? q.itemCount : (q.items||[]).length;
+                var taskCount = (q.taskCount != null) ? q.taskCount : (q.schedules||[]).length;
                 var tc = Number(q.totalCost||0);
                 var d = q.quotationDate ? (function(dt){try{return new Date(dt).toLocaleDateString("en-GB")}catch(e){return dt.split("T")[0]}})(q.quotationDate) : 'N/A';
                 var cat = q.category||'N/A';
@@ -4559,7 +4559,7 @@ window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
     if (typeof openModal === 'function') openModal('quotationDetailsModal');
     var cd = document.getElementById('quotationDetailsContent');
     if (cd) cd.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3">Loading...</p></div>';
-    fetch('/api/get-quotations').then(function(r){return r.json()}).then(function(res){
+    fetch('/api/get-quotations?id=' + encodeURIComponent(qId)).then(function(r){return r.json()}).then(function(res){
         if (res.success && res.data) {
             var q = res.data.find(function(x){return x.id===qId});
             if (q) {
@@ -4592,8 +4592,8 @@ window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
                 cat = catMap[cat]||cat;
                 var isCon = (q.category||'').includes('construction');
                 var d = q.quotationDate ? new Date(q.quotationDate).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}) : 'N/A';
-                var itemCount = (q.items||[]).length;
-                var taskCount = (q.schedules||[]).length;
+                var itemCount = (q.itemCount != null) ? q.itemCount : (q.items||[]).length;
+                var taskCount = (q.taskCount != null) ? q.taskCount : (q.schedules||[]).length;
                 
                 var h = '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">';
                 h += '<div style="flex:1;min-width:140px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:8px 12px;"><div style="font-size:0.65rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.3px;">Quotation ID</div><div style="font-size:0.85rem;font-weight:800;color:var(--crimson-bright);">#'+q.id+'</div></div>';
@@ -4861,7 +4861,7 @@ window.CLQPdf = (function () {
 // Early implementations for download/send/edit quotation (standalone, no jQuery/ready dependency)
 window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal || async function(qId) {
     if(typeof window.__realDownloadQuotationPDFFromPortal==='function') return window.__realDownloadQuotationPDFFromPortal(qId);
-    var r=await fetch('/api/get-quotations').then(function(r){return r.json()});
+    var r=await fetch('/api/get-quotations?id='+encodeURIComponent(qId)).then(function(r){return r.json()});
     if(!r.success||!r.data){alert('Error fetching quotation');return;}
     var q=r.data.find(function(x){return x.id===qId});
     if(!q){alert('Quotation not found');return;}
@@ -5176,7 +5176,7 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
     var q = window.currentViewingQuotation;
     if(!q || q.id !== qId) {
         // Fallback: fetch from API
-        var r=await fetch('/api/get-quotations').then(function(rr){return rr.json()});
+        var r=await fetch('/api/get-quotations?id='+encodeURIComponent(qId)).then(function(rr){return rr.json()});
         if(!r.success||!r.data){alert('Error fetching quotation');return;}
         q=r.data.find(function(x){return x.id===qId});
     }
@@ -5211,7 +5211,7 @@ window.sendQuotationFromPortal = window.sendQuotationFromPortal || async functio
 
 window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId) {
     if(typeof window.__realEditQuotationFromPortal==='function') return window.__realEditQuotationFromPortal(qId);
-    fetch('/api/get-quotations').then(function(r){return r.json()}).then(function(result){
+    fetch('/api/get-quotations?id='+encodeURIComponent(qId)).then(function(r){return r.json()}).then(function(result){
         if(!result.success||!result.data){alert('Error fetching quotation data.');return;}
         var q=result.data.find(function(x){return x.id===qId});
         if(!q){alert('Quotation not found.');return;}
@@ -35382,7 +35382,7 @@ function updateKitchenPreviewDisplay() {
 
 // Function to load existing quotation for editing
 function loadExistingQuotationForEdit(quotationId) {
-    fetch('/api/get-quotations')
+    fetch('/api/get-quotations?id=' + encodeURIComponent(quotationId))
         .then(r => r.json())
         .then(result => {
             if (!result.success || !result.data) {
@@ -36907,6 +36907,44 @@ function renderGanttItemsList() {
     // on the server; this only bounds what the browser has to build and paint.
     window.QUOTATION_TABLE_LIMIT = window.QUOTATION_TABLE_LIMIT || 500;
 
+    // What the table is actually showing, said plainly: a bounded window, and
+    // whether it is narrowed by a search. Rows outside it are still reachable by
+    // searching, so the count must never imply the rest are gone.
+    function quotationTableScopeText(meta, searchTerm) {
+        var shown = (meta && meta.count != null) ? meta.count : 0;
+        var matching = (meta && meta.total != null) ? meta.total : shown;
+        var all = (meta && meta.all_total != null) ? meta.all_total : matching;
+        if (searchTerm) {
+            return shown + ' of ' + matching + ' match "' + searchTerm + '"' +
+                   (all > matching ? ' (' + all + ' saved)' : '');
+        }
+        if (all > shown) {
+            return 'Latest ' + shown + ' of ' + all + ' saved — search to reach older ones';
+        }
+        return matching + ' quotation' + (matching === 1 ? '' : 's');
+    }
+
+    // The search runs on the SERVER, against every quotation ever saved -- not
+    // just the rows drawn. It re-reads the table rather than hiding rows, which
+    // is also why an older quotation can now be found at all.
+    function bindQuotationsSearch() {
+        var input = document.getElementById('quotationsSearch');
+        if (!input) return;
+        var timer = null;
+        var run = function () {
+            var term = input.value.trim();
+            window.__quotationSearchTerm = term;
+            window.loadQuotations();
+        };
+        input.oninput = function () {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(run, 350);      // typing does not refetch per keystroke
+        };
+        input.onkeydown = function (e) {
+            if (e.key === 'Enter') { if (timer) clearTimeout(timer); run(); }
+        };
+    }
+
     window.loadQuotations = function() {
         console.log('loadQuotations function called');
         const container = document.getElementById('quotationsContainer');
@@ -37017,8 +37055,11 @@ function displayQuotations(quotations, meta) {
             } catch(e) {}
         }
         
-        const itemCount = quotation.items ? quotation.items.length : 0;
-        const taskCount = quotation.schedules ? quotation.schedules.length : 0;
+        // summary=1 sends the two counts; a full record still carries the arrays.
+        const itemCount = (quotation.itemCount != null) ? quotation.itemCount
+                         : (quotation.items ? quotation.items.length : 0);
+        const taskCount = (quotation.taskCount != null) ? quotation.taskCount
+                         : (quotation.schedules ? quotation.schedules.length : 0);
         const totalCost = quotation.totalCost || 0;
         
         var displayCat2 = quotation.category || 'N/A';
@@ -37071,18 +37112,7 @@ function displayQuotations(quotations, meta) {
     
     container.innerHTML = html;
 
-    // Simple search
-    const searchInput = document.getElementById('quotationsSearch');
-    if (searchInput) {
-        searchInput.onkeyup = function() {
-            const term = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#quotationsContainer tbody tr');
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(term) ? '' : 'none';
-            });
-        };
-    }
+    bindQuotationsSearch();
 
     // Attach view button handlers
     document.querySelectorAll('.view-quotation-btn').forEach(btn => {
@@ -37276,9 +37306,11 @@ async function viewQuotationDetails(quotationId) {
     contentDiv.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3">Loading...</p></div>`;
     
     try {
-        const response = await fetch('/api/get-quotations');
+        // One quotation, in full. Asking for the whole history here meant every
+        // View click re-read and re-parsed every item and Gantt task ever saved.
+        const response = await fetch('/api/get-quotations?id=' + encodeURIComponent(quotationId));
         const result = await response.json();
-        
+
         if (result.success && result.data) {
             const quotation = result.data.find(q => q.id === quotationId);
             if (quotation) {
@@ -37763,8 +37795,8 @@ function escapeHtml(text) {
     }
 
 async function downloadQuotationPDFFromPortal(quotationId) {
-    // Fetch the quotation data from API
-    const response = await fetch('/api/get-quotations');
+    // Fetch the quotation data from API -- just this one, never the whole list.
+    const response = await fetch('/api/get-quotations?id=' + encodeURIComponent(quotationId));
     const result = await response.json();
     
     if (!result.success || !result.data) {
@@ -37902,7 +37934,7 @@ function editQuotationFromPortal(quotationId) {
     window.editQuotationFromPortal = editQuotationFromPortal;
     window.__realEditQuotationFromPortal = editQuotationFromPortal;
     showLoader('Preparing Quotation Editor', 'Loading quotation details...');
-    fetch('/api/get-quotations')
+    fetch('/api/get-quotations?id=' + encodeURIComponent(quotationId))
         .then(r => r.json())
         .then(result => {
             if (!result.success || !result.data) { 
@@ -38008,7 +38040,8 @@ function editQuotationFromPortal(quotationId) {
 }
 
 async function sendQuotationFromPortal(quotationId) {
-    const result = await fetch('/api/get-quotations').then(r => r.json());
+    const result = await fetch('/api/get-quotations?id=' + encodeURIComponent(quotationId))
+        .then(r => r.json());
     if (!result.success || !result.data) {
         throw new Error('Failed to fetch quotation data.');
     }
