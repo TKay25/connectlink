@@ -8377,14 +8377,16 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
                         </div>
                     </div>
                     
+                    <div id="transactionsScopeNote" class="alert alert-warning py-2 small mb-3" style="display: none;"></div>
+                    
                     <div class="table-responsive">
                         <table class="table table-hover" id="transactionsTable">
                             <thead class="table-light">
                                 <tr>
                                     <th style="width: 10%">Date</th>
                                     <th style="width: 18%">Transaction #</th>
-                                    <th style="width: 29%">Items</th>
-                                    <th style="width: 10%">Total</th>
+                                    <th style="width: 27%">Items</th>
+                                    <th style="width: 12%">Total</th>
                                     <th style="width: 10%">Payment</th>
                                     <th style="width: 13%">Cashier</th>
                                     <th style="width: 9%">Branch</th>
@@ -14656,6 +14658,54 @@ function renderSalesReport(transactions, reinvestmentHistory = []) {
 
     // ==================== TRANSACTION FILTERS ====================
 
+    // /api/transactions keeps a receipt's FULL `total` but, on a department view,
+    // returns only that shelf's lines. The money shown beside those lines must be
+    // the money ON those lines, or a mixed sale reads as one amount for two
+    // different baskets. The Sales tab already prices a sale this way; this is the
+    // same rule for the list, the receipt and both exports.
+    function transactionScope(t) {
+        const items = (t && t.items) || [];
+        const deptView = (posDepartment === 'hardware' || posDepartment === 'furniture');
+        const full = Number(t && t.total) || 0;
+        if (!items.length) {
+            return { scoped: false, shown: full, full: full, hidden: 0 };
+        }
+        let shown = 0;
+        items.forEach(function (item) {
+            const line = Number(item.subtotal);
+            shown += Number.isFinite(line)
+                ? line
+                : (Number(item.price || item.price_at_time) || 0) * (Number(item.quantity) || 0);
+        });
+        shown = Math.round(shown * 100) / 100;
+        const hidden = Math.round((full - shown) * 100) / 100;
+        // Only a department view can hide lines. On All, any gap between the
+        // lines and the receipt is the receipt's own tax or discount, not
+        // something this screen left out.
+        return {
+            scoped: deptView && hidden > 0.005,
+            shown: shown,
+            full: full,
+            hidden: Math.max(0, hidden)
+        };
+    }
+    window.transactionScope = transactionScope;
+
+    function transactionScopeLabel() {
+        return (typeof deptLabel === 'function') ? deptLabel(posDepartment) : 'this department';
+    }
+
+    // The Total cell. A scoped sale says what the receipt really was, so the
+    // smaller figure can never be mistaken for the whole basket.
+    function transactionTotalCell(t) {
+        const scope = transactionScope(t);
+        if (!scope.scoped) return 'USD ' + scope.full.toFixed(2);
+        return 'USD ' + scope.shown.toFixed(2) +
+            '<div class="small fw-normal text-muted" style="font-size:0.62rem;line-height:1.25;white-space:nowrap;">' +
+                escapeHtml(transactionScopeLabel()) + ' only<br>receipt USD ' + scope.full.toFixed(2) +
+            '</div>';
+    }
+
     // View receipt for a specific transaction
 function viewReceipt(transactionId) {
     const transaction = transactionsData.transactions.find(t => t.id === transactionId || t.transaction_number === transactionId);
@@ -14672,6 +14722,9 @@ function viewReceipt(transactionId) {
 }
 
     function generatePastReceiptHTML(transaction) {
+        // A receipt opened from Hardware or Furniture lists only that shelf's
+        // lines, so it must never look like the customer's whole receipt.
+        const scope = transactionScope(transaction);
         const total = transaction.total || 0;
         const items = transaction.items || [];
         const method = transaction.payment_method || 'cash';
@@ -14689,6 +14742,21 @@ function viewReceipt(transactionId) {
                 <small><strong>Transaction #:</strong> ${transaction.transaction_number || 'N/A'}</small>
                 <hr class="my-1">
         `;
+
+        if (scope.scoped) {
+            receiptHTML += `
+                <div style="text-align:left;border:1px solid #F59E0B;background:#FFFBEB;color:#92400E;border-radius:8px;padding:6px 8px;margin-bottom:8px;">
+                    <div style="font-size:11px;font-weight:bold;">
+                        <i class="fas fa-triangle-exclamation"></i> ${escapeHtml(transactionScopeLabel())} view &mdash; partial receipt
+                    </div>
+                    <div style="font-size:10px;line-height:1.35;">
+                        Only the ${escapeHtml(transactionScopeLabel())} items on this sale are listed.
+                        ${usdMoney(scope.hidden)} of this sale belongs to other departments and is
+                        <strong>not</strong> shown here. Switch to All for the full receipt.
+                    </div>
+                </div>
+            `;
+        }
         
         // Items list with proper layout
         receiptHTML += items.map(item => {
@@ -14713,10 +14781,19 @@ function viewReceipt(transactionId) {
         
         receiptHTML += `
                 <hr class="my-2">
+                ${scope.scoped ? `
+                <div class="d-flex justify-content-between small">
+                    <span>Items shown (${escapeHtml(transactionScopeLabel())}):</span>
+                    <span>${usdMoney(scope.shown)}</span>
+                </div>
+                <div class="d-flex justify-content-between small">
+                    <strong>Full sale total:</strong>
+                    <strong>${usdMoney(scope.full)}</strong>
+                </div>` : `
                 <div class="d-flex justify-content-between small">
                     <strong>Total:</strong>
-                    <strong>${usdMoney(total)}</strong>
-                </div>
+                    <strong>${usdMoney(scope.full)}</strong>
+                </div>`}
         `;
         
         if (method === 'cash') {
@@ -14901,6 +14978,26 @@ function renderFilteredTransactions() {
     console.log('transactionsToShow:', transactionsToShow);
     console.log('filteredTransactions length:', filteredTransactions.length);
     console.log('transactionsData.transactions length:', transactionsData.transactions ? transactionsData.transactions.length : 'undefined');
+
+    // Say, before any row is read, that this screen is showing one shelf's side
+    // of each sale. The rows then price themselves the same way.
+    const scopeNote = document.getElementById('transactionsScopeNote');
+    if (scopeNote) {
+        const deptView = (posDepartment === 'hardware' || posDepartment === 'furniture');
+        if (deptView) {
+            const label = escapeHtml(transactionScopeLabel());
+            scopeNote.style.display = 'block';
+            scopeNote.innerHTML = '<i class="fas fa-layer-group me-1"></i>' +
+                '<strong>Showing ' + label + ' only.</strong> ' +
+                'A sale that spans both departments lists only its ' + label +
+                ' items here, and its Total is the ' + label + ' share of the receipt. ' +
+                'Receipts viewed or printed from here are scoped the same way &mdash; ' +
+                'switch to <strong>All</strong> for the whole receipt.';
+        } else {
+            scopeNote.style.display = 'none';
+            scopeNote.innerHTML = '';
+        }
+    }
     
     console.log('Rendering transactions, count:', transactionsToShow.length);
     
@@ -15019,7 +15116,7 @@ function renderFilteredTransactions() {
             '<td><small>' + dateStr + '</small></td>' +
             '<td><small class="text-muted">' + escapeHtml(transNum) + '</small></td>' +
             '<td>' + itemsHtml + '</td>' +
-            '<td class="fw-bold text-success">USD ' + (t.total || 0).toFixed(2) + '</td>' +
+            '<td class="fw-bold text-success">' + transactionTotalCell(t) + '</td>' +
             '<td><span class="badge ' + paymentBadgeClass + '">' + paymentDisplay + '</span></td>' +
             '<td><small>' + escapeHtml(t.cashier || 'Admin') + '</small></td>' +
             '<td><small class="text-muted">' + escapeHtml(t.branch_name || '\u2014') + '</small></td>' +
@@ -15044,16 +15141,25 @@ function renderFilteredTransactions() {
         
         logPosActivity('download', 'Downloaded Transactions to Excel (' + transactionsToExport.length + ' rows)');
         
-        // Prepare data for Excel with items list
-        const excelData = transactionsToExport.map(t => ({
-            'Date': t.date || t.created_at || '',
-            'Transaction Number': t.transaction_number || '',
-            'Items': t.items ? t.items.map(i => `${i.product_name || i.name} x${i.quantity}`).join(', ') : '',
-            'Total': (t.total || 0).toFixed(2),
-            'Payment Method': t.payment_method || '',
-            'Cashier': t.cashier || 'Admin',
-            'Branch': t.branch_name || ''
-        }));
+        // Prepare data for Excel with items list. The Total is the money on the
+        // lines this view returned, and Scope names the receipt total when the
+        // sale ran across both shelves, so a scoped export cannot understate a
+        // sale without saying so.
+        const excelData = transactionsToExport.map(t => {
+            const scope = transactionScope(t);
+            return {
+                'Date': t.date || t.created_at || '',
+                'Transaction Number': t.transaction_number || '',
+                'Items': t.items ? t.items.map(i => `${i.product_name || i.name} x${i.quantity}`).join(', ') : '',
+                'Total': scope.shown.toFixed(2),
+                'Scope': scope.scoped
+                    ? transactionScopeLabel() + ' lines only - receipt total ' + scope.full.toFixed(2)
+                    : '',
+                'Payment Method': t.payment_method || '',
+                'Cashier': t.cashier || 'Admin',
+                'Branch': t.branch_name || ''
+            };
+        });
         
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
@@ -15265,6 +15371,13 @@ function renderFilteredTransactions() {
                 ${document.getElementById('filterStartDate').value || document.getElementById('filterEndDate').value ? `
                     <p><small>Date Range: ${document.getElementById('filterStartDate').value || 'Start'} to ${document.getElementById('filterEndDate').value || 'End'}</small></p>
                 ` : ''}
+                ${(posDepartment === 'hardware' || posDepartment === 'furniture') ? `
+                    <p style="border:1px solid #F59E0B;background:#FFFBEB;color:#92400E;padding:6px 10px;font-size:12px;">
+                        <strong>Department view: ${escapeHtml(transactionScopeLabel())}.</strong>
+                        Each sale lists and totals only its ${escapeHtml(transactionScopeLabel())} lines.
+                        Where a sale spans both departments, its receipt total is printed under the items.
+                    </p>
+                ` : ''}
                 <hr>
             </div>
             <table style="width: 100%; border-collapse: collapse;">
@@ -15280,17 +15393,22 @@ function renderFilteredTransactions() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${transactionsToExport.map(t => `
+                    ${transactionsToExport.map(t => {
+                        const scope = transactionScope(t);
+                        return `
                         <tr>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.date || t.created_at || ''}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.transaction_number || 'N/A'}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${t.items ? t.items.map(i => `${i.product_name || i.name} x${i.quantity}`).join(', ') : ''}</td>
-                            <td style="padding: 8px; border: 1px solid #ddd;">${usdMoney((t.total || 0))}</td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${t.items ? t.items.map(i => `${i.product_name || i.name} x${i.quantity}`).join(', ') : ''}
+                                ${scope.scoped ? `<div style="color:#B45309;font-size:10px;">${escapeHtml(transactionScopeLabel())} only &middot; receipt total ${usdMoney(scope.full)}</div>` : ''}
+                            </td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">${usdMoney(scope.shown)}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.payment_method || 'N/A'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.cashier || 'Admin'}</td>
                             <td style="padding: 8px; border: 1px solid #ddd;">${t.branch_name || '\u2014'}</td>
                         </tr>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </tbody>
                 <tfoot>
                     <tr style="background-color: #f5f5f5;">
@@ -15299,7 +15417,7 @@ function renderFilteredTransactions() {
                     </tr>
                     <tr style="background-color: #f5f5f5;">
                         <td colspan="3" style="padding: 10px; border: 1px solid #ddd;"><strong>Total Sales:</strong></td>
-                        <td colspan="3" style="padding: 10px; border: 1px solid #ddd;"><strong>${usdMoney(transactionsToExport.reduce((sum, t) => sum + (t.total || 0), 0))}</strong></td>
+                        <td colspan="3" style="padding: 10px; border: 1px solid #ddd;"><strong>${usdMoney(transactionsToExport.reduce((sum, t) => sum + transactionScope(t).shown, 0))}</strong></td>
                     </tr>
                 </tfoot>
             </table>
@@ -19122,6 +19240,7 @@ function setupAddProductFundingSelection() {
 
     function openRevertTransactionModal(txId) {
         const t = (transactionsData.transactions || []).find(x => x.id === txId);
+        const scope = t ? transactionScope(t) : null;
         pendingRevertTx = {
             id: txId,
             number: t ? (t.transaction_number || ('#' + txId)) : ('#' + txId),
@@ -19129,7 +19248,17 @@ function setupAddProductFundingSelection() {
             items: t && t.items ? t.items.length : 0
         };
         const info = document.getElementById('revertTxInfo');
-        if (info) info.innerHTML = 'Receipt <strong>' + escapeHtml(pendingRevertTx.number) + '</strong> — <strong>USD ' + Number(pendingRevertTx.total).toFixed(2) + '</strong> · ' + pendingRevertTx.items + ' item(s).';
+        if (info) {
+            info.innerHTML = 'Receipt <strong>' + escapeHtml(pendingRevertTx.number) + '</strong> — <strong>USD ' + Number(pendingRevertTx.total).toFixed(2) + '</strong> · ' + pendingRevertTx.items + ' item(s).' +
+                // A revert is not scoped: it returns every line of the sale to
+                // stock, including the ones this department view cannot see.
+                (scope && scope.scoped
+                    ? '<div class="text-danger mt-1"><i class="fas fa-triangle-exclamation me-1"></i>' +
+                      'This receipt also holds items outside ' + escapeHtml(transactionScopeLabel()) +
+                      '. Reverting returns <strong>every</strong> item on it to stock, not just the ' +
+                      pendingRevertTx.items + ' listed on this screen.</div>'
+                    : '');
+        }
         const pin = document.getElementById('revertTxPin');
         if (pin) pin.value = '';
         const err = document.getElementById('revertTxError');

@@ -1821,6 +1821,22 @@ sudo systemctl start connectlink
 - ✅ Formatting is never treated as an edit (5,000 vs 5000, date vs timestamp), and a
   failed read of the previous values logs nothing rather than inventing a change.
 
+**November 2026 — a department view says exactly what it is showing**
+- ✅ **Transaction History totals follow the department view.** Opened on Hardware or Furniture,
+  History lists only that shelf's lines; the Total column now shows the money **on those lines**
+  and names the receipt total beneath it (*"Hardware only · receipt USD 300.00"*), instead of
+  printing the whole receipt beside a partial item list. The same explanation sits above the table,
+  and it disappears on All.
+- ✅ **A receipt opened there is marked partial.** Viewing or printing a receipt from a department
+  view carries an amber banner: only that department's items are listed, how much of the sale belongs
+  to the other department and is not shown, and that All gives the full receipt. Its money block reads
+  *Items shown (Hardware)* beside the **full sale total**, so the smaller figure cannot be mistaken for
+  the customer's whole receipt.
+- ✅ **Exports and the revert dialog say the same thing.** The Excel export gains a **Scope** column
+  naming the receipt total for a mixed sale, the PDF prints that note under the items and its
+  *Total Sales* line adds the lines it actually listed, and reverting from a department view warns
+  that **every** item on the receipt — not just the visible ones — goes back to stock.
+
 **October 2026 — stock a till has promised, and layby paperwork**
 - ✅ **A till no longer offers stock it has already promised.** Sales and laybys queued on
   a device hold their quantity back from that till's own figures (grid, inventory,
