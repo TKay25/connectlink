@@ -6918,6 +6918,15 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
             </div>
             <div class="modal-body">
                 <div class="alert alert-warning py-2 small" id="laybyCartSummary"></div>
+                <!-- The layby is a sale, so it can be filed under an earlier day
+                     exactly as the card/cash confirmation lets it be. -->
+                <div class="confirm-sale-date" id="laybySaleDateRow">
+                    <label for="laybySaleDate">
+                        <i class="fas fa-calendar-day me-1"></i>Sale date
+                    </label>
+                    <input type="date" class="form-control form-control-sm" id="laybySaleDate" onchange="laybySaleDateChanged()">
+                    <small id="laybySaleDateHint">Change this to file the layby under an earlier day. Reports, day-end and history will use it.</small>
+                </div>
                 <div class="row g-2">
                     <div class="col-md-6">
                         <label class="small fw-bold" for="laybyCustomerName">Customer name *</label>
@@ -23739,6 +23748,20 @@ function setupEventListeners() {
 
     // ---------- Opening a layby from the cart ----------
 
+    window.laybySaleDateChanged = function () {
+        var el = document.getElementById('laybySaleDate');
+        var row = document.getElementById('laybySaleDateRow');
+        var hint = document.getElementById('laybySaleDateHint');
+        if (!el) return;
+        var backdated = !!el.value && el.value !== todayISO();
+        if (row) row.classList.toggle('is-backdated', backdated);
+        if (hint) {
+            hint.textContent = backdated
+                ? 'This layby will be filed on ' + new Date(el.value + 'T00:00:00').toLocaleDateString() + ', not today.'
+                : 'Change this to file the layby under an earlier day. Reports, day-end and history will use it.';
+        }
+    };
+
     window.openLaybyModal = function () {
         if (readonlyView()) {
             if (typeof branchWriteBlockedToast === 'function') branchWriteBlockedToast();
@@ -23761,6 +23784,12 @@ function setupEventListeners() {
         document.getElementById('laybyDeposit').value = '0';
         document.getElementById('laybyDepositMethod').value = 'cash';
         document.getElementById('laybyInstalmentCount').value = '3';
+        var saleDateEl = document.getElementById('laybySaleDate');
+        if (saleDateEl) {
+            saleDateEl.max = todayISO();
+            saleDateEl.value = todayISO();
+        }
+        window.laybySaleDateChanged();
         showError('laybyError', '');
         laybyBuildPlan();
         modalOf('laybyModal').show();
@@ -23886,6 +23915,7 @@ function setupEventListeners() {
 
         var clientRef = newLaybyRef();
         var reference = laybyReference();
+        var laybyDateEl = document.getElementById('laybySaleDate');
         var body = {
             customer_name: name,
             customer_id_number: idNumber,
@@ -23894,6 +23924,9 @@ function setupEventListeners() {
             deposit_method: document.getElementById('laybyDepositMethod').value,
             installments: installments,
             notes: document.getElementById('laybyNotes').value.trim(),
+            // Sent even when it is today: an offline layby replayed tomorrow must
+            // still be filed under the day it was really opened.
+            sale_date: (laybyDateEl && laybyDateEl.value) || null,
             // Both travel with the layby so the paperwork the customer was given
             // is the paperwork the books end up with.
             reference: reference,
@@ -24424,7 +24457,7 @@ function setupEventListeners() {
         if (Number(p.deposit || 0) > 0) {
             payments.push({ amount: Number(p.deposit || 0),
                             method: p.deposit_method || 'cash',
-                            paid_at: p.created_at || entry.created_at,
+                            paid_at: p.sale_date || p.created_at || entry.created_at,
                             notes: 'Deposit' });
         }
         entries.forEach(function (e) {
@@ -24445,7 +24478,7 @@ function setupEventListeners() {
             customer_phone: p.customer_phone || '',
             branch_name: p.branch_name || (typeof posBranch !== 'undefined' && posBranch
                 ? (posBranch.name || '') : ''),
-            created_at: p.created_at || entry.created_at,
+            created_at: p.sale_date || p.created_at || entry.created_at,
             created_by: '',
             total_amount: Math.round(total * 100) / 100,
             paid_amount: Math.round(paid * 100) / 100,

@@ -886,6 +886,12 @@ expected date. The instalments **must add up to the amount still due**; the serv
 refuses the layby otherwise. Goods leave the branch's shelf at the layby, costed from the
 FIFO layers they consumed.
 
+The form also carries a **Sale date**, exactly like Cash / Card / Transfer: it defaults to
+today and cannot be in the future, but may be moved to an earlier day. That day stamps
+the agreement, the transaction, the stock reservation and the deposit, so a layby keyed
+in late is reported on the day it was opened — and a layby queued offline keeps that day
+when it syncs later.
+
 How it hits the books:
 
 * The sale is written with the transaction status **`layby`**, which every existing

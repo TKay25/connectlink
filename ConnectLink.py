@@ -17585,7 +17585,8 @@ def pos_create_layby():
       deposit, deposit_method,
       installments: [ {amount, due_date} ],   # must add up to total - deposit
       items: [ {id, price, quantity} ],
-      notes
+      notes,
+      sale_date                                # YYYY-MM-DD, optional (backdating)
     }
     """
     data = request.get_json() or {}
@@ -17706,6 +17707,14 @@ def pos_create_layby():
     user_id = session.get('user_id') or session.get('userid') or 0
     user_name = session.get('user_name') or session.get('username') or 'System'
     zimbabwe_now = get_zimbabwe_time()
+    # The layby is a sale, so the till may file it under an earlier day exactly
+    # as a cash/card sale can. That day stamps the transaction, the agreement,
+    # the stock movement and the deposit, so reports and day-end agree on when
+    # the layby was opened instead of when it was keyed in.
+    sale_timestamp, sale_date_error = resolve_sale_timestamp(
+        data.get('sale_date'), zimbabwe_now)
+    if sale_date_error:
+        return jsonify({'success': False, 'error': sale_date_error}), 400
     # The till may already have given the customer a number while it was offline;
     # honour it, but never let it collide with one that is already in use.
     reference = (str(data.get('reference') or '').strip().upper()[:40]
@@ -17737,7 +17746,7 @@ def pos_create_layby():
                 RETURNING id
             """, (transaction_number, user_id, total, total, LAYBY_PAYMENT_METHOD,
                   deposit, f'Layby {reference}: {customer_name} ({customer_id_number})',
-                  zimbabwe_now, branch_id, transaction_status))
+                  sale_timestamp, branch_id, transaction_status))
             transaction_id = cursor.fetchone()[0]
 
             cursor.execute("""
@@ -17751,7 +17760,7 @@ def pos_create_layby():
             """, (reference, branch_id, transaction_id, transaction_number,
                   customer_name, customer_id_number, customer_phone, total, deposit,
                   layby_status, str(data.get('notes') or '')[:500], user_id, user_name,
-                  zimbabwe_now, zimbabwe_now if due <= 0 else None, client_ref))
+                  sale_timestamp, sale_timestamp if due <= 0 else None, client_ref))
             layby_id = cursor.fetchone()[0]
 
             for line in lines:
@@ -17788,7 +17797,7 @@ def pos_create_layby():
                     INSERT INTO stock_reductions (product_id, quantity, reason, notes,
                                                   user_id, reduced_at, branch_id, department)
                     VALUES (%s, %s, 'layby_reserve', %s, %s, %s, %s, %s)
-                """, (pid, qty, f'Layby {reference}', user_id, zimbabwe_now, branch_id,
+                """, (pid, qty, f'Layby {reference}', user_id, sale_timestamp, branch_id,
                       _layby_dept))
 
                 cursor.execute("""
@@ -17816,7 +17825,7 @@ def pos_create_layby():
                                                 user_id, user_name, paid_at, created_at, kind)
                     VALUES (%s, NULL, %s, %s, 'Deposit', %s, %s, %s, %s, 'deposit')
                 """, (layby_id, deposit, deposit_method, user_id, user_name,
-                      zimbabwe_now, zimbabwe_now))
+                      sale_timestamp, sale_timestamp))
 
             connection.commit()
 
