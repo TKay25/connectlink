@@ -4564,6 +4564,11 @@ window.viewQuotationDetails = window.viewQuotationDetails || function(qId) {
             var q = res.data.find(function(x){return x.id===qId});
             if (q) {
                 window.currentViewingQuotation = q;
+                // ...and mirror it into the script-scoped variable the modal's
+                // buttons read, so a quotation opened through this early path can
+                // still be downloaded and sent. Guarded: that declaration lives in
+                // a later script and is only assignable once that has run.
+                try { currentViewingQuotation = q; } catch (e) {}
                 var tc = Number(q.totalCost||0);
                 var markup = Number(q.markup);
                 // TV Units and Other categories always use 30% markup even if DB shows 0
@@ -37252,6 +37257,13 @@ async function viewQuotationDetails(quotationId) {
             const quotation = result.data.find(q => q.id === quotationId);
             if (quotation) {
                 currentViewingQuotation = quotation;
+                // Two variables have grown up around this modal: the script-scoped
+                // one the jQuery handlers read, and window.currentViewingQuotation,
+                // which the early-resilience listeners and the PDF/send helpers
+                // read. Only the first was ever set here, so clicking Download PDF
+                // in the details modal raised "No quotation selected" from a
+                // listener that was reading the second. Publish both, every time.
+                window.currentViewingQuotation = quotation;
                 displayQuotationDetailsInModal(quotation);
             } else {
                 contentDiv.innerHTML = '<div class="alert alert-danger">Quotation not found</div>';
