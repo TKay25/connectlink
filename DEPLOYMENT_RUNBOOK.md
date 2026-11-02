@@ -1822,6 +1822,10 @@ sudo systemctl start connectlink
   failed read of the previous values logs nothing rather than inventing a change.
 
 **November 2026 — a department view says exactly what it is showing**
+- ✅ **Every tab says when it is scoped.** A banner above the page content — on the till, Inventory,
+  Sales, Transaction History, Analytics and Layby alike — names the department in force, says that
+  products, stock, takings, sales history, reports, receipts and laybys are all filtered to it, and
+  offers **Show All** to widen the view. It disappears on All, and it has a dark-theme form.
 - ✅ **Transaction History totals follow the department view.** Opened on Hardware or Furniture,
   History lists only that shelf's lines; the Total column now shows the money **on those lines**
   and names the receipt total beneath it (*"Hardware only · receipt USD 300.00"*), instead of

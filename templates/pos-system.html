@@ -4992,6 +4992,47 @@ body.dark-theme .product-card-compact:not(.is-out)::after { background: rgba(21,
     .pos-department-switch { padding: 3px; }
 }
 
+/* ---- Department scope banner ----
+   The switch filters the WHOLE system: products, stock, takings, history,
+   reports and receipts. While it sits on one department, every tab says so at
+   the top, with the way back to the whole shop. */
+.dept-scope-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 0 0 10px;
+    padding: 10px 14px;
+    border: 1px solid #D97706;
+    border-left: 6px solid #D97706;
+    border-radius: 12px;
+    background: #FFFBEB;
+    color: #7C2D12;
+    box-shadow: 0 6px 18px rgba(15, 27, 45, 0.10);
+}
+.dept-scope-banner > i { font-size: 1.05rem; color: #B45309; }
+.dept-scope-banner .dept-scope-text { flex: 1 1 320px; font-size: 0.78rem; line-height: 1.4; }
+.dept-scope-banner .dept-scope-text strong { font-weight: 800; }
+.dept-scope-btn {
+    background: #B45309;
+    border: 1px solid #92400E;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.72rem;
+    padding: 5px 12px;
+    border-radius: 9px;
+    white-space: nowrap;
+}
+.dept-scope-btn:hover { background: #92400E; color: #fff; }
+body.dark-theme .dept-scope-banner {
+    background: rgba(245, 158, 11, 0.14);
+    border-color: rgba(245, 158, 11, 0.55);
+    color: #FCD34D;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+body.dark-theme .dept-scope-banner > i { color: #FBBF24; }
+body.dark-theme .dept-scope-btn { background: #B45309; border-color: #F59E0B; color: #fff; }
+
 /* ---- Cashier cards ---- */
 #posPage .pos-header-cashiers { gap: 7px; }
 #posPage .cashier-card { min-width: 150px; padding: 6px 9px 7px !important; gap: 8px; border-radius: 10px; }
@@ -7370,6 +7411,21 @@ body.dark-theme #analyticsPage .an-kpi-delta.down { color: #FCA5A5; background: 
 </div>
 
 <!-- POS Page -->
+
+<!-- Department scope banner: outside every page, so whichever tab is open the
+     operator is told the whole system is filtered and how to unfilter it. -->
+<div id="departmentScopeBanner" class="dept-scope-banner" role="status" aria-live="polite" style="display: none;">
+    <i class="fas fa-filter" aria-hidden="true"></i>
+    <div class="dept-scope-text">
+        <strong>Scoped to <span id="departmentScopeName">this department</span>.</strong>
+        Every tab is filtered to it &mdash; products, stock, takings, sales history,
+        reports, receipts and laybys. Select <strong>All</strong> in the department
+        switch to see everything unfiltered.
+    </div>
+    <button type="button" class="dept-scope-btn" onclick="switchDepartment('all')">
+        <i class="fas fa-layer-group me-1"></i>Show All
+    </button>
+</div>
 
 <!-- POS Page -->
 <div id="posPage">
@@ -23238,8 +23294,24 @@ function applyDepartmentState(deptKey) {
         btn.classList.toggle('is-active', on);
         btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    renderDepartmentScopeBanner();
 }
 window.applyDepartmentState = applyDepartmentState;
+
+// One warning for every tab: the switch filters the whole system, so wherever
+// the operator is, the screen says which shelf it is showing and how to widen it.
+function renderDepartmentScopeBanner() {
+    const el = document.getElementById('departmentScopeBanner');
+    if (!el) return;
+    if (posDepartment !== 'hardware' && posDepartment !== 'furniture') {
+        el.style.display = 'none';
+        return;
+    }
+    const name = document.getElementById('departmentScopeName');
+    if (name) name.textContent = deptLabel(posDepartment);
+    el.style.display = 'flex';
+}
+window.renderDepartmentScopeBanner = renderDepartmentScopeBanner;
 
 // Redraw whichever tab is open, using state already loaded.
 function redrawActiveTab() {
