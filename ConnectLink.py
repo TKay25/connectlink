@@ -34661,10 +34661,9 @@ def download_payments_history(project_id):
             for p in payments:
                 if p['paid'] != 'Not Paid' and p['amount']:
                     paid_total += p['amount']
-            balance_installments = installment_total - paid_total
-            # Outstanding balance is what is still due on the installment schedule,
-            # i.e. the installment balance less the installments already paid.
-            outstanding_balance = balance_installments
+            # What is still due on the installment schedule: the whole schedule
+            # less the installments already carried a paid date.
+            outstanding_installments = installment_total - paid_total
 
             # Build payments table rows (styled)
             payment_rows = ""
@@ -34726,12 +34725,12 @@ def download_payments_history(project_id):
                         <div class='summary-value green'>USD {deposit_paid:,.2f}</div>
                     </div>
                     <div class='summary-card'>
-                        <div class='summary-label'>Installment Balance</div>
-                        <div class='summary-value orange'>USD {balance_installments:,.2f}</div>
+                        <div class='summary-label'>Installments Paid</div>
+                        <div class='summary-value green'>USD {paid_total:,.2f}</div>
                     </div>
                     <div class='summary-card'>
-                        <div class='summary-label'>Outstanding Balance</div>
-                        <div class='summary-value red'>USD {outstanding_balance:,.2f}</div>
+                        <div class='summary-label'>Outstanding Installments</div>
+                        <div class='summary-value red'>USD {outstanding_installments:,.2f}</div>
                     </div>
                 </div>
                 <div class='section-title'>Client Information</div>

@@ -3855,7 +3855,7 @@ window.loadQuotations = window.loadQuotations || function() {
     var c = document.getElementById('quotationsContainer');
     if (!c) return;
     c.innerHTML = '<p class="text-muted text-center" style="padding:40px;">Loading quotations...</p>';
-    fetch('/api/get-quotations?summary=1&limit=' + window.QUOTATION_TABLE_LIMIT).then(function(r){return r.json()}).then(function(result){
+    fetch('/api/get-quotations?summary=1&limit=' + (window.QUOTATION_TABLE_LIMIT || 500)).then(function(r){return r.json()}).then(function(result){
         if(result.success && result.data && result.data.length>0){
             var h='<div style="margin-bottom:10px;"><input type="text" id="quotationsSearch" class="form-control form-control-sm" placeholder="🔍 Search quotations..." style="max-width:250px;font-size:0.7rem;padding:3px 6px;"></div><div style="overflow-x:auto;overflow-y:auto;max-height:500px;border:1px solid #dee2e6;border-radius:6px;background:white;"><table style="width:100%;font-size:0.7rem;margin-bottom:0;border-collapse:collapse;"><thead style="position:sticky;top:0;background:#0A1A3A;z-index:10;"><tr style="color:white;"><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">ID</th><th style="padding:5px 4px;text-align:left;width:180px;border:1px solid #1E2A56;">Client Name</th><th style="padding:5px 4px;text-align:left;width:80px;border:1px solid #1E2A56;">Category</th><th style="padding:5px 4px;text-align:center;width:65px;border:1px solid #1E2A56;">Size</th><th style="padding:5px 4px;text-align:center;width:60px;border:1px solid #1E2A56;">Markup</th><th style="padding:5px 4px;text-align:right;width:100px;border:1px solid #1E2A56;">Total Cost</th><th style="padding:5px 4px;text-align:center;width:75px;border:1px solid #1E2A56;">Date</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Items</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Tasks</th><th style="padding:5px 4px;text-align:center;width:45px;border:1px solid #1E2A56;">Notes</th><th style="padding:5px 4px;text-align:center;width:140px;border:1px solid #1E2A56;">Actions</th></tr></thead><tbody>';
             var sorted = result.data.slice().sort(function(a,b){return b.id-a.id});
@@ -4818,40 +4818,186 @@ window.CLQPdf = (function () {
         return '<div class="clq-foot"><span>' + left + '</span><span>' + right + '</span></div>';
     }
 
-    // Hand a finished document to html2pdf.
-    //
-    // The logo and the webfonts are warmed BEFORE the generator measures anything.
-    // html2pdf sizes the capture from a measurement taken ahead of the render, so an
-    // image or font that landed afterwards pushed the last block (the footer) below
-    // the captured height and it silently vanished from the PDF.
-    function render(htmlContent, options, mode) {
-        const timeout = function (ms) {
-            return new Promise(function (resolve) { setTimeout(resolve, ms); });
-        };
-        const warm = Promise.all([
-            Promise.race([
-                new Promise(function (resolve) {
-                    const probe = new Image();
-                    probe.onload = probe.onerror = resolve;
-                    probe.src = '/static/images/web-logo.png';
-                }),
-                timeout(3000)
-            ]),
-            Promise.race([
-                (document.fonts && document.fonts.ready) ? document.fonts.ready.catch(function () {}) : Promise.resolve(),
-                timeout(3000)
-            ])
-        ]).then(function () { return null; }).catch(function () { return null; });
-        return warm.then(function () {
-            // CSS page-break mode: html2pdf moves a `break-inside: avoid` block whole
-            // to the next page instead of slicing it at the page edge (a table row used
-            // to be cut in half). Every block in this document carries that rule, so the
-            // walk stays cheap - measured under a second for both quotations.
-            const opts = Object.assign({}, options || {}, { pagebreak: { mode: ['css'] } });            const worker = window.html2pdf().set(opts).from(htmlContent);
-            if (mode === 'datauri') { return worker.outputPdf('datauristring'); }
-            return worker.save().then(function () { return null; });
+    // ---- render pipeline ---------------------------------------------------
+    // html2canvas clones the whole document it is pointed at. Rendering straight
+    // from the admin page therefore cloned the entire portal - tens of thousands
+    // of nodes - on every download, and that clone, not the raster, was the wait
+    // (measured ~1.4s on a 16k-node page, ~3s on the real one). The document is
+    // rendered in a small reusable off-screen frame instead, so only the
+    // quotation itself is cloned. The output does not change: html2pdf still
+    // lays the document out in its own 198mm container, and the rendered bytes
+    // are identical to the in-page render.
+    var renderFramePromise = null;
+    var renderCache = new Map();
+
+    function hashHtml(text) {
+        var hash = 2166136261;
+        for (var i = 0; i < text.length; i++) {
+            hash ^= text.charCodeAt(i);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(36) + ':' + text.length;
+    }
+
+    // The script tag that loaded html2pdf here, so the frame runs the same build
+    // from the same (already cached) URL.
+    function pdfScriptSrc() {
+        var tag = document.querySelector('script[src*="html2pdf"]');
+        return tag ? tag.src : '';
+    }
+
+    // html2canvas copies every <link> into its clone and waits for each fetch, so
+    // a slow font host stalls the render. The stylesheet is fetched once (it is
+    // in the HTTP cache) and injected as <style>, which keeps the clone local.
+    // A host that never answers keeps the fallback font instead of hanging.
+    function inlineWebFonts(win) {
+        var href = '';
+        var links = document.querySelectorAll('link[rel="stylesheet"]');
+        for (var i = 0; i < links.length; i++) {
+            if (/fonts\.googleapis\.com/.test(links[i].href)) { href = links[i].href; break; }
+        }
+        if (!href || !win.fetch || !win.AbortController) { return Promise.resolve(); }
+        var stop = new win.AbortController();
+        var timer = win.setTimeout(function () { stop.abort(); }, 2500);
+        return win.fetch(href, { signal: stop.signal }).then(function (response) {
+            return response.ok ? response.text() : '';
+        }).then(function (css) {
+            if (!css) { return; }
+            var style = win.document.createElement('style');
+            style.textContent = css;
+            win.document.head.appendChild(style);
+        }).catch(function () {}).then(function () { win.clearTimeout(timer); });
+    }
+
+    // The logo and the webfonts must land BEFORE the generator measures anything:
+    // html2pdf sizes the capture from a measurement taken ahead of the render, so
+    // an image or font arriving later pushed the last block (the footer) below the
+    // captured height and it silently vanished from the PDF.
+    function prepareFrame(win) {
+        var probe = new win.Image();
+        return Promise.all([
+            inlineWebFonts(win),
+            new Promise(function (resolve) {
+                probe.onload = probe.onerror = resolve;
+                probe.src = '/static/images/web-logo.png';
+            }),
+            (win.document.fonts && win.document.fonts.ready)
+                ? win.document.fonts.ready.catch(function () {}) : Promise.resolve()
+        ]);
+    }
+
+    function getRenderFrame() {
+        if (renderFramePromise) { return renderFramePromise; }
+        var src = pdfScriptSrc();
+        if (!src) { return Promise.reject(new Error('html2pdf is not loaded')); }
+        var frame = document.createElement('iframe');
+        frame.setAttribute('aria-hidden', 'true');
+        // Kept on screen (off to the left) rather than display:none: a hidden frame
+        // has no layout, and html2canvas captures the layout of its document.
+        frame.style.cssText = 'position:fixed;top:0;left:-20000px;width:900px;height:1400px;border:0;';
+        document.body.appendChild(frame);
+        var win = frame.contentWindow;
+        win.document.open();
+        win.document.write('<!doctype html><html><head><meta charset="utf-8">'
+            + '<style>html,body{margin:0;padding:0;background:#fff;}</style>'
+            + '</head><body></body></html>');
+        win.document.close();
+        renderFramePromise = new Promise(function (resolve, reject) {
+            var script = win.document.createElement('script');
+            script.src = src;
+            script.onload = function () {
+                prepareFrame(win).then(function () { resolve({ frame: frame, win: win }); });
+            };
+            script.onerror = function () { reject(new Error('html2pdf failed to load in the render document')); };
+            win.document.head.appendChild(script);
+        }).catch(function (error) {
+            frame.remove();
+            renderFramePromise = null;          // let the next render try again
+            throw error;
+        });
+        return renderFramePromise;
+    }
+
+    function renderIsolated(htmlContent, options) {
+        return getRenderFrame().then(function (context) {
+            var win = context.win;
+            // Rebuilt inside the frame: html2pdf rejects arrays from another realm,
+            // so `margin: [6,6,6,6]` has to be an Array of the frame's own.
+            var local = win.JSON.parse(win.JSON.stringify(options));
+            return win.html2pdf().set(local).from(htmlContent).outputPdf('datauristring');
         });
     }
+
+    function renderInline(htmlContent, options) {
+        // Same warm-up the sequential in-page path always did: the page already
+        // has its font faces, so only the logo needs waiting for.
+        var probe = new Image();
+        return Promise.all([
+            new Promise(function (resolve) {
+                probe.onload = probe.onerror = resolve;
+                probe.src = '/static/images/web-logo.png';
+            }),
+            (document.fonts && document.fonts.ready)
+                ? document.fonts.ready.catch(function () {}) : Promise.resolve()
+        ]).then(function () {
+            return window.html2pdf().set(options).from(htmlContent).outputPdf('datauristring');
+        });
+    }
+
+    function saveDataUri(uri, filename) {
+        var binary = window.atob(uri.slice(uri.indexOf(',') + 1));
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+        var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = filename || 'Quotation.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    }
+
+    // Hand a finished document to html2pdf.
+    function render(htmlContent, options, mode) {
+        // CSS page-break mode: html2pdf moves a `break-inside: avoid` block whole to
+        // the next page instead of slicing it at the page edge (a table row used to be
+        // cut in half). Every block in this document carries that rule.
+        var opts = Object.assign({}, options || {}, { pagebreak: { mode: ['css'] } });
+        // The filename is excluded from the key: it carries a timestamp but never
+        // reaches the PDF. A re-download of the same quotation is then instant.
+        var key = hashHtml(htmlContent + '|'
+            + JSON.stringify([opts.margin, opts.image, opts.html2canvas, opts.jsPDF]));
+        var pending = renderCache.has(key) ? Promise.resolve(renderCache.get(key)) : null;
+        if (!pending) {
+            pending = renderIsolated(htmlContent, opts).catch(function () {
+                // No frame (script tag missing, frame blocked): still render, just
+                // through the original in-page path.
+                return renderInline(htmlContent, opts);
+            }).then(function (uri) {
+                // Kept for a re-download, but only while it stays small: these are
+                // whole PDFs held in memory.
+                if (uri.length <= 3e6) {
+                    if (renderCache.size >= 3) { renderCache.clear(); }
+                    renderCache.set(key, uri);
+                }
+                return uri;
+            });
+        }
+        return pending.then(function (uri) {
+            if (mode === 'datauri') { return uri; }
+            saveDataUri(uri, options && options.filename);
+            return null;
+        });
+    }
+
+    // Assemble the frame while the page is idle so the first click has nothing to
+    // set up. `load` guarantees the html2pdf script tag is on the page by now.
+    window.addEventListener('load', function () {
+        var start = function () { getRenderFrame().catch(function () {}); };
+        if (window.requestIdleCallback) { window.requestIdleCallback(start, { timeout: 4000 }); }
+        else { setTimeout(start, 1200); }
+    });
 
     return { money: money, doc: doc, head: head, intro: intro, section: section, block: block,
              card: card, fields: fields, row: row, rule: rule, table: table, twoCols: twoCols,
