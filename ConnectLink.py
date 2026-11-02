@@ -24012,6 +24012,15 @@ def day_end_report():
                        WHERE ti.transaction_id = t.id
                          AND COALESCE(ti.department, %s) = ANY(%s)
                    ), '[]'::json) as items,
+                   -- The money on the LINES this view returned. A receipt that
+                   -- spans both departments must not be charged to each of them
+                   -- in full: Hardware plus Furniture has to add up to the shop.
+                   COALESCE((
+                       SELECT SUM(COALESCE(ti.subtotal, ti.price_at_time * ti.quantity))
+                       FROM transaction_items ti
+                       WHERE ti.transaction_id = t.id
+                         AND COALESCE(ti.department, %s) = ANY(%s)
+                   ), 0) as scoped_total,
                    t.branch_id,
                    b.name as branch_name
             FROM transactions t
@@ -24032,13 +24041,17 @@ def day_end_report():
               )
         """
         _dend_depts = department_read_scope()
+        dept_view = current_department_view()
         branch_where, branch_params = branch_read_clause('t.branch_id')
         query = query + branch_where + """
             ORDER BY t.created_at ASC
         """
         rows = execute_query(
             query,
-            (DEFAULT_DEPARTMENT, _dend_depts, day, DEFAULT_DEPARTMENT, _dend_depts)
+            (DEFAULT_DEPARTMENT, _dend_depts,                      # the sale's lines
+             DEFAULT_DEPARTMENT, _dend_depts,                      # the money on them
+             day,
+             DEFAULT_DEPARTMENT, _dend_depts)
             + tuple(branch_params), fetch_all=True)
 
         from collections import OrderedDict
@@ -24051,9 +24064,15 @@ def day_end_report():
             totals[key] = totals.get(key, 0.0) + amount
 
         for r in rows:
-            branch_name = r[9] or 'Unassigned'
+            branch_name = r[10] or 'Unassigned'
             cashier = r[3] or 'Unknown'
-            total = float(r[4] or 0)
+            receipt_total = float(r[4] or 0)
+            scoped_total = round(float(r[8] or 0), 2)
+            # A sale that spans both departments is split between their day-ends by
+            # the money it took on each shelf -- the same basis the Sales tab and
+            # the transaction list use. Charging the whole receipt to both shelves
+            # would make Hardware + Furniture exceed what the shop actually took.
+            total = scoped_total
             method = (r[5] or 'other').lower()
             created = r[6].isoformat() if r[6] else None
             items = r[7] if r[7] else []
@@ -24065,7 +24084,7 @@ def day_end_report():
             if key not in cashier_map:
                 cashier_map[key] = {
                     'cashier': cashier,
-                    'branch_id': r[8],
+                    'branch_id': r[9],
                     'branch_name': branch_name,
                     'total': 0.0,
                     'transaction_count': 0,
@@ -24074,7 +24093,7 @@ def day_end_report():
                 }
                 if branch_name not in branch_map:
                     branch_map[branch_name] = {
-                        'branch_id': r[8],
+                        'branch_id': r[9],
                         'branch_name': branch_name,
                         'total': 0.0,
                         'transaction_count': 0,
@@ -24092,7 +24111,12 @@ def day_end_report():
                 'id': r[0],
                 'transaction_number': r[1],
                 'created_at': created,
+                # `total` is the money this report counted (this department's
+                # share); `receipt_total` is what the customer's receipt said.
                 'total': total,
+                'receipt_total': round(receipt_total, 2),
+                'department_scoped': (dept_view != DEPARTMENT_ALL
+                                      and abs(receipt_total - total) > 0.005),
                 'payment_method': method,
                 'items': items
             })
@@ -24157,6 +24181,11 @@ def day_end_report():
             'date': day,
             # Which books this report covers: a shop name, or All Branches.
             'scope': session.get('branch_name') or 'All Branches',
+            # ...and which shelf: on Hardware or Furniture the money above is that
+            # shelf's share of each sale, never the whole receipt.
+            'department': dept_view,
+            'department_label': department_view_label(dept_view),
+            'department_scoped': dept_view != DEPARTMENT_ALL,
             'multi_branch': len(branches) > 1,
             'cashiers': cashiers,
             'branches': branches,

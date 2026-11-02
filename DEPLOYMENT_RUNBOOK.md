@@ -1836,6 +1836,13 @@ sudo systemctl start connectlink
   naming the receipt total for a mixed sale, the PDF prints that note under the items and its
   *Total Sales* line adds the lines it actually listed, and reverting from a department view warns
   that **every** item on the receipt — not just the visible ones — goes back to stock.
+- ✅ **Day-end counts each shelf's share.** The day-end endpoint filtered a sale to the department's
+  lines but summed the whole receipt, so one mixed basket was charged in full to *both* Hardware's and
+  Furniture's day-end. Cashier totals, payment-method buckets, branch totals and the transaction rows
+  now add up the money on the lines in view; a mixed receipt keeps its own total beside the row
+  (*receipt USD 300.00*) and the report says which shelf it is describing. Hardware + Furniture now
+  equals the shop. *(Layby money is unchanged: a layby payment carries no department, so it is
+  reported, and labelled, whole.)*
 
 **October 2026 — stock a till has promised, and layby paperwork**
 - ✅ **A till no longer offers stock it has already promised.** Sales and laybys queued on

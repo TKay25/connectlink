@@ -1,0 +1,15 @@
+PASS  the Hardware day-end answers  -> 200
+PASS  Total Sales is the Hardware share, not both receipts  -> 250.0
+PASS  the cash bucket holds the Hardware line of the mixed sale  -> {'card': 150.0, 'cash': 100.0}
+PASS  the card bucket is untouched  -> {'card': 150.0, 'cash': 100.0}
+PASS  the branch total is the share too  -> [{'branch_id': 1, 'branch_name': 'Shurugwi', 'payment_methods': {'card': 150.0, 'cash': 100.0}, 'total': 250.0, 'transaction_count': 2}]
+PASS  the report says it is describing Hardware  -> (True, 'Hardware')
+PASS  the mixed row is counted at its Hardware money  -> {'created_at': '2026-11-02T10:00:00', 'department_scoped': True, 'id': 1, 'items': [{'cost_at_time': 60.0, 'price': 100.0, 'product_name': 'Cement', 'quantity': 1}], 'payment_method': 'cash', 'receipt_total': 300.0, 'total': 100.0, 'transaction_number': 'T1'}
+PASS  the mixed row still names the customer's receipt total  -> {'created_at': '2026-11-02T10:00:00', 'department_scoped': True, 'id': 1, 'items': [{'cost_at_time': 60.0, 'price': 100.0, 'product_name': 'Cement', 'quantity': 1}], 'payment_method': 'cash', 'receipt_total': 300.0, 'total': 100.0, 'transaction_number': 'T1'}
+PASS  the mixed row is flagged as scoped
+PASS  a sale wholly in Hardware is not flagged  -> {'created_at': '2026-11-02T11:00:00', 'department_scoped': False, 'id': 2, 'items': [{'cost_at_time': 30.0, 'price': 50.0, 'product_name': 'Nails', 'quantity': 3}], 'payment_method': 'card', 'receipt_total': 150.0, 'total': 150.0, 'transaction_number': 'T2'}
+PASS  the Furniture day-end counts the Furniture line  -> 200.0
+PASS  and calls itself Furniture  -> Furniture
+PASS  the All view is the whole shop  -> 450.0
+PASS  the All view is not marked as department scoped
+PASS  no row is flagged as scoped on All  -> [('T1', False), ('T2', False)]

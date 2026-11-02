@@ -15226,6 +15226,7 @@ function renderFilteredTransactions() {
 
         const branchList = data.branches || [];
         const scopeLabel = data.scope || '';
+        const deptScopeLabel = data.department_label || '';
 
         document.getElementById('dayEndSummary').innerHTML = `
             <div class="col-12">
@@ -15234,6 +15235,16 @@ function renderFilteredTransactions() {
                     <span class="text-muted">${cashiers.length} cashier group(s)</span>
                 </div>
             </div>
+            ${data.department_scoped ? `
+            <div class="col-12">
+                <div class="alert alert-warning py-2 small mb-1">
+                    <i class="fas fa-layer-group me-1"></i>
+                    <strong>${escapeHtml(deptScopeLabel)} only.</strong>
+                    A sale that spans both departments counts here for the money it took on the
+                    ${escapeHtml(deptScopeLabel)} lines &mdash; not the whole receipt. Switch to
+                    <strong>All</strong> for the whole shop's day.
+                </div>
+            </div>` : ''}
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Total Sales</div><div class="fw-bold">${usdMoney(data.grand_total)}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Transactions</div><div class="fw-bold">${data.transaction_count || 0}</div></div></div>
             <div class="col-md-2 col-sm-4"><div class="stat-card"><div class="small text-muted">Cashiers</div><div class="fw-bold">${cashiers.length}</div></div></div>
@@ -15300,7 +15311,7 @@ function renderFilteredTransactions() {
                     <td>${t.created_at ? new Date(t.created_at).toLocaleString('en-GB') : ''}</td>
                     <td>${escapeHtml(t.transaction_number || '')}</td>
                     <td>${t.items ? t.items.map(i => `${escapeHtml(i.product_name || '')} x${i.quantity}`).join(', ') : ''}</td>
-                    <td>${usdMoney((t.total || 0))}</td>
+                    <td>${usdMoney((t.total || 0))}${t.department_scoped ? `<div class="small text-muted" style="font-size:0.62rem;">receipt ${usdMoney(t.receipt_total || 0)}</div>` : ''}</td>
                     <td>${pmLabel(t.payment_method)}</td>
                 </tr>`).join('');
             content.innerHTML += `
@@ -15323,6 +15334,13 @@ function renderFilteredTransactions() {
         logPosActivity('download', 'Downloaded Day End Report to Excel');
         const data = dayEndReportData;
         const rows = [];
+        if (data.department_scoped) {
+            rows.push({
+                'Branch': (data.department_label || '') + ' only',
+                'Cashier': 'Totals are the ' + (data.department_label || '') +
+                           ' share of each sale, not the whole receipt.'
+            });
+        }
         (data.cashiers || []).forEach(c => {
             rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': c.total.toFixed(2), 'Cash': (c.payment_methods.cash || 0).toFixed(2), 'Card': (c.payment_methods.card || 0).toFixed(2), 'Transfer': (c.payment_methods.transfer || 0).toFixed(2), 'Layby kept': (c.layby_collected || 0).toFixed(2) });
         });
@@ -15338,7 +15356,7 @@ function renderFilteredTransactions() {
         rows.push({ 'Branch': 'Branch', 'Cashier': 'Cashier', 'Total Sales': 'Receipt #', 'Cash': 'Items', 'Card': 'Total', 'Transfer': 'Payment' });
         (data.cashiers || []).forEach(c => {
             (c.transactions || []).forEach(t => {
-                rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': t.transaction_number || '', 'Cash': t.items ? t.items.map(i => `${i.product_name || ''} x${i.quantity}`).join(', ') : '', 'Card': (t.total || 0).toFixed(2), 'Transfer': pmLabel(t.payment_method) });
+                rows.push({ 'Branch': c.branch_name || '', 'Cashier': c.cashier, 'Total Sales': t.transaction_number || '', 'Cash': t.items ? t.items.map(i => `${i.product_name || ''} x${i.quantity}`).join(', ') : '', 'Card': (t.total || 0).toFixed(2) + (t.department_scoped ? ' (receipt ' + Number(t.receipt_total || 0).toFixed(2) + ')' : ''), 'Transfer': pmLabel(t.payment_method) });
             });
         });
         const ws = XLSX.utils.json_to_sheet(rows);
