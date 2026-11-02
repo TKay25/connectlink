@@ -1822,12 +1822,6 @@ sudo systemctl start connectlink
   failed read of the previous values logs nothing rather than inventing a change.
 
 **November 2026 — a department view says exactly what it is showing**
-- ✅ **Download PDF in the quotation details modal no longer says "No quotation selected".** The
-  modal tracked its quotation in two variables — the script-scoped one its buttons read, and
-  `window.currentViewingQuotation`, which the early-resilience listeners and the PDF/send helpers read
-  — and opening the details set only the first. A listener therefore aborted the click with that
-  warning (alert or toast, depending on which handler ran first) while the download itself went ahead.
-  Both are now published together, from either entry point.
 - ✅ **Every tab says when it is scoped.** A banner above the page content — on the till, Inventory,
   Sales, Transaction History, Analytics and Layby alike — names the department in force, says that
   products, stock, takings, sales history, reports, receipts and laybys are all filtered to it, and

@@ -286,6 +286,11 @@ def initialize_database_tables():
                 item_order INT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );""")
+            # Every kitchen-item read is by quotation_id (the Quotations tab's
+            # counts and the details modal). Without this, each one scanned the
+            # whole table, so both got slower as the shop's history grew.
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_quotation_kitchen_items_quotation "
+                           "ON quotation_kitchen_items (quotation_id)")
 
             # Add missing columns to quotation_kitchen_items table
             try:
@@ -894,6 +899,14 @@ def initialize_database_tables():
                     FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE
                 );
             """)
+
+            # Reads of these tables are by quotation_id: the tab's counts, one
+            # quotation's items for the details modal/PDF, and the "does this
+            # quotation have a Gantt yet" check. Indexed so none of them scans.
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_quotation_items_quotation "
+                           "ON quotation_items (quotation_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_quotation_schedules_quotation "
+                           "ON quotation_schedules (quotation_id)")
 
             # Create secure quotation share links for WhatsApp template URL buttons
             cursor.execute("""
@@ -34649,7 +34662,9 @@ def download_payments_history(project_id):
                 if p['paid'] != 'Not Paid' and p['amount']:
                     paid_total += p['amount']
             balance_installments = installment_total - paid_total
-            outstanding_balance = total_contract - (deposit_paid + paid_total)
+            # Outstanding balance is what is still due on the installment schedule,
+            # i.e. the installment balance less the installments already paid.
+            outstanding_balance = balance_installments
 
             # Build payments table rows (styled)
             payment_rows = ""
@@ -48798,29 +48813,216 @@ def save_quotation():
         return jsonify({'success': False, 'error': str(e)}), 500
     
         
+# How many legacy quotations have their work schedule rebuilt per request. See
+# _heal_missing_quotation_schedules().
+QUOTATION_HEAL_BATCH = 20
+_QUOTATION_HEAL_TRIED = set()
+
+
+def _quotation_header_dict(quotation):
+    """The fields every quotation carries, in the shape the client expects."""
+    return {
+        'id': quotation[0],
+        'clientName': quotation[1] or 'Client',
+        'clientWhatsapp': quotation[2] or '',
+        'quotationDate': quotation[3].isoformat() if quotation[3] else None,
+        'category': quotation[4] or '',
+        'projectSize': float(quotation[5]) if quotation[5] else 0,
+        'totalCost': float(quotation[6]) if quotation[6] else 0,
+        'markup': float(quotation[7]) if quotation[7] else 0,
+        'notes': quotation[8] or '',
+        'createdBy': quotation[9] or '',
+        'customCategory': quotation[10] if len(quotation) > 10 and quotation[10] else '',
+        'vatEnabled': bool(quotation[11]) if len(quotation) > 11 else False,
+        'vatRate': float(quotation[12]) if len(quotation) > 12 and quotation[12] is not None else 15.5,
+        'vatMode': (quotation[13] or 'exclusive') if len(quotation) > 13 else 'exclusive',
+    }
+
+
+def _schedule_dicts(rows):
+    """(work_scope, start, end, days) rows as the client's schedule objects."""
+    return [{'workScope': r[0],
+             'startDate': r[1].isoformat() if r[1] else None,
+             'endDate': r[2].isoformat() if r[2] else None,
+             'days': int(r[3]) if r[3] else 0} for r in rows]
+
+
+def _heal_missing_quotation_schedules(cursor, connection, limit=QUOTATION_HEAL_BATCH):
+    """Rebuild work schedules for quotations saved before the Gantt was stored.
+
+    Returns {quotation_id: [schedule rows]}. This heals legacy data, but the list
+    endpoint used to do it for EVERY quotation missing a schedule BEFORE answering:
+    a SELECT of the quotation, a SELECT of its items, the INSERTs and a COMMIT
+    each, over a remote database -- which is why the tab got slower as history
+    grew. The work is capped per request and remembered for the life of the
+    process, so a page load cannot stall while the backlog still drains later.
+    """
+    healed = {}
+    if limit <= 0:
+        return healed
+    already_tried = list(_QUOTATION_HEAL_TRIED)
+    try:
+        cursor.execute("""
+            SELECT q.id
+            FROM quotations q
+            WHERE NOT EXISTS (
+                    SELECT 1 FROM quotation_schedules s WHERE s.quotation_id = q.id)
+              AND NOT (q.id = ANY(%s::int[]))
+            ORDER BY q.id DESC
+            LIMIT %s
+        """, (already_tried, limit))
+        candidates = [r[0] for r in cursor.fetchall()]
+    except Exception as e:
+        print(f"Note: could not look for quotations missing a work schedule: {e}")
+        return healed
+    for q_id in candidates:
+        _QUOTATION_HEAL_TRIED.add(q_id)
+        try:
+            ensured = ensure_quotation_schedules(cursor, connection, q_id)
+        except Exception as e:
+            print(f"Note: could not ensure schedule for quotation {q_id}: {e}")
+            continue
+        if ensured:
+            healed[q_id] = ensured
+    return healed
+
+
+def _quotation_summary_payload(cursor, connection, quotations, total_matching, total_all,
+                               started=None):
+    """Headers plus item/task counts, without the item and Gantt lists.
+
+    The table shows the client, the category, the money and two COUNTS; sending
+    every line and every task for every quotation is what made the tab slower each
+    month. Notes are clipped to what the note icon's tooltip shows.
+    """
+    item_counts, kitchen_counts, task_counts = {}, {}, {}
+    if quotations:
+        ids = [q[0] for q in quotations]
+        cursor.execute("""
+            SELECT quotation_id, COUNT(*) FROM quotation_items
+            WHERE quotation_id = ANY(%s::int[]) GROUP BY quotation_id
+        """, (ids,))
+        for row in cursor.fetchall():
+            item_counts[row[0]] = int(row[1])
+        try:
+            cursor.execute("""
+                SELECT quotation_id, COUNT(*) FROM quotation_kitchen_items
+                WHERE quotation_id = ANY(%s::int[]) GROUP BY quotation_id
+            """, (ids,))
+            for row in cursor.fetchall():
+                kitchen_counts[row[0]] = int(row[1])
+        except Exception as e:
+            print(f"Note: quotation_kitchen_items unavailable: {e}")
+        _heal_missing_quotation_schedules(cursor, connection)
+        cursor.execute("""
+            SELECT quotation_id, COUNT(*) FROM quotation_schedules
+            WHERE quotation_id = ANY(%s::int[]) GROUP BY quotation_id
+        """, (ids,))
+        for row in cursor.fetchall():
+            task_counts[row[0]] = int(row[1])
+
+    result = []
+    for quotation in quotations:
+        q_id = quotation[0]
+        is_kitchen = (quotation[4] or '') in ('kitchen', 'kitchen_cabinets')
+        row = _quotation_header_dict(quotation)
+        row['notes'] = row['notes'][:200]
+        row['itemCount'] = (kitchen_counts if is_kitchen else item_counts).get(q_id, 0)
+        row['taskCount'] = task_counts.get(q_id, 0)
+        result.append(row)
+
+    if started is not None:
+        print(f"get-quotations: summary {len(result)} row(s) of {total_matching} matching "
+              f"/ {total_all} total in {(time.perf_counter() - started) * 1000:.0f} ms")
+    return {'success': True, 'summary': True, 'data': result, 'count': len(result),
+            'total': total_matching, 'all_total': total_all}
+
+
 @app.route('/api/get-quotations', methods=['GET'])
 def get_quotations():
-    """Retrieve all quotations - Handles both construction and kitchen types"""
+    """Retrieve quotations.
+
+    Three shapes, because the Quotations tab used to pull every item and every
+    Gantt task for EVERY quotation just to show two counts -- a payload that grows
+    with the shop's history and only ever gets slower:
+
+      * `?summary=1` - headers plus item/task counts, for the tab's table;
+      * `?id=N`      - one quotation in full, for the details modal and its PDF;
+      * default      - every quotation in full, exactly as before.
+
+    All three answer `data: [...]`, so callers that do `data.find(...)` keep
+    working untouched.
+    """
+    started = time.perf_counter()
+    raw_id = (request.args.get('id') or '').strip()
+    wanted_id = None
+    if raw_id:
+        try:
+            wanted_id = int(raw_id)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': 'id must be a number',
+                            'data': [], 'count': 0}), 400
+    summary_only = str(request.args.get('summary') or '').lower() in ('1', 'true', 'yes')
+    try:
+        limit = int(request.args.get('limit') or 0)
+    except (TypeError, ValueError):
+        limit = 0
+    search = (request.args.get('q') or '').strip()
+
     try:
         with get_db() as (cursor, connection):
             # Get quotations
-            cursor.execute("""
-                SELECT id, client_name, client_whatsapp, quotation_date, 
+            header_sql = """
+                SELECT id, client_name, client_whatsapp, quotation_date,
                        category, project_size, total_cost, markup_percentage, notes,
                        created_by, custom_category, vat_enabled, vat_rate, vat_mode
                 FROM quotations
-                ORDER BY id DESC
-            """)
+            """
+            header_where, header_params = '', ()
+            if wanted_id is not None:
+                header_where, header_params = ' WHERE id = %s', (wanted_id,)
+            elif search:
+                # The tab searches the whole history, not just the rows it drew:
+                # the table is a window on the latest quotations (see `limit`).
+                header_where = (" WHERE client_name ILIKE %s OR category ILIKE %s"
+                                " OR COALESCE(custom_category, '') ILIKE %s"
+                                " OR CAST(id AS TEXT) = %s")
+                like = f'%{search}%'
+                header_params = (like, like, like, search)
+            order_sql = ' ORDER BY id DESC'
+            query_params = header_params
+            if limit > 0 and wanted_id is None:
+                order_sql += ' LIMIT %s'
+                query_params = header_params + (limit,)
+            cursor.execute(header_sql + header_where + order_sql, query_params)
             quotations = cursor.fetchall()
+
+            if summary_only and wanted_id is None:
+                # How much history sits behind the window the table drew, so the
+                # tab can say "latest 500 of 4,812" instead of silently hiding rows.
+                if search:
+                    cursor.execute("SELECT COUNT(*) FROM quotations" + header_where, header_params)
+                    total_matching = int(cursor.fetchone()[0] or 0)
+                    cursor.execute("SELECT COUNT(*) FROM quotations")
+                    total_all = int(cursor.fetchone()[0] or 0)
+                else:
+                    cursor.execute("SELECT COUNT(*) FROM quotations")
+                    total_all = int(cursor.fetchone()[0] or 0)
+                    total_matching = total_all
+                return jsonify(_quotation_summary_payload(cursor, connection, quotations,
+                                                          total_matching, total_all, started))
 
             # Get construction items
             construction_items = {}
             try:
+                scope_where, scope_params = (' WHERE quotation_id = %s', (wanted_id,)) \
+                    if wanted_id is not None else ('', ())
                 cursor.execute("""
                     SELECT quotation_id, item_name, quantity, unit_rate, total_price, item_order
                     FROM quotation_items
+                """ + scope_where + """
                     ORDER BY quotation_id, item_order
-                """)
+                """, scope_params)
                 for row in cursor.fetchall():
                     q_id = row[0]
                     if q_id not in construction_items:
@@ -48849,8 +49051,9 @@ def get_quotations():
                     cursor.execute("""
                         SELECT quotation_id, item_name, quantity, amount, days, item_order
                         FROM quotation_kitchen_items
+                    """ + scope_where + """
                         ORDER BY quotation_id, item_order
-                    """)
+                    """, scope_params)
                     for row in cursor.fetchall():
                         q_id = row[0]
                         if q_id not in kitchen_items:
@@ -48871,8 +49074,9 @@ def get_quotations():
                 cursor.execute("""
                     SELECT quotation_id, work_scope, start_date, end_date, days, task_order
                     FROM quotation_schedules
+                """ + scope_where + """
                     ORDER BY quotation_id, task_order
-                """)
+                """, scope_params)
                 for row in cursor.fetchall():
                     q_id = row[0]
                     if q_id not in schedules_by_quotation:
@@ -48889,60 +49093,47 @@ def get_quotations():
             # Self-heal: a quotation's Gantt chart is its work schedule. Quotations
             # saved before the generator persisted the Gantt have no rows in
             # quotation_schedules, which left their contract without a work
-            # schedule - rebuild and store those rows once (see
+            # schedule - rebuild and store those rows (see
             # ensure_quotation_schedules; works for kitchen and single/double
-            # storey / TV / other quotations alike).
-            derived_tasks = 0
-            for quotation in quotations:
-                q_id = quotation[0]
-                if q_id in schedules_by_quotation:
-                    continue
+            # storey / TV / other quotations alike). Opening ONE quotation heals
+            # that one; the full list heals a bounded batch, never the whole
+            # history in a single request.
+            if wanted_id is not None and wanted_id not in schedules_by_quotation:
                 try:
-                    ensured = ensure_quotation_schedules(cursor, connection, q_id)
+                    ensured = ensure_quotation_schedules(cursor, connection, wanted_id)
                 except Exception as derive_err:
-                    print(f"Note: could not ensure schedule for quotation {q_id}: {derive_err}")
-                    continue
+                    print(f"Note: could not ensure schedule for quotation {wanted_id}: {derive_err}")
+                    ensured = []
                 if ensured:
-                    schedules_by_quotation[q_id] = [{
-                        'workScope': row[0],
-                        'startDate': row[1].isoformat() if row[1] else None,
-                        'endDate': row[2].isoformat() if row[2] else None,
-                        'days': int(row[3]) if row[3] else 0,
-                    } for row in ensured]
-                    derived_tasks += len(ensured)
-            if derived_tasks:
-                print(f"📅 Rebuilt {derived_tasks} work-schedule task(s) for quotations missing their Gantt schedule")
+                    schedules_by_quotation[wanted_id] = _schedule_dicts(ensured)
+            elif wanted_id is None:
+                healed = _heal_missing_quotation_schedules(cursor, connection)
+                derived_tasks = 0
+                for quotation_id, rows in healed.items():
+                    schedules_by_quotation[quotation_id] = _schedule_dicts(rows)
+                    derived_tasks += len(rows)
+                if derived_tasks:
+                    print(f"📅 Rebuilt {derived_tasks} work-schedule task(s) for quotations missing their Gantt schedule")
 
             result = []
             for quotation in quotations:
                 quotation_id = quotation[0]
                 category = quotation[4] or ''
                 is_kitchen = (category in ('kitchen', 'kitchen_cabinets'))
-                
+
                 if is_kitchen:
                     items = kitchen_items.get(quotation_id, [])
                 else:
                     items = construction_items.get(quotation_id, [])
-                
-                result.append({
-                    'id': quotation_id,
-                    'clientName': quotation[1] or 'Client',
-                    'clientWhatsapp': quotation[2] or '',
-                    'quotationDate': quotation[3].isoformat() if quotation[3] else None,
-                    'category': category,
-                    'projectSize': float(quotation[5]) if quotation[5] else 0,
-                    'totalCost': float(quotation[6]) if quotation[6] else 0,
-                    'markup': float(quotation[7]) if quotation[7] else 0,
-                    'notes': quotation[8] or '',
-                    'createdBy': quotation[9] or '',
-                    'customCategory': quotation[10] if len(quotation) > 10 and quotation[10] else '',
-                    'vatEnabled': bool(quotation[11]) if len(quotation) > 11 else False,
-                    'vatRate': float(quotation[12]) if len(quotation) > 12 and quotation[12] is not None else 15.5,
-                    'vatMode': (quotation[13] or 'exclusive') if len(quotation) > 13 else 'exclusive',
-                    'items': items,
-                    'schedules': schedules_by_quotation.get(quotation_id, [])
-                })
 
+                row = _quotation_header_dict(quotation)
+                row['items'] = items
+                row['schedules'] = schedules_by_quotation.get(quotation_id, [])
+                result.append(row)
+
+            print(f"get-quotations: full {len(result)} row(s)"
+                  f"{' for id ' + str(wanted_id) if wanted_id is not None else ''} "
+                  f"in {(time.perf_counter() - started) * 1000:.0f} ms")
             return jsonify({'success': True, 'data': result, 'count': len(result)})
     except Exception as e:
         print(f"Error fetching quotations: {str(e)}")

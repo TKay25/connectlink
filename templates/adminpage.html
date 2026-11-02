@@ -36903,6 +36903,10 @@ function renderGanttItemsList() {
         .finally(() => { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i>'; } });
     };
     
+    // How many quotations the tab draws at once. The whole history is searchable
+    // on the server; this only bounds what the browser has to build and paint.
+    window.QUOTATION_TABLE_LIMIT = window.QUOTATION_TABLE_LIMIT || 500;
+
     window.loadQuotations = function() {
         console.log('loadQuotations function called');
         const container = document.getElementById('quotationsContainer');
@@ -36912,10 +36916,18 @@ function renderGanttItemsList() {
         }
         
         container.innerHTML = '<p class="text-muted text-center" style="padding: 40px;">Loading quotations...</p>';
+
+        // A WINDOW on the latest quotations, not the whole history. Every row used
+        // to carry all of its items and Gantt tasks just so two counts could be
+        // drawn, so the tab got slower with each quotation ever saved. summary=1
+        // sends the headers and the two counts only, and the search runs on the
+        // server, so rows that are not drawn can still be found.
+        var term = (window.__quotationSearchTerm || '').trim();
+        var url = '/api/get-quotations?summary=1&limit=' + window.QUOTATION_TABLE_LIMIT +
+                  (term ? '&q=' + encodeURIComponent(term) : '');
+        console.log('Starting fetch to', url);
         
-        console.log('Starting fetch to /api/get-quotations');
-        
-        fetch('/api/get-quotations')
+        fetch(url)
             .then(response => {
                 console.log('Response status:', response.status);
                 console.log('Response headers:', response.headers);
@@ -36929,7 +36941,7 @@ function renderGanttItemsList() {
                 if (result.success) {
                     if (result.data && result.data.length > 0) {
                         console.log('Display quotations:', result.data.length);
-                        displayQuotations(result.data);
+                        displayQuotations(result.data, result);
                     } else {
                         console.log('No quotations in data');
                         container.innerHTML = '<p class="text-muted text-center" style="padding: 6px;">No quotations saved yet</p>';
@@ -36945,11 +36957,22 @@ function renderGanttItemsList() {
             });
     }
 
-function displayQuotations(quotations) {
+function displayQuotations(quotations, meta) {
     const container = document.getElementById('quotationsContainer');
-    
+    meta = meta || {};
+    const searchTerm = window.__quotationSearchTerm || '';
+
     if (!quotations || quotations.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center" style="padding: 6px;">No quotations saved yet</p>';
+        container.innerHTML = `
+            <div style="margin-bottom: 10px;">
+                <input type="text" id="quotationsSearch" class="form-control form-control-sm"
+                       value="${escapeHtml(searchTerm)}" placeholder="🔍 Search quotations..."
+                       style="max-width: 250px; font-size:0.7rem; padding: 3px 6px;">
+            </div>
+            <p class="text-muted text-center" style="padding: 6px;">
+                ${searchTerm ? 'No quotations match "' + escapeHtml(searchTerm) + '".' : 'No quotations saved yet'}
+            </p>`;
+        bindQuotationsSearch();
         return;
     }
 
@@ -36957,8 +36980,11 @@ function displayQuotations(quotations) {
     const sortedQuotations = [...quotations].sort((a, b) => b.id - a.id);
 
     let html = `
-        <div style="margin-bottom: 10px;">
-            <input type="text" id="quotationsSearch" class="form-control form-control-sm" placeholder="🔍 Search quotations..." style="max-width: 250px; font-size:0.7rem; padding: 3px 6px;">
+        <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <input type="text" id="quotationsSearch" class="form-control form-control-sm"
+                   value="${escapeHtml(searchTerm)}" placeholder="🔍 Search quotations..."
+                   style="max-width: 250px; font-size:0.7rem; padding: 3px 6px;">
+            <span class="text-muted" style="font-size:0.68rem;">${escapeHtml(quotationTableScopeText(meta, searchTerm))}</span>
         </div>
         <div style="overflow-x: auto; overflow-y: auto; max-height: 500px; border: 1px solid #dee2e6; border-radius: 6px; background: white;">
             <table style="width: 100%; font-size:0.7rem; margin-bottom: 0; border-collapse: collapse;">
