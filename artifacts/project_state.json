@@ -1,9 +1,9 @@
 {
-  "last_sync": "2026-10-26T10:19:49.301Z",
-  "module_count": 124,
+  "last_sync": "2026-11-02T12:15:29.199Z",
+  "module_count": 144,
   "empty_project": false,
   "planning_ready": true,
-  "orphaned_count": 140,
+  "orphaned_count": 142,
   "orphaned": [
     {
       "artifact": "artifacts/modules/final_err.json",
@@ -92,6 +92,10 @@
     {
       "artifact": "artifacts/modules/_check_enquiry_out.json",
       "source": "_check_enquiry_out.txt"
+    },
+    {
+      "artifact": "artifacts/modules/_check_update_modal_height_log.json",
+      "source": "_check_update_modal_height_log.txt"
     },
     {
       "artifact": "artifacts/modules/_clean_leave.json",
@@ -472,6 +476,10 @@
     {
       "artifact": "artifacts/modules/_tmp_pdf_v2.json",
       "source": "_tmp_pdf_v2.py"
+    },
+    {
+      "artifact": "artifacts/modules/_tmp_pos_check.json",
+      "source": "_tmp_pos_check.js"
     },
     {
       "artifact": "artifacts/modules/_tmp_routes.json",
