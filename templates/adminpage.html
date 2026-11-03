@@ -4829,6 +4829,8 @@ window.CLQPdf = (function () {
     // are identical to the in-page render.
     var renderFramePromise = null;
     var renderCache = new Map();
+    var lastSaveKey = '';
+    var lastSaveAt = 0;
 
     function hashHtml(text) {
         var hash = 2166136261;
@@ -4986,6 +4988,13 @@ window.CLQPdf = (function () {
         }
         return pending.then(function (uri) {
             if (mode === 'datauri') { return uri; }
+            // One click must save one file. Two handlers on the same button (or a
+            // double-fired event) deliver the same document twice within a few
+            // milliseconds; the second save of the same document is dropped.
+            var now = Date.now();
+            if (lastSaveKey === key && (now - lastSaveAt) < 1500) { return null; }
+            lastSaveKey = key;
+            lastSaveAt = now;
             saveDataUri(uri, options && options.filename);
             return null;
         });
@@ -5417,10 +5426,18 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
 (function(){
     function bindBtn(id, fn){
         var el=document.getElementById(id);
-        if(el && !el._earlyBound){
-            el._earlyBound=true;
-            el.addEventListener('click', fn);
-        }
+        // One handler per button. The jQuery handler in the page's ready block is
+        // the primary owner (it flushes unsaved notes first) and marks the button
+        // `_laterBound`; `_earlyBound` covers the case where that block is missing.
+        if(!el || el._earlyBound || el._laterBound) return;
+        // This binder retries on a timer and runs before the modal markup is even
+        // parsed. Binding before jQuery's ready handler had its turn is what left
+        // TWO listeners on the button and saved two copies of every PDF, so wait
+        // until that handler is known to have run (or to be absent) first.
+        var jqueryDone = (window.jQuery && window.jQuery.isReady) || document.readyState === 'complete';
+        if(!jqueryDone) return;
+        el._earlyBound = true;
+        el.addEventListener('click', fn);
     }
     // Check periodically for dynamically loaded modal buttons
     function tryBindButtons(){
@@ -21356,11 +21373,32 @@ async function promptQuotationTablePlacementIfNeeded(category) {
         return 'default';
     }
 
+    // Save & Download asks this question itself before saving. Hand the answer
+    // through once instead of asking a second time - the second dialog used to
+    // open under the "Generating PDF" loader, and answering the same question
+    // twice is what made the save feel broken.
+    const reuse = window.__quotationPdfPlacementReuse;
+    if (reuse && ['default', 'after_schedule', 'exclude'].includes(reuse)) {
+        window.__quotationPdfPlacementReuse = null;
+        return reuse;
+    }
+
+    // The PDF options dialog must be clickable even while the loader is up: the
+    // loader is a full-screen fixed overlay, so it is dropped for the question
+    // and restored by the caller if it still needs it.
+    const loader = document.getElementById('edsLoader');
+    const loaderWasOpen = !!(loader && loader.style.display === 'flex');
+    if (loaderWasOpen) { loader.style.display = 'none'; }
+
     openQuotationTableOptionsModal();
-    return new Promise((resolve) => {
+    const answer = await new Promise((resolve) => {
         window._quotationTableOptionResolver = resolve;
         window._quotationTableOptionRejecter = resolve;
     });
+    if (loaderWasOpen) {
+        showLoader('Generating PDF', 'Building your quotation document');
+    }
+    return answer;
 }
 
 // ==================== QUOTATION SAVE FUNCTION ====================
@@ -21522,10 +21560,15 @@ async function saveAndDownloadQuotation() {
         // Download PDF using the same function as the Quotations portal
         try {
             if(typeof window.downloadQuotationPDFFromPortal === 'function'){
+                // The placement question was already answered above; let the portal
+                // download reuse that answer instead of asking again under the loader.
+                window.__quotationPdfPlacementReuse = tablePlacement;
                 await window.downloadQuotationPDFFromPortal(result.quotation_id);
             }
         } catch(pdfErr) {
             console.error('PDF download failed:', pdfErr);
+        } finally {
+            window.__quotationPdfPlacementReuse = null;
         }
         
         hideLoader();
@@ -22040,20 +22083,24 @@ function openModal(modalId) {
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
         
-        // Stack modals: the PDF Options modal always appears on top of any other modal
+        // Stack modals: the PDF Options modal always appears on top of any other
+        // modal - and on top of the "Generating PDF" overlay loader, which sits at
+        // z-index 9999. Saved-and-downloaded storey quotations ask this question
+        // while that loader is showing, so a 1060 here left the modal visible but
+        // unclickable underneath it.
         if (modalId === 'quotationTableOptionsModal') {
-            modal.style.zIndex = 1060;
+            modal.style.zIndex = 10050;
         }
         
         // Quick View drill-down modal should appear above Quick View
         if (modalId === 'quickViewDetailsModal') {
-            modal.style.zIndex = 1060;
+            modal.style.zIndex = 10060;
         }
         
         // WhatsApp chat modal should always appear in front of any stacked modals
-        // (e.g. the Quick View drill-down "Chat" action opens it on top of 1060-level modals)
+        // (e.g. the Quick View drill-down "Chat" action opens it on top of 10060-level modals)
         if (modalId === 'whatsappChatModal') {
-            modal.style.zIndex = 1070;
+            modal.style.zIndex = 10070;
         }
         
         // Load installments audit data when audit modal opens
