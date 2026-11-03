@@ -1,5 +1,5 @@
 // ConnectLink PWA Service Worker
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = 'connectlink-' + CACHE_VERSION;
 // Separate bucket for things discovered at runtime (static files + CDN libs)
 const RUNTIME_CACHE = 'connectlink-runtime-' + CACHE_VERSION;
