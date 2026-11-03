@@ -5657,7 +5657,10 @@ window.editQuotationFromPortal = window.editQuotationFromPortal || function(qId)
 </div>
 
 <!-- Manual Enquiry Entry (New Enquiry) -->
-<div id="manualEnqModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9996;align-items:center;justify-content:center;">
+<!-- Stacked above the WhatsApp chat modal: openModal() lifts that chat to 10070
+     because the Log Enquiry button lives inside it, so this form must clear that
+     or it opens behind the chat it was launched from. -->
+<div id="manualEnqModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:10080;align-items:center;justify-content:center;">
     <div style="background:#fff;border-radius:12px;width:420px;max-width:94vw;overflow:hidden;box-shadow:0 16px 48px rgba(10,26,58,.25);">
         <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:0.72rem;font-weight:800;color:#C12B3E;border-bottom:1px solid var(--gray-200);"><i class="bi bi-person-plus"></i> New Enquiry (from chat) <button onclick="closeManualEnqModal()" style="margin-left:auto;border:none;background:none;font-size:1rem;cursor:pointer;color:#94a3b8;">&times;</button></div>
         <div style="padding:14px;">
@@ -41203,6 +41206,19 @@ if ('serviceWorker' in navigator) {
 }
 
 // ==================== LOADER HELPERS ====================
+// Highest z-index among the dialogs currently on screen, so a blocker can sit
+// above them. Starts at the loader's own historical level.
+function topOpenOverlayZ() {
+    var top = 9999;
+    document.querySelectorAll('.modal-overlay, #manualEnqModal, #enqDupConfirmModal, #enqFloat').forEach(function (el) {
+        var style = window.getComputedStyle(el);
+        if (style.display === 'none') return;
+        var z = parseInt(el.style.zIndex || style.zIndex, 10);
+        if (!isNaN(z) && z > top) top = z;
+    });
+    return top;
+}
+
 function showLoader(mainMsg, subMsg) {
     const loader = document.getElementById('edsLoader');
     if (!loader) return;
@@ -41210,6 +41226,11 @@ function showLoader(mainMsg, subMsg) {
     const subEl = document.getElementById('loaderSubMsg');
     if (mainEl) mainEl.innerHTML = (mainMsg || 'Processing') + ' <span style="color: var(--primary);">...</span>';
     if (subEl) subEl.textContent = subMsg || 'Please wait';
+    // Dialogs stack well above 9999 now (the chat modal is lifted to 10070, the
+    // Log Enquiry form above that), so a fixed level left this blocker behind
+    // the very dialog whose work it was reporting. Anything opened after this
+    // call still stacks above, as before.
+    loader.style.zIndex = String(topOpenOverlayZ() + 1);
     loader.style.display = 'flex';
 }
 
