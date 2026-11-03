@@ -37127,6 +37127,10 @@ function renderGanttItemsList() {
         var run = function () {
             var term = input.value.trim();
             window.__quotationSearchTerm = term;
+            // A redraw replaces this input, so remember that it was the operator's
+            // focus: without this, a pause while typing dropped the cursor and the
+            // rest of the word went nowhere.
+            window.__quotationSearchFocused = (document.activeElement === input);
             window.loadQuotations();
         };
         input.oninput = function () {
@@ -37136,6 +37140,13 @@ function renderGanttItemsList() {
         input.onkeydown = function (e) {
             if (e.key === 'Enter') { if (timer) clearTimeout(timer); run(); }
         };
+        if (window.__quotationSearchFocused) {
+            input.focus();
+            try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+            // One-shot: a later refresh (a delete, a tab switch) must not grab the
+            // cursor back off whatever the operator moved on to.
+            window.__quotationSearchFocused = false;
+        }
     }
 
     window.loadQuotations = function() {
@@ -37170,13 +37181,11 @@ function renderGanttItemsList() {
             .then(result => {
                 console.log('API Response:', result);
                 if (result.success) {
-                    if (result.data && result.data.length > 0) {
-                        console.log('Display quotations:', result.data.length);
-                        displayQuotations(result.data, result);
-                    } else {
-                        console.log('No quotations in data');
-                        container.innerHTML = '<p class="text-muted text-center" style="padding: 6px;">No quotations saved yet</p>';
-                    }
+                    // Always hand the result to displayQuotations, even when it is
+                    // empty: that is what draws the search box, and a search with no
+                    // matches must say so and keep the box -- not claim "No
+                    // quotations saved yet" and take the box away from the operator.
+                    displayQuotations(result.data || [], result);
                 } else {
                     console.log('API returned success=false:', result.error);
                     container.innerHTML = '<p class="text-warning text-center" style="padding: 6px;">Error: ' + (result.error || 'Unknown error') + '</p>';

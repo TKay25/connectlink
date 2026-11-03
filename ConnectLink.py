@@ -48897,12 +48897,17 @@ def _quotation_summary_payload(cursor, connection, quotations, total_matching, t
     item_counts, kitchen_counts, task_counts = {}, {}, {}
     if quotations:
         ids = [q[0] for q in quotations]
-        cursor.execute("""
-            SELECT quotation_id, COUNT(*) FROM quotation_items
-            WHERE quotation_id = ANY(%s::int[]) GROUP BY quotation_id
-        """, (ids,))
-        for row in cursor.fetchall():
-            item_counts[row[0]] = int(row[1])
+        try:
+            cursor.execute("""
+                SELECT quotation_id, COUNT(*) FROM quotation_items
+                WHERE quotation_id = ANY(%s::int[]) GROUP BY quotation_id
+            """, (ids,))
+            for row in cursor.fetchall():
+                item_counts[row[0]] = int(row[1])
+        except Exception as e:
+            # A count that cannot be read must not cost the operator the whole
+            # tab -- the same tolerance the kitchen-items count below has.
+            print(f"Note: quotation_items count unavailable: {e}")
         try:
             cursor.execute("""
                 SELECT quotation_id, COUNT(*) FROM quotation_kitchen_items
