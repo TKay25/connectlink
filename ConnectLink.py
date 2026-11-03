@@ -46829,8 +46829,8 @@ def _serve_quotation_html_page(q):
                     total = float(item[3]) if item[3] else 0
                     cost_sum += total
                     bg = '#ffffff' if idx % 2 else '#fafbff'
-                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
-                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">0</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
 
             # Schedules - a quotation's Gantt chart is its work schedule
             scheds = ensure_quotation_schedules(cursor, _, q['id'])
@@ -46872,6 +46872,9 @@ def _serve_quotation_html_page(q):
                                 <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div>
                                 <div style="font-size:13px;font-weight:700;color:#2196F3;">{total_days} Days</div>
                             </div>"""
+    # Construction items are scheduled by the work schedule, so the item table
+    # has no Days column.
+    days_header_html = '' if is_construction else '<th>Days</th>'
 
     return f"""<!DOCTYPE html>
 <html>
@@ -46944,7 +46947,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
   {notes_section}
 
   <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">ITEM DETAILS</h4>
-  <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th>{days_header_html}<th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
 
   <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
     <div style="flex:1 1 320px;min-width:260px;border:1.5px solid #1E2A56;border-radius:10px;background:#fafbff;padding:14px 16px;font-size:12px;line-height:1.6;">
@@ -47121,26 +47124,14 @@ def build_quotation_pdf_document(quotation_id):
                 markup = float(quotation[6]) if quotation[6] else 30
                 markup_multiplier = 1 + (markup / 100)
                 items_rows = ''
-                total_days_sum = 0
                 total_cost_sum = 0
-                
-                # Build days by order map from schedules
-                days_by_order = {}
-                for pos, schedule in enumerate(schedules, 1):
-                    # Rows read from the DB keep their task_order (5th column);
-                    # derived rows are ordered, so fall back to their position.
-                    order = schedule[4] if len(schedule) > 4 else pos
-                    days = int(schedule[3]) if schedule[3] else 0
-                    days_by_order[order] = days
                 
                 for idx, item in enumerate(items, 1):
                     item_name = (item[0] or 'Item').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
                     qty = float(item[1]) if item[1] else 0
                     client_unit_rate = float(item[2]) if item[2] else 0  # Stored as client price (already marked up)
                     total = float(item[3]) if item[3] else 0
-                    days = days_by_order.get(idx, 0)
                     
-                    total_days_sum += days
                     total_cost_sum += total
                     bg = '#ffffff' if idx % 2 else '#fafbff'
                     
@@ -47150,14 +47141,12 @@ def build_quotation_pdf_document(quotation_id):
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:left; width:38%;">{item_name}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:13%;">{qty:,.2f}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:15%;">USD {client_unit_rate:,.2f}</td>
-                        <td style="padding:8px 10px; border:1px solid #d8deef; text-align:center; width:10%; font-weight:600; color:#2196F3;">{days}</td>
                         <td style="padding:8px 10px; border:1px solid #d8deef; text-align:right; width:18%; font-weight:700; color:#1E2A56;">USD {total:,.2f}</td>
                     </tr>"""
                 
                 items_total_row = f"""
                     <tr style="background:#1E2A56; color:white; font-weight:bold;">
                         <td colspan="4" style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>TOTAL</strong></td>
-                        <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:center; font-weight:bold;"><strong>{total_days_sum}</strong></td>
                         <td style="padding:8px 10px; border:1px solid #2a3a78; text-align:right;"><strong>USD {total_cost_sum:,.2f}</strong></td>
                     </tr>"""
 
@@ -47284,6 +47273,11 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                         <tr><td style='border:none; text-align:right; padding:4px 10px; font-weight:800; color:#1E2A56;'>Total payable (incl. VAT)</td>
                             <td style='border:none; text-align:right; padding:4px 10px; font-weight:800; color:#1E2A56;'>USD {total_cost:,.2f}</td></tr>
                     </table>"""
+    # Construction items are scheduled by the work schedule, so the item table
+    # has no Days column.
+    is_construction = category in ('construction_single', 'construction_double')
+    days_header_html = ('' if is_construction
+                        else "<th style='text-align:center; width:10%;'>Days</th>")
     summary_cols = 5 if vat_enabled else 4
     # With VAT on, the item table's total is the net figure (exclusive) or the
     # VAT-bearing one (inclusive), and vat_rows below carries the breakdown and
@@ -47404,7 +47398,7 @@ def generate_quotation_html(client_name, quotation_date, category, total_cost, i
                             <th style='text-align:left; width:38%;'>Item Description</th>
                             <th style='text-align:center; width:13%;'>Qty</th>
                             <th style='text-align:right; width:15%;'>Unit Price</th>
-                            <th style='text-align:center; width:10%;'>Days</th>
+                            {days_header_html}
                             <th style='text-align:right; width:18%;'>Total</th>
                         </tr>
                     </thead>
@@ -47538,8 +47532,8 @@ def generate_quotation_pdf_playwright(quotation_id):
                     total = float(item[3]) if item[3] else 0
                     cost_sum += total
                     bg = '#ffffff' if idx % 2 else '#fafbff'
-                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;color:#2196F3;">0</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
-                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:center;">0</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
+                    items_rows_html += f"""<tr style="background:{bg}"><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{idx}</td><td style="padding:8px;border:1px solid #d8deef;">{html.escape(item[0] or 'Item')}</td><td style="padding:8px;border:1px solid #d8deef;text-align:center;">{qty:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;">USD {client_rate:,.2f}</td><td style="padding:8px;border:1px solid #d8deef;text-align:right;font-weight:700;">USD {total:,.2f}</td></tr>"""
+                items_total_row_html = f"""<tr style="background:#1E2A56;color:white;font-weight:bold;"><td colspan="4" style="padding:8px;text-align:right;">TOTAL</td><td style="padding:8px;text-align:right;">USD {cost_sum:,.2f}</td></tr>"""
 
             # Schedules - a quotation's Gantt chart is its work schedule
             scheds = ensure_quotation_schedules(cursor, _, quotation_id)
@@ -47590,6 +47584,9 @@ def generate_quotation_pdf_playwright(quotation_id):
                                 <div style="font-size:10px;color:#5a678a;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.3px;">Duration</div>
                                 <div style="font-size:13px;font-weight:700;color:#2196F3;">{total_days} Days</div>
                             </div>"""
+    # Construction items are scheduled by the work schedule, so the item table
+    # has no Days column.
+    days_header_html = '' if is_construction else '<th>Days</th>'
 
     vat_rows_html = ''
     if vat_on:
@@ -47648,7 +47645,7 @@ td {{ padding:8px 10px; border:1px solid #d8deef; }}
   {notes_section}
 
   <h4 style="text-align:center;background:#1E2A56;color:white;padding:5px 8px;border-radius:6px;font-size:11px;margin:0 0 12px;">ITEM DETAILS</h4>
-  <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th><th>Days</th><th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
+  <table><thead><tr><th>#</th><th style="text-align:left;">Item Description</th><th>Qty</th><th>Unit Price</th>{days_header_html}<th>Total</th></tr></thead><tbody>{items_rows_html}{items_total_row_html}</tbody></table>
   {vat_rows_html}
 
   <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">

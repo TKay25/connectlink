@@ -5213,13 +5213,11 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
                 var qty = Number(item.quantity || item.sqm || 0);
                 var rate = Number(item.amount || item.unitRate || item.inhouseRate || 0);
                 var itmTotal = Number(item.totalPrice || item.total || item.clientPrice || 0);
-                var sDays = (schedules[idx] && schedules[idx].days) || item.days || 0;
                 conRows.push([
                     { h: idx + 1, a: 'center' },
                     { h: esc(nm) },
                     { h: qty.toFixed(2), a: 'center' },
                     { h: money2(rate), a: 'right' },
-                    { h: sDays, a: 'center' },
                     { h: money2(itmTotal), a: 'right' }
                 ]);
             });
@@ -5227,7 +5225,6 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
                 cls: 'clq-total',
                 cells: [
                     { h: (vatCalc.enabled ? 'SUBTOTAL' : 'TOTAL'), a: 'right', span: 4 },
-                    { h: totalConstructionDays, a: 'center' },
                     { h: money2(totalDisplayCost), a: 'right' }
                 ]
             }];
@@ -5235,21 +5232,21 @@ window.downloadQuotationPDFFromPortal = window.downloadQuotationPDFFromPortal ||
                 conFoot.push({
                     cls: 'clq-sub',
                     cells: [
-                        { h: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 5 },
+                        { h: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 4 },
                         { h: money2(vatCalc.vat), a: 'right' }
                     ]
                 });
                 conFoot.push({
                     cls: 'clq-total',
-                    cells: [{ h: 'TOTAL', a: 'right', span: 5 }, { h: money2(vatCalc.total), a: 'right' }]
+                    cells: [{ h: 'TOTAL', a: 'right', span: 4 }, { h: money2(vatCalc.total), a: 'right' }]
                 });
             }
             parts.push(Q.block('<div style="text-align:center;margin-bottom:12px;">'
                 + '<span class="clq-callout">For a full breakdown of your quotation, see the items below.</span></div>'
                 + Q.section('Construction Items')
-                + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '34%' },
-                           { label: 'Sq. Meters', a: 'center', w: '14%' }, { label: 'Unit Rate', a: 'right', w: '16%' },
-                           { label: 'Days', a: 'center', w: '12%' }, { label: 'Total (USD)', a: 'right', w: '18%' }],
+                + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '38%' },
+                           { label: 'Sq. Meters', a: 'center', w: '16%' }, { label: 'Unit Rate', a: 'right', w: '18%' },
+                           { label: 'Total (USD)', a: 'right', w: '22%' }],
                           conRows, conFoot)));
         }
 
@@ -35877,13 +35874,11 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
             var qty = Number(it.sqm) || 0;
             var rate = Number(it.inhouseRate || it.unitRate) || 0;
             var tot = Number(it.clientPrice || it.total || it.totalPrice || (qty * rate));
-            var dayCount = daysByIndex[idx] !== undefined ? daysByIndex[idx] : (Number(it.days) || 0);
             conRows.push([
                 { h: idx + 1, a: 'center' },
                 { h: esc(it.item || it.name || 'Item') },
                 { h: qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), a: 'center' },
                 { h: money2(rate), a: 'right' },
-                { h: dayCount, a: 'center' },
                 { h: money2(tot), a: 'right' }
             ]);
         });
@@ -35891,7 +35886,6 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
             cls: 'clq-total',
             cells: [
                 { h: (vatCalc.enabled ? 'SUBTOTAL' : 'TOTAL'), a: 'right', span: 4 },
-                { h: totalDaysSum, a: 'center' },
                 { h: money2(totalDisplayCost), a: 'right' }
             ]
         }];
@@ -35899,21 +35893,21 @@ async function generateQuotationPDF(outputMode = 'download', tablePlacement = 'd
             conFoot.push({
                 cls: 'clq-sub',
                 cells: [
-                    { h: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 5 },
+                    { h: 'VAT @ ' + vatCalc.rate + '%' + (vatCalc.mode === 'inclusive' ? ' (included)' : ''), a: 'right', span: 4 },
                     { h: money2(vatCalc.vat), a: 'right' }
                 ]
             });
             conFoot.push({
                 cls: 'clq-total',
-                cells: [{ h: 'TOTAL', a: 'right', span: 5 }, { h: money2(vatCalc.total), a: 'right' }]
+                cells: [{ h: 'TOTAL', a: 'right', span: 4 }, { h: money2(vatCalc.total), a: 'right' }]
             });
         }
         constructionItemsBlockHtml = (Q.block('<div style="text-align:center;margin-bottom:12px;">'
             + '<span class="clq-callout">For a full breakdown of your quotation, see the items below.</span></div>'
             + Q.section('Construction Items')
-            + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '34%' },
-                       { label: 'Sq. Meters', a: 'center', w: '14%' }, { label: 'Unit Rate', a: 'right', w: '16%' },
-                       { label: 'Days', a: 'center', w: '12%' }, { label: 'Total (USD)', a: 'right', w: '18%' }],
+            + Q.table([{ label: '#', a: 'center', w: '6%' }, { label: 'Item Description', w: '38%' },
+                       { label: 'Sq. Meters', a: 'center', w: '16%' }, { label: 'Unit Rate', a: 'right', w: '18%' },
+                       { label: 'Total (USD)', a: 'right', w: '22%' }],
                       conRows, conFoot)));
     }
 
