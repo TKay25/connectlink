@@ -15891,7 +15891,7 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
                                         <th style="width:90px; text-align:right;">Paid</th>
                                         <th style="width:100px; text-align:right;">Balance</th>
                                         <th style="width:110px;">Severity</th>
-                                        <th style="width:80px; text-align:center;">Action</th>
+                                        <th style="width:130px; text-align:center;">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="outstandingTableBody">
@@ -15899,6 +15899,15 @@ body.dark-theme #otherDetailsModal .modal-footer-custom {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                    <!-- Clients taken off this list; nothing is deleted, and any of
+                         them can be put back from here. -->
+                    <div id="dismissedRemindersBar" style="display:none; margin-top:10px;">
+                        <button type="button" id="dismissedToggleBtn" onclick="toggleDismissedReminders()"
+                                style="padding:4px 10px;font-size:0.72rem;font-weight:600;border:1px solid var(--gray-200);background:#fff;color:#334155;border-radius:6px;cursor:pointer;">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Removed clients (<span id="dismissedCount">0</span>)
+                        </button>
+                        <div id="dismissedRemindersList" style="display:none; margin-top:8px;"></div>
                     </div>
                 </div>
             </div>
@@ -24599,6 +24608,7 @@ function displayPaymentReminders(data) {
     try { fillTable('overdueTableBody', overdue, 'overdue'); } catch(e) { console.error('overdue table error:', e); }
     try { fillTable('allRemindersTableBody', allPayments, 'all'); } catch(e) { console.error('all reminders table error:', e); }
     try { fillTable('outstandingTableBody', outstanding, 'outstanding'); } catch(e) { console.error('outstanding table error:', e); }
+    try { renderDismissedReminders(data.dismissed); } catch(e) { console.error('removed clients render error:', e); }
     
     // Ensure the overdue tab pane is visible
     try {
@@ -24837,18 +24847,29 @@ function createTableRow(payment, index, type) {
                 <td style="text-align:right; font-size:0.82rem; font-weight:700; color:var(--danger);">${formattedBalance}</td>
                 <td><div style="display:flex;flex-direction:column;gap:4px;min-width:90px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:0.75rem;font-weight:700;color:${sevColor};">${sevLabel}</span><span style="font-size:0.6rem;color:var(--text-muted);">${daysOverdue}d</span></div><div style="height:4px;background:#FEE2E2;border-radius:4px;overflow:hidden;"><div style="height:100%;width:${sevBar};background:${sevColor};border-radius:4px;"></div></div></div></td>
                 <td style="text-align:center;">
-                    <button class="btn btn-primary3 btn-sm send-btn" style="padding:4px 10px;font-size:0.7rem;border-radius:6px;background:#1B5E20;color:#fff;border:none;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"
-                            data-client="${client}"
-                            data-phone="${phone}"
-                            data-amount="${formattedBalance}"
-                            data-raw-amount="${balanceDue}"
-                            data-installment="Outstanding"
-                            data-project="${project}"
-                            data-status="outstanding"
-                            data-days="${daysOverdue}"
-                            data-due-date="">
-                        <i class="bi bi-whatsapp" style="font-size:0.75rem;"></i> Send reminder
-                    </button>
+                    <div style="display:inline-flex; gap:4px; align-items:center;">
+                        <button class="btn btn-primary3 btn-sm send-btn" style="padding:4px 10px;font-size:0.7rem;border-radius:6px;background:#1B5E20;color:#fff;border:none;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;"
+                                data-client="${client}"
+                                data-phone="${phone}"
+                                data-amount="${formattedBalance}"
+                                data-raw-amount="${balanceDue}"
+                                data-installment="Outstanding"
+                                data-project="${project}"
+                                data-status="outstanding"
+                                data-days="${daysOverdue}"
+                                data-due-date="">
+                            <i class="bi bi-whatsapp" style="font-size:0.75rem;"></i> Send reminder
+                        </button>
+                        <button class="btn btn-sm dismiss-btn"
+                                title="Remove this client from Outstanding Payments"
+                                data-project-id="${payment.project_id || ''}"
+                                data-client="${client}"
+                                data-project="${project}"
+                                data-raw-amount="${balanceDue}"
+                                style="padding:4px 8px;font-size:0.7rem;line-height:1;border-radius:6px;border:1px solid var(--gray-200);background:#fff;color:#991B1B;cursor:pointer;">
+                            <i class="bi bi-x-lg" style="font-size:0.75rem;"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -25223,6 +25244,149 @@ function markRowAsSent(button) {
     }
 }
 
+// ==================== REMOVED OUTSTANDING CLIENTS ====================
+// "Remove" only takes a client off the Outstanding Payments reminder list; the
+// project, its contract and its payments are untouched, and the entry stays in
+// the strip under the table so it can be restored.
+let _dismissedReminders = [];
+
+function renderDismissedReminders(list) {
+    _dismissedReminders = Array.isArray(list) ? list.slice() : [];
+
+    const bar = document.getElementById('dismissedRemindersBar');
+    const box = document.getElementById('dismissedRemindersList');
+    const countEl = document.getElementById('dismissedCount');
+    if (countEl) countEl.textContent = _dismissedReminders.length;
+    if (bar) bar.style.display = _dismissedReminders.length ? 'block' : 'none';
+    if (!box) return;
+
+    if (!_dismissedReminders.length) {
+        box.innerHTML = '';
+        box.style.display = 'none';
+        return;
+    }
+
+    box.innerHTML = _dismissedReminders.map(function (d) {
+        const balance = d.balance_due ? safeFormatCurrency(d.balance_due) : '';
+        const meta = (d.dismissed_at ? 'removed ' + d.dismissed_at : '')
+            + (d.dismissed_by ? ' by ' + d.dismissed_by : '');
+        return `
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--gray-200);border-radius:8px;margin-bottom:4px;font-size:0.75rem;background:#fff;">
+                <strong>${escapeHtml(d.client_name || 'Unknown')}</strong>
+                <span style="color:var(--text-muted);">${escapeHtml(d.project_name || '')}</span>
+                <span style="margin-left:auto;font-weight:700;color:var(--danger);">${balance}</span>
+                <span style="color:var(--text-muted);font-size:0.68rem;white-space:nowrap;">${escapeHtml(meta)}</span>
+                <button class="btn btn-sm restore-btn" data-project-id="${d.project_id || ''}"
+                        style="padding:3px 10px;font-size:0.7rem;border-radius:6px;border:1px solid var(--gray-200);background:#fff;color:#334155;cursor:pointer;white-space:nowrap;">
+                    <i class="bi bi-arrow-counterclockwise"></i> Restore
+                </button>
+            </div>`;
+    }).join('');
+}
+
+function toggleDismissedReminders() {
+    const box = document.getElementById('dismissedRemindersList');
+    if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+function adjustBadge(id, delta) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = Math.max(0, (parseInt(el.textContent, 10) || 0) + delta);
+}
+
+function activateReminderTab(tabKey) {
+    const btn = document.getElementById(tabKey + '-tab');
+    const pane = document.getElementById(tabKey);
+    if (!btn || !pane) return;
+    document.querySelectorAll('#reminderTabs .nav-link').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#paymentRemindersModal .tab-pane').forEach(p => p.classList.remove('show', 'active'));
+    btn.classList.add('active');
+    pane.classList.add('show', 'active');
+}
+
+async function dismissOutstandingClient(btn) {
+    const projectId = btn.getAttribute('data-project-id');
+    const client = btn.getAttribute('data-client') || 'This client';
+    const project = btn.getAttribute('data-project') || '';
+    const balance = Number(btn.getAttribute('data-raw-amount')) || 0;
+
+    if (!projectId) {
+        alert('This row has no project id, so it cannot be removed.');
+        return;
+    }
+    if (!confirm(`Remove ${client}${project ? ' (' + project + ')' : ''} from Outstanding Payments?\n\n`
+        + 'Nothing is deleted - the project, its contract and its payments stay exactly as they are. '
+        + 'You can put the client back from "Removed clients" under the table.')) {
+        return;
+    }
+
+    btn.disabled = true;
+    try {
+        const response = await fetch('/api/payment-reminders/dismiss', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: projectId, balance_due: balance })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to remove');
+
+        const row = btn.closest('tr');
+        if (row) row.remove();
+
+        // Follow the removal locally: reloading would jump the tab back to Overdue.
+        const body = document.getElementById('outstandingTableBody');
+        if (body && !body.querySelector('tr')) {
+            fillTable('outstandingTableBody', [], 'outstanding');
+        } else if (body) {
+            body.querySelectorAll('tr').forEach((tr, i) => {
+                const first = tr.querySelector('td');
+                if (first) first.textContent = i + 1;
+            });
+        }
+        adjustBadge('outstandingBadge', -1);
+        adjustBadge('readyToSend', -1);
+
+        _dismissedReminders.unshift({
+            project_id: Number(projectId),
+            client_name: client,
+            project_name: project,
+            balance_due: balance,
+            dismissed_by: '',
+            dismissed_at: ''
+        });
+        renderDismissedReminders(_dismissedReminders);
+    } catch (error) {
+        console.error('dismiss outstanding client error:', error);
+        alert('❌ Could not remove: ' + error.message);
+        btn.disabled = false;
+    }
+}
+
+async function restoreOutstandingClient(btn) {
+    const projectId = btn.getAttribute('data-project-id');
+    if (!projectId) return;
+
+    btn.disabled = true;
+    try {
+        const response = await fetch('/api/payment-reminders/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: projectId })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to restore');
+
+        // The row's figures are computed server-side, so re-read the list.
+        await loadPaymentReminders();
+        activateReminderTab('outstanding');
+    } catch (error) {
+        console.error('restore outstanding client error:', error);
+        alert('❌ Could not restore: ' + error.message);
+        btn.disabled = false;
+    }
+}
+
 // ==================== EVENT LISTENERS ====================
 function addEventListeners() {
     // Individual send buttons
@@ -25249,6 +25413,27 @@ function addEventListeners() {
             await sendMetaTemplate(paymentData);
         });
     });
+
+    // Remove-from-outstanding buttons (one per Outstanding Payments row)
+    document.querySelectorAll('.dismiss-btn').forEach(btn => {
+        btn.replaceWith(btn.cloneNode(true));
+    });
+    document.querySelectorAll('.dismiss-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            dismissOutstandingClient(this);
+        });
+    });
+
+    // Restore buttons live inside a strip that is re-rendered on every change, so
+    // delegate instead of re-binding after each render.
+    const dismissedBox = document.getElementById('dismissedRemindersList');
+    if (dismissedBox && !dismissedBox.dataset.wired) {
+        dismissedBox.dataset.wired = '1';
+        dismissedBox.addEventListener('click', function(e) {
+            const restore = e.target.closest('.restore-btn');
+            if (restore) restoreOutstandingClient(restore);
+        });
+    }
     
     // Send all button
     const sendAllBtn = document.getElementById('sendAllRemindersBtn');

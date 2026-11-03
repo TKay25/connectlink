@@ -309,6 +309,20 @@ def initialize_database_tables():
             except Exception as e:
                 print(f"Note: Could not add total_price column: {e}")
 
+            # Clients the shop has taken off the Outstanding Payments reminder
+            # list -- settled outside the system, disputed, or a data-entry
+            # artefact. Keyed by project so the reminder queries can filter them
+            # out, and they can be put back from the modal's "Removed clients".
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS payment_reminder_dismissals (
+                    project_id INT PRIMARY KEY,
+                    client_name VARCHAR(255),
+                    project_name VARCHAR(255),
+                    balance_due DECIMAL(15, 2) DEFAULT 0,
+                    dismissed_by VARCHAR(255),
+                    dismissed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );""")
+
             cursor.execute("""
             INSERT INTO kitchen_items (item_name, default_price, default_days) VALUES
             ('Matt Kitchen including Local Granite', 4500, 5),
@@ -35213,7 +35227,17 @@ def batch_delete_enquiries():
 
 # ==================== PAYMENT REMINDERS - FINAL WORKING CODE ====================
 
-def get_payment_reminders_data(df):
+def get_dismissed_reminder_project_ids(cursor):
+    """Project ids the shop has taken off the Outstanding Payments reminder list."""
+    try:
+        cursor.execute("SELECT project_id FROM payment_reminder_dismissals")
+        return {int(r[0]) for r in cursor.fetchall() if r and r[0] is not None}
+    except Exception as e:
+        print(f"Note: payment_reminder_dismissals unavailable: {e}")
+        return set()
+
+
+def get_payment_reminders_data(df, dismissed_ids=None):
     """Extract payment reminders data from the main dataframe - FINAL VERSION"""
     from datetime import datetime, date
     import pandas as pd
@@ -35222,6 +35246,7 @@ def get_payment_reminders_data(df):
     due_soon = []
     overdue = []
     underpaid = []
+    dismissed_ids = dismissed_ids or set()
     
     # Make sure we're working with a copy
     df = df.copy()
@@ -35246,6 +35271,8 @@ def get_payment_reminders_data(df):
             whatsapp_number = str(row.get('clientwanumber', ''))
             project_name = str(row.get('projectname', 'Unknown'))
             project_id = int(row.get('id', index))
+            if project_id in dismissed_ids:
+                continue  # taken off the Outstanding Payments list from the modal
             total_contract_amount = 0
             
             try:
@@ -35380,6 +35407,10 @@ def api_payment_reminders():
         overdue = []
         
         with get_db() as (cursor, connection):
+            # Clients taken off this list from the modal come back only when
+            # restored, so read the dismissals before building any rows.
+            dismissed_ids = get_dismissed_reminder_project_ids(cursor)
+
             # Get ALL unpaid installments in one query
             cursor.execute("""
                 SELECT 
@@ -35614,6 +35645,8 @@ def api_payment_reminders():
             for row in underpaid_results:
                 try:
                     project_id = row[0]
+                    if int(project_id) in dismissed_ids:
+                        continue  # removed from the Outstanding list; restore to bring it back
                     client_name = row[1]
                     whatsapp_number = row[2]
                     project_name = row[3]
@@ -35672,7 +35705,28 @@ def api_payment_reminders():
             
             # Sort underpaid by days overdue
             underpaid.sort(key=lambda x: x['days_overdue'], reverse=True)
-            
+
+            # The clients taken off this list, with enough to show them in the
+            # modal's "Removed clients" strip and put them back.
+            dismissed = []
+            try:
+                cursor.execute("""
+                    SELECT project_id, client_name, project_name, balance_due, dismissed_by, dismissed_at
+                    FROM payment_reminder_dismissals
+                    ORDER BY dismissed_at DESC
+                """)
+                for d in cursor.fetchall() or []:
+                    dismissed.append({
+                        'project_id': d[0],
+                        'client_name': d[1] or '',
+                        'project_name': d[2] or '',
+                        'balance_due': float(d[3] or 0),
+                        'dismissed_by': d[4] or '',
+                        'dismissed_at': d[5].strftime('%Y-%m-%d %H:%M') if d[5] else ''
+                    })
+            except Exception as e:
+                print(f"Note: could not read removed payment reminders: {e}")
+
             try:
                 total_amount = float(sum(p.get('amount_due', 0) for p in due_soon) + sum(p.get('amount_due', 0) for p in overdue) + sum(p.get('balance_due', 0) for p in underpaid))
                 all_clients = list(set(p.get('client_name', '') for p in due_soon) | set(p.get('client_name', '') for p in overdue) | set(p.get('client_name', '') for p in underpaid))
@@ -35686,6 +35740,7 @@ def api_payment_reminders():
                 'due_soon': due_soon,
                 'overdue': overdue,
                 'underpaid': underpaid,
+                'dismissed': dismissed,
                 'all_payments': due_soon + overdue + underpaid,
                 'counts': {
                     'due_soon': len(due_soon),
@@ -35697,6 +35752,7 @@ def api_payment_reminders():
                     'due_soon_count': len(due_soon),
                     'overdue_count': len(overdue),
                     'outstanding_count': len(underpaid),
+                    'dismissed_count': len(dismissed),
                     'total_clients': len(all_clients),
                     'ready_to_send': len(due_soon) + len(overdue) + len(underpaid),
                     'total_amount': total_amount
@@ -35713,6 +35769,92 @@ def api_payment_reminders():
             'underpaid': [],
             'all_payments': []
         }), 500
+
+@app.route('/api/payment-reminders/dismiss', methods=['POST'])
+def api_payment_reminders_dismiss():
+    """Take one client off the Outstanding Payments reminder list."""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        payload = request.get_json(silent=True) or {}
+        try:
+            project_id = int(payload.get('project_id'))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'project_id is required'}), 400
+
+        try:
+            balance = float(payload.get('balance_due') or 0)
+        except (TypeError, ValueError):
+            balance = 0.0
+
+        user_name = session.get('username') or session.get('user_name') or 'Unknown'
+
+        with get_db() as (cursor, connection):
+            cursor.execute("""
+                SELECT clientname, projectname
+                FROM connectlinkdatabase
+                WHERE id = %s
+            """, (project_id,))
+            project = cursor.fetchone()
+            if not project:
+                return jsonify({'error': 'Project not found'}), 404
+
+            cursor.execute("""
+                INSERT INTO payment_reminder_dismissals
+                    (project_id, client_name, project_name, balance_due, dismissed_by, dismissed_at)
+                VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (project_id) DO UPDATE
+                SET client_name = EXCLUDED.client_name,
+                    project_name = EXCLUDED.project_name,
+                    balance_due = EXCLUDED.balance_due,
+                    dismissed_by = EXCLUDED.dismissed_by,
+                    dismissed_at = CURRENT_TIMESTAMP
+            """, (project_id, project[0], project[1], balance, user_name))
+            connection.commit()
+
+        log_activity('payment_reminder_dismissed',
+                     f'Removed {project[0]} ({project[1]}) from outstanding payment reminders',
+                     'project', project_id,
+                     {'client_name': project[0], 'project_name': project[1], 'balance_due': balance})
+        return jsonify({'status': 'success', 'project_id': project_id})
+
+    except Exception as e:
+        print(f"payment-reminders dismiss error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/payment-reminders/restore', methods=['POST'])
+def api_payment_reminders_restore():
+    """Put a removed client back on the Outstanding Payments reminder list."""
+    try:
+        userid = session.get('userid')
+        if not userid:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        payload = request.get_json(silent=True) or {}
+        try:
+            project_id = int(payload.get('project_id'))
+        except (TypeError, ValueError):
+            return jsonify({'error': 'project_id is required'}), 400
+
+        with get_db() as (cursor, connection):
+            cursor.execute("DELETE FROM payment_reminder_dismissals WHERE project_id = %s",
+                           (project_id,))
+            removed = cursor.rowcount
+            connection.commit()
+
+        if removed:
+            log_activity('payment_reminder_restored',
+                         f'Restored project {project_id} to outstanding payment reminders',
+                         'project', project_id)
+        return jsonify({'status': 'success', 'project_id': project_id, 'restored': bool(removed)})
+
+    except Exception as e:
+        print(f"payment-reminders restore error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/quotations/<int:quotation_id>', methods=['DELETE'])
 def delete_quotation(quotation_id):
@@ -36719,7 +36861,7 @@ def run1(userid):
         payment_stats['total_due'] = total_due
 
         # Calculate payment reminders data
-        payment_reminders = get_payment_reminders_data(datamain2)
+        payment_reminders = get_payment_reminders_data(datamain2, get_dismissed_reminder_project_ids(cursor))
 
         # === MEMORY CLEANUP ===
         # Delete large DataFrames that are no longer needed
